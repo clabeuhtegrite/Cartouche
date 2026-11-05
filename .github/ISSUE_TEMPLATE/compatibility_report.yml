@@ -1,0 +1,49 @@
+name: Compatibility report
+description: How a supported game ran on your iPhone or iPad. Reports become the game's compatibility sheet.
+labels: [compatibility]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Only report on games you own and dumped yourself. Do not attach or link game files, keys or firmware.
+  - type: input
+    id: game
+    attributes:
+      label: Game and title ID
+      description: For example "Mario Kart World, 0400C3F00006E000".
+    validations:
+      required: true
+  - type: input
+    id: device
+    attributes:
+      label: iPhone or iPad model
+      description: Settings › General › About › Model Name.
+    validations:
+      required: true
+  - type: input
+    id: ios
+    attributes:
+      label: iOS version
+    validations:
+      required: true
+  - type: dropdown
+    id: status
+    attributes:
+      label: How it runs
+      options:
+        - Playable
+        - Playable with issues
+        - Boots, not playable
+        - Does not run
+    validations:
+      required: true
+  - type: input
+    id: memory
+    attributes:
+      label: Memory limit and peak
+      description: As Cartouche shows them, in MiB, for example "limit 6143, peak 5645".
+  - type: textarea
+    id: notes
+    attributes:
+      label: Notes
+      description: Resolution, frame rate, glitches, crashes.

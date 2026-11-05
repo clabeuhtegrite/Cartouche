@@ -1,0 +1,27 @@
+{
+  "schema": 1,
+  "titleId": "0400C3F00006E000",
+  "name": "Mario Kart World",
+  "platform": "switch2",
+  "requirements": {
+    "minimumIOS": "26.0",
+    "bcTextureCompression": true,
+    "increasedMemoryLimit": true
+  },
+  "recommended": {
+    "resolution": "1080p",
+    "mode": "handheld"
+  },
+  "results": [
+    {
+      "device": "iPhone19,4",
+      "iOS": "27.3",
+      "date": "2026-11-05",
+      "engine": "nxnative main with the switch2ios patches (0d9b6358)",
+      "status": "playable",
+      "notes": [
+        "Ran smoothly at 1080p in handheld mode. Memory peak not recorded yet."
+      ]
+    }
+  ]
+}

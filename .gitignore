@@ -1,0 +1,29 @@
+# Builds
+/build/
+DerivedData/
+*.xcarchive
+*.ipa
+*.dSYM/
+
+# Python
+__pycache__/
+*.egg-info/
+.venv/
+
+# macOS
+.DS_Store
+
+# Never commit games, keys or firmware.
+*.nsp
+*.nsz
+*.xci
+*.xcz
+*.nca
+*.ncz
+*.nup
+prod.keys
+title.keys
+romfs.img
+
+# Never commit signing keys.
+*.key
