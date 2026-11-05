@@ -1,0 +1,141 @@
+From d174668b34f3c3212ea3c7fe73d224fa93a412c3 Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Thu, 5 Nov 2026 23:31:37 +0000
+Subject: [PATCH] Enable capabilities on an App ID through the developer
+ services v1 API
+
+DeveloperPortal.enableCapabilities(_:for:team:session:) sends the PATCH
+of services/v1/bundleIds/<id> that Xcode sends, with bundleIdCapabilities
+relationships. A free team cannot turn on Increased Memory Limit through
+updateAppId.action, but it can through this request, which is how
+GetMoreRam and AltStore 2.3 get it (SideStore#1616).
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01MzPJorvBGmBB88WUcRVhE7
+---
+ .../BundleIDCapabilities.swift                | 116 ++++++++++++++++++
+ 1 file changed, 116 insertions(+)
+ create mode 100644 Sources/DeveloperPortal/BundleIDCapabilities.swift
+
+diff --git a/Dependencies/SideSign/Sources/DeveloperPortal/BundleIDCapabilities.swift b/Dependencies/SideSign/Sources/DeveloperPortal/BundleIDCapabilities.swift
+new file mode 100644
+index 0000000..ffd97be
+--- /dev/null
++++ b/Dependencies/SideSign/Sources/DeveloperPortal/BundleIDCapabilities.swift
+@@ -0,0 +1,116 @@
++//
++//  BundleIDCapabilities.swift
++//  SideSign
++//
++//  Turns capabilities on for an App ID through the developer services v1
++//  API, with the request Xcode sends. A free team cannot enable Increased
++//  Memory Limit through updateAppId.action, but it can through this API,
++//  which is how GetMoreRam and AltStore 2.3 get it (SideStore#1616).
++//
++
++import Foundation
++
++/// Capability identifiers of the developer services v1 API.
++public enum BundleIDCapability {
++    /// Grants `com.apple.developer.kernel.increased-memory-limit`.
++    public static let increasedMemoryLimit = "INCREASED_MEMORY_LIMIT"
++}
++
++public extension DeveloperPortal {
++
++    /// Enables `capabilities` on `appID` with a PATCH of `services/v1/bundleIds/<id>`.
++    ///
++    /// Capabilities already enabled stay enabled, so calling this again is harmless.
++    func enableCapabilities(_ capabilities: [String],
++                            for appID: AppID,
++                            team: Team,
++                            session apiSession: Session) async throws {
++        debugLog("[SideSign] enableCapabilities \(capabilities) for \(appID.bundleIdentifier)...")
++
++        let capabilityData: [[String: Any]] = capabilities.map { capability in
++            [
++                "type": "bundleIdCapabilities",
++                "attributes": ["enabled": true, "settings": [Any]()] as [String: Any],
++                "relationships": [
++                    "capability": ["data": ["type": "capabilities", "id": capability]]
++                ]
++            ]
++        }
++
++        let attributes: [String: Any] = [
++            "identifier": appID.bundleIdentifier,
++            "name": appID.name,
++            "teamId": team.identifier,
++            "seedId": team.identifier,
++            "bundleType": "bundle",
++            "hasExclusiveManagedCapabilities": false
++        ]
++
++        let body: [String: Any] = [
++            "data": [
++                "type": "bundleIds",
++                "id": appID.identifier,
++                "attributes": attributes,
++                "relationships": ["bundleIdCapabilities": ["data": capabilityData]]
++            ] as [String: Any]
++        ]
++
++        let url = servicesBaseURL.appendingPathComponent("bundleIds").appendingPathComponent(appID.identifier)
++        var request = URLRequest(url: url)
++        request.httpMethod = "PATCH"
++        request.httpBody = try JSONSerialization.data(withJSONObject: body)
++
++        let h = customHeaders
++        let a = apiSession.anisetteData
++        let headers: [String: String] = [
++            "Content-Type": "application/vnd.api+json",
++            "Accept": "application/json, text/plain, */*",
++            "Accept-Language": "en-us",
++            "User-Agent": h.developerServices.userAgent,
++            "X-Apple-App-Info": h.grandSlam.authApp,
++            "X-Xcode-Version": apiSession.xcodeVersion,
++            "X-Apple-I-Identity-Id": apiSession.dsid,
++            "X-Apple-GS-Token": apiSession.authToken,
++            "X-Apple-I-MD-M": a.machineID,
++            "X-Apple-I-MD": a.oneTimePassword,
++            "X-Apple-I-MD-LU": a.localUserID,
++            "X-Apple-I-MD-RINFO": a.routingInfo,
++            "X-Mme-Device-Id": a.deviceID,
++            "X-MMe-Client-Info": a.clientInfo,
++            "X-Apple-I-Client-Time": a.clientTime,
++            "X-Apple-Locale": a.locale,
++            "X-Apple-I-Locale": a.locale,
++            "X-Apple-I-TimeZone": a.timeZone
++        ]
++        headers.forEach { request.setValue($1, forHTTPHeaderField: $0) }
++
++        verboseLog("[SideSign] enableCapabilities: PATCH \(url.absoluteString)")
++
++        let (data, response): (Data, URLResponse)
++        do {
++            (data, response) = try await session.data(for: request)
++        } catch {
++            debugLog("[SideSign] enableCapabilities network error: \(error)")
++            throw error
++        }
++
++        let statusCode = (response as? HTTPURLResponse)?.statusCode ?? 0
++        if let payloadString = formatPayload(data) {
++            verboseLog("[SideSign] enableCapabilities response (HTTP \(statusCode)): \(payloadString)")
++        }
++
++        if let status = try? JSONDecoder().decode(DeveloperPortalStatusResponse.self, from: data),
++           let detail = status.errors?.first?.detail {
++            debugLog("[SideSign] enableCapabilities error: \(detail)")
++            throw ServerError.underlyingError(code: statusCode, message: detail)
++        }
++
++        guard (200..<300).contains(statusCode) else {
++            let rawPayload = String(data: data, encoding: .utf8) ?? data.hexEncodedString()
++            debugLog("[SideSign] enableCapabilities failed with HTTP \(statusCode)")
++            throw ServerError.badServerResponse(reason: "HTTP \(statusCode) from bundleIds", jsonPayload: rawPayload)
++        }
++
++        debugLog("[SideSign] enableCapabilities succeeded for \(appID.bundleIdentifier)")
++    }
++}
