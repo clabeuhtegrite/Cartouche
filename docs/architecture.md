@@ -16,7 +16,7 @@ Cartouche puts everything a player needs on the iPhone into one app. This page d
 | Server | Cloudflare R2 bucket, public read | Holds the signed manifest and the chunks of the app, engine builds, tools and sheets |
 | Server | GitHub Actions | Builds the app and the engine builds, publishes them with the tools in [`server/`](../server/) |
 
-Supported hardware follows nxnative: iOS 26 or later, an iPhone 15 Pro (A17 Pro) or newer, or an iPad with an M1 or newer.
+Supported hardware follows nxnative: iOS 26 or later, an iPhone 15 Pro (A17 Pro) or newer, or an iPad with an M1 or newer. The interface adapts to each by size class, both displays and the fold of the iPhone Duo included ([launcher/README.md](../launcher/README.md#every-iphone-the-iphone-duo-included)).
 
 ## First install
 

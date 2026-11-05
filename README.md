@@ -10,6 +10,7 @@ Cartouche is an all-in-one iOS app for playing the games that [nxnative](https:/
 - **Keeps itself signed.** The built-in SideStore renews the seven-day signature of a free account in the background.
 - **Gets games the memory they need.** On a 12 GB iPhone, an app may use about 3.3 GiB by default and about 6.0 GiB with the Increased Memory Limit capability on its App ID (3,376 and 6,143 MiB, measured on an A20 Pro). SideStore does not request that capability for free accounts today ([SideStore#1616](https://github.com/SideStore/SideStore/issues/1616)); Cartouche's SideStore will.
 - **A catalogue.** A console-style catalogue of every game Cartouche supports, with your own games first and featured, and a sheet for each game that says how it runs on your iPhone: the memory it needs against the limit Cartouche measures on the phone, the recommended settings, what testers saw. Games you do not have offer one thing only: importing your own copy.
+- **Every iPhone, the Duo included.** The interface follows the space it has: one column on an iPhone or a folded iPhone Duo, the catalogue and a game's sheet together on an unfolded Duo or an iPad, and nothing in the fold or under a camera ([details](launcher/README.md#every-iphone-the-iphone-duo-included)).
 - **Updates.** The app, the nxnative engine builds and the compatibility sheets update automatically from a signed manifest.
 
 ## What it does not do

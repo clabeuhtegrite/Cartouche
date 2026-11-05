@@ -12,7 +12,9 @@ Each phase ends with a gate: a result checked on a real iPhone, not only in CI. 
 - **S1, the memory spike:** Cartouche, installed with iloader on a free account under its own App ID, gets Increased Memory Limit on that App ID from its SideStore; the probe shows about 6 GiB.
 - Branding patch for LiveContainer: bundle identifier, name, icon, URL schemes, app group handling.
 - SideStore and SideSign patch: request the memory capability for free accounts.
-- First launcher: library, import of an IPA built on a Mac, compatibility sheets, memory probe.
+- First launcher: catalogue, import of an IPA built on a Mac, compatibility sheets, memory probe.
+- Layouts for every iPhone and the iPad, the iPhone Duo folded, unfolded and partly folded included ([launcher/README.md](../launcher/README.md#every-iphone-the-iphone-duo-included)). Xcode 27.1 once LiveContainer and SideStore build with it.
+- On a Duo: touch controls clear of the camera and the fold, and a game folded and unfolded mid-race keeps running under its memory limit.
 - Renewal in the background, with a warning before expiry.
 - **Gate:** Mario Kart World starts from Cartouche on the reference iPhone with the 6 GiB limit, and Cartouche renews itself for a week without a computer.
 
@@ -32,4 +34,5 @@ Each phase ends with a gate: a result checked on a real iPhone, not only in CI. 
 
 - More supported games and their sheets, starting with the next ones nxnative supports on iPhone.
 - Opt-in telemetry; testers' iPhones measured and added to `catalog/devices.json`.
+- Duo layouts for games proposed to nxnative, with measurements: touch controls over the picture, and on a table the game above the fold and the controls below.
 - **Gate:** every supported game has a sheet with results from at least two iPhone models.
