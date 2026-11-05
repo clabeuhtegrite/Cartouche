@@ -9,7 +9,7 @@ Cartouche puts everything a player needs on the iPhone into one app. This page d
 | iPhone | **Cartouche** | The one app the player installs |
 | | LiveContainer (base) | Runs each game as a guest app inside Cartouche and signs it with Cartouche's certificate |
 | | SideStore (built in) | Signs in to the Apple account; installs, re-signs and renews Cartouche; asks for the memory capability |
-| | Launcher | Library, import, compatibility sheets, memory probe, updates |
+| | Launcher | Catalogue of every supported game with the player's own first, import, compatibility sheets, memory probe, updates |
 | | Build pipeline (v2) | Builds a game on the phone from the player's own dump |
 | iPhone | LocalDevVPN (App Store) | A loopback VPN through which SideStore reaches the phone's own services, so it needs no computer |
 | Computer, once | iloader | Installs Cartouche and places the pairing file |

@@ -15,3 +15,4 @@ Choices that shape the project, with their reasons. A new decision gets a new en
 | 9 | 2026-11-05 | Telemetry is opt-in. | Players decide what leaves their phone. |
 | 10 | 2026-11-05 | Console-style interface. | A launcher for games, not a file manager. |
 | 11 | 2026-11-05 | The repository is written in English. | Open source contributors and upstream projects work in English. |
+| 12 | 2026-11-05 | The launcher's home screen is a catalogue of every supported game, the player's own first and featured; the others offer only "Import my copy". A game the player does not have gets a tile we design, not official cover art. | Players see at a glance what Cartouche can run on their iPhone. Cover art is not ours to redistribute; the icon of the player's own copy replaces the tile once imported. |

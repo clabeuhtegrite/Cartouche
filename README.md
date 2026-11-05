@@ -9,7 +9,7 @@ Cartouche is an all-in-one iOS app for playing the games that [nxnative](https:/
 - **One app to install.** Cartouche is built on [LiveContainer](https://github.com/LiveContainer/LiveContainer) with [SideStore](https://github.com/SideStore/SideStore) built in. Games run inside it as guest apps, so they do not count against a free Apple account's limit of three sideloaded apps. Besides Cartouche, a player installs only LocalDevVPN from the App Store, which SideStore needs to install and refresh apps without a computer.
 - **Keeps itself signed.** The built-in SideStore renews the seven-day signature of a free account in the background.
 - **Gets games the memory they need.** On a 12 GB iPhone, an app may use about 3.3 GiB by default and about 6.0 GiB with the Increased Memory Limit capability on its App ID (3,376 and 6,143 MiB, measured on an A20 Pro). SideStore does not request that capability for free accounts today ([SideStore#1616](https://github.com/SideStore/SideStore/issues/1616)); Cartouche's SideStore will.
-- **A launcher.** A console-style library of your games, with a sheet for each game that says how it runs on your iPhone: the memory it needs against the limit Cartouche measures on the phone, the recommended settings, what testers saw.
+- **A catalogue.** A console-style catalogue of every game Cartouche supports, with your own games first and featured, and a sheet for each game that says how it runs on your iPhone: the memory it needs against the limit Cartouche measures on the phone, the recommended settings, what testers saw. Games you do not have offer one thing only: importing your own copy.
 - **Updates.** The app, the nxnative engine builds and the compatibility sheets update automatically from a signed manifest.
 
 ## What it does not do
@@ -22,7 +22,7 @@ Cartouche ships no games, no keys and no firmware, and it never downloads them. 
  Computer, once           iPhone                                   Update server (R2)
  ──────────────           ─────────────────────────────────        ──────────────────
  iloader installs   ──▶   Cartouche                                signed manifest
- Cartouche and its        ├─ launcher: library, sheets, probe ◀──  app, engine builds,
+ Cartouche and its        ├─ launcher: catalogue, sheets, probe ◀─ app, engine builds,
  pairing file             ├─ SideStore: sign, install, renew       tools, sheets
                           ├─ build pipeline (v2)                   (never games)
                           └─ games, as guest apps
