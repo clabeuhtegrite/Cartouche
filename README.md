@@ -1,7 +1,7 @@
 # Cartouche
 
-Cartouche est une app iOS tout-en-un pour jouer, sur iPhone, aux jeux pris en charge par [nxnative](https://github.com/seedds/nxnative), à partir de ses propres copies de jeux. Elle réunit le lanceur, l'installation sans ordinateur et le renouvellement automatique de la signature.
+Cartouche is an all-in-one iOS app for playing the games that [nxnative](https://github.com/seedds/nxnative) supports on an iPhone, from your own copies of those games. It brings together the launcher, setup without a computer and automatic signature renewal.
 
-Le projet démarre : rien n'est encore installable.
+The project is just starting: nothing can be installed yet.
 
-Cartouche ne fournit aucun jeu, aucune clé et aucun firmware. Licence : [GNU AGPL-3.0](LICENSE).
+Cartouche ships no games, no keys and no firmware. Licence: [GNU AGPL-3.0](LICENSE).
