@@ -1,0 +1,44 @@
+name: App
+
+on:
+  push:
+    branches: [main]
+    paths: ["app/**", ".gitmodules", ".github/workflows/app.yml"]
+  pull_request:
+    paths: ["app/**", ".gitmodules", ".github/workflows/app.yml"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: app-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build Cartouche.ipa
+    runs-on: macos-26
+    timeout-minutes: 90
+    env:
+      XCODE_VERSION: "26.4"
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          submodules: recursive
+      - name: Select Xcode
+        run: |
+          ls -d /Applications/Xcode*.app
+          sudo xcode-select -s "/Applications/Xcode_${XCODE_VERSION}.app"
+          xcodebuild -version
+      - name: Install ldid
+        run: brew install ldid
+      - name: Build
+        run: app/scripts/build.sh
+      - name: Upload the unsigned IPA
+        uses: actions/upload-artifact@v7
+        with:
+          name: Cartouche-unsigned-${{ github.sha }}
+          path: build/app/Cartouche.ipa
+          retention-days: 14
+          if-no-files-found: error

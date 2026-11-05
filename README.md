@@ -1,7 +1,76 @@
 # Cartouche
 
-Cartouche is an all-in-one iOS app for playing the games that [nxnative](https://github.com/seedds/nxnative) supports on an iPhone, from your own copies of those games. It brings together the launcher, setup without a computer and automatic signature renewal.
+Cartouche is an all-in-one iOS app for playing the games that [nxnative](https://github.com/seedds/nxnative) supports on an iPhone, from your own copies of those games. It brings the pieces that sideloading needs today into one app that sets itself up and keeps itself signed, so that a computer is needed only once, for the first install.
 
-The project is just starting: nothing can be installed yet.
+> **Status: early development.** Nothing can be installed yet. The milestones are in [docs/roadmap.md](docs/roadmap.md).
 
-Cartouche ships no games, no keys and no firmware. Licence: [GNU AGPL-3.0](LICENSE).
+## What Cartouche will do
+
+- **One app to install.** Cartouche is built on [LiveContainer](https://github.com/LiveContainer/LiveContainer) with [SideStore](https://github.com/SideStore/SideStore) built in. Games run inside it as guest apps, so they do not count against a free Apple account's limit of three sideloaded apps. Besides Cartouche, a player installs only LocalDevVPN from the App Store, which SideStore needs to install and refresh apps without a computer.
+- **Keeps itself signed.** The built-in SideStore renews the seven-day signature of a free account in the background.
+- **Gets games the memory they need.** On a 12 GB iPhone, an app may use about 3.3 GiB by default and about 6.0 GiB with the Increased Memory Limit capability on its App ID (3,376 and 6,143 MiB, measured on an A20 Pro). SideStore does not request that capability for free accounts today ([SideStore#1616](https://github.com/SideStore/SideStore/issues/1616)); Cartouche's SideStore will.
+- **A catalogue.** A console-style catalogue of every game Cartouche supports, with your own games first and featured, and a sheet for each game that says how it runs on your iPhone: the memory it needs against the limit Cartouche measures on the phone, the recommended settings, what testers saw. Games you do not have offer one thing only: importing your own copy.
+- **Every iPhone, the Duo included.** The interface follows the space it has: one column on an iPhone or a folded iPhone Duo, the catalogue and a game's sheet together on an unfolded Duo or an iPad, and nothing in the fold or under a camera ([details](launcher/README.md#every-iphone-the-iphone-duo-included)).
+- **Updates.** The app, the nxnative engine builds and the compatibility sheets update automatically from a signed manifest.
+
+## What it does not do
+
+Cartouche ships no games, no keys and no firmware, and it never downloads them. You import games you own and dumped yourself, from Files, iCloud Drive, a USB-C drive or a network share. See [LEGAL.md](LEGAL.md).
+
+## How it works
+
+```
+ Computer, once           iPhone                                   Update server (R2)
+ ──────────────           ─────────────────────────────────        ──────────────────
+ iloader installs   ──▶   Cartouche                                signed manifest
+ Cartouche and its        ├─ launcher: catalogue, sheets, probe ◀─ app, engine builds,
+ pairing file             ├─ SideStore: sign, install, renew       tools, sheets
+                          ├─ build pipeline (v2)                   (never games)
+                          └─ games, as guest apps
+                          LocalDevVPN (App Store)
+```
+
+- **v1** plays games built on a Mac with nxnative's own script: you import the IPA into Cartouche.
+- **v2** builds the game on the iPhone from your own dump, with an engine build that our CI makes from nxnative's source for each supported game.
+
+Details: [docs/architecture.md](docs/architecture.md). Decisions and their reasons: [docs/decisions.md](docs/decisions.md).
+
+## Repository layout
+
+| Path | What it holds |
+| --- | --- |
+| [`app/`](app/) | The iOS app: LiveContainer and SideStore at pinned commits, our patches, the build scripts |
+| [`launcher/`](launcher/) | The launcher interface (planned) |
+| [`engine/`](engine/) | How the nxnative engine will be built for each supported game (planned) |
+| [`catalog/`](catalog/) | Device profiles and per-game compatibility sheets, with their schemas |
+| [`server/`](server/) | Tools that publish the signed update manifest and its chunks, and refuse anything that looks like game content |
+| [`docs/`](docs/) | Architecture, roadmap, decision log |
+
+## Building
+
+The app builds on a Mac with Xcode 26.4 and Homebrew:
+
+```
+git clone --recursive https://github.com/clabeuhtegrite/Cartouche.git && cd Cartouche
+brew install ldid
+app/scripts/build.sh          # writes build/app/Cartouche.ipa, unsigned
+```
+
+CI builds it on every pull request that touches `app/` and attaches the unsigned IPA to the workflow run. These are development builds: they have their own bundle identifier, so they never replace an installed LiveContainer, but they are not ready to use yet.
+
+The server tools need Python 3.11 or newer:
+
+```
+python3 -m venv .venv && .venv/bin/pip install -e "server[dev]"
+.venv/bin/python -m unittest discover -s server/tests -t server/tests
+```
+
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md). Security issues: [SECURITY.md](SECURITY.md).
+
+## Licence
+
+Cartouche is free software under the [GNU Affero General Public License v3.0](LICENSE), the licence of LiveContainer and SideStore, which it builds on. Third-party components and their licences: [NOTICE.md](NOTICE.md).
+
+Cartouche is not affiliated with Nintendo, Apple, or the LiveContainer, SideStore and nxnative projects.

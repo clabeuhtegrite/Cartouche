@@ -1,0 +1,10 @@
+[submodule "app/LiveContainer"]
+	path = app/LiveContainer
+	url = https://github.com/LiveContainer/LiveContainer.git
+[submodule "app/SideStore"]
+	path = app/SideStore
+	url = https://github.com/LiveContainer/SideStore.git
+	branch = LiveContainerSupport
+[submodule "app/tools/dylibify"]
+	path = app/tools/dylibify
+	url = https://github.com/LiveContainer/dylibify.git

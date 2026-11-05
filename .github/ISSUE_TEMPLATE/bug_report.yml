@@ -1,0 +1,47 @@
+name: Bug report
+description: Something in Cartouche does not work as it should.
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Do not attach or link games, keys, firmware or IPAs built from games: such issues are closed and their content removed.
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you did, what you expected, what happened instead.
+    validations:
+      required: true
+  - type: input
+    id: device
+    attributes:
+      label: iPhone or iPad model
+      description: Settings › General › About › Model Name.
+    validations:
+      required: true
+  - type: input
+    id: ios
+    attributes:
+      label: iOS version
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Cartouche version
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs
+      description: Cartouche's diagnostic report, if any. Check that it holds no personal data.
+      render: text
+  - type: checkboxes
+    id: rules
+    attributes:
+      label: Rules
+      options:
+        - label: This report contains no game files, keys, firmware or links to them.
+          required: true
