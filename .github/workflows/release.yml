@@ -124,8 +124,8 @@ jobs:
       - name: Publish guard
         run: |
           python3 -m venv .venv
-          .venv/bin/pip install --quiet -e server
-          .venv/bin/cartouche-server check --kind app build/download/Cartouche.ipa
+          .venv/bin/pip install --quiet -e guard
+          .venv/bin/cartouche-guard --kind app build/download/Cartouche.ipa
 
   # The only job that can write: it runs git, gh and the standard library
   # only, nothing installed from a package index.

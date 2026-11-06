@@ -3,7 +3,7 @@
 
 The launcher's catalogue lists each of them, the player's own copies first.
 The list comes from nxnative's game profiles at the commit Cartouche pins
-(engine/nxnative.commit), fetched by catalog/tools/fetch_nxnative.sh:
+(catalog/nxnative.commit), fetched by catalog/tools/fetch_nxnative.sh:
 
 - dm/games/<title ID>/game.tsv: the game's name, App Store category, and
   the profile's opening comment, which says where nxnative plays it;

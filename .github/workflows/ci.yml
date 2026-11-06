@@ -9,21 +9,22 @@ permissions:
   contents: read
 
 jobs:
-  server:
+  guard:
+    # The name stays the one main requires (.github/rulesets/main.json).
     name: Server tools and catalog
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - name: Install the server tools
+      - name: Install the publish guard
         run: |
           python3 -m venv .venv
-          .venv/bin/pip install --quiet -e "server[dev]"
+          .venv/bin/pip install --quiet -e "guard[dev]"
       - name: Tests
-        run: .venv/bin/python -m unittest discover -s server/tests -t server/tests -v
+        run: .venv/bin/python -m unittest discover -s guard/tests -t guard/tests -v
       - name: Publish guard on the catalog
-        run: .venv/bin/cartouche-server check --kind catalog catalog/devices.json catalog/nxnative.json catalog/covers.json catalog/games/*.json
+        run: .venv/bin/cartouche-guard --kind catalog catalog/devices.json catalog/nxnative.json catalog/covers.json catalog/games/*.json
       - name: nxnative's games at the pinned commit
         run: |
           catalog/tools/fetch_nxnative.sh build/nxnative

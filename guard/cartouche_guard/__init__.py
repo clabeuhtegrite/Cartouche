@@ -1,4 +1,4 @@
-"""Tools that publish Cartouche's update channel: the signed manifest and its chunks."""
+"""The publish guard: refuses anything that looks like game content before it is published."""
 
 # The bundle identifier Cartouche is built with (app/config.env). The publish
 # guard refuses an IPA with any other identifier.
