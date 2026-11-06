@@ -33,7 +33,7 @@ The first launcher, Phase 1, on iOS 17 or later; an older iOS opens on LiveConta
   - This iPhone: model, chip and memory from `devices.json`, iOS, and the GPU's BC support. Cartouche's version and how many sheets it carries.
 - **Words** in [`Sources/Cartouche.xcstrings`](Sources/Cartouche.xcstrings), in English and French. The code carries the English too, for a missing translation. [`app/tests/test_launcher_strings.py`](../app/tests/test_launcher_strings.py) checks that both match, that every format takes the arguments the code passes, and the French no-break spaces.
 - **Layout.** In a compact width, a game's sheet opens over the catalogue. In a regular width, the catalogue and the sheet sit side by side when the view is wider than tall, and one above the other when it is taller than wide, chosen from the view's own size; folding or unfolding keeps the selected game and the catalogue's scroll position.
-- **Not yet:** Cartouche's own icon, the split `ArrangementView` and `reservedRegions` of iOS 27.1, `backgroundExtensionEffect()`, sheets updated from the server, the state of an engine update, and opt-in reports.
+- **Not yet:** the split `ArrangementView` and `reservedRegions` of iOS 27.1, `backgroundExtensionEffect()`, sheets updated from the server, the state of an engine update, and opt-in reports.
 
 ## Every iPhone, the iPhone Duo included
 

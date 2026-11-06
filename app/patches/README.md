@@ -26,4 +26,4 @@ Cartouche asks for the entitlement through LiveContainer's `entitlements.xml`, s
 
 | Project | Patch | Phase |
 | --- | --- | --- |
-| LiveContainer | Cartouche's icon, in place of LiveContainer's | 1 |
+| SideStore | Renewal in the background, with a warning before expiry | 1 |
