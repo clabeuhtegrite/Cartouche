@@ -2,7 +2,7 @@
 //  GalleryApp.swift
 //  CartoucheGallery
 //
-//  Shows one scenario of scenarios.json, which the UI test passes as launch
+//  Shows one scenario of scenarios.json, which capture.sh passes as launch
 //  arguments: a launcher screen at the scenario's size, in the top left
 //  corner of the screen, with that iPhone's safe area; or, without a size,
 //  the whole screen of the simulator it runs on, such as the iPhone Duo's,
@@ -17,9 +17,17 @@
 //                                        settings, or being installed
 //      -GalleryWork installing           a game being installed, over the
 //                                        console
+//      -GalleryOrientation landscape     the gallery turns itself sideways,
+//                                        as a game does; the simulator
+//                                        stays upright
+//      -GalleryReady <scenario>          once the screen has settled, the
+//                                        gallery writes
+//                                        tmp/ready-<scenario>.json in its
+//                                        container (Ready below)
 //
 
 import SwiftUI
+import UIKit
 
 struct GalleryScenario {
     var screen = "games"
@@ -31,6 +39,9 @@ struct GalleryScenario {
     var controller = false
     var sheet: String?
     var work: String?
+    var landscape = false
+    /// The name of the file that says the screen has settled.
+    var ready: String?
 
     static func fromArguments() -> GalleryScenario {
         let defaults = UserDefaults.standard
@@ -48,6 +59,8 @@ struct GalleryScenario {
         scenario.controller = defaults.bool(forKey: "GalleryController")
         scenario.sheet = defaults.string(forKey: "GallerySheet")
         scenario.work = defaults.string(forKey: "GalleryWork")
+        scenario.landscape = defaults.string(forKey: "GalleryOrientation") == "landscape"
+        scenario.ready = defaults.string(forKey: "GalleryReady")
         return scenario
     }
 
@@ -78,6 +91,53 @@ struct GalleryScenario {
         }
     }
 
+    /// What capture.sh needs to cut the screen out of the simulator's
+    /// screenshot, or to turn it the right way up (screenshot.swift).
+    struct Ready: Encodable {
+        let scale: Double
+        /// The window's top left corner on the screen, in points.
+        let origin: [Double]
+        let window: [Double]
+        let orientation: String
+    }
+
+    /// Turns the gallery sideways if the scenario asks, then, once the
+    /// layout, the stage's colours and the cartridges have settled, says so.
+    @MainActor
+    func settle() {
+        let scene = UIApplication.shared.connectedScenes.lazy.compactMap { $0 as? UIWindowScene }.first
+        if landscape, let scene {
+            scene.requestGeometryUpdate(.iOS(interfaceOrientations: .landscapeRight)) { error in
+                NSLog("[Gallery] cannot turn sideways: %@", String(describing: error))
+            }
+        }
+        guard let ready else { return }
+        Task { @MainActor in
+            try? await Task.sleep(for: .seconds(3))
+            guard let scene, let window = scene.windows.first else {
+                NSLog("[Gallery] no window to measure")
+                return
+            }
+            let frame = window.convert(window.bounds, to: scene.screen.coordinateSpace)
+            let orientation = switch scene.effectiveGeometry.interfaceOrientation {
+            case .landscapeLeft: "landscapeLeft"
+            case .landscapeRight: "landscapeRight"
+            case .portraitUpsideDown: "portraitUpsideDown"
+            default: "portrait"
+            }
+            let report = Ready(scale: Double(scene.screen.scale),
+                               origin: [Double(frame.minX), Double(frame.minY)],
+                               window: [Double(frame.width), Double(frame.height)],
+                               orientation: orientation)
+            let url = FileManager.default.temporaryDirectory.appendingPathComponent("ready-\(ready).json")
+            do {
+                try JSONEncoder().encode(report).write(to: url, options: .atomic)
+            } catch {
+                NSLog("[Gallery] cannot write %@: %@", url.path, String(describing: error))
+            }
+        }
+    }
+
     func apps() -> [LCAppModel] {
         owned.compactMap { titleId in
             guard let game = CartoucheCatalog.shared.game(titleId: titleId) else { return nil }
@@ -103,7 +163,10 @@ struct CartoucheGalleryApp: App {
             content
                 .environmentObject(model)
                 .preferredColorScheme(.dark)
-                .onAppear { model.apps = scenario.apps() }
+                .onAppear {
+                    model.apps = scenario.apps()
+                    scenario.settle()
+                }
         }
     }
 

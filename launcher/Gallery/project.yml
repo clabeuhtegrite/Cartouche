@@ -1,7 +1,8 @@
 # The launcher's gallery: the console screens of launcher/Sources in a small
 # app of their own, with LiveContainer's types stood in for
 # (Sources/GalleryStubs.swift), so that the iOS Simulator can show them.
-# A UI test opens each scenario of scenarios.json and saves the screen.
+# capture.sh opens it on each scenario of scenarios.json and saves the
+# screen.
 #
 #     launcher/Gallery/capture.sh OUT     # XcodeGen and Xcode, on a Mac
 #
@@ -59,27 +60,8 @@ targets:
         SWIFT_OBJC_BRIDGING_HEADER: Sources/Gallery-Bridging-Header.h
         SWIFT_ACTIVE_COMPILATION_CONDITIONS: "DEBUG CARTOUCHE_GALLERY"
         SWIFT_STRICT_CONCURRENCY: minimal
-  CartoucheGalleryScreens:
-    type: bundle.ui-testing
-    platform: iOS
-    sources:
-      - path: Tests
-      - path: scenarios.json
-        buildPhase: resources
-    dependencies:
-      - target: CartoucheGallery
-    settings:
-      base:
-        PRODUCT_BUNDLE_IDENTIFIER: io.github.clabeuhtegrite.cartouche.gallery.screens
-        GENERATE_INFOPLIST_FILE: "YES"
-        TEST_TARGET_NAME: CartoucheGallery
-        SWIFT_STRICT_CONCURRENCY: minimal
 schemes:
   CartoucheGallery:
     build:
       targets:
         CartoucheGallery: all
-        CartoucheGalleryScreens: [test]
-    test:
-      targets:
-        - CartoucheGalleryScreens
