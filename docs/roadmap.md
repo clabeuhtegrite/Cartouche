@@ -17,6 +17,7 @@ Each phase ends with a gate: a result checked on a real iPhone, not only in CI. 
 - Layouts for every iPhone and the iPad, the iPhone Duo folded, unfolded and partly folded included ([launcher/README.md](../launcher/README.md#every-iphone-the-iphone-duo-included)). Xcode 27.1 once LiveContainer and SideStore build with it.
 - On a Duo: touch controls clear of the camera and the fold, and a game folded and unfolded mid-race keeps running under its memory limit.
 - Renewal in the background, with a warning before expiry.
+- Updates of Cartouche from the iPhone: each release is listed in the source of the built-in SideStore, which installs it ([app/releases/README.md](../app/releases/README.md)).
 - **Gate:** Mario Kart World starts from Cartouche on the reference iPhone with the 6 GiB limit, and Cartouche renews itself for a week without a computer.
 
 ## Phase 2: spikes for building on the iPhone

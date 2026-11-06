@@ -42,3 +42,27 @@ jobs:
           path: build/app/Cartouche.ipa
           retention-days: 14
           if-no-files-found: error
+
+  release-checks:
+    name: Publish guard and source entry
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/download-artifact@v8
+        with:
+          name: Cartouche-unsigned-${{ github.sha }}
+          path: build/download
+      - name: Publish guard
+        run: |
+          python3 -m venv .venv
+          .venv/bin/pip install --quiet -e server
+          .venv/bin/cartouche-server check --kind app build/download/Cartouche.ipa
+      - name: The built-in SideStore's source would take this build
+        run: |
+          echo '{"name": "Cartouche", "apps": []}' > build/source.json
+          echo "Checked by the App workflow." > build/notes.md
+          python3 app/scripts/add_release.py --ipa build/download/Cartouche.ipa \
+            --url "https://github.com/$GITHUB_REPOSITORY/releases/download/check/Cartouche.ipa" \
+            --notes build/notes.md --source build/source.json
+          python3 -m json.tool build/source.json
