@@ -18,19 +18,6 @@ Cartouche is built from these projects. Each keeps its own licence; their licenc
 
 The Swift packages that LiveContainer and SideStore resolve at build time are listed in their `Package.resolved` files.
 
-## In the app's lab
-
-The lab rewrites a game's modules on the iPhone (spike S2, [`engine/spikes/s2`](engine/spikes/s2/README.md)). The app carries the licence of each of these in `python/licenses`.
-
-| Component | What it does in Cartouche | Licence |
-| --- | --- | --- |
-| [CPython](https://www.python.org) 3.13 for iOS, built by BeeWare's [Python-Apple-support](https://github.com/beeware/Python-Apple-support) | Runs nxnative's rewriter | PSF-2.0 |
-| [OpenSSL](https://www.openssl.org) (inside that build) | Python's `ssl` and `hashlib` modules | Apache-2.0 |
-| [libffi](https://github.com/libffi/libffi) (inside that build) | Python's `ctypes`, which Capstone's binding uses | MIT |
-| [bzip2](https://sourceware.org/bzip2/), [XZ Utils](https://tukaani.org/xz/), [mpdecimal](https://www.bytereef.org/mpdecimal/) (inside that build) | Python's `bz2`, `lzma` and `decimal` modules | bzip2 licence, 0BSD, BSD-2-Clause |
-| [Capstone](https://www.capstone-engine.org) 5.0.7, built for iOS | The disassembler of the rewriter | BSD-3-Clause |
-| nxnative's `dm/tools` and `dm/games` | The rewriter, `patch_nso.py`, and the game profiles it reads | MIT |
-
 ## Cartouche Installer
 
 The computer app that installs Cartouche the first time ([`installer/`](installer/README.md)) is under the MIT licence, as the project it is forked from; its [LICENSE](installer/LICENSE) keeps that project's notice.

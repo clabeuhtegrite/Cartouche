@@ -2,8 +2,7 @@
 # Build Cartouche.ipa, unsigned, from the pinned LiveContainer and SideStore sources.
 #
 # Needs a Mac with Xcode (CI uses the version in .github/workflows/app.yml),
-# CMake, Homebrew's ldid, the network (the lab's Python runtime,
-# engine/spikes/s2/build_ios_runtime.sh), and the submodules:
+# Homebrew's ldid and the submodules:
 #
 #     git submodule update --init --recursive
 #     brew install ldid
@@ -29,7 +28,7 @@ done
 # shellcheck source=SCRIPTDIR/../config.env
 source "$APP/config.env"
 
-for tool in xcodebuild ldid clang cmake; do
+for tool in xcodebuild ldid clang; do
   command -v "$tool" >/dev/null || { echo "missing tool: $tool" >&2; exit 1; }
 done
 [ -n "$(ls -A "$APP/tools/dylibify" 2>/dev/null)" ] || {
@@ -50,9 +49,6 @@ echo "== building SideStore"
   make fakesign
   make ipa
 )
-
-echo "== building the Python runtime of the lab (spike S2)"
-"$ROOT/engine/spikes/s2/build_ios_runtime.sh" "$WORK/python"
 
 echo "== building LiveContainer"
 (
@@ -80,7 +76,6 @@ COMMIT="$(git -C "$ROOT" rev-parse --short=7 HEAD 2>/dev/null || echo unknown)"
   --version "$CARTOUCHE_VERSION" \
   --source-url "$CARTOUCHE_SIDESTORE_SOURCE_URL" \
   --commit "$COMMIT" \
-  --python "$WORK/python" \
   --out "$OUT/Cartouche.ipa"
 
 echo "== done: $OUT/Cartouche.ipa"
