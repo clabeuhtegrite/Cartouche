@@ -77,9 +77,17 @@ final class CartoucheStorageSettings: ObservableObject {
 
     @Published private(set) var servers: [CartoucheStorageServer] = []
     @Published private(set) var places: [CartoucheStorageRole: CartoucheStoragePlace] = [:]
+    /// The servers whose shared folder lets the player's account read only,
+    /// and the folders it cannot add a file to, "<server>|<path>", as
+    /// Cartouche last found: it offers none of them for the saves, and
+    /// copies no game there.
+    @Published private(set) var readOnlyServers: Set<UUID> = []
+    @Published private(set) var readOnlyFolders: Set<String> = []
 
     private let defaults: UserDefaults
     private static let serversKey = "Cartouche.storage.servers"
+    private static let readOnlyServersKey = "Cartouche.storage.readOnly.servers"
+    private static let readOnlyFoldersKey = "Cartouche.storage.readOnly.folders"
     private static let keychainService = "Cartouche storage"
 
     init(defaults: UserDefaults = .standard) {
@@ -96,6 +104,8 @@ final class CartoucheStorageSettings: ObservableObject {
                 places[role] = place
             }
         }
+        readOnlyServers = Set((defaults.stringArray(forKey: Self.readOnlyServersKey) ?? []).compactMap(UUID.init(uuidString:)))
+        readOnlyFolders = Set(defaults.stringArray(forKey: Self.readOnlyFoldersKey) ?? [])
     }
 
     private static func placeKey(_ role: CartoucheStorageRole) -> String {
@@ -126,6 +136,8 @@ final class CartoucheStorageSettings: ObservableObject {
         if let secret {
             Self.storeSecret(secret, for: server.id)
         }
+        // Another account may write where this one could not.
+        forgetAccess(of: server.id)
         persist()
     }
 
@@ -135,7 +147,85 @@ final class CartoucheStorageSettings: ObservableObject {
             places[role] = nil
         }
         Self.storeSecret(nil, for: server.id)
+        forgetAccess(of: server.id)
         persist()
+    }
+
+    // MARK: What the player's account may write
+
+    private static func folderKey(_ server: UUID, _ path: String) -> String {
+        server.uuidString + "|" + path
+    }
+
+    /// Whether the player's account cannot add a file to PATH on SERVER, as
+    /// Cartouche last found.
+    func isReadOnly(_ server: UUID, path: String) -> Bool {
+        readOnlyServers.contains(server) || readOnlyFolders.contains(Self.folderKey(server, path))
+    }
+
+    /// Whether the folder of ROLE is read-only for the player's account.
+    func isReadOnly(_ role: CartoucheStorageRole) -> Bool {
+        guard let place = places[role] else { return false }
+        return isReadOnly(place.server, path: place.path)
+    }
+
+    /// Keeps what Cartouche found on SERVER: whether its shared folder lets
+    /// the account read only, and, when it asked, whether the account can
+    /// add a file to the folder at PATH.
+    func noteAccess(server: UUID, shareReadOnly: Bool, path: String? = nil, writable: Bool? = nil) {
+        var servers = readOnlyServers
+        if shareReadOnly { servers.insert(server) } else { servers.remove(server) }
+        var folders = readOnlyFolders
+        if let path, let writable {
+            if writable {
+                folders.remove(Self.folderKey(server, path))
+            } else {
+                folders.insert(Self.folderKey(server, path))
+            }
+        }
+        guard servers != readOnlyServers || folders != readOnlyFolders else { return }
+        readOnlyServers = servers
+        readOnlyFolders = folders
+        persistAccess()
+    }
+
+    /// Asks REMOTE, connected to SERVER, whether the account can add a file
+    /// to the folder at PATH, and keeps the answer; nil when the server did
+    /// not give one.
+    @MainActor
+    @discardableResult
+    func checkAccess(_ remote: CartoucheRemote, server: UUID, path: String) async -> Bool? {
+        let writable: Bool?
+        do {
+            writable = try await remote.canWrite(path)
+        } catch {
+            NSLog("[Cartouche] cannot tell whether %@ is writable: %@", path, error.localizedDescription)
+            writable = nil
+        }
+        noteAccess(server: server, shareReadOnly: remote.isReadOnly, path: path, writable: writable)
+        return writable
+    }
+
+    /// Signs in to SERVER, to keep whether its shared folder lets the
+    /// account write, as its root does.
+    @MainActor
+    func checkAccess(of server: CartoucheStorageServer) async {
+        guard let remote = try? await CartoucheStorage.connect(server, settings: self) else { return }
+        await checkAccess(remote, server: server.id, path: "")
+        await remote.disconnect()
+    }
+
+    private func forgetAccess(of server: UUID) {
+        let prefix = Self.folderKey(server, "")
+        guard readOnlyServers.contains(server) || readOnlyFolders.contains(where: { $0.hasPrefix(prefix) }) else { return }
+        readOnlyServers.remove(server)
+        readOnlyFolders = readOnlyFolders.filter { !$0.hasPrefix(prefix) }
+        persistAccess()
+    }
+
+    private func persistAccess() {
+        defaults.set(readOnlyServers.map(\.uuidString).sorted(), forKey: Self.readOnlyServersKey)
+        defaults.set(readOnlyFolders.sorted(), forKey: Self.readOnlyFoldersKey)
     }
 
     func setPlace(_ place: CartoucheStoragePlace?, for role: CartoucheStorageRole) {
@@ -212,6 +302,12 @@ protocol CartoucheRemote: AnyObject {
     func delete(_ path: String) async throws
     /// The room left, when the server says.
     func freeSpace() async throws -> UInt64?
+    /// Whether this account can write nowhere here: a shared folder whose
+    /// permissions let it read only.
+    var isReadOnly: Bool { get }
+    /// Whether this account can add a file to the folder at PATH. Asking
+    /// leaves the folder as it was.
+    func canWrite(_ path: String) async throws -> Bool
     func disconnect() async
 }
 

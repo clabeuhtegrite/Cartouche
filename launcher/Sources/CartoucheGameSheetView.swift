@@ -174,7 +174,9 @@ struct CartoucheGameSheetView: View {
                 .font(.footnote)
                 .foregroundStyle(CartoucheTheme.secondaryText)
                 .lineLimit(2)
-        } else if let server = CartoucheStorageSettings.shared.location(.games)?.server {
+        } else if let server = CartoucheStorageSettings.shared.location(.games)?.server,
+                  // A folder the player's account only reads takes no copy.
+                  !CartoucheStorageSettings.shared.isReadOnly(.games) {
             Button {
                 onExport(app)
             } label: {

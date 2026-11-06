@@ -125,6 +125,9 @@ final class CartoucheSaveBackups: ObservableObject {
         do {
             let connected = try await CartoucheStorage.connect(location.server, settings: settings)
             remote = connected
+            if await settings.checkAccess(connected, server: location.server.id, path: location.path) == false {
+                throw CartoucheStorageError(CartoucheText.savesReadOnly)
+            }
             for (target, stamp) in due {
                 let folder = CartoucheStoragePath.join(location.path, Self.folderName(target))
                 try await connected.makeFolders(folder)

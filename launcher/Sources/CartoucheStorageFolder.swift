@@ -106,6 +106,12 @@ final class CartoucheFolder: CartoucheRemote {
         return values.volumeAvailableCapacityForImportantUsage.map { UInt64(max($0, 0)) }
     }
 
+    var isReadOnly: Bool { false }
+
+    func canWrite(_ path: String) async throws -> Bool {
+        FileManager.default.isWritableFile(atPath: url(path).path)
+    }
+
     func disconnect() async {}
 }
 
