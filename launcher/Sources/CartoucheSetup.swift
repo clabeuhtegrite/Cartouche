@@ -11,10 +11,11 @@
 //    Apple ID. Cartouche then hands it to LiveContainer, which signs each game
 //    with it: no button, no file, every time Cartouche comes to the front.
 //  - The pairing file, which only a computer can make: SideStore needs it to
-//    install and renew apps. iloader places it where the built-in SideStore
-//    reads it, as it does for a LiveContainer+SideStore (app/scripts/
-//    package.sh says how iloader finds Cartouche). A file the player opens
-//    with Cartouche or chooses in the setup goes to the same place.
+//    install and renew apps. iloader exports it, and the player drops it on
+//    Cartouche in Apple Devices, iTunes or the Finder, opens it with
+//    Cartouche, or chooses it in the setup: it goes where the built-in
+//    SideStore reads it. iloader places it there by itself only in the apps
+//    it lists by name (app/README.md says why Cartouche is not one yet).
 //  - LocalDevVPN, from the App Store, through which SideStore reaches the
 //    iPhone's own services when it renews Cartouche.
 //
@@ -132,6 +133,37 @@ enum CartouchePairing {
         "RootCertificate", "UDID", "EscrowBag", "HostCertificate", "DeviceCertificate",
     ]
 
+    /// Takes a pairing file the player dropped into Cartouche from their
+    /// computer: Apple Devices, iTunes and the Finder list Cartouche among the
+    /// apps that share files, and put what is dropped on it at the top of its
+    /// Documents, which the Files app shows as well. The file moves to where
+    /// SideStore reads it, replacing the one SideStore had. Other files stay.
+    /// Returns whether it took one.
+    @discardableResult
+    static func takeDroppedFile() -> Bool {
+        let fileManager = FileManager.default
+        let keys: [URLResourceKey] = [.isRegularFileKey, .fileSizeKey]
+        // Files opened from Mail can also land in Inbox.
+        for folder in [LCPath.docPath, LCPath.docPath.appendingPathComponent("Inbox", isDirectory: true)] {
+            guard let files = try? fileManager.contentsOfDirectory(at: folder, includingPropertiesForKeys: keys,
+                                                                    options: .skipsHiddenFiles) else { continue }
+            let named = files.filter { fileExtensions.contains($0.pathExtension.lowercased()) }
+            for file in named.sorted(by: { $0.lastPathComponent < $1.lastPathComponent }) {
+                // A pairing file is a few kilobytes.
+                guard let values = try? file.resourceValues(forKeys: Set(keys)),
+                      values.isRegularFile == true, (values.fileSize ?? 0) < 1_048_576 else { continue }
+                do {
+                    try importFile(at: file)
+                } catch {
+                    continue
+                }
+                try? fileManager.removeItem(at: file)
+                return true
+            }
+        }
+        return false
+    }
+
     /// Copies a pairing file the player picked, once it reads as one.
     static func importFile(at url: URL) throws {
         let access = url.startAccessingSecurityScopedResource()
@@ -179,12 +211,14 @@ final class CartoucheSetup: ObservableObject {
     /// the player signs in from SideStore.
     func refresh() {
         hasCertificate = CartoucheCertificate.handOff()
+        if CartouchePairing.takeDroppedFile() { pairingError = nil }
         hasPairingFile = CartouchePairing.exists
         appleID = CartoucheStoreKeychain.string("appleIDEmailAddress")
     }
 
-    /// iloader can place the pairing file while Cartouche is open.
+    /// The player can drop the pairing file on Cartouche while it is open.
     func refreshPairingFile() {
+        if CartouchePairing.takeDroppedFile() { pairingError = nil }
         let exists = CartouchePairing.exists
         if exists != hasPairingFile { hasPairingFile = exists }
     }
@@ -230,7 +264,7 @@ struct CartoucheSetupRefresh: ViewModifier {
             .onReceive(NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification)) { _ in
                 setup.refresh()
             }
-            // The pairing step ticks itself once iloader has placed the file.
+            // The pairing step ticks itself once the player has dropped the file.
             .task(id: setup.hasPairingFile) {
                 while !setup.hasPairingFile && !Task.isCancelled {
                     try? await Task.sleep(for: .seconds(2))

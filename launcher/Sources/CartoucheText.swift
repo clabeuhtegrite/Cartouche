@@ -109,11 +109,11 @@ enum CartoucheText {
     static var setupAllDoneDetail: String { s("setup.done.detail", "Cartouche signs your games and renews itself. There is nothing more to do here.") }
     static func setupStepDone(_ step: String) -> String { f("setup.step.done", "%@, done", step) }
     static var setupPairingTitle: String { s("setup.pairing.title", "Pairing file") }
-    static var setupPairingHow: String { s("setup.pairing.how", "Only a computer can make it. In iloader, on your computer: Manage Pairing File › Place In All Apps. Cartouche is listed there as LiveContainer, and this step ticks itself. You can also open an exported file with Cartouche, or choose it here.") }
+    static var setupPairingHow: String { s("setup.pairing.how", "Only a computer can make it. In iloader: Manage Pairing File › Export. Drop the file on Cartouche in Apple Devices, iTunes or the Finder (Files), or open it with Cartouche: this step ticks itself. You can also choose it here.") }
     static var setupPairingDone: String { s("setup.pairing.done", "Received. The built-in SideStore uses it to install and renew apps on this iPhone.") }
     static var setupPairingChoose: String { s("setup.pairing.choose", "Choose the file") }
     static var setupPairingReplace: String { s("setup.pairing.replace", "Choose another file") }
-    static var setupPairingInvalid: String { s("setup.pairing.invalid", "This file is not a pairing file. In iloader, use Place In All Apps instead.") }
+    static var setupPairingInvalid: String { s("setup.pairing.invalid", "This file is not a pairing file. Export it again from iloader: Manage Pairing File › Export.") }
     static var setupAppleIDTitle: String { s("setup.appleID.title", "Apple ID") }
     static var setupAppleIDHow: String { s("setup.appleID.how", "Sign in once in the SideStore built into Cartouche: it takes the certificate iloader left for it, and renews Cartouche every week. SideStore has you connect LocalDevVPN, asks for your Apple ID, then brings you back here by itself.") }
     static func setupAppleIDDone(_ appleID: String) -> String { f("setup.appleID.done", "Signed in: %@", appleID) }
