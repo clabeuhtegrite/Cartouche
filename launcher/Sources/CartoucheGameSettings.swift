@@ -214,6 +214,38 @@ final class CartoucheGameSettingsModel: ObservableObject, Hashable {
         settings.filter { $0.sectionTitle == section && visible($0) }
     }
 
+    // MARK: Categories
+
+    /// The cloud saves, the page's last category after nxnative's sections.
+    static let savesCategory = "cartouche.saves"
+
+    /// The category the player picked; nil for the first.
+    @Published var category: String?
+
+    var categories: [String] {
+        sections.filter { !rows(in: $0).isEmpty } + (canChange ? [Self.savesCategory] : [])
+    }
+
+    /// The category on screen: the one picked, else the first.
+    var currentCategory: String? {
+        let all = categories
+        if let category, all.contains(category) { return category }
+        return all.first
+    }
+
+    /// The previous or the next category, as L and R move between them.
+    func moveCategory(by step: Int) {
+        let all = categories
+        guard !all.isEmpty else { return }
+        let index = currentCategory.flatMap { all.firstIndex(of: $0) } ?? 0
+        category = all[min(max(index + step, 0), all.count - 1)]
+    }
+
+    /// An end of a range, as a percentage.
+    static func rangeBound(_ value: Double) -> String {
+        value.formatted(.percent.precision(.fractionLength(0)))
+    }
+
     /// A range: its percentage, and the 3D size in pixels for the console
     /// mode chosen when the list gives it.
     func rangeLabel(_ setting: CartoucheGameSetting, _ value: Double) -> String {
@@ -309,18 +341,30 @@ struct CartoucheGameSettingsView: View {
             .font(.subheadline)
             .listRowBackground(Color.clear)
 
-            ForEach(model.sections, id: \.self) { section in
-                let rows = model.rows(in: section)
-                if !rows.isEmpty {
-                    Section(CartoucheText.gameSettingText(section)) {
-                        ForEach(rows) { setting in
+            if model.categories.count > 1 {
+                Section {
+                    CartoucheSettingsCategoryBar(model: model)
+                        .listRowInsets(EdgeInsets())
+                        .listRowBackground(Color.clear)
+                }
+            }
+            if let category = model.currentCategory {
+                if category == CartoucheGameSettingsModel.savesCategory {
+                    cloudSaves
+                } else {
+                    Section {
+                        ForEach(model.rows(in: category)) { setting in
                             CartoucheGameSettingRow(setting: setting, model: model)
+                        }
+                    } header: {
+                        // The bar names the category when there is one.
+                        if model.categories.count <= 1 {
+                            Text(CartoucheText.gameSettingText(category))
                         }
                     }
                 }
             }
             if model.canChange {
-                cloudSaves
                 if !model.settings.isEmpty {
                     Section {
                         Button(CartoucheText.settingsReset) { model.reset() }
@@ -423,18 +467,26 @@ struct CartoucheGameSettingRow: View {
                 }
                 .pickerStyle(.menu)
             case "range":
-                VStack(alignment: .leading, spacing: 8) {
-                    HStack(alignment: .firstTextBaseline) {
-                        label
-                        Spacer()
-                        Text(model.rangeLabel(setting, range.wrappedValue))
-                            .monospacedDigit()
-                            .foregroundStyle(CartoucheTheme.secondaryText)
-                    }
-                    let low = setting.min ?? 0
-                    Slider(value: range, in: low...Swift.max(setting.max ?? 1, low), step: setting.step ?? 0.05)
+                let low = setting.min ?? 0
+                let high = Swift.max(setting.max ?? 1, low)
+                VStack(alignment: .leading, spacing: 6) {
+                    label
+                    Slider(value: range, in: low...high, step: setting.step ?? 0.05)
                         .accessibilityLabel(CartoucheText.gameSettingText(setting.label))
                         .accessibilityValue(model.rangeLabel(setting, range.wrappedValue))
+                    // The value, large, between the ends of the range.
+                    HStack(alignment: .firstTextBaseline) {
+                        Text(CartoucheGameSettingsModel.rangeBound(low))
+                        Spacer(minLength: 8)
+                        Text(model.rangeLabel(setting, range.wrappedValue))
+                            .font(.headline.monospacedDigit())
+                            .foregroundStyle(Color.accentColor)
+                        Spacer(minLength: 8)
+                        Text(CartoucheGameSettingsModel.rangeBound(high))
+                    }
+                    .font(.caption2.monospacedDigit())
+                    .foregroundStyle(CartoucheTheme.tertiaryText)
+                    .accessibilityHidden(true)
                 }
             default:
                 Toggle(isOn: Binding(get: { model.value(setting) == setting.onValue },
@@ -444,6 +496,76 @@ struct CartoucheGameSettingRow: View {
             }
         }
         .disabled(model.isFixed(setting) || !model.canChange)
+    }
+}
+
+/// The page's categories, as buttons in a row: one shows at a time, and L
+/// and R move between them.
+@available(iOS 17.0, *)
+struct CartoucheSettingsCategoryBar: View {
+    @ObservedObject var model: CartoucheGameSettingsModel
+
+    var body: some View {
+        ScrollViewReader { reader in
+            ScrollView(.horizontal) {
+                HStack(spacing: 10) {
+                    ForEach(model.categories, id: \.self) { category in
+                        button(category, selected: category == model.currentCategory)
+                            .id(category)
+                    }
+                }
+                .padding(.horizontal, 2)
+                .padding(.vertical, 4)
+            }
+            .scrollIndicators(.hidden)
+            .onChange(of: model.currentCategory) { _, category in
+                guard let category else { return }
+                withAnimation(.easeOut(duration: 0.2)) {
+                    reader.scrollTo(category, anchor: .center)
+                }
+            }
+        }
+    }
+
+    private func button(_ category: String, selected: Bool) -> some View {
+        Button {
+            model.category = category
+        } label: {
+            VStack(spacing: 6) {
+                Image(systemName: Self.symbol(category))
+                    .font(.system(size: 17, weight: selected ? .semibold : .regular))
+                Text(Self.title(category))
+                    .font(.system(size: 12, weight: selected ? .semibold : .regular))
+                    .lineLimit(1)
+            }
+            .foregroundStyle(selected ? Color.white : CartoucheTheme.secondaryText)
+            .padding(.horizontal, 12)
+            .frame(minWidth: 78, minHeight: 58)
+            .background(
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .fill(selected ? CartoucheTheme.indigo.opacity(0.5) : Color.white.opacity(0.06)))
+            .overlay(
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .strokeBorder(Color.white.opacity(selected ? 0.35 : 0.08), lineWidth: 1))
+            .animation(.bouncy(duration: 0.3), value: selected)
+        }
+        .buttonStyle(.plain)
+        .accessibilityAddTraits(selected ? .isSelected : [])
+    }
+
+    static func symbol(_ category: String) -> String {
+        switch category {
+        case CartoucheGameSettingsModel.savesCategory: return "icloud.fill"
+        case "Game": return "gamecontroller.fill"
+        case "Controls": return "dpad.fill"
+        case "Performance": return "speedometer"
+        default: return "slider.horizontal.3"
+        }
+    }
+
+    static func title(_ category: String) -> String {
+        category == CartoucheGameSettingsModel.savesCategory ? CartoucheText.settingsSaves
+            : CartoucheText.gameSettingText(category)
     }
 }
 

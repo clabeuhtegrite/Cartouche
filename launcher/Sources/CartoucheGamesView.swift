@@ -33,6 +33,8 @@ struct CartoucheGamesView: View {
     @State private var uninstallingInSheet: LCAppModel?
     /// The settings page open over the game's sheet.
     @State private var gameSettings: CartoucheGameSettingsModel?
+    /// A game's sheet grows out of its cartridge.
+    @Namespace private var zoom
 
     enum Route: Hashable {
         case library
@@ -59,7 +61,10 @@ struct CartoucheGamesView: View {
                 onSheet: { sheetID = $0.id },
                 onLibrary: { path.append(.library) },
                 onSetup: { showingSetup = true },
-                onTab: { sharedModel.selectedTab = $0 })
+                onTab: { sharedModel.selectedTab = $0 },
+                // One cartridge per game to grow from: the library's, once
+                // it is over the home.
+                zoom: path.isEmpty ? zoom : nil)
                 .toolbar(.hidden, for: .navigationBar)
                 .toolbar(.hidden, for: .tabBar)
                 .navigationDestination(for: Route.self) { route in
@@ -70,7 +75,8 @@ struct CartoucheGamesView: View {
                             isActive: onGames && path.last == .library && nothingOver,
                             onPlay: { play($0) },
                             onSheet: { sheetID = $0.id },
-                            onBack: { if !path.isEmpty { path.removeLast() } })
+                            onBack: { if !path.isEmpty { path.removeLast() } },
+                            zoom: zoom)
                             .toolbar(.hidden, for: .tabBar)
                     }
                 }
@@ -108,6 +114,7 @@ struct CartoucheGamesView: View {
                             }
                         }
                 }
+                .cartoucheZoom(from: entry.id, in: zoom)
                 .preferredColorScheme(.dark)
                 .fileImporter(isPresented: $choosingIPAInSheet, allowedContentTypes: [.ipa]) { result in
                     if case .success(let url) = result {
@@ -117,9 +124,15 @@ struct CartoucheGamesView: View {
                 .modifier(CartoucheUninstallQuestion(app: $uninstallingInSheet, onAnswer: uninstall))
                 .onReceive(CartoucheGamepad.shared.inputs) { input in
                     guard uninstallingInSheet == nil else { return }
-                    // B on the settings page goes back to the sheet.
-                    if gameSettings != nil {
-                        if input == .b { gameSettings = nil }
+                    // On the settings page, L and R change the category and B
+                    // goes back to the sheet.
+                    if let settings = gameSettings {
+                        switch input {
+                        case .b: gameSettings = nil
+                        case .previous: settings.moveCategory(by: -1)
+                        case .next: settings.moveCategory(by: 1)
+                        default: break
+                        }
                         return
                     }
                     switch input {

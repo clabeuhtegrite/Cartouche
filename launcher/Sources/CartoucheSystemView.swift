@@ -269,12 +269,16 @@ struct CartoucheSystemView: View {
     // MARK: Cartouche
 
     private var cartoucheSection: some View {
-        Section("Cartouche") {
+        Section {
             LabeledContent(CartoucheText.version, value: version)
             if let basedOn {
                 LabeledContent(CartoucheText.basedOn, value: basedOn)
             }
             LabeledContent(CartoucheText.sheets, value: String(catalog.sheets.count))
+        } header: {
+            Text(verbatim: "Cartouche")
+        } footer: {
+            Text(CartoucheText.coversCredit)
         }
     }
 

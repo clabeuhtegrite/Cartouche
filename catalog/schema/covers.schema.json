@@ -1,0 +1,61 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "covers.schema.json",
+  "title": "The games' official covers",
+  "description": "Each game's official cover and artwork on IGDB, written by catalog/tools/igdb_covers.py: IGDB's game and image IDs only, never an address. The launcher builds the images' addresses itself.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "source", "covers"],
+  "properties": {
+    "schema": {
+      "const": 1
+    },
+    "source": {
+      "const": "IGDB"
+    },
+    "covers": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/cover"
+      }
+    }
+  },
+  "$defs": {
+    "imageId": {
+      "type": "string",
+      "pattern": "^[0-9a-z]{1,40}$",
+      "description": "An IGDB image ID."
+    },
+    "cover": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["titleId", "igdb", "name", "cover"],
+      "properties": {
+        "titleId": {
+          "type": "string",
+          "pattern": "^[0-9A-F]{16}$",
+          "description": "The game's title ID in nxnative.json."
+        },
+        "igdb": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "IGDB's ID of the game."
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200,
+          "description": "IGDB's name of the game, to check the match by eye."
+        },
+        "cover": {
+          "$ref": "#/$defs/imageId",
+          "description": "The game's cover, upright."
+        },
+        "artwork": {
+          "$ref": "#/$defs/imageId",
+          "description": "An artwork of the game, wide."
+        }
+      }
+    }
+  }
+}

@@ -24,6 +24,8 @@
 //                                        gallery writes
 //                                        tmp/ready-<scenario>.json in its
 //                                        container (Ready below)
+//      -GalleryCategory Controls         the settings page's category, one
+//                                        of nxnative's sections
 //
 
 import SwiftUI
@@ -42,6 +44,7 @@ struct GalleryScenario {
     var landscape = false
     /// The name of the file that says the screen has settled.
     var ready: String?
+    var category: String?
 
     static func fromArguments() -> GalleryScenario {
         let defaults = UserDefaults.standard
@@ -61,6 +64,7 @@ struct GalleryScenario {
         scenario.work = defaults.string(forKey: "GalleryWork")
         scenario.landscape = defaults.string(forKey: "GalleryOrientation") == "landscape"
         scenario.ready = defaults.string(forKey: "GalleryReady")
+        scenario.category = defaults.string(forKey: "GalleryCategory")
         return scenario
     }
 
@@ -118,6 +122,12 @@ struct GalleryScenario {
         guard let ready else { return }
         Task { @MainActor in
             try? await Task.sleep(for: .seconds(3))
+            // The covers the screen shows, from IGDB, for up to 20 s more.
+            for _ in 0..<40 {
+                let pending = await CartoucheCoverStore.shared.pending
+                if pending == 0 { break }
+                try? await Task.sleep(for: .milliseconds(500))
+            }
             guard let scene, let window = scene.windows.first else {
                 NSLog("[Gallery] no window to measure")
                 return
@@ -219,8 +229,7 @@ struct CartoucheGalleryApp: App {
         case "settings":
             if let entry = entries.all.first(where: { $0.titleId == scenario.sheet }), let app = entry.app {
                 NavigationStack {
-                    CartoucheGameSettingsView(model: CartoucheGameActions.shared.settings(for: app, tileKey: entry.tileKey),
-                                              onNxnativeScreen: {})
+                    CartoucheGameSettingsView(model: settings(for: app, entry: entry), onNxnativeScreen: {})
                         .toolbar {
                             ToolbarItem(placement: .confirmationAction) {
                                 Button(CartoucheText.done) {}
@@ -235,5 +244,12 @@ struct CartoucheGalleryApp: App {
         default:
             CartoucheGamesView()
         }
+    }
+
+    /// The game's settings, on the scenario's category.
+    private func settings(for app: LCAppModel, entry: CartoucheEntry) -> CartoucheGameSettingsModel {
+        let settings = CartoucheGameActions.shared.settings(for: app, tileKey: entry.tileKey)
+        settings.category = scenario.category
+        return settings
     }
 }

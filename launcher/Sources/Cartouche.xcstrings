@@ -2330,6 +2330,23 @@
         }
       }
     },
+    "settings.category.saves" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Saves"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sauvegardes"
+          }
+        }
+      }
+    },
     "settings.cloud" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -3941,6 +3958,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Version"
+          }
+        }
+      }
+    },
+    "system.covers.credit" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Covers and artworks of the games: IGDB.com."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Jaquettes et illustrations des jeux : IGDB.com."
           }
         }
       }

@@ -48,6 +48,18 @@ class CatalogTest(unittest.TestCase):
         jsonschema.Draft202012Validator.check_schema(schema)
         jsonschema.validate(load(CATALOG / "nxnative.json"), schema)
 
+    @unittest.skipIf(jsonschema is None, "jsonschema is not installed")
+    def test_covers_match_the_schema(self):
+        schema = load(CATALOG / "schema" / "covers.schema.json")
+        jsonschema.Draft202012Validator.check_schema(schema)
+        jsonschema.validate(load(CATALOG / "covers.json"), schema)
+
+    def test_covers_are_for_nxnative_games(self):
+        games = {g["titleId"] for g in load(CATALOG / "nxnative.json")["games"]}
+        ids = [c["titleId"] for c in load(CATALOG / "covers.json")["covers"]]
+        self.assertEqual(ids, sorted(set(ids)), "one cover per game, sorted by title ID")
+        self.assertLessEqual(set(ids), games, "covers are for the games of nxnative.json")
+
     def test_nxnative_list_is_read_at_the_pinned_commit(self):
         pinned = (ROOT / "engine" / "nxnative.commit").read_text().strip()
         self.assertEqual(load(CATALOG / "nxnative.json")["nxnative"], pinned,
@@ -68,7 +80,7 @@ class CatalogTest(unittest.TestCase):
                 self.assertIn(path.stem, ids)
 
     def test_publish_guard_accepts_the_catalog(self):
-        for path in [*self.game_files(), CATALOG / "devices.json", CATALOG / "nxnative.json"]:
+        for path in [*self.game_files(), CATALOG / "devices.json", CATALOG / "nxnative.json", CATALOG / "covers.json"]:
             with self.subTest(path=path.name):
                 guard.check_file(path, "catalog")
 

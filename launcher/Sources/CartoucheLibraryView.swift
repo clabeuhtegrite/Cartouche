@@ -23,16 +23,20 @@ struct CartoucheLibraryView: View {
     let onPlay: (LCAppModel) -> Void
     let onSheet: (CartoucheEntry) -> Void
     let onBack: () -> Void
+    /// Where a game's sheet grows out of its cartridge.
+    let zoom: Namespace.ID?
 
     // Written out: before Swift 6.4 (SE-0502), the private state below made
     // the synthesized initializer private.
     init(entries: CartoucheCatalog.Entries, isActive: Bool, onPlay: @escaping (LCAppModel) -> Void,
-         onSheet: @escaping (CartoucheEntry) -> Void, onBack: @escaping () -> Void) {
+         onSheet: @escaping (CartoucheEntry) -> Void, onBack: @escaping () -> Void,
+         zoom: Namespace.ID? = nil) {
         self.entries = entries
         self.isActive = isActive
         self.onPlay = onPlay
         self.onSheet = onSheet
         self.onBack = onBack
+        self.zoom = zoom
     }
 
     enum Filter: CaseIterable, Hashable {
@@ -124,7 +128,7 @@ struct CartoucheLibraryView: View {
             .onAppear { columnCount = layout.columns }
             .onChange(of: layout.columns) { _, columns in columnCount = columns }
         }
-        .background(CartoucheStage(key: focused?.tileKey))
+        .background(CartoucheStage(key: focused?.tileKey, artwork: focused?.cover?.artwork))
         .navigationTitle(CartoucheText.allGames)
         .searchable(text: $query, placement: .navigationBarDrawer(displayMode: .always), prompt: CartoucheText.searchPrompt)
         .onChange(of: filter) { _, _ in focusIndex = 0 }
@@ -192,6 +196,7 @@ struct CartoucheLibraryView: View {
                         CartoucheGameCartridge(entry: entry, width: layout.tile,
                                                isFocused: gamepad.isConnected && focusIndex == index,
                                                namesOwned: true)
+                            .cartoucheZoomSource(entry.id, in: zoom)
                         CartoucheStatusLabel(status: CartouchePlayStatus.of(entry))
                             .padding(.horizontal, 2)
                     }

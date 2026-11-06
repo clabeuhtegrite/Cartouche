@@ -69,7 +69,7 @@ struct CartoucheGameSheetView: View {
             }
         }
         .scrollContentBackground(.hidden)
-        .background(CartoucheStage(key: entry.tileKey))
+        .background(CartoucheStage(key: entry.tileKey, artwork: entry.cover?.artwork))
         .navigationTitle(entry.name)
         .navigationBarTitleDisplayMode(.inline)
     }
@@ -85,7 +85,9 @@ struct CartoucheGameSheetView: View {
                         .foregroundStyle(Color.white)
                         .lineLimit(3)
                         .minimumScaleFactor(0.7)
-                    CartoucheMetaLine(entry: entry)
+                    // For the player's own copy, the badge says whether it
+                    // is ready, or what stops it.
+                    CartoucheMetaLine(entry: entry, showsStatus: entry.app == nil || entry.sheet == nil)
                     if entry.sheet != nil {
                         CartoucheFitBadge(fit: fit, owned: entry.app != nil)
                     }
