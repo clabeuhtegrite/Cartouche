@@ -328,6 +328,44 @@ final class CartoucheCatalog {
             ?? sheets.first { Self.comparable($0.name) == name }?.titleId
     }
 
+    /// The title ID of the game an IPA's file name names, as players name
+    /// them: "Mario Kart World.ipa", "MarioKartWorld-nxnative-6nov-v2.ipa",
+    /// "MKW 09D00E8A5D61A000.ipa". A title ID the catalogue knows, written
+    /// anywhere in the name, else the game the name is, else the game the
+    /// name starts with, the longest such name. A name shorter than six
+    /// letters and digits is taken only whole.
+    func titleId(inFileName rawName: String) -> String? {
+        var name = rawName
+        if name.lowercased().hasSuffix(".ipa") { name.removeLast(4) }
+        for run in Self.hexadecimalRuns(in: name) where run.count == 16 {
+            if let known = game(titleId: run) { return known.titleId }
+            if sheet(titleId: run) != nil { return run }
+        }
+        if let exact = titleId(matchingName: name) { return exact }
+        let fileName = Self.comparable(name)
+        let names = games.map { ($0.titleId, Self.comparable($0.name)) }
+            + sheets.map { ($0.titleId, Self.comparable($0.name)) }
+        return names
+            .filter { $0.1.count >= 6 && fileName.hasPrefix($0.1) }
+            .max { $0.1.count < $1.1.count }?.0
+    }
+
+    /// The runs of hexadecimal digits in NAME, in capitals.
+    private static func hexadecimalRuns(in name: String) -> [String] {
+        var runs: [String] = []
+        var run = ""
+        for character in name.uppercased() {
+            if character.isASCII, character.isHexDigit {
+                run.append(character)
+            } else if !run.isEmpty {
+                runs.append(run)
+                run = ""
+            }
+        }
+        if !run.isEmpty { runs.append(run) }
+        return runs
+    }
+
     private static func comparable(_ name: String) -> String {
         name.folding(options: [.caseInsensitive, .diacriticInsensitive, .widthInsensitive], locale: nil)
             .filter { $0.isLetter || $0.isNumber }

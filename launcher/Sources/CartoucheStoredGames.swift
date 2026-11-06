@@ -162,8 +162,8 @@ final class CartoucheStoredGames: ObservableObject {
                         found.append(game)
                         continue
                     }
-                    let game = await identify(path: path, item: item, in: remote, server: location.server)
-                    known[key] = game
+                    let (game, settled) = await identify(path: path, item: item, in: remote, server: location.server)
+                    if settled { known[key] = game }
                     found.append(game)
                 }
             }
@@ -186,21 +186,25 @@ final class CartoucheStoredGames: ObservableObject {
         try? data.write(to: cacheFile, options: .atomic)
     }
 
-    /// What the IPA at PATH is: by its name when Cartouche named it, else by
-    /// its Info.plist. A file iCloud Drive has not downloaded is known by its
-    /// name only: reading it would download all of it.
+    /// What the IPA at PATH is: by the title ID in its name, as Cartouche
+    /// names the IPAs it writes, else by its Info.plist, else by its name
+    /// (CartoucheCatalog.titleId(inFileName:)). A file iCloud Drive has not
+    /// downloaded is known by its name only, since reading it would download
+    /// all of it. Also returns whether to remember what it found: an IPA its
+    /// name did not tell is read again at the next scan, once it is
+    /// downloaded or once the place answers.
     private func identify(path: String, item: CartoucheRemoteItem, in remote: CartoucheRemote,
-                          server: CartoucheStorageServer) async -> CartoucheStoredGame {
+                          server: CartoucheStorageServer) async -> (CartoucheStoredGame, settled: Bool) {
         var game = CartoucheStoredGame(path: path, size: item.size, modified: item.modified,
                                        titleId: CartoucheStoredGame.titleId(inName: item.name), isGame: false)
         if game.titleId != nil {
             game.isGame = true
-            return game
+            return (game, true)
         }
         if let folder = remote as? CartoucheFolder, !folder.isDownloaded(path) {
-            game.titleId = CartoucheCatalog.shared.titleId(matchingName: game.name)
+            game.titleId = CartoucheCatalog.shared.titleId(inFileName: item.name)
             game.isGame = game.titleId != nil
-            return game
+            return (game, game.isGame)
         }
         do {
             let source = try await remote.open(path)
@@ -210,13 +214,15 @@ final class CartoucheStoredGames: ObservableObject {
             game.version = info["CFBundleShortVersionString"] as? String
             game.titleId = game.bundleId.flatMap(CartoucheStoredGame.titleId(inBundleId:))
                 ?? game.displayName.flatMap { CartoucheCatalog.shared.titleId(matchingName: $0) }
+                ?? CartoucheCatalog.shared.titleId(inFileName: item.name)
             game.isGame = game.titleId != nil || info["DMLanguage"] != nil
+            return (game, true)
         } catch {
             NSLog("[Cartouche] cannot read %@: %@", path, error.localizedDescription)
-            game.titleId = CartoucheCatalog.shared.titleId(matchingName: game.name)
+            game.titleId = CartoucheCatalog.shared.titleId(inFileName: item.name)
             game.isGame = game.titleId != nil
+            return (game, game.isGame)
         }
-        return game
     }
 
     /// The Info.plist of the app in an IPA: Payload/<name>.app/Info.plist.
