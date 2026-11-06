@@ -2330,6 +2330,23 @@
         }
       }
     },
+    "settings.category.saves" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Saves"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sauvegardes"
+          }
+        }
+      }
+    },
     "settings.cloud" : {
       "extractionState" : "manual",
       "localizations" : {

@@ -158,6 +158,8 @@ def arguments(scenario):
         args += ["-GallerySheet", scenario["sheet"]]
     if scenario.get("work"):
         args += ["-GalleryWork", scenario["work"]]
+    if scenario.get("category"):
+        args += ["-GalleryCategory", scenario["category"]]
     return args
 
 

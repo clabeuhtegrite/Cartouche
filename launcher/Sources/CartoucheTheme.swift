@@ -172,6 +172,27 @@ extension View {
             self.buttonStyle(.bordered).tint(.white)
         }
     }
+
+    /// A game's cartridge that its sheet grows out of (iOS 18 and later).
+    @ViewBuilder
+    func cartoucheZoomSource(_ id: String, in namespace: Namespace.ID?) -> some View {
+        if #available(iOS 18.0, *), let namespace {
+            self.matchedTransitionSource(id: id, in: namespace)
+        } else {
+            self
+        }
+    }
+
+    /// A game's sheet, grown out of its cartridge and shrinking back into it
+    /// (iOS 18 and later); it slides up from the bottom before.
+    @ViewBuilder
+    func cartoucheZoom(from id: String?, in namespace: Namespace.ID?) -> some View {
+        if #available(iOS 18.0, *), let id, let namespace {
+            self.navigationTransition(.zoom(sourceID: id, in: namespace))
+        } else {
+            self
+        }
+    }
 }
 
 /// The stage: dark, lit from above by the colours of the game in focus.

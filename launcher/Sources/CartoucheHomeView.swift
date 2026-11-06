@@ -34,6 +34,8 @@ struct CartoucheHomeView: View {
     let onLibrary: () -> Void
     let onSetup: () -> Void
     let onTab: (LCTabIdentifier) -> Void
+    /// Where a game's sheet grows out of its cartridge.
+    let zoom: Namespace.ID?
 
     // Written out: before Swift 6.4 (SE-0502), the private state below made
     // the synthesized initializer private.
@@ -41,7 +43,7 @@ struct CartoucheHomeView: View {
          onPlay: @escaping (LCAppModel) -> Void, onImport: @escaping () -> Void,
          onUninstall: @escaping (LCAppModel) -> Void, onSheet: @escaping (CartoucheEntry) -> Void,
          onLibrary: @escaping () -> Void, onSetup: @escaping () -> Void,
-         onTab: @escaping (LCTabIdentifier) -> Void) {
+         onTab: @escaping (LCTabIdentifier) -> Void, zoom: Namespace.ID? = nil) {
         self.entries = entries
         self.gameCount = gameCount
         self.isActive = isActive
@@ -52,6 +54,7 @@ struct CartoucheHomeView: View {
         self.onLibrary = onLibrary
         self.onSetup = onSetup
         self.onTab = onTab
+        self.zoom = zoom
     }
 
     @ObservedObject private var setup = CartoucheSetup.shared
@@ -122,18 +125,30 @@ struct CartoucheHomeView: View {
                         heroView(metrics)
                         shelf(1, title: CartoucheText.homeIPhone, width: metrics.smallTile)
                     }
-                    Spacer(minLength: 0)
+                }
+                .padding(.horizontal, metrics.margin)
+                .padding(.vertical, 12)
+            }
+            .scrollBounceBehavior(.basedOnSize)
+            .scrollIndicators(.hidden)
+            // The dock stays at the bottom, the shelves scrolling under it
+            // where the screen is short (the iPhone Duo folded, sideways).
+            .safeAreaInset(edge: .bottom, spacing: 0) {
+                VStack(spacing: 10) {
                     dock
                     if gamepad.isConnected {
                         hints
                     }
                 }
                 .padding(.horizontal, metrics.margin)
-                .padding(.vertical, 12)
-                .frame(minHeight: proxy.size.height, alignment: .top)
+                .padding(.top, 14)
+                .padding(.bottom, 4)
+                .background {
+                    LinearGradient(colors: [CartoucheTheme.stage.opacity(0), CartoucheTheme.stage.opacity(0.88)],
+                                   startPoint: .top, endPoint: UnitPoint(x: 0.5, y: 0.45))
+                        .ignoresSafeArea(edges: .bottom)
+                }
             }
-            .scrollBounceBehavior(.basedOnSize)
-            .scrollIndicators(.hidden)
         }
         .background(CartoucheStage(key: heroKey))
         .onReceive(gamepad.inputs) { input in
@@ -231,6 +246,7 @@ struct CartoucheHomeView: View {
         switch item {
         case .game(let entry):
             CartoucheGameCartridge(entry: entry, width: width, isFocused: isFocused)
+                .cartoucheZoomSource(entry.id, in: zoom)
                 .accessibilityAddTraits(.isButton)
                 .accessibilityAction(named: Text(CartoucheText.details)) { onSheet(entry) }
                 .contextMenu { gameMenu(entry) }
@@ -512,6 +528,8 @@ struct CartoucheHomeView: View {
 @available(iOS 17.0, *)
 struct CartoucheMetaLine: View {
     let entry: CartoucheEntry
+    /// Off where a badge under the line says it already.
+    var showsStatus = true
 
     var body: some View {
         HStack(spacing: 8) {
@@ -531,7 +549,9 @@ struct CartoucheMetaLine: View {
                     .foregroundStyle(CartoucheTheme.secondaryText)
                     .lineLimit(1)
             }
-            CartoucheStatusLabel(status: CartouchePlayStatus.of(entry))
+            if showsStatus {
+                CartoucheStatusLabel(status: CartouchePlayStatus.of(entry))
+            }
         }
     }
 }

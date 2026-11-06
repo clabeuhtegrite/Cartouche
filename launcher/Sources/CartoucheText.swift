@@ -324,6 +324,8 @@ enum CartoucheText {
     static var settingsNxnativeScreenFooter: String { s("settings.nxnativeScreen.footer", "Starts the game on nxnative’s own settings screen, in English, with these choices: its Play button starts the game.") }
     static var settingFixed: String { s("settings.fixed", "Set by an env.txt file") }
     static var cloudTitle: String { s("settings.cloud", "Cloud saves") }
+    /// The cloud saves' category, a word on a button.
+    static var settingsSaves: String { s("settings.category.saves", "Saves") }
     static var cloudOff: String { s("settings.cloud.off", "Off") }
     static var cloudChoose: String { s("settings.cloud.choose", "Choose a folder in iCloud Drive…") }
     static var cloudChange: String { s("settings.cloud.change", "Choose a different folder…") }
