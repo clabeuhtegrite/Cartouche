@@ -14,14 +14,13 @@ To move to a newer upstream commit, update the submodule, check that every patch
 
 ## How the IPA is built
 
-`scripts/build.sh`, on a Mac with Xcode 27.2, CMake and `ldid`, with the network:
+`scripts/build.sh`, on a Mac with Xcode 27.2 and `ldid`, with the network for the Swift packages LiveContainer and SideStore resolve:
 
 1. `scripts/prepare.sh` copies LiveContainer and SideStore to `build/app/work/src`, applies `patches/livecontainer/*.patch` and `patches/sidestore/*.patch` in name order, adds the launcher ([`launcher/Sources`](../launcher/Sources/)) to LiveContainer's SwiftUI sources and its bridge to the built-in SideStore ([`launcher/SideStoreSupport`](../launcher/SideStoreSupport/)) to SideStoreSupport, puts Cartouche's icon ([`icon/`](icon/)) in place of LiveContainer's, then gives the copies Cartouche's identity with `scripts/brand.py`;
 2. builds dylibify;
 3. builds SideStore with its own Makefile (`make build fakesign ipa`);
-4. builds the lab's runtime with [`engine/spikes/s2/build_ios_runtime.sh`](../engine/spikes/s2/build_ios_runtime.sh): CPython for iOS and Capstone at the versions of its `runtime.env`, and the part of nxnative the rewriter reads, at the pinned commit;
-5. builds LiveContainer with `xcodebuild archive`, with Cartouche's bundle identifier from [`config.env`](config.env);
-6. assembles `build/app/Cartouche.ipa` with `scripts/package.sh`, adapted from LiveContainer's own packaging script: SideStore goes into the app as a framework, with its intents and widget, the sheets and device profiles of [`catalog/`](../catalog/) go into `CartoucheCatalog/` for the launcher, and the lab's runtime goes into `Frameworks/` and `python/`, each of Python's extension modules in a framework of its own, as iOS requires.
+4. builds LiveContainer with `xcodebuild archive`, with Cartouche's bundle identifier from [`config.env`](config.env);
+5. assembles `build/app/Cartouche.ipa` with `scripts/package.sh`, adapted from LiveContainer's own packaging script: SideStore goes into the app as a framework, with its intents and widget, the sheets and device profiles of [`catalog/`](../catalog/) go into `CartoucheCatalog/` for the launcher.
 
 The IPA is unsigned; SideStore, the [Cartouche Installer](../installer/README.md) or iloader signs it when installing it. `prepare.sh` also runs on Linux: CI runs it on every pull request, with the tests in [`tests/`](tests/) of `brand.py`, the icon, the launcher's words, the names its renewal shares with LiveContainer and SideStore, and the version, so a patch or a name that no longer applies shows up in a minute rather than after the Mac build.
 

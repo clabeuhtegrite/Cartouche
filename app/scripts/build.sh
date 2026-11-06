@@ -2,7 +2,8 @@
 # Build Cartouche.ipa, unsigned, from the pinned LiveContainer and SideStore sources.
 #
 # Needs a Mac with Xcode (CI uses the version in .github/workflows/app.yml),
-# Homebrew's ldid and the submodules:
+# Homebrew's ldid, the network (for the Swift packages LiveContainer and
+# SideStore resolve) and the submodules:
 #
 #     git submodule update --init --recursive
 #     brew install ldid

@@ -329,7 +329,7 @@ final class CartoucheCatalog {
     }
 
     /// The title ID of the game an IPA's file name names, as players name
-    /// them: "Mario Kart World.ipa", "MarioKartWorld-nxnative-6nov-v2.ipa",
+    /// them: "Mario Kart World.ipa", "MarioKartWorld-nxnative-v2.ipa",
     /// "MKW 09D00E8A5D61A000.ipa". A title ID the catalogue knows, written
     /// anywhere in the name, else the game the name is, else the game the
     /// name starts with, the longest such name. A name shorter than six
