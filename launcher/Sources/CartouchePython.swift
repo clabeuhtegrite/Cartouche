@@ -119,6 +119,12 @@ final class CartouchePython {
     /// Python is from the environment: PYTHONHOME for the standard library,
     /// PYTHONPATH for the lab's code, and PYTHONEXECUTABLE for sys.executable,
     /// beside which Python finds the frameworks of its extension modules.
+    ///
+    /// It does not read PYTHONUTF8: Py_InitializeEx starts Python with its
+    /// compatibility configuration, which takes UTF-8 mode from the
+    /// Py_UTF8Mode variable only. Without it, Python on iOS writes text files
+    /// in ASCII, the encoding of the C locale apps start in, and nxnative's
+    /// rewriter stops on the first arrow of its own messages.
     private func start() throws -> RunString {
         guard Self.isBundled else { throw Failure.notBundled }
         let caches = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0]
@@ -127,7 +133,6 @@ final class CartouchePython {
             "PYTHONPATH": Self.home.appendingPathComponent("app", isDirectory: true).path,
             "PYTHONEXECUTABLE": Bundle.main.executablePath ?? Bundle.main.bundlePath,
             "PYTHONNOUSERSITE": "1",
-            "PYTHONUTF8": "1",
             "PYTHONUNBUFFERED": "1",
             // The app's files cannot change: Python keeps what it compiles here.
             "PYTHONPYCACHEPREFIX": caches.appendingPathComponent("Python", isDirectory: true).path,
@@ -139,9 +144,12 @@ final class CartouchePython {
             throw Failure.cannotLoad(dlerror().map { String(cString: $0) } ?? Self.library.path)
         }
         guard let initialize = dlsym(handle, "Py_InitializeEx"),
-              let run = dlsym(handle, "PyRun_SimpleStringFlags") else {
-            throw Failure.cannotLoad("Py_InitializeEx, PyRun_SimpleStringFlags")
+              let run = dlsym(handle, "PyRun_SimpleStringFlags"),
+              let utf8Mode = dlsym(handle, "Py_UTF8Mode") else {
+            throw Failure.cannotLoad("Py_InitializeEx, PyRun_SimpleStringFlags, Py_UTF8Mode")
         }
+        // int Py_UTF8Mode, read once, when Python starts.
+        utf8Mode.assumingMemoryBound(to: Int32.self).pointee = 1
         // 0: Python installs no signal handlers; the app keeps its own.
         unsafeBitCast(initialize, to: InitializeEx.self)(0)
         return unsafeBitCast(run, to: RunString.self)

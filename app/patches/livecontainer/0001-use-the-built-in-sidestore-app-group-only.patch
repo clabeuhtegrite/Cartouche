@@ -11,8 +11,7 @@ identifier when another copy is archived.
 
 Store detection and isAppGroupAltStoreLike now test for the built-in
 SideStore's group by prefix instead of looking for "SideStore" or
-"AltStore" in the group's name, because Cartouche's branding step
-renames that group to Cartouche's own.
+"AltStore" in the group's name.
 
 Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
 Claude-Session: https://claude.ai/code/session_01MzPJorvBGmBB88WUcRVhE7

@@ -16,9 +16,10 @@ SideStore: revoking it stops them all from opening.
 The flow now creates a certificate only when the account has none at
 all, whatever their names, since the one a computer made (iloader's, for
 instance) may not be named "iOS Development". Otherwise it stops with an
-error that asks the user to import the certificate from the SideStore
-that uses it, then to retry; the Retry, Skip and Cancel choices are the
-ones every provisioning error already offers. Revoking or creating one
+error that asks the user to install Cartouche again with iloader, which
+gives the built-in SideStore the certificate it signs with; the Retry,
+Skip and Cancel choices are the ones every provisioning error already
+offers. Revoking or creating one
 stays possible by hand in Settings → Advanced Settings → Certificate
 Management.
 
@@ -41,8 +42,8 @@ index 9412a17..8d215a8 100644
 +    // revokes one, and creates one only for an account that has none at all
 +    // (fetchCertificate), whatever their names: the one a computer made, such
 +    // as iloader's, may not be named "iOS Development". Otherwise the user
-+    // imports the certificate they already use from the SideStore that holds
-+    // it (ImportFromSideStore).
++    // installs Cartouche again with iloader, which puts the certificate it
++    // signs with inside the built-in SideStore (see app/scripts/brand.py).
      private func replaceCertificate(portalCertificates: [ALTX509Certificate], for team: ALTTeam) async throws -> ALTCertificate {
 -        let iosCertificates = portalCertificates.filter { cert in
 -            let nameLower = cert.name.lowercased()
@@ -94,7 +95,7 @@ index 9412a17..8d215a8 100644
 -            return try await self.requestCertificate(for: team)
 -        }
 +        debugLog("[CertificateProvisioningFlow] replaceCertificate: \(portalCertificates.count) certificate(s) on the portal and none usable here: asking for an import instead of revoking or creating one.")
-+        throw OperationError.forbidden(failureReason: NSLocalizedString("This Apple account already has a certificate, which signs the apps installed with it. This SideStore never revokes it and does not create another one.\n\nImport it from the SideStore that uses it, with \"Import from SideStore\" in the onboarding or in Settings → Advanced Settings → Certificate Management, then tap Retry.", comment: ""))
++        throw OperationError.forbidden(failureReason: NSLocalizedString("This Apple account already has a certificate, which signs the apps installed with it. This SideStore never revokes it and does not create another one.\n\nInstall Cartouche again with iloader, over this copy: iloader gives Cartouche the certificate it signs with. Then sign in again.", comment: ""))
      }
  }
 -- 

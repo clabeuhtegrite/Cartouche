@@ -2,12 +2,22 @@
 """Give copies of the LiveContainer and SideStore sources Cartouche's identity.
 
 LiveContainer and its built-in SideStore name themselves in many places: the
-bundle identifier, the app group, the keychain groups, the URL schemes, and
-the source SideStore reads for its own updates. A Cartouche that kept those
-names would share its app group, keychain and links with a LiveContainer
-installed on the same iPhone, and its SideStore would take that LiveContainer
-for itself. app/scripts/prepare.sh runs this script on the copies of the
-sources, after the patches in app/patches/; the submodules are never touched.
+bundle identifier, the URL schemes, and the source SideStore reads for its own
+updates. A Cartouche that kept those names would answer a LiveContainer's
+links, and its SideStore would take that LiveContainer for itself.
+app/scripts/prepare.sh runs this script on the copies of the sources, after
+the patches in app/patches/; the submodules are never touched.
+
+Two names stay LiveContainer+SideStore's: the app group,
+group.com.SideStore.SideStore, and the keychain groups,
+com.kdt.livecontainer.shared and .1 to .127. iloader installs any app that
+carries a com.SideStore.SideStore framework as a LiveContainer+SideStore: it
+gives it exactly that app group and those keychain groups, and puts its
+signing certificate inside the framework, where the built-in SideStore finds
+it at sign-in and LiveContainer then signs games with it. With names of its
+own, Cartouche had no certificate at all. The price is that Cartouche takes
+the place of a LiveContainer+SideStore on the iPhone: the two would share
+their SideStore data.
 
 Each rule renames one name wherever it appears in a source file, and lists
 the files where it must find it, so that an update of LiveContainer or
@@ -66,12 +76,6 @@ class Identity:
     sidestore_source_url: str
 
     @property
-    def app_group(self) -> str:
-        # SideStore derives its app group from its bundle identifier, and so
-        # does SideBackup when it hands a backup back.
-        return "group." + self.bundle_id
-
-    @property
     def store_url_scheme(self) -> str:
         # The scheme that reaches the built-in SideStore. SideBackup answers
         # only schemes that start with "sidestore", and SideStore replaces
@@ -106,32 +110,20 @@ class Leftover:
     only: tuple[str, ...] = ()
 
 
+# LiveContainer's bundle identifier, but not its keychain groups,
+# com.kdt.livecontainer.shared and .1 to .127.
+BUNDLE_ID_PATTERN = re.compile(r"com\.kdt\.livecontainer(?!\.shared)")
+
 LIVECONTAINER_RULES = (
+    # Everywhere but in the keychain groups, which stay the ones iloader gives.
     Rule(
         "bundle identifier",
-        re.compile(r"com\.kdt\.livecontainer"),
+        BUNDLE_ID_PATTERN,
         lambda i: i.bundle_id,
         expect=(
-            "entitlements.xml",
             "LiveContainer/Info.plist",
-            "LiveContainer/Tweaks/SecItem.m",
             "LiveContainerSwiftUI/Utilities/LCUtils.m",
-            "LiveContainerSwiftUI/Views/Settings/LCJITLessDiagnoseView.swift",
             "LiveContainerSwiftUI/Views/Settings/LCSettingsView.swift",
-            "LiveProcess/LiveProcess.entitlements",
-            "SideStoreSupport/SideStoreHooks.m",
-            "xcconfigs/Global.xcconfig",
-        ),
-    ),
-    Rule(
-        "app group",
-        re.compile(r"group\.com\.SideStore\.SideStore"),
-        lambda i: i.app_group,
-        expect=(
-            "LiveContainer/LCSharedUtils.m",
-            "LiveContainerSwiftUI/Utilities/LCUtils.m",
-            "LiveContainerSwiftUI/Utilities/Shared.swift",
-            "LiveContainerSwiftUI/Views/Settings/LCJITLessDiagnoseView.swift",
             "SideStoreSupport/SideStoreHooks.m",
             "xcconfigs/Global.xcconfig",
         ),
@@ -193,8 +185,7 @@ LIVECONTAINER_RULES = (
 )
 
 LIVECONTAINER_LEFTOVERS = (
-    Leftover("LiveContainer's bundle identifier", re.compile(r"com\.kdt\.livecontainer")),
-    Leftover("the SideStore app group", re.compile(r"group\.com\.SideStore\.SideStore")),
+    Leftover("LiveContainer's bundle identifier", BUNDLE_ID_PATTERN),
     Leftover("the AltStore app group", re.compile(r"group\.com\.rileytestut\.AltStore")),
     Leftover("LiveContainer's SideStore source", re.compile(r"apps_ss_lc\.json")),
     Leftover("LiveContainer's URL scheme", scheme_pattern("livecontainer", numbered=True)),
@@ -206,12 +197,14 @@ _BACKUP_RESTORE = "SideStore/Core/Operations/PipelineOperations/PerformBackupRes
 _DATABASE_MANAGER = "AltStore/Core/Model/DatabaseManager/DatabaseManager.swift"
 
 SIDESTORE_RULES = (
-    # The values the built-in SideStore's hooks return inside the app. The
-    # widget extension runs SideStore's code without the hooks, so it needs
-    # them as defaults to find the app group.
+    # The app SideStore keeps up to date as itself: Cartouche. The built-in
+    # SideStore's hooks return it inside the app; the widget extension runs
+    # SideStore's code without the hooks, so it needs it as the default to
+    # show Cartouche's expiry. appbundleIdentifier stays SideStore's: the
+    # widget derives the app group from it, and the group stays SideStore's.
     Rule(
         "store bundle identifier",
-        re.compile(r'(?<=")com\.SideStore\.SideStore(?=")'),
+        re.compile(r'(?<=storeAppBundleIdentifier = ")com\.SideStore\.SideStore(?=")'),
         lambda i: i.bundle_id,
         expect=(_BUNDLE_HELPERS,),
         only=(_BUNDLE_HELPERS,),
@@ -237,7 +230,7 @@ SIDESTORE_RULES = (
 )
 
 SIDESTORE_LEFTOVERS = (
-    Leftover("SideStore's bundle identifier", re.compile(r'"com\.SideStore\.SideStore"'), only=(_BUNDLE_HELPERS,)),
+    Leftover("SideStore's bundle identifier as the store app", re.compile(r'storeAppBundleIdentifier = "com\.SideStore\.SideStore"'), only=(_BUNDLE_HELPERS,)),
     Leftover("SideStore's URL scheme", re.compile(r'"sidestore://"'), only=(_BACKUP_RESTORE,)),
     Leftover("SideStore's migration notification", re.compile(r"AltStore\.WillMigrateDatabase"), only=(_DATABASE_MANAGER,)),
 )
