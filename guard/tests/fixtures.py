@@ -8,7 +8,7 @@ import struct
 import tarfile
 import zipfile
 
-from cartouche_server import APP_BUNDLE_ID
+from cartouche_guard import APP_BUNDLE_ID
 
 
 def macho(segments: list[tuple[str, list[str]]]) -> bytes:

@@ -5,7 +5,7 @@ import json
 import unittest
 from pathlib import Path
 
-from cartouche_server import APP_BUNDLE_ID, guard
+from cartouche_guard import APP_BUNDLE_ID, guard
 
 ROOT = Path(__file__).resolve().parents[2]
 CATALOG = ROOT / "catalog"
@@ -61,9 +61,9 @@ class CatalogTest(unittest.TestCase):
         self.assertLessEqual(set(ids), games, "covers are for the games of nxnative.json")
 
     def test_nxnative_list_is_read_at_the_pinned_commit(self):
-        pinned = (ROOT / "engine" / "nxnative.commit").read_text().strip()
+        pinned = (CATALOG / "nxnative.commit").read_text().strip()
         self.assertEqual(load(CATALOG / "nxnative.json")["nxnative"], pinned,
-                         "run catalog/tools/nxnative_games.py on nxnative at engine/nxnative.commit")
+                         "run catalog/tools/nxnative_games.py on nxnative at catalog/nxnative.commit")
 
     def test_nxnative_list_names_each_title_once(self):
         games = load(CATALOG / "nxnative.json")["games"]

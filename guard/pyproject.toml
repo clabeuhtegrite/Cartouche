@@ -3,19 +3,19 @@ requires = ["setuptools>=77"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "cartouche-server"
-version = "0.1.0"
-description = "Publishes Cartouche's signed update manifest and its chunks"
+name = "cartouche-guard"
+version = "0.2.0"
+description = "Refuses to publish anything that looks like game content, keys or firmware"
 readme = "README.md"
 requires-python = ">=3.11"
 license = "AGPL-3.0-only"
-dependencies = ["cryptography>=42"]
+dependencies = []
 
 [project.optional-dependencies]
 dev = ["jsonschema>=4.18"]
 
 [project.scripts]
-cartouche-server = "cartouche_server.cli:main"
+cartouche-guard = "cartouche_guard.cli:main"
 
 [tool.setuptools.packages.find]
-include = ["cartouche_server*"]
+include = ["cartouche_guard*"]

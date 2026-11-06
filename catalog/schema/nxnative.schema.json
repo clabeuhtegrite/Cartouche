@@ -13,7 +13,7 @@
     "nxnative": {
       "type": "string",
       "pattern": "^[0-9a-f]{40}$",
-      "description": "The nxnative commit the list was read from (engine/nxnative.commit)."
+      "description": "The nxnative commit the list was read from (catalog/nxnative.commit)."
     },
     "games": {
       "type": "array",
