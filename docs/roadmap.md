@@ -22,7 +22,7 @@ Each phase ends with a gate: a result checked on a real iPhone, not only in CI. 
 
 ## Phase 2: spikes for building on the iPhone
 
-- **S2:** rewrite a game's modules on the phone (`patch_nso.py` on CPython for iOS, with capstone). Started: in the iOS simulator in CI, then on the iPhone with the player's own game ([engine/spikes/s2](../engine/spikes/s2/README.md)).
+- **S2:** rewrite a game's modules on the phone (`patch_nso.py` on CPython for iOS, with capstone). The same files as a Mac in the iOS simulator in CI; on the iPhone, the lab of the System tab rewrites the player's own game and compares with their Mac's build ([engine/spikes/s2](../engine/spikes/s2/README.md)).
 - **S3:** read the dump and translate the shaders on the phone (.NET NativeAOT for LibHac and Ryujinx's translator, SPIRV-Cross, Metal at run time).
 - **S4:** an engine host built by CI that loads the modules from a framework written and signed on the phone (`dm_set_game_image_header()`).
 - **Gate:** for Mario Kart World, each spike gives the same result as the Mac build.

@@ -27,30 +27,21 @@ jobs:
     timeout-minutes: 45
     env:
       XCODE_VERSION: "26.4"
-      PYTHON_VERSION: "3.13"
-      # The release of BeeWare's Python-Apple-support whose CPython for iOS
-      # runs the rewriter. Step 2 embeds the same one in Cartouche.
-      PYTHON_SUPPORT: "3.13-b18"
-      CAPSTONE_VERSION: "5.0.7"
     steps:
       - uses: actions/checkout@v6
       - name: Select Xcode
         run: |
           sudo xcode-select -s "/Applications/Xcode_${XCODE_VERSION}.app"
           xcodebuild -version
+      # CPython for iOS and Capstone, as Cartouche carries them on the iPhone
+      - name: Pinned versions
+        run: grep -E '^[A-Z_]+=' engine/spikes/s2/runtime.env >> "$GITHUB_ENV"
       - uses: actions/setup-python@v6
         with:
           python-version: ${{ env.PYTHON_VERSION }}
       - name: nxnative's rewriter at the pinned commit
         run: engine/spikes/s2/fetch_nxnative.sh build/nxnative
       - name: CPython for iOS
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          gh release download "$PYTHON_SUPPORT" --repo beeware/Python-Apple-support \
-            --pattern "Python-${PYTHON_VERSION}-iOS-support.*.tar.gz" --dir build/download
-          mkdir -p build/support
-          tar -xzf build/download/Python-"${PYTHON_VERSION}"-iOS-support.*.tar.gz -C build/support
-          ls build/support
+        run: engine/spikes/s2/fetch_python_support.sh build/support
       - name: Rewrite on the Mac and in the iOS simulator, and compare
         run: engine/spikes/s2/run_simulator.sh build/support build/nxnative build/s2

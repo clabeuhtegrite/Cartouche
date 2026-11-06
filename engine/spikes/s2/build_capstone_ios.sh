@@ -2,17 +2,24 @@
 # Builds Capstone for iOS from the sources of its Python package on PyPI, so
 # that iOS disassembles with the same code as "pip install capstone==VERSION"
 # on a Mac, and lays out the package as CPython for iOS imports it: the
-# binding's Python files, and the library in lib/ where the binding looks.
-# usage: build_capstone_ios.sh VERSION SDK DIR   (SDK: iphonesimulator or iphoneos)
+# binding's Python files with Capstone's licence, and the library in lib/
+# where the binding looks.
+# The version, and the SHA-256 of its sources, are runtime.env's.
+# usage: build_capstone_ios.sh SDK DIR   (SDK: iphonesimulator or iphoneos)
 set -euo pipefail
 
-VERSION="${1:?usage: build_capstone_ios.sh VERSION SDK DIR}"
-SDK="${2:?usage: build_capstone_ios.sh VERSION SDK DIR}"
-OUT="${3:?usage: build_capstone_ios.sh VERSION SDK DIR}"
+HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+SDK="${1:?usage: build_capstone_ios.sh SDK DIR}"
+OUT="${2:?usage: build_capstone_ios.sh SDK DIR}"
+# shellcheck source=SCRIPTDIR/runtime.env
+source "$HERE/runtime.env"
+VERSION="$CAPSTONE_VERSION"
 WORK="$(mktemp -d)"
 trap 'rm -rf "$WORK"' EXIT
 
 python3 -m pip download --quiet --no-binary :all: --no-deps "capstone==$VERSION" -d "$WORK"
+echo "$CAPSTONE_SHA256  $WORK/capstone-$VERSION.tar.gz" | shasum -a 256 -c - >/dev/null || {
+  echo "build_capstone_ios: capstone-$VERSION.tar.gz does not have the SHA-256 that runtime.env pins" >&2; exit 1; }
 tar -xzf "$WORK/capstone-$VERSION.tar.gz" -C "$WORK"
 SRC="$WORK/capstone-$VERSION"
 
@@ -37,7 +44,7 @@ LIBRARY="$(find "$WORK/build" -name 'libcapstone*.dylib' -type f | head -n 1)"
 [ -n "$LIBRARY" ] || { echo "build_capstone_ios: no libcapstone dylib was built" >&2; exit 1; }
 rm -rf "$OUT"
 mkdir -p "$OUT/lib"
-cp "$SRC"/capstone/*.py "$OUT/"
+cp "$SRC"/capstone/*.py "$SRC/LICENSE.TXT" "$OUT/"
 cp "$LIBRARY" "$OUT/lib/libcapstone.dylib"
 
 # Capstone 5's binding names its library libcapstone.dylib on macOS only and

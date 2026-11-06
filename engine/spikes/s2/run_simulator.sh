@@ -3,10 +3,11 @@
 # this Mac's Python, then under CPython for iOS in the iOS simulator. Every
 # file the two runs write must be the same, byte for byte.
 # usage: run_simulator.sh SUPPORT NXNATIVE WORK
-#   SUPPORT   an unpacked Python-Apple-support package for iOS (Python.xcframework, testbed)
+#   SUPPORT   an unpacked Python-Apple-support package for iOS (fetch_python_support.sh)
 #   NXNATIVE  nxnative at the pinned commit (fetch_nxnative.sh)
-#   WORK      where to build; CAPSTONE_VERSION (default 5.0.7) and SIMULATOR
-#             (default: the testbed's choice) can be set.
+#   WORK      where to build; SIMULATOR (default: the testbed's choice) can be set.
+# The Mac rewrites with the whole of nxnative, iOS with the part of it that
+# Cartouche carries (layout_app.sh), and the same runner as the app's.
 set -euo pipefail
 
 USAGE="usage: run_simulator.sh SUPPORT NXNATIVE WORK"
@@ -15,29 +16,27 @@ SUPPORT="$(cd "${1:?$USAGE}" && pwd)"
 NXNATIVE="$(cd "${2:?$USAGE}" && pwd)"
 mkdir -p "${3:?$USAGE}"
 WORK="$(cd "$3" && pwd)"
-CAPSTONE_VERSION="${CAPSTONE_VERSION:-5.0.7}"
+# shellcheck source=SCRIPTDIR/runtime.env
+source "$HERE/runtime.env"
 
 echo "== The Mac: Capstone $CAPSTONE_VERSION and lz4 from PyPI"
 python3 -m venv "$WORK/venv"
 "$WORK/venv/bin/pip" install --quiet "capstone==$CAPSTONE_VERSION" lz4
-"$WORK/venv/bin/python" -m unittest discover -s "$HERE/tests" -v
-rm -rf "$WORK/app"
-mkdir -p "$WORK/app"
-cp -R "$HERE/cartouche_s2" "$WORK/app/cartouche_s2"
-"$WORK/venv/bin/python" "$HERE/make_test_nso.py" "$WORK/app/cartouche_s2/modules"
-(cd "$WORK/app" && "$WORK/venv/bin/python" -m cartouche_s2 --tools "$NXNATIVE/dm/tools") | tee "$WORK/mac.log"
+NXNATIVE="$NXNATIVE" "$WORK/venv/bin/python" -m unittest discover -s "$HERE/tests" -v
+rm -rf "$WORK/modules"
+"$WORK/venv/bin/python" "$HERE/make_test_nso.py" "$WORK/modules"
+(cd "$HERE" && "$WORK/venv/bin/python" -m cartouche_s2 --tools "$NXNATIVE/dm/tools" --modules "$WORK/modules") | tee "$WORK/mac.log"
 
 echo "== iOS: CPython for iOS in the simulator, Capstone built for it, LZ4 in pure Python"
-"$HERE/build_capstone_ios.sh" "$CAPSTONE_VERSION" iphonesimulator "$WORK/app/capstone"
-cp -R "$HERE/ios/lz4" "$WORK/app/lz4"
-mkdir -p "$WORK/app/dm"
-cp -R "$NXNATIVE/dm/tools" "$NXNATIVE/dm/games" "$WORK/app/dm/"
+"$HERE/build_capstone_ios.sh" iphonesimulator "$WORK/capstone"
+"$HERE/layout_app.sh" "$NXNATIVE" "$WORK/capstone" "$WORK/app"
+cp -R "$WORK/modules" "$WORK/app/cartouche_s2/modules"
 rm -rf "$WORK/testbed"
 python3 "$SUPPORT/testbed" clone --platform iOS --framework "$SUPPORT/Python.xcframework" "$WORK/testbed"
 # The app code goes into iOSTestbed/app, the folder the Xcode project bundles
 # and puts first on sys.path. (The testbed's own --app option copies into
 # Testbed/app, which the project does not bundle.)
-cp -R "$WORK/app/cartouche_s2" "$WORK/app/capstone" "$WORK/app/lz4" "$WORK/app/dm" "$WORK/testbed/iOSTestbed/app/"
+cp -R "$WORK/app/." "$WORK/testbed/iOSTestbed/app/"
 RUN=(python3 "$WORK/testbed" run)
 if [ -n "${SIMULATOR:-}" ]; then RUN+=(--simulator "$SIMULATOR"); fi
 "${RUN[@]}" -- cartouche_s2 | tee "$WORK/ios.log"

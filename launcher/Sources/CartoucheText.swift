@@ -139,6 +139,51 @@ enum CartoucheText {
     static var basedOn: String { s("system.cartouche.basedOn", "Based on") }
     static var sheets: String { s("system.cartouche.sheets", "Game sheets") }
 
+    // MARK: Lab (spike S2)
+
+    static var labTitle: String { s("lab.title", "Lab") }
+    static var labFooter: String { s("lab.footer", "Tests for building games on the iPhone later, from your own copy.") }
+    static var labRewrite: String { s("lab.rewrite", "Rewrite a game’s modules") }
+    static var labIntro: String { s("lab.intro", "Cartouche rewrites the code of your own game on this iPhone with nxnative’s rewriter, as your Mac does when it builds the game’s IPA, then compares each file with the one your Mac wrote. It also measures the time and the memory this takes.") }
+    static var labFolderTitle: String { s("lab.folder.title", "Your game’s files") }
+    static var labFolder: String { s("lab.folder", "Folder") }
+    static var labModules: String { s("lab.modules", "Modules") }
+    static var labReference: String { s("lab.reference", "Mac’s list") }
+    static var labReferenceNone: String { s("lab.reference.none", "None: nothing to compare with") }
+    static var labNoModules: String { s("lab.noModules", "No main module in this folder or in its ExeFS folder.") }
+    static var labChoose: String { s("lab.choose", "Choose the folder") }
+    static var labFolderFooter: String { s("lab.folder.footer", "Choose a folder that holds your game’s ExeFS folder, or its modules (main, subsdk0, sdk…), with mac.sha256, the list of the files your Mac’s build wrote. Cartouche copies the modules, then writes into this folder its report, its own list, iphone.sha256, and the rewriter’s log.") }
+    static var labRun: String { s("lab.run", "Rewrite") }
+    static var labRunFooter: String { s("lab.run.footer", "Keep Cartouche open with the screen on until the end: iOS pauses an app in the background. A large game can take several minutes.") }
+    static var labCopying: String { s("lab.copying", "Copying the modules…") }
+    static var labStarting: String { s("lab.starting", "Starting Python…") }
+    static func labRewriting(_ module: String) -> String { f("lab.rewriting", "Rewriting %@", module) }
+    static var labElapsed: String { s("lab.elapsed", "Time") }
+    static var labMemoryNow: String { s("lab.memory.now", "Memory used") }
+    static var labPeakMemory: String { s("lab.memory.peak", "Memory peak") }
+    static func labMemoryOf(_ used: String, _ limit: String) -> String { f("lab.memory.of", "%1$@ of %2$@", used, limit) }
+    static var labInterrupted: String { s("lab.interrupted", "The last rewrite did not finish: iOS closed Cartouche, perhaps for lack of memory. Its report, in the folder, gives the last memory reading.") }
+    static var labStopped: String { s("lab.stopped", "The rewrite stopped.") }
+    static var labNoPython: String { s("lab.noPython", "This build of Cartouche does not carry Python.") }
+    static func labPythonFailed(_ reason: String) -> String { f("lab.python.failed", "Python did not start: %@", reason) }
+    static func labPythonError(_ reason: String) -> String { f("lab.python.error", "Python stopped: %@", reason) }
+    static func labCopyFailed(_ name: String, _ reason: String) -> String { f("lab.copy.failed", "Could not copy %1$@: %2$@", name, reason) }
+    static var labResult: String { s("lab.result", "Result") }
+    static var labGame: String { s("lab.game", "Game") }
+    static var labGameUnknown: String { s("lab.game.unknown", "No nxnative profile: every module rewritten") }
+    static func labSame(_ same: Int, _ files: Int) -> String { f("lab.same", "%1$lld of %2$lld files identical to the Mac’s", same, files) }
+    static var labWritten: String { s("lab.written", "Files written") }
+    static var labDifferent: String { s("lab.different", "Different from the Mac’s") }
+    static var labAbsent: String { s("lab.absent", "Not on the Mac’s list") }
+    static var labOnlyOnMac: String { s("lab.onlyOnMac", "Written by the Mac only") }
+    static var labFileSame: String { s("lab.file.same", "Identical to the Mac’s") }
+    static var labWaiting: String { s("lab.waiting", "Waiting") }
+    static var labTotal: String { s("lab.total", "Total") }
+    static func labReportExported(_ name: String) -> String { f("lab.report.exported", "Report written into the folder: %@", name) }
+    static var labReportKept: String { s("lab.report.kept", "Cartouche could not write into the folder: the report stays in Cartouche’s files, under Cartouche/Lab/S2.") }
+    static var labFiles: String { s("lab.files", "Files") }
+    static var labRuntime: String { s("lab.runtime", "In this build") }
+
     // MARK: Renewing every night
 
     static var dailyIntro: String { s("daily.intro", "An automation in Shortcuts can renew Cartouche every night, with no computer. It runs Cartouche’s Refresh All Apps action, which does what Renew now does.") }
