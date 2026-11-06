@@ -34,4 +34,4 @@ Cartouche asks for the entitlement through LiveContainer's `entitlements.xml`. T
 
 ## Planned
 
-None for now. Renewal, from the System page or every night from Shortcuts, needed no patch: the launcher reaches the built-in SideStore through its own bridge ([launcher/README.md](../../launcher/README.md#what-the-first-build-does)).
+None for now. Renewal, from the System page or every night from Shortcuts, needed no patch: the launcher reaches the built-in SideStore through its own bridge ([launcher/README.md](../../launcher/README.md#what-it-does)).
