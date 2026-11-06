@@ -54,9 +54,31 @@ mkdir -p "$APP/CartoucheCatalog/games"
 cp "$CATALOG/devices.json" "$APP/CartoucheCatalog/"
 cp "$CATALOG"/games/*.json "$APP/CartoucheCatalog/games/"
 
-# Name on the home screen, and of the App IDs SideStore registers.
-$PB -c "Set :CFBundleDisplayName $NAME" "$APP/Info.plist" 2>/dev/null \
-  || $PB -c "Add :CFBundleDisplayName string $NAME" "$APP/Info.plist"
+# Names. iloader's Pairing page lists the apps it can place a pairing file
+# in by the CFBundleDisplayName of their Info.plist, and gives the one named
+# LiveContainer the file where a LiveContainer+SideStore's SideStore reads
+# it, which is where Cartouche's built-in SideStore reads it too
+# (launcher/Sources/CartoucheSetup.swift). So the Info.plist keeps that name,
+# for iloader, and every localization of the app names it Cartouche: the home
+# screen, Settings, Files and the built-in SideStore
+# (app/patches/sidestore/0008) show the localized name. CFBundleName stays
+# LiveContainer's: iloader names the App IDs it registers after it.
+$PB -c "Set :CFBundleDisplayName LiveContainer" "$APP/Info.plist" 2>/dev/null \
+  || $PB -c "Add :CFBundleDisplayName string LiveContainer" "$APP/Info.plist"
+# A language the app has no folder for falls back to English, which has one.
+$PB -c "Print :CFBundleDevelopmentRegion" "$APP/Info.plist" >/dev/null 2>&1 \
+  || $PB -c "Add :CFBundleDevelopmentRegion string en" "$APP/Info.plist"
+[ -d "$APP/en.lproj" ] || { echo "the app has no English localization, where every other language falls back" >&2; exit 1; }
+LOCALIZATIONS=0
+for LPROJ in "$APP"/*.lproj; do
+  STRINGS="$LPROJ/InfoPlist.strings"
+  for KEY in CFBundleDisplayName CFBundleName; do
+    $PB -c "Set :$KEY $NAME" "$STRINGS" 2>/dev/null \
+      || $PB -c "Add :$KEY string $NAME" "$STRINGS" >/dev/null
+  done
+  LOCALIZATIONS=$((LOCALIZATIONS + 1))
+done
+echo "named $NAME in $LOCALIZATIONS localizations, LiveContainer for iloader"
 
 # Cartouche's own version in place of LiveContainer's: the built-in SideStore
 # offers an update when its source lists a higher version than this one.
@@ -86,6 +108,9 @@ $PB -c "Add :CFBundleURLTypes:2 dict" "$APP/Info.plist"
 $PB -c "Add :CFBundleURLTypes:2:CFBundleURLName string $BUNDLE_ID.sidestorebackupurlscheme" "$APP/Info.plist"
 $PB -c "Add :CFBundleURLTypes:2:CFBundleURLSchemes array" "$APP/Info.plist"
 $PB -c "Add :CFBundleURLTypes:2:CFBundleURLSchemes:0 string sidestore-$BUNDLE_ID" "$APP/Info.plist"
+# LocalDevVPN's scheme, so that the built-in SideStore's onboarding can tell
+# whether it is installed.
+$PB -c "Add :LSApplicationQueriesSchemes: string localdevvpn" "$APP/Info.plist"
 $PB -c "Add :INIntentsSupported array" "$APP/Info.plist"
 $PB -c "Add :INIntentsSupported:0 string RefreshAllIntent" "$APP/Info.plist"
 $PB -c "Add :INIntentsSupported:1 string ViewAppIntent" "$APP/Info.plist"

@@ -1,0 +1,41 @@
+From 5604212da9285d92729a0028e9bb51bb0ebbba30 Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Fri, 6 Nov 2026 08:41:50 +0000
+Subject: [PATCH] Hand a pairing file opened from another app to Cartouche's
+ setup
+
+The player's Mac exports the pairing file with iloader and sends it to
+the iPhone, by AirDrop or through iCloud Drive. LiveContainer opens any
+file it is given as an app to install. A file with a pairing file's
+extension (.plist, .mobiledevicepairing or .mobiledevicepair) now goes
+to Cartouche's setup instead, which checks it and puts it where the
+built-in SideStore reads it, then the app shows its games; any other
+file still goes to the Apps tab. The setup in launcher/Sources does the
+work, so that a large IPA is never read here.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01MzPJorvBGmBB88WUcRVhE7
+---
+ LiveContainerSwiftUI/Views/LCTabView.swift | 6 ++++++
+ 1 file changed, 6 insertions(+)
+
+diff --git a/LiveContainerSwiftUI/Views/LCTabView.swift b/LiveContainerSwiftUI/Views/LCTabView.swift
+index f78102c..6df405c 100644
+--- a/LiveContainerSwiftUI/Views/LCTabView.swift
++++ b/LiveContainerSwiftUI/Views/LCTabView.swift
+@@ -119,6 +119,12 @@ struct LCTabView: View {
+     func dispatchURL(url: URL) {
+         repeat {
+             if url.isFileURL {
++                // Cartouche: a pairing file opened from AirDrop or Files goes
++                // to Cartouche's setup, not to the app installer.
++                if CartouchePairing.openedFile(url) {
++                    sharedModel.selectedTab = .initial
++                    return
++                }
+                 sharedModel.selectedTab = .apps
+                 break
+             }
+-- 
+2.43.0
+

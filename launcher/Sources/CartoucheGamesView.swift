@@ -24,6 +24,7 @@ struct CartoucheGamesView: View {
     @State private var choosingIPAInSheet = false
     @State private var memory = CartoucheMemoryReading.now()
     @State private var showingSetup = false
+    @ObservedObject private var setup = CartoucheSetup.shared
 
     private let catalog = CartoucheCatalog.shared
 
@@ -96,6 +97,12 @@ struct CartoucheGamesView: View {
         // Hands the built-in SideStore's certificate to LiveContainer as soon
         // as the player has signed in, before they pick a game.
         .modifier(CartoucheSetupRefresh())
+        // A pairing file opened with Cartouche: the setup shows how it went.
+        .onChange(of: setup.openedPairingFile) { _, opened in
+            guard opened else { return }
+            setup.openedPairingFile = false
+            showingSetup = true
+        }
         .onAppear {
             memory = CartoucheMemoryReading.now()
             CartoucheRenewal.scheduleWarnings()

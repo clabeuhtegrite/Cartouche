@@ -1,0 +1,233 @@
+From 0bcd6d4ab1dd1bff669716ae9690f4bbb413c812 Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Fri, 6 Nov 2026 09:05:35 +0000
+Subject: [PATCH] Take the player through the onboarding with as few taps as
+ possible
+
+Cartouche's setup opens the built-in SideStore for the player to sign
+in. Its onboarding now starts at the pairing file, or at LocalDevVPN
+once a pairing file is in place: Cartouche's setup has already said
+what SideStore is for. The pairing file page moves on by itself once
+iloader has placed the file, which it looks for every two seconds.
+LocalDevVPN then opens by itself, once, with
+Cartouche's own URL scheme as the way back, since nothing answers
+sidestore:// inside Cartouche, and the onboarding moves on as soon as
+the VPN is connected. The Apple ID sign-in then opens by itself, once,
+unless another SideStore's certificate can be imported first, and the
+onboarding ends there: Cartouche brings the player back to its setup
+(launcher/SideStoreSupport/CartoucheOnboardingReturn.m), which shows
+what SideStore's last page showed. The buttons stay, to try again or
+to set up later.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01MzPJorvBGmBB88WUcRVhE7
+---
+ .../Views/Onboarding/OnboardingView.swift     | 123 ++++++++++++++----
+ 1 file changed, 97 insertions(+), 26 deletions(-)
+
+diff --git a/SideStore/Views/Onboarding/OnboardingView.swift b/SideStore/Views/Onboarding/OnboardingView.swift
+index e5c6a07..6e20e62 100644
+--- a/SideStore/Views/Onboarding/OnboardingView.swift
++++ b/SideStore/Views/Onboarding/OnboardingView.swift
+@@ -12,7 +12,10 @@ import UniformTypeIdentifiers
+ 
+ struct OnboardingView: View {
+     var onFinish: (() -> Void)? = nil
+-    @State private var currentStep = 0
++    // Cartouche: its setup has already said what SideStore is for, so the
++    // onboarding starts at the pairing file, or at LocalDevVPN once a pairing
++    // file is in place.
++    @State private var currentStep = PairingFileManager.shared.hasPairingFile() ? 2 : 1
+     private let totalSteps = 5
+ 
+     var body: some View {
+@@ -32,13 +35,16 @@ struct OnboardingView: View {
+                     WelcomeStep(onNext: { currentStep += 1 })
+                         .tag(0)
+ 
+-                    PairingFileStep(onNext: { currentStep += 1 })
++                    // Cartouche: each of these moves on by itself once its
++                    // part is done, and the onboarding ends with the Apple ID,
++                    // where the built-in SideStore takes the certificate.
++                    PairingFileStep(onNext: { currentStep = 2 }, isActive: currentStep == 1)
+                         .tag(1)
+ 
+-                    LocalDevVPNStep(onNext: { currentStep += 1 })
++                    LocalDevVPNStep(onNext: { currentStep = 3 }, isActive: currentStep == 2)
+                         .tag(2)
+ 
+-                    AppleIDStep(onNext: { currentStep += 1 })
++                    AppleIDStep(onNext: complete, isActive: currentStep == 3)
+                         .tag(3)
+ 
+                     CompleteStep(onFinish: complete)
+@@ -193,6 +199,7 @@ private struct WelcomeStep: View {
+ 
+ private struct PairingFileStep: View {
+     let onNext: () -> Void
++    var isActive = true
+     @State private var hasPairingFile = PairingFileManager.shared.hasPairingFile()
+     @State private var isShowingFilePicker = false
+     @State private var errorMessage: String? = nil
+@@ -338,16 +345,41 @@ private struct PairingFileStep: View {
+         .onReceive(NotificationCenter.default.publisher(for: ImportFromSideStore.didImport)) { _ in
+             hasPairingFile = PairingFileManager.shared.hasPairingFile()
+         }
++        // Cartouche: iloader can place the pairing file while this page is
++        // open, and the onboarding moves on once it is there.
++        .task(id: isActive) {
++            guard isActive else { return }
++            while !hasPairingFile && !Task.isCancelled {
++                try? await Task.sleep(nanoseconds: 2_000_000_000)
++                if PairingFileManager.shared.hasPairingFile() {
++                    hasPairingFile = true
++                    onNext()
++                }
++            }
++        }
+     }
+ }
+ 
+ private struct LocalDevVPNStep: View {
+     let onNext: () -> Void
++    var isActive = true
++    @State private var didOfferConnection = false
+     @State private var isConnected = false
+     @State private var errorMessage: String? = nil
+ 
+     private let vpnSchemeURL = URL(string: "localdevvpn://")!
+-    private let vpnConnectURL = URL(string: "localdevvpn://enable?scheme=sidestore")!
++    /// LocalDevVPN opens this scheme once connected. The SideStore inside
++    /// Cartouche answers to Cartouche's own scheme, not to sidestore://,
++    /// which only a separate SideStore answers.
++    private var vpnConnectURL: URL {
++        var scheme = "sidestore"
++        let hostScheme = NSSelectorFromString("lcAppUrlScheme")
++        if UserDefaults.responds(to: hostScheme),
++           let own = UserDefaults.perform(hostScheme)?.takeUnretainedValue() as? String, !own.isEmpty {
++            scheme = own
++        }
++        return URL(string: "localdevvpn://enable?scheme=\(scheme)")!
++    }
+     private let appStoreURL = URL(string: "https://apps.apple.com/app/localdevvpn/id6755608044")!
+ 
+     private var isInstalled: Bool {
+@@ -483,6 +515,7 @@ private struct LocalDevVPNStep: View {
+         }
+         .onAppear {
+             checkStatus()
++            offerConnection()
+         }
+         .onReceive(NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification)) { _ in
+             checkStatus()
+@@ -493,6 +526,27 @@ private struct LocalDevVPNStep: View {
+                 checkStatus()
+             }
+         }
++        // Cartouche: LocalDevVPN opens by itself, once, and the onboarding
++        // moves on as soon as it is connected, with no Continue to tap.
++        .onChange(of: isConnected) { connected in
++            if connected && isActive { onNext() }
++        }
++        .onChange(of: isActive) { active in
++            if active && isConnected {
++                onNext()
++            } else {
++                offerConnection()
++            }
++        }
++    }
++
++    private func offerConnection() {
++        guard isActive, !didOfferConnection, !isConnected else { return }
++        didOfferConnection = true
++        // Leave the page a moment to slide in before LocalDevVPN covers it.
++        DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
++            if !isConnected { verifyVPN() }
++        }
+     }
+ 
+     private func checkStatus() {
+@@ -545,6 +599,8 @@ private struct LocalDevVPNStep: View {
+ 
+ private struct AppleIDStep: View {
+     let onNext: () -> Void
++    var isActive = true
++    @State private var didOfferSignIn = false
+     @State private var isAuthenticated = AuthManager.shared.isAuthenticated
+     @State private var hasCertificate = CertificateManager.shared.activeCertificate != nil
+     @State private var isSigningIn = false
+@@ -609,27 +665,7 @@ private struct AppleIDStep: View {
+                     .padding(.horizontal, 32)
+                 }
+ 
+-                SwiftUI.Button(action: {
+-                    Task {
+-                        isSigningIn = true
+-                        errorMessage = nil
+-                        defer { isSigningIn = false }
+-
+-                        do {
+-                            _ = try await AuthManager.shared.signIn(
+-                                presentingViewController: UIApplication.shared.topViewController(),
+-                                skipResign: true,
+-                                skipHowTos: true
+-                            )
+-                            isAuthenticated = true
+-                            onNext()
+-                        } catch {
+-                            if !(error is CancellationError) {
+-                                errorMessage = error.localizedDescription
+-                            }
+-                        }
+-                    }
+-                }) {
++                SwiftUI.Button(action: signIn) {
+                     HStack(spacing: 8) {
+                         if isSigningIn {
+                             ProgressView()
+@@ -688,6 +724,41 @@ private struct AppleIDStep: View {
+         .onReceive(NotificationCenter.default.publisher(for: ImportFromSideStore.didImport)) { _ in
+             hasCertificate = CertificateManager.shared.activeCertificate != nil
+         }
++        // Cartouche: the sign-in opens by itself, once; the button is there
++        // to try again.
++        .onAppear(perform: offerSignIn)
++        .onChange(of: isActive) { _ in offerSignIn() }
++    }
++
++    private func offerSignIn() {
++        guard isActive, !didOfferSignIn, !isAuthenticated, !isSigningIn,
++              !ImportFromSideStore.isAvailable else { return }
++        didOfferSignIn = true
++        // Leave the page a moment to slide in before the sheet covers it.
++        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5, execute: signIn)
++    }
++
++    private func signIn() {
++        guard !isSigningIn else { return }
++        Task {
++            isSigningIn = true
++            errorMessage = nil
++            defer { isSigningIn = false }
++
++            do {
++                _ = try await AuthManager.shared.signIn(
++                    presentingViewController: UIApplication.shared.topViewController(),
++                    skipResign: true,
++                    skipHowTos: true
++                )
++                isAuthenticated = true
++                onNext()
++            } catch {
++                if !(error is CancellationError) {
++                    errorMessage = error.localizedDescription
++                }
++            }
++        }
+     }
+ }
+ 
+-- 
+2.43.0
+

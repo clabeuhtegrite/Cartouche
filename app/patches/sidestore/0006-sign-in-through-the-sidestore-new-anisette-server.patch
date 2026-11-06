@@ -1,0 +1,63 @@
+From b6c144c10451f3f561c9937559feddaae2a5c2a6 Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Fri, 6 Nov 2026 08:39:43 +0000
+Subject: [PATCH] Sign in through the SideStore (New) anisette server
+
+SideStore 0.7 starts with on-device anisette, and signing in from the
+SideStore built into Cartouche then fails with "This action cannot be
+completed at this time (-80045)". The player's own SideStore signed in
+through the SideStore (New) server, https://new.ani.sidestore.io,
+which iloader uses too. A new install now starts with remote anisette
+and that server; Settings still change both. Before the server list
+has ever been downloaded, the selected server is the one tried, rather
+than none.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01MzPJorvBGmBB88WUcRVhE7
+---
+ AltStore/Core/Extensions/UserDefaults+AltStore.swift | 7 +++++--
+ SideStore/Core/Anisette/AnisetteServersManager.swift | 8 +++++++-
+ 2 files changed, 12 insertions(+), 3 deletions(-)
+
+diff --git a/AltStore/Core/Extensions/UserDefaults+AltStore.swift b/AltStore/Core/Extensions/UserDefaults+AltStore.swift
+index 9c7201e..4f3e21a 100644
+--- a/AltStore/Core/Extensions/UserDefaults+AltStore.swift
++++ b/AltStore/Core/Extensions/UserDefaults+AltStore.swift
+@@ -549,10 +549,13 @@ public extension UserDefaults
+             #keyPath(UserDefaults.isIdleTimeoutDisableEnabled): true,
+             #keyPath(UserDefaults.betaUdpatesTrack): defaultBetaUpdatesTrack,
+             #keyPath(UserDefaults.menuAnisetteList): AppConstants.Anisette.Servers.defaultSource,
+-            #keyPath(UserDefaults.menuAnisetteURL): AppConstants.Anisette.Servers.defaultServerURL,
++            // Cartouche: sign in through SideStore (New), whose Mac anisette Apple
++            // accepts (iloader uses it too), rather than on-device anisette, which
++            // Apple refuses inside Cartouche (-80045).
++            #keyPath(UserDefaults.menuAnisetteURL): "https://new.ani.sidestore.io",
+             #keyPath(UserDefaults.isAnisetteOfflineMode): false,
+             #keyPath(UserDefaults.disableAnisetteRotation): false,
+-            #keyPath(UserDefaults.useOnDeviceAnisette): true,
++            #keyPath(UserDefaults.useOnDeviceAnisette): false,
+             #keyPath(UserDefaults.useLocalVPN): true,
+             #keyPath(UserDefaults.acceptIPv6ConnectionConfig): false,
+             #keyPath(UserDefaults.isAutoRetryRemotePairingPortEnabled): true,
+diff --git a/SideStore/Core/Anisette/AnisetteServersManager.swift b/SideStore/Core/Anisette/AnisetteServersManager.swift
+index 5b51259..fd3153d 100644
+--- a/SideStore/Core/Anisette/AnisetteServersManager.swift
++++ b/SideStore/Core/Anisette/AnisetteServersManager.swift
+@@ -114,7 +114,13 @@ public actor AnisetteServersManager {
+ 
+     public func getActiveServerURLs() -> [String] {
+         let servers = loadLocalServers()
+-        return servers.filter { !$0.isHidden }.map(\.address)
++        let addresses = servers.filter { !$0.isHidden }.map(\.address)
++        // Cartouche: before the server list has ever been downloaded, the
++        // first sign-in still goes through the selected server.
++        if addresses.isEmpty, !UserDefaults.standard.menuAnisetteURL.isEmpty {
++            return [UserDefaults.standard.menuAnisetteURL]
++        }
++        return addresses
+     }
+ 
+     // MARK: - Offline File Mode State Keys
+-- 
+2.43.0
+
