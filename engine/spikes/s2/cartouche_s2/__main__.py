@@ -1,70 +1,61 @@
-"""Spike S2: run nxnative's rewriter, patch_nso.py, on each module given and
-print one line per file it writes, "S2 <module>/<file> <SHA-256>", then
-"S2 done". The lines from a Mac and from iOS must be the same.
+"""Spike S2: run nxnative's rewriter, patch_nso.py, on the modules of a folder
+as the Cartouche app does on the iPhone (cartouche_s2.phone.run_job), and
+print one line per file it writes, "S2 <file> <SHA-256>", then "S2 done".
+The lines from a Mac and from iOS must be the same.
 
-usage: python -m cartouche_s2 [--tools DIR] [--modules DIR]
+usage: python -m cartouche_s2 [--tools DIR] [--modules DIR] [--reference FILE] [--job FILE]
 
 --tools is nxnative's dm/tools, by default dm/tools beside this package, as
-the iOS app lays them out; --modules holds the .nso files, by default
-modules/ in this package. Lines starting "S2-info" describe the run and are
-not compared.
+the iOS app lays them out; --modules holds the modules (main, subsdk0...,
+or the same with .nso), by default modules/ in this package; --reference is
+a list of the Mac's files in the format of shasum -a 256; --job is a job
+file, whose values replace these. Lines starting "S2-info" describe the run
+and are not compared.
 """
 
 import argparse
-import hashlib
-import platform
-import runpy
+import json
 import sys
-import tempfile
-import time
 from pathlib import Path
 
+from . import phone
+
 HERE = Path(__file__).resolve().parent
-
-
-def sha256(path):
-    return hashlib.sha256(path.read_bytes()).hexdigest()
-
-
-def rewrite(tools, module, out):
-    """patch_nso.py MODULE OUT NAME, in this process, since iOS lets an app
-    start no other process. Its own modules are dropped afterwards, as a new
-    process would start without them."""
-    script = tools / "patch_nso.py"
-    argv, path = sys.argv, list(sys.path)
-    sys.argv = [str(script), str(module), str(out), module.stem]
-    sys.path.insert(0, str(tools))
-    try:
-        runpy.run_path(str(script), run_name="__main__")
-    except SystemExit as stop:
-        if stop.code not in (None, 0):
-            raise RuntimeError(f"patch_nso.py stopped on {module.name}: {stop.code}") from None
-    finally:
-        sys.argv, sys.path[:] = argv, path
-        for name, loaded in list(sys.modules.items()):
-            if str(getattr(loaded, "__file__", None) or "").startswith(str(tools)):
-                del sys.modules[name]
 
 
 def main(argv=None):
     parser = argparse.ArgumentParser(prog="cartouche_s2")
     parser.add_argument("--tools", type=Path, default=HERE.parent / "dm" / "tools")
     parser.add_argument("--modules", type=Path, default=HERE / "modules")
+    parser.add_argument("--reference", type=Path)
+    parser.add_argument("--job", type=Path)
     args = parser.parse_args(argv)
 
-    import capstone   # what patch_nso.py imports first: a failure to load it shows here
-    print(f"S2-info Python {platform.python_version()} on {sys.platform} {platform.machine()}, "
-          f"Capstone {capstone.__version__}", flush=True)
-    modules = sorted(args.modules.glob("*.nso"))
-    if not modules:
-        raise SystemExit(f"S2: no .nso in {args.modules}")
-    for module in modules:
-        out = Path(tempfile.mkdtemp(prefix=f"s2-{module.stem}-"))
-        start = time.monotonic()
-        rewrite(args.tools.resolve(), module, out)
-        print(f"S2-info {module.name} rewritten in {time.monotonic() - start:.2f} s", flush=True)
-        for written in sorted(out.iterdir()):
-            print(f"S2 {module.stem}/{written.name} {sha256(written)}", flush=True)
+    job = {"tools": str(args.tools), "modules": str(args.modules),
+           "reference": str(args.reference) if args.reference else None}
+    if args.job:
+        job.update(json.loads(args.job.read_text(encoding="utf-8")))
+    status = phone.run_job(job)
+
+    print(f"S2-info Python {status['python']} on {status['platform']}, Capstone {status.get('capstone')}", flush=True)
+    for module in status.get("modules", []):
+        restarts = f", started again {module['restarts']} time(s)" if module.get("restarts") else ""
+        print(f"S2-info {module['name']}: {module['state']}, {module.get('seconds', '?')} s{restarts}", flush=True)
+    if status["state"] != "done":
+        log = Path(status["work"]) / "rewrite.log"
+        print(f"S2-info the job failed: {status.get('error')}", flush=True)
+        if log.is_file():
+            print("".join(log.read_text(encoding="utf-8", errors="replace").splitlines(True)[-40:]), flush=True)
+        return 1
+    for row in status["files"]:
+        print(f"S2 {row['name']} {row['sha256']}", flush=True)
+    if status["summary"].get("same") is not None:
+        print(f"S2-info compared with {args.reference or job['reference']}: {status['summary']}", flush=True)
+        for row in status["files"]:
+            if row["mac"] != "same":
+                print(f"S2-info {row['name']}: {row['mac']}", flush=True)
+        for name in status["only_on_mac"]:
+            print(f"S2-info {name}: only on the Mac", flush=True)
     print("S2 done", flush=True)
     return 0
 

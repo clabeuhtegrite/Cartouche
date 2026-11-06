@@ -4,7 +4,8 @@
 //
 //  What Cartouche has on this iPhone: the memory limit iOS sets for it,
 //  which its games share; when its signature expires, and how it is
-//  renewed; and the device that the game sheets are compared with.
+//  renewed; the device that the game sheets are compared with; and the lab,
+//  where Cartouche tries what it will one day do for its games.
 //
 
 import SwiftUI
@@ -27,6 +28,7 @@ struct CartoucheSystemView: View {
                 signatureSection
                 automaticRenewalSection
                 deviceSection
+                labSection
                 cartoucheSection
             }
             .navigationTitle(CartoucheText.systemTab)
@@ -224,6 +226,22 @@ struct CartoucheSystemView: View {
             LabeledContent("iOS", value: CartoucheDevice.iOSVersion)
             LabeledContent(CartoucheText.bcRequirement,
                            value: CartoucheDevice.supportsBCTextureCompression ? CartoucheText.gpuSupported : CartoucheText.gpuUnsupported)
+        }
+    }
+
+    // MARK: Lab
+
+    private var labSection: some View {
+        Section {
+            NavigationLink {
+                CartoucheLabView()
+            } label: {
+                Label(CartoucheText.labRewrite, systemImage: "hammer")
+            }
+        } header: {
+            Text(CartoucheText.labTitle)
+        } footer: {
+            Text(CartoucheText.labFooter)
         }
     }
 
