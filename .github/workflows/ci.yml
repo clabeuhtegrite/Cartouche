@@ -23,6 +23,20 @@ jobs:
       - name: Publish guard on the catalog
         run: .venv/bin/cartouche-server check --kind catalog catalog/devices.json catalog/games/*.json
 
+  app-sources:
+    name: App sources
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - name: Check out LiveContainer, SideStore and SideSign
+        run: |
+          git submodule update --init app/LiveContainer app/SideStore
+          git -C app/SideStore submodule update --init Dependencies/SideSign
+      - name: Branding tests
+        run: python3 -m unittest discover -s app/tests -v
+      - name: Copy, patch and brand the pinned sources
+        run: app/scripts/prepare.sh
+
   scripts:
     name: Shell scripts
     runs-on: ubuntu-latest

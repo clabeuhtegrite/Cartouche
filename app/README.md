@@ -16,14 +16,28 @@ To move to a newer upstream commit, update the submodule, check that every patch
 
 `scripts/build.sh`, on a Mac with Xcode 26.4 and `ldid`:
 
-1. copies LiveContainer and SideStore to `build/app/work` and applies `patches/livecontainer/*.patch` and `patches/sidestore/*.patch` in name order;
+1. `scripts/prepare.sh` copies LiveContainer and SideStore to `build/app/work/src`, applies `patches/livecontainer/*.patch` and `patches/sidestore/*.patch` in name order, then gives the copies Cartouche's identity with `scripts/brand.py`;
 2. builds dylibify;
 3. builds SideStore with its own Makefile (`make build fakesign ipa`);
 4. builds LiveContainer with `xcodebuild archive`, with Cartouche's bundle identifier from [`config.env`](config.env);
 5. assembles `build/app/Cartouche.ipa` with `scripts/package.sh`, adapted from LiveContainer's own packaging script: SideStore goes into the app as a framework, with its intents and widget.
 
-The IPA is unsigned; SideStore or iloader signs it when installing it.
+The IPA is unsigned; SideStore or iloader signs it when installing it. `prepare.sh` also runs on Linux: CI runs it on every pull request, with the tests of `brand.py` in [`tests/`](tests/), so a patch or a name that no longer applies shows up in a minute rather than after the Mac build.
 
-## Bundle identifier
+## Identity
 
-`io.github.clabeuhtegrite.cartouche`. It differs from LiveContainer's (`com.kdt.livecontainer`) so that Cartouche gets its own App ID and can never replace an installed LiveContainer. The rest of the branding (strings that still name LiveContainer's identifier, the name and the icon) moves to Cartouche's in a patch in Phase 1; until then, CI builds are not meant to be installed.
+Cartouche uses none of LiveContainer's or SideStore's names, so that it can sit next to a LiveContainer or a SideStore on the same iPhone and share nothing with them. Its names come from [`config.env`](config.env):
+
+| | LiveContainer+SideStore | Cartouche |
+| --- | --- | --- |
+| Bundle identifier, and App IDs | `com.kdt.livecontainer` | `io.github.clabeuhtegrite.cartouche` |
+| App group | `group.com.SideStore.SideStore`, and AltStore's | `group.io.github.clabeuhtegrite.cartouche` only |
+| Keychain groups of the apps it runs | `com.kdt.livecontainer.shared.N` | `io.github.clabeuhtegrite.cartouche.shared.N` |
+| URL schemes | `livecontainer`, `livecontainer2`, `livecontainer3` | `cartouche`, `cartouche2`, `cartouche3` |
+| URL scheme of the built-in SideStore | `sidestore` | `sidestore.cartouche` |
+| Source the built-in SideStore reads | LiveContainer's releases | [`sidestore-source.json`](sidestore-source.json): Cartouche itself, and nothing else |
+| Notice SideStore sends to every app before it migrates its database | `com.rileytestut.AltStore.WillMigrateDatabase` | `io.github.clabeuhtegrite.cartouche.WillMigrateDatabase` |
+
+When SideStore signs Cartouche, it appends the team identifier to the app group, and usually to the bundle identifier. With LiveContainer's names, Cartouche's SideStore would open the same app group as a LiveContainer+SideStore installed next to it, take that LiveContainer for itself and refresh it, `livecontainer://` and `sidestore://` links would reach either app, and each SideStore would quit when the other migrates its database.
+
+`scripts/brand.py` renames the names in the copies of the sources after the patches, and stops the build when a name it expects has moved or when an old name is left. [`patches/livecontainer/0001`](patches/livecontainer/0001-use-the-built-in-sidestore-app-group-only.patch) drops the AltStore app group. `scripts/package.sh` sets the name on the home screen, the app group SideStore signs with and the built-in SideStore's URL scheme; the icon comes with the launcher.

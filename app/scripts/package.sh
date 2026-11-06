@@ -3,11 +3,14 @@
 #
 # Adapted from LiveContainer's .github/build_github.sh (AGPL-3.0, (c) the
 # LiveContainer contributors), which makes LiveContainer+SideStore.ipa. The
-# steps are the same; the bundle identifier and name are parameters, and
-# SideStore comes from our own build instead of a nightly download.
+# steps are the same; the bundle identifier, name and URL scheme are
+# parameters, the app group and the built-in SideStore's URL scheme are
+# Cartouche's own (see app/scripts/brand.py), and SideStore comes from our own
+# build instead of a nightly download.
 #
 # usage: package.sh --archive LiveContainer.xcarchive --sidestore SideStore.ipa
-#                   --dylibify PATH --resources DIR --bundle-id ID --name NAME --out OUT.ipa
+#                   --dylibify PATH --resources DIR --bundle-id ID --name NAME
+#                   --url-scheme SCHEME --out OUT.ipa
 set -euo pipefail
 
 while [ $# -gt 0 ]; do
@@ -18,12 +21,14 @@ while [ $# -gt 0 ]; do
     --resources) RESOURCES="$2" ;;   # LiveContainer's .github/sidelc
     --bundle-id) BUNDLE_ID="$2" ;;
     --name) NAME="$2" ;;
+    --url-scheme) URL_SCHEME="$2" ;;
     --out) OUT_IPA="$2" ;;
     *) echo "unknown option $1" >&2; exit 2 ;;
   esac
   shift 2
 done
-: "${ARCHIVE:?} ${SIDESTORE_IPA:?} ${DYLIBIFY:?} ${RESOURCES:?} ${BUNDLE_ID:?} ${NAME:?} ${OUT_IPA:?}"
+: "${ARCHIVE:?} ${SIDESTORE_IPA:?} ${DYLIBIFY:?} ${RESOURCES:?} ${BUNDLE_ID:?} ${NAME:?} ${URL_SCHEME:?} ${OUT_IPA:?}"
+APP_GROUP="group.$BUNDLE_ID"
 
 STAGE="$(mktemp -d)"
 trap 'rm -rf "$STAGE"' EXIT
@@ -34,17 +39,19 @@ cp -R "$ARCHIVE/Products/Applications/LiveContainer.app" "$STAGE/Payload/"
 APP="$STAGE/Payload/LiveContainer.app"
 FW="$APP/Frameworks"
 
-# Name on the home screen.
+# Name on the home screen, and of the App IDs SideStore registers.
 $PB -c "Set :CFBundleDisplayName $NAME" "$APP/Info.plist" 2>/dev/null \
   || $PB -c "Add :CFBundleDisplayName string $NAME" "$APP/Info.plist"
 
-# SideStore's app group, URL schemes, intents and settings switch.
+# The built-in SideStore's app group, URL schemes, intents and settings switch.
+# Never the plain "sidestore" scheme: a SideStore or LiveContainer+SideStore on
+# the same iPhone answers it.
 $PB -c 'Add :ALTAppGroups array' "$APP/Info.plist"
-$PB -c 'Add :ALTAppGroups: string group.com.SideStore.SideStore' "$APP/Info.plist"
+$PB -c "Add :ALTAppGroups: string $APP_GROUP" "$APP/Info.plist"
 $PB -c "Add :CFBundleURLTypes:1 dict" "$APP/Info.plist"
 $PB -c "Add :CFBundleURLTypes:1:CFBundleURLName string $BUNDLE_ID.sidestoreurlscheme" "$APP/Info.plist"
 $PB -c "Add :CFBundleURLTypes:1:CFBundleURLSchemes array" "$APP/Info.plist"
-$PB -c "Add :CFBundleURLTypes:1:CFBundleURLSchemes:0 string sidestore" "$APP/Info.plist"
+$PB -c "Add :CFBundleURLTypes:1:CFBundleURLSchemes:0 string sidestore.$URL_SCHEME" "$APP/Info.plist"
 $PB -c "Add :CFBundleURLTypes:2 dict" "$APP/Info.plist"
 $PB -c "Add :CFBundleURLTypes:2:CFBundleURLName string $BUNDLE_ID.sidestorebackupurlscheme" "$APP/Info.plist"
 $PB -c "Add :CFBundleURLTypes:2:CFBundleURLSchemes array" "$APP/Info.plist"
@@ -94,7 +101,7 @@ cat > "$STAGE/widget.entitlements" <<EOF
 	<string>AAAAA11111</string>
 	<key>com.apple.security.application-groups</key>
 	<array>
-		<string>group.com.SideStore.SideStore</string>
+		<string>$APP_GROUP</string>
 	</array>
 	<key>get-task-allow</key>
 	<true/>
