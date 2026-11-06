@@ -71,25 +71,36 @@ enum CartoucheRenewal {
         ]
     }
 
+    /// Where the warnings are scheduled, one call after the other, away from
+    /// the main thread: removePendingNotificationRequests waits there for
+    /// usernotificationsd to answer, which can take minutes right after the
+    /// iPhone starts. On the iPhone Duo simulator of run 42266582948, the
+    /// games page's first frame waited for it for more than five minutes,
+    /// on a white screen.
+    private static let warningQueue = DispatchQueue(label: "io.github.clabeuhtegrite.cartouche.warnings", qos: .utility)
+
     /// Schedules the warnings for the current expiry date. Without the
-    /// player's permission iOS drops them, so this is safe to call often.
+    /// player's permission iOS drops them, so this is safe to call often. It
+    /// returns at once: warningQueue does the work.
     static func scheduleWarnings() {
-        let center = UNUserNotificationCenter.current()
-        let warnings = Self.warnings
-        center.removePendingNotificationRequests(withIdentifiers: warnings.map(\.identifier))
-        guard let expirationDate = CartoucheSignature.current().expirationDate else { return }
-        for warning in warnings {
-            let interval = expirationDate.addingTimeInterval(-warning.before).timeIntervalSinceNow
-            guard interval > 0 else { continue }
-            let content = UNMutableNotificationContent()
-            content.title = warning.title
-            content.body = warning.body
-            content.sound = .default
-            let trigger = UNTimeIntervalNotificationTrigger(timeInterval: interval, repeats: false)
-            let identifier = warning.identifier
-            center.add(UNNotificationRequest(identifier: identifier, content: content, trigger: trigger)) { error in
-                if let error {
-                    NSLog("[Cartouche] cannot schedule %@: %@", identifier, String(describing: error))
+        warningQueue.async {
+            let center = UNUserNotificationCenter.current()
+            let warnings = Self.warnings
+            center.removePendingNotificationRequests(withIdentifiers: warnings.map(\.identifier))
+            guard let expirationDate = CartoucheSignature.current().expirationDate else { return }
+            for warning in warnings {
+                let interval = expirationDate.addingTimeInterval(-warning.before).timeIntervalSinceNow
+                guard interval > 0 else { continue }
+                let content = UNMutableNotificationContent()
+                content.title = warning.title
+                content.body = warning.body
+                content.sound = .default
+                let trigger = UNTimeIntervalNotificationTrigger(timeInterval: interval, repeats: false)
+                let identifier = warning.identifier
+                center.add(UNNotificationRequest(identifier: identifier, content: content, trigger: trigger)) { error in
+                    if let error {
+                        NSLog("[Cartouche] cannot schedule %@: %@", identifier, String(describing: error))
+                    }
                 }
             }
         }

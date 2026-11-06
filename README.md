@@ -23,10 +23,10 @@ Cartouche ships no games, no keys and no firmware, and it never downloads them. 
 ```
  Computer, once           iPhone                                   Update server (R2)
  ──────────────           ─────────────────────────────────        ──────────────────
- iloader installs   ──▶   Cartouche                                signed manifest
- Cartouche, with its      ├─ launcher: catalogue, sheets, probe ◀─ app, engine builds,
- own App ID               ├─ SideStore: sign, install, renew       tools, sheets
-                          ├─ build pipeline (v2)                   (never games)
+ Cartouche          ──▶   Cartouche                                signed manifest
+ Installer puts it,       ├─ launcher: catalogue, sheets, probe ◀─ app, engine builds,
+ with its own App ID      ├─ SideStore: sign, install, renew       tools, sheets
+ and its pairing file     ├─ build pipeline (v2)                   (never games)
                           └─ games, as guest apps
                           LocalDevVPN (App Store)
 ```
@@ -41,6 +41,7 @@ Details: [docs/architecture.md](docs/architecture.md). Decisions and their reaso
 | Path | What it holds |
 | --- | --- |
 | [`app/`](app/) | The iOS app: LiveContainer and SideStore at pinned commits, our patches, the build scripts |
+| [`installer/`](installer/) | The Cartouche Installer: the Mac and Windows app that installs Cartouche the first time, a fork of iloader |
 | [`launcher/`](launcher/) | The launcher: the catalogue of games, their sheets, the player's storage, the memory probe, and the signature's days left and renewal |
 | [`engine/`](engine/) | How the nxnative engine will be built for each supported game (planned) |
 | [`catalog/`](catalog/) | Device profiles and per-game compatibility sheets, with their schemas |

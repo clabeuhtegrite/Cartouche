@@ -1,0 +1,266 @@
+{
+  "subtitle": "Installe Cartouche sur votre iPhone",
+  "version": "Version",
+  "common": {
+    "confirm": "Confirmer",
+    "cancel": "Annuler",
+    "dismiss": "Fermer",
+    "refresh": "Actualiser",
+    "delete": "Supprimer",
+    "copy_to_clipboard": "Copier",
+    "more_details": "Plus de détails",
+    "no_error": "Aucune erreur",
+    "copied_success": "Copié",
+    "retry": "Réessayer"
+  },
+  "dropdown": {
+    "custom_value": "Autre valeur",
+    "custom": "Autre",
+    "use_custom_value": "Utiliser une autre valeur",
+    "back_preset_options": "Revenir aux choix proposés",
+    "select": "Choisir"
+  },
+  "app": {
+    "title": "Installeur Cartouche",
+    "language": "Langue",
+    "github": "GitHub",
+    "open_github_failed": "Impossible d’ouvrir le lien GitHub",
+    "settings": "Réglages",
+    "certificates": "Certificats",
+    "app_ids": "Identifiants d’app",
+    "must_be_logged_in": "Connectez-vous d’abord avec votre compte Apple.",
+    "must_select_device": "Branchez d’abord votre iPhone et choisissez-le.",
+    "ipa_files": "Fichiers IPA",
+    "credits": "Fait à partir d’iloader de nab138 (MIT), avec isideload et idevice. Sans lien avec iloader ni Apple."
+  },
+  "steps": {
+    "iphone_title": "Votre iPhone",
+    "iphone_hint": "Branchez-le à cet ordinateur avec un câble et déverrouillez-le. La première fois, touchez Se fier sur l’iPhone et saisissez son code.",
+    "apple_id_title": "Votre compte Apple",
+    "apple_id_hint": "Cartouche est signée avec lui, comme toute app que vous installez vous-même. Un compte gratuit suffit.",
+    "install_title": "Cartouche",
+    "install_hint": "La dernière Cartouche, avec la mémoire augmentée, son certificat et le fichier de jumelage dont elle a besoin."
+  },
+  "install": {
+    "latest": "Dernière version : Cartouche {{version}}",
+    "release_loading": "Recherche de la dernière Cartouche…",
+    "release_failed": "Impossible de lire les versions de Cartouche. Vérifiez la connexion à internet de cet ordinateur.",
+    "installed": "Sur cet iPhone : Cartouche {{version}}. Vos jeux et vos sauvegardes restent quand vous la réinstallez.",
+    "not_installed": "Cartouche n’est pas encore sur cet iPhone.",
+    "button": "Installer Cartouche {{version}}",
+    "update_button": "Réinstaller Cartouche {{version}}",
+    "needs_both": "Branchez d’abord votre iPhone et connectez-vous.",
+    "place_pairing": "Remettre le fichier de jumelage dans Cartouche",
+    "from_file": "Installer Cartouche depuis un fichier IPA…"
+  },
+  "apple_id": {
+    "title": "Compte Apple",
+    "logged_in_as": "Connecté en tant que",
+    "sign_out": "Se déconnecter",
+    "signing_out": "Déconnexion…",
+    "sign_out_failed": "Échec de la déconnexion",
+    "signed_out_success": "Déconnecté",
+    "saved_logins": "Comptes enregistrés",
+    "sign_in": "Se connecter",
+    "logging_in": "Connexion…",
+    "logged_in_success": "Connecté",
+    "login_failed": "Échec de la connexion",
+    "deleting": "Suppression…",
+    "deletion_failed": "Échec de la suppression",
+    "deleted_success": "Supprimé",
+    "add_account": "Ajouter un compte +",
+    "new_login": "Un autre compte",
+    "email_placeholder": "Adresse e-mail du compte Apple…",
+    "password_placeholder": "Mot de passe du compte Apple…",
+    "save_credentials": "Retenir sur cet ordinateur",
+    "enter_email_password": "Saisissez l’adresse e-mail et le mot de passe.",
+    "valid_email": "Saisissez une adresse e-mail valide.",
+    "login": "Se connecter",
+    "two_factor_title": "Identification à deux facteurs",
+    "two_factor_prompt": "Saisissez le code de validation qu’Apple a envoyé sur vos appareils.",
+    "verification_placeholder": "Code de validation…",
+    "valid_6digit": "Saisissez un code à 6 chiffres.",
+    "submit": "Continuer",
+    "max_certs_title": "Trop de certificats",
+    "max_certs_desc": "Votre compte Apple a autant de certificats de développement qu’Apple le permet. L’installeur va les révoquer et en créer un nouveau : les apps signées avec eux ne s’ouvriront plus avant d’être réinstallées.",
+    "hide_certificate_list": "Masquer les certificats",
+    "choose_what_to_revoke": "Choisir ce qui est révoqué",
+    "continue": "Continuer",
+    "no_keyring_available": "Cet ordinateur ne peut pas garder le mot de passe : vous le saisirez à chaque fois."
+  },
+  "device": {
+    "title": "iPhone",
+    "loading_devices": "Recherche des iPhone…",
+    "no_devices_found": "Aucun iPhone trouvé",
+    "found_device": "iPhone trouvé",
+    "found_devices": "iPhone trouvés",
+    "unable_load_devices_prefix": "Impossible de lister les iPhone",
+    "no_devices_found_period": "Aucun iPhone trouvé. Branchez-le, déverrouillez-le, puis touchez Actualiser.",
+    "selected": "Choisi",
+    "pairing_in_progress_header": "Jumelage avec {{device}}…",
+    "pairing_in_progress_hint": "Déverrouillez l’iPhone et touchez Se fier, puis saisissez son code s’il le demande.",
+    "pairing_cancel": "Annuler",
+    "failed_select": "Impossible d’utiliser cet iPhone"
+  },
+  "operation": {
+    "failed": "Cela n’a pas marché.",
+    "completed": "Terminé",
+    "please_wait": "Gardez l’iPhone branché et déverrouillé…",
+    "copy_error_clipboard": "Copier l’erreur"
+  },
+  "operations": {
+    "install_title": "Installation de Cartouche",
+    "install_success_title": "Cartouche est installée",
+    "install_success_message": "Sur l’iPhone, la première fois seulement : dans Réglages › Général › VPN et gestion de l’appareil, faites confiance à votre compte Apple ; si iOS le demande, activez le mode développeur dans Réglages › Confidentialité et sécurité, puis redémarrez. Ouvrez ensuite Cartouche : sa mise en route a déjà le fichier de jumelage.",
+    "install_step_download": "Télécharger Cartouche",
+    "install_step_check": "Vérifier l’IPA",
+    "install_step_install": "La signer et l’installer, avec la mémoire augmentée",
+    "install_step_pairing": "Mettre le fichier de jumelage dans Cartouche",
+    "pairing_title": "Fichier de jumelage",
+    "pairing_success_title": "Fichier de jumelage en place",
+    "pairing_success_message": "Cartouche le trouve toute seule."
+  },
+  "certificates": {
+    "manage": "Certificats",
+    "loading": "Chargement des certificats…",
+    "loaded_success": "Certificats chargés",
+    "failed_load": "Impossible de charger les certificats",
+    "revoking": "Révocation du certificat…",
+    "revoked_success": "Certificat révoqué",
+    "failed_revoke": "Impossible de révoquer le certificat",
+    "none_found": "Aucun certificat.",
+    "name": "Nom",
+    "serial_number": "Numéro de série",
+    "machine_name": "Nom de la machine",
+    "machine_id": "ID de la machine",
+    "revoke": "Révoquer"
+  },
+  "app_ids": {
+    "manage": "Identifiants d’app",
+    "loading": "Chargement des identifiants d’app…",
+    "loaded_success": "Identifiants d’app chargés",
+    "failed_load": "Impossible de charger les identifiants d’app",
+    "deleted_success": "Identifiant d’app supprimé",
+    "failed_delete": "Impossible de supprimer l’identifiant d’app",
+    "available": "{{available}}/{{max}} identifiants d’app disponibles",
+    "none_found": "Aucun identifiant d’app.",
+    "name": "Nom",
+    "expiration": "Expire",
+    "id": "ID",
+    "identifier": "Identifiant",
+    "never": "Jamais"
+  },
+  "settings": {
+    "anisette_server": "Serveur anisette :",
+    "custom_anisette_placeholder": "Autre serveur anisette",
+    "custom_anisette": "Autre",
+    "use_custom_anisette": "Utiliser un autre serveur anisette",
+    "back_preset_servers": "Revenir aux serveurs proposés",
+    "reset_anisette_title": "Réinitialiser l’état anisette",
+    "reset_anisette_message": "Réinitialiser l’état anisette ? Apple demandera de nouveau un code de validation.",
+    "resetting_anisette_state": "Réinitialisation de l’état anisette…",
+    "anisette_state_reset_success": "État anisette réinitialisé",
+    "anisette_state_not_found": "Aucun état anisette à réinitialiser",
+    "failed_reset_anisette_state": "Impossible de réinitialiser l’état anisette",
+    "view_logs": "Journaux",
+    "logs": "Journaux",
+    "log_level": "Niveau :",
+    "no_logs_yet": "Aucun journal pour l’instant.",
+    "debug": "Débogage",
+    "info": "Info",
+    "warn": "Avertissement",
+    "error": "Erreur",
+    "delete_stored_rppairing": "Supprimer le jumelage enregistré",
+    "delete_stored_rppairing_message": "Supprimer le jumelage que cet ordinateur garde pour cet iPhone ? Il se jumellera de nouveau, et l’iPhone demandera de s’y fier.",
+    "deleting_stored_rppairing": "Suppression du jumelage enregistré…",
+    "stored_rppairing_deleted_success": "Jumelage enregistré supprimé",
+    "failed_delete_stored_rppairing": "Impossible de supprimer le jumelage enregistré",
+    "dont_use_keyring": "Ne pas utiliser le trousseau",
+    "dont_use_keyring_message": "L’installeur garde alors jumelages, état anisette et certificats dans des fichiers sur cet ordinateur, ce qui est moins sûr. À n’activer que si le trousseau ne marche pas."
+  },
+  "dialog": {
+    "confirm": "Confirmer",
+    "cancel": "Annuler"
+  },
+  "error": {
+    "title": "Un problème est survenu : {{msg}}",
+    "unknown": "Inconnu",
+    "suggestions_heading": "À essayer",
+    "suggestions": {
+      "underage": [
+        "Votre compte Apple n’a peut-être pas l’âge que demandent les services développeur d’Apple."
+      ],
+      "account_locked": [
+        "Cela arrive en général après plusieurs connexions manquées, et c’est sans gravité.",
+        "Déverrouillez votre compte sur ((link:https://iforgot.apple.com/))."
+      ],
+      "auth": [
+        "Vérifiez l’adresse e-mail et le mot de passe, et réessayez même s’ils étaient justes.",
+        "Si cela continue, essayez un autre compte Apple.",
+        "Les clés de sécurité ne sont pas prises en charge : utilisez un compte qui reçoit ses codes sur vos appareils."
+      ],
+      "download": [
+        "Vérifiez la connexion à internet de cet ordinateur, puis réessayez.",
+        "Téléchargez Cartouche-<version>.ipa depuis ((link:https://github.com/clabeuhtegrite/Cartouche/releases:les versions de Cartouche)), puis utilisez Installer Cartouche depuis un fichier IPA."
+      ],
+      "not_cartouche": [
+        "Choisissez l’IPA de Cartouche elle-même, Cartouche-<version>.ipa depuis ((link:https://github.com/clabeuhtegrite/Cartouche/releases:les versions de Cartouche)). Un jeu s’installe dans Cartouche, avec son Import."
+      ],
+      "cartouche_missing": [
+        "Installez d’abord Cartouche, avec le bouton de l’étape 3."
+      ],
+      "house_arrest": [
+        "[ios::26.3]Vérifiez que l’iPhone n’est pas sur une bêta développeur d’iOS 26.3, qui a un défaut avec house arrest."
+      ],
+      "pairing": [
+        "Débranchez et rebranchez l’iPhone, puis réessayez.",
+        "Vérifiez que l’iPhone a un code.",
+        "Branchez l’iPhone avec un câble, pas en Wi-Fi."
+      ],
+      "usbmuxd": [
+        "[platform::windows]Installez Appareils Apple depuis le Microsoft Store, ou ((link:https://apple.co/ms:iTunes)), et vérifiez qu’il voit l’iPhone.",
+        "[platform::windows]Si iTunes est installé, désinstallez-le avec Apple Mobile Device Support, puis installez Appareils Apple depuis le Microsoft Store.",
+        "[platform::linux]Vérifiez qu’usbmuxd est installé et lancé."
+      ],
+      "trust": [
+        "Déverrouillez l’iPhone, allez à l’écran d’accueil et acceptez la demande Se fier."
+      ],
+      "device_coms": [
+        "Vérifiez que l’iPhone est branché à cet ordinateur.",
+        "Débranchez-le et rebranchez-le. Si cela continue, essayez un autre port USB et un autre câble."
+      ],
+      "not_logged_in": [
+        "Connectez-vous d’abord avec votre compte Apple."
+      ],
+      "no_device_selected": [
+        "Choisissez d’abord votre iPhone."
+      ],
+      "anisette": [
+        "Vérifiez la connexion à internet de cet ordinateur.",
+        "Choisissez un autre serveur anisette dans les réglages, et essayez-en plusieurs.",
+        "Vérifiez que ((link:{{anisetteServerUrl}})) s’ouvre dans un navigateur."
+      ],
+      "keyring": [
+        "Activez Ne pas utiliser le trousseau dans les réglages pour passer outre. C’est moins sûr."
+      ],
+      "misc": [
+        "Réessayez. Redémarrer l’installeur, l’ordinateur ou l’iPhone peut aider."
+      ],
+      "admin": [
+        "Essayez de lancer l’installeur en administrateur."
+      ],
+      "filesystem": [
+        "Vérifiez que l’installeur peut lire et écrire des fichiers sur cet ordinateur."
+      ],
+      "not_enough_app_ids": [
+        "Votre compte Apple n’a plus d’identifiant d’app libre pour Cartouche : un compte gratuit en a 10 par semaine.",
+        "Un identifiant d’app expire 7 jours après sa création, et ne peut pas être supprimé avant. Réessayez à ce moment-là."
+      ],
+      "max_apps": [
+        "Un compte Apple gratuit peut avoir 3 apps installées par lui à la fois, expirées comprises.",
+        "Supprimez une autre app que vous avez installée vous-même, puis réessayez."
+      ]
+    },
+    "support_message": "Si cela continue, touchez Copier et collez l’erreur dans une <issues>issue de Cartouche</issues>."
+  }
+}

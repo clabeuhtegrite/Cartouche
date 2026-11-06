@@ -176,20 +176,28 @@ def displays(enumerated):
     return found
 
 
+def listed_displays(said):
+    """The displays simctl io screenshot lists when it cannot choose between
+    several and none is named ("--display=3 LCD-1 (primary-1) 2007x2853
+    --display=1 LCD (primary) 1398x2034"): screen ID -> size in pixels."""
+    return {screen: (int(width), int(height))
+            for screen, width, height in re.findall(r"--display=(\S+) .*?\b(\d+)x(\d+)\b", said)}
+
+
 def find_displays(udid):
     """The simulator's built-in displays (displays()), and what simctl said
     of them, for the notes. simctl io enumerate can give no answer: on the
     iPhone Duo of run 42228000324, none in 60 s. When it finds fewer than two
     displays, simctl io screenshot is asked, with none named: it lists them
-    when it cannot choose between several ("--display=3 LCD-1 (primary-1)
-    2007x2853 --display=1 LCD (primary) 1398x2034")."""
+    when it cannot choose between several (listed_displays()). Both can stay
+    silent right after the first launch, as on the iPhone Duo of run
+    42260629195: capture() then learns the displays from its own screenshot."""
     enumerated = maybe("xcrun", "simctl", "io", udid, "enumerate", timeout=120)
     found = displays(enumerated)
     said = ["Its displays (simctl io enumerate):", enumerated.rstrip()]
     if len(found) < 2:
         tried = maybe("xcrun", "simctl", "io", udid, "screenshot", "--type=png", str(BUILD / "raw" / "displays.png"))
-        listed = {screen: (int(width), int(height))
-                  for screen, width, height in re.findall(r"--display=(\S+) .*?\b(\d+)x(\d+)\b", tried)}
+        listed = listed_displays(tried)
         if len(listed) > 1:
             found = listed
             said += ["", "Its displays (simctl io screenshot, with none named):", tried.strip()]
@@ -248,22 +256,37 @@ def keep_failed_screen(udid, name, screens):
             print(f"   no screen: {error}")
 
 
+def display_for(screens, said):
+    """The display the gallery is on, by the size in pixels it says it has."""
+    pixels = sorted(round(n) for n in said.get("pixels", []))
+    found = [screen for screen, size in screens.items() if sorted(size) == pixels]
+    if len(found) != 1:
+        raise Failure(f"the gallery's screen, {said.get('pixels')} pixels, is not one of the displays {screens}")
+    return found[0]
+
+
 def capture(udid, scenario, screens):
     """Opens the gallery on SCENARIO, waits for it to settle and saves its
-    screen; returns what the gallery said about it."""
+    screen; returns what the gallery said about it. SCREENS, the displays,
+    takes the ones a screenshot lists when find_displays() had none."""
     name = scenario["name"]
     said, ready = launch(udid, scenario, name, 90)
     if scenario.get("orientation") == "landscape" and not said.get("orientation", "").startswith("landscape"):
         raise Failure(f"the gallery stayed upright: {said}")
     display = None
     if len(screens) > 1:
-        pixels = sorted(round(n) for n in said.get("pixels", []))
-        found = [screen for screen, size in screens.items() if sorted(size) == pixels]
-        if len(found) != 1:
-            raise Failure(f"the gallery's screen, {said.get('pixels')} pixels, is not one of the displays {screens}")
-        display = said["display"] = found[0]
+        display = said["display"] = display_for(screens, said)
     raw = BUILD / "raw" / f"{name}.png"
-    screenshot(udid, raw, display)
+    try:
+        screenshot(udid, raw, display)
+    except Failure as error:
+        listed = listed_displays(str(error))
+        if display or len(listed) < 2:
+            raise
+        screens.clear()
+        screens.update(listed)
+        display = said["display"] = display_for(screens, said)
+        screenshot(udid, raw, display)
     size = [] if "device" in scenario else [str(scenario["width"]), str(scenario["height"])]
     run(str(BUILD / "screenshot"), str(raw), str(ready), str(OUT / f"{name}.png"), *size)
     return said

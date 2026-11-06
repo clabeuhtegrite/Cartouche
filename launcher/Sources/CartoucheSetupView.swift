@@ -2,7 +2,7 @@
 //  CartoucheSetupView.swift
 //  Cartouche
 //
-//  The setup, once per iPhone: the pairing file iloader places, the Apple ID
+//  The setup, once per iPhone: the pairing file the installer places, the Apple ID
 //  the built-in SideStore signs in with, then the certificate, which Cartouche
 //  hands to LiveContainer on its own (CartoucheSetup.swift). Each step shows
 //  where it stands, read again whenever Cartouche comes back to the front.
