@@ -1,11 +1,15 @@
 name: App
 
+# Builds Cartouche.ipa from a pull request that changes the app, and from
+# main after it. Every pull request reports these checks, which main
+# requires (.github/rulesets/main.json): one that changes none of the app's
+# files skips the build, and a skipped check counts as passed.
+
 on:
   push:
     branches: [main]
     paths: ["app/**", "launcher/**", "catalog/**", "engine/**", ".gitmodules", ".github/workflows/app.yml"]
   pull_request:
-    paths: ["app/**", "launcher/**", "catalog/**", "engine/**", ".gitmodules", ".github/workflows/app.yml"]
   workflow_dispatch:
 
 permissions:
@@ -16,16 +20,51 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  changes:
+    name: Files the app is built from
+    runs-on: ubuntu-latest
+    outputs:
+      build: ${{ steps.paths.outputs.build }}
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          fetch-depth: 2
+          persist-credentials: false
+      - name: Does this change touch them?
+        id: paths
+        run: |
+          # A pull request is checked out as its merge into main: HEAD^1 is
+          # main, HEAD^2 the pull request.
+          if [ "$GITHUB_EVENT_NAME" != "pull_request" ]; then
+            echo "build=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          BUILD=false
+          while IFS= read -r FILE; do
+            case "$FILE" in
+              # The release workflow's pull requests change only the source.
+              app/sidestore-source.json) ;;
+              app/*|launcher/*|catalog/*|engine/*|.gitmodules|.github/workflows/app.yml) BUILD=true ;;
+            esac
+          done < <(git diff --name-only HEAD^1 HEAD)
+          echo "build=$BUILD" >> "$GITHUB_OUTPUT"
+          echo "Build the app: $BUILD"
+
   build:
     name: Build Cartouche.ipa
+    needs: changes
+    # Builds unless the first job said there is nothing to build, so that a
+    # failure there cannot skip it.
+    if: ${{ !cancelled() && needs.changes.outputs.build != 'false' }}
     runs-on: macos-26
     timeout-minutes: 90
     env:
       XCODE_VERSION: "26.4"
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           submodules: recursive
+          persist-credentials: false
       - name: Select Xcode
         run: |
           ls -d /Applications/Xcode*.app
@@ -36,7 +75,7 @@ jobs:
       - name: Build
         run: app/scripts/build.sh
       - name: Upload the unsigned IPA
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: Cartouche-unsigned-${{ github.sha }}
           path: build/app/Cartouche.ipa
@@ -48,8 +87,10 @@ jobs:
     needs: build
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
-      - uses: actions/download-artifact@v8
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
         with:
           name: Cartouche-unsigned-${{ github.sha }}
           path: build/download

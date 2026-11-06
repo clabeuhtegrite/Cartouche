@@ -29,3 +29,13 @@ romfs.img
 
 # Never commit signing keys.
 *.key
+
+# Never commit pairing files, certificates or provisioning profiles: they
+# hold a player's device keys or signing identity.
+*.mobiledevicepairing
+*.mobiledevicepair
+*.p12
+*.p8
+*.pem
+*.cer
+*.mobileprovision
