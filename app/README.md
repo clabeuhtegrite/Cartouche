@@ -22,7 +22,13 @@ To move to a newer upstream commit, update the submodule, check that every patch
 4. builds LiveContainer with `xcodebuild archive`, with Cartouche's bundle identifier from [`config.env`](config.env);
 5. assembles `build/app/Cartouche.ipa` with `scripts/package.sh`, adapted from LiveContainer's own packaging script: SideStore goes into the app as a framework, with its intents and widget, and the sheets and device profiles of [`catalog/`](../catalog/) go into `CartoucheCatalog/` for the launcher.
 
-The IPA is unsigned; SideStore or iloader signs it when installing it. `prepare.sh` also runs on Linux: CI runs it on every pull request, with the tests in [`tests/`](tests/) of `brand.py`, the icon, the launcher's words and the names its renewal shares with LiveContainer and SideStore, so a patch or a name that no longer applies shows up in a minute rather than after the Mac build.
+The IPA is unsigned; SideStore or iloader signs it when installing it. `prepare.sh` also runs on Linux: CI runs it on every pull request, with the tests in [`tests/`](tests/) of `brand.py`, the icon, the launcher's words, the names its renewal shares with LiveContainer and SideStore, and the version, so a patch or a name that no longer applies shows up in a minute rather than after the Mac build.
+
+## Version
+
+Cartouche has its own version, `CARTOUCHE_VERSION` in [`config.env`](config.env), as major.minor.patch. `scripts/package.sh` writes it as the app's `CFBundleShortVersionString` and `CFBundleVersion` in place of LiveContainer's, and the commit it is built from as `LCVersionInfo`. LiveContainer's and SideStore's own versions stay in `CartoucheLiveContainerVersion` and `CartoucheSideStoreVersion`, and the System tab shows them all.
+
+The built-in SideStore offers an update when its source, [`sidestore-source.json`](sidestore-source.json), lists a higher version than the one installed. So every release raises the version, and a build is never older than a release the source lists ([`tests/test_version.py`](tests/test_version.py)).
 
 ## Identity
 

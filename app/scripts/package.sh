@@ -10,7 +10,8 @@
 #
 # usage: package.sh --archive LiveContainer.xcarchive --sidestore SideStore.ipa
 #                   --dylibify PATH --resources DIR --catalog DIR --bundle-id ID
-#                   --name NAME --url-scheme SCHEME --out OUT.ipa
+#                   --name NAME --url-scheme SCHEME --version X.Y.Z
+#                   --commit SHA --out OUT.ipa
 set -euo pipefail
 
 while [ $# -gt 0 ]; do
@@ -23,13 +24,16 @@ while [ $# -gt 0 ]; do
     --bundle-id) BUNDLE_ID="$2" ;;
     --name) NAME="$2" ;;
     --url-scheme) URL_SCHEME="$2" ;;
+    --version) VERSION="$2" ;;       # Cartouche's version, from app/config.env
+    --commit) COMMIT="$2" ;;         # the commit it is built from
     --out) OUT_IPA="$2" ;;
     *) echo "unknown option $1" >&2; exit 2 ;;
   esac
   shift 2
 done
-: "${ARCHIVE:?} ${SIDESTORE_IPA:?} ${DYLIBIFY:?} ${RESOURCES:?} ${CATALOG:?} ${BUNDLE_ID:?} ${NAME:?} ${URL_SCHEME:?} ${OUT_IPA:?}"
+: "${ARCHIVE:?} ${SIDESTORE_IPA:?} ${DYLIBIFY:?} ${RESOURCES:?} ${CATALOG:?} ${BUNDLE_ID:?} ${NAME:?} ${URL_SCHEME:?} ${VERSION:?} ${COMMIT:?} ${OUT_IPA:?}"
 APP_GROUP="group.$BUNDLE_ID"
+[[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "version must be major.minor.patch: $VERSION" >&2; exit 2; }
 
 STAGE="$(mktemp -d)"
 trap 'rm -rf "$STAGE"' EXIT
@@ -48,6 +52,17 @@ cp "$CATALOG"/games/*.json "$APP/CartoucheCatalog/games/"
 # Name on the home screen, and of the App IDs SideStore registers.
 $PB -c "Set :CFBundleDisplayName $NAME" "$APP/Info.plist" 2>/dev/null \
   || $PB -c "Add :CFBundleDisplayName string $NAME" "$APP/Info.plist"
+
+# Cartouche's own version in place of LiveContainer's: the built-in SideStore
+# offers an update when its source lists a higher version than this one.
+# LiveContainer's version, and SideStore's below, stay readable in the System
+# tab, and LiveContainer's own version line ends with the commit.
+LC_VERSION="$($PB -c 'Print :CFBundleShortVersionString' "$APP/Info.plist")"
+$PB -c "Set :CFBundleShortVersionString $VERSION" "$APP/Info.plist"
+$PB -c "Set :CFBundleVersion $VERSION" "$APP/Info.plist"
+$PB -c "Add :CartoucheLiveContainerVersion string $LC_VERSION" "$APP/Info.plist"
+$PB -c "Delete :LCVersionInfo" "$APP/Info.plist" 2>/dev/null || true
+$PB -c "Add :LCVersionInfo string $COMMIT" "$APP/Info.plist"
 
 # The built-in SideStore's app group, URL schemes, intents and settings switch.
 # Never the plain "sidestore" scheme: a SideStore or LiveContainer+SideStore on
@@ -76,6 +91,8 @@ $PB -c "Add :PreferenceSpecifiers:3:DefaultValue bool false" "$APP/Settings.bund
 # SideStore runs inside the app as a framework: its executable becomes a dylib.
 mkdir -p "$STAGE/sidestore"
 unzip -q "$SIDESTORE_IPA" -d "$STAGE/sidestore"
+SS_VERSION="$($PB -c 'Print :CFBundleShortVersionString' "$STAGE/sidestore/Payload/SideStore.app/Info.plist")"
+$PB -c "Add :CartoucheSideStoreVersion string $SS_VERSION" "$APP/Info.plist"
 mv "$STAGE/sidestore/Payload/SideStore.app" "$FW/SideStoreApp.framework"
 SS="$FW/SideStoreApp.framework"
 "$DYLIBIFY" "$SS/SideStore" "$SS/SideStore.dylib"
