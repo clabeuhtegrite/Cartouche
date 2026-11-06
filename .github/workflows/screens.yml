@@ -1,0 +1,77 @@
+name: Launcher screens
+
+# Builds the launcher's gallery (launcher/Gallery) for the iOS Simulator and
+# saves a screenshot of each scenario of launcher/Gallery/scenarios.json: the
+# console's screens at the sizes of the iPhone 17 Pro and of the iPhone Duo
+# folded and unfolded, and on the iPhone Duo simulator itself. They are kept
+# with the run, and for a branch of this repository on the branch
+# launcher-screens/<branch>, one commit that each run replaces.
+
+on:
+  pull_request:
+    paths: ["launcher/**", "catalog/**", ".github/workflows/screens.yml"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: screens-${{ github.head_ref || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  screens:
+    name: Screenshots
+    runs-on: xcode-27
+    timeout-minutes: 60
+    env:
+      XCODE_VERSION: "27.2"
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - name: Select Xcode
+        run: |
+          sudo xcode-select -s "/Applications/Xcode_${XCODE_VERSION}.app"
+          xcodebuild -version
+      - name: Install XcodeGen
+        run: brew install xcodegen
+      - name: Take the screenshots
+        run: launcher/Gallery/capture.sh build/screens
+      - name: Upload them
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: launcher-screens
+          path: build/screens
+          retention-days: 14
+          if-no-files-found: warn
+
+  # The only job that can write runs nothing from the pull request: it
+  # commits the screenshots the first job uploaded.
+  keep:
+    name: Keep the screenshots on a branch
+    needs: screens
+    if: ${{ !cancelled() && (github.event_name == 'workflow_dispatch' || github.event.pull_request.head.repo.full_name == github.repository) }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # the branch launcher-screens/<branch>
+    env:
+      BRANCH: launcher-screens/${{ github.head_ref || github.ref_name }}
+      SOURCE: ${{ github.event.pull_request.head.sha || github.sha }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
+        with:
+          name: launcher-screens
+          path: screens
+      - name: Push them to launcher-screens/<branch>
+        run: |
+          cd screens
+          git init -q -b screens
+          git add -A
+          git -c user.name="github-actions[bot]" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" \
+            commit -q -m "Launcher screens of $SOURCE"
+          gh auth setup-git
+          git push -q -f "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY.git" "HEAD:refs/heads/$BRANCH"
+          echo "Pushed to $BRANCH"

@@ -2,9 +2,11 @@
 //  CartoucheGameSheetView.swift
 //  Cartouche
 //
-//  A game's sheet: what it needs against what this iPhone has, the settings
-//  testers recommend, and their results. Its one action is Play for the
-//  player's own copy, or Import my copy.
+//  A game's sheet: where nxnative plays it and what its profile says, what
+//  the game needs against what this iPhone has, the settings testers
+//  recommend, and their results. Its main action is Play for the player's
+//  own copy, with Game settings (the game's settings page) and Uninstall
+//  under it, or Import my copy.
 //
 
 import SwiftUI
@@ -14,9 +16,13 @@ struct CartoucheGameSheetView: View {
     let entry: CartoucheEntry
     let memory: CartoucheMemoryReading?
     let onPlay: (LCAppModel) -> Void
+    /// Opens the game's settings page.
+    let onSettings: (LCAppModel) -> Void
     /// Opens Files. The view that presents the sheet holds the one file
     /// importer of its presentation: SwiftUI presents only one of several.
     let onImport: () -> Void
+    /// Asks whether to uninstall the game, and whether its saves stay.
+    let onUninstall: (LCAppModel) -> Void
 
     private var fit: CartoucheFit? {
         entry.sheet.map { CartoucheFit.of($0, memory: memory) }
@@ -51,47 +57,39 @@ struct CartoucheGameSheetView: View {
                     }
                 }
                 results(sheet)
-            } else {
+            } else if entry.isOwned {
                 Section {
                     Text(CartoucheText.noSheetMessage)
                         .foregroundStyle(.secondary)
                 }
             }
+
+            if let game = entry.game {
+                nxnative(game)
+            }
         }
+        .scrollContentBackground(.hidden)
+        .background(CartoucheStage(key: entry.tileKey))
         .navigationTitle(entry.name)
         .navigationBarTitleDisplayMode(.inline)
     }
 
     private var header: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            ZStack(alignment: .bottomLeading) {
-                CartoucheTileArt(name: entry.app == nil ? entry.name : "", platform: entry.app == nil ? entry.sheet?.platform : nil, key: entry.tileKey)
-                if let app = entry.app {
-                    HStack(spacing: 14) {
-                        CartoucheAppIcon(app: app, size: 84)
-                        VStack(alignment: .leading, spacing: 4) {
-                            if let platform = entry.sheet?.platform {
-                                Text(CartoucheText.platform(platform).uppercased())
-                                    .font(.caption2.weight(.heavy))
-                                    .tracking(1.2)
-                                    .foregroundStyle(Color.white.opacity(0.8))
-                            }
-                            Text(entry.name)
-                                .font(.system(.title2, design: .rounded, weight: .bold))
-                                .foregroundStyle(Color.white)
-                                .lineLimit(2)
-                                .minimumScaleFactor(0.7)
-                        }
+        VStack(alignment: .leading, spacing: 16) {
+            HStack(alignment: .center, spacing: 18) {
+                CartoucheGameCartridge(entry: entry, width: 104)
+                    .padding(.vertical, 8)
+                VStack(alignment: .leading, spacing: 8) {
+                    Text(entry.name)
+                        .font(.system(.title2, design: .rounded, weight: .heavy))
+                        .foregroundStyle(Color.white)
+                        .lineLimit(3)
+                        .minimumScaleFactor(0.7)
+                    CartoucheMetaLine(entry: entry)
+                    if entry.sheet != nil {
+                        CartoucheFitBadge(fit: fit, owned: entry.app != nil)
                     }
-                    .padding(16)
                 }
-            }
-            .frame(height: 170)
-            .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
-
-            HStack {
-                CartoucheFitBadge(fit: fit, owned: entry.app != nil)
-                Spacer()
             }
 
             if let app = entry.app {
@@ -100,21 +98,74 @@ struct CartoucheGameSheetView: View {
                 } label: {
                     Label(CartoucheText.play, systemImage: "play.fill")
                         .font(.headline)
-                        .frame(maxWidth: .infinity)
+                        .frame(maxWidth: .infinity, minHeight: 30)
                 }
-                .buttonStyle(.borderedProminent)
                 .controlSize(.large)
+                .cartouchePrimaryButton()
+                HStack(spacing: 10) {
+                    Button {
+                        onSettings(app)
+                    } label: {
+                        Label(CartoucheText.gameSettings, systemImage: "slider.horizontal.3")
+                            .font(.subheadline.weight(.semibold))
+                            .frame(maxWidth: .infinity, minHeight: 26)
+                    }
+                    .cartoucheSecondaryButton()
+                    Button(role: .destructive) {
+                        onUninstall(app)
+                    } label: {
+                        Label(CartoucheText.uninstall, systemImage: "trash")
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(CartoucheTheme.danger)
+                            .frame(maxWidth: .infinity, minHeight: 26)
+                    }
+                    .cartoucheSecondaryButton()
+                }
+                .controlSize(.regular)
             } else {
                 Button(action: onImport) {
                     Label(CartoucheText.importCopy, systemImage: "square.and.arrow.down")
                         .font(.headline)
-                        .frame(maxWidth: .infinity)
+                        .frame(maxWidth: .infinity, minHeight: 30)
                 }
-                .buttonStyle(.borderedProminent)
                 .controlSize(.large)
+                .cartouchePrimaryButton()
             }
         }
         .padding(.vertical, 8)
+    }
+
+    /// What nxnative's profile says about the game.
+    private func nxnative(_ game: CartoucheNxGame) -> some View {
+        let status = CartouchePlayStatus.of(entry)
+        return Section(CartoucheText.sheetNxnative) {
+            Label {
+                Text(status.long)
+            } icon: {
+                Image(systemName: status == .ready ? CartouchePlayStatus.iphone.symbol : status.symbol)
+                    .foregroundStyle(status.color)
+            }
+            LabeledContent(CartoucheText.sheetEngine, value: game.engine)
+            LabeledContent(CartoucheText.sheetBuild, value: game.build)
+            LabeledContent(CartoucheText.sheetSDK, value: game.sdk)
+            LabeledContent(CartoucheText.sheetTitleID) {
+                Text(verbatim: game.titleId)
+                    .font(.body.monospaced())
+                    .textSelection(.enabled)
+            }
+            ForEach(game.variants ?? [], id: \.self) { variant in
+                LabeledContent(CartoucheText.region(variant.region)) {
+                    VStack(alignment: .trailing, spacing: 2) {
+                        Text(verbatim: variant.titleId)
+                            .font(.body.monospaced())
+                            .textSelection(.enabled)
+                        Text(variant.build)
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+            }
+        }
     }
 
     private func requirements(_ sheet: CartoucheGameSheet) -> some View {

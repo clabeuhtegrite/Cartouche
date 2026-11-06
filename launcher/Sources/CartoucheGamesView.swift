@@ -2,14 +2,15 @@
 //  CartoucheGamesView.swift
 //  Cartouche
 //
-//  The home screen: every game Cartouche supports, the player's own first.
-//  In a compact width a game's sheet opens over the catalogue; in a regular
-//  width (an unfolded iPhone Duo, an iPad) the catalogue and the sheet sit
-//  side by side, one on each side of the fold. The layout follows the size
-//  class and the space this view is given, never the iPhone model.
+//  The Games tab, Cartouche's console: the home (CartoucheHomeView), every
+//  game (CartoucheLibraryView), and a game's sheet over either, with the
+//  game's settings one step further (CartoucheGameSettingsView). The tab
+//  takes the whole screen, dark, without the tab bar: the home's dock
+//  leads to the other tabs, whose bar leads back here.
 //
-//  Installing and starting a game stay LiveContainer's: the catalogue hands
-//  the IPA or the game to the Apps tab, as a link from another app would.
+//  Cartouche installs, starts and uninstalls a game itself, on these
+//  screens (CartoucheGameActions): the player never lands in the Apps tab.
+//  A game the player has just imported opens on its sheet, Play first.
 //
 
 import SwiftUI
@@ -18,68 +19,116 @@ import UniformTypeIdentifiers
 @available(iOS 17.0, *)
 struct CartoucheGamesView: View {
     @EnvironmentObject private var sharedModel: SharedModel
-    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
-    @State private var selectedID: String?
+    @ObservedObject private var setup = CartoucheSetup.shared
+    @ObservedObject private var actions = CartoucheGameActions.shared
+    @State private var path: [Route] = []
+    @State private var sheetID: String?
     @State private var choosingIPA = false
     @State private var choosingIPAInSheet = false
     @State private var memory = CartoucheMemoryReading.now()
     @State private var showingSetup = false
-    @ObservedObject private var setup = CartoucheSetup.shared
+    /// The game whose uninstall the player is asked about, from the home or
+    /// from the sheet.
+    @State private var uninstalling: LCAppModel?
+    @State private var uninstallingInSheet: LCAppModel?
+    /// The settings page open over the game's sheet.
+    @State private var gameSettings: CartoucheGameSettingsModel?
+
+    enum Route: Hashable {
+        case library
+    }
 
     private let catalog = CartoucheCatalog.shared
 
-    private var isRegular: Bool { horizontalSizeClass == .regular }
+    private var onGames: Bool { sharedModel.selectedTab == .games }
+    private var nothingOver: Bool {
+        sheetID == nil && !showingSetup && !choosingIPA && uninstalling == nil
+            && actions.work == nil && actions.notice == nil
+    }
 
     var body: some View {
         let entries = catalog.entries(for: sharedModel.apps)
-        GeometryReader { proxy in
-            // Side by side when this view is wider than tall, one above the
-            // other otherwise. The catalogue stays the first child in every
-            // layout, so folding or rotating keeps its scroll position.
-            let stacked = isRegular && proxy.size.height > proxy.size.width
-            let layout = stacked ? AnyLayout(VStackLayout(spacing: 0)) : AnyLayout(HStackLayout(spacing: 0))
-            layout {
-                NavigationStack {
-                    catalogue(entries)
-                        .navigationTitle(CartoucheText.gamesTab)
-                        .toolbar {
-                            ToolbarItem(placement: .primaryAction) {
-                                Button {
-                                    choosingIPA = true
-                                } label: {
-                                    Label(CartoucheText.importCopy, systemImage: "square.and.arrow.down")
-                                }
-                            }
-                        }
-                }
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                if isRegular {
-                    Divider()
-                    NavigationStack {
-                        detail(entries)
+        NavigationStack(path: $path) {
+            CartoucheHomeView(
+                entries: entries,
+                gameCount: entries.all.count,
+                isActive: onGames && path.isEmpty && nothingOver,
+                onPlay: { play($0) },
+                onImport: { choosingIPA = true },
+                onUninstall: { uninstalling = $0 },
+                onSheet: { sheetID = $0.id },
+                onLibrary: { path.append(.library) },
+                onSetup: { showingSetup = true },
+                onTab: { sharedModel.selectedTab = $0 })
+                .toolbar(.hidden, for: .navigationBar)
+                .toolbar(.hidden, for: .tabBar)
+                .navigationDestination(for: Route.self) { route in
+                    switch route {
+                    case .library:
+                        CartoucheLibraryView(
+                            entries: entries,
+                            isActive: onGames && path.last == .library && nothingOver,
+                            onPlay: { play($0) },
+                            onSheet: { sheetID = $0.id },
+                            onBack: { if !path.isEmpty { path.removeLast() } })
+                            .toolbar(.hidden, for: .tabBar)
                     }
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
                 }
-            }
         }
+        .preferredColorScheme(onGames ? .dark : nil)
         .fileImporter(isPresented: $choosingIPA, allowedContentTypes: [.ipa]) { result in
             if case .success(let url) = result {
                 importCopy(url)
             }
         }
-        .sheet(isPresented: compactSheet) {
-            if let entry = entries.entry(id: selectedID) {
+        .sheet(isPresented: sheetPresented) {
+            if let entry = entries.entry(id: sheetID) {
                 NavigationStack {
-                    sheetView(entry, onImport: { choosingIPAInSheet = true })
+                    CartoucheGameSheetView(
+                        entry: entry,
+                        memory: memory,
+                        onPlay: { play($0) },
+                        onSettings: { gameSettings = actions.settings(for: $0, tileKey: entry.tileKey) },
+                        onImport: { choosingIPAInSheet = true },
+                        onUninstall: { uninstallingInSheet = $0 })
+                        .id(entry.id)
                         .toolbar {
                             ToolbarItem(placement: .confirmationAction) {
-                                Button(CartoucheText.done) { selectedID = nil }
+                                Button(CartoucheText.done) { sheetID = nil }
+                            }
+                        }
+                        .navigationDestination(item: $gameSettings) { settings in
+                            CartoucheGameSettingsView(model: settings) {
+                                if let app = entry.app { play(app, showingSettings: true) }
+                            }
+                            .toolbar {
+                                ToolbarItem(placement: .confirmationAction) {
+                                    Button(CartoucheText.done) { sheetID = nil }
+                                }
                             }
                         }
                 }
+                .preferredColorScheme(.dark)
                 .fileImporter(isPresented: $choosingIPAInSheet, allowedContentTypes: [.ipa]) { result in
                     if case .success(let url) = result {
                         importCopy(url)
+                    }
+                }
+                .modifier(CartoucheUninstallQuestion(app: $uninstallingInSheet, onAnswer: uninstall))
+                .onReceive(CartoucheGamepad.shared.inputs) { input in
+                    guard uninstallingInSheet == nil else { return }
+                    // B on the settings page goes back to the sheet.
+                    if gameSettings != nil {
+                        if input == .b { gameSettings = nil }
+                        return
+                    }
+                    switch input {
+                    case .b:
+                        sheetID = nil
+                    case .a:
+                        if let app = entry.app { play(app) }
+                    default:
+                        break
                     }
                 }
             }
@@ -93,6 +142,34 @@ struct CartoucheGamesView: View {
                         }
                     }
             }
+            .onReceive(CartoucheGamepad.shared.inputs) { input in
+                if input == .b { showingSetup = false }
+            }
+        }
+        .modifier(CartoucheUninstallQuestion(app: $uninstalling, onAnswer: uninstall))
+        .overlay {
+            if let work = actions.work {
+                CartoucheGameWorkView(work: work)
+                    .transition(.opacity)
+            }
+        }
+        .animation(.easeInOut(duration: 0.2), value: actions.work)
+        // Another game's sheet, or none: its settings page goes too.
+        .onChange(of: sheetID) { _, _ in gameSettings = nil }
+        .alert(actions.notice?.title ?? "", isPresented: noticeShown, presenting: actions.notice) { _ in
+            Button(CartoucheText.done) { actions.notice = nil }
+        } message: { notice in
+            Text(notice.message)
+        }
+        // A game just imported: its sheet, with Play, unless there is
+        // something to tell first.
+        .onChange(of: actions.installed) { _, app in
+            guard let app else { return }
+            actions.installed = nil
+            guard actions.notice == nil,
+                  let entry = catalog.entries(for: sharedModel.apps).owned.first(where: { $0.app === app }) else { return }
+            path.removeAll()
+            sheetID = entry.id
         }
         // Hands the built-in SideStore's certificate to LiveContainer as soon
         // as the player has signed in, before they pick a game.
@@ -114,137 +191,77 @@ struct CartoucheGamesView: View {
         }
     }
 
-    /// The sheet over the catalogue, in a compact width only. Unfolding
-    /// moves the selected game into the side pane instead of closing it.
-    private var compactSheet: Binding<Bool> {
+    private var sheetPresented: Binding<Bool> {
         Binding(
-            get: { !isRegular && selectedID != nil },
+            get: { sheetID != nil },
             set: { presented in
-                if !presented && !isRegular { selectedID = nil }
+                if !presented { sheetID = nil }
             })
     }
 
-    private func catalogue(_ entries: CartoucheCatalog.Entries) -> some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 28) {
-                CartoucheSetupBanner()
-                VStack(alignment: .leading, spacing: 12) {
-                    sectionTitle(CartoucheText.yourGames)
-                    if entries.owned.isEmpty {
-                        emptyCard
-                    } else {
-                        LazyVGrid(columns: [GridItem(.adaptive(minimum: 300), spacing: 16)], spacing: 16) {
-                            ForEach(entries.owned) { entry in
-                                CartoucheOwnedCard(
-                                    entry: entry,
-                                    fit: fit(entry),
-                                    isSelected: isRegular && selectedID == entry.id,
-                                    onPlay: { if let app = entry.app { play(app) } })
-                                    .onTapGesture { selectedID = entry.id }
-                                    .accessibilityAddTraits(.isButton)
-                            }
-                        }
-                    }
-                }
-
-                if !entries.others.isEmpty {
-                    VStack(alignment: .leading, spacing: 12) {
-                        sectionTitle(CartoucheText.supportedGames)
-                        LazyVGrid(columns: [GridItem(.adaptive(minimum: 150), spacing: 14)], spacing: 18) {
-                            ForEach(entries.others) { entry in
-                                Button {
-                                    selectedID = entry.id
-                                } label: {
-                                    CartoucheGameTile(entry: entry, fit: fit(entry), isSelected: isRegular && selectedID == entry.id)
-                                }
-                                .buttonStyle(.plain)
-                            }
-                        }
-                    }
-                }
-
-                Text(CartoucheText.supportedFooter)
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
-            }
-            .padding()
-        }
+    private var noticeShown: Binding<Bool> {
+        Binding(
+            get: { actions.notice != nil },
+            set: { shown in
+                if !shown { actions.notice = nil }
+            })
     }
 
-    @ViewBuilder
-    private func detail(_ entries: CartoucheCatalog.Entries) -> some View {
-        if let entry = entries.entry(id: selectedID) {
-            sheetView(entry, onImport: { choosingIPA = true })
-        } else {
-            ContentUnavailableView(CartoucheText.gamesTab, systemImage: "gamecontroller", description: Text(CartoucheText.selectGame))
-        }
-    }
-
-    private func sheetView(_ entry: CartoucheEntry, onImport: @escaping () -> Void) -> some View {
-        CartoucheGameSheetView(entry: entry, memory: memory, onPlay: play, onImport: onImport)
-            .id(entry.id)
-    }
-
-    private func sectionTitle(_ title: String) -> some View {
-        Text(title)
-            .font(.system(.title2, design: .rounded, weight: .bold))
-    }
-
-    private var emptyCard: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Label(CartoucheText.emptyTitle, systemImage: "square.stack.3d.down.forward")
-                .font(.headline)
-            Text(CartoucheText.emptyMessage)
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
-            Button {
-                choosingIPA = true
-            } label: {
-                Label(CartoucheText.importCopy, systemImage: "square.and.arrow.down")
-            }
-            .buttonStyle(.bordered)
-        }
-        .padding(16)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color(uiColor: .secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 22, style: .continuous))
-    }
-
-    private func fit(_ entry: CartoucheEntry) -> CartoucheFit? {
-        entry.sheet.map { CartoucheFit.of($0, memory: memory) }
-    }
-
-    /// LiveContainer starts the game from its Apps tab, as it does for a
-    /// livecontainer-launch link; only the link's host and query count.
-    private func play(_ app: LCAppModel) {
+    /// Starts the game from Cartouche, which opens again as the game. With
+    /// showingSettings, nxnative's settings screen comes first.
+    private func play(_ app: LCAppModel, showingSettings: Bool = false) {
         // Without the certificate, LiveContainer could only refuse to start
         // the game: show what is missing instead, once the game's sheet,
         // which may hold the Play button, has gone.
         CartoucheSetup.shared.refresh()
         guard CartoucheSetup.shared.canPlay else {
-            let sheetWasOpen = compactSheet.wrappedValue
-            selectedID = nil
+            let sheetWasOpen = sheetID != nil
+            sheetID = nil
             DispatchQueue.main.asyncAfter(deadline: .now() + (sheetWasOpen ? 0.6 : 0)) { showingSetup = true }
             return
         }
-        var components = URLComponents()
-        components.scheme = "cartouche"
-        components.host = "livecontainer-launch"
-        components.queryItems = [URLQueryItem(name: "bundle-name", value: app.appInfo.relativeBundlePath)]
-        guard let url = components.url else { return }
-        selectedID = nil
-        sharedModel.selectedTab = .apps
-        sharedModel.deepLink = url
+        sheetID = nil
+        actions.play(app, showingSettings: showingSettings)
     }
 
-    /// LiveContainer installs the IPA from its Apps tab, as it does an IPA
-    /// opened from another app. It reads the file in place, after this
-    /// returns, from a URL it rebuilds from the path, so the access granted
-    /// by the picker stays open until Cartouche quits: a game's IPA is too
-    /// large to copy first.
+    /// Installs the IPA the player picked, here: Cartouche reads it in place.
     private func importCopy(_ url: URL) {
-        _ = url.startAccessingSecurityScopedResource()
-        selectedID = nil
-        sharedModel.selectedTab = .apps
-        sharedModel.deepLink = url
+        sheetID = nil
+        actions.install(url)
+    }
+
+    private func uninstall(_ app: LCAppModel, erasingData: Bool) {
+        sheetID = nil
+        actions.uninstall(app, erasingData: erasingData)
+    }
+}
+
+/// Asks before a game is uninstalled, whether its saves stay.
+@available(iOS 17.0, *)
+struct CartoucheUninstallQuestion: ViewModifier {
+    @Binding var app: LCAppModel?
+    let onAnswer: (LCAppModel, Bool) -> Void
+
+    private var asking: Binding<Bool> {
+        Binding(
+            get: { app != nil },
+            set: { asked in
+                if !asked { app = nil }
+            })
+    }
+
+    func body(content: Content) -> some View {
+        content.confirmationDialog(
+            app.map { CartoucheText.uninstallQuestion($0.displayName) } ?? "",
+            isPresented: asking,
+            titleVisibility: .visible,
+            presenting: app
+        ) { app in
+            Button(CartoucheText.uninstallKeepSaves, role: .destructive) { onAnswer(app, false) }
+            Button(CartoucheText.uninstallEraseSaves, role: .destructive) { onAnswer(app, true) }
+            Button(CartoucheText.cancel, role: .cancel) {}
+        } message: { _ in
+            Text(CartoucheText.uninstallMessage)
+        }
     }
 }

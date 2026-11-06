@@ -1,6 +1,8 @@
 # Builds
 /build/
 DerivedData/
+launcher/Gallery/Build/
+launcher/Gallery/*.xcodeproj/
 *.xcarchive
 *.ipa
 *.dSYM/

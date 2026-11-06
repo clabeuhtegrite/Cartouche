@@ -49,9 +49,10 @@ cp -R "$ARCHIVE/Products/Applications/LiveContainer.app" "$STAGE/Payload/"
 APP="$STAGE/Payload/LiveContainer.app"
 FW="$APP/Frameworks"
 
-# The game sheets and device profiles the launcher reads, as of this build.
+# nxnative's games, the game sheets and the device profiles the launcher
+# reads, as of this build.
 mkdir -p "$APP/CartoucheCatalog/games"
-cp "$CATALOG/devices.json" "$APP/CartoucheCatalog/"
+cp "$CATALOG/devices.json" "$CATALOG/nxnative.json" "$APP/CartoucheCatalog/"
 cp "$CATALOG"/games/*.json "$APP/CartoucheCatalog/games/"
 
 # Names. iloader's Pairing page lists the apps it can place a pairing file

@@ -14,6 +14,10 @@ import os
 enum CartoucheDevice {
     /// The model identifier, such as "iPhone18,2".
     static let modelIdentifier: String = {
+        #if CARTOUCHE_GALLERY
+        // The gallery draws the screens as the iPhone of catalog/devices.json shows them.
+        return "iPhone19,4"
+        #else
         if let simulated = ProcessInfo.processInfo.environment["SIMULATOR_MODEL_IDENTIFIER"] {
             return simulated
         }
@@ -23,6 +27,7 @@ enum CartoucheDevice {
         var machine = [CChar](repeating: 0, count: size)
         sysctlbyname("hw.machine", &machine, &size, nil, 0)
         return String(cString: machine)
+        #endif
     }()
 
     static var iOSVersion: String {
@@ -44,11 +49,15 @@ enum CartoucheDevice {
     /// Whether the GPU samples BC-compressed textures, which games from
     /// consoles use.
     static let supportsBCTextureCompression: Bool = {
+        #if CARTOUCHE_GALLERY
+        return true
+        #else
         guard let device = MTLCreateSystemDefaultDevice() else { return false }
         if #available(iOS 16.4, *) {
             return device.supportsBCTextureCompression
         }
         return false
+        #endif
     }()
 
     /// Whether Cartouche's signature carries Increased Memory Limit. iOS
@@ -75,6 +84,10 @@ struct CartoucheMemoryReading {
     var availableMiB: Int { Int(availableBytes / 1_048_576) }
 
     static func now() -> CartoucheMemoryReading? {
+        #if CARTOUCHE_GALLERY
+        // That iPhone with Increased Memory Limit, as Cartouche's home finds it.
+        return CartoucheMemoryReading(footprintBytes: 96 << 20, availableBytes: (6_143 - 96) << 20)
+        #else
         let available = os_proc_available_memory()
         guard available > 0 else { return nil }
 
@@ -87,6 +100,7 @@ struct CartoucheMemoryReading {
         }
         guard result == KERN_SUCCESS else { return nil }
         return CartoucheMemoryReading(footprintBytes: info.phys_footprint, availableBytes: UInt64(available))
+        #endif
     }
 }
 

@@ -2,58 +2,165 @@
 //  CartoucheTiles.swift
 //  Cartouche
 //
-//  The catalogue's cards. A game the player has shows the icon of their own
-//  copy; any other game gets a tile we draw from its name, never official
-//  cover art.
+//  Every game shows as a cartridge, as on Cartouche's icon: a body in the
+//  game's colour, its ridges, a square label and gold contacts. The label
+//  of a game the player has holds the icon of their own copy; any other
+//  game gets a label we draw from its name and genre, never official art.
 //
 
 import SwiftUI
 
-@available(iOS 17.0, *)
-struct CartoucheTileArt: View {
-    let name: String
-    let platform: String?
-    let key: String
+/// A cartridge's body: a rounded rectangle whose corners follow its width.
+struct CartoucheCartridgeShape: InsettableShape {
+    var insetAmount: CGFloat = 0
 
-    var body: some View {
-        let colors = Self.colors(for: key)
-        ZStack(alignment: .bottomLeading) {
-            LinearGradient(colors: [colors.light, colors.dark], startPoint: .topLeading, endPoint: .bottomTrailing)
-            Image(systemName: "gamecontroller.fill")
-                .font(.system(size: 56, weight: .bold))
-                .foregroundStyle(Color.white.opacity(0.14))
-                .rotationEffect(.degrees(-12))
-                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
-                .padding(10)
-            VStack(alignment: .leading, spacing: 3) {
-                if let platform {
-                    Text(CartoucheText.platform(platform).uppercased())
-                        .font(.caption2.weight(.heavy))
-                        .tracking(1.2)
-                        .foregroundStyle(Color.white.opacity(0.8))
-                }
-                Text(name)
-                    .font(.system(.headline, design: .rounded, weight: .bold))
-                    .foregroundStyle(Color.white)
-                    .lineLimit(3)
-                    .minimumScaleFactor(0.7)
-                    .multilineTextAlignment(.leading)
-            }
-            .padding(12)
-        }
-        .accessibilityElement(children: .combine)
+    func path(in rect: CGRect) -> Path {
+        let radius = max(0, rect.width * 0.11 - insetAmount)
+        return Path(roundedRect: rect.insetBy(dx: insetAmount, dy: insetAmount), cornerRadius: radius, style: .continuous)
     }
 
-    /// Two colours from the key, the same on every launch and every iPhone.
-    static func colors(for key: String) -> (light: Color, dark: Color) {
-        var hash: UInt64 = 0xcbf29ce484222325
-        for byte in key.utf8 {
-            hash = (hash ^ UInt64(byte)) &* 0x100000001b3
+    func inset(by amount: CGFloat) -> CartoucheCartridgeShape {
+        var shape = self
+        shape.insetAmount += amount
+        return shape
+    }
+}
+
+/// A cartridge of any width; its height is CartoucheTheme.cartridgeAspect
+/// times its width.
+@available(iOS 17.0, *)
+struct CartoucheCartridge<Content: View>: View {
+    let width: CGFloat
+    let key: String
+    var isFocused = false
+    var isOutline = false
+    @ViewBuilder let label: () -> Content
+
+    var body: some View {
+        let w = width
+        let bodyColors = CartoucheTheme.bodyColors(for: key)
+        let glow = CartoucheTheme.colors(for: key).light
+        ZStack(alignment: .topLeading) {
+            if isOutline {
+                CartoucheCartridgeShape()
+                    .fill(Color.white.opacity(0.05))
+                CartoucheCartridgeShape()
+                    .strokeBorder(Color.white.opacity(0.38), style: StrokeStyle(lineWidth: max(1.5, w * 0.016), dash: [w * 0.06, w * 0.045]))
+            } else {
+                CartoucheCartridgeShape()
+                    .fill(LinearGradient(colors: [bodyColors.top, bodyColors.bottom], startPoint: .top, endPoint: .bottom))
+                CartoucheCartridgeShape()
+                    .fill(LinearGradient(colors: [Color.white.opacity(0.16), Color.white.opacity(0)], startPoint: .top, endPoint: UnitPoint(x: 0.5, y: 0.3)))
+                CartoucheCartridgeShape()
+                    .strokeBorder(Color.white.opacity(0.12), lineWidth: 1)
+                ridges(w)
+                contacts(w)
+            }
+            label()
+                .frame(width: w * 0.84, height: w * 0.84)
+                .clipShape(RoundedRectangle(cornerRadius: w * 0.07, style: .continuous))
+                .overlay(
+                    RoundedRectangle(cornerRadius: w * 0.07, style: .continuous)
+                        .strokeBorder(Color.black.opacity(isOutline ? 0 : 0.28), lineWidth: 0.5))
+                .offset(x: w * 0.08, y: w * 0.235)
         }
-        let hue = Double(hash % 360) / 360
-        let shifted = (hue + 0.07).truncatingRemainder(dividingBy: 1)
-        return (Color(hue: hue, saturation: 0.62, brightness: 0.88),
-                Color(hue: shifted, saturation: 0.78, brightness: 0.42))
+        .frame(width: w, height: w * CartoucheTheme.cartridgeAspect)
+        .background {
+            if isFocused {
+                CartoucheCartridgeShape()
+                    .stroke(Color.white, lineWidth: max(2.5, w * 0.025))
+                    .padding(-max(4, w * 0.04))
+                    .shadow(color: glow.opacity(0.9), radius: w * 0.16)
+            }
+        }
+        .shadow(color: Color.black.opacity(isOutline ? 0 : 0.45), radius: w * 0.06, y: w * 0.04)
+        .scaleEffect(isFocused ? 1.05 : 1)
+        .offset(y: isFocused ? -w * 0.03 : 0)
+        .animation(.spring(response: 0.32, dampingFraction: 0.72), value: isFocused)
+        .contentShape(CartoucheCartridgeShape())
+    }
+
+    private func ridges(_ w: CGFloat) -> some View {
+        VStack(spacing: w * 0.03) {
+            ForEach(0..<3, id: \.self) { _ in
+                Capsule()
+                    .fill(Color.white.opacity(0.16))
+                    .frame(width: w * 0.4, height: max(1.5, w * 0.026))
+            }
+        }
+        .frame(width: w)
+        .offset(y: w * 0.06)
+    }
+
+    private func contacts(_ w: CGFloat) -> some View {
+        let slot = w * 0.58
+        let gap = w * 0.024
+        let inset = w * 0.04
+        let contact = (slot - 2 * inset - 5 * gap) / 6
+        return ZStack(alignment: .top) {
+            UnevenRoundedRectangle(topLeadingRadius: w * 0.04, topTrailingRadius: w * 0.04, style: .continuous)
+                .fill(Color.black.opacity(0.38))
+            HStack(spacing: gap) {
+                ForEach(0..<6, id: \.self) { _ in
+                    RoundedRectangle(cornerRadius: max(0.8, w * 0.01), style: .continuous)
+                        .fill(CartoucheTheme.gold)
+                        .frame(width: contact)
+                }
+            }
+            .padding(.top, w * 0.025)
+            .padding(.horizontal, inset)
+        }
+        .frame(width: slot, height: w * 0.17)
+        .frame(width: w)
+        .offset(y: w * (CartoucheTheme.cartridgeAspect - 0.17))
+    }
+}
+
+/// The label we draw for a game the player does not have: its colours,
+/// its genre and its name.
+@available(iOS 17.0, *)
+struct CartoucheLabelArt: View {
+    let name: String
+    let platform: String?
+    let genre: String?
+    let key: String
+    /// The label's side, which sets the size of everything on it.
+    let side: CGFloat
+
+    var body: some View {
+        let colors = CartoucheTheme.colors(for: key)
+        ZStack(alignment: .bottomLeading) {
+            LinearGradient(colors: [colors.light, colors.dark], startPoint: .topLeading, endPoint: .bottomTrailing)
+            // A band of light across the label, as on a printed sticker.
+            LinearGradient(colors: [Color.white.opacity(0), Color.white.opacity(0.13), Color.white.opacity(0)],
+                           startPoint: UnitPoint(x: 0, y: 0.25), endPoint: UnitPoint(x: 1, y: 0.65))
+            Image(systemName: CartoucheTheme.symbol(genre: genre))
+                .font(.system(size: side * 0.46, weight: .bold))
+                .foregroundStyle(Color.white.opacity(0.17))
+                .rotationEffect(.degrees(-12))
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
+                .offset(x: side * 0.08, y: -side * 0.04)
+            VStack(alignment: .leading, spacing: side * 0.03) {
+                if let platform, side >= 70 {
+                    Text(CartoucheText.platform(platform).uppercased())
+                        .font(.system(size: max(7, side * 0.075), weight: .heavy, design: .rounded))
+                        .tracking(side * 0.008)
+                        .foregroundStyle(Color.white)
+                        .padding(.horizontal, side * 0.04)
+                        .padding(.vertical, side * 0.015)
+                        .background(Color.black.opacity(0.28), in: Capsule())
+                }
+                Spacer(minLength: 0)
+                Text(name)
+                    .font(.system(size: max(8, side * 0.135), weight: .bold, design: .rounded))
+                    .foregroundStyle(Color.white)
+                    .lineLimit(side >= 70 ? 3 : 2)
+                    .minimumScaleFactor(0.6)
+                    .multilineTextAlignment(.leading)
+                    .shadow(color: Color.black.opacity(0.35), radius: 2, y: 1)
+            }
+            .padding(side * 0.075)
+        }
     }
 }
 
@@ -62,25 +169,145 @@ struct CartoucheTileArt: View {
 struct CartoucheAppIcon: View {
     let app: LCAppModel
     var size: CGFloat = 64
-    @Environment(\.colorScheme) private var colorScheme
+    /// Square, to fill a cartridge's label, or rounded as on the home screen.
+    var rounded = true
 
     var body: some View {
         Group {
-            if let icon = app.appInfo.iconIsDarkIcon(colorScheme == .dark) {
+            if let icon = app.appInfo.iconIsDarkIcon(true) {
                 Image(uiImage: icon).resizable().scaledToFill()
             } else {
-                Image(systemName: "gamecontroller.fill").resizable().scaledToFit().padding(size / 5)
-                    .foregroundStyle(Color.white)
+                ZStack {
+                    CartoucheTheme.brand
+                    Image(systemName: "gamecontroller.fill")
+                        .font(.system(size: size * 0.4, weight: .bold))
+                        .foregroundStyle(Color.white)
+                }
             }
         }
         .frame(width: size, height: size)
-        .clipShape(RoundedRectangle(cornerRadius: size * 0.225, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: size * 0.225, style: .continuous).strokeBorder(Color.white.opacity(0.25), lineWidth: 1))
-        .shadow(color: Color.black.opacity(0.25), radius: 6, y: 3)
+        .clipShape(RoundedRectangle(cornerRadius: rounded ? size * 0.225 : 0, style: .continuous))
     }
 }
 
-/// A small coloured label for how a game fits this iPhone.
+/// A game as a cartridge: the player's icon, or our label.
+@available(iOS 17.0, *)
+struct CartoucheGameCartridge: View {
+    let entry: CartoucheEntry
+    let width: CGFloat
+    var isFocused = false
+    /// The name over the player's icon, where nothing else shows it.
+    var namesOwned = false
+
+    var body: some View {
+        let side = width * 0.84
+        CartoucheCartridge(width: width, key: entry.tileKey, isFocused: isFocused) {
+            if let app = entry.app {
+                ZStack(alignment: .bottomLeading) {
+                    CartoucheAppIcon(app: app, size: side, rounded: false)
+                    if namesOwned {
+                        LinearGradient(colors: [Color.black.opacity(0), Color.black.opacity(0.7)], startPoint: .center, endPoint: .bottom)
+                        Text(entry.name)
+                            .font(.system(size: max(8, side * 0.12), weight: .bold, design: .rounded))
+                            .foregroundStyle(Color.white)
+                            .lineLimit(2)
+                            .minimumScaleFactor(0.7)
+                            .padding(side * 0.07)
+                    }
+                }
+            } else {
+                CartoucheLabelArt(name: entry.name, platform: entry.platform, genre: entry.genre, key: entry.tileKey, side: side)
+            }
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(Text(entry.name))
+        .accessibilityValue(Text(CartouchePlayStatus.of(entry).short))
+    }
+}
+
+/// The cartridge that imports a game: an outline with a plus.
+@available(iOS 17.0, *)
+struct CartoucheImportCartridge: View {
+    let width: CGFloat
+    var isFocused = false
+
+    var body: some View {
+        CartoucheCartridge(width: width, key: "import", isFocused: isFocused, isOutline: true) {
+            VStack(spacing: width * 0.06) {
+                Image(systemName: "plus")
+                    .font(.system(size: width * 0.24, weight: .semibold))
+                Text(CartoucheText.importTile)
+                    .font(.system(size: max(8, width * 0.1), weight: .semibold, design: .rounded))
+                    .multilineTextAlignment(.center)
+                    .lineLimit(2)
+                    .minimumScaleFactor(0.7)
+            }
+            .foregroundStyle(Color.white.opacity(0.85))
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(Text(CartoucheText.importCopy))
+        .accessibilityAddTraits(.isButton)
+    }
+}
+
+/// The cartridge at the end of a shelf that opens the list of every game.
+@available(iOS 17.0, *)
+struct CartoucheAllGamesCartridge: View {
+    let width: CGFloat
+    let count: Int
+    var isFocused = false
+
+    var body: some View {
+        CartoucheCartridge(width: width, key: "all", isFocused: isFocused, isOutline: true) {
+            VStack(spacing: width * 0.05) {
+                Image(systemName: "square.grid.2x2.fill")
+                    .font(.system(size: width * 0.22, weight: .semibold))
+                Text(CartoucheText.allGames)
+                    .font(.system(size: max(8, width * 0.1), weight: .semibold, design: .rounded))
+                    .lineLimit(2)
+                    .minimumScaleFactor(0.7)
+                Text(verbatim: "\(count)")
+                    .font(.system(size: max(7, width * 0.085), weight: .bold, design: .rounded).monospacedDigit())
+                    .foregroundStyle(CartoucheTheme.secondaryText)
+            }
+            .multilineTextAlignment(.center)
+            .foregroundStyle(Color.white.opacity(0.85))
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(Text(CartoucheText.allGames))
+        .accessibilityAddTraits(.isButton)
+    }
+}
+
+/// Where a game plays, in a word or two with its symbol.
+@available(iOS 17.0, *)
+struct CartoucheStatusLabel: View {
+    let status: CartouchePlayStatus
+    var font: Font = .caption.weight(.semibold)
+
+    var body: some View {
+        Label(status.short, systemImage: status.symbol)
+            .font(font)
+            .foregroundStyle(status.color)
+            .labelStyle(CartoucheTightLabelStyle())
+            .lineLimit(1)
+            .minimumScaleFactor(0.75)
+    }
+}
+
+/// A label's icon close to its title.
+struct CartoucheTightLabelStyle: LabelStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        HStack(spacing: 4) {
+            configuration.icon
+            configuration.title
+        }
+    }
+}
+
+/// How a game fits this iPhone, from its testers' sheet.
 @available(iOS 17.0, *)
 struct CartoucheFitBadge: View {
     let fit: CartoucheFit?
@@ -88,10 +315,10 @@ struct CartoucheFitBadge: View {
 
     var body: some View {
         Label(text, systemImage: symbol)
-            .font(.caption.weight(.semibold))
+            .font(.subheadline.weight(.semibold))
             .foregroundStyle(color)
-            .labelStyle(.titleAndIcon)
-            .lineLimit(1)
+            .labelStyle(CartoucheTightLabelStyle())
+            .lineLimit(2)
             .minimumScaleFactor(0.8)
     }
 
@@ -113,87 +340,11 @@ struct CartoucheFitBadge: View {
 
     private var color: Color {
         switch fit {
-        case .recommended: return .green
-        case .untested: return owned ? .green : .secondary
+        case .recommended: return CartouchePlayStatus.ready.color
+        case .untested: return owned ? CartouchePlayStatus.ready.color : CartoucheTheme.secondaryText
         case .notRecommended: return .orange
         case .unsupported: return .red
-        case nil: return .secondary
+        case nil: return CartoucheTheme.secondaryText
         }
-    }
-}
-
-/// One of the player's games: large, with their icon and a Play button.
-@available(iOS 17.0, *)
-struct CartoucheOwnedCard: View {
-    let entry: CartoucheEntry
-    let fit: CartoucheFit?
-    let isSelected: Bool
-    let onPlay: () -> Void
-
-    var body: some View {
-        let colors = CartoucheTileArt.colors(for: entry.tileKey)
-        HStack(alignment: .center, spacing: 14) {
-            if let app = entry.app {
-                CartoucheAppIcon(app: app, size: 72)
-            }
-            VStack(alignment: .leading, spacing: 6) {
-                if let platform = entry.sheet?.platform {
-                    Text(CartoucheText.platform(platform).uppercased())
-                        .font(.caption2.weight(.heavy))
-                        .tracking(1.2)
-                        .foregroundStyle(Color.white.opacity(0.8))
-                }
-                Text(entry.name)
-                    .font(.system(.title3, design: .rounded, weight: .bold))
-                    .foregroundStyle(Color.white)
-                    .lineLimit(2)
-                    .minimumScaleFactor(0.75)
-                CartoucheFitBadge(fit: fit, owned: true)
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 3)
-                    .background(Capsule().fill(Color.black.opacity(0.35)))
-            }
-            Spacer(minLength: 0)
-            Button(action: onPlay) {
-                Label(CartoucheText.play, systemImage: "play.fill")
-                    .font(.headline)
-            }
-            .buttonStyle(.borderedProminent)
-            .tint(Color.white.opacity(0.92))
-            .foregroundStyle(colors.dark)
-            .controlSize(.large)
-        }
-        .padding(16)
-        .frame(maxWidth: .infinity, minHeight: 120, alignment: .leading)
-        .background(
-            LinearGradient(colors: [colors.light, colors.dark], startPoint: .topLeading, endPoint: .bottomTrailing),
-            in: RoundedRectangle(cornerRadius: 22, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: 22, style: .continuous)
-                .strokeBorder(isSelected ? Color.accentColor : Color.clear, lineWidth: 3))
-        .contentShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
-    }
-}
-
-/// A supported game the player has not imported: our tile and its fit.
-@available(iOS 17.0, *)
-struct CartoucheGameTile: View {
-    let entry: CartoucheEntry
-    let fit: CartoucheFit?
-    let isSelected: Bool
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            CartoucheTileArt(name: entry.name, platform: entry.sheet?.platform, key: entry.tileKey)
-                .aspectRatio(4.0 / 3.0, contentMode: .fit)
-                .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 18, style: .continuous)
-                        .strokeBorder(isSelected ? Color.accentColor : Color.clear, lineWidth: 3))
-                .shadow(color: Color.black.opacity(0.18), radius: 8, y: 4)
-            CartoucheFitBadge(fit: fit)
-                .padding(.horizontal, 4)
-        }
-        .contentShape(Rectangle())
     }
 }

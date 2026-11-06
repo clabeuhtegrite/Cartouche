@@ -1,0 +1,89 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "nxnative.schema.json",
+  "title": "nxnative's games",
+  "description": "Every game nxnative has a profile for at the commit Cartouche pins, written by catalog/tools/nxnative_games.py from nxnative's dm/games. Names and facts about the profiles only: never where to get a game.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "nxnative", "games"],
+  "properties": {
+    "schema": {
+      "const": 1
+    },
+    "nxnative": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{40}$",
+      "description": "The nxnative commit the list was read from (engine/nxnative.commit)."
+    },
+    "games": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/game"
+      }
+    }
+  },
+  "$defs": {
+    "titleId": {
+      "type": "string",
+      "pattern": "^[0-9A-F]{16}$"
+    },
+    "game": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["titleId", "name", "platform", "genre", "status", "engine", "build", "sdk"],
+      "properties": {
+        "titleId": {
+          "$ref": "#/$defs/titleId"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100,
+          "description": "The name nxnative gives the game's app."
+        },
+        "platform": {
+          "enum": ["switch", "switch2"]
+        },
+        "genre": {
+          "enum": ["action", "adventure", "board", "card", "family", "music", "puzzle", "racing", "rpg", "simulation", "sports", "strategy", "other"],
+          "description": "From the profile's App Store category; other for a plain games category."
+        },
+        "status": {
+          "enum": ["iphone", "mac", "bringup", "unknown"],
+          "description": "Where the profile's opening comment says nxnative plays the game: on the iPhone (and the Mac), on the Mac, still in bring-up, or unknown when the comment does not say."
+        },
+        "engine": {
+          "type": "string"
+        },
+        "build": {
+          "type": "string",
+          "description": "The version of the game the profile is for."
+        },
+        "sdk": {
+          "type": "string"
+        },
+        "variants": {
+          "type": "array",
+          "description": "Releases for other regions, each with its own profile.",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["titleId", "region", "build"],
+            "properties": {
+              "titleId": {
+                "$ref": "#/$defs/titleId"
+              },
+              "region": {
+                "enum": ["asia", "japan", "korea", "china"]
+              },
+              "build": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
