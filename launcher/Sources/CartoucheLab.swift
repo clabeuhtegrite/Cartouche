@@ -288,6 +288,10 @@ final class CartoucheLab: ObservableObject {
             try JSONSerialization.data(withJSONObject: job, options: [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes])
                 .write(to: jobFile)
             let source = try Self.source(job: jobFile, failure: pythonError)
+            // Python writes its own status as it starts the job. Until then, this one
+            // shows at the next start that a run ended Cartouche while Python started.
+            let starting: [String: Any] = ["state": "starting", "started": Date().timeIntervalSince1970]
+            try JSONSerialization.data(withJSONObject: starting).write(to: run.appendingPathComponent("status.json"))
 
             phase = .starting
             let sampler = Task { await self.sample(run) }
@@ -388,13 +392,22 @@ final class CartoucheLab: ObservableObject {
                            module: module, at: seconds)
             }
         }
-        guard status.isActive else {
-            phase = status.state == "done" ? .finished : .failed(status.error ?? CartoucheText.labStopped)
-            return
-        }
-        interrupted = true
-        if let folder, !FileManager.default.fileExists(atPath: run.appendingPathComponent(Self.reportName).path) {
-            Task { reportExported = await writeReport(folder, interrupted: true) }
+        // A run that reached its end wrote its report; one that iOS stopped did
+        // not, and gets it now, once.
+        let reported = FileManager.default.fileExists(atPath: run.appendingPathComponent(Self.reportName).path)
+        let marker = run.appendingPathComponent("interrupted")
+        if status.isActive, !reported || FileManager.default.fileExists(atPath: marker.path) {
+            interrupted = true
+            if !reported, let folder {
+                FileManager.default.createFile(atPath: marker.path, contents: nil)
+                Task { reportExported = await writeReport(folder, interrupted: true) }
+            }
+        } else if status.state == "done" {
+            phase = .finished
+        } else if let stop = Self.lastLine(of: run.appendingPathComponent(Self.pythonErrorName)) {
+            phase = .failed(CartoucheText.labPythonError(stop))
+        } else {
+            phase = .failed(status.error ?? CartoucheText.labStopped)
         }
     }
 
@@ -407,7 +420,9 @@ final class CartoucheLab: ObservableObject {
         let run = Self.runFolder
         let outcome: String
         if interrupted {
-            outcome = "interrupted: iOS closed Cartouche while it rewrote \(status?.current ?? "nothing yet")"
+            let when = status?.current.map { "while it rewrote \($0)" }
+                ?? (status?.python == nil ? "while Python started" : "between two modules")
+            outcome = "interrupted: Cartouche closed, by iOS or in a crash, \(when)"
         } else if case .failed(let reason) = phase {
             outcome = "failed: " + reason
         } else {
