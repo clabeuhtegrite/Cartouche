@@ -2,10 +2,12 @@
 //  CartoucheCatalog.swift
 //  Cartouche
 //
-//  The games Cartouche supports, from the compatibility sheets the app
-//  carries (CartoucheCatalog/ in the app, catalog/ in the Cartouche
-//  repository), and the player's own copies among LiveContainer's apps.
-//  A sheet never says where to get a game.
+//  The games Cartouche supports: every game nxnative has a profile for
+//  (nxnative.json, from nxnative's dm/games at the commit Cartouche pins),
+//  the compatibility sheets testers wrote for some of them, and the
+//  player's own copies among LiveContainer's apps. The app carries these
+//  files in CartoucheCatalog/ (catalog/ in the Cartouche repository).
+//  Neither says where to get a game.
 //
 
 import Foundation
@@ -46,6 +48,30 @@ struct CartoucheGameSheet: Decodable, Hashable {
     }
 }
 
+/// A game nxnative has a profile for (catalog/schema/nxnative.schema.json).
+struct CartoucheNxGame: Decodable, Hashable {
+    struct Variant: Decodable, Hashable {
+        let titleId: String
+        let region: String
+        let build: String
+    }
+
+    let titleId: String
+    let name: String
+    let platform: String
+    let genre: String
+    /// Where nxnative's profile says the game plays: iphone, mac, bringup
+    /// or unknown.
+    let status: String
+    let engine: String
+    let build: String
+    let sdk: String
+    let variants: [Variant]?
+
+    /// The main release's title ID, then those of the other regions.
+    var titleIds: [String] { [titleId] + (variants ?? []).map(\.titleId) }
+}
+
 struct CartoucheDeviceProfile: Decodable, Hashable {
     struct Measurement: Decodable, Hashable {
         let date: String
@@ -61,19 +87,35 @@ struct CartoucheDeviceProfile: Decodable, Hashable {
 }
 
 /// A game in the catalogue: a supported game, the player's copy of one, or
-/// the player's copy of an nxnative game that has no sheet yet.
+/// the player's copy of an nxnative game that Cartouche does not know.
 struct CartoucheEntry: Identifiable, Hashable {
     let id: String
+    let game: CartoucheNxGame?
     let sheet: CartoucheGameSheet?
     let app: LCAppModel?
 
     var name: String {
         if let sheet { return sheet.name }
+        if let game { return game.name }
         return app?.appInfo.displayName() ?? ""
     }
 
+    var titleId: String? { game?.titleId ?? sheet?.titleId }
+    var platform: String? { sheet?.platform ?? game?.platform }
+    var genre: String? { game?.genre }
+    var isOwned: Bool { app != nil }
+
+    /// Whether the game is known to play on an iPhone: a tester's result
+    /// says so, or nxnative's profile does.
+    var playsOnIPhone: Bool {
+        if let sheet, sheet.results.contains(where: { $0.status == "playable" || $0.status == "playable-with-issues" }) {
+            return true
+        }
+        return game?.status == "iphone"
+    }
+
     /// What tells the designed tiles apart: the title ID, or the app's folder.
-    var tileKey: String { sheet?.titleId ?? id }
+    var tileKey: String { titleId ?? id }
 
     static func == (lhs: CartoucheEntry, rhs: CartoucheEntry) -> Bool {
         lhs.id == rhs.id && lhs.app === rhs.app
@@ -87,8 +129,11 @@ struct CartoucheEntry: Identifiable, Hashable {
 final class CartoucheCatalog {
     static let shared = CartoucheCatalog()
 
+    let games: [CartoucheNxGame]
     let sheets: [CartoucheGameSheet]
     let devices: [CartoucheDeviceProfile]
+    /// Each title ID, every region's, to its game.
+    private let gamesByTitle: [String: CartoucheNxGame]
 
     /// The title ID each app's folder was found to hold, or "" for an
     /// nxnative game without one, so that every Info.plist is read once.
@@ -111,6 +156,20 @@ final class CartoucheCatalog {
         }
         self.sheets = sheets.sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
 
+        struct GameList: Decodable { let games: [CartoucheNxGame] }
+        do {
+            let data = try Data(contentsOf: folder.appendingPathComponent("nxnative.json"))
+            self.games = try decoder.decode(GameList.self, from: data).games
+        } catch {
+            NSLog("[Cartouche] cannot read nxnative's games: %@", String(describing: error))
+            self.games = []
+        }
+        var byTitle: [String: CartoucheNxGame] = [:]
+        for game in games {
+            for titleId in game.titleIds { byTitle[titleId] = game }
+        }
+        self.gamesByTitle = byTitle
+
         struct DeviceList: Decodable { let devices: [CartoucheDeviceProfile] }
         do {
             let data = try Data(contentsOf: folder.appendingPathComponent("devices.json"))
@@ -129,11 +188,18 @@ final class CartoucheCatalog {
         sheets.first { $0.titleId == titleId }
     }
 
+    /// nxnative's game for a title ID of any of its regions.
+    func game(titleId: String) -> CartoucheNxGame? {
+        gamesByTitle[titleId]
+    }
+
     struct Entries {
-        /// The player's games, with a sheet or not, by name.
+        /// The player's games, known to Cartouche or not, by name.
         var owned: [CartoucheEntry] = []
         /// The other supported games, by name.
         var others: [CartoucheEntry] = []
+
+        var all: [CartoucheEntry] { owned + others }
 
         func entry(id: String?) -> CartoucheEntry? {
             guard let id else { return nil }
@@ -141,22 +207,31 @@ final class CartoucheCatalog {
         }
     }
 
-    /// The catalogue for these apps: each of the player's nxnative games
-    /// with its sheet if there is one, then every other supported game.
+    /// The catalogue for these apps: each of the player's nxnative games,
+    /// then every other game nxnative has a profile for, with the sheet
+    /// testers wrote when there is one.
     func entries(for apps: [LCAppModel]) -> Entries {
         var result = Entries()
         var ownedTitles = Set<String>()
         for app in apps {
-            guard let titleId = gameTitle(of: app) else { continue }
-            let match = titleId.isEmpty ? sheetMatchingName(of: app) : self.sheet(titleId: titleId)
-            if let match { ownedTitles.insert(match.titleId) }
+            guard let found = gameTitle(of: app) else { continue }
+            let titleId = found.isEmpty ? titleMatchingName(of: app) : found
+            let game = titleId.flatMap { self.game(titleId: $0) }
+            let sheet = (game?.titleId ?? titleId).flatMap { self.sheet(titleId: $0) }
+            if let game { ownedTitles.formUnion(game.titleIds) } else if let titleId { ownedTitles.insert(titleId) }
             let folder = app.appInfo.relativeBundlePath ?? app.appInfo.bundleIdentifier() ?? ""
-            result.owned.append(CartoucheEntry(id: "app:" + folder, sheet: match, app: app))
+            result.owned.append(CartoucheEntry(id: "app:" + folder, game: game, sheet: sheet, app: app))
         }
         result.owned.sort { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
-        result.others = sheets
+        var others = games
             .filter { !ownedTitles.contains($0.titleId) }
-            .map { CartoucheEntry(id: "game:" + $0.titleId, sheet: $0, app: nil) }
+            .map { CartoucheEntry(id: "game:" + $0.titleId, game: $0, sheet: self.sheet(titleId: $0.titleId), app: nil) }
+        // A sheet always names an nxnative game (catalog tests); keep one
+        // that would not.
+        others += sheets
+            .filter { !ownedTitles.contains($0.titleId) && game(titleId: $0.titleId) == nil }
+            .map { CartoucheEntry(id: "game:" + $0.titleId, game: nil, sheet: $0, app: nil) }
+        result.others = others.sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
         return result
     }
 
@@ -193,10 +268,11 @@ final class CartoucheCatalog {
 
     /// An nxnative build with another bundle identifier keeps the game's
     /// name as its display name.
-    private func sheetMatchingName(of app: LCAppModel) -> CartoucheGameSheet? {
+    private func titleMatchingName(of app: LCAppModel) -> String? {
         let name = Self.comparable(app.appInfo.displayName() ?? "")
         guard !name.isEmpty else { return nil }
-        return sheets.first { Self.comparable($0.name) == name }
+        return games.first { Self.comparable($0.name) == name }?.titleId
+            ?? sheets.first { Self.comparable($0.name) == name }?.titleId
     }
 
     private static func comparable(_ name: String) -> String {

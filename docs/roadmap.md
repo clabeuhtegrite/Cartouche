@@ -14,7 +14,8 @@ Each phase ends with a gate: a result checked on a real iPhone, not only in CI. 
 - SideStore and SideSign patch: request the memory capability for free accounts.
 - Install with iloader, which gives Cartouche its certificate and exports its pairing file, which Cartouche takes when the player drops it on it; a setup of three steps on the iPhone (pairing file, Apple ID, certificate handed to LiveContainer by itself), with no setting to change and SideStore's onboarding going on by itself; its SideStore never revokes or creates a certificate when the account already has one ([architecture.md](architecture.md#first-install)).
 - First launcher: catalogue, import of an IPA built on a Mac, compatibility sheets, memory probe.
-- Layouts for every iPhone and the iPad, the iPhone Duo folded, unfolded and partly folded included ([launcher/README.md](../launcher/README.md#every-iphone-the-iphone-duo-included)). Xcode 27.1 once LiveContainer and SideStore build with it.
+- The console's home (0.2): every game of nxnative's list, cartridges we draw, the player's games and the iPhone's on shelves, a game controller as well as touch, and screenshots of each screen on every pull request ([launcher/README.md](../launcher/README.md#screens)).
+- Layouts for every iPhone and the iPad, the iPhone Duo folded, unfolded and partly folded included ([launcher/README.md](../launcher/README.md#every-iphone-the-iphone-duo-included)). Built with Xcode 27.2 and the iOS 27.2 SDK since 0.2, so that the Duo gives Cartouche its whole display.
 - On a Duo: touch controls clear of the camera and the fold, and a game folded and unfolded mid-race keeps running under its memory limit.
 - Renewal in the background, with a warning before expiry.
 - Updates of Cartouche from the iPhone: each release is listed in the source of the built-in SideStore, which installs it ([app/releases/README.md](../app/releases/README.md)).

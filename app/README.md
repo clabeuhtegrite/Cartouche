@@ -14,7 +14,7 @@ To move to a newer upstream commit, update the submodule, check that every patch
 
 ## How the IPA is built
 
-`scripts/build.sh`, on a Mac with Xcode 26.4, CMake and `ldid`, with the network:
+`scripts/build.sh`, on a Mac with Xcode 27.2, CMake and `ldid`, with the network:
 
 1. `scripts/prepare.sh` copies LiveContainer and SideStore to `build/app/work/src`, applies `patches/livecontainer/*.patch` and `patches/sidestore/*.patch` in name order, adds the launcher ([`launcher/Sources`](../launcher/Sources/)) to LiveContainer's SwiftUI sources and its bridge to the built-in SideStore ([`launcher/SideStoreSupport`](../launcher/SideStoreSupport/)) to SideStoreSupport, puts Cartouche's icon ([`icon/`](icon/)) in place of LiveContainer's, then gives the copies Cartouche's identity with `scripts/brand.py`;
 2. builds dylibify;

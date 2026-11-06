@@ -4,21 +4,26 @@ The interface players see: a console-style catalogue of every game Cartouche sup
 
 ## Screens
 
-- **Catalogue, the home screen:** every game Cartouche supports, from the compatibility sheets in [`catalog/`](../catalog/).
-  - The player's own games come first, large and featured, each with the icon from their own copy of the game and its state: ready, engine update in progress, not recommended on this iPhone.
-  - The other supported games follow, smaller, with their status on this iPhone and one action, **Import my copy**, which opens Files. There is no download button and no hint of where to get a game.
-  - A game the player does not have gets a tile we design (title, colours, platform), never official cover art, which is not ours to redistribute. The tile gives way to the icon of the player's copy once they import it.
-- **Game sheet:** what the game needs against what this iPhone has (memory limit measured on the phone, iOS version, GPU features), recommended settings, testers' results.
+Every game appears as a cartridge we draw: its body in colours of its own, and on the label the icon of the player's copy, or, for a game the player does not have, art we design from its name, genre and platform, never official cover art, which is not ours to redistribute ([`CartoucheTiles.swift`](Sources/CartoucheTiles.swift)).
+
+- **Home, the console's front page** ([`CartoucheHomeView.swift`](Sources/CartoucheHomeView.swift)), on a dark stage that takes the colours of the game in focus:
+  - **My games:** the player's games, large, then an **Import** cartridge.
+  - **On iPhone:** the games nxnative plays on an iPhone, smaller, then **All games**.
+  - The game in focus: its name, platform, genre and status on this iPhone, **Play** for the player's own game or **Import my copy** for another, and **Details**, its sheet.
+  - A dock to All games, Import, System, Apps and Settings, and at the top the controller when one is connected and the days left before the signature expires.
+  - Touch and a game controller both drive it ([`CartoucheGamepad.swift`](Sources/CartoucheGamepad.swift)). A tap puts a game in focus, a second tap opens its sheet. With a controller, the D-pad moves, A does the main action, X opens the sheet, Y shows every game and Menu the system page; the buttons show at the bottom, as the controller draws them.
+- **All games** ([`CartoucheLibraryView.swift`](Sources/CartoucheLibraryView.swift)): every game of nxnative's list ([`catalog/nxnative.json`](../catalog/nxnative.json)), filtered by All, Mine, iPhone, Mac, Bring-up or Switch 2, and searched by name or title ID. With a controller, L and R change the filter and B goes back.
+- **Game sheet:** what the game needs against what this iPhone has (memory limit measured on the phone, iOS version, GPU features), recommended settings, testers' results, and what nxnative says of it: where it plays it, the engine, the game version and SDK of its profile, the title ID and the other regions.
 - **Import:** an IPA built on a Mac (v1) or the player's own dump (v2), from Files, iCloud Drive, a USB-C drive or a network share.
 - **System:** signature days left and renewal, updates, the memory probe, opt-in reports.
 
-The catalogue shows what Cartouche can run, never where to get a game.
+The catalogue shows what Cartouche can run, never where to get a game: there is no download button and no hint of one, and a game the player does not have offers only **Import my copy**, which opens Files.
 
 ## What the first build does
 
 The first launcher, Phase 1, on iOS 17 or later; an older iOS opens on LiveContainer's app list as before. The tab bar holds **Games** and **System**, then LiveContainer's **Apps** and **Settings**. LiveContainer's Sources and Tweaks tabs are gone: Cartouche downloads no app, and games need no tweak.
 
-- **Games.** The sheets of [`catalog/`](../catalog/) as of the build, which `app/scripts/package.sh` puts in the app (`CartoucheCatalog/`); updates from the server come later.
+- **Games.** The sheets of [`catalog/`](../catalog/) and nxnative's list of games as of the build, which `app/scripts/package.sh` puts in the app (`CartoucheCatalog/`); updates from the server come later.
   - The player's games are found among LiveContainer's apps by the bundle identifier nxnative gives its iOS apps, `org.nxnative.<title ID>`, or else by the `DMLanguage` key it writes into their `Info.plist`. A game is matched to its sheet by title ID, or by name when the build had another bundle identifier. A game without a sheet still shows, as *No sheet yet*, and starts.
   - **Import my copy** opens Files. LiveContainer's Apps tab then installs the IPA, reading it where it is: a game's IPA is too large to copy first.
   - **Play** hands the game to the Apps tab, which starts it as a `livecontainer-launch` link does.
@@ -40,27 +45,29 @@ The first launcher, Phase 1, on iOS 17 or later; an older iOS opens on LiveConta
   3. *Certificate:* Cartouche reads SideStore's certificate from their shared keychain (service: Cartouche's bundle identifier, `CartoucheBundleIdentifier` in the Info.plist) and hands it to LiveContainer, as LiveContainer's *Import Certificate from SideStore* does after a confirmation. It does so whenever it comes to the front, and again when SideStore's certificate changes; one whose key does not open is left aside.
   - LocalDevVPN, for renewals, with a link to the App Store.
 - **Words** in [`Sources/Cartouche.xcstrings`](Sources/Cartouche.xcstrings), in English and French. The code carries the English too, for a missing translation. [`app/tests/test_launcher_strings.py`](../app/tests/test_launcher_strings.py) checks that both match, that every format takes the arguments the code passes, and the French no-break spaces.
-- **Layout.** In a compact width, a game's sheet opens over the catalogue. In a regular width, the catalogue and the sheet sit side by side when the view is wider than tall, and one above the other when it is taller than wide, chosen from the view's own size; folding or unfolding keeps the selected game and the catalogue's scroll position.
+- **Layout.** The home puts its shelves above the game in focus when its view is taller than wide, and beside it when it is wider, with cartridges sized from the view's width; All games fits as many columns as the width holds. A game's sheet opens over them, as a card in a regular width. Folding, unfolding or rotating keeps the game in focus.
+- **Gallery:** [`Gallery/`](Gallery/) builds these screens in an app of their own, with LiveContainer's types stood in for, and a UI test saves a screenshot of each scenario of [`scenarios.json`](Gallery/scenarios.json): an iPhone 17 Pro upright and sideways, and the iPhone Duo folded and unfolded, at their sizes in points, with and without games, the setup and a controller; then the same screens on the iPhone Duo simulator itself, whose iOS 27.2 runtime is made for it, with its own safe area and system bars. The [Launcher screens](../.github/workflows/screens.yml) workflow takes them on every pull request that touches the launcher or the catalogue, and keeps them on the branch `launcher-screens/<branch>`. On a Mac with Xcode and XcodeGen: `launcher/Gallery/capture.sh OUT`.
 - **Not yet:** the split `ArrangementView` and `reservedRegions` of iOS 27.1, `backgroundExtensionEffect()`, sheets updated from the server, the state of an engine update, and opt-in reports.
 
 ## Every iPhone, the iPhone Duo included
 
 The launcher lays itself out from the space it is given, never from the iPhone model, as Apple asks of apps for the iPhone Duo ([Preparing your app for iPhone Duo](https://developer.apple.com/documentation/technologyoverviews/preparing-your-app-for-iphone-duo)). One design then serves every iPhone, both displays of the Duo and the iPad. The model matters only to the game sheets, for memory.
 
-| Where | Width class | Catalogue |
+| Where | Width class | Home |
 | --- | --- | --- |
-| Any other iPhone, portrait | compact | One column: the player's games large at the top, then the grid. A game's sheet opens over the catalogue. |
+| Any other iPhone, portrait | compact | One column: the player's games large at the top, the games for the iPhone, then the game in focus and the dock. A game's sheet opens over the home. |
+| Any iPhone, landscape | compact | The shelves beside the game in focus. |
 | iPhone Duo folded: outer display, 5.4 in | compact | As on the other iPhones. iOS moves the bars to the side of the display. |
-| iPhone Duo unfolded: inner display, 7.6 in | regular | The catalogue and the selected game's sheet together, one on each side of the fold. |
-| iPad | regular | As on the unfolded Duo; one column in a narrow window. |
+| iPhone Duo unfolded: inner display, 7.6 in | regular | One column with larger cartridges when upright, the shelves beside the game in focus when sideways. A game's sheet opens as a card. |
+| iPad | regular | As on the unfolded Duo. |
 
 - **Size classes and our own bounds, not the screen.** Layout follows `horizontalSizeClass` and the bounds of the scene or the containing view, never `UIScreen.main.bounds`, `userInterfaceIdiom` or the interface orientation.
 - **System containers and bars.** `NavigationStack`, `toolbar(content:)` and the bars iOS provides, which it presents vertically on the side of the Duo's outer display, and for some views on the inner one. Every bar item has an icon and a title: iOS does not present a title-only item or a custom view vertically. The banner of the player's games extends under a vertical bar with `backgroundExtensionEffect()`.
-- **Regular width.** A split `ArrangementView` (iOS 27.1) holds the catalogue and the game sheet: side by side when the display is wider than tall, the catalogue above and the sheet below when it is taller than wide, and iOS places them around the fold. It sits at the top level, not inside a split view, list or scroll view, as Apple advises. Until Cartouche is built with Xcode 27.1, two navigation stacks in the same arrangement stand in for it, since a `NavigationSplitView` cannot put one above the other.
+- **Regular width.** A split `ArrangementView` (iOS 27.1) is to hold the home and the game sheet, and iOS places them around the fold. It sits at the top level, not inside a split view, list or scroll view, as Apple advises. For now the sheet opens as a card over the home.
 - **Nothing in the fold or under a camera.** Views we draw ourselves read `reservedRegions(kind:options:layoutDirectionBehavior:)` and keep text and controls out of the fold while the Duo is partly folded, and out of the outer front camera, which always covers part of the outer display. System views move on their own.
 - **Folding loses nothing.** Folding, unfolding or rotating keeps the selected game, the scroll position and any import in progress; imports run outside the views.
-- **Built with Xcode 27.1 or later.** Apple: an app built with Xcode 26 or earlier does not extend under the Duo's status bar and camera. CI builds with Xcode 26.4 today, and GitHub's macOS runners offer Xcode 27 only as a public preview ([runner-images#14404](https://github.com/actions/runner-images/issues/14404)). Cartouche moves to it once LiveContainer and SideStore build with it. Until then it works on the Duo without using the whole display.
-- **Tested** in the Duo simulator, then on a Duo closed, open and partly folded, rotated in each pose, as Apple recommends.
+- **Built with Xcode 27.2.** Apple: an app built with Xcode 26 or earlier does not extend under the Duo's status bar and camera; on a Duo, 0.1 showed in a narrower band beside a black one that held the status bar. Since 0.2, CI builds Cartouche with Xcode 27.2 and the iOS 27.2 SDK on GitHub's `xcode-27` runners.
+- **Tested** in the Duo simulator, by the gallery on every pull request, then on a Duo closed, open and partly folded, rotated in each pose, as Apple recommends.
 
 ### Games on the Duo
 
@@ -69,4 +76,4 @@ A game's picture and its touch controls are drawn by nxnative's iOS app, which r
 - **A 16:9 picture on near-square displays.** The Duo's displays are about 1.4:1, against 2.2:1 for the other iPhones ([specifications](https://www.apple.com/uk/iphone-duo/specs/): 1878 × 2670 inside, 1398 × 2034 outside). In landscape, a 16:9 game leaves bands above and below rather than at the sides: 2670 × 1502 unfolded, 2034 × 1144 folded. Touch controls therefore sit over the picture, out of the fold and the camera.
 - **On a table, the game above the fold and the controls below,** like a two-screen console. Apple's overlay `ArrangementView` does this: it shows the primary view, the controls, over the secondary view, the game, when the Duo is closed or flat, and below the fold when it is partly open on a table. The upper half then shows the picture at 1878 × 1056, nearly pixel for pixel for the 1080p of handheld mode.
 - **Handheld mode at 1080p stays the rule.** Unfolded, the picture is scaled up to 2670 × 1502.
-- **A game sees Cartouche's SDK version.** Inside Cartouche, system libraries work to the SDK version Cartouche was built with, not the game's, unless LiveContainer's per-app *Spoof SDK Version* setting is on ([`Dyld.m`](https://github.com/LiveContainer/LiveContainer/blob/9108ae624ea001f7d7696d48407f890b48fa2653/LiveContainer/Tweaks/Dyld.m)). Once Cartouche is built with Xcode 27.1, games will likely use the whole display too, the camera area included. Phase 1 checks on a Duo that the touch controls stay clear of the camera and the fold, and that folding or unfolding mid-race neither restarts the game nor pushes it over its memory limit.
+- **A game sees Cartouche's SDK version.** Inside Cartouche, system libraries work to the SDK version Cartouche was built with, not the game's, unless LiveContainer's per-app *Spoof SDK Version* setting is on ([`Dyld.m`](https://github.com/LiveContainer/LiveContainer/blob/9108ae624ea001f7d7696d48407f890b48fa2653/LiveContainer/Tweaks/Dyld.m)). Now that Cartouche is built with Xcode 27.2, games likely use the whole display too, the camera area included. Phase 1 checks on a Duo that the touch controls stay clear of the camera and the fold, and that folding or unfolding mid-race neither restarts the game nor pushes it over its memory limit.

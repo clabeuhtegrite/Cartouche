@@ -26,16 +26,61 @@ enum CartoucheText {
 
     // MARK: Catalogue
 
-    static var yourGames: String { s("games.yours", "Your games") }
-    static var supportedGames: String { s("games.supported", "Supported games") }
-    static var supportedFooter: String { s("games.supported.footer", "Cartouche runs these games from your own copy. It never downloads a game.") }
-    static var emptyTitle: String { s("games.empty.title", "No game yet") }
     static var emptyMessage: String { s("games.empty.message", "Import the IPA of a supported game that you built on your Mac from your own copy.") }
-    static var selectGame: String { s("games.select", "Select a game to see its sheet.") }
     static var noSheet: String { s("games.noSheet", "No sheet yet") }
     static var importCopy: String { s("action.import", "Import my copy") }
     static var play: String { s("action.play", "Play") }
     static var done: String { s("action.done", "Done") }
+
+    // MARK: Console
+
+    static var homeLibrary: String { s("home.library", "My library") }
+    static var homeIPhone: String { s("home.iphone", "Plays on iPhone") }
+    static var importTile: String { s("home.import", "Import a game") }
+    static var allGames: String { s("home.all", "All games") }
+    static func allGamesDetail(_ count: Int) -> String { f("home.all.detail", "%lld games have a profile in nxnative. Cartouche plays each one from your own copy.", count) }
+    static var controllerConnected: String { s("home.controller", "Controller connected") }
+    static func daysLeftShort(_ days: Int) -> String { f("home.daysLeft", "%lld\u{00A0}d", days) }
+    static var details: String { s("action.details", "Details") }
+    static var dockImport: String { s("dock.import", "Import") }
+    static var dockApps: String { s("dock.apps", "Apps") }
+    static var dockSettings: String { s("dock.settings", "Settings") }
+    static var hintOpen: String { s("hint.open", "Open") }
+    static var hintFilter: String { s("hint.filter", "Filter") }
+    static var hintBack: String { s("hint.back", "Back") }
+    static var filterAll: String { s("library.filter.all", "All") }
+    static var searchPrompt: String { s("library.search", "Name or title ID") }
+
+    // MARK: Where a game plays
+
+    static var statusReadyShort: String { ready }
+    static var statusIPhoneShort: String { s("status.iphone.short", "On iPhone") }
+    static var statusMacShort: String { s("status.mac.short", "On Mac") }
+    static var statusBringupShort: String { s("status.bringup.short", "In bring-up") }
+    static var statusUnknownShort: String { s("status.unknown.short", "Not tried") }
+    static var statusIPhoneLong: String { s("status.iphone.long", "nxnative plays it on the iPhone.") }
+    static var statusMacLong: String { s("status.mac.long", "nxnative plays it on the Mac; nobody has reported it on an iPhone yet.") }
+    static var statusBringupLong: String { s("status.bringup.long", "nxnative is still bringing it up: it may not start yet.") }
+    static var statusUnknownLong: String { s("status.unknown.long", "nxnative’s profile does not say where it plays yet.") }
+
+    /// A genre of nxnative.json, or nil for "other".
+    static func genre(_ genre: String) -> String? {
+        switch genre {
+        case "action": return s("genre.action", "Action")
+        case "adventure": return s("genre.adventure", "Adventure")
+        case "rpg": return s("genre.rpg", "Role-playing")
+        case "puzzle": return s("genre.puzzle", "Puzzle")
+        case "strategy": return s("genre.strategy", "Strategy")
+        case "simulation": return s("genre.simulation", "Simulation")
+        case "racing": return s("genre.racing", "Racing")
+        case "sports": return s("genre.sports", "Sports")
+        case "board": return s("genre.board", "Board game")
+        case "card": return s("genre.card", "Card game")
+        case "family": return s("genre.family", "Family")
+        case "music": return s("genre.music", "Music")
+        default: return nil
+        }
+    }
 
     // MARK: Fit on this iPhone
 
@@ -99,6 +144,20 @@ enum CartoucheText {
     static var thisModel: String { s("sheet.result.thisModel", "This iPhone model") }
     static func peak(_ amount: String) -> String { f("sheet.result.peak", "Memory peak: %@", amount) }
     static var noSheetMessage: String { s("sheet.noSheet.message", "Cartouche has no sheet for this game yet: it can still start it, without checking what the game needs.") }
+    static var sheetNxnative: String { s("sheet.nxnative", "In nxnative") }
+    static var sheetEngine: String { s("sheet.engine", "Engine") }
+    static var sheetBuild: String { s("sheet.build", "Game version") }
+    static var sheetSDK: String { s("sheet.sdk", "SDK") }
+    static var sheetTitleID: String { s("sheet.titleID", "Title ID") }
+    static func region(_ region: String) -> String {
+        switch region {
+        case "asia": return s("region.asia", "Asian release")
+        case "japan": return s("region.japan", "Japanese release")
+        case "korea": return s("region.korea", "Korean release")
+        case "china": return s("region.china", "Chinese release")
+        default: return region
+        }
+    }
 
     // MARK: Setup
 

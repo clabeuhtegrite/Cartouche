@@ -2,13 +2,12 @@
 //  CartoucheGamesView.swift
 //  Cartouche
 //
-//  The home screen: every game Cartouche supports, the player's own first.
-//  In a compact width a game's sheet opens over the catalogue; in a regular
-//  width (an unfolded iPhone Duo, an iPad) the catalogue and the sheet sit
-//  side by side, one on each side of the fold. The layout follows the size
-//  class and the space this view is given, never the iPhone model.
+//  The Games tab, Cartouche's console: the home (CartoucheHomeView), every
+//  game (CartoucheLibraryView), and a game's sheet over either. The tab
+//  takes the whole screen, dark, without the tab bar: the home's dock
+//  leads to the other tabs, whose bar leads back here.
 //
-//  Installing and starting a game stay LiveContainer's: the catalogue hands
+//  Installing and starting a game stay LiveContainer's: the console hands
 //  the IPA or the game to the Apps tab, as a link from another app would.
 //
 
@@ -18,68 +17,82 @@ import UniformTypeIdentifiers
 @available(iOS 17.0, *)
 struct CartoucheGamesView: View {
     @EnvironmentObject private var sharedModel: SharedModel
-    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
-    @State private var selectedID: String?
+    @ObservedObject private var setup = CartoucheSetup.shared
+    @State private var path: [Route] = []
+    @State private var sheetID: String?
     @State private var choosingIPA = false
     @State private var choosingIPAInSheet = false
     @State private var memory = CartoucheMemoryReading.now()
     @State private var showingSetup = false
-    @ObservedObject private var setup = CartoucheSetup.shared
+
+    enum Route: Hashable {
+        case library
+    }
 
     private let catalog = CartoucheCatalog.shared
 
-    private var isRegular: Bool { horizontalSizeClass == .regular }
+    private var onGames: Bool { sharedModel.selectedTab == .games }
+    private var nothingOver: Bool { sheetID == nil && !showingSetup && !choosingIPA }
 
     var body: some View {
         let entries = catalog.entries(for: sharedModel.apps)
-        GeometryReader { proxy in
-            // Side by side when this view is wider than tall, one above the
-            // other otherwise. The catalogue stays the first child in every
-            // layout, so folding or rotating keeps its scroll position.
-            let stacked = isRegular && proxy.size.height > proxy.size.width
-            let layout = stacked ? AnyLayout(VStackLayout(spacing: 0)) : AnyLayout(HStackLayout(spacing: 0))
-            layout {
-                NavigationStack {
-                    catalogue(entries)
-                        .navigationTitle(CartoucheText.gamesTab)
-                        .toolbar {
-                            ToolbarItem(placement: .primaryAction) {
-                                Button {
-                                    choosingIPA = true
-                                } label: {
-                                    Label(CartoucheText.importCopy, systemImage: "square.and.arrow.down")
-                                }
-                            }
-                        }
-                }
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                if isRegular {
-                    Divider()
-                    NavigationStack {
-                        detail(entries)
+        NavigationStack(path: $path) {
+            CartoucheHomeView(
+                entries: entries,
+                gameCount: entries.all.count,
+                isActive: onGames && path.isEmpty && nothingOver,
+                onPlay: play,
+                onImport: { choosingIPA = true },
+                onSheet: { sheetID = $0.id },
+                onLibrary: { path.append(.library) },
+                onSetup: { showingSetup = true },
+                onTab: { sharedModel.selectedTab = $0 })
+                .toolbar(.hidden, for: .navigationBar)
+                .toolbar(.hidden, for: .tabBar)
+                .navigationDestination(for: Route.self) { route in
+                    switch route {
+                    case .library:
+                        CartoucheLibraryView(
+                            entries: entries,
+                            isActive: onGames && path.last == .library && nothingOver,
+                            onPlay: play,
+                            onSheet: { sheetID = $0.id },
+                            onBack: { if !path.isEmpty { path.removeLast() } })
+                            .toolbar(.hidden, for: .tabBar)
                     }
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
                 }
-            }
         }
+        .preferredColorScheme(onGames ? .dark : nil)
         .fileImporter(isPresented: $choosingIPA, allowedContentTypes: [.ipa]) { result in
             if case .success(let url) = result {
                 importCopy(url)
             }
         }
-        .sheet(isPresented: compactSheet) {
-            if let entry = entries.entry(id: selectedID) {
+        .sheet(isPresented: sheetPresented) {
+            if let entry = entries.entry(id: sheetID) {
                 NavigationStack {
-                    sheetView(entry, onImport: { choosingIPAInSheet = true })
+                    CartoucheGameSheetView(entry: entry, memory: memory, onPlay: play, onImport: { choosingIPAInSheet = true })
+                        .id(entry.id)
                         .toolbar {
                             ToolbarItem(placement: .confirmationAction) {
-                                Button(CartoucheText.done) { selectedID = nil }
+                                Button(CartoucheText.done) { sheetID = nil }
                             }
                         }
                 }
+                .preferredColorScheme(.dark)
                 .fileImporter(isPresented: $choosingIPAInSheet, allowedContentTypes: [.ipa]) { result in
                     if case .success(let url) = result {
                         importCopy(url)
+                    }
+                }
+                .onReceive(CartoucheGamepad.shared.inputs) { input in
+                    switch input {
+                    case .b:
+                        sheetID = nil
+                    case .a:
+                        if let app = entry.app { play(app) }
+                    default:
+                        break
                     }
                 }
             }
@@ -92,6 +105,9 @@ struct CartoucheGamesView: View {
                             Button(CartoucheText.done) { showingSetup = false }
                         }
                     }
+            }
+            .onReceive(CartoucheGamepad.shared.inputs) { input in
+                if input == .b { showingSetup = false }
             }
         }
         // Hands the built-in SideStore's certificate to LiveContainer as soon
@@ -114,103 +130,12 @@ struct CartoucheGamesView: View {
         }
     }
 
-    /// The sheet over the catalogue, in a compact width only. Unfolding
-    /// moves the selected game into the side pane instead of closing it.
-    private var compactSheet: Binding<Bool> {
+    private var sheetPresented: Binding<Bool> {
         Binding(
-            get: { !isRegular && selectedID != nil },
+            get: { sheetID != nil },
             set: { presented in
-                if !presented && !isRegular { selectedID = nil }
+                if !presented { sheetID = nil }
             })
-    }
-
-    private func catalogue(_ entries: CartoucheCatalog.Entries) -> some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 28) {
-                CartoucheSetupBanner()
-                VStack(alignment: .leading, spacing: 12) {
-                    sectionTitle(CartoucheText.yourGames)
-                    if entries.owned.isEmpty {
-                        emptyCard
-                    } else {
-                        LazyVGrid(columns: [GridItem(.adaptive(minimum: 300), spacing: 16)], spacing: 16) {
-                            ForEach(entries.owned) { entry in
-                                CartoucheOwnedCard(
-                                    entry: entry,
-                                    fit: fit(entry),
-                                    isSelected: isRegular && selectedID == entry.id,
-                                    onPlay: { if let app = entry.app { play(app) } })
-                                    .onTapGesture { selectedID = entry.id }
-                                    .accessibilityAddTraits(.isButton)
-                            }
-                        }
-                    }
-                }
-
-                if !entries.others.isEmpty {
-                    VStack(alignment: .leading, spacing: 12) {
-                        sectionTitle(CartoucheText.supportedGames)
-                        LazyVGrid(columns: [GridItem(.adaptive(minimum: 150), spacing: 14)], spacing: 18) {
-                            ForEach(entries.others) { entry in
-                                Button {
-                                    selectedID = entry.id
-                                } label: {
-                                    CartoucheGameTile(entry: entry, fit: fit(entry), isSelected: isRegular && selectedID == entry.id)
-                                }
-                                .buttonStyle(.plain)
-                            }
-                        }
-                    }
-                }
-
-                Text(CartoucheText.supportedFooter)
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
-            }
-            .padding()
-        }
-    }
-
-    @ViewBuilder
-    private func detail(_ entries: CartoucheCatalog.Entries) -> some View {
-        if let entry = entries.entry(id: selectedID) {
-            sheetView(entry, onImport: { choosingIPA = true })
-        } else {
-            ContentUnavailableView(CartoucheText.gamesTab, systemImage: "gamecontroller", description: Text(CartoucheText.selectGame))
-        }
-    }
-
-    private func sheetView(_ entry: CartoucheEntry, onImport: @escaping () -> Void) -> some View {
-        CartoucheGameSheetView(entry: entry, memory: memory, onPlay: play, onImport: onImport)
-            .id(entry.id)
-    }
-
-    private func sectionTitle(_ title: String) -> some View {
-        Text(title)
-            .font(.system(.title2, design: .rounded, weight: .bold))
-    }
-
-    private var emptyCard: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Label(CartoucheText.emptyTitle, systemImage: "square.stack.3d.down.forward")
-                .font(.headline)
-            Text(CartoucheText.emptyMessage)
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
-            Button {
-                choosingIPA = true
-            } label: {
-                Label(CartoucheText.importCopy, systemImage: "square.and.arrow.down")
-            }
-            .buttonStyle(.bordered)
-        }
-        .padding(16)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color(uiColor: .secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 22, style: .continuous))
-    }
-
-    private func fit(_ entry: CartoucheEntry) -> CartoucheFit? {
-        entry.sheet.map { CartoucheFit.of($0, memory: memory) }
     }
 
     /// LiveContainer starts the game from its Apps tab, as it does for a
@@ -221,8 +146,8 @@ struct CartoucheGamesView: View {
         // which may hold the Play button, has gone.
         CartoucheSetup.shared.refresh()
         guard CartoucheSetup.shared.canPlay else {
-            let sheetWasOpen = compactSheet.wrappedValue
-            selectedID = nil
+            let sheetWasOpen = sheetID != nil
+            sheetID = nil
             DispatchQueue.main.asyncAfter(deadline: .now() + (sheetWasOpen ? 0.6 : 0)) { showingSetup = true }
             return
         }
@@ -231,7 +156,7 @@ struct CartoucheGamesView: View {
         components.host = "livecontainer-launch"
         components.queryItems = [URLQueryItem(name: "bundle-name", value: app.appInfo.relativeBundlePath)]
         guard let url = components.url else { return }
-        selectedID = nil
+        sheetID = nil
         sharedModel.selectedTab = .apps
         sharedModel.deepLink = url
     }
@@ -243,7 +168,7 @@ struct CartoucheGamesView: View {
     /// large to copy first.
     private func importCopy(_ url: URL) {
         _ = url.startAccessingSecurityScopedResource()
-        selectedID = nil
+        sheetID = nil
         sharedModel.selectedTab = .apps
         sharedModel.deepLink = url
     }

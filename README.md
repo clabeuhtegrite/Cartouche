@@ -48,7 +48,7 @@ Details: [docs/architecture.md](docs/architecture.md). Decisions and their reaso
 
 ## Building
 
-The app builds on a Mac with Xcode 26.4 and Homebrew:
+The app builds on a Mac with Xcode 27.2 and Homebrew:
 
 ```
 git clone --recursive https://github.com/clabeuhtegrite/Cartouche.git && cd Cartouche

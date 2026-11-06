@@ -56,10 +56,12 @@ jobs:
     # Builds unless the first job said there is nothing to build, so that a
     # failure there cannot skip it.
     if: ${{ !cancelled() && needs.changes.outputs.build != 'false' }}
-    runs-on: macos-26
+    # Xcode 27.2, for the iOS 27.2 SDK: the iPhone Duo gives its whole
+    # display only to apps built with Xcode 27 or later.
+    runs-on: xcode-27
     timeout-minutes: 90
     env:
-      XCODE_VERSION: "26.4"
+      XCODE_VERSION: "27.2"
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
