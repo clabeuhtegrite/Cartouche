@@ -3,16 +3,20 @@
 //  Cartouche
 //
 //  What Cartouche has on this iPhone: the memory limit iOS sets for it,
-//  which its games share; when its signature expires; and the device that
-//  the game sheets are compared with.
+//  which its games share; when its signature expires, and how it is
+//  renewed; and the device that the game sheets are compared with.
 //
 
 import SwiftUI
+import UserNotifications
 
 @available(iOS 17.0, *)
 struct CartoucheSystemView: View {
     @State private var memory = CartoucheMemoryReading.now()
     @State private var signature = CartoucheSignature.current()
+    @State private var renewal: Progress?
+    @State private var renewalError: String?
+    @State private var alertStatus: UNAuthorizationStatus?
 
     private let catalog = CartoucheCatalog.shared
 
@@ -21,6 +25,7 @@ struct CartoucheSystemView: View {
             List {
                 memorySection
                 signatureSection
+                automaticRenewalSection
                 deviceSection
                 cartoucheSection
             }
@@ -33,6 +38,8 @@ struct CartoucheSystemView: View {
     private func measure() {
         memory = CartoucheMemoryReading.now()
         signature = CartoucheSignature.current()
+        CartoucheRenewal.scheduleWarnings()
+        Task { alertStatus = await CartoucheRenewal.alertStatus() }
     }
 
     // MARK: Memory
@@ -107,8 +114,11 @@ struct CartoucheSystemView: View {
             if let teamName = signature.teamName {
                 LabeledContent(CartoucheText.team, value: teamName)
             }
+            if CartoucheRenewal.canRenew {
+                renewRow
+            }
             if UserDefaults.sideStoreExist() {
-                Button(CartoucheText.openSideStore, systemImage: "arrow.triangle.2.circlepath") {
+                Button(CartoucheText.openSideStore, systemImage: "storefront") {
                     LCUtils.openSideStore()
                 }
             }
@@ -116,6 +126,85 @@ struct CartoucheSystemView: View {
             Text(CartoucheText.signature)
         } footer: {
             Text(CartoucheText.signatureFooter)
+        }
+    }
+
+    @ViewBuilder
+    private var renewRow: some View {
+        if let renewal {
+            VStack(alignment: .leading, spacing: 8) {
+                Label(CartoucheText.renewing, systemImage: "arrow.triangle.2.circlepath")
+                    .foregroundStyle(.secondary)
+                // SideStore reports its progress from another thread: read it
+                // twice a second instead of observing it.
+                TimelineView(.periodic(from: .now, by: 0.5)) { _ in
+                    ProgressView(value: renewal.fractionCompleted)
+                }
+            }
+            .padding(.vertical, 4)
+        } else {
+            Button(CartoucheText.renewNow, systemImage: "arrow.triangle.2.circlepath", action: renew)
+        }
+        if let renewalError {
+            Label(renewalError, systemImage: "exclamationmark.triangle.fill")
+                .font(.footnote)
+                .foregroundStyle(.red)
+        }
+    }
+
+    private func renew() {
+        let progress = Progress(totalUnitCount: 100)
+        renewal = progress
+        renewalError = nil
+        Task {
+            do {
+                try await CartoucheRenewal.renew(progress: progress)
+            } catch {
+                renewalError = error.localizedDescription
+            }
+            renewal = nil
+            measure()
+        }
+    }
+
+    // MARK: Automatic renewal
+
+    private var automaticRenewalSection: some View {
+        Section {
+            NavigationLink {
+                CartoucheNightlyRenewalView()
+            } label: {
+                Label(CartoucheText.renewEveryNight, systemImage: "moon.zzz")
+            }
+            LabeledContent(CartoucheText.alerts) {
+                alertControl
+            }
+        } header: {
+            Text(CartoucheText.automaticRenewal)
+        } footer: {
+            Text(CartoucheText.automaticRenewalFooter)
+        }
+    }
+
+    @ViewBuilder
+    private var alertControl: some View {
+        switch alertStatus {
+        case .authorized?, .provisional?, .ephemeral?:
+            Label(CartoucheText.alertsOn, systemImage: "checkmark.circle.fill")
+                .foregroundStyle(Color.green)
+        case .notDetermined?:
+            Button(CartoucheText.alertsTurnOn) {
+                Task {
+                    await CartoucheRenewal.allowAlerts()
+                    alertStatus = await CartoucheRenewal.alertStatus()
+                }
+            }
+        case .denied?:
+            if let url = CartoucheRenewal.notificationSettingsURL {
+                Link(CartoucheText.alertsInSettings, destination: url)
+            }
+        default:
+            EmptyView()
         }
     }
 
@@ -154,5 +243,48 @@ struct CartoucheSystemView: View {
             text += " (" + build + ")"
         }
         return text
+    }
+}
+
+/// How to have Shortcuts renew Cartouche every night.
+@available(iOS 17.0, *)
+struct CartoucheNightlyRenewalView: View {
+    private var steps: [String] {
+        [
+            CartoucheText.dailyStepVPN,
+            CartoucheText.dailyStepAutomation,
+            CartoucheText.dailyStepTime,
+            CartoucheText.dailyStepAction,
+            CartoucheText.dailyStepCheck,
+        ]
+    }
+
+    var body: some View {
+        List {
+            Section {
+                Text(CartoucheText.dailyIntro)
+            }
+            Section {
+                ForEach(Array(steps.enumerated()), id: \.offset) { index, step in
+                    HStack(alignment: .firstTextBaseline, spacing: 12) {
+                        Text(String(index + 1))
+                            .font(.subheadline.monospacedDigit().weight(.bold))
+                            .foregroundStyle(.white)
+                            .frame(width: 26, height: 26)
+                            .background(Color.accentColor, in: Circle())
+                            .accessibilityHidden(true)
+                        Text(step)
+                    }
+                    .padding(.vertical, 2)
+                }
+            }
+            Section {
+                Link(destination: CartoucheRenewal.shortcutsURL) {
+                    Label(CartoucheText.openShortcuts, systemImage: "square.2.layers.3d")
+                }
+            }
+        }
+        .navigationTitle(CartoucheText.renewEveryNight)
+        .navigationBarTitleDisplayMode(.inline)
     }
 }

@@ -52,6 +52,125 @@
         }
       }
     },
+    "daily.intro" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "An automation in Shortcuts can renew Cartouche every night, with no computer. It runs Cartouche’s Refresh All Apps action, which does what Renew now does."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Une automatisation de Raccourcis peut renouveler Cartouche chaque nuit, sans ordinateur. Elle lance l’action Refresh All Apps de Cartouche, qui fait comme Renouveler maintenant."
+          }
+        }
+      }
+    },
+    "daily.openShortcuts" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Open Shortcuts"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ouvrir Raccourcis"
+          }
+        }
+      }
+    },
+    "daily.step1" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Leave LocalDevVPN connected. Its traffic stays on the iPhone, so it can stay on all day."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Laissez LocalDevVPN connecté. Son trafic reste sur l’iPhone : il peut rester activé toute la journée."
+          }
+        }
+      }
+    },
+    "daily.step2" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "In Shortcuts, open Automation, then tap +."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dans Raccourcis, ouvrez Automatisation, puis touchez +."
+          }
+        }
+      }
+    },
+    "daily.step3" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Choose Time of Day: a time when the iPhone charges and is online, such as 4 AM, every day. Then choose Run Immediately."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Choisissez Heure de la journée : une heure où l’iPhone charge et a internet, par exemple 4 h, chaque jour. Puis choisissez Exécuter immédiatement."
+          }
+        }
+      }
+    },
+    "daily.step4" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tap Next, choose New Blank Automation, and add the Refresh All Apps action of Cartouche, not LiveContainer’s."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Touchez Suivant, choisissez Nouvelle automatisation vide, et ajoutez l’action Refresh All Apps de Cartouche, pas celle de LiveContainer."
+          }
+        }
+      }
+    },
+    "daily.step5" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Each renewal shows in the System tab as the last renewal, and gives Cartouche seven more days."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Chaque renouvellement s’affiche dans l’onglet Système comme dernier renouvellement, et donne sept jours de plus à Cartouche."
+          }
+        }
+      }
+    },
     "games.empty.message" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -800,6 +919,125 @@
         }
       }
     },
+    "system.auto" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Automatic renewal"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Renouvellement automatique"
+          }
+        }
+      }
+    },
+    "system.auto.alerts" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Expiry alerts"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Alertes avant expiration"
+          }
+        }
+      }
+    },
+    "system.auto.alerts.on" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "On"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Activées"
+          }
+        }
+      }
+    },
+    "system.auto.alerts.settings" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Turn on in Settings"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Activer dans Réglages"
+          }
+        }
+      }
+    },
+    "system.auto.alerts.turnOn" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Turn on"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Activer"
+          }
+        }
+      }
+    },
+    "system.auto.daily" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Renew every night"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Renouveler chaque nuit"
+          }
+        }
+      }
+    },
+    "system.auto.footer" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "With alerts on, Cartouche warns you 24 hours and 6 hours before it expires."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Avec les alertes, Cartouche vous prévient 24 heures et 6 heures avant d’expirer."
+          }
+        }
+      }
+    },
     "system.cartouche.sheets" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -1174,6 +1412,40 @@
         }
       }
     },
+    "system.signature.renew" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Renew now"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Renouveler maintenant"
+          }
+        }
+      }
+    },
+    "system.signature.renew.unavailable" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The built-in SideStore is not loaded. Open it to renew Cartouche."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Le SideStore intégré n’est pas chargé. Ouvrez-le pour renouveler Cartouche."
+          }
+        }
+      }
+    },
     "system.signature.renewed" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -1187,6 +1459,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Dernier renouvellement"
+          }
+        }
+      }
+    },
+    "system.signature.renewing" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Renewing…"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Renouvellement…"
           }
         }
       }
@@ -1306,6 +1595,91 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "%@ Mio"
+          }
+        }
+      }
+    },
+    "warning.0h.body" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Install it again from a computer with iloader, over this copy: your games stay."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Réinstallez-le depuis un ordinateur avec iloader, par-dessus cette copie : vos jeux restent."
+          }
+        }
+      }
+    },
+    "warning.0h.title" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cartouche has expired"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cartouche a expiré"
+          }
+        }
+      }
+    },
+    "warning.24h.title" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cartouche expires in 24 hours"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cartouche expire dans 24 heures"
+          }
+        }
+      }
+    },
+    "warning.6h.title" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cartouche expires in 6 hours"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cartouche expire dans 6 heures"
+          }
+        }
+      }
+    },
+    "warning.body" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Renew it in the System tab, with LocalDevVPN connected."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Renouvelez-le dans l’onglet Système, avec LocalDevVPN connecté."
           }
         }
       }

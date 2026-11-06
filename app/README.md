@@ -16,13 +16,13 @@ To move to a newer upstream commit, update the submodule, check that every patch
 
 `scripts/build.sh`, on a Mac with Xcode 26.4 and `ldid`:
 
-1. `scripts/prepare.sh` copies LiveContainer and SideStore to `build/app/work/src`, applies `patches/livecontainer/*.patch` and `patches/sidestore/*.patch` in name order, adds the launcher ([`launcher/Sources`](../launcher/Sources/)) to LiveContainer's SwiftUI sources and puts Cartouche's icon ([`icon/`](icon/)) in place of LiveContainer's, then gives the copies Cartouche's identity with `scripts/brand.py`;
+1. `scripts/prepare.sh` copies LiveContainer and SideStore to `build/app/work/src`, applies `patches/livecontainer/*.patch` and `patches/sidestore/*.patch` in name order, adds the launcher ([`launcher/Sources`](../launcher/Sources/)) to LiveContainer's SwiftUI sources and its bridge to the built-in SideStore ([`launcher/SideStoreSupport`](../launcher/SideStoreSupport/)) to SideStoreSupport, puts Cartouche's icon ([`icon/`](icon/)) in place of LiveContainer's, then gives the copies Cartouche's identity with `scripts/brand.py`;
 2. builds dylibify;
 3. builds SideStore with its own Makefile (`make build fakesign ipa`);
 4. builds LiveContainer with `xcodebuild archive`, with Cartouche's bundle identifier from [`config.env`](config.env);
 5. assembles `build/app/Cartouche.ipa` with `scripts/package.sh`, adapted from LiveContainer's own packaging script: SideStore goes into the app as a framework, with its intents and widget, and the sheets and device profiles of [`catalog/`](../catalog/) go into `CartoucheCatalog/` for the launcher.
 
-The IPA is unsigned; SideStore or iloader signs it when installing it. `prepare.sh` also runs on Linux: CI runs it on every pull request, with the tests in [`tests/`](tests/) of `brand.py` and of the launcher's words, so a patch or a name that no longer applies shows up in a minute rather than after the Mac build.
+The IPA is unsigned; SideStore or iloader signs it when installing it. `prepare.sh` also runs on Linux: CI runs it on every pull request, with the tests in [`tests/`](tests/) of `brand.py`, the icon, the launcher's words and the names its renewal shares with LiveContainer and SideStore, so a patch or a name that no longer applies shows up in a minute rather than after the Mac build.
 
 ## Identity
 

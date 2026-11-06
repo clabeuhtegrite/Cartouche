@@ -6,9 +6,10 @@
 #
 # The submodules are never modified: their sources are copied, the patches in
 # app/patches/<project>/ are applied to the copies in name order, the launcher
-# (launcher/Sources) joins LiveContainer's SwiftUI sources, Cartouche's icon
-# (app/icon) replaces LiveContainer's, and app/scripts/brand.py gives the
-# copies Cartouche's identity (app/config.env).
+# (launcher/Sources) joins LiveContainer's SwiftUI sources and its bridge to
+# the built-in SideStore (launcher/SideStoreSupport) joins SideStoreSupport,
+# Cartouche's icon (app/icon) replaces LiveContainer's, and app/scripts/brand.py
+# gives the copies Cartouche's identity (app/config.env).
 # app/scripts/build.sh runs this first; CI also runs it on Linux.
 set -euo pipefail
 
@@ -50,10 +51,12 @@ echo "== copying and patching the sources"
 copy_and_patch LiveContainer livecontainer
 copy_and_patch SideStore sidestore
 
-# LiveContainerSwiftUI is a synchronized folder in LiveContainer's project:
-# Xcode builds every file in it, so the launcher needs no project change.
+# LiveContainerSwiftUI and SideStoreSupport are synchronized folders in
+# LiveContainer's project: Xcode builds every file in them, so the launcher
+# needs no project change.
 echo "== adding the launcher"
 rsync -a --delete "$ROOT/launcher/Sources/" "$SRC/LiveContainer/LiveContainerSwiftUI/Cartouche/"
+rsync -a --delete "$ROOT/launcher/SideStoreSupport/" "$SRC/LiveContainer/SideStoreSupport/Cartouche/"
 
 # Cartouche's icon over LiveContainer's: the app's own, and the grey one of an
 # extra copy installed from its settings (app/icon/make_icon.py).

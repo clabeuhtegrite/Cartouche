@@ -38,7 +38,7 @@ Cartouche's SideStore never revokes a certificate on its own, nor creates one wh
 A free Apple account signs apps for seven days, allows three sideloaded apps at a time and ten new App IDs in seven days.
 
 - Cartouche is one app with one App ID. Games are guest apps inside it, signed on the phone with Cartouche's certificate (LiveContainer's signing without JIT), so they take no App ID and do not count against the limit of three. nxnative runs games natively and needs no JIT, so StikDebug is not needed either.
-- The built-in SideStore renews Cartouche before it expires, in the background (App Intents, Shortcuts automation, background tasks), with LocalDevVPN on. The launcher shows the days left and warns early.
+- The built-in SideStore renews Cartouche before it expires, with LocalDevVPN on: from the launcher's System tab (**Renew now**), or every night from a Shortcuts automation that runs Cartouche's *Refresh All Apps* action, which the System tab explains how to set up, since iOS lets no app create one. The launcher shows the days left and, once the player allows it, warns 24 hours and 6 hours before expiry ([launcher/README.md](../launcher/README.md#what-the-first-build-does)).
 - Cartouche reuses the account's existing certificate when it can and never revokes one on its own: every app signed with a revoked certificate stops opening.
 
 ## Memory
