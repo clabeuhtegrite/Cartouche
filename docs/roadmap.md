@@ -12,6 +12,7 @@ Each phase ends with a gate: a result checked on a real iPhone, not only in CI. 
 - **S1, the memory spike:** Cartouche, installed with iloader on a free account under its own App ID, gets Increased Memory Limit on that App ID from its SideStore; the probe shows about 6 GiB.
 - Branding: Cartouche's own bundle identifier, app group, keychain groups, URL schemes and SideStore source, so that it shares nothing with a LiveContainer on the same iPhone ([app/README.md](../app/README.md#identity)); its name and icon.
 - SideStore and SideSign patch: request the memory capability for free accounts.
+- Install with iloader as an ordinary app, so that Cartouche shares no app group with a LiveContainer+SideStore; its SideStore imports the pairing file and the certificate from another SideStore on the iPhone, and never revokes or creates a certificate when the account already has one ([architecture.md](architecture.md#first-install)).
 - First launcher: catalogue, import of an IPA built on a Mac, compatibility sheets, memory probe.
 - Layouts for every iPhone and the iPad, the iPhone Duo folded, unfolded and partly folded included ([launcher/README.md](../launcher/README.md#every-iphone-the-iphone-duo-included)). Xcode 27.1 once LiveContainer and SideStore build with it.
 - On a Duo: touch controls clear of the camera and the fold, and a game folded and unfolded mid-race keeps running under its memory limit.

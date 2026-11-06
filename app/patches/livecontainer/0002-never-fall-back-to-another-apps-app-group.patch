@@ -1,0 +1,88 @@
+From 3e29920248271eb9af74b20a4b71519387216a0d Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Fri, 6 Nov 2026 00:24:53 +0000
+Subject: [PATCH] Never fall back to another app's app group
+
+When neither the built-in SideStore's group nor its team-suffixed form
+can be opened, LCSharedUtils.appGroupID fell back to the group cached
+in LCAppGroupID, then to the first group in the app's entitlements.
+iloader gives every app that carries a SideStore framework the same
+group, group.com.SideStore.SideStore.<team>, so a copy of Cartouche
+signed that way would have opened the group of the LiveContainer+
+SideStore on the same iPhone: its SideStore database, shared apps and
+certificate.
+
+Both fallbacks now accept only the built-in SideStore's group, alone
+or with a suffix. Any other group leaves appGroupID "Unknown", and the
+built-in SideStore then finds no shared directory instead of another
+app's.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01MzPJorvBGmBB88WUcRVhE7
+---
+ LiveContainer/LCSharedUtils.h |  1 +
+ LiveContainer/LCSharedUtils.m | 22 +++++++++++++++++++---
+ 2 files changed, 20 insertions(+), 3 deletions(-)
+
+diff --git a/LiveContainer/LCSharedUtils.h b/LiveContainer/LCSharedUtils.h
+index daf7b7b..35e6997 100644
+--- a/LiveContainer/LCSharedUtils.h
++++ b/LiveContainer/LCSharedUtils.h
+@@ -2,6 +2,7 @@
+ 
+ @interface LCSharedUtils : NSObject
+ + (NSString*) teamIdentifier;
+++ (BOOL)isBuiltInSideStoreAppGroup:(NSString *)group;
+ + (NSString *)appGroupID;
+ + (NSURL*) appGroupPath;
+ + (NSString *)certificatePassword;
+diff --git a/LiveContainer/LCSharedUtils.m b/LiveContainer/LCSharedUtils.m
+index af7f5b1..0bcc30d 100644
+--- a/LiveContainer/LCSharedUtils.m
++++ b/LiveContainer/LCSharedUtils.m
+@@ -53,6 +53,14 @@ NSString* FBSOpenApplicationOptionKeyPayloadURL = @"__PayloadURL";
+     return ans;
+ }
+ 
++// The built-in SideStore's app group, alone or with the team identifier that
++// signing appends. Any other group belongs to another app, such as a
++// LiveContainer+SideStore on the same iPhone, and is never used.
+++ (BOOL)isBuiltInSideStoreAppGroup:(NSString *)group {
++    NSString *base = @"group.com.SideStore.SideStore";
++    return [group isEqualToString:base] || [group hasPrefix:[base stringByAppendingString:@"."]];
++}
++
+ + (NSString *)appGroupID {
+     static dispatch_once_t once;
+     static NSString *appGroupID = @"Unknown";
+@@ -88,7 +96,7 @@ NSString* FBSOpenApplicationOptionKeyPayloadURL = @"__PayloadURL";
+         // if no possibleAppGroup is found, we detect app group from entitlement file
+         // Cache app group after importing cert so we don't have to analyze executable every launch
+         NSString *cached = [lcUserDefaults objectForKey:@"LCAppGroupID"];
+-        if (cached && [NSFileManager.defaultManager containerURLForSecurityApplicationGroupIdentifier:cached]) {
++        if (cached && [self isBuiltInSideStoreAppGroup:cached] && [NSFileManager.defaultManager containerURLForSecurityApplicationGroupIdentifier:cached]) {
+             appGroupID = cached;
+             return;
+         }
+@@ -101,8 +109,16 @@ NSString* FBSOpenApplicationOptionKeyPayloadURL = @"__PayloadURL";
+             return;
+         }
+         NSArray* appGroups = (__bridge NSArray *)value;
+-        if(appGroups.count > 0) {
+-            appGroupID = [appGroups firstObject];
++        if (![appGroups isKindOfClass:NSArray.class]) {
++            return;
++        }
++        // Signing may give the app another app's group too (iloader gives every
++        // LiveContainer+SideStore the same one): stay "Unknown" rather than open it.
++        for (NSString *group in appGroups) {
++            if ([group isKindOfClass:NSString.class] && [self isBuiltInSideStoreAppGroup:group]) {
++                appGroupID = group;
++                return;
++            }
+         }
+     });
+     return appGroupID;
+-- 
+2.43.0
+

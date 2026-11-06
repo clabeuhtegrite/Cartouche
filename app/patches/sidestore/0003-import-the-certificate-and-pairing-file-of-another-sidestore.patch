@@ -1,0 +1,380 @@
+From 162688ec1ba0e47dd5c72b89822993a7eaa23e9e Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Fri, 6 Nov 2026 00:30:49 +0000
+Subject: [PATCH 3/4] Import the certificate and pairing file of another
+ SideStore
+
+SideStore already hands its certificate and pairing file to other apps
+through sidestore://certificate and sidestore://pairing. This lets a
+SideStore built into another app, under a URL scheme of its own, take
+them from a SideStore on the same device, for example the one inside a
+LiveContainer+SideStore, so that it signs with the certificate the
+account already uses instead of creating one or revoking it.
+
+- ImportFromSideStore asks for both, with this app's own SideStore URL
+  scheme (the URL type named "<bundle identifier>.sidestoreurlscheme")
+  as the callback. It is unavailable when that scheme is "sidestore".
+- URLHandler takes the answers, importcertificate and pairingfile. Each
+  is confirmed by the user before it replaces anything. A certificate
+  must have its private key and belong to the team this app is signed
+  with.
+- The onboarding's pairing file and Apple ID steps, and the Certificates
+  screen, gain an "Import from SideStore" action.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01MzPJorvBGmBB88WUcRVhE7
+---
+ SideStore/DeepLinks/ImportFromSideStore.swift | 188 ++++++++++++++++++
+ SideStore/DeepLinks/URLHandler.swift          |  21 +-
+ .../Views/Onboarding/OnboardingView.swift     |  49 +++++
+ .../Certificates/CertificatesView.swift       |  12 ++
+ 4 files changed, 269 insertions(+), 1 deletion(-)
+ create mode 100644 SideStore/DeepLinks/ImportFromSideStore.swift
+
+diff --git a/SideStore/DeepLinks/ImportFromSideStore.swift b/SideStore/DeepLinks/ImportFromSideStore.swift
+new file mode 100644
+index 0000000..9719707
+--- /dev/null
++++ b/SideStore/DeepLinks/ImportFromSideStore.swift
+@@ -0,0 +1,188 @@
++//
++//  ImportFromSideStore.swift
++//  SideStore
++//
++//  Imports the signing certificate and the pairing file of another SideStore
++//  on the same iPhone, such as the one inside a LiveContainer+SideStore, with
++//  the deep links that SideStore already answers: sidestore://certificate
++//  (ExportCertificateDialog) and sidestore://pairing (ExportPairingFileHandler).
++//  The answers come back to this app's own SideStore URL scheme, as
++//  importcertificate and pairingfile (see URLHandler).
++//
++//  Reusing the certificate the account already uses means this SideStore never
++//  has to create one, or revoke the one that signs the player's other apps.
++//
++
++import UIKit
++import CodeSignKit
++import MinimuxerCommon
++import SideSign
++
++@MainActor
++enum ImportFromSideStore {
++
++    /// Posted after a certificate or a pairing file has been imported.
++    static let didImport = Notification.Name("ImportFromSideStoreDidImport")
++
++    /// The scheme another SideStore answers.
++    static let otherStoreScheme = "sidestore"
++
++    /// This app's own SideStore URL scheme: the URL type that LiveContainer's
++    /// packaging names "<bundle identifier>.sidestoreurlscheme".
++    static var ownScheme: String? {
++        let urlTypes = Bundle.Info.activeBundle.object(forInfoDictionaryKey: Bundle.Info.urlTypes) as? [[String: Any]] ?? []
++        for urlType in urlTypes {
++            guard let name = urlType["CFBundleURLName"] as? String, name.hasSuffix(".sidestoreurlscheme"),
++                  let scheme = (urlType["CFBundleURLSchemes"] as? [String])?.first else { continue }
++            return scheme
++        }
++        return nil
++    }
++
++    /// Importing needs a scheme of our own: a SideStore that answers
++    /// "sidestore" itself would only be talking to itself.
++    static var isAvailable: Bool {
++        guard let ownScheme else { return false }
++        return ownScheme.lowercased() != otherStoreScheme
++    }
++
++    // MARK: - Requests
++
++    /// Asks the other SideStore for its certificate. It asks the player to confirm the export.
++    static func requestCertificate() {
++        guard isAvailable, let ownScheme else { return }
++        let callback = "\(ownScheme)://importcertificate?cert=$(BASE64_CERT)&password=$(PASSWORD)"
++        open("\(otherStoreScheme)://certificate?callback_template=\(encoded(callback))")
++    }
++
++    /// Asks the other SideStore for its pairing file.
++    static func requestPairingFile() {
++        guard isAvailable, let ownScheme else { return }
++        open("\(otherStoreScheme)://pairing?urlname=\(encoded(ownScheme))")
++    }
++
++    // MARK: - Answers
++
++    /// sidestore.<scheme>://importcertificate?cert=<base64 PKCS#12>&password=<password>
++    static func importCertificate(base64: String, password: String?) {
++        guard let data = Data(base64Encoded: base64) else {
++            toast(NSLocalizedString("The certificate could not be read.", comment: ""))
++            return
++        }
++
++        let certificate: ALTCertificate
++        do {
++            certificate = try CertificateManager.parse(data, password: password)
++        } catch {
++            toast(NSLocalizedString("The certificate could not be read.", comment: ""), detail: error.localizedDescription)
++            return
++        }
++
++        guard !certificate.privateKey.isEmpty else {
++            toast(NSLocalizedString("The certificate has no private key.", comment: ""))
++            return
++        }
++
++        // Only the certificate of the team this app is signed with can sign it again.
++        if let teamIdentifier = ownTeamIdentifier, let der = certificate.data,
++           !parseCertificate(derData: der).subject.contains(teamIdentifier) {
++            toast(NSLocalizedString("This certificate belongs to another Apple account.", comment: ""))
++            return
++        }
++
++        let expiry = DateFormatter.localizedString(from: certificate.x509.expiryDate, dateStyle: .medium, timeStyle: .none)
++        let message = String(
++            format: NSLocalizedString("SideStore will sign with “%@” (serial %@, valid until %@), the certificate the other SideStore uses. Nothing is created or revoked.", comment: ""),
++            certificate.machineName ?? certificate.name, certificate.serialNumber, expiry
++        )
++        confirm(title: NSLocalizedString("Use This Certificate?", comment: ""), message: message) {
++            do {
++                try CertificateManager.shared.setActiveCertificate(certificate)
++                NotificationCenter.default.post(name: didImport, object: nil)
++                toast(NSLocalizedString("Certificate imported", comment: ""))
++            } catch {
++                toast(NSLocalizedString("The certificate could not be saved.", comment: ""), detail: error.localizedDescription)
++            }
++        }
++    }
++
++    /// sidestore.<scheme>://pairingFile?data=<base64 pairing file>
++    static func importPairingFile(base64: String) {
++        guard let data = Data(base64Encoded: base64),
++              let contents = String(data: data, encoding: .utf8) ?? String(data: data, encoding: .isoLatin1) else {
++            toast(NSLocalizedString("The pairing file could not be read.", comment: ""))
++            return
++        }
++
++        let pairingFile: any PairingFile
++        do {
++            pairingFile = try PairingFileManager.shared.parse(content: contents)
++        } catch {
++            toast(NSLocalizedString("The pairing file could not be read.", comment: ""), detail: error.localizedDescription)
++            return
++        }
++
++        let message = String(
++            format: NSLocalizedString("SideStore will reach this %@ with the pairing file (%@) the other SideStore uses.", comment: ""),
++            UIDevice.current.model, pairingFile.mode.rawValue
++        )
++        confirm(title: NSLocalizedString("Use This Pairing File?", comment: ""), message: message) {
++            do {
++                let saved = try PairingFileManager.shared.savePairingFile(contents: contents)
++                PairingFileManager.shared.persistedActiveProtocol = saved.mode
++                NotificationCenter.default.post(name: didImport, object: nil)
++                toast(NSLocalizedString("Pairing file imported", comment: ""))
++            } catch {
++                toast(NSLocalizedString("The pairing file could not be saved.", comment: ""), detail: error.localizedDescription)
++            }
++        }
++    }
++
++    // MARK: - Helpers
++
++    /// The team identifier in this app's own signature.
++    private static var ownTeamIdentifier: String? {
++        guard let executableURL = Bundle.Info.activeBundle.executableURL,
++              let rawEntitlements = try? MachOParser.entitlements(at: executableURL),
++              let data = rawEntitlements.data(using: .utf8),
++              let entitlements = try? PropertyListSerialization.propertyList(from: data, options: [], format: nil) as? [String: Any],
++              let teamIdentifier = entitlements["com.apple.developer.team-identifier"] as? String,
++              !teamIdentifier.isEmpty else {
++            return nil
++        }
++        return teamIdentifier
++    }
++
++    /// A query value with everything but RFC 3986's unreserved characters escaped.
++    private static func encoded(_ value: String) -> String {
++        var unreserved = CharacterSet.alphanumerics
++        unreserved.insert(charactersIn: "-._~")
++        return value.addingPercentEncoding(withAllowedCharacters: unreserved) ?? value
++    }
++
++    private static func open(_ urlString: String) {
++        guard let url = URL(string: urlString) else { return }
++        UIApplication.shared.open(url, options: [:]) { opened in
++            guard !opened else { return }
++            Task { @MainActor in
++                toast(NSLocalizedString("No other SideStore answered.", comment: ""),
++                      detail: NSLocalizedString("Install the other SideStore or LiveContainer+SideStore on this iPhone, or import the files instead.", comment: ""))
++            }
++        }
++    }
++
++    private static func confirm(title: String, message: String, onConfirm: @escaping @MainActor () -> Void) {
++        guard let presenter = UIApplication.shared.topViewController() else { return }
++        let alert = UIAlertController(title: title, message: message, preferredStyle: .alert)
++        alert.addAction(UIAlertAction(title: NSLocalizedString("Use", comment: ""), style: .default) { _ in
++            onConfirm()
++        })
++        alert.addAction(UIAlertAction(title: NSLocalizedString("Cancel", comment: ""), style: .cancel))
++        presenter.present(alert, animated: true)
++    }
++
++    private static func toast(_ text: String, detail: String? = nil) {
++        guard let presenter = UIApplication.shared.topViewController() else { return }
++        ToastView(text: text, detailText: detail).show(in: presenter)
++    }
++}
+diff --git a/SideStore/DeepLinks/URLHandler.swift b/SideStore/DeepLinks/URLHandler.swift
+index a21e245..6a222eb 100644
+--- a/SideStore/DeepLinks/URLHandler.swift
++++ b/SideStore/DeepLinks/URLHandler.swift
+@@ -90,7 +90,26 @@ class URLHandler {
+                 ExportCertificateDialog.present(callbackTemplate: callbackTemplate)
+             }
+             return true
+-            
++
++        // Answers of another SideStore to ImportFromSideStore's requests.
++        case "importcertificate":
++            let queryItems = components.queryItems?.reduce(into: [String: String]()) { $0[$1.name.lowercased()] = $1.value } ?? [:]
++            guard let certificate = queryItems["cert"] else { return false }
++
++            Task {
++                ImportFromSideStore.importCertificate(base64: certificate, password: queryItems["password"])
++            }
++            return true
++
++        case "pairingfile":
++            let queryItems = components.queryItems?.reduce(into: [String: String]()) { $0[$1.name.lowercased()] = $1.value } ?? [:]
++            guard let pairingFile = queryItems["data"] else { return false }
++
++            Task {
++                ImportFromSideStore.importPairingFile(base64: pairingFile)
++            }
++            return true
++
+         default:
+             return false
+         }
+diff --git a/SideStore/Views/Onboarding/OnboardingView.swift b/SideStore/Views/Onboarding/OnboardingView.swift
+index 5651452..e5c6a07 100644
+--- a/SideStore/Views/Onboarding/OnboardingView.swift
++++ b/SideStore/Views/Onboarding/OnboardingView.swift
+@@ -252,6 +252,21 @@ private struct PairingFileStep: View {
+                         .cornerRadius(12)
+                     }
+ 
++                    if ImportFromSideStore.isAvailable {
++                        SwiftUI.Button(action: { ImportFromSideStore.requestPairingFile() }) {
++                            HStack(spacing: 8) {
++                                Image(systemName: "arrow.down.app")
++                                Text(NSLocalizedString("Import from SideStore", comment: ""))
++                            }
++                            .font(.headline)
++                            .foregroundColor(.accentColor)
++                            .frame(maxWidth: .infinity)
++                            .padding(.vertical, 14)
++                            .background(.ultraThinMaterial)
++                            .cornerRadius(12)
++                        }
++                    }
++
+                     SwiftUI.Button(action: {
+                         UIApplication.shared.open(AppConstants.URLs.pairingDocumentation)
+                     }) {
+@@ -320,6 +335,9 @@ private struct PairingFileStep: View {
+             }
+         }
+         #endif
++        .onReceive(NotificationCenter.default.publisher(for: ImportFromSideStore.didImport)) { _ in
++            hasPairingFile = PairingFileManager.shared.hasPairingFile()
++        }
+     }
+ }
+ 
+@@ -528,6 +546,7 @@ private struct LocalDevVPNStep: View {
+ private struct AppleIDStep: View {
+     let onNext: () -> Void
+     @State private var isAuthenticated = AuthManager.shared.isAuthenticated
++    @State private var hasCertificate = CertificateManager.shared.activeCertificate != nil
+     @State private var isSigningIn = false
+     @State private var errorMessage: String? = nil
+ 
+@@ -563,6 +582,33 @@ private struct AppleIDStep: View {
+                 }
+                 .padding(.vertical, 8)
+             } else {
++                if ImportFromSideStore.isAvailable {
++                    VStack(spacing: 8) {
++                        SwiftUI.Button(action: { ImportFromSideStore.requestCertificate() }) {
++                            HStack(spacing: 8) {
++                                Image(systemName: hasCertificate ? "checkmark.seal.fill" : "arrow.down.app")
++                                Text(hasCertificate
++                                    ? NSLocalizedString("Certificate Imported", comment: "")
++                                    : NSLocalizedString("Import the Certificate from SideStore", comment: ""))
++                            }
++                            .font(.headline)
++                            .foregroundColor(hasCertificate ? .green : .accentColor)
++                            .frame(maxWidth: .infinity)
++                            .padding(.vertical, 14)
++                            .background(.ultraThinMaterial)
++                            .cornerRadius(12)
++                        }
++                        .disabled(isSigningIn)
++
++                        Text(NSLocalizedString("If another SideStore on this device already signs apps with this Apple account, import its certificate before signing in, so that both sign with the same one.", comment: ""))
++                            .font(.footnote)
++                            .foregroundColor(.secondary)
++                            .multilineTextAlignment(.center)
++                    }
++                    .frame(maxWidth: 420)
++                    .padding(.horizontal, 32)
++                }
++
+                 SwiftUI.Button(action: {
+                     Task {
+                         isSigningIn = true
+@@ -639,6 +685,9 @@ private struct AppleIDStep: View {
+             .padding(.horizontal, 24)
+             .padding(.bottom, 16)
+         }
++        .onReceive(NotificationCenter.default.publisher(for: ImportFromSideStore.didImport)) { _ in
++            hasCertificate = CertificateManager.shared.activeCertificate != nil
++        }
+     }
+ }
+ 
+diff --git a/SideStore/Views/Settings/Advanced/Certificates/CertificatesView.swift b/SideStore/Views/Settings/Advanced/Certificates/CertificatesView.swift
+index 99e5a8d..d17f786 100644
+--- a/SideStore/Views/Settings/Advanced/Certificates/CertificatesView.swift
++++ b/SideStore/Views/Settings/Advanced/Certificates/CertificatesView.swift
+@@ -106,6 +106,15 @@ struct CertificatesView: View {
+                         Image(systemName: "square.and.arrow.down")
+                     }
+                     .accessibilityLabel("Import Certificates")
++
++                    if ImportFromSideStore.isAvailable {
++                        SwiftUI.Button {
++                            ImportFromSideStore.requestCertificate()
++                        } label: {
++                            Image(systemName: "arrow.down.app")
++                        }
++                        .accessibilityLabel("Import from SideStore")
++                    }
+                 }
+             }
+             .onAppear {
+@@ -113,6 +122,9 @@ struct CertificatesView: View {
+                 hasInitialLoaded = true
+                 viewModel.loadCertificates(presentingViewController: nil)
+             }
++            .onReceive(NotificationCenter.default.publisher(for: ImportFromSideStore.didImport)) { _ in
++                viewModel.loadCertificates(presentingViewController: nil)
++            }
+             
+             if viewModel.isLoading { LoadingOverlay() }
+         }
+-- 
+2.43.0
+
