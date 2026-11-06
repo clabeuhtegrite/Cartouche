@@ -20,6 +20,19 @@ import add_release  # noqa: E402
 
 BUNDLE_ID = "io.github.clabeuhtegrite.cartouche"
 URL = "https://github.com/clabeuhtegrite/Cartouche/releases/download/v{0}/Cartouche-{0}.ipa"
+SOURCE = ROOT / "app" / "sidestore-source.json"
+
+
+def listed(source):
+    """The versions of Cartouche a source lists, newest first."""
+    return [release["version"] for app in source["apps"] for release in app.get("versions", [])]
+
+
+def above(versions):
+    """A version higher than every one given. The repository's source gains
+    a version at each release, so the tests that read it never assume which."""
+    major, minor, patch = max((add_release.parse_version(v) for v in versions), default=(0, 1, 0))
+    return f"{major}.{minor}.{patch + 1}"
 
 
 class AddReleaseTest(unittest.TestCase):
@@ -51,13 +64,16 @@ class AddReleaseTest(unittest.TestCase):
         return add_release.add_release(source, **arguments)
 
     def test_the_repository_source_takes_a_release(self):
-        source = json.loads((ROOT / "app" / "sidestore-source.json").read_text(encoding="utf-8"))
-        ipa = self.ipa()
-        app, = self.add(source, ipa)["apps"]
+        source = json.loads(SOURCE.read_text(encoding="utf-8"))
+        before = listed(source)
+        released = above(before)
+        ipa = self.ipa(released)
+        app, = self.add(source, ipa, released)["apps"]
         self.assertEqual(app["bundleIdentifier"], BUNDLE_ID)
-        version, = app["versions"]
-        self.assertEqual(version["version"], "0.1.1")
-        self.assertEqual(version["downloadURL"], URL.format("0.1.1"))
+        version, *older = app["versions"]
+        self.assertEqual([v["version"] for v in older], before[:add_release.KEPT_VERSIONS - 1])
+        self.assertEqual(version["version"], released)
+        self.assertEqual(version["downloadURL"], URL.format(released))
         self.assertEqual(version["size"], ipa.stat().st_size)
         self.assertEqual(version["sha256"], hashlib.sha256(ipa.read_bytes()).hexdigest())
         self.assertEqual(version["minOSVersion"], "15.0")
@@ -109,18 +125,19 @@ class AddReleaseTest(unittest.TestCase):
     def test_the_command_writes_the_source(self):
         directory = Path(self.directory.name)
         source = directory / "source.json"
-        source.write_text((ROOT / "app" / "sidestore-source.json").read_text(encoding="utf-8"), encoding="utf-8")
+        source.write_text(SOURCE.read_text(encoding="utf-8"), encoding="utf-8")
+        released = above(listed(json.loads(source.read_text(encoding="utf-8"))))
         config = directory / "config.env"
-        config.write_text(f"CARTOUCHE_BUNDLE_ID={BUNDLE_ID}\nCARTOUCHE_VERSION=0.1.1\n", encoding="utf-8")
+        config.write_text(f"CARTOUCHE_BUNDLE_ID={BUNDLE_ID}\nCARTOUCHE_VERSION={released}\n", encoding="utf-8")
         notes = directory / "notes.md"
         notes.write_text("Fixes.\n", encoding="utf-8")
         status = add_release.main([
-            "--ipa", str(self.ipa()), "--url", URL.format("0.1.1"), "--notes", str(notes),
+            "--ipa", str(self.ipa(released)), "--url", URL.format(released), "--notes", str(notes),
             "--source", str(source), "--config", str(config),
         ])
         self.assertEqual(status, 0)
         written = json.loads(source.read_text(encoding="utf-8"))
-        self.assertEqual(written["apps"][0]["versions"][0]["version"], "0.1.1")
+        self.assertEqual(written["apps"][0]["versions"][0]["version"], released)
         self.assertEqual(written["name"], "Cartouche")
 
 
