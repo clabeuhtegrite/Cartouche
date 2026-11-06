@@ -16,6 +16,15 @@
       "bundleIdentifier": "io.github.clabeuhtegrite.cartouche",
       "versions": [
         {
+          "version": "0.1.3",
+          "date": "2026-11-06T10:41:49Z",
+          "localizedDescription": "Install it with iloader, from scratch or over 0.1.2.\n\n- Pairing file: in iloader, Manage Pairing File › Export, then drop the file on Cartouche in Apple Devices, iTunes or the Finder (Files). Cartouche takes it by itself and the setup step ticks, with no tap on the iPhone.\n- 0.1.2 said that iloader's Place In All Apps lists Cartouche as LiveContainer. It does not: iloader reads the name in the iPhone's language, Cartouche. The setup now says to export the file.\n- A pairing file opened with Cartouche from AirDrop, Mail or Files, or chosen in the setup, still works.",
+          "downloadURL": "https://github.com/clabeuhtegrite/Cartouche/releases/download/v0.1.3/Cartouche-0.1.3.ipa",
+          "size": 36703714,
+          "sha256": "82ba4238816c386461a2d38c8a608693ef72f3de7e2c5e73a82bad8a3b1b0335",
+          "minOSVersion": "15.0"
+        },
+        {
           "version": "0.1.2",
           "date": "2026-11-06T09:48:10Z",
           "localizedDescription": "Install it with iloader, from scratch or over 0.1.1: nothing to set in SideStore or anywhere else.\n\n- iloader: in Manage Pairing File, Place In All Apps now puts the pairing file into Cartouche, listed there as LiveContainer. No export, no AirDrop. Cartouche keeps its name on the home screen.\n- Setup: the pairing file step ticks itself, even while you are still at the computer. Sign in with SideStore opens LocalDevVPN, then the Apple ID sign-in, and brings you back to Cartouche once you are signed in.\n- The built-in SideStore signs in through the SideStore (New) anisette server, as iloader does, no longer asks for a pairing file it already has, and accepts the one iloader exports.\n- A pairing file exported from iloader can also be opened with Cartouche, from AirDrop or Files.",
