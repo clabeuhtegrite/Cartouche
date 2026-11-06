@@ -27,7 +27,7 @@ The IPA is unsigned; SideStore or iloader signs it when installing it. `prepare.
 
 ## Version
 
-Cartouche has its own version, `CARTOUCHE_VERSION` in [`config.env`](config.env), as major.minor.patch. `scripts/package.sh` writes it as the app's `CFBundleShortVersionString` and `CFBundleVersion` in place of LiveContainer's, and the commit it is built from as `LCVersionInfo`. LiveContainer's and SideStore's own versions stay in `CartoucheLiveContainerVersion` and `CartoucheSideStoreVersion`, and the System tab shows them all.
+Cartouche has its own version, `CARTOUCHE_VERSION` in [`config.env`](config.env), as major.minor.patch. `scripts/package.sh` writes it as the app's `CFBundleShortVersionString` and `CFBundleVersion` in place of LiveContainer's, and the commit it is built from as `LCVersionInfo`. LiveContainer's and SideStore's own versions stay in `CartoucheLiveContainerVersion` and `CartoucheSideStoreVersion`, and the System page shows them all.
 
 The built-in SideStore offers an update when its source, [`sidestore-source.json`](sidestore-source.json), lists a higher version than the one installed. So every release raises the version, and a build is never older than a release the source lists ([`tests/test_version.py`](tests/test_version.py)). How a release is cut and added to the source: [`releases/README.md`](releases/README.md).
 

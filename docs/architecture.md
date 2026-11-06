@@ -9,7 +9,8 @@ Cartouche puts everything a player needs on the iPhone into one app. This page d
 | iPhone | **Cartouche** | The one app the player installs |
 | | LiveContainer (base) | Runs each game as a guest app inside Cartouche and signs it with Cartouche's certificate |
 | | SideStore (built in) | Signs in to the Apple account; installs, re-signs and renews Cartouche; asks for the memory capability |
-| | Launcher | Catalogue of every supported game with the player's own first, import, compatibility sheets, memory probe, updates |
+| | Launcher | Catalogue of every supported game with the player's own first, import, compatibility sheets, memory probe, updates; the only screens the player sees, LiveContainer's and SideStore's never show |
+| Player's own storage | A shared folder of their Mac, PC or NAS (SMB), or a folder in Files | Keeps the player's games, as IPAs Cartouche installs from there, and copies of their saves, with the player's own account |
 | | Build pipeline (v2) | Builds a game on the phone from the player's own dump |
 | iPhone | LocalDevVPN (App Store) | A loopback VPN through which SideStore reaches the phone's own services, so it needs no computer |
 | Computer, once | iloader | Installs Cartouche, under its own App ID with the memory capability, and gives it its certificate; exports the pairing file |
@@ -36,7 +37,7 @@ Cartouche's SideStore never revokes a certificate on its own, nor creates one wh
 A free Apple account signs apps for seven days, allows three sideloaded apps at a time and ten new App IDs in seven days.
 
 - Cartouche is one app with one App ID. Games are guest apps inside it, signed on the phone with Cartouche's certificate (LiveContainer's signing without JIT), so they take no App ID and do not count against the limit of three. nxnative runs games natively and needs no JIT, so StikDebug is not needed either.
-- The built-in SideStore renews Cartouche before it expires, with LocalDevVPN on: from the launcher's System tab (**Renew now**), or every night from a Shortcuts automation that runs Cartouche's *Refresh All Apps* action, which the System tab explains how to set up, since iOS lets no app create one. The launcher shows the days left and, once the player allows it, warns 24 hours and 6 hours before expiry ([launcher/README.md](../launcher/README.md#what-the-first-build-does)).
+- The built-in SideStore renews Cartouche before it expires, with LocalDevVPN on: from the launcher's System page (**Renew now**), or every night from a Shortcuts automation that runs Cartouche's *Refresh All Apps* action, which the System page explains how to set up, since iOS lets no app create one. The launcher shows the days left and, once the player allows it, warns 24 hours and 6 hours before expiry ([launcher/README.md](../launcher/README.md#what-the-first-build-does)).
 - Cartouche reuses the account's existing certificate when it can and never revokes one on its own: every app signed with a revoked certificate stops opening.
 
 ## Memory
@@ -91,4 +92,4 @@ The format and tools are in [`server/`](../server/).
 
 ## Privacy
 
-Cartouche sends nothing about the player's games. Telemetry is planned as opt-in anonymous reports (device model, iOS version, game title ID, memory peak, crash signature), with no account data and no files.
+Cartouche sends nothing about the player's games. Their games and saves go only to the storage they set up themselves, with their own account, and the password stays in the iPhone's keychain. Telemetry is planned as opt-in anonymous reports (device model, iOS version, game title ID, memory peak, crash signature), with no account data and no files.

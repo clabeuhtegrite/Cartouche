@@ -15,6 +15,8 @@ Each phase ends with a gate: a result checked on a real iPhone, not only in CI. 
 - Install with iloader, which gives Cartouche its certificate and exports its pairing file, which Cartouche takes when the player drops it on it; a setup of three steps on the iPhone (pairing file, Apple ID, certificate handed to LiveContainer by itself), with no setting to change and SideStore's onboarding going on by itself; its SideStore never revokes or creates a certificate when the account already has one ([architecture.md](architecture.md#first-install)).
 - First launcher: catalogue, import of an IPA built on a Mac, compatibility sheets, memory probe.
 - The console's home (0.2): every game of nxnative's list, cartridges we draw, the player's games and the iPhone's on shelves, a game controller as well as touch, and screenshots of each screen on every pull request ([launcher/README.md](../launcher/README.md#screens)).
+- The player's own storage (0.3): games and saves on a shared folder of their Mac, PC or NAS over SMB, or a folder in Files; the games there in the library, installed from there; saves copied after each game. Then S3, FTP and SFTP, a release each ([launcher/README.md](../launcher/README.md#what-the-first-build-does)).
+- No page of LiveContainer or SideStore (0.3): Cartouche's screens only; then the Apple ID signed in on Cartouche's own screen, SideStore working out of sight as it does for renewals.
 - Layouts for every iPhone and the iPad, the iPhone Duo folded, unfolded and partly folded included ([launcher/README.md](../launcher/README.md#every-iphone-the-iphone-duo-included)). Built with Xcode 27.2 and the iOS 27.2 SDK since 0.2, so that the Duo gives Cartouche its whole display.
 - On a Duo: touch controls clear of the camera and the fold, and a game folded and unfolded mid-race keeps running under its memory limit.
 - Renewal in the background, with a warning before expiry.
@@ -23,7 +25,7 @@ Each phase ends with a gate: a result checked on a real iPhone, not only in CI. 
 
 ## Phase 2: spikes for building on the iPhone
 
-- **S2:** rewrite a game's modules on the phone (`patch_nso.py` on CPython for iOS, with capstone). The same files as a Mac in the iOS simulator in CI; on the iPhone, the lab of the System tab rewrites the player's own game and compares with their Mac's build ([engine/spikes/s2](../engine/spikes/s2/README.md)).
+- **S2:** rewrite a game's modules on the phone (`patch_nso.py` on CPython for iOS, with capstone). The same files as a Mac in the iOS simulator in CI; on the iPhone, the lab of the System page rewrites the player's own game and compares with their Mac's build ([engine/spikes/s2](../engine/spikes/s2/README.md)).
 - **S3:** read the dump and translate the shaders on the phone (.NET NativeAOT for LibHac and Ryujinx's translator, SPIRV-Cross, Metal at run time).
 - **S4:** an engine host built by CI that loads the modules from a framework written and signed on the phone (`dm_set_game_image_header()`).
 - **Gate:** for Mario Kart World, each spike gives the same result as the Mac build.
