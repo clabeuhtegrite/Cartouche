@@ -13,8 +13,9 @@ Cartouche puts everything a player needs on the iPhone into one app. This page d
 | | Build pipeline (v2) | Builds a game on the phone from the player's own dump |
 | iPhone | LocalDevVPN (App Store) | A loopback VPN through which SideStore reaches the phone's own services, so it needs no computer |
 | Computer, once | iloader | Installs Cartouche, under its own App ID with the memory capability |
-| Server | Cloudflare R2 bucket, public read | Holds the signed manifest and the chunks of the app, engine builds, tools and sheets |
-| Server | GitHub Actions | Builds the app and the engine builds, publishes them with the tools in [`server/`](../server/) |
+| Server | GitHub releases | Hold each version of the app, listed in the source the built-in SideStore reads |
+| Server | Cloudflare R2 bucket, public read | Holds the signed manifest and the chunks of engine builds, tools and sheets |
+| Server | GitHub Actions | Builds and releases the app; builds the engine builds and publishes them with the tools in [`server/`](../server/) |
 
 Supported hardware follows nxnative: iOS 26 or later, an iPhone 15 Pro (A17 Pro) or newer, or an iPad with an M1 or newer. The interface adapts to each by size class, both displays and the fold of the iPhone Duo included ([launcher/README.md](../launcher/README.md#every-iphone-the-iphone-duo-included)).
 
@@ -87,7 +88,7 @@ chunks/<aa>/<sha256>                    chunk bytes, named by their SHA-256
 - Artifacts are of five kinds only: `app`, `engine-host`, `toolchain`, `pipeline-list`, `catalog`. There is no kind for games, and the publish guard refuses files that look like game content, keys or firmware, Mach-O images carrying a game's rewritten code, IPAs with another bundle identifier, and URLs in catalog files.
 - Files are cut into chunks of 1 to 8 MiB with content-defined chunking (FastCDC), so a new engine build shares most chunks with the previous one, and engine builds of different games share most of theirs.
 - The app pins the public key, checks the signature, refuses a manifest whose `sequence` is lower than the last one it accepted, downloads only the chunks it lacks and checks each one's SHA-256.
-- App updates are installed by the built-in SideStore; engine builds, tools and sheets are applied by the launcher.
+- App updates are installed by the built-in SideStore, which takes a whole IPA rather than chunks. Each version of the app is a GitHub release listed, with its size and SHA-256, in the source SideStore reads, [`app/sidestore-source.json`](../app/sidestore-source.json); SideStore offers it when its version is higher than the one installed ([app/releases/README.md](../app/releases/README.md)). Engine builds, tools and sheets are applied by the launcher from the signed manifest.
 
 The format and tools are in [`server/`](../server/).
 
