@@ -583,7 +583,7 @@ final class CartoucheZipWriter {
         var counted: UInt64 = 0
         while true {
             try Task.checkCancellation()
-            guard let chunk = try handle.read(upToCount: CartoucheSequentialReader.chunk), !chunk.isEmpty else { break }
+            guard let chunk = try handle.cartoucheRead(upToCount: CartoucheSequentialReader.chunk) else { break }
             check.update(chunk)
             counted += UInt64(chunk.count)
         }
@@ -595,7 +595,7 @@ final class CartoucheZipWriter {
         var again = CartoucheCRC32()
         while true {
             try Task.checkCancellation()
-            guard let chunk = try handle.read(upToCount: CartoucheSequentialReader.chunk), !chunk.isEmpty else { break }
+            guard let chunk = try handle.cartoucheRead(upToCount: CartoucheSequentialReader.chunk) else { break }
             again.update(chunk)
             try await emit(chunk)
             sent += UInt64(chunk.count)
@@ -794,7 +794,22 @@ final class CartoucheFileSource: CartoucheByteSource {
 
     func read(at offset: UInt64, count: Int) async throws -> Data {
         try handle.seek(toOffset: offset)
-        return try handle.read(upToCount: count) ?? Data()
+        return try handle.cartoucheRead(upToCount: count) ?? Data()
+    }
+}
+
+extension FileHandle {
+    /// Up to COUNT bytes, or nil at the end, read in an autorelease pool of
+    /// its own. FileHandle hands its data over autoreleased, so a loop that
+    /// reads a large file without returning to the run loop keeps every
+    /// chunk it read until it ends: copying Mario Kart World to a NAS, the
+    /// CRC-32 pass over its 21 GiB romfs.img filled the memory iOS allows
+    /// Cartouche, which iOS then closed.
+    func cartoucheRead(upToCount count: Int) throws -> Data? {
+        try autoreleasepool {
+            guard let data = try read(upToCount: count), !data.isEmpty else { return nil }
+            return data
+        }
     }
 }
 
