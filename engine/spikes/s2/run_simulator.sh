@@ -33,9 +33,11 @@ cp -R "$HERE/ios/lz4" "$WORK/app/lz4"
 mkdir -p "$WORK/app/dm"
 cp -R "$NXNATIVE/dm/tools" "$NXNATIVE/dm/games" "$WORK/app/dm/"
 rm -rf "$WORK/testbed"
-python3 "$SUPPORT/testbed" clone --platform iOS --framework "$SUPPORT/Python.xcframework" \
-  --app "$WORK/app/cartouche_s2" --app "$WORK/app/capstone" --app "$WORK/app/lz4" --app "$WORK/app/dm" \
-  "$WORK/testbed"
+python3 "$SUPPORT/testbed" clone --platform iOS --framework "$SUPPORT/Python.xcframework" "$WORK/testbed"
+# The app code goes into iOSTestbed/app, the folder the Xcode project bundles
+# and puts first on sys.path. (The testbed's own --app option copies into
+# Testbed/app, which the project does not bundle.)
+cp -R "$WORK/app/cartouche_s2" "$WORK/app/capstone" "$WORK/app/lz4" "$WORK/app/dm" "$WORK/testbed/iOSTestbed/app/"
 RUN=(python3 "$WORK/testbed" run)
 if [ -n "${SIMULATOR:-}" ]; then RUN+=(--simulator "$SIMULATOR"); fi
 "${RUN[@]}" -- cartouche_s2 | tee "$WORK/ios.log"
