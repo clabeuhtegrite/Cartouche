@@ -32,7 +32,9 @@ targets:
         includes:
           - "Cartouche*.swift"
         excludes:
-          # The Lab and the system page need LiveContainer and Python.
+          # The Lab and the system page need LiveContainer and Python, and
+          # the game actions LiveContainer's installer and launcher.
+          - "CartoucheGameActions.swift"
           - "CartoucheLab.swift"
           - "CartoucheLabView.swift"
           - "CartouchePython.swift"

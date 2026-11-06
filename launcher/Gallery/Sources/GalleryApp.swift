@@ -8,11 +8,15 @@
 //  the whole screen of the simulator it runs on, such as the iPhone Duo's,
 //  with its own safe area, size classes and system bars.
 //
-//      -GalleryScreen games|library|sheet|setup
+//      -GalleryScreen games|library|sheet|settings|setup
 //      -GalleryWidth 402 -GalleryHeight 874     (none: the whole screen)
 //      -GalleryInsets 62,0,34,0          top, leading, bottom, trailing
 //      -GalleryOwned 0400C3F00006E000,…  the player's games
-//      -GallerySetup 1 -GalleryController 1 -GallerySheet <title ID>
+//      -GallerySetup 1 -GalleryController 1
+//      -GallerySheet <title ID>          the game of the sheet, of its
+//                                        settings, or being installed
+//      -GalleryWork installing           a game being installed, over the
+//                                        console
 //
 
 import SwiftUI
@@ -26,6 +30,7 @@ struct GalleryScenario {
     var setupDone = false
     var controller = false
     var sheet: String?
+    var work: String?
 
     static func fromArguments() -> GalleryScenario {
         let defaults = UserDefaults.standard
@@ -42,6 +47,7 @@ struct GalleryScenario {
         scenario.setupDone = defaults.bool(forKey: "GallerySetup")
         scenario.controller = defaults.bool(forKey: "GalleryController")
         scenario.sheet = defaults.string(forKey: "GallerySheet")
+        scenario.work = defaults.string(forKey: "GalleryWork")
         return scenario
     }
 
@@ -64,6 +70,11 @@ struct GalleryScenario {
         MainActor.assumeIsolated {
             CartoucheSetup.shared.refresh()
             if controller { CartoucheGamepad.shared.showHints() }
+            if work == "installing" {
+                let name = sheet.flatMap { CartoucheCatalog.shared.game(titleId: $0)?.name } ?? "Game"
+                CartoucheGameActions.shared.work = CartoucheGameWork(kind: .installing, name: name,
+                                                                     step: CartoucheText.installUnpacking, fraction: 0.42)
+            }
         }
     }
 
@@ -127,7 +138,20 @@ struct CartoucheGalleryApp: App {
         case "sheet":
             if let entry = entries.all.first(where: { $0.titleId == scenario.sheet }) {
                 NavigationStack {
-                    CartoucheGameSheetView(entry: entry, memory: CartoucheMemoryReading.now(), onPlay: { _ in }, onImport: {})
+                    CartoucheGameSheetView(entry: entry, memory: CartoucheMemoryReading.now(), onPlay: { _ in },
+                                           onSettings: { _ in }, onImport: {}, onUninstall: { _ in })
+                        .toolbar {
+                            ToolbarItem(placement: .confirmationAction) {
+                                Button(CartoucheText.done) {}
+                            }
+                        }
+                }
+            }
+        case "settings":
+            if let entry = entries.all.first(where: { $0.titleId == scenario.sheet }), let app = entry.app {
+                NavigationStack {
+                    CartoucheGameSettingsView(model: CartoucheGameActions.shared.settings(for: app, tileKey: entry.tileKey),
+                                              onNxnativeScreen: {})
                         .toolbar {
                             ToolbarItem(placement: .confirmationAction) {
                                 Button(CartoucheText.done) {}

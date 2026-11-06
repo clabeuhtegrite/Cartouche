@@ -111,9 +111,14 @@ enum CartouchePairing {
 
     /// A file another app opened Cartouche with, from AirDrop or Files
     /// (app/patches/livecontainer/0004): whether it is Cartouche's to take,
-    /// by its extension. The setup checks it and shows what came of it.
+    /// by its extension. The setup checks a pairing file and shows what came
+    /// of it; Cartouche installs an IPA on its own screens, as Import does.
     @MainActor
     static func openedFile(_ url: URL) -> Bool {
+        if #available(iOS 17.0, *), CartoucheGameActions.takes(url) {
+            CartoucheGameActions.shared.install(url)
+            return true
+        }
         guard fileExtensions.contains(url.pathExtension.lowercased()) else { return false }
         CartoucheSetup.shared.importOpenedPairingFile(url)
         return true

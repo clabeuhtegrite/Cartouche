@@ -29,6 +29,7 @@ final class GalleryScreens: XCTestCase {
             let setup: Bool
             let controller: Bool
             let sheet: String?
+            let work: String?
         }
 
         let language: String
@@ -75,6 +76,9 @@ final class GalleryScreens: XCTestCase {
             }
             if let sheet = scenario.sheet {
                 app.launchArguments += ["-GallerySheet", sheet]
+            }
+            if let work = scenario.work {
+                app.launchArguments += ["-GalleryWork", work]
             }
             app.launch()
             // The layout, the stage's colours and the cartridges settle.

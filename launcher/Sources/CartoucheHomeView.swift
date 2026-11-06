@@ -29,10 +29,30 @@ struct CartoucheHomeView: View {
     let isActive: Bool
     let onPlay: (LCAppModel) -> Void
     let onImport: () -> Void
+    let onUninstall: (LCAppModel) -> Void
     let onSheet: (CartoucheEntry) -> Void
     let onLibrary: () -> Void
     let onSetup: () -> Void
     let onTab: (LCTabIdentifier) -> Void
+
+    // Written out: before Swift 6.4 (SE-0502), the private state below made
+    // the synthesized initializer private.
+    init(entries: CartoucheCatalog.Entries, gameCount: Int, isActive: Bool,
+         onPlay: @escaping (LCAppModel) -> Void, onImport: @escaping () -> Void,
+         onUninstall: @escaping (LCAppModel) -> Void, onSheet: @escaping (CartoucheEntry) -> Void,
+         onLibrary: @escaping () -> Void, onSetup: @escaping () -> Void,
+         onTab: @escaping (LCTabIdentifier) -> Void) {
+        self.entries = entries
+        self.gameCount = gameCount
+        self.isActive = isActive
+        self.onPlay = onPlay
+        self.onImport = onImport
+        self.onUninstall = onUninstall
+        self.onSheet = onSheet
+        self.onLibrary = onLibrary
+        self.onSetup = onSetup
+        self.onTab = onTab
+    }
 
     @ObservedObject private var setup = CartoucheSetup.shared
     @ObservedObject private var gamepad = CartoucheGamepad.shared
@@ -213,12 +233,29 @@ struct CartoucheHomeView: View {
             CartoucheGameCartridge(entry: entry, width: width, isFocused: isFocused)
                 .accessibilityAddTraits(.isButton)
                 .accessibilityAction(named: Text(CartoucheText.details)) { onSheet(entry) }
+                .contextMenu { gameMenu(entry) }
         case .importGame:
             CartoucheImportCartridge(width: width, isFocused: isFocused)
         case .allGames:
             CartoucheAllGamesCartridge(width: width, count: gameCount, isFocused: isFocused)
         case .dock:
             EmptyView()
+        }
+    }
+
+    /// A long press on a game: what its sheet offers, the game's settings
+    /// being in the sheet.
+    @ViewBuilder
+    private func gameMenu(_ entry: CartoucheEntry) -> some View {
+        if let app = entry.app {
+            Button { onPlay(app) } label: { Label(CartoucheText.play, systemImage: "play.fill") }
+        } else {
+            Button(action: onImport) { Label(CartoucheText.importCopy, systemImage: "square.and.arrow.down") }
+        }
+        Button { onSheet(entry) } label: { Label(CartoucheText.details, systemImage: "info.circle") }
+        if let app = entry.app {
+            Divider()
+            Button(role: .destructive) { onUninstall(app) } label: { Label(CartoucheText.uninstall, systemImage: "trash") }
         }
     }
 

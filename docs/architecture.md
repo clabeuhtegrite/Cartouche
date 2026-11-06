@@ -60,7 +60,7 @@ The launcher measures the real limit at start-up (footprint plus `os_proc_availa
 
 ### v1: import a game built on a Mac
 
-The player builds the IPA on a Mac with nxnative's `scripts/build_ipa_from_nsp.py` (or a Mac app built on it) from their own dump, then imports it into Cartouche from Files, iCloud Drive, a USB-C drive or a network share. Cartouche installs it as a guest app and signs it. Big games are built with `--romfs separate`, and their RomFS goes into the guest app's Documents folder.
+The player builds the IPA on a Mac with nxnative's `scripts/build_ipa_from_nsp.py` (or a Mac app built on it) from their own dump, then imports it into Cartouche from Files, iCloud Drive, a USB-C drive or a network share. Cartouche installs it as a guest app and signs it, on its own screens, and starts it without nxnative's settings screen, with the choices the game's settings page in Cartouche saved where nxnative reads them. Big games are built with `--romfs separate`, and their RomFS goes into the guest app's Documents folder.
 
 ### v2: build on the iPhone
 

@@ -51,12 +51,96 @@ final class LCAppInfo {
     func iconIsDarkIcon(_ isDark: Bool) -> UIImage? { icon }
 }
 
-final class LCAppModel: ObservableObject, Identifiable {
+final class LCAppModel: ObservableObject, Identifiable, Equatable {
     let appInfo: LCAppInfo
 
     init(appInfo: LCAppInfo) {
         self.appInfo = appInfo
     }
+
+    var displayName: String { appInfo.displayName() ?? "?" }
+
+    static func == (lhs: LCAppModel, rhs: LCAppModel) -> Bool { lhs === rhs }
+}
+
+/// CartoucheGameActions.swift, which installs, starts and uninstalls games
+/// with LiveContainer and opens their preferences, as the gallery stands it
+/// in: nothing happens, a scenario can show a step in progress, and every
+/// game has the settings of GallerySettings, kept in memory.
+@MainActor
+final class CartoucheGameActions: ObservableObject {
+    static let shared = CartoucheGameActions()
+
+    @Published var work: CartoucheGameWork?
+    @Published var notice: CartoucheGameNotice?
+    @Published var installed: LCAppModel?
+
+    nonisolated static func takes(_ url: URL) -> Bool { false }
+    func install(_ url: URL) {}
+    func play(_ app: LCAppModel, showingSettings: Bool = false) {}
+    func uninstall(_ app: LCAppModel, erasingData: Bool) {}
+
+    func settings(for app: LCAppModel, tileKey: String) -> CartoucheGameSettingsModel {
+        CartoucheGameSettingsModel(name: app.displayName, tileKey: tileKey,
+                                   settings: CartoucheGameSetting.rows(in: Data(GallerySettings.list.utf8)) ?? [],
+                                   fixed: [:], choices: GallerySettings.choices)
+    }
+}
+
+/// A settings list as nxnative writes one into a game (dm/launcher.json,
+/// from its settings.tsv), for a game played in handheld mode, and a
+/// player's choice: a lower render scale.
+enum GallerySettings {
+    static let choices = GalleryChoices(["launcher.DM_RENDER_SCALE": "0.85"])
+
+    static let list = """
+    {"schema": 1, "settings": [
+      {"env": "DM_FPS_TARGET", "kind": "choice", "section": "Game", "label": "Frame rate", "note": "", "default": "60",
+       "options": [["30", "30 fps"], ["60", "60 fps"]], "level": "basic"},
+      {"env": "DM_RENDER_SCALE", "kind": "range", "section": "Game", "label": "Render scale", "note": "", "default": "1.0",
+       "min": 0.5, "max": 1.0, "step": 0.05, "base": {"docked": [1920, 1080], "handheld": [1280, 720]}, "level": "basic"},
+      {"env": "DM_OPMODE", "kind": "choice", "section": "Game", "label": "Console mode", "note": "", "default": "0",
+       "options": [["1", "Docked"], ["0", "Handheld"]], "level": "basic"},
+      {"env": "DM_PRESENT_UPSCALE", "kind": "choice", "section": "Game", "label": "Upscaling",
+       "note": "Uses more GPU time and can increase heat.", "default": "off", "options": [["off", "Standard"], ["metalfx", "MetalFX"]]},
+      {"env": "DM_LANG", "kind": "choice", "section": "Game", "label": "Game language", "note": "", "default": "fr",
+       "options": [["en-US", "American English"], ["en-GB", "British English"], ["ja", "Japanese"], ["fr", "French"],
+                   ["de", "German"], ["es", "Spanish"], ["it", "Italian"], ["fr-CA", "Canadian French"]], "level": "basic"},
+      {"env": "DM_PICTURE_FIT", "kind": "choice", "section": "Game", "label": "Picture",
+       "note": "Fill crops the game's 16:9 picture to cover the screen. Health bars, subtitles or maps near the edges can be cut off. A full-screen picture without cropping needs a patch for each game.",
+       "default": "fit", "options": [["fit", "Fit"], ["fill", "Fill"]]},
+      {"env": "DM_SHOW_FPS", "kind": "toggle", "section": "Game", "label": "Frame-rate counter", "note": "", "default": "0"},
+      {"env": "DM_TOUCH_HAPTICS", "kind": "toggle", "section": "Controls", "label": "Touch feedback", "note": "", "default": "1"},
+      {"env": "DM_RUMBLE", "kind": "toggle", "section": "Controls", "label": "Game rumble", "note": "", "default": "1", "level": "basic"},
+      {"env": "DM_RUMBLE_GAIN", "kind": "range", "section": "Controls", "label": "Rumble strength", "note": "", "default": "1.0",
+       "min": 0, "max": 3, "step": 0.1, "needs": "DM_RUMBLE=1"},
+      {"env": "DM_RUMBLE_MIN", "kind": "range", "section": "Controls", "label": "Rumble cutoff", "note": "", "default": "0",
+       "min": 0, "max": 0.9, "step": 0.05},
+      {"env": "DM_PRESENT_SNAP", "kind": "toggle", "section": "Performance", "label": "Frame buffering",
+       "note": "Up to one frame more display latency.", "default": "1"},
+      {"env": "DM_PSO_MTL4", "kind": "toggle", "section": "Performance", "label": "Metal 4 pipelines",
+       "note": "Keeps a pipeline archive; uses more memory.", "default": "1"},
+      {"env": "DM_PSO_PREBUILD", "kind": "toggle", "section": "Performance", "label": "Pipeline prebuild",
+       "note": "The first start waits a few minutes for it, once.", "default": "1", "needs": "DM_PSO_MTL4=1"},
+      {"env": "DM_NVN_ENC_THREAD", "kind": "toggle", "section": "Performance", "label": "Encode thread", "note": "", "default": "1"},
+      {"env": "DM_FPS_HOLD", "kind": "toggle", "section": "Performance", "label": "Hold frames when late", "note": "", "default": "on",
+       "on": "on", "off": "off"},
+      {"env": "DM_METAL_HUD", "kind": "toggle", "section": "Performance", "label": "Performance HUD", "note": "", "default": "0"}
+    ]}
+    """
+}
+
+/// A game's preferences, in memory.
+final class GalleryChoices: CartoucheGameChoices {
+    private var values: [String: Any]
+
+    init(_ values: [String: Any]) {
+        self.values = values
+    }
+
+    func string(forKey key: String) -> String? { values[key] as? String }
+    func data(forKey key: String) -> Data? { values[key] as? Data }
+    func set(_ value: Any?, forKey key: String) { values[key] = value }
 }
 
 public enum LCTabIdentifier: Hashable {

@@ -24,6 +24,17 @@ struct CartoucheLibraryView: View {
     let onSheet: (CartoucheEntry) -> Void
     let onBack: () -> Void
 
+    // Written out: before Swift 6.4 (SE-0502), the private state below made
+    // the synthesized initializer private.
+    init(entries: CartoucheCatalog.Entries, isActive: Bool, onPlay: @escaping (LCAppModel) -> Void,
+         onSheet: @escaping (CartoucheEntry) -> Void, onBack: @escaping () -> Void) {
+        self.entries = entries
+        self.isActive = isActive
+        self.onPlay = onPlay
+        self.onSheet = onSheet
+        self.onBack = onBack
+    }
+
     enum Filter: CaseIterable, Hashable {
         case all, owned, iphone, mac, bringup, switch2
 

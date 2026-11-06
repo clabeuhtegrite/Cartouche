@@ -26,6 +26,8 @@ enum CartoucheTheme {
     static let cartridgeAspect: CGFloat = 1.32
 
     static let secondaryText = Color.white.opacity(0.68)
+    /// A step that cannot be undone, such as Uninstall, legible on the stage.
+    static let danger = Color(red: 1.0, green: 0.45, blue: 0.45)
     static let tertiaryText = Color.white.opacity(0.45)
 
     /// Two colours from a game's title ID, the same on every launch and

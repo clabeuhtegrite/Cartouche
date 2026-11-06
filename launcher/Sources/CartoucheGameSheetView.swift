@@ -4,8 +4,9 @@
 //
 //  A game's sheet: where nxnative plays it and what its profile says, what
 //  the game needs against what this iPhone has, the settings testers
-//  recommend, and their results. Its one action is Play for the player's
-//  own copy, or Import my copy.
+//  recommend, and their results. Its main action is Play for the player's
+//  own copy, with Game settings (the game's settings page) and Uninstall
+//  under it, or Import my copy.
 //
 
 import SwiftUI
@@ -15,9 +16,13 @@ struct CartoucheGameSheetView: View {
     let entry: CartoucheEntry
     let memory: CartoucheMemoryReading?
     let onPlay: (LCAppModel) -> Void
+    /// Opens the game's settings page.
+    let onSettings: (LCAppModel) -> Void
     /// Opens Files. The view that presents the sheet holds the one file
     /// importer of its presentation: SwiftUI presents only one of several.
     let onImport: () -> Void
+    /// Asks whether to uninstall the game, and whether its saves stay.
+    let onUninstall: (LCAppModel) -> Void
 
     private var fit: CartoucheFit? {
         entry.sheet.map { CartoucheFit.of($0, memory: memory) }
@@ -97,6 +102,26 @@ struct CartoucheGameSheetView: View {
                 }
                 .controlSize(.large)
                 .cartouchePrimaryButton()
+                HStack(spacing: 10) {
+                    Button {
+                        onSettings(app)
+                    } label: {
+                        Label(CartoucheText.gameSettings, systemImage: "slider.horizontal.3")
+                            .font(.subheadline.weight(.semibold))
+                            .frame(maxWidth: .infinity, minHeight: 26)
+                    }
+                    .cartoucheSecondaryButton()
+                    Button(role: .destructive) {
+                        onUninstall(app)
+                    } label: {
+                        Label(CartoucheText.uninstall, systemImage: "trash")
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(CartoucheTheme.danger)
+                            .frame(maxWidth: .infinity, minHeight: 26)
+                    }
+                    .cartoucheSecondaryButton()
+                }
+                .controlSize(.regular)
             } else {
                 Button(action: onImport) {
                     Label(CartoucheText.importCopy, systemImage: "square.and.arrow.down")

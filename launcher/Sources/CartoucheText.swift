@@ -285,6 +285,133 @@ enum CartoucheText {
     static var dailyStepCheck: String { s("daily.step5", "Each renewal shows in the System tab as the last renewal, and gives Cartouche seven more days.") }
     static var openShortcuts: String { s("daily.openShortcuts", "Open Shortcuts") }
 
+    // MARK: Installing, starting and uninstalling a game
+
+    static func installTitle(_ name: String) -> String { f("work.install.title", "Installing %@", name) }
+    static var installUnpacking: String { s("work.install.unpacking", "Unpacking the IPA. Keep Cartouche open: a large game takes a few minutes.") }
+    static var installSigning: String { s("work.signing", "Signing it for this iPhone") }
+    static var installFailed: String { s("work.install.failed", "The game was not installed") }
+    static var installSignWarning: String { s("work.install.signWarning", "Installed, but not signed") }
+    static var installDone: String { s("work.install.done", "Installed") }
+    static func installNotAGame(_ name: String) -> String { f("work.install.notAGame", "%@ is not an nxnative game: you will find it in Apps.", name) }
+    static func installNoSpace(needed: String, free: String) -> String {
+        f("work.install.noSpace", "Installing this game takes about %1$@ of free space, and this iPhone has %2$@. Free some space, then import it again.", needed, free)
+    }
+    static func startTitle(_ name: String) -> String { f("work.start.title", "Starting %@", name) }
+    static var startSoon: String { s("work.start.soon", "The game opens in a moment.") }
+    static var startSettings: String { s("work.start.settings", "The game opens on its settings: its Play button starts it and keeps your choices.") }
+    static var startFailed: String { s("work.start.failed", "The game did not start") }
+    static func uninstallTitle(_ name: String) -> String { f("work.uninstall.title", "Uninstalling %@", name) }
+    static var uninstallStep: String { s("work.uninstall.step", "Removing it from this iPhone") }
+    static var uninstallFailed: String { s("work.uninstall.failed", "The game was not uninstalled") }
+
+    static var gameSettings: String { s("action.gameSettings", "Game settings") }
+    static var uninstall: String { s("action.uninstall", "Uninstall") }
+    static var cancel: String { s("action.cancel", "Cancel") }
+    static func uninstallQuestion(_ name: String) -> String { f("uninstall.question", "Uninstall %@?", name) }
+    static var uninstallMessage: String { s("uninstall.message", "Your saves can stay on this iPhone: the game finds them again the next time you import it.") }
+    static var uninstallKeepSaves: String { s("uninstall.keep", "Uninstall, keep my saves") }
+    static var uninstallEraseSaves: String { s("uninstall.erase", "Uninstall and erase my saves") }
+
+    // MARK: A game's settings
+
+    static var settingsIntro: String { s("settings.intro", "The settings nxnative’s screen shows before this game. Play starts the game with them, and its in-game menu changes the same ones.") }
+    static var settingsNone: String { s("settings.none", "This game has no settings to choose.") }
+    static var settingsUnreachable: String { s("settings.unreachable", "Cartouche cannot open this game’s settings. Start it on nxnative’s screen to choose them.") }
+    static var settingsReset: String { s("settings.reset", "Reset to tested defaults") }
+    static var settingsResetFooter: String { s("settings.reset.footer", "Brings back all the settings this game was tested with.") }
+    static var settingsNxnativeScreen: String { s("settings.nxnativeScreen", "Start on nxnative’s screen") }
+    static var settingsNxnativeScreenFooter: String { s("settings.nxnativeScreen.footer", "Starts the game on nxnative’s own settings screen, in English, with these choices: its Play button starts the game.") }
+    static var settingFixed: String { s("settings.fixed", "Set by an env.txt file") }
+    static var cloudTitle: String { s("settings.cloud", "Cloud saves") }
+    static var cloudOff: String { s("settings.cloud.off", "Off") }
+    static var cloudChoose: String { s("settings.cloud.choose", "Choose a folder in iCloud Drive…") }
+    static var cloudChange: String { s("settings.cloud.change", "Choose a different folder…") }
+    static var cloudTurnOff: String { s("settings.cloud.turnOff", "Turn off cloud saves") }
+    static var cloudFooter: String { s("settings.cloud.footer", "Choose a folder in iCloud Drive, and the same one in the Mac app’s Cloud saves. The save comes in when the game starts and goes out after each save; a save that is replaced is kept in save-backups.") }
+    static var cloudSaved: String { s("settings.cloud.saved", "Saved. The game uses this folder when you press Play.") }
+    static var cloudStale: String { s("settings.cloud.stale", "The folder you chose before can no longer be read: the app was signed differently. Choose it again.") }
+    static var cloudFailed: String { s("settings.cloud.failed", "That folder could not be remembered: try a different one.") }
+
+    /// A text of nxnative's settings list (a game's dm/launcher.json, from
+    /// nxnative's settings.tsv) in the reader's language: a section, a
+    /// setting's name or note, or an option. A text Cartouche does not know
+    /// shows as nxnative wrote it.
+    static func gameSettingText(_ text: String) -> String {
+        switch text {
+        case "Game": return s("setting.section.game", "Game")
+        case "Controls": return s("setting.section.controls", "Controls")
+        case "Performance": return s("setting.section.performance", "Performance")
+
+        case "Frame rate": return s("setting.frameRate", "Frame rate")
+        case "Dynamic resolution": return s("setting.dynamicResolution", "Dynamic resolution")
+        case "Render scale": return s("setting.renderScale", "Render scale")
+        case "Console mode": return s("setting.consoleMode", "Console mode")
+        case "Upscaling": return s("setting.upscaling", "Upscaling")
+        case "Game's upscaler": return s("setting.gameUpscaler", "Game’s upscaler")
+        case "Game language": return s("setting.language", "Game language")
+        case "Picture": return s("setting.picture", "Picture")
+        case "Frame-rate counter": return s("setting.fpsCounter", "Frame-rate counter")
+        case "Touch feedback": return s("setting.touchFeedback", "Touch feedback")
+        case "Game rumble": return s("setting.rumble", "Game rumble")
+        case "Rumble strength": return s("setting.rumbleStrength", "Rumble strength")
+        case "Rumble cutoff": return s("setting.rumbleCutoff", "Rumble cutoff")
+        case "Picture shape": return s("setting.pictureShape", "Picture shape")
+        case "Frame buffering": return s("setting.frameBuffering", "Frame buffering")
+        case "Metal 4 pipelines": return s("setting.metal4", "Metal 4 pipelines")
+        case "Pipeline prebuild": return s("setting.prebuild", "Pipeline prebuild")
+        case "Encode thread": return s("setting.encodeThread", "Encode thread")
+        case "Hold frames when late": return s("setting.holdFrames", "Hold frames when late")
+        case "Performance HUD": return s("setting.hud", "Performance HUD")
+
+        case "Docked": return modeName("docked")
+        case "Handheld": return modeName("handheld")
+        case "Standard": return s("setting.option.standard", "Standard")
+        case "Game's own": return s("setting.option.gameOwn", "Game’s own")
+        case "Fit": return s("setting.option.fit", "Fit")
+        case "Fill": return s("setting.option.fill", "Fill")
+        case "iPhone Duo screen (1.43:1)": return s("setting.option.duoScreen", "iPhone Duo screen (1.43:1)")
+
+        case "Adjusts resolution between 70% and 100% under load. Turn off to keep full resolution for the selected console mode.":
+            let low = percent(0.7), high = percent(1)
+            return f("setting.note.dynamicResolution", "Adjusts resolution between %1$@ and %2$@ under load. Turn off to keep full resolution for the selected console mode.", low, high)
+        case "Uses more GPU time and can increase heat.":
+            return s("setting.note.upscaling", "Uses more GPU time and can increase heat.")
+        case "Fill crops the game's 16:9 picture to cover the screen. Health bars, subtitles or maps near the edges can be cut off. A full-screen picture without cropping needs a patch for each game.":
+            return s("setting.note.picture", "Fill crops the game’s 16:9 picture to cover the screen. Health bars, subtitles or maps near the edges can be cut off. A full-screen picture without cropping needs a patch for each game.")
+        case "Renders about a quarter more pixels: a little slower and warmer.":
+            return s("setting.note.pictureShape", "Renders about a quarter more pixels: a little slower and warmer.")
+        case "Up to one frame more display latency.":
+            return s("setting.note.frameBuffering", "Up to one frame more display latency.")
+        case "Keeps a pipeline archive; uses more memory.":
+            return s("setting.note.metal4", "Keeps a pipeline archive; uses more memory.")
+        case "The first start waits a few minutes for it, once.":
+            return s("setting.note.prebuild", "The first start waits a few minutes for it, once.")
+        case "This game's files do not list its languages, so some of these may not be in the game. It may then show another one.":
+            return s("setting.note.languages", "This game’s files do not list its languages, so some of these may not be in the game. It may then show another one.")
+
+        default:
+            // "60 fps"
+            if text.hasSuffix(" fps"), let rate = Int(text.dropLast(4)) {
+                let frames = String(rate)
+                return f("setting.option.fps", "%@ fps", frames)
+            }
+            return text
+        }
+    }
+
+    /// One of the game's languages, by its code (nxnative's nacp.py), in the
+    /// reader's language; nxnative's English name when iOS has none.
+    static func languageName(_ code: String, english: String) -> String {
+        let locale = Locale.current
+        guard let name = locale.localizedString(forIdentifier: code), !name.isEmpty else { return gameSettingText(english) }
+        return name.prefix(1).uppercased(with: locale) + name.dropFirst()
+    }
+
+    private static func percent(_ value: Double) -> String {
+        value.formatted(.percent.precision(.fractionLength(0)))
+    }
+
     // MARK: Warnings before expiry
 
     static var warning24hTitle: String { s("warning.24h.title", "Cartouche expires in 24 hours") }
@@ -300,7 +427,11 @@ enum CartoucheText {
     }
 
     static func gigabytes(_ value: Int) -> String {
-        f("unit.gb", "%@\u{00A0}GB", grouped(value))
+        gigabytes(text: grouped(value))
+    }
+
+    private static func gigabytes(text: String) -> String {
+        f("unit.gb", "%@\u{00A0}GB", text)
     }
 
     /// "6,143 MiB (6.0 GiB)", with the reader's separators.
@@ -312,6 +443,16 @@ enum CartoucheText {
         formatter.maximumFractionDigits = 1
         let gib = formatter.string(from: NSNumber(value: gibibytes)) ?? String(format: "%.1f", gibibytes)
         return mebibytes(value) + " (" + f("unit.gib", "%@\u{00A0}GiB", gib) + ")"
+    }
+
+    /// "23.4 GB", in decimal gigabytes as iOS counts storage.
+    static func storageAmount(bytes: Int64) -> String {
+        let formatter = NumberFormatter()
+        formatter.locale = Locale.current
+        formatter.minimumFractionDigits = 1
+        formatter.maximumFractionDigits = 1
+        let value = Double(bytes) / 1_000_000_000
+        return gigabytes(text: formatter.string(from: NSNumber(value: value)) ?? String(format: "%.1f", value))
     }
 
     private static func grouped(_ value: Int) -> String {
