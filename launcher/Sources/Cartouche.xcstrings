@@ -1038,6 +1038,23 @@
         }
       }
     },
+    "system.cartouche.basedOn" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Based on"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Basé sur"
+          }
+        }
+      }
+    },
     "system.cartouche.sheets" : {
       "extractionState" : "manual",
       "localizations" : {

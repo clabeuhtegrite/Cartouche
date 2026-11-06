@@ -63,6 +63,7 @@ echo "== building LiveContainer"
 )
 
 echo "== packaging"
+COMMIT="$(git -C "$ROOT" rev-parse --short=7 HEAD 2>/dev/null || echo unknown)"
 "$HERE/package.sh" \
   --archive "$WORK/LiveContainer.xcarchive" \
   --sidestore "$WORK/src/SideStore/SideStore.ipa" \
@@ -72,6 +73,8 @@ echo "== packaging"
   --bundle-id "$CARTOUCHE_BUNDLE_ID" \
   --name "$CARTOUCHE_DISPLAY_NAME" \
   --url-scheme "$CARTOUCHE_URL_SCHEME" \
+  --version "$CARTOUCHE_VERSION" \
+  --commit "$COMMIT" \
   --out "$OUT/Cartouche.ipa"
 
 echo "== done: $OUT/Cartouche.ipa"

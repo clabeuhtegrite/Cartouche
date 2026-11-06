@@ -136,6 +136,7 @@ enum CartoucheText {
     static var chip: String { s("system.device.chip", "Chip") }
     static var ram: String { s("system.device.ram", "Memory") }
     static var version: String { s("system.cartouche.version", "Version") }
+    static var basedOn: String { s("system.cartouche.basedOn", "Based on") }
     static var sheets: String { s("system.cartouche.sheets", "Game sheets") }
 
     // MARK: Renewing every night

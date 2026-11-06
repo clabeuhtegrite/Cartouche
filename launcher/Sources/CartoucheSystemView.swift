@@ -232,10 +232,14 @@ struct CartoucheSystemView: View {
     private var cartoucheSection: some View {
         Section("Cartouche") {
             LabeledContent(CartoucheText.version, value: version)
+            if let basedOn {
+                LabeledContent(CartoucheText.basedOn, value: basedOn)
+            }
             LabeledContent(CartoucheText.sheets, value: String(catalog.sheets.count))
         }
     }
 
+    /// Cartouche's version and the commit it was built from (app/scripts/package.sh).
     private var version: String {
         let info = Bundle.main.infoDictionary
         var text = info?["CFBundleShortVersionString"] as? String ?? "?"
@@ -243,6 +247,20 @@ struct CartoucheSystemView: View {
             text += " (" + build + ")"
         }
         return text
+    }
+
+    /// The versions of LiveContainer and SideStore that this build carries.
+    private var basedOn: String? {
+        let info = Bundle.main.infoDictionary ?? [:]
+        let bases: [(name: String, key: String)] = [
+            ("LiveContainer", "CartoucheLiveContainerVersion"),
+            ("SideStore", "CartoucheSideStoreVersion"),
+        ]
+        let parts = bases.compactMap { base -> String? in
+            guard let version = info[base.key] as? String else { return nil }
+            return "\(base.name)\u{00A0}\(version)"
+        }
+        return parts.isEmpty ? nil : parts.joined(separator: ", ")
     }
 }
 
