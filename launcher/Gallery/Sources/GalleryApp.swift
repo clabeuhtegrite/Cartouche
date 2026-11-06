@@ -95,6 +95,10 @@ struct GalleryScenario {
     /// screenshot, or to turn it the right way up (screenshot.swift).
     struct Ready: Encodable {
         let scale: Double
+        /// The size of the window's screen in pixels, upright: on a simulator
+        /// with more than one display, such as the iPhone Duo with its outer
+        /// and inner ones, capture.sh takes the display of this size.
+        let pixels: [Double]
         /// The window's top left corner on the screen, in points.
         let origin: [Double]
         let window: [Double]
@@ -125,7 +129,9 @@ struct GalleryScenario {
             case .portraitUpsideDown: "portraitUpsideDown"
             default: "portrait"
             }
+            let pixels = scene.screen.nativeBounds.size
             let report = Ready(scale: Double(scene.screen.scale),
+                               pixels: [Double(pixels.width), Double(pixels.height)],
                                origin: [Double(frame.minX), Double(frame.minY)],
                                window: [Double(frame.width), Double(frame.height)],
                                orientation: orientation)
