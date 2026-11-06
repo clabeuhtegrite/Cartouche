@@ -73,6 +73,31 @@ class IgdbCoversTest(unittest.TestCase):
         self.assertIn("close: Mario Kart 8 Deluxe -> Mario Kart 8: Deluxe Edition", log.getvalue())
         self.assertIn("== 3 of 4 games have a cover", log.getvalue())
 
+    def test_search_again_with_words(self):
+        # IGDB finds the game only once the colon is a space.
+        game = {"titleId": "010056B015FE8000", "name": "NieR:Automata The End of YoRHa Edition", "platform": "switch"}
+        entry = {"id": 8, "name": "NieR:Automata - The End of YoRHa Edition", "platforms": [130],
+                 "cover": {"image_id": "nier"}}
+        asked = []
+        searches = {"NieR Automata The End of YoRHa Edition": [entry]}
+
+        def ask(endpoint, query):
+            asked.append(query)
+            if endpoint == "platforms":
+                return PLATFORMS
+            return searches.get(json.loads(query.split(";")[0].removeprefix("search ")), [])
+
+        records = igdb_covers.covers({"games": [game]}, ask, log=io.StringIO())
+        self.assertEqual(records[0]["igdb"], 8)
+        self.assertEqual([q.split(";")[0] for q in asked if q.startswith("search")],
+                         ['search "NieR:Automata The End of YoRHa Edition"',
+                          'search "NieR Automata The End of YoRHa Edition"'])
+        self.assertEqual(igdb_covers.words("Mario + Rabbids® Sparks of Hope"), "Mario Rabbids Sparks of Hope")
+        # A name that is already words is searched once.
+        asked.clear()
+        igdb_covers.covers({"games": [CATALOG["games"][2]]}, stand_in(asked), log=io.StringIO())
+        self.assertEqual(len([q for _, q in asked if q.startswith("search")]), 1)
+
     def test_switch_2_edition(self):
         # Both entries have the game's name once plain: the game's own
         # platform decides.

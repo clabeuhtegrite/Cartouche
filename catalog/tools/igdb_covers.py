@@ -61,6 +61,12 @@ def plain(name: str) -> str:
     return " ".join(re.sub(r"[^a-z0-9]+", " ", text).split())
 
 
+def words(name: str) -> str:
+    """NAME as words only, for a second search: IGDB's search finds neither
+    "NieR:Automata" nor "Rabbids®" as nxnative.json spells them."""
+    return " ".join(re.sub(r"[^\w]+", " ", re.sub(r"[™®©]", "", name)).split())
+
+
 def likeness(name: str, entry: dict) -> float:
     """How alike NAME is to the IGDB entry's name or one of its other names."""
     wanted = plain(name)
@@ -102,8 +108,13 @@ def entry_of(game: dict, ids: dict[str, int], ask: Ask) -> dict | None:
         found = ask("games", f"{FIELDS} where id = {MATCHES[game['titleId']]};")
         return found[0] if found else None
     on = ",".join(str(i) for i in ids.values())
-    found = ask("games", f"search {quoted(game['name'])}; {FIELDS} where platforms = ({on}); limit 20;")
-    return choose(game["name"], ids.get(game["platform"], 0), found)
+    # The name as nxnative.json spells it, then as words only.
+    for terms in dict.fromkeys([game["name"], words(game["name"])]):
+        found = ask("games", f"search {quoted(terms)}; {FIELDS} where platforms = ({on}); limit 20;")
+        entry = choose(game["name"], ids.get(game["platform"], 0), found)
+        if entry is not None:
+            return entry
+    return None
 
 
 def covers(catalog: dict, ask: Ask, log=sys.stderr) -> list[dict]:
