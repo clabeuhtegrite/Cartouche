@@ -17,10 +17,14 @@ tar -xzf "$WORK/capstone-$VERSION.tar.gz" -C "$WORK"
 SRC="$WORK/capstone-$VERSION"
 
 # The options of the package's own build (setup.py), for iOS on arm64.
+# Capstone builds for x86_64 and arm64 on any Apple system unless told to
+# build thin, and its packaging settings need the target processor.
 cmake -S "$SRC/src" -B "$WORK/build" -G "Unix Makefiles" \
   -DCMAKE_SYSTEM_NAME=iOS \
+  -DCMAKE_SYSTEM_PROCESSOR=arm64 \
   -DCMAKE_OSX_SYSROOT="$SDK" \
   -DCMAKE_OSX_ARCHITECTURES=arm64 \
+  -DCAPSTONE_BUILD_MACOS_THIN=ON \
   -DCMAKE_OSX_DEPLOYMENT_TARGET=15.0 \
   -DCMAKE_BUILD_TYPE=Release \
   -DBUILD_SHARED_LIBS=ON \
