@@ -40,7 +40,7 @@ Details: [docs/architecture.md](docs/architecture.md). Decisions and their reaso
 | Path | What it holds |
 | --- | --- |
 | [`app/`](app/) | The iOS app: LiveContainer and SideStore at pinned commits, our patches, the build scripts |
-| [`launcher/`](launcher/) | The launcher interface (planned) |
+| [`launcher/`](launcher/) | The launcher: the catalogue of games, their sheets, the memory probe and the signature's days left |
 | [`engine/`](engine/) | How the nxnative engine will be built for each supported game (planned) |
 | [`catalog/`](catalog/) | Device profiles and per-game compatibility sheets, with their schemas |
 | [`server/`](server/) | Tools that publish the signed update manifest and its chunks, and refuse anything that looks like game content |
@@ -56,7 +56,7 @@ brew install ldid
 app/scripts/build.sh          # writes build/app/Cartouche.ipa, unsigned
 ```
 
-CI builds it on every pull request that touches `app/` and attaches the unsigned IPA to the workflow run. These are development builds: they have their own bundle identifier, so they never replace an installed LiveContainer, but they are not ready to use yet.
+CI builds it on every pull request that touches `app/`, `launcher/` or `catalog/` and attaches the unsigned IPA to the workflow run. These are development builds: they have their own bundle identifier, so they never replace an installed LiveContainer, but they are not ready to use yet.
 
 The server tools need Python 3.11 or newer:
 

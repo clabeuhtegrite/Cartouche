@@ -3,9 +3,9 @@ name: App
 on:
   push:
     branches: [main]
-    paths: ["app/**", ".gitmodules", ".github/workflows/app.yml"]
+    paths: ["app/**", "launcher/**", "catalog/**", ".gitmodules", ".github/workflows/app.yml"]
   pull_request:
-    paths: ["app/**", ".gitmodules", ".github/workflows/app.yml"]
+    paths: ["app/**", "launcher/**", "catalog/**", ".gitmodules", ".github/workflows/app.yml"]
   workflow_dispatch:
 
 permissions:

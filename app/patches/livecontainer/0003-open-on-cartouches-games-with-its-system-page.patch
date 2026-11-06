@@ -1,0 +1,109 @@
+From 9130935c4675126876b65bcdfcb306878e18180e Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Fri, 6 Nov 2026 01:17:03 +0000
+Subject: [PATCH] Open on Cartouche's games, with its system page
+
+The tab bar starts with Cartouche's catalogue of games and gains its
+system page (memory limit, signature, this iPhone), on iOS 17 and later;
+an older iOS opens on the app list as before. Both views live in
+LiveContainerSwiftUI/Cartouche/, which Cartouche's prepare.sh copies in
+from its launcher/Sources folder before this patch is compiled.
+
+LiveContainer's Sources and Tweaks tabs go: Cartouche downloads no app,
+and games need no tweak. A source link from another app is ignored
+instead of opening a tab that is no longer there.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01MzPJorvBGmBB88WUcRVhE7
+---
+ LiveContainerSwiftUI/Utilities/Shared.swift | 12 ++++++++++-
+ LiveContainerSwiftUI/Views/LCTabView.swift  | 22 ++++++++++-----------
+ 2 files changed, 22 insertions(+), 12 deletions(-)
+
+diff --git a/LiveContainerSwiftUI/Utilities/Shared.swift b/LiveContainerSwiftUI/Utilities/Shared.swift
+index e835525..845799b 100644
+--- a/LiveContainerSwiftUI/Utilities/Shared.swift
++++ b/LiveContainerSwiftUI/Utilities/Shared.swift
+@@ -53,7 +53,7 @@ struct LCPath {
+ }
+ 
+ class SharedModel: ObservableObject {
+-    @Published var selectedTab: LCTabIdentifier = .apps
++    @Published var selectedTab: LCTabIdentifier = .initial
+     @Published var deepLink: URL?
+     
+     @Published var isHiddenAppUnlocked = false
+@@ -309,10 +309,20 @@ extension NSNotification {
+ }
+ 
+ public enum LCTabIdentifier: Hashable {
++    case games
+     case sources
+     case apps
++    case system
+     case tweaks
+     case settings
++
++    /// Cartouche opens on its games, where iOS can show them.
++    static var initial: LCTabIdentifier {
++        if #available(iOS 17.0, *) {
++            return .games
++        }
++        return .apps
++    }
+ }
+ 
+ 
+diff --git a/LiveContainerSwiftUI/Views/LCTabView.swift b/LiveContainerSwiftUI/Views/LCTabView.swift
+index af4c70e..f78102c 100644
+--- a/LiveContainerSwiftUI/Views/LCTabView.swift
++++ b/LiveContainerSwiftUI/Views/LCTabView.swift
+@@ -22,25 +22,27 @@ struct LCTabView: View {
+     let pub = NotificationCenter.default.publisher(for: UIScene.didDisconnectNotification)
+     
+     var body: some View {
++        // Cartouche: its games first, and its system page, in place of
++        // LiveContainer's Sources and Tweaks. Cartouche downloads no app.
+         TabView(selection: $sharedModel.selectedTab) {
+-            if DataManager.shared.model.multiLCStatus != 2 {
+-                LCSourcesView()
++            if #available(iOS 17.0, *) {
++                CartoucheGamesView()
+                     .tabItem {
+-                        Label("lc.tabView.sources".loc, systemImage: "books.vertical")
++                        Label(CartoucheText.gamesTab, systemImage: "gamecontroller.fill")
+                     }
+-                    .tag(LCTabIdentifier.sources)
++                    .tag(LCTabIdentifier.games)
+             }
+             LCAppListView()
+                 .tabItem {
+                     Label("lc.tabView.apps".loc, systemImage: "square.stack.3d.up.fill")
+                 }
+                 .tag(LCTabIdentifier.apps)
+-            if DataManager.shared.model.multiLCStatus != 2 {
+-                LCTweaksView()
+-                    .tabItem{
+-                        Label("lc.tabView.tweaks".loc, systemImage: "wrench.and.screwdriver")
++            if #available(iOS 17.0, *) {
++                CartoucheSystemView()
++                    .tabItem {
++                        Label(CartoucheText.systemTab, systemImage: "cpu")
+                     }
+-                    .tag(LCTabIdentifier.tweaks)
++                    .tag(LCTabIdentifier.system)
+             }
+             
+             LCSettingsView()
+@@ -134,8 +136,6 @@ struct LCTabView: View {
+                 sharedModel.selectedTab = .apps
+             case "certificate":
+                 sharedModel.selectedTab = .settings
+-            case "source":
+-                sharedModel.selectedTab = .sources
+             default:
+                 return
+             }
+-- 
+2.43.0
+
