@@ -1,0 +1,38 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Fri, 6 Nov 2026 07:55:00 +0000
+Subject: [PATCH 5/5] Count a pairing file another app put in place
+
+iloader writes the pairing file of a LiveContainer+SideStore into the
+built-in SideStore's Documents as ALTPairingFile.mobiledevicepairing,
+and Cartouche's setup does the same with the file iloader exports. The
+boot sequence reads it (fetchPairingFile tries each name), but
+hasPairingFile counted only a file under the protocol SideStore had
+recorded itself, so the onboarding asked for a pairing file it already
+had. It now counts any file that fetchPairingFile reads.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01MzPJorvBGmBB88WUcRVhE7
+---
+ SideStore/Core/Pairing/PairingFileManager.swift | 6 +++++-
+ 1 file changed, 5 insertions(+), 1 deletion(-)
+
+diff --git a/SideStore/Core/Pairing/PairingFileManager.swift b/SideStore/Core/Pairing/PairingFileManager.swift
+--- a/SideStore/Core/Pairing/PairingFileManager.swift
++++ b/SideStore/Core/Pairing/PairingFileManager.swift
+@@ -65,7 +65,11 @@
+         if let mode = persistedActiveProtocol, hasPairingFile(for: mode) {
+             return true
+         }
+-        return false
++        // A pairing file another app put in place has no protocol recorded
++        // yet: iloader writes one for a LiveContainer+SideStore, and Cartouche
++        // from its setup. The boot sequence reads it (fetchPairingFile), so
++        // count it too.
++        return fetchPairingFile() != nil
+     }
+ 
+     nonisolated func metadata(for mode: PairingProtocol) -> PairingFileMetadata {
+-- 
+2.43.0
+

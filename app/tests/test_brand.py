@@ -24,13 +24,12 @@ IDENTITY = brand.Identity(
 # One line of upstream code per rule, as the rule finds it.
 SAMPLES = {
     "bundle identifier": 'return @"com.kdt.livecontainer";',
-    "app group": 'return @"group.com.SideStore.SideStore";',
     "bundle identifiers of extra copies": 'infoDict[@"CFBundleIdentifier"] = [NSString stringWithFormat:@"com.kdt.%@", name];',
     "names of extra copies": 'InstallAnotherLCButton(lcName: "LiveContainer2", delegate: self)',
     "URL scheme": 'url = @"livecontainer://livecontainer-launch?bundle-name=%@";',
     "built-in SideStore URL scheme": 'return @"sidestore://install?url=%@";',
     "SideStore source": 'url = @"https://github.com/LiveContainer/LiveContainer/releases/download/1.0/apps_ss_lc.json";',
-    "store bundle identifier": '@objc dynamic static let appbundleIdentifier = "com.SideStore.SideStore"',
+    "store bundle identifier": '@objc dynamic static let storeAppBundleIdentifier = "com.SideStore.SideStore"',
     "backup return URL": 'guard let altstoreOpenURL = URL(string: "sidestore://")',
     "database migration notification": 'static let willMigrateDatabase = CFNotificationName("com.rileytestut.AltStore.WillMigrateDatabase" as CFString)',
 }
@@ -113,7 +112,6 @@ class IdentityTest(unittest.TestCase):
     def test_the_repository_config(self):
         identity = brand.load_identity(ROOT / "app" / "config.env")
         self.assertEqual(identity.bundle_id, "io.github.clabeuhtegrite.cartouche")
-        self.assertEqual(identity.app_group, "group.io.github.clabeuhtegrite.cartouche")
         self.assertEqual(identity.store_url_scheme, "sidestore.cartouche")
         self.assertEqual(identity.bundle_id_parent, "io.github.clabeuhtegrite")
         self.assertTrue(identity.sidestore_source_url.startswith("https://"))
@@ -151,7 +149,6 @@ class BrandTreeTest(unittest.TestCase):
 
         hooks = (self.root / "SideStoreSupport/SideStoreHooks.m").read_text()
         self.assertIn('@"io.github.example.cartouche"', hooks)
-        self.assertIn('@"group.io.github.example.cartouche"', hooks)
         self.assertIn('@"https://example.com/source.json"', hooks)
 
         utils = (self.root / "LiveContainerSwiftUI/Utilities/LCUtils.m").read_text()
@@ -168,10 +165,34 @@ class BrandTreeTest(unittest.TestCase):
         self.assertEqual((self.root / brand.MARKER).read_text().strip(), IDENTITY.bundle_id)
 
     def test_a_name_that_moved_upstream_stops_the_build(self):
-        path = self.root / "LiveContainer/Tweaks/SecItem.m"
-        path.write_text("// the keychain group moved elsewhere\n")
-        with self.assertRaisesRegex(brand.BrandError, "bundle identifier: not found in LiveContainer/Tweaks/SecItem.m"):
+        path = self.root / "LiveContainerSwiftUI/Views/Settings/LCSettingsView.swift"
+        path.write_text("// the keychain service moved elsewhere\n")
+        with self.assertRaisesRegex(
+            brand.BrandError, "bundle identifier: not found in LiveContainerSwiftUI/Views/Settings/LCSettingsView.swift"
+        ):
             self.brand()
+
+    def test_the_names_iloader_gives_stay_livecontainer_sidestores(self):
+        # iloader gives any app with a com.SideStore.SideStore framework this
+        # app group and these keychain groups, and nothing else.
+        kept = {
+            "LiveContainer/Tweaks/SecItem.m": (
+                'accessGroup = [NSString stringWithFormat:@"%@.com.kdt.livecontainer.shared", groupId];\n'
+                'accessGroup = [NSString stringWithFormat:@"%@.com.kdt.livecontainer.shared.%d", groupId, keychainGroupId];\n'
+            ),
+            "entitlements.xml": "<string>$(AppIdentifierPrefix)com.kdt.livecontainer.shared.127</string>\n",
+            "LiveContainer/LCSharedUtils.m": 'NSString *base = @"group.com.SideStore.SideStore";\n',
+            "SideStoreSupport/Kept.m": 'return @"group.com.SideStore.SideStore";\n',
+        }
+        for relative, text in kept.items():
+            path = self.root / relative
+            path.parent.mkdir(parents=True, exist_ok=True)
+            with path.open("a") as file:
+                file.write(text)
+        self.brand()
+        for relative, text in kept.items():
+            with self.subTest(relative=relative):
+                self.assertTrue((self.root / relative).read_text().endswith(text))
 
     def test_an_old_name_no_rule_renames_stops_the_build(self):
         (self.root / "LiveContainer/New.m").write_text('// new upstream code\nNSString *g = @"group.com.rileytestut.AltStore";\n')
@@ -212,9 +233,14 @@ class SideStoreTreeTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             write_fixture(root, brand.SIDESTORE_RULES)
+            helpers_path = root / "Shared/Extensions/Bundle+AltStore.swift"
+            # SideStore's own identifier stays: the widget finds the app group with it.
+            own = '@objc dynamic static let appbundleIdentifier = "com.SideStore.SideStore"\n'
+            helpers_path.write_text(helpers_path.read_text() + own)
             brand.brand(root, brand.SIDESTORE_RULES, brand.SIDESTORE_LEFTOVERS, IDENTITY)
-            helpers = (root / "Shared/Extensions/Bundle+AltStore.swift").read_text()
-            self.assertIn('appbundleIdentifier = "io.github.example.cartouche"', helpers)
+            helpers = helpers_path.read_text()
+            self.assertIn('storeAppBundleIdentifier = "io.github.example.cartouche"', helpers)
+            self.assertIn(own, helpers)
             backup = (root / "SideStore/Core/Operations/PipelineOperations/PerformBackupRestoreOperation.swift").read_text()
             self.assertIn('URL(string: "sidestore.cartouche://")', backup)
             database = (root / "AltStore/Core/Model/DatabaseManager/DatabaseManager.swift").read_text()

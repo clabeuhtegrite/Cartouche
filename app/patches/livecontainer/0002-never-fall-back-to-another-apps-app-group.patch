@@ -5,17 +5,14 @@ Subject: [PATCH] Never fall back to another app's app group
 
 When neither the built-in SideStore's group nor its team-suffixed form
 can be opened, LCSharedUtils.appGroupID fell back to the group cached
-in LCAppGroupID, then to the first group in the app's entitlements.
-iloader gives every app that carries a SideStore framework the same
-group, group.com.SideStore.SideStore.<team>, so a copy of Cartouche
-signed that way would have opened the group of the LiveContainer+
-SideStore on the same iPhone: its SideStore database, shared apps and
-certificate.
+in LCAppGroupID, then to the first group in the app's entitlements,
+which can belong to another app.
 
 Both fallbacks now accept only the built-in SideStore's group, alone
-or with a suffix. Any other group leaves appGroupID "Unknown", and the
-built-in SideStore then finds no shared directory instead of another
-app's.
+or with a suffix, the one iloader gives every app that carries a
+SideStore framework. Any other group leaves appGroupID "Unknown", and
+the built-in SideStore then finds no shared directory instead of
+another app's.
 
 Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
 Claude-Session: https://claude.ai/code/session_01MzPJorvBGmBB88WUcRVhE7

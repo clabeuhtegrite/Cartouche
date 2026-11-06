@@ -23,6 +23,7 @@ struct CartoucheGamesView: View {
     @State private var choosingIPA = false
     @State private var choosingIPAInSheet = false
     @State private var memory = CartoucheMemoryReading.now()
+    @State private var showingSetup = false
 
     private let catalog = CartoucheCatalog.shared
 
@@ -82,6 +83,19 @@ struct CartoucheGamesView: View {
                 }
             }
         }
+        .sheet(isPresented: $showingSetup) {
+            NavigationStack {
+                CartoucheSetupView()
+                    .toolbar {
+                        ToolbarItem(placement: .confirmationAction) {
+                            Button(CartoucheText.done) { showingSetup = false }
+                        }
+                    }
+            }
+        }
+        // Hands the built-in SideStore's certificate to LiveContainer as soon
+        // as the player has signed in, before they pick a game.
+        .modifier(CartoucheSetupRefresh())
         .onAppear {
             memory = CartoucheMemoryReading.now()
             CartoucheRenewal.scheduleWarnings()
@@ -106,6 +120,7 @@ struct CartoucheGamesView: View {
     private func catalogue(_ entries: CartoucheCatalog.Entries) -> some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 28) {
+                CartoucheSetupBanner()
                 VStack(alignment: .leading, spacing: 12) {
                     sectionTitle(CartoucheText.yourGames)
                     if entries.owned.isEmpty {
@@ -194,6 +209,16 @@ struct CartoucheGamesView: View {
     /// LiveContainer starts the game from its Apps tab, as it does for a
     /// livecontainer-launch link; only the link's host and query count.
     private func play(_ app: LCAppModel) {
+        // Without the certificate, LiveContainer could only refuse to start
+        // the game: show what is missing instead, once the game's sheet,
+        // which may hold the Play button, has gone.
+        CartoucheSetup.shared.refresh()
+        guard CartoucheSetup.shared.canPlay else {
+            let sheetWasOpen = compactSheet.wrappedValue
+            selectedID = nil
+            DispatchQueue.main.asyncAfter(deadline: .now() + (sheetWasOpen ? 0.6 : 0)) { showingSetup = true }
+            return
+        }
         var components = URLComponents()
         components.scheme = "cartouche"
         components.host = "livecontainer-launch"

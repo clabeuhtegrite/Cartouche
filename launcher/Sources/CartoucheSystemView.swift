@@ -18,12 +18,14 @@ struct CartoucheSystemView: View {
     @State private var renewal: Progress?
     @State private var renewalError: String?
     @State private var alertStatus: UNAuthorizationStatus?
+    @ObservedObject private var setup = CartoucheSetup.shared
 
     private let catalog = CartoucheCatalog.shared
 
     var body: some View {
         NavigationStack {
             List {
+                setupSection
                 memorySection
                 signatureSection
                 automaticRenewalSection
@@ -38,10 +40,29 @@ struct CartoucheSystemView: View {
     }
 
     private func measure() {
+        setup.refresh()
         memory = CartoucheMemoryReading.now()
         signature = CartoucheSignature.current()
         CartoucheRenewal.scheduleWarnings()
         Task { alertStatus = await CartoucheRenewal.alertStatus() }
+    }
+
+    // MARK: Setup
+
+    private var setupSection: some View {
+        Section {
+            NavigationLink {
+                CartoucheSetupView()
+            } label: {
+                LabeledContent {
+                    Label(setup.isComplete ? CartoucheText.setupStatusDone : CartoucheText.setupStatusToDo,
+                          systemImage: setup.isComplete ? "checkmark.circle.fill" : "exclamationmark.circle.fill")
+                        .foregroundStyle(setup.isComplete ? Color.green : Color.orange)
+                } label: {
+                    Label(CartoucheText.setupTitle, systemImage: "checklist")
+                }
+            }
+        }
     }
 
     // MARK: Memory

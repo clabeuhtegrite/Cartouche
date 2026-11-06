@@ -100,6 +100,38 @@ enum CartoucheText {
     static func peak(_ amount: String) -> String { f("sheet.result.peak", "Memory peak: %@", amount) }
     static var noSheetMessage: String { s("sheet.noSheet.message", "Cartouche has no sheet for this game yet: it can still start it, without checking what the game needs.") }
 
+    // MARK: Setup
+
+    static var setupTitle: String { s("setup.title", "Setup") }
+    static var setupIntroTitle: String { s("setup.intro.title", "Before your first game") }
+    static var setupIntro: String { s("setup.intro", "Three steps, once on this iPhone. Then Cartouche looks after its certificate and its renewal by itself.") }
+    static var setupAllDone: String { s("setup.done.title", "All set") }
+    static var setupAllDoneDetail: String { s("setup.done.detail", "Cartouche signs your games and renews itself. There is nothing more to do here.") }
+    static func setupStepDone(_ step: String) -> String { f("setup.step.done", "%@, done", step) }
+    static var setupPairingTitle: String { s("setup.pairing.title", "Pairing file") }
+    static var setupPairingHow: String { s("setup.pairing.how", "Only a computer can make it. On your Mac, in iloader: Manage Pairing File › Export. Send the file to this iPhone (AirDrop or iCloud Drive), then choose it here.") }
+    static var setupPairingDone: String { s("setup.pairing.done", "Received. The built-in SideStore uses it to install and renew apps on this iPhone.") }
+    static var setupPairingChoose: String { s("setup.pairing.choose", "Choose the file") }
+    static var setupPairingReplace: String { s("setup.pairing.replace", "Choose another file") }
+    static var setupPairingInvalid: String { s("setup.pairing.invalid", "This file is not a pairing file. Export it again from iloader.") }
+    static var setupAppleIDTitle: String { s("setup.appleID.title", "Apple ID") }
+    static var setupAppleIDHow: String { s("setup.appleID.how", "Sign in once in the SideStore built into Cartouche: it takes the certificate iloader left for it, and renews Cartouche every week. Then come back to Cartouche with ⎋, at the top left of My Apps.") }
+    static func setupAppleIDDone(_ appleID: String) -> String { f("setup.appleID.done", "Signed in: %@", appleID) }
+    static var setupOpenSideStore: String { s("setup.appleID.open", "Sign in with SideStore") }
+    static var setupCertificateTitle: String { s("setup.certificate.title", "Certificate") }
+    static var setupCertificateHow: String { s("setup.certificate.how", "Comes by itself once you have signed in. If it does not, install Cartouche again with iloader, over this copy: iloader gives it its certificate.") }
+    static var setupCertificateDone: String { s("setup.certificate.done", "Cartouche signs your games with it.") }
+    static var setupCheckAgain: String { s("setup.checkAgain", "Check again") }
+    static var setupVPNTitle: String { s("setup.vpn.title", "LocalDevVPN, for renewals") }
+    static var setupVPNHow: String { s("setup.vpn.how", "SideStore renews Cartouche every 7\u{00A0}days through this free VPN from the App Store, which never leaves this iPhone. Turn it on before a renewal.") }
+    static var setupVPNOpen: String { s("setup.vpn.open", "Open LocalDevVPN") }
+    static var setupBannerTitle: String { s("setup.banner.title", "Set up Cartouche") }
+    static var setupBannerDetail: String { s("setup.banner.detail", "Once, before your first game") }
+    static var setupBannerRenewal: String { s("setup.banner.renewal", "Renewal to set up") }
+    static var setupBannerRenewalDetail: String { s("setup.banner.renewal.detail", "Add your pairing file") }
+    static var setupStatusDone: String { s("setup.status.done", "Done") }
+    static var setupStatusToDo: String { s("setup.status.todo", "To do") }
+
     // MARK: System
 
     static var memory: String { s("system.memory", "Memory") }

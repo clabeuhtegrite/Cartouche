@@ -4,9 +4,11 @@
 # Adapted from LiveContainer's .github/build_github.sh (AGPL-3.0, (c) the
 # LiveContainer contributors), which makes LiveContainer+SideStore.ipa. The
 # steps are the same; the bundle identifier, name and URL scheme are
-# parameters, the app group and the built-in SideStore's URL scheme are
-# Cartouche's own (see app/scripts/brand.py), and SideStore comes from our own
-# build instead of a nightly download.
+# parameters, the built-in SideStore's URL scheme is Cartouche's own, and
+# SideStore comes from our own build instead of a nightly download. The app
+# group and the built-in SideStore's bundle identifier stay LiveContainer+
+# SideStore's, so that iloader gives Cartouche its certificate (see
+# app/scripts/brand.py).
 #
 # usage: package.sh --archive LiveContainer.xcarchive --sidestore SideStore.ipa
 #                   --dylibify PATH --resources DIR --catalog DIR --bundle-id ID
@@ -33,7 +35,9 @@ while [ $# -gt 0 ]; do
   shift 2
 done
 : "${ARCHIVE:?} ${SIDESTORE_IPA:?} ${DYLIBIFY:?} ${RESOURCES:?} ${CATALOG:?} ${BUNDLE_ID:?} ${NAME:?} ${URL_SCHEME:?} ${VERSION:?} ${COMMIT:?} ${OUT_IPA:?}"
-APP_GROUP="group.$BUNDLE_ID"
+# LiveContainer+SideStore's: iloader gives it, with the team identifier, to
+# any app that carries a com.SideStore.SideStore framework.
+APP_GROUP="group.com.SideStore.SideStore"
 [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "version must be major.minor.patch: $VERSION" >&2; exit 2; }
 
 STAGE="$(mktemp -d)"
@@ -64,6 +68,10 @@ $PB -c "Set :CFBundleVersion $VERSION" "$APP/Info.plist"
 $PB -c "Add :CartoucheLiveContainerVersion string $LC_VERSION" "$APP/Info.plist"
 $PB -c "Delete :LCVersionInfo" "$APP/Info.plist" 2>/dev/null || true
 $PB -c "Add :LCVersionInfo string $COMMIT" "$APP/Info.plist"
+# Cartouche's bundle identifier without the team suffix signing adds: the
+# built-in SideStore names its keychain service after it, and the launcher
+# reads SideStore's certificate there (launcher/Sources/CartoucheSetup.swift).
+$PB -c "Add :CartoucheBundleIdentifier string $BUNDLE_ID" "$APP/Info.plist"
 
 # The built-in SideStore's app group, URL schemes, intents and settings switch.
 # Never the plain "sidestore" scheme: a SideStore or LiveContainer+SideStore on
@@ -100,14 +108,15 @@ SS="$FW/SideStoreApp.framework"
 mv "$SS/SideStore.dylib" "$SS/SideStore"
 ldid -S"" "$SS/SideStore"
 cp "$RESOURCES/LCAppInfo.plist" "$SS/"
-# Its own bundle identifier instead of SideStore's. iloader takes any app with
-# a com.SideStore.SideStore framework for LiveContainer+SideStore, and gives it
-# the app group that every LiveContainer+SideStore of the account shares, with
-# that LiveContainer's keychain groups. With this one, iloader installs
-# Cartouche as an ordinary app, with an app group of its own. LiveContainer
-# finds the built-in SideStore by its path, so nothing inside the app depends on
-# the old identifier.
-$PB -c "Set :CFBundleIdentifier $BUNDLE_ID.SideStore" "$SS/Info.plist"
+# SideStore's bundle identifier stays com.SideStore.SideStore: iloader installs
+# any app with a framework of that identifier as a LiveContainer+SideStore. It
+# writes its signing certificate into that framework, where the built-in
+# SideStore finds it at sign-in, and gives the app LiveContainer+SideStore's
+# app group and keychain groups. Without it, Cartouche had no certificate, so
+# LiveContainer could not sign any game and SideStore could not renew it.
+SS_ID="$($PB -c 'Print :CFBundleIdentifier' "$SS/Info.plist")"
+[ "$SS_ID" = com.SideStore.SideStore ] || {
+  echo "the built-in SideStore is $SS_ID, not com.SideStore.SideStore: iloader would not give Cartouche its certificate" >&2; exit 1; }
 
 # SideStore's intents, renamed to the types SideStoreSupport defines.
 cp "$SS/Intents.intentdefinition" "$SS/ViewApp.intentdefinition" "$APP/"

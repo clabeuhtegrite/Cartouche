@@ -17,8 +17,10 @@ scripts/build_ipa_from_nsp.py does on a Mac, and writes into its work folder:
 - status.json, rewritten as the job goes, which the app reads.
 """
 
+import codecs
 import hashlib
 import json
+import locale
 import os
 import platform
 import re
@@ -161,6 +163,13 @@ def run_job(job):
     sys.stdout = sys.stderr = log
     try:
         os.environ.update(job.get("env") or {})
+        # nxnative's tools open their text files without naming an encoding,
+        # as on a Mac, where that means UTF-8. On iOS it means ASCII unless the
+        # app starts Python in UTF-8 mode (launcher/Sources/CartouchePython.swift):
+        # stop here rather than on the first non-ASCII character of a module.
+        encoding = locale.getpreferredencoding(False)
+        if codecs.lookup(encoding).name != "utf-8":
+            raise RuntimeError(f"Python writes text files in {encoding}, and nxnative's tools need UTF-8")
         import capstone   # what patch_nso.py imports first: a failure to load it shows here
 
         publish(capstone=capstone.__version__, nxnative=_nxnative_commit(tools))
