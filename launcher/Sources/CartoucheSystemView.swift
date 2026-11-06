@@ -23,6 +23,7 @@ struct CartoucheSystemView: View {
     @State private var alertStatus: UNAuthorizationStatus?
     @ObservedObject private var setup = CartoucheSetup.shared
     @ObservedObject private var storage = CartoucheStorageSettings.shared
+    @ObservedObject private var updates = CartoucheUpdates.shared
     @EnvironmentObject private var sharedModel: SharedModel
 
     private let catalog = CartoucheCatalog.shared
@@ -37,6 +38,7 @@ struct CartoucheSystemView: View {
                 automaticRenewalSection
                 deviceSection
                 labSection
+                updateSection
                 cartoucheSection
             }
             .navigationTitle(CartoucheText.systemTab)
@@ -294,6 +296,80 @@ struct CartoucheSystemView: View {
             Text(CartoucheText.labTitle)
         } footer: {
             Text(CartoucheText.labFooter)
+        }
+    }
+
+    // MARK: Updates
+
+    @ViewBuilder
+    private var updateSection: some View {
+        if updates.canUpdate {
+            Section {
+                updateRows
+            } header: {
+                Text(CartoucheText.updatesTitle)
+            } footer: {
+                Text(CartoucheText.updatesFooter)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var updateRows: some View {
+        if let phase = updates.phase {
+            let version = updates.target?.version ?? ""
+            VStack(alignment: .leading, spacing: 8) {
+                Label(phase == .installing ? CartoucheText.updateInstallingTitle(version) : CartoucheText.updatePreparingTitle(version),
+                      systemImage: "arrow.down.circle")
+                    .foregroundStyle(.secondary)
+                if phase == .preparing, let progress = updates.progress {
+                    // SideStore reports its progress from another thread:
+                    // read it twice a second instead of observing it.
+                    TimelineView(.periodic(from: .now, by: 0.5)) { _ in
+                        ProgressView(value: progress.fractionCompleted)
+                    }
+                } else {
+                    Text(CartoucheText.updateInstallingMessage)
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                }
+            }
+            .padding(.vertical, 4)
+        } else if let available = updates.available {
+            LabeledContent(CartoucheText.updateAvailable, value: available.version)
+            Button(CartoucheText.updateTo(available.version), systemImage: "arrow.down.circle") {
+                updates.start()
+            }
+            .disabled(!updates.canStart)
+            if !setup.isComplete {
+                Text(CartoucheText.updateNeedsSetup)
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+            }
+            if !available.notes.isEmpty {
+                DisclosureGroup(CartoucheText.updateNotes) {
+                    Text(available.notes)
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                }
+            }
+        } else {
+            if updates.isChecking {
+                ProgressView()
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            } else {
+                Text(updates.checked == nil ? CartoucheText.updateNotChecked : CartoucheText.updateUpToDate(CartoucheUpdates.runningVersion))
+                    .foregroundStyle(.secondary)
+            }
+            Button(CartoucheText.updateCheck, systemImage: "arrow.clockwise") {
+                updates.checkNow()
+            }
+            .disabled(updates.isChecking)
+        }
+        if updates.phase == nil, let problem = updates.problem ?? updates.checkProblem {
+            Label(problem, systemImage: "exclamationmark.triangle.fill")
+                .font(.footnote)
+                .foregroundStyle(.red)
         }
     }
 

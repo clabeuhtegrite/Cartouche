@@ -19,7 +19,7 @@ let package = Package(
             name: "CartoucheCore",
             path: "Sources",
             exclude: ["Cartouche.xcstrings"],
-            sources: ["CartoucheZip.swift"]
+            sources: ["CartoucheRelease.swift", "CartoucheZip.swift"]
         ),
         .testTarget(
             name: "CartoucheCoreTests",

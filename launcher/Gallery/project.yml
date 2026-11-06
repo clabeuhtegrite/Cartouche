@@ -52,6 +52,9 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: io.github.clabeuhtegrite.cartouche.gallery
         PRODUCT_NAME: CartoucheGallery
+        # Cartouche's version in the screens that show it, such as an update
+        # on offer.
+        MARKETING_VERSION: "0.3.0"
         GENERATE_INFOPLIST_FILE: "YES"
         INFOPLIST_KEY_CFBundleDisplayName: Gallery
         INFOPLIST_KEY_UILaunchScreen_Generation: "YES"

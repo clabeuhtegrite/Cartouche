@@ -231,6 +231,38 @@ enum CartoucheText {
     static var sheets: String { s("system.cartouche.sheets", "Game sheets") }
     static var coversCredit: String { s("system.covers.credit", "Covers and artworks of the games: IGDB.com.") }
 
+    // MARK: Cartouche's updates
+
+    static var updatesTitle: String { s("system.updates", "Updates") }
+    static var updatesFooter: String { s("system.updates.footer", "The built-in SideStore installs Cartouche’s new versions without a computer, with LocalDevVPN connected, as it renews Cartouche. Cartouche then closes for iOS to install it: open it again. Your games and their saves stay.") }
+    static var updateAvailable: String { s("system.updates.available", "New version") }
+    static func updateTo(_ version: String) -> String { f("system.updates.install", "Install Cartouche %@", version) }
+    static var updateNeedsSetup: String { s("system.updates.needsSetup", "Finish setting up Cartouche first: the built-in SideStore needs its certificate and the pairing file.") }
+    static var updateNotes: String { s("system.updates.notes", "What’s new") }
+    static func updateUpToDate(_ version: String) -> String { f("system.updates.upToDate", "Cartouche %@ is the latest version.", version) }
+    static var updateNotChecked: String { s("system.updates.notChecked", "Cartouche has not looked for an update yet.") }
+    static var updateCheck: String { s("system.updates.check", "Check for an update") }
+    static func updateCheckFailed(_ reason: String) -> String { f("updates.check.failed", "Cartouche could not look for an update: %@", reason) }
+    static func updateSourceStatus(_ status: Int) -> String { f("updates.source.status", "its source answered with error %lld.", status) }
+    static var updateUnavailable: String { s("updates.unavailable", "The built-in SideStore did not load. Close Cartouche, open it again, then update.") }
+    static func updateOfferTitle(_ version: String) -> String { f("updates.offer.title", "Cartouche %@ is available", version) }
+    static func updateOfferMessage(_ running: String) -> String { f("updates.offer.message", "You have version %@. The built-in SideStore installs the new one without a computer, with LocalDevVPN connected. Cartouche then closes for iOS to install it: open it again. Your games and their saves stay.", running) }
+    static func updateSize(_ size: String) -> String { f("updates.offer.size", "Download: %@", size) }
+    static var updateNow: String { s("updates.now", "Update") }
+    static var updateLater: String { s("updates.later", "Later") }
+    static func updatePreparingTitle(_ version: String) -> String { f("updates.preparing.title", "Updating to Cartouche %@", version) }
+    static var updatePreparingMessage: String { s("updates.preparing.message", "The built-in SideStore downloads the new version, checks it and signs it. Keep Cartouche open.") }
+    static func updateInstallingTitle(_ version: String) -> String { f("updates.installing.title", "Installing Cartouche %@", version) }
+    static var updateInstallingMessage: String { s("updates.installing.message", "Cartouche goes to the home screen for iOS to install the new version. Open it again in a few seconds.") }
+    static var updateLeaveNow: String { s("updates.leave", "Go to the home screen") }
+    static func updateInstalledTitle(_ version: String) -> String { f("updates.installed.title", "Cartouche %@ is installed", version) }
+    static var updateInstalledMessage: String { s("updates.installed.message", "Close Cartouche and open it again to use the new version.") }
+    static var updateFailedTitle: String { s("updates.failed.title", "The update did not go through") }
+    static func updateFailed(_ reason: String) -> String { f("updates.failed.message", "Check that LocalDevVPN is connected, then try again from the System page. SideStore says: %@", reason) }
+    static var updateUnfinishedTitle: String { s("updates.unfinished.title", "The update did not finish") }
+    static func updateUnfinished(_ version: String) -> String { f("updates.unfinished.message", "Cartouche closed before version %@ was installed. Try again from the System page, with LocalDevVPN connected.", version) }
+    static var updatedMessage: String { s("updates.done.message", "Your games, their saves and Cartouche’s settings are all still here.") }
+
     // MARK: Lab (spike S2)
 
     static var labTitle: String { s("lab.title", "Lab") }

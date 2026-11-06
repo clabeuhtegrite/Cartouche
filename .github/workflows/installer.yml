@@ -6,7 +6,8 @@ name: Installer
 # reads it and its tests read the one on the branch. Run from the Actions tab
 # on main with Publish ticked, it also publishes them as the release
 # installer-v<version>, the version of installer/src-tauri/tauri.conf.json,
-# which is never marked latest: the latest release stays Cartouche's. How to
+# without GitHub's Latest mark, which is meant for Cartouche (GitHub still
+# shows it as the latest while Cartouche's versions are pre-releases). How to
 # publish: installer/README.md.
 
 on:

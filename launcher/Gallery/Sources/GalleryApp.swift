@@ -92,6 +92,10 @@ struct GalleryScenario {
                 CartoucheGameActions.shared.work = CartoucheGameWork(kind: .installing, name: name,
                                                                      step: CartoucheText.installUnpacking, fraction: 0.42)
             }
+            if work == "update" {
+                // A higher version than the gallery's own (project.yml).
+                CartoucheUpdates.shared.offerForGallery(CartoucheRelease(version: "0.4.0", notes: "", size: 36_802_806))
+            }
         }
     }
 

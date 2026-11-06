@@ -26,6 +26,7 @@ struct CartoucheGamesView: View {
     @ObservedObject private var setup = CartoucheSetup.shared
     @ObservedObject private var actions = CartoucheGameActions.shared
     @ObservedObject private var storedGames = CartoucheStoredGames.shared
+    @ObservedObject private var updates = CartoucheUpdates.shared
     @State private var path: [Route] = []
     @State private var sheetID: String?
     @State private var choosingIPA = false
@@ -50,7 +51,13 @@ struct CartoucheGamesView: View {
     private var onGames: Bool { sharedModel.selectedTab == .games }
     private var nothingOver: Bool {
         sheetID == nil && !showingSetup && !choosingIPA && uninstalling == nil
-            && actions.work == nil && actions.notice == nil
+            && actions.work == nil && actions.notice == nil && !showsUpdate
+    }
+    /// Cartouche's own update shows over the console alone, once nothing
+    /// else is over it.
+    private var showsUpdate: Bool {
+        updates.isShowing && onGames && sheetID == nil && !showingSetup && !choosingIPA
+            && uninstalling == nil && actions.work == nil && actions.notice == nil
     }
 
     var body: some View {
@@ -172,9 +179,13 @@ struct CartoucheGamesView: View {
             if let work = actions.work {
                 CartoucheGameWorkView(work: work)
                     .transition(.opacity)
+            } else if showsUpdate {
+                CartoucheUpdateView(updates: updates)
+                    .transition(.opacity)
             }
         }
         .animation(.easeInOut(duration: 0.2), value: actions.work)
+        .animation(.easeInOut(duration: 0.2), value: showsUpdate)
         // Another game's sheet, or none: its settings page goes too.
         .onChange(of: sheetID) { _, _ in gameSettings = nil }
         .alert(actions.notice?.title ?? "", isPresented: noticeShown, presenting: actions.notice) { _ in
@@ -207,14 +218,17 @@ struct CartoucheGamesView: View {
             CartoucheRenewal.scheduleWarnings()
             storedGames.refresh()
             actions.copySaves(of: sharedModel.apps)
+            updates.checkIfDue()
         }
         // A renewal in the background moves the expiry date: warn for the
         // new one each time the player comes back. A game may have saved
-        // meanwhile, and the games folder changed.
+        // meanwhile, and the games folder changed. Cartouche's source may
+        // list a new version.
         .onReceive(NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification)) { _ in
             CartoucheRenewal.scheduleWarnings()
             storedGames.refresh()
             actions.copySaves(of: sharedModel.apps)
+            updates.checkIfDue()
         }
     }
 

@@ -14,7 +14,7 @@ It installs nothing but Cartouche: an IPA whose bundle identifier is not Cartouc
 
 ## Download and first open
 
-Each version is the GitHub release `installer-v<version>`, which is never marked as the latest release: that one stays Cartouche's.
+Each version is the GitHub release `installer-v<version>`, published without GitHub's *Latest* mark, which is meant for Cartouche. While Cartouche's versions are 0.x pre-releases, GitHub still shows the installer as the latest release. Nothing reads that mark: the installer and Cartouche take Cartouche's newest version from its source.
 
 | Computer | File | First open |
 | --- | --- | --- |

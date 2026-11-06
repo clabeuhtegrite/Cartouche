@@ -1,0 +1,138 @@
+From d8ca5f5f83ea1f26f97f14e7d41afd64fbc1bedb Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Fri, 6 Nov 2026 20:05:37 +0000
+Subject: [PATCH] Let Cartouche update itself through the built-in SideStore
+
+Cartouche never shows SideStore, so My Apps' Update button is out of
+the player's reach. A new action, Update Cartouche, does what that
+button does for the app SideStore is built into: it reads the sources
+again, then installs the newest version that runs on this iOS, never
+the running version nor an older one. Cartouche runs it in LiveProcess,
+as it runs Refresh All Apps; Shortcuts does not list it.
+
+iOS replaces an app only once it has left the screen. SideStore leaves
+it by itself when it is the app on screen; in LiveProcess it is not, so
+it now posts a Darwin notification, "<bundle identifier>.SelfReinstall",
+as it starts installing over the app it is built into, and the app
+leaves the screen itself.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01MzPJorvBGmBB88WUcRVhE7
+---
+ .../InstallAppOperation.swift                 |  6 ++
+ SideStore/Intents/UpdateCartoucheIntent.swift | 86 +++++++++++++++++++
+ 2 files changed, 92 insertions(+)
+ create mode 100644 SideStore/Intents/UpdateCartoucheIntent.swift
+
+diff --git a/SideStore/Core/Operations/PipelineOperations/InstallAppOperation.swift b/SideStore/Core/Operations/PipelineOperations/InstallAppOperation.swift
+index cf721ec..f0a39c2 100644
+--- a/SideStore/Core/Operations/PipelineOperations/InstallAppOperation.swift
++++ b/SideStore/Core/Operations/PipelineOperations/InstallAppOperation.swift
+@@ -390,6 +390,12 @@ final class InstallAppOperation: BasePipelineOperation<InstallAppOperationContex
+     }
+ 
+     private func handleSelfReinstallation(for installedApp: InstalledApp) {
++        // Tell the app SideStore is built into, which may run it in its
++        // LiveProcess, in the background: that process cannot leave the
++        // app, so the app leaves the screen itself for iOS to replace it.
++        let selfReinstallNotification = CFNotificationName("\(Bundle.Info.appbundleIdentifier).SelfReinstall" as CFString)
++        CFNotificationCenterPostNotification(CFNotificationCenterGetDarwinNotifyCenter(), selfReinstallNotification, nil, nil, true)
++
+         // Stop keepalive background services unconditionally so the process can suspend cleanly
+         BackgroundServiceManager.stop()
+ 
+diff --git a/SideStore/Intents/UpdateCartoucheIntent.swift b/SideStore/Intents/UpdateCartoucheIntent.swift
+new file mode 100644
+index 0000000..e87aa90
+--- /dev/null
++++ b/SideStore/Intents/UpdateCartoucheIntent.swift
+@@ -0,0 +1,86 @@
++//
++//  UpdateCartoucheIntent.swift
++//  SideStore
++//
++//  Cartouche: installs the newest version of the app this SideStore is
++//  built into, from the app's own source, as My Apps' Update button would.
++//  Cartouche runs it through LiveContainer's SideStoreSupport, in
++//  LiveProcess, as it runs Refresh All Apps, so that the player never sees
++//  SideStore. Shortcuts does not list it.
++//
++
++import AppIntents
++import CoreData
++import Foundation
++import SemanticVersion
++
++@available(iOS 17.0, tvOS 17.0, *)
++struct UpdateCartoucheIntent: AppIntent, ProgressReportingIntent
++{
++    static var title: LocalizedStringResource = "Update Cartouche"
++    static var description = IntentDescription("Installs the newest version of Cartouche from its source.")
++    static var openAppWhenRun = false
++    static var isDiscoverable: Bool { false }
++
++    init()
++    {
++        self.progress.completedUnitCount = 0
++        self.progress.totalUnitCount = 100
++    }
++
++    func perform() async throws -> some IntentResult
++    {
++        do
++        {
++            try await DatabaseManager.shared.start()
++
++            // The newest versions first. A source that cannot be read keeps
++            // what SideStore last read of it; the others are saved.
++            do
++            {
++                _ = try await AppManager.shared.fetchSources()
++            }
++            catch
++            {
++                debugLog("[UpdateCartoucheIntent] fetchSources: \(error.localizedDescription)")
++            }
++            self.progress.completedUnitCount = 5
++
++            let intentProgress = self.progress
++            _ = try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<InstalledApp, Error>) in
++                // As My Apps does, on the main queue with the view context.
++                DispatchQueue.main.async {
++                    let context = DatabaseManager.shared.viewContext
++                    guard let installedApp = InstalledApp.fetchAltStore(in: context),
++                          let latestVersion = installedApp.storeApp?.latestSupportedVersion
++                    else {
++                        continuation.resume(throwing: OperationError.missingUpdate(appName: "Cartouche"))
++                        return
++                    }
++
++                    // Never the version that is running, nor an older one.
++                    let runningVersion = (Bundle.Info.activeBundle.infoDictionary?["CFBundleShortVersionString"] as? String) ?? installedApp.version
++                    guard let latest = SemanticVersion(latestVersion.version),
++                          let running = SemanticVersion(runningVersion),
++                          latest > running
++                    else {
++                        continuation.resume(throwing: OperationError.missingUpdate(appName: installedApp.name))
++                        return
++                    }
++
++                    debugLog("[UpdateCartoucheIntent] updating \(installedApp.bundleIdentifier) from \(runningVersion) to \(latestVersion.version)")
++                    let updateProgress = AppManager.shared.update(installedApp, to: latestVersion, presentingViewController: nil) { result in
++                        continuation.resume(with: result)
++                    }
++                    intentProgress.addChild(updateProgress, withPendingUnitCount: 95)
++                }
++            }
++
++            return .result()
++        }
++        catch
++        {
++            throw IntentError(error)
++        }
++    }
++}
+-- 
+2.43.0
+

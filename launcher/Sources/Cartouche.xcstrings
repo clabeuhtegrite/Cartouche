@@ -5492,6 +5492,159 @@
         }
       }
     },
+    "system.updates" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Updates"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mises à jour"
+          }
+        }
+      }
+    },
+    "system.updates.available" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "New version"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nouvelle version"
+          }
+        }
+      }
+    },
+    "system.updates.check" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Check for an update"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Chercher une mise à jour"
+          }
+        }
+      }
+    },
+    "system.updates.footer" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The built-in SideStore installs Cartouche’s new versions without a computer, with LocalDevVPN connected, as it renews Cartouche. Cartouche then closes for iOS to install it: open it again. Your games and their saves stay."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Le SideStore intégré installe les nouvelles versions de Cartouche sans ordinateur, avec LocalDevVPN connecté, comme pour un renouvellement. Cartouche se ferme alors pour qu’iOS l’installe : rouvrez-le. Vos jeux et leurs sauvegardes restent."
+          }
+        }
+      }
+    },
+    "system.updates.install" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Install Cartouche %@"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Installer Cartouche %@"
+          }
+        }
+      }
+    },
+    "system.updates.needsSetup" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Finish setting up Cartouche first: the built-in SideStore needs its certificate and the pairing file."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Terminez d’abord la configuration de Cartouche : le SideStore intégré a besoin de son certificat et du fichier d’appairage."
+          }
+        }
+      }
+    },
+    "system.updates.notChecked" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cartouche has not looked for an update yet."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cartouche n’a pas encore cherché de mise à jour."
+          }
+        }
+      }
+    },
+    "system.updates.notes" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "What’s new"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nouveautés"
+          }
+        }
+      }
+    },
+    "system.updates.upToDate" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cartouche %@ is the latest version."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cartouche %@ est la dernière version."
+          }
+        }
+      }
+    },
     "tab.games" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -5675,6 +5828,346 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "%@ Mio"
+          }
+        }
+      }
+    },
+    "updates.check.failed" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cartouche could not look for an update: %@"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cartouche n’a pas pu chercher de mise à jour : %@"
+          }
+        }
+      }
+    },
+    "updates.done.message" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Your games, their saves and Cartouche’s settings are all still here."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vos jeux, leurs sauvegardes et les réglages de Cartouche sont toujours là."
+          }
+        }
+      }
+    },
+    "updates.failed.message" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Check that LocalDevVPN is connected, then try again from the System page. SideStore says: %@"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vérifiez que LocalDevVPN est connecté, puis réessayez depuis la page Système. SideStore indique : %@"
+          }
+        }
+      }
+    },
+    "updates.failed.title" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The update did not go through"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "La mise à jour n’a pas abouti"
+          }
+        }
+      }
+    },
+    "updates.installed.message" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Close Cartouche and open it again to use the new version."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Fermez Cartouche et rouvrez-le pour utiliser la nouvelle version."
+          }
+        }
+      }
+    },
+    "updates.installed.title" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cartouche %@ is installed"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cartouche %@ est installé"
+          }
+        }
+      }
+    },
+    "updates.installing.message" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cartouche goes to the home screen for iOS to install the new version. Open it again in a few seconds."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cartouche passe à l’écran d’accueil pour qu’iOS installe la nouvelle version. Rouvrez-le dans quelques secondes."
+          }
+        }
+      }
+    },
+    "updates.installing.title" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Installing Cartouche %@"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Installation de Cartouche %@"
+          }
+        }
+      }
+    },
+    "updates.later" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Later"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Plus tard"
+          }
+        }
+      }
+    },
+    "updates.leave" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Go to the home screen"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aller à l’écran d’accueil"
+          }
+        }
+      }
+    },
+    "updates.now" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Update"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mettre à jour"
+          }
+        }
+      }
+    },
+    "updates.offer.message" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "You have version %@. The built-in SideStore installs the new one without a computer, with LocalDevVPN connected. Cartouche then closes for iOS to install it: open it again. Your games and their saves stay."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vous avez la version %@. Le SideStore intégré installe la nouvelle sans ordinateur, avec LocalDevVPN connecté. Cartouche se ferme alors pour qu’iOS l’installe : rouvrez-le. Vos jeux et leurs sauvegardes restent."
+          }
+        }
+      }
+    },
+    "updates.offer.size" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Download: %@"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Téléchargement : %@"
+          }
+        }
+      }
+    },
+    "updates.offer.title" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cartouche %@ is available"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cartouche %@ est disponible"
+          }
+        }
+      }
+    },
+    "updates.preparing.message" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The built-in SideStore downloads the new version, checks it and signs it. Keep Cartouche open."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Le SideStore intégré télécharge la nouvelle version, la vérifie et la signe. Gardez Cartouche ouvert."
+          }
+        }
+      }
+    },
+    "updates.preparing.title" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Updating to Cartouche %@"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mise à jour vers Cartouche %@"
+          }
+        }
+      }
+    },
+    "updates.source.status" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "its source answered with error %lld."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "sa source a répondu par l’erreur %lld."
+          }
+        }
+      }
+    },
+    "updates.unavailable" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The built-in SideStore did not load. Close Cartouche, open it again, then update."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Le SideStore intégré ne s’est pas chargé. Fermez Cartouche, rouvrez-le, puis relancez la mise à jour."
+          }
+        }
+      }
+    },
+    "updates.unfinished.message" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cartouche closed before version %@ was installed. Try again from the System page, with LocalDevVPN connected."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cartouche s’est fermé avant que la version %@ soit installée. Réessayez depuis la page Système, avec LocalDevVPN connecté."
+          }
+        }
+      }
+    },
+    "updates.unfinished.title" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The update did not finish"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "La mise à jour n’est pas allée au bout"
           }
         }
       }

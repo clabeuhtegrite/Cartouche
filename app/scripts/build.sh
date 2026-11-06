@@ -78,6 +78,7 @@ COMMIT="$(git -C "$ROOT" rev-parse --short=7 HEAD 2>/dev/null || echo unknown)"
   --name "$CARTOUCHE_DISPLAY_NAME" \
   --url-scheme "$CARTOUCHE_URL_SCHEME" \
   --version "$CARTOUCHE_VERSION" \
+  --source-url "$CARTOUCHE_SIDESTORE_SOURCE_URL" \
   --commit "$COMMIT" \
   --python "$WORK/python" \
   --out "$OUT/Cartouche.ipa"
