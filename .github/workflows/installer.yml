@@ -1,12 +1,13 @@
 name: Installer
 
-# Builds the Cartouche Installer (installer/): the Mac app, one for Apple
-# silicon and Intel, in a disk image, and the Windows setup. The builds stay
-# with the run. Cartouche's source is in the paths since the installer reads
-# it, and its tests read the one on the branch. Run from the Actions tab on main with Publish ticked, it also
-# publishes them as the release installer-v<version>, the version of
-# installer/src-tauri/tauri.conf.json, which is never marked latest: the
-# latest release stays Cartouche's. How to publish: installer/README.md.
+# Tests and builds the Cartouche Installer (installer/): the Mac app, one for
+# Apple silicon and Intel, in a disk image, and the Windows setup. The builds
+# stay with the run. Cartouche's source is in the paths, since the installer
+# reads it and its tests read the one on the branch. Run from the Actions tab
+# on main with Publish ticked, it also publishes them as the release
+# installer-v<version>, the version of installer/src-tauri/tauri.conf.json,
+# which is never marked latest: the latest release stays Cartouche's. How to
+# publish: installer/README.md.
 
 on:
   pull_request:
@@ -29,30 +30,10 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  test:
-    name: Installer tests
-    runs-on: ubuntu-latest
-    timeout-minutes: 45
-    steps:
-      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
-        with:
-          persist-credentials: false
-      - name: Install the Linux libraries Tauri builds against
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev libdbus-1-dev
-      - name: Build the window
-        working-directory: installer
-        run: |
-          npm ci --no-audit --no-fund
-          npm run build
-      - name: Test the backend
-        working-directory: installer/src-tauri
-        run: cargo test --locked
-
+  # The tests run on the Mac, which has WebKit already: on Linux, Tauri
+  # needs WebKitGTK and its hundred megabytes of packages first.
   build:
     name: Build for ${{ matrix.name }}
-    needs: test
     strategy:
       fail-fast: false
       matrix:
@@ -70,6 +51,12 @@ jobs:
       - name: Install the window's packages
         working-directory: installer
         run: npm ci --no-audit --no-fund
+      - name: Test the backend
+        if: runner.os == 'macOS'
+        working-directory: installer
+        run: |
+          npm run build
+          (cd src-tauri && cargo test --locked)
       # The app for both kinds of Mac, ad hoc signed (tauri.conf.json): not
       # notarized, so the Mac asks once to open it (installer/README.md).
       - name: Build the Mac app

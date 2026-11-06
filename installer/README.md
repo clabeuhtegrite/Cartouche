@@ -51,7 +51,7 @@ On Windows, isideload's cryptography needs Strawberry Perl, make, and the Visual
 
 ## CI and publishing
 
-[`.github/workflows/installer.yml`](../.github/workflows/installer.yml) runs on every pull request that touches `installer/` or Cartouche's source, which its tests read: the tests on Linux, then the Mac app for Apple silicon and Intel in a disk image, and the Windows setup, kept with the run for 30 days.
+[`.github/workflows/installer.yml`](../.github/workflows/installer.yml) runs on every pull request that touches `installer/` or Cartouche's source, which its tests read: on a Mac, the tests, then the app for Apple silicon and Intel in a disk image; on Windows, the setup. Both are kept with the run for 30 days.
 
 To publish a version:
 
