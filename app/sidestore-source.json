@@ -4,6 +4,28 @@
   "subtitle": "Cartouche itself",
   "description": "The source Cartouche's built-in SideStore reads for Cartouche's own updates. It lists Cartouche and nothing else: Cartouche never lists, hosts or downloads games.",
   "website": "https://github.com/clabeuhtegrite/Cartouche",
-  "apps": [],
+  "apps": [
+    {
+      "name": "Cartouche",
+      "developerName": "Cartouche contributors",
+      "subtitle": "Play your own games built with nxnative",
+      "localizedDescription": "Cartouche runs the games you build with nxnative from your own copies, renews itself without a computer, and gives them Increased Memory Limit. It never downloads a game.",
+      "iconURL": "https://raw.githubusercontent.com/clabeuhtegrite/Cartouche/main/app/icon/AppIcon.appiconset/AppIcon1024.png",
+      "tintColor": "#4F46E5",
+      "category": "games",
+      "bundleIdentifier": "io.github.clabeuhtegrite.cartouche",
+      "versions": [
+        {
+          "version": "0.1.0",
+          "date": "2026-11-06T07:11:00Z",
+          "localizedDescription": "First test build of Cartouche.\n\n- Games: the catalogue of supported games, your own first, with a sheet for each that says how it should run on this iPhone.\n- System: the memory limit iOS gives Cartouche, the days left before its signature expires, Renew now, renewing every night from Shortcuts, and expiry alerts.\n- System › Lab: rewrites the code of your own game on this iPhone with nxnative's rewriter, then compares each file with your Mac's build. A test for building games on the iPhone later.\n- The built-in SideStore asks for Increased Memory Limit on free accounts, and never revokes a certificate.",
+          "downloadURL": "https://github.com/clabeuhtegrite/Cartouche/releases/download/v0.1.0/Cartouche-0.1.0.ipa",
+          "size": 36636781,
+          "sha256": "f332dc0757960b440372c0ce0d9bb0d67bf6d72e6629bf73abc2fb8b901b1d05",
+          "minOSVersion": "15.0"
+        }
+      ]
+    }
+  ],
   "news": []
 }
