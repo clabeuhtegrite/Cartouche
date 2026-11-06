@@ -8,7 +8,7 @@ Nothing of a game is in this folder or in its CI run: the rewriter comes from nx
 
 | | On a Mac | On iOS |
 | --- | --- | --- |
-| Python | 3.13 | CPython 3.13 for iOS, from BeeWare's [Python-Apple-support](https://github.com/beeware/Python-Apple-support) |
+| Python | 3.13 | CPython 3.13 for iOS, from BeeWare's [Python-Apple-support](https://github.com/beeware/Python-Apple-support), release `3.13-b18` |
 | Capstone | `pip install capstone==5.0.7` | The same version's sources, built for iOS by [`build_capstone_ios.sh`](build_capstone_ios.sh) |
 | LZ4 | The `lz4` package | [`ios/lz4`](ios/lz4/block.py), a decoder of the LZ4 block format in pure Python |
 | nxnative | `dm/tools` and `dm/games` at the pinned commit | The same files, inside the app |
@@ -20,15 +20,19 @@ Nothing of a game is in this folder or in its CI run: the rewriter comes from nx
 ## Steps
 
 1. **In the iOS simulator, in CI.** [`spike-s2.yml`](../../../.github/workflows/spike-s2.yml) runs `patch_nso.py` on two synthetic modules, on the runner's macOS and then in the iOS simulator, and compares the SHA-256 of every file the two runs write. The modules hold ten small functions that use what the rewriter rewrites: the thread registers, `svc`, the counter, `x18`, `sp` alignment, and a lock taken without acquire ordering. One module is stored plain, the other compressed with LZ4, as retail modules are.
+   Passed on 6 November 2026: CPython 3.13.18 in the iPhone 17e simulator on iOS 26.5 wrote the same 16 files as Python 3.13.17 on the runner's macOS, byte for byte.
 2. **On the iPhone, with the player's own game** (to do). Cartouche runs the same script on the modules of the player's own dump and shows the SHA-256 of each file it writes, which the player compares with the files nxnative's `scripts/build_ipa_from_nsp.py` writes from the same dump on their Mac. The gate of S2: Mario Kart World's modules give the same files, and the time and memory it takes on the iPhone are measured.
 
 ## Run it on a Mac
 
-Needs Xcode with an iOS simulator, CMake and Python 3.13.
+Needs Xcode with an iOS simulator, CMake, Python 3.13 and the `gh` command.
 
 ```sh
 engine/spikes/s2/fetch_nxnative.sh build/nxnative
-# Download Python-Apple-support's iOS package for 3.13 and unpack it in build/support.
+gh release download 3.13-b18 --repo beeware/Python-Apple-support \
+  --pattern 'Python-3.13-iOS-support.*.tar.gz' --dir build/download
+mkdir -p build/support
+tar -xzf build/download/Python-3.13-iOS-support.*.tar.gz -C build/support
 engine/spikes/s2/run_simulator.sh build/support build/nxnative build/s2
 ```
 

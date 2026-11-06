@@ -28,6 +28,9 @@ jobs:
     env:
       XCODE_VERSION: "26.4"
       PYTHON_VERSION: "3.13"
+      # The release of BeeWare's Python-Apple-support whose CPython for iOS
+      # runs the rewriter. Step 2 embeds the same one in Cartouche.
+      PYTHON_SUPPORT: "3.13-b18"
       CAPSTONE_VERSION: "5.0.7"
     steps:
       - uses: actions/checkout@v6
@@ -44,10 +47,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          TAG="$(gh release list --repo beeware/Python-Apple-support --limit 100 --json tagName --jq '.[].tagName' \
-            | grep -m 1 "^${PYTHON_VERSION}-b")"
-          echo "Python-Apple-support $TAG"
-          gh release download "$TAG" --repo beeware/Python-Apple-support \
+          gh release download "$PYTHON_SUPPORT" --repo beeware/Python-Apple-support \
             --pattern "Python-${PYTHON_VERSION}-iOS-support.*.tar.gz" --dir build/download
           mkdir -p build/support
           tar -xzf build/download/Python-"${PYTHON_VERSION}"-iOS-support.*.tar.gz -C build/support
