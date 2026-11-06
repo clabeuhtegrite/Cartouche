@@ -5,15 +5,17 @@ A release puts a new version of Cartouche on players' iPhones without a computer
 ## Cutting a release
 
 1. In a pull request, raise `CARTOUCHE_VERSION` in [`../config.env`](../config.env) and add the release notes as `<version>.md` in this folder, in plain text: SideStore shows them under the update. Merge it once the App build is green.
-2. Tag the merge commit on main and push the tag:
+2. Start the release, from a phone or from a computer:
+   - On GitHub, open **Actions › Release › Run workflow**, keep the branch `main`, and enter the version, such as `0.1.1`. The release then makes the tag `v0.1.1` on main's last commit.
+   - Or tag the merge commit on main and push the tag:
 
-   ```
-   git fetch origin main
-   git tag -a v0.1.1 -m "Cartouche 0.1.1" FETCH_HEAD
-   git push origin v0.1.1
-   ```
+     ```
+     git fetch origin main
+     git tag -a v0.1.1 -m "Cartouche 0.1.1" FETCH_HEAD
+     git push origin v0.1.1
+     ```
 
-3. The [Release workflow](../../.github/workflows/release.yml) checks that the tag matches `CARTOUCHE_VERSION`, that it is on main and that its notes exist. It builds the IPA, runs the publish guard on it, and attaches it to the GitHub release `v0.1.1` as `Cartouche-0.1.1.ipa`. It then adds that version to the source with [`../scripts/add_release.py`](../scripts/add_release.py) and pushes the change to main, where SideStore finds it the next time it reads its sources.
+3. The [Release workflow](../../.github/workflows/release.yml) checks that the tag matches `CARTOUCHE_VERSION`, that it is on main and that its notes exist. Run from the Actions tab, it also refuses a tag that already names another commit. It builds the IPA, runs the publish guard on it, and attaches it to the GitHub release `v0.1.1` as `Cartouche-0.1.1.ipa`. It then adds that version to the source with [`../scripts/add_release.py`](../scripts/add_release.py) and pushes the change to main, where SideStore finds it the next time it reads its sources.
 
 The App workflow runs the publish guard and `add_release.py` on every build, so a build that a release would refuse shows up in its pull request.
 

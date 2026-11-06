@@ -1,14 +1,22 @@
 name: Release
 
 # Publishes a release of Cartouche when a tag v<CARTOUCHE_VERSION> is pushed
-# on main: builds the IPA, runs the publish guard on it, attaches it to a
-# GitHub release, then adds it to app/sidestore-source.json on main, where
-# Cartouche's built-in SideStore finds it and offers the update on the iPhone.
+# on main, or when the workflow is run on main from the Actions tab, which
+# needs no computer and makes the tag itself: builds the IPA, runs the publish
+# guard on it, attaches it to a GitHub release, then adds it to
+# app/sidestore-source.json on main, where Cartouche's built-in SideStore
+# finds it and offers the update on the iPhone.
 # How to cut a release: app/releases/README.md.
 
 on:
   push:
     tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "The version to publish, CARTOUCHE_VERSION in app/config.env (such as 0.1.1)"
+        required: true
+        type: string
 
 permissions:
   contents: read
@@ -18,7 +26,8 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  TAG: ${{ github.ref_name }}
+  # Run from the Actions tab, the workflow tags the commit it runs on.
+  TAG: ${{ github.event_name == 'workflow_dispatch' && format('v{0}', inputs.version) || github.ref_name }}
 
 jobs:
   build:
@@ -36,6 +45,22 @@ jobs:
       - name: Check the tag
         id: tag
         run: |
+          if [ "$GITHUB_EVENT_NAME" = "workflow_dispatch" ]; then
+            if [ "$GITHUB_REF" != "refs/heads/main" ]; then
+              echo "::error::run the Release workflow on main"
+              exit 1
+            fi
+            if ! [[ "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+              echo "::error::the version is not major.minor.patch, as CARTOUCHE_VERSION in app/config.env"
+              exit 1
+            fi
+            # A tag that exists already must name this commit.
+            TAGGED=$(git ls-remote origin "refs/tags/$TAG" "refs/tags/$TAG^{}" | tail -n 1 | cut -f 1)
+            if [ -n "$TAGGED" ] && [ "$TAGGED" != "$GITHUB_SHA" ]; then
+              echo "::error::the tag $TAG exists already, on another commit"
+              exit 1
+            fi
+          fi
           source app/config.env
           VERSION="${TAG#v}"
           if [ "$VERSION" != "$CARTOUCHE_VERSION" ]; then
@@ -99,8 +124,12 @@ jobs:
             # Versions 0.x are test builds: marked as pre-releases on GitHub.
             PRERELEASE=()
             if [ "${VERSION%%.*}" = "0" ]; then PRERELEASE=(--prerelease); fi
+            # A pushed tag exists already; run from the Actions tab, the
+            # release makes the tag on the commit the workflow runs on.
+            TARGET=(--verify-tag)
+            if [ "$GITHUB_EVENT_NAME" = "workflow_dispatch" ]; then TARGET=(--target "$GITHUB_SHA"); fi
             gh release create "$TAG" "$IPA" --title "Cartouche $VERSION" \
-              --notes-file "app/releases/$VERSION.md" --verify-tag "${PRERELEASE[@]}"
+              --notes-file "app/releases/$VERSION.md" "${TARGET[@]}" "${PRERELEASE[@]}"
           fi
       - name: Add the release to the built-in SideStore's source
         run: |
