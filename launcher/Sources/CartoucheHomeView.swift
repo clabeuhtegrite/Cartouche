@@ -29,6 +29,8 @@ struct CartoucheHomeView: View {
     let isActive: Bool
     let onPlay: (LCAppModel) -> Void
     let onImport: () -> Void
+    /// Installs a game from the player's games folder.
+    let onInstall: (CartoucheStoredGame) -> Void
     let onUninstall: (LCAppModel) -> Void
     let onSheet: (CartoucheEntry) -> Void
     let onLibrary: () -> Void
@@ -41,6 +43,7 @@ struct CartoucheHomeView: View {
     // the synthesized initializer private.
     init(entries: CartoucheCatalog.Entries, gameCount: Int, isActive: Bool,
          onPlay: @escaping (LCAppModel) -> Void, onImport: @escaping () -> Void,
+         onInstall: @escaping (CartoucheStoredGame) -> Void = { _ in },
          onUninstall: @escaping (LCAppModel) -> Void, onSheet: @escaping (CartoucheEntry) -> Void,
          onLibrary: @escaping () -> Void, onSetup: @escaping () -> Void,
          onTab: @escaping (LCTabIdentifier) -> Void, zoom: Namespace.ID? = nil) {
@@ -49,6 +52,7 @@ struct CartoucheHomeView: View {
         self.isActive = isActive
         self.onPlay = onPlay
         self.onImport = onImport
+        self.onInstall = onInstall
         self.onUninstall = onUninstall
         self.onSheet = onSheet
         self.onLibrary = onLibrary
@@ -71,8 +75,10 @@ struct CartoucheHomeView: View {
         case dock(Dock)
     }
 
+    /// Cartouche's own pages only: LiveContainer's and the built-in
+    /// SideStore's never show (docs/decisions.md, 24).
     enum Dock: CaseIterable, Hashable {
-        case allGames, importGame, system, apps, settings
+        case allGames, importGame, system
     }
 
     /// The player's games, then the cartridge that imports one.
@@ -270,6 +276,8 @@ struct CartoucheHomeView: View {
     private func gameMenu(_ entry: CartoucheEntry) -> some View {
         if let app = entry.app {
             Button { onPlay(app) } label: { Label(CartoucheText.play, systemImage: "play.fill") }
+        } else if let stored = entry.stored {
+            Button { onInstall(stored) } label: { Label(installTitle, systemImage: "arrow.down.circle.fill") }
         } else {
             Button(action: onImport) { Label(CartoucheText.importCopy, systemImage: "square.and.arrow.down") }
         }
@@ -334,12 +342,19 @@ struct CartoucheHomeView: View {
             HStack(spacing: 10) {
                 if let app = entry.app {
                     actionButton(CartoucheText.play, systemImage: "play.fill", primary: true) { onPlay(app) }
+                } else if let stored = entry.stored {
+                    actionButton(installTitle, systemImage: "arrow.down.circle.fill", primary: true) { onInstall(stored) }
                 } else {
                     actionButton(CartoucheText.importCopy, systemImage: "square.and.arrow.down", primary: true, action: onImport)
                 }
                 actionButton(CartoucheText.details, systemImage: "info.circle", primary: false) { onSheet(entry) }
             }
         }
+    }
+
+    /// Install from the player's games folder, naming its server.
+    private var installTitle: String {
+        CartoucheText.installFrom(CartoucheStoredGames.shared.serverName ?? "")
     }
 
     @ViewBuilder
@@ -397,8 +412,6 @@ struct CartoucheHomeView: View {
         case .allGames: return "square.grid.2x2.fill"
         case .importGame: return "square.and.arrow.down"
         case .system: return "cpu"
-        case .apps: return "square.stack.3d.up.fill"
-        case .settings: return "gearshape.fill"
         }
     }
 
@@ -407,8 +420,6 @@ struct CartoucheHomeView: View {
         case .allGames: return CartoucheText.allGames
         case .importGame: return CartoucheText.dockImport
         case .system: return CartoucheText.systemTab
-        case .apps: return CartoucheText.dockApps
-        case .settings: return CartoucheText.dockSettings
         }
     }
 
@@ -470,10 +481,6 @@ struct CartoucheHomeView: View {
             onLibrary()
         case .dock(.system):
             onTab(.system)
-        case .dock(.apps):
-            onTab(.apps)
-        case .dock(.settings):
-            onTab(.settings)
         }
     }
 

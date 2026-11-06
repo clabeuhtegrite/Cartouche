@@ -63,10 +63,10 @@ final class LCAppModel: ObservableObject, Identifiable, Equatable {
     static func == (lhs: LCAppModel, rhs: LCAppModel) -> Bool { lhs === rhs }
 }
 
-/// CartoucheGameActions.swift, which installs, starts and uninstalls games
-/// with LiveContainer and opens their preferences, as the gallery stands it
-/// in: nothing happens, a scenario can show a step in progress, and every
-/// game has the settings of GallerySettings, kept in memory.
+/// CartoucheGameActions.swift, which installs, starts, uninstalls and copies
+/// games with LiveContainer and opens their preferences, as the gallery
+/// stands it in: nothing happens, a scenario can show a step in progress,
+/// and every game has the settings of GallerySettings, kept in memory.
 @MainActor
 final class CartoucheGameActions: ObservableObject {
     static let shared = CartoucheGameActions()
@@ -77,8 +77,14 @@ final class CartoucheGameActions: ObservableObject {
 
     nonisolated static func takes(_ url: URL) -> Bool { false }
     func install(_ url: URL) {}
+    func install(stored game: CartoucheStoredGame) {}
     func play(_ app: LCAppModel, showingSettings: Bool = false) {}
     func uninstall(_ app: LCAppModel, erasingData: Bool) {}
+    func export(_ app: LCAppModel, titleId: String?, then next: (() -> Void)? = nil) {}
+    /// A game's saves live in its LiveContainer data folder, which the
+    /// gallery has none of.
+    func saves(of app: LCAppModel) -> CartoucheSaveTarget? { nil }
+    func copySaves(of apps: [LCAppModel]) {}
 
     func settings(for app: LCAppModel, tileKey: String) -> CartoucheGameSettingsModel {
         CartoucheGameSettingsModel(name: app.displayName, tileKey: tileKey,

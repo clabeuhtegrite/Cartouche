@@ -37,9 +37,9 @@ jobs:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           persist-credentials: false
-      - name: Check out LiveContainer, SideStore and SideSign
+      - name: Check out LiveContainer, SideStore, SideSign and SMBClient
         run: |
-          git submodule update --init app/LiveContainer app/SideStore
+          git submodule update --init app/LiveContainer app/SideStore app/SMBClient
           git -C app/SideStore submodule update --init Dependencies/SideSign
       - name: Branding tests
         run: python3 -m unittest discover -s app/tests -v

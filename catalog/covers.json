@@ -171,6 +171,13 @@
       "artwork": "ar4n2z"
     },
     {
+      "titleId": "0100317013770000",
+      "igdb": 152201,
+      "name": "Mario + Rabbids Sparks of Hope",
+      "cover": "cob89b",
+      "artwork": "ar90h"
+    },
+    {
       "titleId": "010031F019294000",
       "igdb": 287854,
       "name": "Super Monkey Ball: Banana Rumble",
@@ -301,6 +308,13 @@
       "name": "Fire Emblem: Three Houses",
       "cover": "co1n8t",
       "artwork": "ar5r8j"
+    },
+    {
+      "titleId": "010056B015FE8000",
+      "igdb": 206805,
+      "name": "Nier: Automata - The End of Yorha Edition",
+      "cover": "co5jbj",
+      "artwork": "ar1p21"
     },
     {
       "titleId": "010057D006492000",

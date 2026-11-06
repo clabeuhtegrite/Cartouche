@@ -22,8 +22,15 @@ enum CartoucheTheme {
         colors: [Color(red: 1.0, green: 0.859, blue: 0.494), Color(red: 0.910, green: 0.647, blue: 0.208)],
         startPoint: .top, endPoint: .bottom)
 
-    /// A cartridge's height for its width.
-    static let cartridgeAspect: CGFloat = 1.32
+    /// A cartridge's label, its width over its height: a game case's, so
+    /// that a game's official cover shows whole. IGDB's covers run from
+    /// about 0.6, a Switch case, to 0.75; a narrower or wider one shows over
+    /// a blurred copy of itself (CartoucheCoverImage).
+    static let labelAspect: CGFloat = 0.68
+
+    /// A cartridge's height for its width: its ridges, its label, which is
+    /// 0.84 of its width across, and its contacts.
+    static let cartridgeAspect: CGFloat = 0.235 + 0.84 / labelAspect + 0.075 + 0.17
 
     static let secondaryText = Color.white.opacity(0.68)
     /// A step that cannot be undone, such as Uninstall, legible on the stage.
@@ -80,13 +87,16 @@ enum CartoucheTheme {
 enum CartouchePlayStatus: Hashable {
     /// The player has a copy and Cartouche can start it.
     case ready
+    /// The player's copy is in their games folder, not on this iPhone.
+    case stored
     case iphone
     case mac
     case bringup
     case unknown
 
     static func of(_ entry: CartoucheEntry) -> CartouchePlayStatus {
-        if entry.isOwned { return .ready }
+        if entry.isInstalled { return .ready }
+        if entry.stored != nil { return .stored }
         if entry.playsOnIPhone { return .iphone }
         switch entry.game?.status {
         case "mac": return .mac
@@ -99,6 +109,7 @@ enum CartouchePlayStatus: Hashable {
     var symbol: String {
         switch self {
         case .ready: return "checkmark.circle.fill"
+        case .stored: return "externaldrive.fill"
         case .iphone: return "iphone"
         case .mac: return "laptopcomputer"
         case .bringup: return "hammer.fill"
@@ -109,6 +120,7 @@ enum CartouchePlayStatus: Hashable {
     var color: Color {
         switch self {
         case .ready: return Color(red: 0.204, green: 0.827, blue: 0.494)
+        case .stored: return Color(red: 0.392, green: 0.824, blue: 1.0)
         case .iphone: return Color(red: 0.204, green: 0.827, blue: 0.494)
         case .mac: return Color(red: 0.384, green: 0.639, blue: 1.0)
         case .bringup: return Color(red: 1.0, green: 0.690, blue: 0.247)
@@ -120,6 +132,7 @@ enum CartouchePlayStatus: Hashable {
     var short: String {
         switch self {
         case .ready: return CartoucheText.statusReadyShort
+        case .stored: return CartoucheText.statusStoredShort
         case .iphone: return CartoucheText.statusIPhoneShort
         case .mac: return CartoucheText.statusMacShort
         case .bringup: return CartoucheText.statusBringupShort
@@ -131,6 +144,7 @@ enum CartouchePlayStatus: Hashable {
     var long: String {
         switch self {
         case .ready, .iphone: return CartoucheText.statusIPhoneLong
+        case .stored: return CartoucheText.statusStoredLong
         case .mac: return CartoucheText.statusMacLong
         case .bringup: return CartoucheText.statusBringupLong
         case .unknown: return CartoucheText.statusUnknownLong

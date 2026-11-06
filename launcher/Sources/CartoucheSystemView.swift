@@ -2,10 +2,13 @@
 //  CartoucheSystemView.swift
 //  Cartouche
 //
-//  What Cartouche has on this iPhone: the memory limit iOS sets for it,
-//  which its games share; when its signature expires, and how it is
-//  renewed; the device that the game sheets are compared with; and the lab,
-//  where Cartouche tries what it will one day do for its games.
+//  What Cartouche has on this iPhone: the player's storage, where their
+//  games and saves are kept; the memory limit iOS sets for it, which its
+//  games share; when its signature expires, and how it is renewed; the
+//  device that the game sheets are compared with; and the lab, where
+//  Cartouche tries what it will one day do for its games. It opens over
+//  the console (CartoucheRootView), and OK or the controller's Menu button
+//  closes it.
 //
 
 import SwiftUI
@@ -19,6 +22,8 @@ struct CartoucheSystemView: View {
     @State private var renewalError: String?
     @State private var alertStatus: UNAuthorizationStatus?
     @ObservedObject private var setup = CartoucheSetup.shared
+    @ObservedObject private var storage = CartoucheStorageSettings.shared
+    @EnvironmentObject private var sharedModel: SharedModel
 
     private let catalog = CartoucheCatalog.shared
 
@@ -26,6 +31,7 @@ struct CartoucheSystemView: View {
         NavigationStack {
             List {
                 setupSection
+                storageSection
                 memorySection
                 signatureSection
                 automaticRenewalSection
@@ -35,8 +41,21 @@ struct CartoucheSystemView: View {
             }
             .navigationTitle(CartoucheText.systemTab)
             .refreshable { measure() }
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button(CartoucheText.done, action: close)
+                }
+            }
         }
         .onAppear(perform: measure)
+        .onReceive(CartoucheGamepad.shared.inputs) { input in
+            if input == .menu { close() }
+        }
+    }
+
+    /// Back to the console.
+    private func close() {
+        sharedModel.selectedTab = .games
     }
 
     private func measure() {
@@ -60,6 +79,23 @@ struct CartoucheSystemView: View {
                         .foregroundStyle(setup.isComplete ? Color.green : Color.orange)
                 } label: {
                     Label(CartoucheText.setupTitle, systemImage: "checklist")
+                }
+            }
+        }
+    }
+
+    // MARK: Storage
+
+    private var storageSection: some View {
+        Section {
+            NavigationLink {
+                CartoucheStorageView()
+            } label: {
+                LabeledContent {
+                    Text(storage.location(.games)?.server.name ?? CartoucheText.storageNotSet)
+                        .lineLimit(1)
+                } label: {
+                    Label(CartoucheText.storageTitle, systemImage: "externaldrive.fill")
                 }
             }
         }
@@ -139,11 +175,6 @@ struct CartoucheSystemView: View {
             }
             if CartoucheRenewal.canRenew {
                 renewRow
-            }
-            if UserDefaults.sideStoreExist() {
-                Button(CartoucheText.openSideStore, systemImage: "storefront") {
-                    LCUtils.openSideStore()
-                }
             }
         } header: {
             Text(CartoucheText.signature)

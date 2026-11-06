@@ -3,11 +3,11 @@
 //  Cartouche
 //
 //  Every game shows as a cartridge, as on Cartouche's icon: a body in the
-//  game's colour, its ridges, a square label and gold contacts. The label
-//  of a game the player has holds the icon of their own copy; any other
-//  game gets its official cover from IGDB (CartoucheCovers.swift), or,
-//  until it has loaded and when there is none, a label we draw from its
-//  name and genre.
+//  game's colour, its ridges, a label shaped as a game case's cover and
+//  gold contacts. The label holds the game's official cover from IGDB
+//  (CartoucheCovers.swift), whole; until it has loaded and when there is
+//  none, the icon of the player's own copy over its name, or a label we
+//  draw from the game's name and genre.
 //
 
 import SwiftUI
@@ -59,7 +59,7 @@ struct CartoucheCartridge<Content: View>: View {
                 contacts(w)
             }
             label()
-                .frame(width: w * 0.84, height: w * 0.84)
+                .frame(width: w * 0.84, height: w * 0.84 / CartoucheTheme.labelAspect)
                 .clipShape(RoundedRectangle(cornerRadius: w * 0.07, style: .continuous))
                 .overlay(
                     RoundedRectangle(cornerRadius: w * 0.07, style: .continuous)
@@ -192,41 +192,51 @@ struct CartoucheAppIcon: View {
     }
 }
 
-/// A game as a cartridge: the player's icon, or the game's cover, or our
-/// label.
+/// A game as a cartridge: its official cover, whole, the player's copy or
+/// not; without one, the icon of the player's copy or our label.
 @available(iOS 17.0, *)
 struct CartoucheGameCartridge: View {
     let entry: CartoucheEntry
     let width: CGFloat
     var isFocused = false
-    /// The name over the player's icon, where nothing else shows it.
-    var namesOwned = false
 
     var body: some View {
         let side = width * 0.84
         CartoucheCartridge(width: width, key: entry.tileKey, isFocused: isFocused) {
-            if let app = entry.app {
-                ZStack(alignment: .bottomLeading) {
-                    CartoucheAppIcon(app: app, size: side, rounded: false)
-                    if namesOwned {
-                        LinearGradient(colors: [Color.black.opacity(0), Color.black.opacity(0.7)], startPoint: .center, endPoint: .bottom)
-                        Text(entry.name)
-                            .font(.system(size: max(8, side * 0.12), weight: .bold, design: .rounded))
-                            .foregroundStyle(Color.white)
-                            .lineLimit(2)
-                            .minimumScaleFactor(0.7)
-                            .padding(side * 0.07)
-                    }
+            if let cover = entry.cover?.cover {
+                CartoucheCoverImage(id: cover, whole: true) {
+                    drawnLabel(side: side)
                 }
             } else {
-                CartoucheCoverImage(id: entry.cover?.cover) {
-                    CartoucheLabelArt(name: entry.name, platform: entry.platform, genre: entry.genre, key: entry.tileKey, side: side)
-                }
+                drawnLabel(side: side)
             }
         }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(Text(entry.name))
         .accessibilityValue(Text(CartouchePlayStatus.of(entry).short))
+    }
+
+    /// Until the cover has loaded, and for a game IGDB has no cover for: the
+    /// icon of the player's copy over its name, or the label we design.
+    @ViewBuilder
+    private func drawnLabel(side: CGFloat) -> some View {
+        if let app = entry.app {
+            let colors = CartoucheTheme.colors(for: entry.tileKey)
+            ZStack(alignment: .top) {
+                LinearGradient(colors: [colors.light, colors.dark], startPoint: .topLeading, endPoint: .bottomTrailing)
+                VStack(alignment: .leading, spacing: side * 0.06) {
+                    CartoucheAppIcon(app: app, size: side, rounded: false)
+                    Text(entry.name)
+                        .font(.system(size: max(8, side * 0.12), weight: .bold, design: .rounded))
+                        .foregroundStyle(Color.white)
+                        .lineLimit(2)
+                        .minimumScaleFactor(0.7)
+                        .padding(.horizontal, side * 0.07)
+                }
+            }
+        } else {
+            CartoucheLabelArt(name: entry.name, platform: entry.platform, genre: entry.genre, key: entry.tileKey, side: side)
+        }
     }
 }
 

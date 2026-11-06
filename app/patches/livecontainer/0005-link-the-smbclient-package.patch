@@ -1,0 +1,79 @@
+From 9355ad6a2059bd4a9e5f123bc599f9093b4459ca Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Fri, 6 Nov 2026 15:21:15 +0000
+Subject: [PATCH] Link the SMBClient package into LiveContainerSwiftUI
+
+Cartouche's launcher, which joins LiveContainerSwiftUI, reaches the
+player's own shared folders over SMB with SMBClient. The project gets a
+local package reference to Packages/SMBClient, where
+app/scripts/prepare.sh copies the pinned submodule, and the
+LiveContainerSwiftUI framework links its SMBClient product. A local
+package needs no network to resolve.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01MzPJorvBGmBB88WUcRVhE7
+---
+ LiveContainer.xcodeproj/project.pbxproj | 19 +++++++++++++++++++
+ 1 file changed, 19 insertions(+)
+
+diff --git a/LiveContainer.xcodeproj/project.pbxproj b/LiveContainer.xcodeproj/project.pbxproj
+index e5d705c..11364a4 100644
+--- a/LiveContainer.xcodeproj/project.pbxproj
++++ b/LiveContainer.xcodeproj/project.pbxproj
+@@ -20,6 +20,7 @@
+ 		17CAED2C2F234814008B1977 /* LaunchAppExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 17CAE6172F230449008B1977 /* LaunchAppExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+ 		17E23DE92F443A9300C55733 /* ShareExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 17E23DDF2F443A9300C55733 /* ShareExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+ 		17E23DF02F443A9300C55733 /* LiveContainerShared.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = E1292BD62DCA3B660065E12D /* LiveContainerShared.framework */; };
++		CA27C0DE2F5C000000000003 /* SMBClient in Frameworks */ = {isa = PBXBuildFile; productRef = CA27C0DE2F5C000000000002 /* SMBClient */; };
+ 		E11884B92EF7A164009C6FA6 /* dyld_bypass_validation.h in Headers */ = {isa = PBXBuildFile; fileRef = E11884B82EF7A15F009C6FA6 /* dyld_bypass_validation.h */; };
+ 		E1292AF32DCA3A660065E12D /* LiveProcess.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = E1292AE52DCA3A660065E12D /* LiveProcess.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+ 		E1292BEC2DCA3B670065E12D /* LiveContainerShared.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = E1292BD62DCA3B660065E12D /* LiveContainerShared.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
+@@ -340,6 +341,7 @@
+ 			isa = PBXFrameworksBuildPhase;
+ 			buildActionMask = 2147483647;
+ 			files = (
++				CA27C0DE2F5C000000000003 /* SMBClient in Frameworks */,
+ 				E1946AD83041BFF8005CBEDD /* IOKit.framework in Frameworks */,
+ 				E16D95752E1CD2B90068EB63 /* LiveContainerShared.framework in Frameworks */,
+ 				174140D62D9C176F00F3F928 /* libarchive.tbd in Frameworks */,
+@@ -573,6 +575,7 @@
+ 			);
+ 			name = LiveContainerSwiftUI;
+ 			packageProductDependencies = (
++				CA27C0DE2F5C000000000002 /* SMBClient */,
+ 			);
+ 			productName = LiveContainerSwiftUI;
+ 			productReference = 17413FB52D9C0BAE00F3F928 /* LiveContainerSwiftUI.framework */;
+@@ -852,6 +855,7 @@
+ 			);
+ 			mainGroup = 17DCE9942C7067EC00731D42;
+ 			packageReferences = (
++				CA27C0DE2F5C000000000001 /* XCLocalSwiftPackageReference "Packages/SMBClient" */,
+ 			);
+ 			preferredProjectObjectVersion = 56;
+ 			productRefGroup = 17DCE99E2C7067EC00731D42 /* Products */;
+@@ -2066,6 +2070,21 @@
+ 			defaultConfigurationName = Release;
+ 		};
+ /* End XCConfigurationList section */
++
++/* Begin XCLocalSwiftPackageReference section */
++		CA27C0DE2F5C000000000001 /* XCLocalSwiftPackageReference "Packages/SMBClient" */ = {
++			isa = XCLocalSwiftPackageReference;
++			relativePath = Packages/SMBClient;
++		};
++/* End XCLocalSwiftPackageReference section */
++
++/* Begin XCSwiftPackageProductDependency section */
++		CA27C0DE2F5C000000000002 /* SMBClient */ = {
++			isa = XCSwiftPackageProductDependency;
++			package = CA27C0DE2F5C000000000001 /* XCLocalSwiftPackageReference "Packages/SMBClient" */;
++			productName = SMBClient;
++		};
++/* End XCSwiftPackageProductDependency section */
+ 	};
+ 	rootObject = 17DCE9952C7067EC00731D42 /* Project object */;
+ }
+-- 
+2.43.0
+

@@ -3,8 +3,9 @@
 //  Cartouche
 //
 //  What Cartouche is doing with a game (CartoucheGameActions), over the
-//  console: installing the player's copy, starting a game or uninstalling
-//  one, and how far it has gone.
+//  console: installing the player's copy, from Files or from the player's
+//  games folder, starting a game, uninstalling one or copying it to the
+//  games folder, and how far it has gone.
 //
 
 import SwiftUI
@@ -12,7 +13,7 @@ import SwiftUI
 /// A step Cartouche takes with a game, and how far it has gone.
 struct CartoucheGameWork: Equatable {
     enum Kind: Equatable {
-        case installing, starting, uninstalling
+        case installing, starting, uninstalling, exporting
     }
 
     var kind: Kind
@@ -40,6 +41,7 @@ struct CartoucheGameWorkView: View {
         case .installing: return CartoucheText.installTitle(work.name)
         case .starting: return CartoucheText.startTitle(work.name)
         case .uninstalling: return CartoucheText.uninstallTitle(work.name)
+        case .exporting: return CartoucheText.exportTitle(work.name)
         }
     }
 
@@ -48,6 +50,7 @@ struct CartoucheGameWorkView: View {
         case .installing: return "square.and.arrow.down.fill"
         case .starting: return "play.fill"
         case .uninstalling: return "trash.fill"
+        case .exporting: return "externaldrive.fill.badge.plus"
         }
     }
 

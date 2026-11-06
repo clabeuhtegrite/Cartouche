@@ -8,8 +8,13 @@
 //  LCAppModel.runApp, the container's Preferences page,
 //  LCAppBannerViewController.uninstall), without its questions:
 //
+//  - an IPA comes from the Files picker, read in place, or from the player's
+//    games folder (CartoucheStoredGames), unpacked as it arrives, so that
+//    the iPhone never holds the IPA and the game at once;
 //  - the IPA of a game already installed replaces it in place, with its
 //    settings and saves, as LiveContainer's Replace does;
+//  - an installed game can be copied to the games folder as an IPA, before
+//    it is uninstalled for one;
 //  - an uninstalled game leaves its data folder, saves inside, unless the
 //    player erases them too, and the game's next install takes it back;
 //  - Play starts the game at once. nxnative shows its settings screen
@@ -81,13 +86,12 @@ final class CartoucheGameActions: ObservableObject {
         UIApplication.shared.isIdleTimerDisabled = true
         Task {
             do {
-                let (app, warning) = try await installIPA(url, into: model)
-                installed = app
-                if let warning {
-                    notice = CartoucheGameNotice(title: CartoucheText.installSignWarning, message: warning)
-                } else if CartoucheCatalog.shared.entries(for: [app]).owned.isEmpty {
-                    notice = CartoucheGameNotice(title: CartoucheText.installDone, message: CartoucheText.installNotAGame(app.displayName))
+                let (app, warning) = try await installUnpacked(into: model) { folder, progress in
+                    guard await Self.unpack(url.path, into: folder.path, progress) == 0 else {
+                        throw "lc.appList.urlFileIsNotIpaError".loc
+                    }
                 }
+                finishInstall(app, warning: warning)
             } catch {
                 notice = CartoucheGameNotice(title: CartoucheText.installFailed, message: error.localizedDescription)
             }
@@ -99,7 +103,59 @@ final class CartoucheGameActions: ObservableObject {
         }
     }
 
-    private func installIPA(_ url: URL, into model: SharedModel) async throws -> (LCAppModel, String?) {
+    /// Installs a game from the player's games folder, read where it sits:
+    /// each file is unpacked as it arrives, so that the iPhone needs room for
+    /// the game only, not for its IPA too.
+    func install(stored game: CartoucheStoredGame) {
+        guard work == nil, let location = CartoucheStorageSettings.shared.location(.games) else { return }
+        let model = DataManager.shared.model
+        guard model.multiLCStatus != 2 else {
+            notice = CartoucheGameNotice(title: CartoucheText.installFailed, message: "lc.appList.manageInPrimaryTip".loc)
+            return
+        }
+        work = CartoucheGameWork(kind: .installing, name: game.name,
+                                 step: CartoucheText.installFromStorageStep(location.server.name), fraction: nil)
+        UIApplication.shared.isIdleTimerDisabled = true
+        Task {
+            var remote: CartoucheRemote?
+            do {
+                let connected = try await CartoucheStorage.connect(location.server)
+                remote = connected
+                let source = try await connected.open(game.path)
+                let entries = try await CartoucheZip.entries(of: source)
+                let needed = Int64(clamping: entries.reduce(UInt64(0)) { $0 + $1.size }) + 512 * 1_048_576
+                if let free = Self.freeSpace(), free < needed {
+                    throw CartoucheStorageError(CartoucheText.installFromStorageNoSpace(
+                        needed: CartoucheText.storageAmount(bytes: needed), free: CartoucheText.storageAmount(bytes: free)))
+                }
+                work?.fraction = 0
+                let (app, warning) = try await installUnpacked(into: model) { folder, progress in
+                    try await CartoucheZip.extract(source, entries: entries, into: folder, progress: progress)
+                }
+                finishInstall(app, warning: warning)
+            } catch {
+                notice = CartoucheGameNotice(title: CartoucheText.installFailed, message: error.localizedDescription)
+            }
+            await remote?.disconnect()
+            progressObservation = nil
+            UIApplication.shared.isIdleTimerDisabled = false
+            work = nil
+        }
+    }
+
+    private func finishInstall(_ app: LCAppModel, warning: String?) {
+        installed = app
+        if let warning {
+            notice = CartoucheGameNotice(title: CartoucheText.installSignWarning, message: warning)
+        } else if CartoucheCatalog.shared.entries(for: [app]).owned.isEmpty {
+            notice = CartoucheGameNotice(title: CartoucheText.installDone, message: CartoucheText.installNotAGame(app.displayName))
+        }
+    }
+
+    /// Unpacks an IPA with UNPACK into a folder of Cartouche's, then installs
+    /// the app it holds.
+    private func installUnpacked(into model: SharedModel,
+                                 unpack: (URL, Progress) async throws -> Void) async throws -> (LCAppModel, String?) {
         let fileManager = FileManager.default
         let progress = Progress.discreteProgress(totalUnitCount: 100)
         let relay = CartoucheProgressRelay()
@@ -120,9 +176,7 @@ final class CartoucheGameActions: ObservableObject {
 
         let unpacking = Progress.discreteProgress(totalUnitCount: 100)
         progress.addChild(unpacking, withPendingUnitCount: 80)
-        guard await Self.unpack(url.path, into: folder.path, unpacking) == 0 else {
-            throw "lc.appList.urlFileIsNotIpaError".loc
-        }
+        try await unpack(folder, unpacking)
         let payload = folder.appendingPathComponent("Payload", isDirectory: true)
         guard let bundleName = try fileManager.contentsOfDirectory(atPath: payload.path).first(where: { $0.hasSuffix(".app") }) else {
             throw "lc.appList.bundleNotFondError".loc
@@ -191,7 +245,8 @@ final class CartoucheGameActions: ObservableObject {
         }
         info.installationDate = Date.now
 
-        let app = LCAppModel(appInfo: info, delegate: previous?.delegate ?? model.apps.lazy.compactMap(\.delegate).first)
+        // No delegate: Play gives runApp Cartouche's own while the game starts.
+        let app = LCAppModel(appInfo: info)
         if let previous {
             model.apps.removeAll { $0 == previous }
         } else if let schemes = info.urlSchemes(), schemes.count > 0 {
@@ -268,6 +323,140 @@ final class CartoucheGameActions: ObservableObject {
         }
     }
 
+    // MARK: Copy to the games folder
+
+    /// Copies the game, as Cartouche installed it, to the player's games
+    /// folder as an IPA, "<game> [<title ID>].ipa", which the library lists
+    /// and Cartouche installs again. What LiveContainer added for this
+    /// iPhone stays out: its record of the install, the signature and the
+    /// provisioning profile, which names the iPhone; the next install signs
+    /// the game again. THEN runs once the copy is in place.
+    func export(_ app: LCAppModel, titleId: String?, then next: (() -> Void)? = nil) {
+        guard work == nil, let bundlePath = app.appInfo.bundlePath(),
+              let location = CartoucheStorageSettings.shared.location(.games) else { return }
+        let bundle = URL(fileURLWithPath: bundlePath, isDirectory: true)
+        let name = CartoucheStoredGame.fileName(game: app.displayName, titleId: titleId)
+        let path = CartoucheStoragePath.join(location.path, name)
+        work = CartoucheGameWork(kind: .exporting, name: app.displayName,
+                                 step: CartoucheText.exportStep(location.server.name), fraction: 0)
+        UIApplication.shared.isIdleTimerDisabled = true
+        Task {
+            var remote: CartoucheRemote?
+            var copied = false
+            do {
+                let connected = try await CartoucheStorage.connect(location.server)
+                remote = connected
+                let items = try await Self.exportedItems(of: bundle)
+                let total = items.reduce(UInt64(0)) { $0 + $1.size }
+                if let free = try? await connected.freeSpace(), free < total + 64 << 20 {
+                    throw CartoucheStorageError(CartoucheText.exportNoSpace(
+                        needed: CartoucheText.storageAmount(bytes: Int64(clamping: total)),
+                        server: location.server.name,
+                        free: CartoucheText.storageAmount(bytes: Int64(clamping: free))))
+                }
+                let upload = try await connected.create(path, size: nil)
+                do {
+                    try await Self.writeIPA(items, to: upload, total: total)
+                    try await upload.finish()
+                } catch {
+                    await upload.cancel()
+                    throw error
+                }
+                copied = true
+            } catch {
+                notice = CartoucheGameNotice(title: CartoucheText.exportFailed, message: error.localizedDescription)
+            }
+            await remote?.disconnect()
+            UIApplication.shared.isIdleTimerDisabled = false
+            work = nil
+            if copied {
+                await CartoucheStoredGames.shared.reload()
+                next?()
+            }
+        }
+    }
+
+    /// What LiveContainer writes into a bundle for this iPhone: left out of
+    /// a copy.
+    nonisolated static func isLeftOut(_ relativePath: String) -> Bool {
+        let parts = relativePath.split(separator: "/")
+        guard let last = parts.last else { return false }
+        if parts.contains("_CodeSignature") { return true }
+        if parts.count == 1, last == "LCAppInfo.plist" || last == "embedded.mobileprovision" { return true }
+        return last.hasSuffix("_LiveContainerPatchBackUp")
+    }
+
+    /// The bundle's folders, files and links under Payload/<bundle>/, in a
+    /// steady order, without what isLeftOut names. Links stay links.
+    nonisolated static func exportedItems(of bundle: URL) async throws -> [CartoucheExportedItem] {
+        let top = "Payload/" + bundle.lastPathComponent
+        guard let root = status(of: bundle), root.type == S_IFDIR,
+              let walker = FileManager.default.enumerator(atPath: bundle.path) else {
+            throw CartoucheStorageError(CartoucheText.exportUnreadable)
+        }
+        var items = [CartoucheExportedItem(name: top + "/", url: bundle, kind: .folder, size: 0, mode: root.mode, date: root.date)]
+        while let relative = walker.nextObject() as? String {
+            try Task.checkCancellation()
+            if isLeftOut(relative) {
+                walker.skipDescendants()
+                continue
+            }
+            let url = bundle.appendingPathComponent(relative)
+            guard let found = status(of: url) else { throw CartoucheStorageError(CartoucheText.exportUnreadable) }
+            let name = top + "/" + relative
+            switch found.type {
+            case S_IFDIR:
+                items.append(CartoucheExportedItem(name: name + "/", url: url, kind: .folder, size: 0, mode: found.mode, date: found.date))
+            case S_IFLNK:
+                items.append(CartoucheExportedItem(name: name, url: url, kind: .link, size: 0, mode: found.mode, date: found.date))
+            case S_IFREG:
+                items.append(CartoucheExportedItem(name: name, url: url, kind: .file, size: found.size, mode: found.mode, date: found.date))
+            default:
+                continue
+            }
+        }
+        return items.sorted { $0.name < $1.name }
+    }
+
+    /// The type, permissions, size and date of the item at URL itself, a
+    /// link's own and not its target's.
+    nonisolated private static func status(of url: URL) -> (type: mode_t, mode: UInt32, size: UInt64, date: Date)? {
+        var info = stat()
+        guard lstat(url.path, &info) == 0 else { return nil }
+        let date = Date(timeIntervalSince1970: TimeInterval(info.st_mtimespec.tv_sec))
+        return (info.st_mode & S_IFMT, UInt32(info.st_mode & 0o7777), UInt64(max(info.st_size, 0)), date)
+    }
+
+    /// Writes ITEMS to UPLOAD as a zip, off the main thread, and shows how
+    /// far it is.
+    nonisolated private static func writeIPA(_ items: [CartoucheExportedItem], to upload: CartoucheRemoteUpload,
+                                             total: UInt64) async throws {
+        let writer = CartoucheZipWriter(sink: upload)
+        let relay = CartoucheProgressRelay()
+        var done: UInt64 = 0
+        let report: (UInt64) -> Void = { added in
+            done += added
+            let fraction = total == 0 ? 1 : Double(done) / Double(total)
+            guard relay.changed(fraction) else { return }
+            Task { @MainActor in
+                CartoucheGameActions.shared.work?.fraction = fraction
+            }
+        }
+        for item in items {
+            try Task.checkCancellation()
+            switch item.kind {
+            case .folder:
+                try await writer.addFolder(item.name, mode: item.mode, date: item.date)
+            case .link:
+                let target = try FileManager.default.destinationOfSymbolicLink(atPath: item.url.path)
+                try await writer.addSymlink(item.name, target: target, date: item.date)
+            case .file:
+                try await writer.addFile(item.name, from: item.url, mode: item.mode, date: item.date, after: report)
+            }
+        }
+        try await writer.finish()
+    }
+
     // MARK: Play
 
     /// Starts the game, signed for this iPhone first if it needs to be.
@@ -289,6 +478,13 @@ final class CartoucheGameActions: ObservableObject {
         Task {
             let delegate = app.delegate
             do {
+                // Starting the game closes Cartouche: the copies of saves
+                // under way finish first.
+                if CartoucheSaveBackups.shared.isCopying {
+                    work?.step = CartoucheText.savesFinishing
+                    await CartoucheSaveBackups.shared.finish()
+                    work?.step = showingSettings ? CartoucheText.startSettings : CartoucheText.startSoon
+                }
                 try Self.prepareStart(of: app, showingSettings: showingSettings)
                 // The questions runApp may ask come to Cartouche.
                 app.delegate = self
@@ -342,6 +538,28 @@ final class CartoucheGameActions: ObservableObject {
                        isDirectory: true)
         }
         return container.containerURL
+    }
+
+    // MARK: Saves
+
+    /// Where the game keeps its saves: the Documents of the data folder it
+    /// starts with. Nil for an app that is not an nxnative game, or a game
+    /// that never started.
+    func saves(of app: LCAppModel) -> CartoucheSaveTarget? {
+        let catalog = CartoucheCatalog.shared
+        guard let found = catalog.gameTitle(of: app), let bundleId = app.appInfo.bundleIdentifier(),
+              let container = app.uiSelectedContainer ?? app.uiContainers.first else { return nil }
+        let titleId = found.isEmpty ? catalog.titleId(matchingName: app.displayName) : found
+        return CartoucheSaveTarget(key: bundleId + "|" + container.folderName, name: app.displayName, titleId: titleId,
+                                   documents: container.containerURL.appendingPathComponent("Documents", isDirectory: true))
+    }
+
+    /// Copies the saves of the nxnative games among APPS that changed since
+    /// their last copy, if the player chose a saves folder.
+    func copySaves(of apps: [LCAppModel]) {
+        let backups = CartoucheSaveBackups.shared
+        guard backups.isOn, work == nil else { return }
+        backups.copyChanged(apps.compactMap { saves(of: $0) })
     }
 
     // MARK: Settings
@@ -432,6 +650,20 @@ extension CartoucheGameActions: LCAppModelDelegate {
     /// An app runs in a window of its own: the player pressed Play, so it
     /// closes, as the Apps tab's Continue does.
     nonisolated func showRunWhenMultitaskAlert() async -> Bool? { true }
+}
+
+/// A folder, file or link of an installed game's bundle, as it goes into the
+/// IPA Cartouche copies to the games folder.
+struct CartoucheExportedItem: Hashable {
+    enum Kind: Hashable { case folder, file, link }
+
+    /// Its path in the IPA; a folder's ends with "/".
+    let name: String
+    let url: URL
+    let kind: Kind
+    let size: UInt64
+    let mode: UInt32
+    let date: Date
 }
 
 /// nxnative's switch for its settings screen, in a game's Documents/env.txt

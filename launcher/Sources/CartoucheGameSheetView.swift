@@ -6,7 +6,8 @@
 //  the game needs against what this iPhone has, the settings testers
 //  recommend, and their results. Its main action is Play for the player's
 //  own copy, with Game settings (the game's settings page) and Uninstall
-//  under it, or Import my copy.
+//  under it, and the copies of its saves; Install from the player's games
+//  folder for a copy there; or Import my copy.
 //
 
 import SwiftUI
@@ -23,6 +24,10 @@ struct CartoucheGameSheetView: View {
     let onImport: () -> Void
     /// Asks whether to uninstall the game, and whether its saves stay.
     let onUninstall: (LCAppModel) -> Void
+    /// Installs the game's IPA from the player's games folder.
+    var onInstallStored: (CartoucheStoredGame) -> Void = { _ in }
+    /// Copies the installed game to the player's games folder.
+    var onExport: (LCAppModel) -> Void = { _ in }
 
     private var fit: CartoucheFit? {
         entry.sheet.map { CartoucheFit.of($0, memory: memory) }
@@ -62,6 +67,10 @@ struct CartoucheGameSheetView: View {
                     Text(CartoucheText.noSheetMessage)
                         .foregroundStyle(.secondary)
                 }
+            }
+
+            if let app = entry.app, let saves = CartoucheGameActions.shared.saves(of: app) {
+                CartoucheSavesSection(target: saves)
             }
 
             if let game = entry.game {
@@ -124,6 +133,24 @@ struct CartoucheGameSheetView: View {
                     .cartoucheSecondaryButton()
                 }
                 .controlSize(.regular)
+                storedCopy(of: app)
+            } else if let stored = entry.stored {
+                Button {
+                    onInstallStored(stored)
+                } label: {
+                    Label(CartoucheText.installFrom(CartoucheStoredGames.shared.serverName ?? ""), systemImage: "arrow.down.circle.fill")
+                        .font(.headline)
+                        .frame(maxWidth: .infinity, minHeight: 30)
+                }
+                .controlSize(.large)
+                .cartouchePrimaryButton()
+                Button(action: onImport) {
+                    Label(CartoucheText.importOtherCopy, systemImage: "square.and.arrow.down")
+                        .font(.subheadline.weight(.semibold))
+                        .frame(maxWidth: .infinity, minHeight: 26)
+                }
+                .controlSize(.regular)
+                .cartoucheSecondaryButton()
             } else {
                 Button(action: onImport) {
                     Label(CartoucheText.importCopy, systemImage: "square.and.arrow.down")
@@ -137,14 +164,39 @@ struct CartoucheGameSheetView: View {
         .padding(.vertical, 8)
     }
 
+    /// The installed game's IPA in the player's games folder: where it is,
+    /// or the button that copies it there.
+    @ViewBuilder
+    private func storedCopy(of app: LCAppModel) -> some View {
+        if let stored = entry.stored {
+            Label(CartoucheText.storedIn(CartoucheStoredGames.shared.serverName ?? "", stored.fileName),
+                  systemImage: "externaldrive.fill")
+                .font(.footnote)
+                .foregroundStyle(CartoucheTheme.secondaryText)
+                .lineLimit(2)
+        } else if let server = CartoucheStorageSettings.shared.location(.games)?.server {
+            Button {
+                onExport(app)
+            } label: {
+                Label(CartoucheText.exportTo(server.name), systemImage: "externaldrive.fill.badge.plus")
+                    .font(.subheadline.weight(.semibold))
+                    .frame(maxWidth: .infinity, minHeight: 26)
+            }
+            .controlSize(.regular)
+            .cartoucheSecondaryButton()
+        }
+    }
+
     /// What nxnative's profile says about the game.
     private func nxnative(_ game: CartoucheNxGame) -> some View {
-        let status = CartouchePlayStatus.of(entry)
+        // The player's copy says nothing of where nxnative plays the game.
+        var status = CartouchePlayStatus.of(entry)
+        if status == .ready || status == .stored { status = .iphone }
         return Section(CartoucheText.sheetNxnative) {
             Label {
                 Text(status.long)
             } icon: {
-                Image(systemName: status == .ready ? CartouchePlayStatus.iphone.symbol : status.symbol)
+                Image(systemName: status.symbol)
                     .foregroundStyle(status.color)
             }
             LabeledContent(CartoucheText.sheetEngine, value: game.engine)
