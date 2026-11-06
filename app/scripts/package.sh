@@ -13,7 +13,7 @@
 # usage: package.sh --archive LiveContainer.xcarchive --sidestore SideStore.ipa
 #                   --dylibify PATH --resources DIR --catalog DIR --bundle-id ID
 #                   --name NAME --url-scheme SCHEME --version X.Y.Z
-#                   --commit SHA [--python DIR] --out OUT.ipa
+#                   --source-url URL --commit SHA [--python DIR] --out OUT.ipa
 set -euo pipefail
 
 while [ $# -gt 0 ]; do
@@ -27,6 +27,7 @@ while [ $# -gt 0 ]; do
     --name) NAME="$2" ;;
     --url-scheme) URL_SCHEME="$2" ;;
     --version) VERSION="$2" ;;       # Cartouche's version, from app/config.env
+    --source-url) SOURCE_URL="$2" ;; # the source of Cartouche's updates, from app/config.env
     --commit) COMMIT="$2" ;;         # the commit it is built from
     --python) PYTHON_RUNTIME="$2" ;; # engine/spikes/s2/build_ios_runtime.sh's output
     --out) OUT_IPA="$2" ;;
@@ -34,11 +35,12 @@ while [ $# -gt 0 ]; do
   esac
   shift 2
 done
-: "${ARCHIVE:?} ${SIDESTORE_IPA:?} ${DYLIBIFY:?} ${RESOURCES:?} ${CATALOG:?} ${BUNDLE_ID:?} ${NAME:?} ${URL_SCHEME:?} ${VERSION:?} ${COMMIT:?} ${OUT_IPA:?}"
+: "${ARCHIVE:?} ${SIDESTORE_IPA:?} ${DYLIBIFY:?} ${RESOURCES:?} ${CATALOG:?} ${BUNDLE_ID:?} ${NAME:?} ${URL_SCHEME:?} ${VERSION:?} ${SOURCE_URL:?} ${COMMIT:?} ${OUT_IPA:?}"
 # LiveContainer+SideStore's: iloader gives it, with the team identifier, to
 # any app that carries a com.SideStore.SideStore framework.
 APP_GROUP="group.com.SideStore.SideStore"
 [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "version must be major.minor.patch: $VERSION" >&2; exit 2; }
+[[ "$SOURCE_URL" =~ ^https://[^[:space:]]+$ ]] || { echo "the source URL must be an https address: $SOURCE_URL" >&2; exit 2; }
 
 STAGE="$(mktemp -d)"
 trap 'rm -rf "$STAGE"' EXIT
@@ -91,8 +93,9 @@ for LPROJ in "$APP"/*.lproj; do
 done
 echo "named $NAME in $LOCALIZATIONS localizations, LiveContainer for iloader"
 
-# Cartouche's own version in place of LiveContainer's: the built-in SideStore
-# offers an update when its source lists a higher version than this one.
+# Cartouche's own version in place of LiveContainer's: Cartouche offers an
+# update, which the built-in SideStore installs, when its source lists a
+# higher version than this one.
 # LiveContainer's version, and SideStore's below, stay readable in the System
 # tab, and LiveContainer's own version line ends with the commit.
 LC_VERSION="$($PB -c 'Print :CFBundleShortVersionString' "$APP/Info.plist")"
@@ -105,6 +108,10 @@ $PB -c "Add :LCVersionInfo string $COMMIT" "$APP/Info.plist"
 # built-in SideStore names its keychain service after it, and the launcher
 # reads SideStore's certificate there (launcher/Sources/CartoucheSetup.swift).
 $PB -c "Add :CartoucheBundleIdentifier string $BUNDLE_ID" "$APP/Info.plist"
+# The source the built-in SideStore reads, which the launcher reads too, to
+# offer Cartouche's updates over its console and on the System page
+# (launcher/Sources/CartoucheUpdates.swift).
+$PB -c "Add :CartoucheSourceURL string $SOURCE_URL" "$APP/Info.plist"
 
 # The built-in SideStore's app group, URL schemes and intents.
 # Never the plain "sidestore" scheme: a SideStore or LiveContainer+SideStore on
