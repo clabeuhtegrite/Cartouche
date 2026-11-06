@@ -8,11 +8,11 @@ Cartouche is a launcher and a set of build tools. It is not affiliated with, end
 - console keys (`prod.keys`, `title.keys`) or firmware;
 - links to places that offer any of the above.
 
-The app has no catalogue of downloadable games and no way to download one. The update server publishes only the app, engine builds made from nxnative's source, build tools, compatibility sheets and pipeline lists, and the tools in [`server/`](server/) refuse to publish a file that looks like game content.
+The app has no catalogue of downloadable games and no way to download one: it installs only the player's own copies, from their files or from storage of their own that they sign in to with their own account, never from an address, a link or a public bucket. The update server publishes only the app, engine builds made from nxnative's source, build tools, compatibility sheets and pipeline lists, and the tools in [`server/`](server/) refuse to publish a file that looks like game content.
 
 ## Your games
 
-Use only games you own, dumped from your own console with your own keys, as the law of your country allows. Your games stay on your device: Cartouche builds and installs them on your iPhone and sends nothing about them anywhere, apart from the anonymous reports you choose to send.
+Use only games you own, dumped from your own console with your own keys, as the law of your country allows. Your games stay yours: Cartouche builds and installs them on your iPhone, copies them and your saves only to the storage you set up yourself, and sends nothing about them anywhere else, apart from the anonymous reports you choose to send.
 
 ## Issues and pull requests
 

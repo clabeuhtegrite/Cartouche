@@ -169,7 +169,6 @@ LIVECONTAINER_RULES = (
             "LiveContainerSwiftUI/Utilities/LCUtils.m",
             "LiveContainerSwiftUI/Utilities/LCUtilsExtensions.swift",
             "LiveContainerSwiftUI/Views/AppList/LCAppListView.swift",
-            "LiveContainerSwiftUI/Views/LCTabView.swift",
             "LiveContainerSwiftUI/Views/Settings/LCSettingsView.swift",
             "ShareExtension/main.m",
             "TweakLoader/UIKit+GuestHooks.m",

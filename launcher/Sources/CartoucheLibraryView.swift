@@ -47,7 +47,9 @@ struct CartoucheLibraryView: View {
             case .all: return true
             case .owned: return entry.isOwned
             case .iphone: return entry.playsOnIPhone
-            case .mac: return entry.game?.status == "mac"
+            // A game nxnative plays on the iPhone it plays on the Mac too, its
+            // first platform (catalog/schema/nxnative.schema.json, status).
+            case .mac: return entry.game?.status == "mac" || entry.game?.status == "iphone"
             case .bringup: return entry.game?.status == "bringup"
             case .switch2: return entry.platform == "switch2"
             }
@@ -194,8 +196,7 @@ struct CartoucheLibraryView: View {
                 } label: {
                     VStack(alignment: .leading, spacing: 8) {
                         CartoucheGameCartridge(entry: entry, width: layout.tile,
-                                               isFocused: gamepad.isConnected && focusIndex == index,
-                                               namesOwned: true)
+                                               isFocused: gamepad.isConnected && focusIndex == index)
                             .cartoucheZoomSource(entry.id, in: zoom)
                         CartoucheStatusLabel(status: CartouchePlayStatus.of(entry))
                             .padding(.horizontal, 2)

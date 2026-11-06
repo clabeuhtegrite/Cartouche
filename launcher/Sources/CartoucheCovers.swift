@@ -97,8 +97,8 @@ actor CartoucheCoverStore {
     var pending: Int { loading.count }
 }
 
-/// One of IGDB's images, filling its frame, over PLACEHOLDER until it has
-/// loaded or when there is none.
+/// One of IGDB's images, filling its frame or whole in it, over
+/// PLACEHOLDER until it has loaded or when there is none.
 @available(iOS 17.0, *)
 struct CartoucheCoverImage<Placeholder: View>: View {
     let id: String?
@@ -107,6 +107,9 @@ struct CartoucheCoverImage<Placeholder: View>: View {
     /// top shows) to 1 (its bottom shows). A cover's title is in its upper
     /// part, and its bottom often holds a rating.
     var anchor: CGFloat = 0.35
+    /// The whole image, as large as its frame allows, over a blurred copy of
+    /// itself that fills the rest: a cover is never cut.
+    var whole = false
     @ViewBuilder let placeholder: () -> Placeholder
     @State private var image: UIImage?
 
@@ -115,7 +118,7 @@ struct CartoucheCoverImage<Placeholder: View>: View {
             ZStack {
                 placeholder()
                 if let image {
-                    fitted(image, in: frame.size)
+                    shown(image, in: frame.size)
                         .transition(.opacity)
                 }
             }
@@ -132,8 +135,25 @@ struct CartoucheCoverImage<Placeholder: View>: View {
         }
     }
 
+    @ViewBuilder
+    private func shown(_ image: UIImage, in size: CGSize) -> some View {
+        if whole {
+            ZStack {
+                filling(image, in: size)
+                    .blur(radius: max(size.width, size.height) * 0.05, opaque: true)
+                    .overlay(Color.black.opacity(0.22))
+                Image(uiImage: image)
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: size.width, height: size.height)
+            }
+        } else {
+            filling(image, in: size)
+        }
+    }
+
     /// IMAGE filling SIZE, cut at its sides or at its top and bottom.
-    private func fitted(_ image: UIImage, in size: CGSize) -> some View {
+    private func filling(_ image: UIImage, in size: CGSize) -> some View {
         let aspect = image.size.height > 0 ? image.size.width / image.size.height : 1
         let wide = size.height > 0 && aspect > size.width / size.height
         let width = wide ? size.height * aspect : size.width

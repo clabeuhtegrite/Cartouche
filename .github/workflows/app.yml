@@ -74,6 +74,10 @@ jobs:
           xcodebuild -version
       - name: Install ldid
         run: brew install ldid
+      # The launcher's parts that need neither LiveContainer nor UIKit
+      # (launcher/Package.swift), with their tests, before the app.
+      - name: Launcher tests
+        run: swift test --package-path launcher
       - name: Build
         run: app/scripts/build.sh
       - name: Upload the unsigned IPA

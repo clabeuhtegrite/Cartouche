@@ -52,6 +52,23 @@
         }
       }
     },
+    "action.exportTo" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Copy to %@"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Copier vers %@"
+          }
+        }
+      }
+    },
     "action.gameSettings" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -86,6 +103,40 @@
         }
       }
     },
+    "action.importOther" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Import another copy"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Importer une autre copie"
+          }
+        }
+      }
+    },
+    "action.installFrom" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Install from %@"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Installer depuis %@"
+          }
+        }
+      }
+    },
     "action.play" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -116,6 +167,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Désinstaller"
+          }
+        }
+      }
+    },
+    "app.needsIOS17" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cartouche needs iOS 17 or later."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cartouche nécessite iOS 17 ou une version ultérieure."
           }
         }
       }
@@ -228,30 +296,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Each renewal shows in the System tab as the last renewal, and gives Cartouche seven more days."
+            "value" : "Each renewal shows on the System page as the last renewal, and gives Cartouche seven more days."
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Chaque renouvellement s’affiche dans l’onglet Système comme dernier renouvellement, et donne sept jours de plus à Cartouche."
-          }
-        }
-      }
-    },
-    "dock.apps" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Apps"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Apps"
+            "value" : "Chaque renouvellement s’affiche sur la page Système comme dernier renouvellement, et donne sept jours de plus à Cartouche."
           }
         }
       }
@@ -269,23 +320,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Importer"
-          }
-        }
-      }
-    },
-    "dock.settings" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Settings"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Réglages"
           }
         }
       }
@@ -1697,6 +1731,227 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Jouable avec des défauts"
+          }
+        }
+      }
+    },
+    "saves.copyNow" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Copy to %@ now"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Copier vers %@ maintenant"
+          }
+        }
+      }
+    },
+    "saves.footer" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "After each game, Cartouche copies these saves to your saves folder and keeps the %lld newest copies."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Après chaque partie, Cartouche copie ces sauvegardes dans votre dossier des sauvegardes et garde les %lld copies les plus récentes."
+          }
+        }
+      }
+    },
+    "saves.lastCopy" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Last copy"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dernière copie"
+          }
+        }
+      }
+    },
+    "saves.noCopy" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "None yet"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aucune pour l’instant"
+          }
+        }
+      }
+    },
+    "saves.noFolder" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Choose a saves folder in System › Storage: Cartouche will copy this game’s saves there after each game."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Choisissez un dossier des sauvegardes dans Système › Stockage : Cartouche y copiera les sauvegardes de ce jeu après chaque partie."
+          }
+        }
+      }
+    },
+    "saves.putBack" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Put back a copy"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Remettre une copie"
+          }
+        }
+      }
+    },
+    "saves.putBack.action" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Put back the copy of %@"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Remettre la copie du %@"
+          }
+        }
+      }
+    },
+    "saves.putBack.done" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The copy of %@ is back in place."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "La copie du %@ est remise en place."
+          }
+        }
+      }
+    },
+    "saves.putBack.footer" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Putting back a copy replaces this game’s saves on this iPhone. Cartouche copies the current ones first."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Remettre une copie remplace les sauvegardes de ce jeu sur cet iPhone. Cartouche copie d’abord les actuelles."
+          }
+        }
+      }
+    },
+    "saves.putBack.message" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "It replaces the game’s saves on this iPhone. Cartouche copies them first, so you can come back to them."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Elle remplace les sauvegardes du jeu sur cet iPhone. Cartouche les copie d’abord : vous pourrez y revenir."
+          }
+        }
+      }
+    },
+    "saves.putBack.question" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Put back this copy?"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Remettre cette copie ?"
+          }
+        }
+      }
+    },
+    "saves.title" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Saves"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sauvegardes"
+          }
+        }
+      }
+    },
+    "saves.unreadable" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This copy cannot be read: it is incomplete, or holds more than a game’s saves."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cette copie est illisible : elle est incomplète, ou contient plus que les sauvegardes d’un jeu."
           }
         }
       }
@@ -3554,6 +3809,23 @@
         }
       }
     },
+    "sheet.storedIn" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A copy is in %1$@: %2$@"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Une copie est dans %1$@ : %2$@"
+          }
+        }
+      }
+    },
     "sheet.titleID" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -3611,13 +3883,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "nxnative plays it on the iPhone."
+            "value" : "nxnative plays it on the iPhone and the Mac."
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "nxnative le fait tourner sur iPhone."
+            "value" : "nxnative le fait tourner sur iPhone et sur Mac."
           }
         }
       }
@@ -3724,6 +3996,40 @@
         }
       }
     },
+    "status.stored.long" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Its IPA is in your games folder: install it to play it on this iPhone."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Son IPA est dans votre dossier des jeux : installez le jeu pour y jouer sur cet iPhone."
+          }
+        }
+      }
+    },
+    "status.stored.short" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "In storage"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "En stockage"
+          }
+        }
+      }
+    },
     "status.unknown.long" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -3788,6 +4094,720 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Pas encore essayé sur cet iPhone"
+          }
+        }
+      }
+    },
+    "storage.account" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Account"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Compte"
+          }
+        }
+      }
+    },
+    "storage.account.footer" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The account of your Mac, PC or NAS. Leave the user name empty to sign in as a guest."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Le compte de votre Mac, PC ou NAS. Laissez le nom d’utilisateur vide pour vous connecter en invité."
+          }
+        }
+      }
+    },
+    "storage.addFirst" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "First add a shared folder or a folder in Files, below."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ajoutez d’abord un dossier partagé ou un dossier de Fichiers, plus bas."
+          }
+        }
+      }
+    },
+    "storage.addFolder" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Add a folder in Files"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ajouter un dossier de Fichiers"
+          }
+        }
+      }
+    },
+    "storage.addSMB" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Add a shared folder (SMB)"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ajouter un dossier partagé (SMB)"
+          }
+        }
+      }
+    },
+    "storage.changeFolder" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Change folder"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Changer de dossier"
+          }
+        }
+      }
+    },
+    "storage.chooseFolder" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Choose a folder"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Choisir un dossier"
+          }
+        }
+      }
+    },
+    "storage.connect" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sign in and list the shared folders"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Se connecter et lister les dossiers partagés"
+          }
+        }
+      }
+    },
+    "storage.create" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Create"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Créer"
+          }
+        }
+      }
+    },
+    "storage.filesFolder" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Folder in Files"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dossier de Fichiers"
+          }
+        }
+      }
+    },
+    "storage.folderGone" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cartouche can no longer open this folder. Remove it, then add it again."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cartouche ne peut plus ouvrir ce dossier. Retirez-le, puis ajoutez-le à nouveau."
+          }
+        }
+      }
+    },
+    "storage.games" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Games folder"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dossier des jeux"
+          }
+        }
+      }
+    },
+    "storage.games.footer" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Your library lists the IPAs in this folder, and Cartouche installs them from there. Copy a game here before you uninstall it to keep it a tap away."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Votre bibliothèque liste les IPA de ce dossier, et Cartouche les installe depuis celui-ci. Copiez-y un jeu avant de le désinstaller pour le garder à portée de main."
+          }
+        }
+      }
+    },
+    "storage.games.found" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Games found"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Jeux trouvés"
+          }
+        }
+      }
+    },
+    "storage.guest" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "guest"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "invité"
+          }
+        }
+      }
+    },
+    "storage.host" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Address (name or IP)"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Adresse (nom ou IP)"
+          }
+        }
+      }
+    },
+    "storage.intro" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Keep your games and your saves on your own storage: a shared folder of your Mac, PC or NAS, or a folder in Files. The games there show in your library, ready to install again."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Gardez vos jeux et vos sauvegardes sur votre propre stockage : un dossier partagé de votre Mac, PC ou NAS, ou un dossier de Fichiers. Les jeux qui s’y trouvent apparaissent dans votre bibliothèque, prêts à être réinstallés."
+          }
+        }
+      }
+    },
+    "storage.name" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Name"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nom"
+          }
+        }
+      }
+    },
+    "storage.name.title" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Name in Cartouche"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nom dans Cartouche"
+          }
+        }
+      }
+    },
+    "storage.nearby" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "On this network"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sur ce réseau"
+          }
+        }
+      }
+    },
+    "storage.newFolder" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "New folder"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nouveau dossier"
+          }
+        }
+      }
+    },
+    "storage.noFolders" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No folder here."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aucun dossier ici."
+          }
+        }
+      }
+    },
+    "storage.noShares" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This account sees no shared folder there."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ce compte n’y voit aucun dossier partagé."
+          }
+        }
+      }
+    },
+    "storage.notAnApp" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This file is not an app’s IPA."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ce fichier n’est pas l’IPA d’une app."
+          }
+        }
+      }
+    },
+    "storage.notSet" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Not set up"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Non configuré"
+          }
+        }
+      }
+    },
+    "storage.password" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Password"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mot de passe"
+          }
+        }
+      }
+    },
+    "storage.password.kept" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Password (leave empty to keep it)"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mot de passe (laissez vide pour le garder)"
+          }
+        }
+      }
+    },
+    "storage.readAgain" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Read the folder again"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Relire le dossier"
+          }
+        }
+      }
+    },
+    "storage.remove" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Remove"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Retirer"
+          }
+        }
+      }
+    },
+    "storage.save" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Save"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Enregistrer"
+          }
+        }
+      }
+    },
+    "storage.saves" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Saves folder"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dossier des sauvegardes"
+          }
+        }
+      }
+    },
+    "storage.saves.footer" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "After each game, Cartouche copies the game’s saves here, in a folder per game, and keeps the %lld newest copies."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Après chaque partie, Cartouche copie ici les sauvegardes du jeu, dans un dossier par jeu, et garde les %lld copies les plus récentes."
+          }
+        }
+      }
+    },
+    "storage.servers" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Places"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Emplacements"
+          }
+        }
+      }
+    },
+    "storage.servers.footer" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Only storage of your own, with your own account: Cartouche keeps the password in this iPhone’s keychain."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Uniquement votre propre stockage, avec votre propre compte : Cartouche garde le mot de passe dans le trousseau de cet iPhone."
+          }
+        }
+      }
+    },
+    "storage.share" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Shared folder"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dossier partagé"
+          }
+        }
+      }
+    },
+    "storage.share.footer" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "On a Mac: System Settings › General › Sharing › File Sharing. On a PC: the folder’s Properties › Sharing."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sur un Mac : Réglages Système › Général › Partage › Partage de fichiers. Sur un PC : Propriétés du dossier › Partage."
+          }
+        }
+      }
+    },
+    "storage.signInFailed" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cartouche could not sign in to %1$@: %2$@"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cartouche n’a pas pu se connecter à %1$@ : %2$@"
+          }
+        }
+      }
+    },
+    "storage.stopUsing" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Stop using this folder"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ne plus utiliser ce dossier"
+          }
+        }
+      }
+    },
+    "storage.title" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Storage"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Stockage"
+          }
+        }
+      }
+    },
+    "storage.tooLarge" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ is larger than Cartouche expects."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ est plus gros que ce que Cartouche attend."
+          }
+        }
+      }
+    },
+    "storage.useThisFolder" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Use this folder"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Utiliser ce dossier"
+          }
+        }
+      }
+    },
+    "storage.user" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "User name"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nom d’utilisateur"
           }
         }
       }
@@ -4302,23 +5322,6 @@
         }
       }
     },
-    "system.signature.openSideStore" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Open SideStore"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Ouvrir SideStore"
-          }
-        }
-      }
-    },
     "system.signature.renew" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -4342,13 +5345,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "The built-in SideStore is not loaded. Open it to renew Cartouche."
+            "value" : "The built-in SideStore did not load. Close Cartouche, open it again, then renew."
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Le SideStore intégré n’est pas chargé. Ouvrez-le pour renouveler Cartouche."
+            "value" : "Le SideStore intégré ne s’est pas chargé. Fermez Cartouche, rouvrez-le, puis renouvelez."
           }
         }
       }
@@ -4455,6 +5458,23 @@
         }
       }
     },
+    "uninstall.copyFirst" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Copy to %@, then uninstall"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Copier vers %@, puis désinstaller"
+          }
+        }
+      }
+    },
     "uninstall.erase" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -4502,6 +5522,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Vos sauvegardes peuvent rester sur cet iPhone : le jeu les retrouve la prochaine fois que vous l’importez."
+          }
+        }
+      }
+    },
+    "uninstall.message.stored" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The game stays in %@, ready to install again. Your saves can stay on this iPhone: the game finds them again."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Le jeu reste dans %@, prêt à être réinstallé. Vos sauvegardes peuvent rester sur cet iPhone : le jeu les retrouvera."
           }
         }
       }
@@ -4648,13 +5685,98 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Renew it in the System tab, with LocalDevVPN connected."
+            "value" : "Renew it on the System page, with LocalDevVPN connected."
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Renouvelez-le dans l’onglet Système, avec LocalDevVPN connecté."
+            "value" : "Renouvelez-le depuis la page Système, avec LocalDevVPN connecté."
+          }
+        }
+      }
+    },
+    "work.export.failed" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The game was not copied"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Le jeu n’a pas été copié"
+          }
+        }
+      }
+    },
+    "work.export.noSpace" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The copy takes about %1$@, and %2$@ has %3$@ free. Free some space there, then copy the game again."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "La copie demande environ %1$@, et %2$@ en a %3$@ de libre. Libérez-y de la place, puis copiez le jeu à nouveau."
+          }
+        }
+      }
+    },
+    "work.export.step" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Copying it to %@. Keep Cartouche open: a large game takes several minutes."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Copie vers %@. Gardez Cartouche ouvert : un gros jeu prend plusieurs minutes."
+          }
+        }
+      }
+    },
+    "work.export.title" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Copying %@"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Copie de %@"
+          }
+        }
+      }
+    },
+    "work.export.unreadable" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cartouche could not read the installed game."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cartouche n’a pas pu lire le jeu installé."
           }
         }
       }
@@ -4744,6 +5866,40 @@
         }
       }
     },
+    "work.install.stored" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Unpacking it from %@ as it arrives. Keep Cartouche open: a large game takes several minutes."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cartouche le décompresse depuis %@, à mesure qu’il arrive. Gardez Cartouche ouvert : un gros jeu prend plusieurs minutes."
+          }
+        }
+      }
+    },
+    "work.install.stored.noSpace" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Installing this game takes about %1$@ of free space, and this iPhone has %2$@. Free some space, then install it again."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Installer ce jeu demande environ %1$@ d’espace libre, et cet iPhone en a %2$@. Libérez de la place, puis installez-le à nouveau."
+          }
+        }
+      }
+    },
     "work.install.title" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -4808,6 +5964,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Le jeu n’a pas démarré"
+          }
+        }
+      }
+    },
+    "work.start.saves" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cartouche first finishes copying your saves."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cartouche finit d’abord de copier vos sauvegardes."
           }
         }
       }

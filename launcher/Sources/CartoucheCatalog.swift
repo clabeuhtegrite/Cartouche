@@ -5,8 +5,9 @@
 //  The games Cartouche supports: every game nxnative has a profile for
 //  (nxnative.json, from nxnative's dm/games at the commit Cartouche pins),
 //  the compatibility sheets testers wrote for some of them, their official
-//  covers on IGDB (covers.json, image IDs only), and the player's own copies
-//  among LiveContainer's apps. The app carries these files in
+//  covers on IGDB (covers.json, image IDs only), and the player's own copies:
+//  those installed among LiveContainer's apps, and those in the player's
+//  games folder (CartoucheStoredGames). The app carries these files in
 //  CartoucheCatalog/ (catalog/ in the Cartouche repository). None says
 //  where to get a game.
 //
@@ -88,17 +89,21 @@ struct CartoucheDeviceProfile: Decodable, Hashable {
 }
 
 /// A game in the catalogue: a supported game, the player's copy of one, or
-/// the player's copy of an nxnative game that Cartouche does not know.
+/// the player's copy of an nxnative game that Cartouche does not know. The
+/// player's copy is installed (app), in their games folder (stored), or
+/// both.
 struct CartoucheEntry: Identifiable, Hashable {
     let id: String
     let game: CartoucheNxGame?
     let sheet: CartoucheGameSheet?
     let app: LCAppModel?
+    /// The game's IPA in the player's games folder.
+    var stored: CartoucheStoredGame? = nil
 
     var name: String {
         if let sheet { return sheet.name }
         if let game { return game.name }
-        return app?.appInfo.displayName() ?? ""
+        return app?.appInfo.displayName() ?? stored?.name ?? ""
     }
 
     var titleId: String? { game?.titleId ?? sheet?.titleId }
@@ -106,7 +111,10 @@ struct CartoucheEntry: Identifiable, Hashable {
     var cover: CartoucheCover? { titleId.flatMap { CartoucheCatalog.shared.cover(titleId: $0) } }
     var platform: String? { sheet?.platform ?? game?.platform }
     var genre: String? { game?.genre }
-    var isOwned: Bool { app != nil }
+    var isOwned: Bool { app != nil || stored != nil }
+    var isInstalled: Bool { app != nil }
+    /// In the games folder, not on this iPhone: Install brings it.
+    var canInstallFromStorage: Bool { app == nil && stored != nil }
 
     /// Whether the game is known to play on an iPhone: a tester's result
     /// says so, or nxnative's profile does.
@@ -121,7 +129,7 @@ struct CartoucheEntry: Identifiable, Hashable {
     var tileKey: String { titleId ?? id }
 
     static func == (lhs: CartoucheEntry, rhs: CartoucheEntry) -> Bool {
-        lhs.id == rhs.id && lhs.app === rhs.app
+        lhs.id == rhs.id && lhs.app === rhs.app && lhs.stored == rhs.stored
     }
 
     func hash(into hasher: inout Hasher) {
@@ -227,12 +235,14 @@ final class CartoucheCatalog {
         }
     }
 
-    /// The catalogue for these apps: each of the player's nxnative games,
-    /// then every other game nxnative has a profile for, with the sheet
-    /// testers wrote when there is one.
-    func entries(for apps: [LCAppModel]) -> Entries {
+    /// The catalogue for these apps and the IPAs of the player's games
+    /// folder: each of the player's nxnative games, installed or stored, then
+    /// every other game nxnative has a profile for, with the sheet testers
+    /// wrote when there is one.
+    func entries(for apps: [LCAppModel], stored: [CartoucheStoredGame] = []) -> Entries {
         var result = Entries()
         var ownedTitles = Set<String>()
+        var storedLeft = stored
         for app in apps {
             guard let found = gameTitle(of: app) else { continue }
             let titleId = found.isEmpty ? titleMatchingName(of: app) : found
@@ -240,7 +250,24 @@ final class CartoucheCatalog {
             let sheet = (game?.titleId ?? titleId).flatMap { self.sheet(titleId: $0) }
             if let game { ownedTitles.formUnion(game.titleIds) } else if let titleId { ownedTitles.insert(titleId) }
             let folder = app.appInfo.relativeBundlePath ?? app.appInfo.bundleIdentifier() ?? ""
-            result.owned.append(CartoucheEntry(id: "app:" + folder, game: game, sheet: sheet, app: app))
+            // Its IPA in the games folder, if there is one.
+            let titles = Set(game?.titleIds ?? titleId.map { [$0] } ?? [])
+            let bundleId = app.appInfo.bundleIdentifier()
+            let copy = storedLeft.firstIndex { stored in
+                (stored.titleId.map { titles.contains($0) } ?? false) || (bundleId != nil && stored.bundleId == bundleId)
+            }
+            let storedCopy = copy.map { storedLeft.remove(at: $0) }
+            result.owned.append(CartoucheEntry(id: "app:" + folder, game: game, sheet: sheet, app: app, stored: storedCopy))
+        }
+        // The games of the games folder that are not installed, one entry
+        // each: the newest IPA of a game that has several.
+        for copy in storedLeft.sorted(by: { ($0.modified ?? .distantPast) > ($1.modified ?? .distantPast) }) {
+            let game = copy.titleId.flatMap { self.game(titleId: $0) }
+            let titleId = game?.titleId ?? copy.titleId
+            if let titleId, ownedTitles.contains(titleId) { continue }
+            if let game { ownedTitles.formUnion(game.titleIds) } else if let titleId { ownedTitles.insert(titleId) }
+            let sheet = titleId.flatMap { self.sheet(titleId: $0) }
+            result.owned.append(CartoucheEntry(id: "stored:" + copy.path, game: game, sheet: sheet, app: nil, stored: copy))
         }
         result.owned.sort { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
         var others = games
@@ -289,10 +316,54 @@ final class CartoucheCatalog {
     /// An nxnative build with another bundle identifier keeps the game's
     /// name as its display name.
     private func titleMatchingName(of app: LCAppModel) -> String? {
-        let name = Self.comparable(app.appInfo.displayName() ?? "")
+        titleId(matchingName: app.appInfo.displayName() ?? "")
+    }
+
+    /// The title ID of the game of this name, ignoring case, accents and
+    /// punctuation.
+    func titleId(matchingName rawName: String) -> String? {
+        let name = Self.comparable(rawName)
         guard !name.isEmpty else { return nil }
         return games.first { Self.comparable($0.name) == name }?.titleId
             ?? sheets.first { Self.comparable($0.name) == name }?.titleId
+    }
+
+    /// The title ID of the game an IPA's file name names, as players name
+    /// them: "Mario Kart World.ipa", "MarioKartWorld-nxnative-6nov-v2.ipa",
+    /// "MKW 09D00E8A5D61A000.ipa". A title ID the catalogue knows, written
+    /// anywhere in the name, else the game the name is, else the game the
+    /// name starts with, the longest such name. A name shorter than six
+    /// letters and digits is taken only whole.
+    func titleId(inFileName rawName: String) -> String? {
+        var name = rawName
+        if name.lowercased().hasSuffix(".ipa") { name.removeLast(4) }
+        for run in Self.hexadecimalRuns(in: name) where run.count == 16 {
+            if let known = game(titleId: run) { return known.titleId }
+            if sheet(titleId: run) != nil { return run }
+        }
+        if let exact = titleId(matchingName: name) { return exact }
+        let fileName = Self.comparable(name)
+        let names = games.map { ($0.titleId, Self.comparable($0.name)) }
+            + sheets.map { ($0.titleId, Self.comparable($0.name)) }
+        return names
+            .filter { $0.1.count >= 6 && fileName.hasPrefix($0.1) }
+            .max { $0.1.count < $1.1.count }?.0
+    }
+
+    /// The runs of hexadecimal digits in NAME, in capitals.
+    private static func hexadecimalRuns(in name: String) -> [String] {
+        var runs: [String] = []
+        var run = ""
+        for character in name.uppercased() {
+            if character.isASCII, character.isHexDigit {
+                run.append(character)
+            } else if !run.isEmpty {
+                runs.append(run)
+                run = ""
+            }
+        }
+        if !run.isEmpty { runs.append(run) }
+        return runs
     }
 
     private static func comparable(_ name: String) -> String {

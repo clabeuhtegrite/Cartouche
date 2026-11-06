@@ -23,6 +23,7 @@ enum CartoucheText {
 
     static var gamesTab: String { s("tab.games", "Games") }
     static var systemTab: String { s("tab.system", "System") }
+    static var needsNewerIOS: String { s("app.needsIOS17", "Cartouche needs iOS 17 or later.") }
 
     // MARK: Catalogue
 
@@ -43,8 +44,6 @@ enum CartoucheText {
     static func daysLeftShort(_ days: Int) -> String { f("home.daysLeft", "%lld\u{00A0}d", days) }
     static var details: String { s("action.details", "Details") }
     static var dockImport: String { s("dock.import", "Import") }
-    static var dockApps: String { s("dock.apps", "Apps") }
-    static var dockSettings: String { s("dock.settings", "Settings") }
     static var hintOpen: String { s("hint.open", "Open") }
     static var hintFilter: String { s("hint.filter", "Filter") }
     static var hintBack: String { s("hint.back", "Back") }
@@ -58,10 +57,12 @@ enum CartoucheText {
     static var statusMacShort: String { s("status.mac.short", "On Mac") }
     static var statusBringupShort: String { s("status.bringup.short", "In bring-up") }
     static var statusUnknownShort: String { s("status.unknown.short", "Not tried") }
-    static var statusIPhoneLong: String { s("status.iphone.long", "nxnative plays it on the iPhone.") }
+    static var statusIPhoneLong: String { s("status.iphone.long", "nxnative plays it on the iPhone and the Mac.") }
     static var statusMacLong: String { s("status.mac.long", "nxnative plays it on the Mac; nobody has reported it on an iPhone yet.") }
     static var statusBringupLong: String { s("status.bringup.long", "nxnative is still bringing it up: it may not start yet.") }
     static var statusUnknownLong: String { s("status.unknown.long", "nxnative’s profile does not say where it plays yet.") }
+    static var statusStoredShort: String { s("status.stored.short", "In storage") }
+    static var statusStoredLong: String { s("status.stored.long", "Its IPA is in your games folder: install it to play it on this iPhone.") }
 
     /// A genre of nxnative.json, or nil for "other".
     static func genre(_ genre: String) -> String? {
@@ -211,10 +212,9 @@ enum CartoucheText {
     static var team: String { s("system.signature.team", "Apple account team") }
     static var profileUnknown: String { s("system.signature.unknown", "Cartouche could not read its provisioning profile.") }
     static var signatureFooter: String { s("system.signature.footer", "The built-in SideStore renews Cartouche, with LocalDevVPN on. Renew it before it expires: an expired Cartouche no longer opens, and has to be installed again from a computer with iloader.") }
-    static var openSideStore: String { s("system.signature.openSideStore", "Open SideStore") }
     static var renewNow: String { s("system.signature.renew", "Renew now") }
     static var renewing: String { s("system.signature.renewing", "Renewing…") }
-    static var renewUnavailable: String { s("system.signature.renew.unavailable", "The built-in SideStore is not loaded. Open it to renew Cartouche.") }
+    static var renewUnavailable: String { s("system.signature.renew.unavailable", "The built-in SideStore did not load. Close Cartouche, open it again, then renew.") }
     static var automaticRenewal: String { s("system.auto", "Automatic renewal") }
     static var renewEveryNight: String { s("system.auto.daily", "Renew every night") }
     static var alerts: String { s("system.auto.alerts", "Expiry alerts") }
@@ -283,7 +283,7 @@ enum CartoucheText {
     static var dailyStepAutomation: String { s("daily.step2", "In Shortcuts, open Automation, then tap +.") }
     static var dailyStepTime: String { s("daily.step3", "Choose Time of Day: a time when the iPhone charges and is online, such as 4 AM, every day. Then choose Run Immediately.") }
     static var dailyStepAction: String { s("daily.step4", "Tap Next, choose New Blank Automation, and add the Refresh All Apps action of Cartouche, not LiveContainer’s.") }
-    static var dailyStepCheck: String { s("daily.step5", "Each renewal shows in the System tab as the last renewal, and gives Cartouche seven more days.") }
+    static var dailyStepCheck: String { s("daily.step5", "Each renewal shows on the System page as the last renewal, and gives Cartouche seven more days.") }
     static var openShortcuts: String { s("daily.openShortcuts", "Open Shortcuts") }
 
     // MARK: Installing, starting and uninstalling a game
@@ -305,6 +305,18 @@ enum CartoucheText {
     static func uninstallTitle(_ name: String) -> String { f("work.uninstall.title", "Uninstalling %@", name) }
     static var uninstallStep: String { s("work.uninstall.step", "Removing it from this iPhone") }
     static var uninstallFailed: String { s("work.uninstall.failed", "The game was not uninstalled") }
+    static func installFromStorageStep(_ server: String) -> String { f("work.install.stored", "Unpacking it from %@ as it arrives. Keep Cartouche open: a large game takes several minutes.", server) }
+    static func installFromStorageNoSpace(needed: String, free: String) -> String {
+        f("work.install.stored.noSpace", "Installing this game takes about %1$@ of free space, and this iPhone has %2$@. Free some space, then install it again.", needed, free)
+    }
+    static func exportTitle(_ name: String) -> String { f("work.export.title", "Copying %@", name) }
+    static func exportStep(_ server: String) -> String { f("work.export.step", "Copying it to %@. Keep Cartouche open: a large game takes several minutes.", server) }
+    static var exportFailed: String { s("work.export.failed", "The game was not copied") }
+    static func exportNoSpace(needed: String, server: String, free: String) -> String {
+        f("work.export.noSpace", "The copy takes about %1$@, and %2$@ has %3$@ free. Free some space there, then copy the game again.", needed, server, free)
+    }
+    static var exportUnreadable: String { s("work.export.unreadable", "Cartouche could not read the installed game.") }
+    static var savesFinishing: String { s("work.start.saves", "Cartouche first finishes copying your saves.") }
 
     static var gameSettings: String { s("action.gameSettings", "Game settings") }
     static var uninstall: String { s("action.uninstall", "Uninstall") }
@@ -313,6 +325,73 @@ enum CartoucheText {
     static var uninstallMessage: String { s("uninstall.message", "Your saves can stay on this iPhone: the game finds them again the next time you import it.") }
     static var uninstallKeepSaves: String { s("uninstall.keep", "Uninstall, keep my saves") }
     static var uninstallEraseSaves: String { s("uninstall.erase", "Uninstall and erase my saves") }
+    static func uninstallCopyFirst(_ server: String) -> String { f("uninstall.copyFirst", "Copy to %@, then uninstall", server) }
+    static func uninstallMessageStored(_ server: String) -> String { f("uninstall.message.stored", "The game stays in %@, ready to install again. Your saves can stay on this iPhone: the game finds them again.", server) }
+    static func installFrom(_ server: String) -> String { f("action.installFrom", "Install from %@", server) }
+    static var importOtherCopy: String { s("action.importOther", "Import another copy") }
+    static func exportTo(_ server: String) -> String { f("action.exportTo", "Copy to %@", server) }
+    static func storedIn(_ server: String, _ file: String) -> String { f("sheet.storedIn", "A copy is in %1$@: %2$@", server, file) }
+
+    // MARK: The player's storage
+
+    static var storageTitle: String { s("storage.title", "Storage") }
+    static var storageIntro: String { s("storage.intro", "Keep your games and your saves on your own storage: a shared folder of your Mac, PC or NAS, or a folder in Files. The games there show in your library, ready to install again.") }
+    static var storageNotSet: String { s("storage.notSet", "Not set up") }
+    static var storageGamesFolder: String { s("storage.games", "Games folder") }
+    static var storageSavesFolder: String { s("storage.saves", "Saves folder") }
+    static var storageGamesFound: String { s("storage.games.found", "Games found") }
+    static var storageReadAgain: String { s("storage.readAgain", "Read the folder again") }
+    static var storageChangeFolder: String { s("storage.changeFolder", "Change folder") }
+    static var storageStopUsing: String { s("storage.stopUsing", "Stop using this folder") }
+    static var storageAddFirst: String { s("storage.addFirst", "First add a shared folder or a folder in Files, below.") }
+    static var storageChooseFolder: String { s("storage.chooseFolder", "Choose a folder") }
+    static var storageGamesFooter: String { s("storage.games.footer", "Your library lists the IPAs in this folder, and Cartouche installs them from there. Copy a game here before you uninstall it to keep it a tap away.") }
+    static var storageServers: String { s("storage.servers", "Places") }
+    static var storageServersFooter: String { s("storage.servers.footer", "Only storage of your own, with your own account: Cartouche keeps the password in this iPhone’s keychain.") }
+    static var storageAddSMB: String { s("storage.addSMB", "Add a shared folder (SMB)") }
+    static var storageAddFolder: String { s("storage.addFolder", "Add a folder in Files") }
+    static var storageRemove: String { s("storage.remove", "Remove") }
+    static var storageGuest: String { s("storage.guest", "guest") }
+    static var storageFilesFolder: String { s("storage.filesFolder", "Folder in Files") }
+    static var storageNearby: String { s("storage.nearby", "On this network") }
+    static var storageAccount: String { s("storage.account", "Account") }
+    static var storageHost: String { s("storage.host", "Address (name or IP)") }
+    static var storageUser: String { s("storage.user", "User name") }
+    static var storagePassword: String { s("storage.password", "Password") }
+    static var storagePasswordKept: String { s("storage.password.kept", "Password (leave empty to keep it)") }
+    static var storageAccountFooter: String { s("storage.account.footer", "The account of your Mac, PC or NAS. Leave the user name empty to sign in as a guest.") }
+    static var storageConnect: String { s("storage.connect", "Sign in and list the shared folders") }
+    static var storageNoShares: String { s("storage.noShares", "This account sees no shared folder there.") }
+    static var storageShare: String { s("storage.share", "Shared folder") }
+    static var storageShareFooter: String { s("storage.share.footer", "On a Mac: System Settings › General › Sharing › File Sharing. On a PC: the folder’s Properties › Sharing.") }
+    static var storageNameTitle: String { s("storage.name.title", "Name in Cartouche") }
+    static var storageName: String { s("storage.name", "Name") }
+    static var storageSave: String { s("storage.save", "Save") }
+    static var storageUseThisFolder: String { s("storage.useThisFolder", "Use this folder") }
+    static var storageNoFolders: String { s("storage.noFolders", "No folder here.") }
+    static var storageNewFolder: String { s("storage.newFolder", "New folder") }
+    static var storageCreate: String { s("storage.create", "Create") }
+    static var storageFolderGone: String { s("storage.folderGone", "Cartouche can no longer open this folder. Remove it, then add it again.") }
+    static var storageNotAnApp: String { s("storage.notAnApp", "This file is not an app’s IPA.") }
+    static func storageSavesFooter(_ kept: Int) -> String { f("storage.saves.footer", "After each game, Cartouche copies the game’s saves here, in a folder per game, and keeps the %lld newest copies.", kept) }
+    static func storageSignInFailed(_ host: String, _ reason: String) -> String { f("storage.signInFailed", "Cartouche could not sign in to %1$@: %2$@", host, reason) }
+    static func storageTooLarge(_ name: String) -> String { f("storage.tooLarge", "%@ is larger than Cartouche expects.", name) }
+
+    // MARK: A game's saves
+
+    static var savesTitle: String { s("saves.title", "Saves") }
+    static var savesLastCopy: String { s("saves.lastCopy", "Last copy") }
+    static var savesNoCopy: String { s("saves.noCopy", "None yet") }
+    static var savesPutBack: String { s("saves.putBack", "Put back a copy") }
+    static var savesNoFolder: String { s("saves.noFolder", "Choose a saves folder in System › Storage: Cartouche will copy this game’s saves there after each game.") }
+    static var savesPutBackFooter: String { s("saves.putBack.footer", "Putting back a copy replaces this game’s saves on this iPhone. Cartouche copies the current ones first.") }
+    static var savesPutBackQuestion: String { s("saves.putBack.question", "Put back this copy?") }
+    static var savesPutBackMessage: String { s("saves.putBack.message", "It replaces the game’s saves on this iPhone. Cartouche copies them first, so you can come back to them.") }
+    static var savesCopyUnreadable: String { s("saves.unreadable", "This copy cannot be read: it is incomplete, or holds more than a game’s saves.") }
+    static func savesCopyNow(_ server: String) -> String { f("saves.copyNow", "Copy to %@ now", server) }
+    static func savesFooter(_ kept: Int) -> String { f("saves.footer", "After each game, Cartouche copies these saves to your saves folder and keeps the %lld newest copies.", kept) }
+    static func savesPutBackAction(_ date: String) -> String { f("saves.putBack.action", "Put back the copy of %@", date) }
+    static func savesPutBackDone(_ date: String) -> String { f("saves.putBack.done", "The copy of %@ is back in place.", date) }
 
     // MARK: A game's settings
 
@@ -419,7 +498,7 @@ enum CartoucheText {
 
     static var warning24hTitle: String { s("warning.24h.title", "Cartouche expires in 24 hours") }
     static var warning6hTitle: String { s("warning.6h.title", "Cartouche expires in 6 hours") }
-    static var warningBody: String { s("warning.body", "Renew it in the System tab, with LocalDevVPN connected.") }
+    static var warningBody: String { s("warning.body", "Renew it on the System page, with LocalDevVPN connected.") }
     static var warningExpiredTitle: String { s("warning.0h.title", "Cartouche has expired") }
     static var warningExpiredBody: String { s("warning.0h.body", "Install it again from a computer with iloader, over this copy: your games stay.") }
 

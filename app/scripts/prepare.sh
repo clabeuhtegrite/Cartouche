@@ -5,7 +5,9 @@
 #     app/scripts/prepare.sh            # writes build/app/work/src/{LiveContainer,SideStore}
 #
 # The submodules are never modified: their sources are copied, the patches in
-# app/patches/<project>/ are applied to the copies in name order, the launcher
+# app/patches/<project>/ are applied to the copies in name order, the SMBClient
+# package (app/SMBClient) goes where LiveContainer's project looks for it
+# (Packages/SMBClient, app/patches/livecontainer/0005), the launcher
 # (launcher/Sources) joins LiveContainer's SwiftUI sources and its bridge to
 # the built-in SideStore (launcher/SideStoreSupport) joins SideStoreSupport,
 # Cartouche's icon (app/icon) replaces LiveContainer's, and app/scripts/brand.py
@@ -28,7 +30,7 @@ done
 for tool in rsync patch python3; do
   command -v "$tool" >/dev/null || { echo "missing tool: $tool" >&2; exit 1; }
 done
-for module in LiveContainer SideStore; do
+for module in LiveContainer SideStore SMBClient; do
   [ -n "$(ls -A "$APP/$module" 2>/dev/null)" ] || {
     echo "app/$module is empty: run git submodule update --init --recursive" >&2; exit 1; }
 done
@@ -50,6 +52,12 @@ copy_and_patch() {  # <name> <patch folder>
 echo "== copying and patching the sources"
 copy_and_patch LiveContainer livecontainer
 copy_and_patch SideStore sidestore
+
+# The SMB client the launcher reads the player's shared folders with, a local
+# Swift package of LiveContainer's project, pinned by its submodule.
+echo "== adding the SMBClient package"
+mkdir -p "$SRC/LiveContainer/Packages"
+rsync -a --delete --exclude .git "$APP/SMBClient/" "$SRC/LiveContainer/Packages/SMBClient/"
 
 # LiveContainerSwiftUI and SideStoreSupport are synchronized folders in
 # LiveContainer's project: Xcode builds every file in them, so the launcher

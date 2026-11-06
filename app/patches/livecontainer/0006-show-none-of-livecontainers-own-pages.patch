@@ -1,0 +1,126 @@
+From ad4f4a3da36a5333a2fdc6cdacd8bf63111198c5 Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Fri, 6 Nov 2026 15:59:14 +0000
+Subject: [PATCH] Show none of LiveContainer's own pages
+
+Cartouche drives LiveContainer and the built-in SideStore without ever
+showing a page of theirs. The tab bar goes: the window shows Cartouche's
+console, and its System page opens over it (CartoucheRootView, which
+Cartouche's prepare.sh copies in from its launcher/Sources folder), on
+iOS 17 and later. An older iOS shows that Cartouche needs iOS 17, in
+place of LiveContainer's app list. LiveContainer's app list and settings
+no longer show anywhere.
+
+A link opened with the app goes to Cartouche or nowhere. A pairing file
+or an IPA opened from AirDrop or Files goes to Cartouche's setup or its
+installer, as before. The links that led to the app list or the
+settings, to install an app from a link, open a web page, launch an app
+or take a certificate from another SideStore, are dropped: Cartouche
+downloads no app, starts its games itself and takes the built-in
+SideStore's certificate on its own.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01MzPJorvBGmBB88WUcRVhE7
+---
+ LiveContainerSwiftUI/Views/LCTabView.swift | 76 +++++-----------------
+ 1 file changed, 18 insertions(+), 58 deletions(-)
+
+diff --git a/LiveContainerSwiftUI/Views/LCTabView.swift b/LiveContainerSwiftUI/Views/LCTabView.swift
+index 6df405c..542251c 100644
+--- a/LiveContainerSwiftUI/Views/LCTabView.swift
++++ b/LiveContainerSwiftUI/Views/LCTabView.swift
+@@ -22,34 +22,16 @@ struct LCTabView: View {
+     let pub = NotificationCenter.default.publisher(for: UIScene.didDisconnectNotification)
+     
+     var body: some View {
+-        // Cartouche: its games first, and its system page, in place of
+-        // LiveContainer's Sources and Tweaks. Cartouche downloads no app.
+-        TabView(selection: $sharedModel.selectedTab) {
++        // Cartouche: its own screens only, the console and its System page
++        // (CartoucheRootView), with no tab bar. It drives LiveContainer and
++        // the built-in SideStore without showing any page of theirs, and its
++        // screens need iOS 17.
++        Group {
+             if #available(iOS 17.0, *) {
+-                CartoucheGamesView()
+-                    .tabItem {
+-                        Label(CartoucheText.gamesTab, systemImage: "gamecontroller.fill")
+-                    }
+-                    .tag(LCTabIdentifier.games)
+-            }
+-            LCAppListView()
+-                .tabItem {
+-                    Label("lc.tabView.apps".loc, systemImage: "square.stack.3d.up.fill")
+-                }
+-                .tag(LCTabIdentifier.apps)
+-            if #available(iOS 17.0, *) {
+-                CartoucheSystemView()
+-                    .tabItem {
+-                        Label(CartoucheText.systemTab, systemImage: "cpu")
+-                    }
+-                    .tag(LCTabIdentifier.system)
++                CartoucheRootView()
++            } else {
++                CartoucheNeedsNewerIOSView()
+             }
+-            
+-            LCSettingsView()
+-                .tabItem {
+-                    Label("lc.tabView.settings".loc, systemImage: "gearshape.fill")
+-                }
+-                .tag(LCTabIdentifier.settings)
+         }
+         .downloadAlert(helper: downloadHelper)
+         .environmentObject(downloadHelper)
+@@ -117,38 +99,16 @@ struct LCTabView: View {
+     }
+     
+     func dispatchURL(url: URL) {
+-        repeat {
+-            if url.isFileURL {
+-                // Cartouche: a pairing file opened from AirDrop or Files goes
+-                // to Cartouche's setup, not to the app installer.
+-                if CartouchePairing.openedFile(url) {
+-                    sharedModel.selectedTab = .initial
+-                    return
+-                }
+-                sharedModel.selectedTab = .apps
+-                break
+-            }
+-            if url.scheme?.lowercased() == "sidestore" {
+-                sharedModel.selectedTab = .apps
+-                break
+-            }
+-            
+-            guard let host = url.host?.lowercased() else {
+-                return
+-            }
+-            
+-            switch host {
+-            case "livecontainer-launch", "install", "open-web-page", "open-url":
+-                sharedModel.selectedTab = .apps
+-            case "certificate":
+-                sharedModel.selectedTab = .settings
+-            default:
+-                return
+-            }
+-            
+-        } while(false)
+-
+-        sharedModel.deepLink = url
++        // Cartouche: a link opens one of its screens or nothing. A pairing
++        // file or an IPA opened from AirDrop or Files goes to Cartouche,
++        // which checks the pairing file or installs the game itself. The
++        // links that led to LiveContainer's own pages, to install an app,
++        // open a web page, launch an app or take a certificate, are dropped:
++        // Cartouche downloads no app, starts its games itself and hands the
++        // built-in SideStore's certificate to LiveContainer on its own.
++        if url.isFileURL, CartouchePairing.openedFile(url) {
++            sharedModel.selectedTab = .initial
++        }
+     }
+     
+     func closeDuplicatedWindow() {
+-- 
+2.43.0
+

@@ -70,6 +70,13 @@ $PB -c "Set :CFBundleDisplayName LiveContainer" "$APP/Info.plist" 2>/dev/null \
 $PB -c "Print :CFBundleDevelopmentRegion" "$APP/Info.plist" >/dev/null 2>&1 \
   || $PB -c "Add :CFBundleDevelopmentRegion string en" "$APP/Info.plist"
 [ -d "$APP/en.lproj" ] || { echo "the app has no English localization, where every other language falls back" >&2; exit 1; }
+# The question iOS asks before Cartouche first reaches the local network, for
+# the player's shared folders (launcher/Sources/CartoucheStorageSMB.swift), in
+# place of LiveContainer's, which speaks of a guest app. French in French, in
+# English everywhere else.
+LOCAL_NETWORK_EN="Cartouche connects to the shared folders of your Mac, PC or NAS on this network to keep your games and saves there."
+LOCAL_NETWORK_FR="Cartouche se connecte aux dossiers partagés de votre Mac, PC ou NAS sur ce réseau pour y garder vos jeux et vos sauvegardes."
+plutil -replace NSLocalNetworkUsageDescription -string "$LOCAL_NETWORK_EN" "$APP/Info.plist"
 LOCALIZATIONS=0
 for LPROJ in "$APP"/*.lproj; do
   STRINGS="$LPROJ/InfoPlist.strings"
@@ -77,6 +84,9 @@ for LPROJ in "$APP"/*.lproj; do
     $PB -c "Set :$KEY $NAME" "$STRINGS" 2>/dev/null \
       || $PB -c "Add :$KEY string $NAME" "$STRINGS" >/dev/null
   done
+  LOCAL_NETWORK="$LOCAL_NETWORK_EN"
+  [ "$(basename "$LPROJ")" = fr.lproj ] && LOCAL_NETWORK="$LOCAL_NETWORK_FR"
+  plutil -replace NSLocalNetworkUsageDescription -string "$LOCAL_NETWORK" "$STRINGS"
   LOCALIZATIONS=$((LOCALIZATIONS + 1))
 done
 echo "named $NAME in $LOCALIZATIONS localizations, LiveContainer for iloader"
@@ -96,7 +106,7 @@ $PB -c "Add :LCVersionInfo string $COMMIT" "$APP/Info.plist"
 # reads SideStore's certificate there (launcher/Sources/CartoucheSetup.swift).
 $PB -c "Add :CartoucheBundleIdentifier string $BUNDLE_ID" "$APP/Info.plist"
 
-# The built-in SideStore's app group, URL schemes, intents and settings switch.
+# The built-in SideStore's app group, URL schemes and intents.
 # Never the plain "sidestore" scheme: a SideStore or LiveContainer+SideStore on
 # the same iPhone answers it.
 $PB -c 'Add :ALTAppGroups array' "$APP/Info.plist"
@@ -118,10 +128,16 @@ $PB -c "Add :INIntentsSupported:1 string ViewAppIntent" "$APP/Info.plist"
 $PB -c "Add :NSUserActivityTypes array" "$APP/Info.plist"
 $PB -c "Add :NSUserActivityTypes:0 string RefreshAllIntent" "$APP/Info.plist"
 $PB -c "Add :NSUserActivityTypes:1 string ViewAppIntent" "$APP/Info.plist"
-$PB -c "Add :PreferenceSpecifiers:3:Type string PSToggleSwitchSpecifier" "$APP/Settings.bundle/Root.plist"
-$PB -c "Add :PreferenceSpecifiers:3:Title string Open SideStore" "$APP/Settings.bundle/Root.plist"
-$PB -c "Add :PreferenceSpecifiers:3:Key string LCOpenSideStore" "$APP/Settings.bundle/Root.plist"
-$PB -c "Add :PreferenceSpecifiers:3:DefaultValue bool false" "$APP/Settings.bundle/Root.plist"
+# No page in the Settings app: LiveContainer's (Wait For Debugger, the
+# selected bundle) and the Open SideStore switch LiveContainer+SideStore adds
+# there would lead into the apps Cartouche is built from, which it drives
+# without ever showing them (docs/decisions.md, 24).
+rm -rf "$APP/Settings.bundle"
+# No LiveContainer page in the share sheet either: its share extension lists
+# LiveContainer's apps to open a link in, and its Launch App shortcut goes
+# through that extension. Cartouche installs a game from its own Import, or
+# from an IPA opened with it, and starts its games itself.
+rm -rf "$APP/PlugIns/ShareExtension.appex" "$APP/PlugIns/LaunchAppExtension.appex"
 
 # SideStore runs inside the app as a framework: its executable becomes a dylib.
 mkdir -p "$STAGE/sidestore"

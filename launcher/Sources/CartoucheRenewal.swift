@@ -3,7 +3,7 @@
 //  Cartouche
 //
 //  Renewing Cartouche before its signature expires, and warning the player
-//  in time. The built-in SideStore does the renewal: from the System tab,
+//  in time. The built-in SideStore does the renewal: from the System page,
 //  through CartoucheRefresh (launcher/SideStoreSupport), or every night,
 //  through an automation in Shortcuts that runs its Refresh All Apps action.
 //
