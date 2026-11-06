@@ -98,9 +98,17 @@ struct CartoucheStorageView: View {
                         Text(problem)
                             .font(.footnote)
                             .foregroundStyle(Color.orange)
+                    } else if settings.isReadOnly(.games) {
+                        Text(CartoucheText.storageReadOnlyGames)
+                            .font(.footnote)
+                            .foregroundStyle(Color.orange)
                     }
                     Button(CartoucheText.storageReadAgain, systemImage: "arrow.clockwise") { stored.refresh() }
                         .disabled(stored.isScanning)
+                } else if settings.isReadOnly(.saves) {
+                    Text(CartoucheText.storageReadOnlySaves)
+                        .font(.footnote)
+                        .foregroundStyle(Color.orange)
                 } else if let problem = backups.problem {
                     Text(problem)
                         .font(.footnote)
@@ -134,14 +142,19 @@ struct CartoucheStorageView: View {
         }
     }
 
+    /// The servers to look for ROLE's folder on. A shared folder that lets
+    /// the account read only shows, but cannot hold the saves.
     @ViewBuilder
     private func serverChoices(_ role: CartoucheStorageRole) -> some View {
         ForEach(settings.servers) { server in
+            let readOnly = settings.readOnlyServers.contains(server.id)
             Button {
                 browsing = Browsing(server: server, role: role)
             } label: {
-                Label(server.name, systemImage: Self.symbol(server))
+                Label(readOnly ? CartoucheText.storageReadOnlyServer(server.name) : server.name,
+                      systemImage: Self.symbol(server))
             }
+            .disabled(readOnly && role == .saves)
         }
     }
 
@@ -383,6 +396,10 @@ struct CartoucheStorageServerForm: View {
         // An empty password keeps the one saved, when there is one.
         CartoucheStorageSettings.shared.save(server, secret: password.isEmpty && !isNew ? nil : password)
         CartoucheStoredGames.shared.refresh()
+        // Whether the shared folder lets this account write, for the choice
+        // of the saves folder.
+        let saved = server
+        Task { await CartoucheStorageSettings.shared.checkAccess(of: saved) }
         dismiss()
     }
 }
@@ -478,6 +495,10 @@ struct CartoucheStorageFolderBrowser: View {
     let onChoose: (String) -> Void
     @State private var folders: [String]?
     @State private var problem: String?
+    /// Whether the account can add a file here: nil until the server
+    /// answers, and when it did not.
+    @State private var writable: Bool?
+    @State private var checked = false
     @State private var naming = false
     @State private var newName = ""
 
@@ -497,8 +518,16 @@ struct CartoucheStorageFolderBrowser: View {
                     Label(CartoucheText.storageUseThisFolder, systemImage: "checkmark.circle.fill")
                         .font(.headline)
                 }
+                // The saves need a folder Cartouche can write to.
+                .disabled(role == .saves && (!checked || writable == false))
             } footer: {
-                Text(CartoucheStorageView.placeName(server: server, path: path))
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(CartoucheStorageView.placeName(server: server, path: path))
+                    if writable == false {
+                        Text(role == .games ? CartoucheText.storageReadOnlyGames : CartoucheText.storageReadOnlySaves)
+                            .foregroundStyle(Color.orange)
+                    }
+                }
             }
             Section {
                 if let folders {
@@ -531,7 +560,7 @@ struct CartoucheStorageFolderBrowser: View {
                     newName = role == .games ? CartoucheText.gamesTab : CartoucheText.savesTitle
                     naming = true
                 }
-                .disabled(folders == nil)
+                .disabled(folders == nil || writable == false)
             }
         }
         .alert(CartoucheText.storageNewFolder, isPresented: $naming) {
@@ -552,6 +581,8 @@ struct CartoucheStorageFolderBrowser: View {
                 await remote.disconnect()
                 throw error
             }
+            writable = await CartoucheStorageSettings.shared.checkAccess(remote, server: server.id, path: path)
+            checked = true
             await remote.disconnect()
             folders = items.filter(\.isFolder).map(\.name).sorted { $0.localizedStandardCompare($1) == .orderedAscending }
             problem = nil
@@ -584,6 +615,7 @@ struct CartoucheStorageFolderBrowser: View {
 struct CartoucheSavesSection: View {
     let target: CartoucheSaveTarget
     @ObservedObject var backups = CartoucheSaveBackups.shared
+    @ObservedObject private var settings = CartoucheStorageSettings.shared
     @State private var copying = false
 
     init(target: CartoucheSaveTarget) {
@@ -592,7 +624,7 @@ struct CartoucheSavesSection: View {
 
     var body: some View {
         Section {
-            if let location = CartoucheStorageSettings.shared.location(.saves) {
+            if let location = settings.location(.saves) {
                 LabeledContent(CartoucheText.savesLastCopy) {
                     if let date = backups.lastCopy[target.key] {
                         Text(date, format: .relative(presentation: .named))
@@ -600,22 +632,28 @@ struct CartoucheSavesSection: View {
                         Text(CartoucheText.savesNoCopy)
                     }
                 }
-                Button {
-                    copying = true
-                    Task {
-                        _ = await backups.copyNow(target)
-                        copying = false
-                    }
-                } label: {
-                    HStack {
-                        Label(CartoucheText.savesCopyNow(location.server.name), systemImage: "arrow.up.doc.fill")
-                        if copying || backups.isCopying {
-                            Spacer()
-                            ProgressView()
+                if settings.isReadOnly(.saves) {
+                    Text(CartoucheText.savesReadOnly)
+                        .font(.footnote)
+                        .foregroundStyle(Color.orange)
+                } else {
+                    Button {
+                        copying = true
+                        Task {
+                            _ = await backups.copyNow(target)
+                            copying = false
+                        }
+                    } label: {
+                        HStack {
+                            Label(CartoucheText.savesCopyNow(location.server.name), systemImage: "arrow.up.doc.fill")
+                            if copying || backups.isCopying {
+                                Spacer()
+                                ProgressView()
+                            }
                         }
                     }
+                    .disabled(copying || backups.isCopying)
                 }
-                .disabled(copying || backups.isCopying)
                 NavigationLink {
                     CartoucheSaveCopiesView(target: target)
                 } label: {

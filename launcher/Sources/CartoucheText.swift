@@ -373,6 +373,10 @@ enum CartoucheText {
     static var storageCreate: String { s("storage.create", "Create") }
     static var storageFolderGone: String { s("storage.folderGone", "Cartouche can no longer open this folder. Remove it, then add it again.") }
     static var storageNotAnApp: String { s("storage.notAnApp", "This file is not an app’s IPA.") }
+    static var storageReadOnlyGames: String { s("storage.readOnly.games", "Read-only for your account: Cartouche installs the games in this folder, but cannot copy any there.") }
+    static var storageReadOnlySaves: String { s("storage.readOnly.saves", "Read-only for your account: Cartouche cannot copy your saves here. Choose a folder you can write to.") }
+    static func storageReadOnlyServer(_ name: String) -> String { f("storage.readOnly.server", "%@ (read-only)", name) }
+    static func exportReadOnly(_ server: String) -> String { f("work.export.readOnly", "Your account on %@ can only read the games folder: Cartouche cannot copy the game there.", server) }
     static func storageSavesFooter(_ kept: Int) -> String { f("storage.saves.footer", "After each game, Cartouche copies the game’s saves here, in a folder per game, and keeps the %lld newest copies.", kept) }
     static func storageSignInFailed(_ host: String, _ reason: String) -> String { f("storage.signInFailed", "Cartouche could not sign in to %1$@: %2$@", host, reason) }
     static func storageTooLarge(_ name: String) -> String { f("storage.tooLarge", "%@ is larger than Cartouche expects.", name) }
@@ -388,6 +392,7 @@ enum CartoucheText {
     static var savesPutBackQuestion: String { s("saves.putBack.question", "Put back this copy?") }
     static var savesPutBackMessage: String { s("saves.putBack.message", "It replaces the game’s saves on this iPhone. Cartouche copies them first, so you can come back to them.") }
     static var savesCopyUnreadable: String { s("saves.unreadable", "This copy cannot be read: it is incomplete, or holds more than a game’s saves.") }
+    static var savesReadOnly: String { s("saves.readOnly", "Your saves folder is read-only for your account: choose another one in System › Storage.") }
     static func savesCopyNow(_ server: String) -> String { f("saves.copyNow", "Copy to %@ now", server) }
     static func savesFooter(_ kept: Int) -> String { f("saves.footer", "After each game, Cartouche copies these saves to your saves folder and keeps the %lld newest copies.", kept) }
     static func savesPutBackAction(_ date: String) -> String { f("saves.putBack.action", "Put back the copy of %@", date) }

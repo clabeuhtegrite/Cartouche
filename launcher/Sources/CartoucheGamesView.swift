@@ -335,10 +335,12 @@ struct CartoucheUninstallQuestion: ViewModifier {
         return CartoucheStoredGames.shared.game(titleId: titleId, bundleId: app.appInfo.bundleIdentifier())
     }
 
-    /// The games folder's server, when the game has no copy there yet.
+    /// The games folder's server, when the game has no copy there yet and
+    /// the player's account can write there.
     @MainActor
     static func copyServer(for app: LCAppModel) -> String? {
         guard let server = CartoucheStorageSettings.shared.location(.games)?.server,
+              !CartoucheStorageSettings.shared.isReadOnly(.games),
               CartoucheCatalog.shared.gameTitle(of: app) != nil, storedCopy(of: app) == nil else { return nil }
         return server.name
     }

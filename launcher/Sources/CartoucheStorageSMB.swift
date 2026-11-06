@@ -14,9 +14,14 @@ import SMBClient
 
 final class CartoucheSMB: CartoucheRemote {
     private let client: SMBClient
+    /// What the shared folder lets this account do, as the server said when
+    /// Cartouche connected to it (MaximalAccess, MS-SMB2 2.2.10); 0 when it
+    /// did not say.
+    private let shareAccess: UInt32
 
-    private init(client: SMBClient) {
+    private init(client: SMBClient, shareAccess: UInt32) {
         self.client = client
+        self.shareAccess = shareAccess
     }
 
     static func connect(_ server: CartoucheStorageServer, password: String) async throws -> CartoucheSMB {
@@ -27,10 +32,50 @@ final class CartoucheSMB: CartoucheRemote {
         } catch {
             throw CartoucheStorageError(CartoucheText.storageSignInFailed(server.host, error.localizedDescription))
         }
+        var shareAccess: UInt32 = 0
         if !server.share.isEmpty {
-            try await client.connectShare(server.share)
+            shareAccess = try await client.connectShare(server.share).maximalAccess
         }
-        return CartoucheSMB(client: client)
+        return CartoucheSMB(client: client, shareAccess: shareAccess)
+    }
+
+    /// FILE_WRITE_DATA, which is FILE_ADD_FILE for a folder,
+    /// FILE_APPEND_DATA (FILE_ADD_SUBDIRECTORY), GENERIC_ALL, GENERIC_WRITE.
+    private static let writing: UInt32 = 0x0000_0002 | 0x0000_0004 | 0x1000_0000 | 0x4000_0000
+    /// STATUS_ACCESS_DENIED, STATUS_MEDIA_WRITE_PROTECTED.
+    private static let refusals: Set<UInt32> = [0xC000_0022, 0xC000_00A2]
+
+    var isReadOnly: Bool {
+        shareAccess != 0 && shareAccess & Self.writing == 0
+    }
+
+    func canWrite(_ path: String) async throws -> Bool {
+        if isReadOnly { return false }
+        // The folder's own permissions: opening it to add a file and a
+        // folder in it adds neither.
+        let session = client.session
+        do {
+            let opened = try await session.create(
+                desiredAccess: [.writeData, .appendData, .readAttributes, .synchronize],
+                fileAttributes: [.directory],
+                shareAccess: [.read, .write, .delete],
+                createDisposition: .open,
+                createOptions: [.directoryFile],
+                name: Self.name(path)
+            )
+            _ = try? await session.close(fileId: opened.fileId)
+            return true
+        } catch let refused as ErrorResponse where Self.refusals.contains(refused.header.status) {
+            return false
+        }
+    }
+
+    /// PATH as SMB names it: from the shared folder's root, with "\"
+    /// between folders.
+    private static func name(_ path: String) -> String {
+        path.precomposedStringWithCanonicalMapping
+            .trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+            .replacingOccurrences(of: "/", with: "\\")
     }
 
     /// The server's shared folders, for the player to pick one.
@@ -74,7 +119,7 @@ final class CartoucheSMB: CartoucheRemote {
             shareAccess: [.read],
             createDisposition: .overwriteIf,
             createOptions: [.nonDirectoryFile],
-            name: partial.precomposedStringWithCanonicalMapping.replacingOccurrences(of: "/", with: "\\")
+            name: Self.name(partial)
         )
         return SMBUpload(client: client, fileId: created.fileId, partial: partial, path: path)
     }

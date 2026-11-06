@@ -1922,6 +1922,23 @@
         }
       }
     },
+    "saves.readOnly" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Your saves folder is read-only for your account: choose another one in System › Storage."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Votre dossier des sauvegardes est en lecture seule pour votre compte : choisissez-en un autre dans Système › Stockage."
+          }
+        }
+      }
+    },
     "saves.title" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -4574,6 +4591,57 @@
         }
       }
     },
+    "storage.readOnly.games" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Read-only for your account: Cartouche installs the games in this folder, but cannot copy any there."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "En lecture seule pour votre compte : Cartouche installe les jeux de ce dossier, mais ne peut pas y en copier."
+          }
+        }
+      }
+    },
+    "storage.readOnly.saves" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Read-only for your account: Cartouche cannot copy your saves here. Choose a folder you can write to."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "En lecture seule pour votre compte : Cartouche ne peut pas y copier vos sauvegardes. Choisissez un dossier où vous pouvez écrire."
+          }
+        }
+      }
+    },
+    "storage.readOnly.server" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ (read-only)"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ (lecture seule)"
+          }
+        }
+      }
+    },
     "storage.remove" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -5726,6 +5794,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "La copie demande environ %1$@, et %2$@ en a %3$@ de libre. Libérez-y de la place, puis copiez le jeu à nouveau."
+          }
+        }
+      }
+    },
+    "work.export.readOnly" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Your account on %@ can only read the games folder: Cartouche cannot copy the game there."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Votre compte sur %@ ne peut que lire le dossier des jeux : Cartouche ne peut pas y copier le jeu."
           }
         }
       }

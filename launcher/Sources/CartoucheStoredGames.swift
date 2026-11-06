@@ -147,6 +147,8 @@ final class CartoucheStoredGames: ObservableObject {
         do {
             var folders = [location.path]
             let top = try await remote.list(location.path)
+            // Whether Cartouche can copy a game there, for its Copy to.
+            await settings.checkAccess(remote, server: location.server.id, path: location.path)
             folders += top.filter(\.isFolder).prefix(64).map { CartoucheStoragePath.join(location.path, $0.name) }
             for folder in folders {
                 let items: [CartoucheRemoteItem]

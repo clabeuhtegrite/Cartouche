@@ -346,6 +346,10 @@ final class CartoucheGameActions: ObservableObject {
             do {
                 let connected = try await CartoucheStorage.connect(location.server)
                 remote = connected
+                if await CartoucheStorageSettings.shared.checkAccess(connected, server: location.server.id,
+                                                                     path: location.path) == false {
+                    throw CartoucheStorageError(CartoucheText.exportReadOnly(location.server.name))
+                }
                 let items = try await Self.exportedItems(of: bundle)
                 let total = items.reduce(UInt64(0)) { $0 + $1.size }
                 if let free = try? await connected.freeSpace(), free < total + 64 << 20 {
