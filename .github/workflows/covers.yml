@@ -1,0 +1,73 @@
+name: Covers
+
+# Finds each game's official cover and artwork on IGDB
+# (catalog/tools/igdb_covers.py), with the Twitch application whose
+# credentials are the repository's secrets IGDB_CLIENT_ID and
+# IGDB_CLIENT_SECRET, and keeps catalog/covers.json as it found it on the
+# branch catalog-covers/<branch>, to be committed with the pull request.
+# IGDB's IDs only, never an address (catalog/README.md).
+
+on:
+  pull_request:
+    paths: ["catalog/nxnative.json", "catalog/tools/igdb_covers.py", ".github/workflows/covers.yml"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: covers-${{ github.head_ref || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  covers:
+    name: Find the covers
+    # A pull request from a fork gets no secrets.
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.pull_request.head.repo.full_name == github.repository }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - name: Ask IGDB
+        env:
+          IGDB_CLIENT_ID: ${{ secrets.IGDB_CLIENT_ID }}
+          IGDB_CLIENT_SECRET: ${{ secrets.IGDB_CLIENT_SECRET }}
+        run: |
+          python3 catalog/tools/igdb_covers.py --out build/covers/covers.json
+          diff -u catalog/covers.json build/covers/covers.json || true
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: catalog-covers
+          path: build/covers
+          retention-days: 14
+          if-no-files-found: error
+
+  # The only job that can write runs nothing from the pull request: it
+  # commits the file the first job uploaded.
+  keep:
+    name: Keep the covers on a branch
+    needs: covers
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # the branch catalog-covers/<branch>
+    env:
+      BRANCH: catalog-covers/${{ github.head_ref || github.ref_name }}
+      SOURCE: ${{ github.event.pull_request.head.sha || github.sha }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
+        with:
+          name: catalog-covers
+          path: covers
+      - name: Push them to catalog-covers/<branch>
+        run: |
+          cd covers
+          git init -q -b covers
+          git add -A
+          git -c user.name="github-actions[bot]" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" \
+            commit -q -m "Covers for $SOURCE"
+          gh auth setup-git
+          git push -q -f "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY.git" "HEAD:refs/heads/$BRANCH"
+          echo "Pushed to $BRANCH"

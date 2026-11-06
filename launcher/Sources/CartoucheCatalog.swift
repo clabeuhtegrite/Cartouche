@@ -4,10 +4,11 @@
 //
 //  The games Cartouche supports: every game nxnative has a profile for
 //  (nxnative.json, from nxnative's dm/games at the commit Cartouche pins),
-//  the compatibility sheets testers wrote for some of them, and the
-//  player's own copies among LiveContainer's apps. The app carries these
-//  files in CartoucheCatalog/ (catalog/ in the Cartouche repository).
-//  Neither says where to get a game.
+//  the compatibility sheets testers wrote for some of them, their official
+//  covers on IGDB (covers.json, image IDs only), and the player's own copies
+//  among LiveContainer's apps. The app carries these files in
+//  CartoucheCatalog/ (catalog/ in the Cartouche repository). None says
+//  where to get a game.
 //
 
 import Foundation
@@ -101,6 +102,8 @@ struct CartoucheEntry: Identifiable, Hashable {
     }
 
     var titleId: String? { game?.titleId ?? sheet?.titleId }
+    /// The game's official cover and artwork on IGDB, if covers.json has them.
+    var cover: CartoucheCover? { titleId.flatMap { CartoucheCatalog.shared.cover(titleId: $0) } }
     var platform: String? { sheet?.platform ?? game?.platform }
     var genre: String? { game?.genre }
     var isOwned: Bool { app != nil }
@@ -134,6 +137,8 @@ final class CartoucheCatalog {
     let devices: [CartoucheDeviceProfile]
     /// Each title ID, every region's, to its game.
     private let gamesByTitle: [String: CartoucheNxGame]
+    /// Each game's title ID in nxnative.json to its cover.
+    private let covers: [String: CartoucheCover]
 
     /// The title ID each app's folder was found to hold, or "" for an
     /// nxnative game without one, so that every Info.plist is read once.
@@ -170,6 +175,16 @@ final class CartoucheCatalog {
         }
         self.gamesByTitle = byTitle
 
+        struct CoverList: Decodable { let covers: [CartoucheCover] }
+        do {
+            let data = try Data(contentsOf: folder.appendingPathComponent("covers.json"))
+            self.covers = Dictionary(try decoder.decode(CoverList.self, from: data).covers.map { ($0.titleId, $0) },
+                                     uniquingKeysWith: { first, _ in first })
+        } catch {
+            NSLog("[Cartouche] cannot read the covers: %@", String(describing: error))
+            self.covers = [:]
+        }
+
         struct DeviceList: Decodable { let devices: [CartoucheDeviceProfile] }
         do {
             let data = try Data(contentsOf: folder.appendingPathComponent("devices.json"))
@@ -191,6 +206,11 @@ final class CartoucheCatalog {
     /// nxnative's game for a title ID of any of its regions.
     func game(titleId: String) -> CartoucheNxGame? {
         gamesByTitle[titleId]
+    }
+
+    /// The official cover of the game of a title ID of any of its regions.
+    func cover(titleId: String) -> CartoucheCover? {
+        covers[gamesByTitle[titleId]?.titleId ?? titleId]
     }
 
     struct Entries {

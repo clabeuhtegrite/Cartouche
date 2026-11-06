@@ -128,7 +128,7 @@ struct CartoucheLibraryView: View {
             .onAppear { columnCount = layout.columns }
             .onChange(of: layout.columns) { _, columns in columnCount = columns }
         }
-        .background(CartoucheStage(key: focused?.tileKey))
+        .background(CartoucheStage(key: focused?.tileKey, artwork: focused?.cover?.artwork))
         .navigationTitle(CartoucheText.allGames)
         .searchable(text: $query, placement: .navigationBarDrawer(displayMode: .always), prompt: CartoucheText.searchPrompt)
         .onChange(of: filter) { _, _ in focusIndex = 0 }

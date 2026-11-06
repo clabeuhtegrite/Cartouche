@@ -3962,6 +3962,23 @@
         }
       }
     },
+    "system.covers.credit" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Covers and artworks of the games: IGDB.com."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Jaquettes et illustrations des jeux : IGDB.com."
+          }
+        }
+      }
+    },
     "system.device" : {
       "extractionState" : "manual",
       "localizations" : {

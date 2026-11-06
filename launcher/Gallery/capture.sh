@@ -40,7 +40,7 @@ BUILD="$HERE/Build"
 # The catalogue the launcher reads, as package.sh copies it into the app.
 rm -rf "$BUILD"
 mkdir -p "$BUILD/CartoucheCatalog/games" "$BUILD/raw"
-cp "$ROOT/catalog/devices.json" "$ROOT/catalog/nxnative.json" "$BUILD/CartoucheCatalog/"
+cp "$ROOT/catalog/devices.json" "$ROOT/catalog/nxnative.json" "$ROOT/catalog/covers.json" "$BUILD/CartoucheCatalog/"
 cp "$ROOT"/catalog/games/*.json "$BUILD/CartoucheCatalog/games/"
 
 (cd "$HERE" && xcodegen generate --quiet)

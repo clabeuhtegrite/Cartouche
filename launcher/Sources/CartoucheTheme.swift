@@ -195,16 +195,31 @@ extension View {
     }
 }
 
-/// The stage: dark, lit from above by the colours of the game in focus.
+/// The stage: dark, lit from above by the colours of the game in focus,
+/// with its official artwork faintly behind them when IGDB has one.
 @available(iOS 17.0, *)
 struct CartoucheStage: View {
     /// The tile key of the game in focus, or nil for Cartouche's colours.
     let key: String?
+    /// The IGDB image ID of the game's artwork, shown faintly at the top.
+    var artwork: String? = nil
 
     var body: some View {
         let colors = key.map(CartoucheTheme.colors(for:)) ?? (light: CartoucheTheme.indigo, dark: CartoucheTheme.pink)
         ZStack {
             CartoucheTheme.stage
+            if let artwork {
+                GeometryReader { frame in
+                    CartoucheCoverImage(id: artwork, kind: .artwork, anchor: 0.5) { Color.clear }
+                        .frame(width: frame.size.width, height: frame.size.height * 0.62)
+                        .blur(radius: 10)
+                        .opacity(0.5)
+                        .mask(LinearGradient(colors: [Color.black, Color.black.opacity(0)],
+                                             startPoint: .top, endPoint: .bottom))
+                }
+                .id(artwork)
+                .transition(.opacity)
+            }
             RadialGradient(colors: [colors.light.opacity(0.55), colors.light.opacity(0)],
                            center: UnitPoint(x: 0.15, y: 0.0), startRadius: 0, endRadius: 520)
             RadialGradient(colors: [colors.dark.opacity(0.65), colors.dark.opacity(0)],
@@ -213,6 +228,7 @@ struct CartoucheStage: View {
                            startPoint: .center, endPoint: .bottom)
         }
         .animation(.easeInOut(duration: 0.45), value: key)
+        .animation(.easeInOut(duration: 0.45), value: artwork)
         .ignoresSafeArea()
     }
 }

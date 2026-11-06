@@ -150,7 +150,7 @@ struct CartoucheHomeView: View {
                 }
             }
         }
-        .background(CartoucheStage(key: heroKey))
+        .background(CartoucheStage(key: heroKey, artwork: heroArtwork))
         .onReceive(gamepad.inputs) { input in
             if isActive { handle(input) }
         }
@@ -161,6 +161,11 @@ struct CartoucheHomeView: View {
 
     private var heroKey: String? {
         if case .game(let entry) = hero { return entry.tileKey }
+        return nil
+    }
+
+    private var heroArtwork: String? {
+        if case .game(let entry) = hero { return entry.cover?.artwork }
         return nil
     }
 

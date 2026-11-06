@@ -122,6 +122,12 @@ struct GalleryScenario {
         guard let ready else { return }
         Task { @MainActor in
             try? await Task.sleep(for: .seconds(3))
+            // The covers the screen shows, from IGDB, for up to 20 s more.
+            for _ in 0..<40 {
+                let pending = await CartoucheCoverStore.shared.pending
+                if pending == 0 { break }
+                try? await Task.sleep(for: .milliseconds(500))
+            }
             guard let scene, let window = scene.windows.first else {
                 NSLog("[Gallery] no window to measure")
                 return

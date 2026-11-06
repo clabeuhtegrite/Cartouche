@@ -5,7 +5,9 @@
 //  Every game shows as a cartridge, as on Cartouche's icon: a body in the
 //  game's colour, its ridges, a square label and gold contacts. The label
 //  of a game the player has holds the icon of their own copy; any other
-//  game gets a label we draw from its name and genre, never official art.
+//  game gets its official cover from IGDB (CartoucheCovers.swift), or,
+//  until it has loaded and when there is none, a label we draw from its
+//  name and genre.
 //
 
 import SwiftUI
@@ -116,8 +118,8 @@ struct CartoucheCartridge<Content: View>: View {
     }
 }
 
-/// The label we draw for a game the player does not have: its colours,
-/// its genre and its name.
+/// The label we draw for a game the player does not have, when IGDB has no
+/// cover for it: its colours, its genre and its name.
 @available(iOS 17.0, *)
 struct CartoucheLabelArt: View {
     let name: String
@@ -190,7 +192,8 @@ struct CartoucheAppIcon: View {
     }
 }
 
-/// A game as a cartridge: the player's icon, or our label.
+/// A game as a cartridge: the player's icon, or the game's cover, or our
+/// label.
 @available(iOS 17.0, *)
 struct CartoucheGameCartridge: View {
     let entry: CartoucheEntry
@@ -216,7 +219,9 @@ struct CartoucheGameCartridge: View {
                     }
                 }
             } else {
-                CartoucheLabelArt(name: entry.name, platform: entry.platform, genre: entry.genre, key: entry.tileKey, side: side)
+                CartoucheCoverImage(id: entry.cover?.cover) {
+                    CartoucheLabelArt(name: entry.name, platform: entry.platform, genre: entry.genre, key: entry.tileKey, side: side)
+                }
             }
         }
         .accessibilityElement(children: .ignore)

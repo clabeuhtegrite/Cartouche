@@ -69,7 +69,7 @@ struct CartoucheGameSheetView: View {
             }
         }
         .scrollContentBackground(.hidden)
-        .background(CartoucheStage(key: entry.tileKey))
+        .background(CartoucheStage(key: entry.tileKey, artwork: entry.cover?.artwork))
         .navigationTitle(entry.name)
         .navigationBarTitleDisplayMode(.inline)
     }
