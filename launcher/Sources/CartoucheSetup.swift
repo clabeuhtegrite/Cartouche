@@ -18,8 +18,11 @@
 //    Finder, opens it with Cartouche, or chooses it in the setup: it goes to
 //    the same place. iloader places it there by itself only in the apps it
 //    lists by name, and Cartouche is not one (app/README.md says why).
+//  - The Apple ID, which the player gives on Cartouche's own screen
+//    (CartoucheAccount): the built-in SideStore signs in with it, without
+//    showing itself, then renews Cartouche with it every week.
 //  - LocalDevVPN, from the App Store, through which SideStore reaches the
-//    iPhone's own services when it renews Cartouche.
+//    iPhone's own services when it signs in and renews Cartouche.
 //
 
 import Foundation
@@ -54,6 +57,34 @@ enum CartoucheStoreKeychain {
 
     static func string(_ account: String) -> String? {
         data(account).flatMap { String(data: $0, encoding: .utf8) }.flatMap { $0.isEmpty ? nil : $0 }
+    }
+
+    /// Leaves DATA for the built-in SideStore under ACCOUNT, in place of what
+    /// was there, readable once the iPhone has been unlocked since it started,
+    /// and on this iPhone only. Returns whether it is there.
+    @discardableResult
+    static func set(_ data: Data, for account: String) -> Bool {
+        guard let service else { return false }
+        remove(account)
+        let item: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: service,
+            kSecAttrAccount as String: account,
+            kSecAttrAccessible as String: kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly,
+            kSecValueData as String: data,
+        ]
+        return SecItemAdd(item as CFDictionary, nil) == errSecSuccess
+    }
+
+    static func remove(_ account: String) {
+        guard let service else { return }
+        let query: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: service,
+            kSecAttrAccount as String: account,
+            kSecAttrSynchronizable as String: kSecAttrSynchronizableAny,
+        ]
+        SecItemDelete(query as CFDictionary)
     }
 }
 
@@ -200,15 +231,11 @@ final class CartoucheSetup: ObservableObject {
     /// games show the setup and what came of it.
     @Published var openedPairingFile = false
 
-    /// Set in the app group when the player taps Sign In before SideStore has
-    /// an Apple ID: the built-in SideStore then opens on its onboarding again
-    /// (SideStoreSupport/CartoucheOnboardingReturn.m).
-    static let signInRequestKey = "CartoucheSignInRequested"
-
     /// Games start once LiveContainer has the certificate.
     var canPlay: Bool { hasCertificate }
-    /// Cartouche also renews itself once SideStore has the pairing file.
-    var isComplete: Bool { hasCertificate && hasPairingFile }
+    /// Cartouche also renews and updates itself once SideStore has the
+    /// pairing file and is signed in.
+    var isComplete: Bool { hasCertificate && hasPairingFile && appleID != nil }
 
     private init() {
         refresh()
@@ -221,7 +248,12 @@ final class CartoucheSetup: ObservableObject {
         hasCertificate = CartoucheCertificate.handOff()
         if CartouchePairing.takeDroppedFile() { pairingError = nil }
         hasPairingFile = CartouchePairing.exists
+        #if CARTOUCHE_GALLERY
+        // The gallery has no SideStore keychain.
+        appleID = GalleryState.setupDone ? "player@icloud.com" : nil
+        #else
         appleID = CartoucheStoreKeychain.string("appleIDEmailAddress")
+        #endif
     }
 
     /// The player can drop the pairing file on Cartouche while it is open.
@@ -246,17 +278,6 @@ final class CartoucheSetup: ObservableObject {
         openedPairingFile = true
     }
 
-    /// Opens the built-in SideStore for the player to sign in: its onboarding
-    /// goes from LocalDevVPN to the Apple ID, and once they are signed in it
-    /// brings them back here, where the certificate comes on its own.
-    func signIn() {
-        if appleID == nil {
-            let defaults = LCUtils.appGroupUserDefault
-            defaults.set(true, forKey: Self.signInRequestKey)
-            defaults.synchronize()
-        }
-        LCUtils.openSideStore()
-    }
 }
 
 /// Reads the setup again whenever Cartouche comes back to the front, and

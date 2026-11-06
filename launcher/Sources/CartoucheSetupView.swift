@@ -3,8 +3,9 @@
 //  Cartouche
 //
 //  The setup, once per iPhone: the pairing file the installer places, the Apple ID
-//  the built-in SideStore signs in with, then the certificate, which Cartouche
-//  hands to LiveContainer on its own (CartoucheSetup.swift). Each step shows
+//  the built-in SideStore signs in with, given here (CartoucheSignInView), then
+//  the certificate, which Cartouche hands to LiveContainer on its own
+//  (CartoucheSetup.swift). Each step shows
 //  where it stands, read again whenever Cartouche comes back to the front.
 //
 
@@ -15,6 +16,7 @@ import UniformTypeIdentifiers
 struct CartoucheSetupView: View {
     @ObservedObject private var setup = CartoucheSetup.shared
     @State private var choosingPairingFile = false
+    @State private var signingIn = false
 
     static let localDevVPN = URL(string: "localdevvpn://")!
     static let localDevVPNAppStore = URL(string: "https://apps.apple.com/app/localdevvpn/id6755608044")!
@@ -44,17 +46,18 @@ struct CartoucheSetupView: View {
                 }
                 step(
                     number: 2,
-                    done: setup.appleID != nil || setup.hasCertificate,
+                    done: setup.appleID != nil,
                     title: CartoucheText.setupAppleIDTitle,
                     detail: setup.appleID.map(CartoucheText.setupAppleIDDone) ?? CartoucheText.setupAppleIDHow
                 ) {
-                    if setup.appleID == nil && !setup.hasCertificate {
+                    if setup.appleID == nil || !setup.hasCertificate {
                         // SideStore registers this iPhone at sign-in, through
                         // the pairing file.
                         Button {
-                            setup.signIn()
+                            signingIn = true
                         } label: {
-                            Label(CartoucheText.setupOpenSideStore, systemImage: "person.crop.circle.badge.checkmark")
+                            Label(setup.appleID == nil ? CartoucheText.setupSignIn : CartoucheText.signInAgain,
+                                  systemImage: "person.crop.circle.badge.checkmark")
                         }
                         .buttonStyle(.borderedProminent)
                         .disabled(!setup.hasPairingFile)
@@ -83,6 +86,9 @@ struct CartoucheSetupView: View {
         .navigationTitle(CartoucheText.setupTitle)
         .navigationBarTitleDisplayMode(.inline)
         .modifier(CartoucheSetupRefresh())
+        .sheet(isPresented: $signingIn) {
+            CartoucheSignInView()
+        }
         .fileImporter(isPresented: $choosingPairingFile, allowedContentTypes: CartouchePairing.contentTypes) { result in
             switch result {
             case .success(let url):
@@ -180,7 +186,7 @@ struct CartoucheSetupBanner: View {
                     VStack(alignment: .leading, spacing: 3) {
                         Text(setup.canPlay ? CartoucheText.setupBannerRenewal : CartoucheText.setupBannerTitle)
                             .font(.headline)
-                        Text(setup.canPlay ? CartoucheText.setupBannerRenewalDetail : CartoucheText.setupBannerDetail)
+                        Text(setup.canPlay ? (setup.hasPairingFile ? CartoucheText.setupBannerSignInDetail : CartoucheText.setupBannerRenewalDetail) : CartoucheText.setupBannerDetail)
                             .font(.subheadline)
                             .opacity(0.85)
                     }

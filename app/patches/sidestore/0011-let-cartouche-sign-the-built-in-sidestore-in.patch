@@ -1,0 +1,404 @@
+From 7f14ad11dfd1793a0ac6109685a010f0a60717ff Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Fri, 6 Nov 2026 22:11:07 +0000
+Subject: [PATCH] Let Cartouche sign the built-in SideStore in
+
+Cartouche never shows SideStore, so its onboarding's Sign In is out of
+the player's reach. A new action, Sign In to Cartouche, runs the same
+sign-in without any screen: Cartouche asks for the Apple ID, its
+password and the verification code itself, and runs the action in
+LiveProcess, as it runs Refresh All Apps; Shortcuts does not list it.
+
+The two processes share SideStore's keychain, and talk through three of
+its items: the credentials Cartouche leaves, which the action reads once
+and deletes, the verification code request the action leaves when Apple
+asks for one, and Cartouche's answer. What SideStore's screens would ask
+is decided as the onboarding would have it: the free team, no
+certificate revoked, Cartouche not re-signed. An error SideStore would
+offer to retry or skip ends the sign-in with that error, and so does an
+account Apple asks to repair or an outdated anisette server, for
+Cartouche to show.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01MzPJorvBGmBB88WUcRVhE7
+---
+ SideStore/Intents/CartoucheSignInIntent.swift | 367 ++++++++++++++++++
+ 1 file changed, 367 insertions(+)
+ create mode 100644 SideStore/Intents/CartoucheSignInIntent.swift
+
+diff --git a/SideStore/Intents/CartoucheSignInIntent.swift b/SideStore/Intents/CartoucheSignInIntent.swift
+new file mode 100644
+index 0000000..bfbce53
+--- /dev/null
++++ b/SideStore/Intents/CartoucheSignInIntent.swift
+@@ -0,0 +1,367 @@
++//
++//  CartoucheSignInIntent.swift
++//  SideStore
++//
++//  Cartouche: signs the SideStore built into it in with the player's Apple ID,
++//  as the onboarding's Sign In does, without showing anything. Cartouche
++//  asks for the Apple ID, its password and the verification code on its own
++//  screens, and runs this action through LiveContainer's SideStoreSupport, in
++//  LiveProcess, as it runs Refresh All Apps. Shortcuts does not list it.
++//
++//  The two processes share SideStore's keychain (service: the bundle
++//  identifier SideStoreHooks gives SideStore, Cartouche's own), and talk
++//  through three of its items:
++//
++//  - cartoucheSignIn.credentials, which Cartouche writes before it runs the
++//    action: {"appleID": "...", "password": "..."}. The action reads it once
++//    and deletes it; SideStore then keeps the Apple ID and password in its
++//    own items, as it does after any sign-in.
++//  - cartoucheSignIn.request, which the action writes when Apple asks for a
++//    verification code: {"id", "mode": "trustedDevice" | "sms" | "voice",
++//    "phone", "canTextMessage", "error"}. It deletes it when it ends.
++//  - cartoucheSignIn.response, Cartouche's answer to that request:
++//    {"id", "code"} or {"id", "action": "sms" | "trustedDevice" | "cancel"}.
++//
++//  What SideStore's own screens would ask the player is decided here as the
++//  onboarding would have it: the team is the free one when there are several,
++//  certificates are never revoked (they never are, see
++//  CertificateProvisioningFlow), and Cartouche is not re-signed. An error
++//  that SideStore's screens would offer to retry or skip ends the sign-in
++//  with that error, for Cartouche to show.
++//
++
++import AppIntents
++import Foundation
++import Security
++import SideSign
++import UIKit
++
++@available(iOS 17.0, tvOS 17.0, *)
++struct CartoucheSignInIntent: AppIntent, ProgressReportingIntent
++{
++    static var title: LocalizedStringResource = "Sign In to Cartouche"
++    static var description = IntentDescription("Signs SideStore in with the Apple ID that Cartouche gives it.")
++    static var openAppWhenRun = false
++    static var isDiscoverable: Bool { false }
++
++    init()
++    {
++        self.progress.completedUnitCount = 0
++        self.progress.totalUnitCount = 100
++    }
++
++    func perform() async throws -> some IntentResult
++    {
++        let handler = CartoucheSignInHandler()
++        defer { handler.finish() }
++
++        do
++        {
++            try await DatabaseManager.shared.start()
++            let credentials = try handler.takeCredentials()
++
++            // Another account's team and certificate would sign with the
++            // wrong identity: forget them, as Sign Out does.
++            if let current = AuthManager.shared.currentAppleID,
++               current.caseInsensitiveCompare(credentials.appleID) != .orderedSame
++            {
++                await AuthManager.shared.signOut()
++            }
++
++            let context = StandaloneOperationContext(
++                steps: .signIn,
++                dbBackgroundContext: DatabaseManager.shared.persistentContainer.newBackgroundContext()
++            )
++            let operation = try SignInOperation(
++                context: context,
++                signInHandler: handler,
++                anisetteServerHandler: handler,
++                skipResign: true,
++                skipHowTos: true
++            )
++            self.progress.addChild(operation.progress, withPendingUnitCount: 100)
++
++            do
++            {
++                _ = try await operation.execute()
++            }
++            catch
++            {
++                // A decision this handler made ends the operation with
++                // "cancelled": the error behind it says more.
++                throw handler.reason ?? error
++            }
++
++            // SideStore's own screens never show in Cartouche, but should
++            // they ever, they start past the onboarding.
++            UserDefaults.standard.hasCompletedOnboarding = true
++            return .result()
++        }
++        catch
++        {
++            throw IntentError(error)
++        }
++    }
++}
++
++struct CartoucheSignInError: LocalizedError
++{
++    var message: String
++    var errorDescription: String? { self.message }
++}
++
++/// Answers SignInOperation where SideStore's own sign-in screens would ask
++/// the player, with what Cartouche passed through the keychain.
++final class CartoucheSignInHandler: SignInHandler, AnisetteServerHandler, @unchecked Sendable
++{
++    struct Credentials: Decodable
++    {
++        var appleID: String
++        var password: String
++    }
++
++    static let credentialsAccount = "cartoucheSignIn.credentials"
++    static let requestAccount = "cartoucheSignIn.request"
++    static let responseAccount = "cartoucheSignIn.response"
++
++    /// How long the player has to type a verification code.
++    static let codeTimeout: TimeInterval = 600
++
++    private let lock = NSLock()
++    private var credentials: Credentials?
++    private var lastSignInError: Error?
++    private var decidedError: Error?
++
++    /// Why the sign-in ended, when this handler ended it.
++    var reason: Error? {
++        self.lock.lock()
++        defer { self.lock.unlock() }
++        return self.decidedError ?? self.lastSignInError
++    }
++
++    private func record(_ error: Error)
++    {
++        self.lock.lock()
++        self.decidedError = error
++        self.lock.unlock()
++    }
++
++    // MARK: - Keychain
++
++    private static var service: String { Bundle.Info.appbundleIdentifier }
++
++    private static func read(_ account: String) -> Data?
++    {
++        let query: [String: Any] = [
++            kSecClass as String: kSecClassGenericPassword,
++            kSecAttrService as String: self.service,
++            kSecAttrAccount as String: account,
++            kSecReturnData as String: true,
++            kSecMatchLimit as String: kSecMatchLimitOne,
++        ]
++        var item: CFTypeRef?
++        guard SecItemCopyMatching(query as CFDictionary, &item) == errSecSuccess else { return nil }
++        return item as? Data
++    }
++
++    private static func delete(_ account: String)
++    {
++        let query: [String: Any] = [
++            kSecClass as String: kSecClassGenericPassword,
++            kSecAttrService as String: self.service,
++            kSecAttrAccount as String: account,
++        ]
++        SecItemDelete(query as CFDictionary)
++    }
++
++    private static func write(_ data: Data, to account: String)
++    {
++        self.delete(account)
++        let item: [String: Any] = [
++            kSecClass as String: kSecClassGenericPassword,
++            kSecAttrService as String: self.service,
++            kSecAttrAccount as String: account,
++            kSecAttrAccessible as String: kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly,
++            kSecValueData as String: data,
++        ]
++        SecItemAdd(item as CFDictionary, nil)
++    }
++
++    /// Reads the Apple ID and password Cartouche left, once.
++    func takeCredentials() throws -> Credentials
++    {
++        defer { Self.delete(Self.credentialsAccount) }
++        guard let data = Self.read(Self.credentialsAccount),
++              let credentials = try? JSONDecoder().decode(Credentials.self, from: data),
++              !credentials.appleID.isEmpty, !credentials.password.isEmpty
++        else {
++            throw CartoucheSignInError(message: NSLocalizedString("Cartouche gave no Apple ID to sign in with.", comment: ""))
++        }
++        self.lock.lock()
++        self.credentials = credentials
++        self.lock.unlock()
++        return credentials
++    }
++
++    /// Clears what the sign-in left for Cartouche.
++    func finish()
++    {
++        Self.delete(Self.credentialsAccount)
++        Self.delete(Self.requestAccount)
++        Self.delete(Self.responseAccount)
++    }
++
++    // MARK: - SignInHandler
++
++    func credentials() async throws -> (String, String)
++    {
++        self.lock.lock()
++        let credentials = self.credentials
++        let lastError = self.lastSignInError
++        self.credentials = nil
++        self.lock.unlock()
++
++        // SignInOperation asks again after a failed attempt: Cartouche asks
++        // the player, so the sign-in ends with the error instead.
++        guard let credentials else {
++            throw lastError ?? OperationError.notAuthenticated
++        }
++        return (credentials.appleID, credentials.password)
++    }
++
++    func handleSignInResult(_ result: Result<(ALTAccount, ALTAppleAPISession), Error>) async
++    {
++        guard case .failure(let error) = result else { return }
++        self.lock.lock()
++        self.lastSignInError = error
++        self.lock.unlock()
++    }
++
++    func verificationCode(for request: TwoFactorRequest) async throws -> TwoFactorResponse
++    {
++        let phoneNumbers: [TrustedPhoneNumber]
++        let activeID: String
++        switch request
++        {
++        case .selectDeliveryMethod(let preferredMode, let numbers):
++            // The way Apple suggests, as the dialog's default button.
++            if preferredMode != .trustedDevice, let phone = numbers.first
++            {
++                return preferredMode == .voice ? .requestVoice(phoneID: phone.id) : .requestSMS(phoneID: phone.id)
++            }
++            return .requestTrustedDevice
++        case .trustedDevice:
++            phoneNumbers = []
++            activeID = ""
++        case .sms(let numbers, let id, _), .voice(let numbers, let id, _):
++            phoneNumbers = numbers
++            activeID = id
++        }
++
++        let id = UUID().uuidString
++        var message: [String: Any] = [
++            "id": id,
++            "mode": request.mode?.rawValue ?? TwoFactorDeliveryMode.trustedDevice.rawValue,
++            "canTextMessage": request.mode == .trustedDevice,
++        ]
++        if let phone = phoneNumbers.first(where: { $0.id == activeID }) ?? phoneNumbers.first, !phone.number.isEmpty
++        {
++            message["phone"] = phone.number
++        }
++        if let error = request.error, !error.isEmpty
++        {
++            message["error"] = error
++        }
++        Self.delete(Self.responseAccount)
++        Self.write(try JSONSerialization.data(withJSONObject: message), to: Self.requestAccount)
++        defer { Self.delete(Self.requestAccount) }
++
++        let deadline = Date().addingTimeInterval(Self.codeTimeout)
++        while Date() < deadline
++        {
++            try await Task.sleep(nanoseconds: 400_000_000)
++            guard let data = Self.read(Self.responseAccount),
++                  let response = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
++                  response["id"] as? String == id
++            else { continue }
++            Self.delete(Self.responseAccount)
++
++            if let code = response["code"] as? String
++            {
++                return .verificationCode(code)
++            }
++            switch response["action"] as? String
++            {
++            case "sms":
++                // Apple sends the code by text message to the first trusted
++                // number when it knows none yet.
++                return .requestSMS(phoneID: activeID.isEmpty ? (phoneNumbers.first?.id ?? "") : activeID)
++            case "trustedDevice":
++                return .requestTrustedDevice
++            default:
++                return .cancel
++            }
++        }
++
++        self.record(CartoucheSignInError(message: NSLocalizedString("No verification code came in time. Sign in again.", comment: "")))
++        return .cancel
++    }
++
++    func accountRepair(url: URL, message: String) async -> AccountRepairDecision
++    {
++        // Skipping it can get the account restricted: the player opens the
++        // page, then signs in again.
++        let detail = message.isEmpty ? AppConstants.defaultAccountRepairMessage : message
++        self.record(CartoucheSignInError(message: "\(detail)\n\n\(url.absoluteString)"))
++        return .cancel
++    }
++
++    func resolveTeam(_ teams: [ALTTeam]) async throws -> ALTTeam
++    {
++        // The free team, which signs Cartouche, as SideStore's list shows it.
++        if let team = teams.first(where: { $0.type == .free }) ?? teams.first(where: { $0.type == .individual }) ?? teams.first
++        {
++            return team
++        }
++        throw DeveloperPortalError.noTeams
++    }
++
++    func resolveProvisioningError(_ error: Error) async -> ProvisioningErrorDecision
++    {
++        self.record(error)
++        return .cancel
++    }
++
++    func resolveDeviceRegistrationErrors(_ error: Error) async -> ProvisioningErrorDecision
++    {
++        self.record(error)
++        return .cancel
++    }
++
++    func resolveRevocation(certificates: [ALTX509Certificate], teamType: ALTTeamType) async throws -> RevokeDecision
++    {
++        .keepExisting
++    }
++
++    func resolveResign(mismatchReason: CodeSignValidationReason, context: StandaloneOperationContext) async throws -> Bool
++    {
++        false
++    }
++
++    func resolvePostAuth() async {}
++
++    func showCertificateSkipAcknowledgment() async {}
++
++    func showDeviceRegistrationSkipAcknowledgment() async {}
++
++    func complete() async {}
++
++    // MARK: - AnisetteServerHandler
++
++    func warnOutdatedAnisetteServer() async throws -> Bool
++    {
++        // An outdated server is more likely to get the account locked: never
++        // without the player.
++        false
++    }
++}
+-- 
+2.43.0
+

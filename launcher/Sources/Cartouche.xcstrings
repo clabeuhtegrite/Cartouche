@@ -2931,30 +2931,30 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Sign in once in the SideStore built into Cartouche: it takes the certificate the Cartouche Installer left for it, and renews Cartouche every week. SideStore has you connect LocalDevVPN, asks for your Apple ID, then brings you back here by itself."
+            "value" : "Sign in once with your Apple ID, here in Cartouche: the built-in SideStore then takes the certificate the Cartouche Installer left for it, and renews Cartouche every week, without showing itself. Connect LocalDevVPN first."
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Connectez-vous une fois dans le SideStore intégré à Cartouche : il prend le certificat que l’Installeur Cartouche lui a laissé, et renouvelle Cartouche chaque semaine. SideStore vous fait connecter LocalDevVPN, demande votre compte Apple, puis vous ramène ici tout seul."
+            "value" : "Connectez-vous une fois avec votre identifiant Apple, ici dans Cartouche : le SideStore intégré prend alors le certificat que l’Installeur Cartouche lui a laissé, et renouvelle Cartouche chaque semaine, sans s’afficher. Connectez d’abord LocalDevVPN."
           }
         }
       }
     },
-    "setup.appleID.open" : {
+    "setup.appleID.signIn" : {
       "extractionState" : "manual",
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Sign in with SideStore"
+            "value" : "Sign In"
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Se connecter dans SideStore"
+            "value" : "Se connecter"
           }
         }
       }
@@ -3023,6 +3023,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Ajoutez votre fichier de jumelage"
+          }
+        }
+      }
+    },
+    "setup.banner.renewal.signIn" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sign in with your Apple ID"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Connectez-vous avec votre identifiant Apple"
           }
         }
       }
@@ -3856,6 +3873,414 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "ID du titre"
+          }
+        }
+      }
+    },
+    "signIn.again" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sign in again"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Se reconnecter"
+          }
+        }
+      }
+    },
+    "signIn.appleID" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Apple ID (email or phone number)"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Identifiant Apple (e-mail ou numéro de téléphone)"
+          }
+        }
+      }
+    },
+    "signIn.button" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sign In"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Se connecter"
+          }
+        }
+      }
+    },
+    "signIn.code.byDevice" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Send it to my Apple devices"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "L’envoyer sur mes appareils Apple"
+          }
+        }
+      }
+    },
+    "signIn.code.bySMS" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Get a text message instead"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Recevoir plutôt un SMS"
+          }
+        }
+      }
+    },
+    "signIn.code.continue" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Continue"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Continuer"
+          }
+        }
+      }
+    },
+    "signIn.code.placeholder" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "6-digit code"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Code à 6 chiffres"
+          }
+        }
+      }
+    },
+    "signIn.code.sms" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Apple sent a code by text message to %@."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Apple a envoyé un code par SMS au %@."
+          }
+        }
+      }
+    },
+    "signIn.code.sms.any" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Apple sent a code by text message to your phone number."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Apple a envoyé un code par SMS à votre numéro de téléphone."
+          }
+        }
+      }
+    },
+    "signIn.code.title" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Verification code"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Code de validation"
+          }
+        }
+      }
+    },
+    "signIn.code.trustedDevice" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Apple sent a code to your other Apple devices. Allow the sign-in there, then type the code here."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Apple a envoyé un code sur vos autres appareils Apple. Autorisez-y la connexion, puis saisissez le code ici."
+          }
+        }
+      }
+    },
+    "signIn.code.voice" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Apple is calling %@ with a code."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Apple appelle le %@ pour vous donner un code."
+          }
+        }
+      }
+    },
+    "signIn.code.voice.any" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Apple is calling your phone number with a code."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Apple appelle votre numéro de téléphone pour vous donner un code."
+          }
+        }
+      }
+    },
+    "signIn.failed.title" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The sign-in did not go through"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "La connexion n’a pas abouti"
+          }
+        }
+      }
+    },
+    "signIn.freeAccount" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A free Apple ID will do. Your password goes to Apple only, and stays in this iPhone’s keychain for the renewals."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Un identifiant Apple gratuit suffit. Votre mot de passe ne va qu’à Apple, et reste dans le trousseau de cet iPhone pour les renouvellements."
+          }
+        }
+      }
+    },
+    "signIn.intro" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Once on this iPhone. The SideStore built into Cartouche signs in with it without showing itself: it registers this iPhone with your account, takes the certificate the Cartouche Installer left for it, and renews Cartouche every week."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Une fois sur cet iPhone. Le SideStore intégré à Cartouche s’en sert sans s’afficher : il inscrit cet iPhone sur votre compte, prend le certificat que l’Installeur Cartouche lui a laissé, et renouvelle Cartouche chaque semaine."
+          }
+        }
+      }
+    },
+    "signIn.keychainFailed" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cartouche could not hand your Apple ID to the built-in SideStore. Try again."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cartouche n’a pas pu transmettre votre identifiant Apple au SideStore intégré. Réessayez."
+          }
+        }
+      }
+    },
+    "signIn.openPage" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Open the page"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ouvrir la page"
+          }
+        }
+      }
+    },
+    "signIn.password" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Password"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mot de passe"
+          }
+        }
+      }
+    },
+    "signIn.title" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sign in with your Apple ID"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Connectez-vous avec votre identifiant Apple"
+          }
+        }
+      }
+    },
+    "signIn.unavailable" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The built-in SideStore did not load. Close Cartouche, open it again, then sign in."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Le SideStore intégré ne s’est pas chargé. Fermez Cartouche, rouvrez-le, puis connectez-vous."
+          }
+        }
+      }
+    },
+    "signIn.vpn.how" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "SideStore reaches this iPhone through it to register it with your account, as it does for each renewal."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "SideStore passe par lui pour joindre cet iPhone et l’inscrire sur votre compte, comme à chaque renouvellement."
+          }
+        }
+      }
+    },
+    "signIn.vpn.title" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Connect LocalDevVPN first"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Connectez d’abord LocalDevVPN"
+          }
+        }
+      }
+    },
+    "signIn.working" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Signing in, registering this iPhone and fetching the certificate…"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Connexion, inscription de cet iPhone et récupération du certificat…"
           }
         }
       }
@@ -5583,13 +6008,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Finish setting up Cartouche first: the built-in SideStore needs its certificate and the pairing file."
+            "value" : "Finish setting up Cartouche first: the built-in SideStore needs your Apple ID, its certificate and the pairing file."
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Terminez d’abord la configuration de Cartouche : le SideStore intégré a besoin de son certificat et du fichier d’appairage."
+            "value" : "Terminez d’abord la configuration de Cartouche : le SideStore intégré a besoin de votre identifiant Apple, de son certificat et du fichier d’appairage."
           }
         }
       }

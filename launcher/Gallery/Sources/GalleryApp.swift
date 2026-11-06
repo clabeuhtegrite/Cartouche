@@ -8,7 +8,7 @@
 //  the whole screen of the simulator it runs on, such as the iPhone Duo's,
 //  with its own safe area, size classes and system bars.
 //
-//      -GalleryScreen games|library|sheet|settings|setup
+//      -GalleryScreen games|library|sheet|settings|setup|signin
 //      -GalleryWidth 402 -GalleryHeight 874     (none: the whole screen)
 //      -GalleryInsets 62,0,34,0          top, leading, bottom, trailing
 //      -GalleryOwned 0400C3F00006E000,…  the player's games
@@ -16,7 +16,10 @@
 //      -GallerySheet <title ID>          the game of the sheet, of its
 //                                        settings, or being installed
 //      -GalleryWork installing           a game being installed, over the
-//                                        console
+//                                        console; update: a new version of
+//                                        Cartouche on offer; code: Apple
+//                                        asks for a verification code, on
+//                                        the sign-in
 //      -GalleryOrientation landscape     the gallery turns itself sideways,
 //                                        as a game does; the simulator
 //                                        stays upright
@@ -95,6 +98,10 @@ struct GalleryScenario {
             if work == "update" {
                 // A higher version than the gallery's own (project.yml).
                 CartoucheUpdates.shared.offerForGallery(CartoucheRelease(version: "0.4.0", notes: "", size: 36_802_806))
+            }
+            if work == "code" {
+                CartoucheAccount.shared.requestCodeForGallery(.init(
+                    id: "gallery", mode: .sms, phone: "+33 •• •• •• •• 78", canTextMessage: false, error: nil))
             }
         }
     }
@@ -245,6 +252,8 @@ struct CartoucheGalleryApp: App {
             NavigationStack {
                 CartoucheSetupView()
             }
+        case "signin":
+            CartoucheSignInView()
         default:
             CartoucheGamesView()
         }
