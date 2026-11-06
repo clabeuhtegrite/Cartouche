@@ -1,0 +1,9 @@
+{
+  "name": "Cartouche",
+  "identifier": "io.github.clabeuhtegrite.cartouche.source",
+  "subtitle": "Cartouche itself",
+  "description": "The source Cartouche's built-in SideStore reads for Cartouche's own updates. It lists Cartouche and nothing else: Cartouche never lists, hosts or downloads games.",
+  "website": "https://github.com/clabeuhtegrite/Cartouche",
+  "apps": [],
+  "news": []
+}

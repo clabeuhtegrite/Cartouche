@@ -1,0 +1,149 @@
+From 59bec88cde38eef8d6bf84a1cb0a984c60cb8115 Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Thu, 5 Nov 2026 23:50:12 +0000
+Subject: [PATCH] Use the built-in SideStore's app group only
+
+Cartouche always carries its own SideStore, so it signs with one app
+group, the built-in SideStore's: the AltStore group goes from the
+entitlements of the app and its extensions, from the app group
+candidates and from the groups that are stripped of their team
+identifier when another copy is archived.
+
+Store detection and isAppGroupAltStoreLike now test for the built-in
+SideStore's group by prefix instead of looking for "SideStore" or
+"AltStore" in the group's name, because Cartouche's branding step
+renames that group to Cartouche's own.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01MzPJorvBGmBB88WUcRVhE7
+---
+ LaunchAppExtension/LaunchAppExtension.entitlements | 1 -
+ LiveContainer/LCSharedUtils.m                      | 3 +--
+ LiveContainerSwiftUI/Utilities/LCUtils.m           | 8 +++-----
+ LiveProcess/LiveProcess.entitlements               | 1 -
+ ShareExtension/ShareExtension.entitlements         | 1 -
+ entitlements.catalyst.xml                          | 1 -
+ entitlements.xml                                   | 1 -
+ xcconfigs/Global.xcconfig                          | 1 -
+ 8 files changed, 4 insertions(+), 13 deletions(-)
+
+diff --git a/LaunchAppExtension/LaunchAppExtension.entitlements b/LaunchAppExtension/LaunchAppExtension.entitlements
+index 41a83f3..9f82818 100644
+--- a/LaunchAppExtension/LaunchAppExtension.entitlements
++++ b/LaunchAppExtension/LaunchAppExtension.entitlements
+@@ -5,7 +5,6 @@
+ 	<key>com.apple.security.application-groups</key>
+ 	<array>
+ 		<string>$(APP_GROUP_SIDESTORE)</string>
+-		<string>$(APP_GROUP_ALTSTORE)</string>
+ 	</array>
+ </dict>
+ </plist>
+diff --git a/LiveContainer/LCSharedUtils.m b/LiveContainer/LCSharedUtils.m
+index 575205f..af7f5b1 100644
+--- a/LiveContainer/LCSharedUtils.m
++++ b/LiveContainer/LCSharedUtils.m
+@@ -58,8 +58,7 @@ NSString* FBSOpenApplicationOptionKeyPayloadURL = @"__PayloadURL";
+     static NSString *appGroupID = @"Unknown";
+     dispatch_once(&once, ^{
+         NSArray* possibleAppGroups = @[
+-            [@"group.com.SideStore.SideStore." stringByAppendingString:[self teamIdentifier]],
+-            [@"group.com.rileytestut.AltStore." stringByAppendingString:[self teamIdentifier]]
++            [@"group.com.SideStore.SideStore." stringByAppendingString:[self teamIdentifier]]
+         ];
+         
+         // we prefer app groups with "Apps" in it, which indicate this app group is actually used by the store.
+diff --git a/LiveContainerSwiftUI/Utilities/LCUtils.m b/LiveContainerSwiftUI/Utilities/LCUtils.m
+index c6630f1..5c7ce87 100644
+--- a/LiveContainerSwiftUI/Utilities/LCUtils.m
++++ b/LiveContainerSwiftUI/Utilities/LCUtils.m
+@@ -227,9 +227,8 @@
+             return;
+         }
+         
+-        if([[LCSharedUtils appGroupID] containsString:@"AltStore"] && ![[LCSharedUtils appGroupID] isEqualToString:@"group.com.rileytestut.AltStore"]) {
+-            ans = AltStore;
+-        } else if ([[LCSharedUtils appGroupID] containsString:@"SideStore"] && ![[LCSharedUtils appGroupID] isEqualToString:@"group.com.SideStore.SideStore"]) {
++        // The app group of the built-in SideStore, with the team identifier that signing appends.
++        if ([[LCSharedUtils appGroupID] hasPrefix:@"group.com.SideStore.SideStore."]) {
+             ans = SideStore;
+         } else if (![[LCSharedUtils appGroupID] containsString:@"Unknown"] ) {
+             ans = ADP;
+@@ -245,7 +244,7 @@
+ }
+ 
+ + (BOOL)isAppGroupAltStoreLike {
+-    return [LCSharedUtils.appGroupID containsString:@"SideStore"] || [LCSharedUtils.appGroupID containsString:@"AltStore"];
++    return [LCSharedUtils.appGroupID hasPrefix:@"group.com.SideStore.SideStore"];
+ }
+ 
+ + (void)changeMainExecutableTo:(NSString *)exec error:(NSError **)error {
+@@ -363,7 +362,6 @@
+     infoDict[@"PrimaryLiveContainerTeamId"] = teamId;
+     NSArray* appGroupsToFind = @[
+         @"group.com.SideStore.SideStore",
+-        @"group.com.rileytestut.AltStore",
+     ];
+     
+     // remove the team id prefix in app group id added by SideStore/AltStore
+diff --git a/LiveProcess/LiveProcess.entitlements b/LiveProcess/LiveProcess.entitlements
+index cb4f20c..485c38b 100644
+--- a/LiveProcess/LiveProcess.entitlements
++++ b/LiveProcess/LiveProcess.entitlements
+@@ -13,7 +13,6 @@
+ 	<key>com.apple.security.application-groups</key>
+ 	<array>
+ 		<string>$(APP_GROUP_SIDESTORE)</string>
+-		<string>$(APP_GROUP_ALTSTORE)</string>
+ 	</array>
+ 	<key>get-task-allow</key>
+ 	<true/>
+diff --git a/ShareExtension/ShareExtension.entitlements b/ShareExtension/ShareExtension.entitlements
+index 41a83f3..9f82818 100644
+--- a/ShareExtension/ShareExtension.entitlements
++++ b/ShareExtension/ShareExtension.entitlements
+@@ -5,7 +5,6 @@
+ 	<key>com.apple.security.application-groups</key>
+ 	<array>
+ 		<string>$(APP_GROUP_SIDESTORE)</string>
+-		<string>$(APP_GROUP_ALTSTORE)</string>
+ 	</array>
+ </dict>
+ </plist>
+diff --git a/entitlements.catalyst.xml b/entitlements.catalyst.xml
+index f4738d0..da6518a 100644
+--- a/entitlements.catalyst.xml
++++ b/entitlements.catalyst.xml
+@@ -11,7 +11,6 @@
+ 	<key>com.apple.security.application-groups</key>
+ 	<array>
+ 		<string>group.com.SideStore.SideStore</string>
+-		<string>group.com.rileytestut.AltStore</string>
+ 	</array>
+ 	<key>get-task-allow</key>
+ 	<true/>
+diff --git a/entitlements.xml b/entitlements.xml
+index bf0beb9..096cda7 100644
+--- a/entitlements.xml
++++ b/entitlements.xml
+@@ -19,7 +19,6 @@
+ 	<key>com.apple.security.application-groups</key>
+ 	<array>
+ 		<string>$(APP_GROUP_SIDESTORE)</string>
+-		<string>$(APP_GROUP_ALTSTORE)</string>
+ 	</array>
+ 	<key>get-task-allow</key>
+ 	<true/>
+diff --git a/xcconfigs/Global.xcconfig b/xcconfigs/Global.xcconfig
+index 98e35ff..f587806 100644
+--- a/xcconfigs/Global.xcconfig
++++ b/xcconfigs/Global.xcconfig
+@@ -12,5 +12,4 @@ DEVELOPMENT_TEAM_SUFFIX[config=Debug] = .$(DEVELOPMENT_TEAM)
+ DEVELOPMENT_TEAM_SUFFIX[config=Release] =
+ 
+ APP_GROUP_SIDESTORE = group.com.SideStore.SideStore$(DEVELOPMENT_TEAM_SUFFIX)
+-APP_GROUP_ALTSTORE = group.com.rileytestut.AltStore$(DEVELOPMENT_TEAM_SUFFIX)
+ LIVECONTAINER_BUNDLE_IDENTIFIER = com.kdt.livecontainer$(DEVELOPMENT_TEAM_SUFFIX)
+-- 
+2.43.0
+
