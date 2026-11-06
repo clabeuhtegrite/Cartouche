@@ -16,6 +16,15 @@
       "bundleIdentifier": "io.github.clabeuhtegrite.cartouche",
       "versions": [
         {
+          "version": "0.5.1",
+          "date": "2026-11-06T23:35:42Z",
+          "localizedDescription": "Games start again after an install from another computer.\n\n- Games: when the Cartouche Installer, run from another computer, revoked the old certificate, games no longer started (\"the app is signed with the latest certificate but its signature is invalid\"). Cartouche now checks that iOS accepts the certificate games are signed with, and if not, signs in again with your Apple ID by itself to take the new one. It asks you only should Apple want a verification code.\n- Updates: Cartouche offers none while its certificate does not work, since an update signed with a revoked certificate would not open.\n- Install this version with the Cartouche Installer if a game shows that message: an update from inside Cartouche would be signed with the revoked certificate.",
+          "downloadURL": "https://github.com/clabeuhtegrite/Cartouche/releases/download/v0.5.1/Cartouche-0.5.1.ipa",
+          "size": 25629529,
+          "sha256": "ca4c41fd44cdcefcd005c18efce6776eec2960ab19ccc82ed237543935b6755a",
+          "minOSVersion": "15.0"
+        },
+        {
           "version": "0.4.0",
           "date": "2026-11-06T21:40:27Z",
           "localizedDescription": "Updates from inside Cartouche, and storage that copes with large games and read-only shared folders.\n\n- Updates: Cartouche looks for its new versions itself, when it opens and when you come back to it, and offers them over the console with Update and Later. The System page shows them too, with what's new, and Check for an update. The built-in SideStore installs the new version without a computer and without showing itself, with LocalDevVPN connected, then Cartouche goes to the home screen for iOS to install it: open it again. Your games and their saves stay.\n- This is the first version that updates itself: install it once with the Cartouche Installer, over the Cartouche you have. The next ones come from inside Cartouche.\n- Storage: copying a large game to your storage, such as Mario Kart World to a NAS, no longer closes Cartouche partway through.\n- Storage: a shared folder your account can only read shows as read-only. Its games still install, but it takes no saves and no copy of a game.",
