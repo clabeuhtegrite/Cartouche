@@ -181,6 +181,9 @@ enum CartoucheText {
     static var setupCertificateTitle: String { s("setup.certificate.title", "Certificate") }
     static var setupCertificateHow: String { s("setup.certificate.how", "Comes by itself once you have signed in. If it does not, install Cartouche again with the Cartouche Installer, over this copy: it gives Cartouche its certificate.") }
     static var setupCertificateDone: String { s("setup.certificate.done", "Cartouche signs your games with it.") }
+    static var setupCertificateChecking: String { s("setup.certificate.checking", "Cartouche checks that iOS accepts it.") }
+    static var setupCertificateRefused: String { s("setup.certificate.refused", "iOS no longer accepts it: an install from another computer may have revoked it. Sign in again with your Apple ID, and the built-in SideStore takes the certificate that signs Cartouche.") }
+    static var setupCertificateRenewing: String { s("setup.certificate.renewing", "iOS no longer accepts it. Cartouche signs in again with your Apple ID to take the certificate that signs Cartouche…") }
     static var setupCheckAgain: String { s("setup.checkAgain", "Check again") }
     static var setupVPNTitle: String { s("setup.vpn.title", "LocalDevVPN, for renewals") }
     static var setupVPNHow: String { s("setup.vpn.how", "SideStore renews Cartouche every 7\u{00A0}days through this free VPN from the App Store, which never leaves this iPhone. Turn it on before a renewal.") }
@@ -190,6 +193,9 @@ enum CartoucheText {
     static var setupBannerRenewal: String { s("setup.banner.renewal", "Renewal to set up") }
     static var setupBannerRenewalDetail: String { s("setup.banner.renewal.detail", "Add your pairing file") }
     static var setupBannerSignInDetail: String { s("setup.banner.renewal.signIn", "Sign in with your Apple ID") }
+    static var setupBannerCertificate: String { s("setup.banner.certificate", "The certificate no longer works") }
+    static var setupBannerCertificateDetail: String { s("setup.banner.certificate.detail", "Sign in again to play") }
+    static var setupBannerCertificateRenewing: String { s("setup.banner.certificate.renewing", "Cartouche signs in again…") }
     static var setupStatusDone: String { s("setup.status.done", "Done") }
     static var setupStatusToDo: String { s("setup.status.todo", "To do") }
 
@@ -317,6 +323,7 @@ enum CartoucheText {
     static var startSoon: String { s("work.start.soon", "The game opens in a moment.") }
     static var startSettings: String { s("work.start.settings", "The game opens on its settings: its Play button starts it and keeps your choices.") }
     static var startFailed: String { s("work.start.failed", "The game did not start") }
+    static var startCertificateRefused: String { s("work.start.certificateRefused", "iOS no longer accepts the certificate the game was signed with. Cartouche signs in again with your Apple ID to take the new one: try again in a moment.") }
     static func uninstallTitle(_ name: String) -> String { f("work.uninstall.title", "Uninstalling %@", name) }
     static var uninstallStep: String { s("work.uninstall.step", "Removing it from this iPhone") }
     static var uninstallFailed: String { s("work.uninstall.failed", "The game was not uninstalled") }

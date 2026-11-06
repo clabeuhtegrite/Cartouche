@@ -114,7 +114,7 @@ struct CartoucheHomeView: View {
             ScrollView(.vertical) {
                 VStack(alignment: .leading, spacing: metrics.spacing) {
                     topBar
-                    if !setup.isComplete {
+                    if setup.needsSetup {
                         CartoucheHomeSetupBanner(action: onSetup)
                     }
                     if metrics.isWide {
@@ -606,18 +606,19 @@ struct CartoucheHint: View {
 struct CartoucheHomeSetupBanner: View {
     let action: () -> Void
     @ObservedObject private var setup = CartoucheSetup.shared
+    @ObservedObject private var account = CartoucheAccount.shared
 
     var body: some View {
         Button(action: action) {
             HStack(spacing: 14) {
-                Image(systemName: setup.canPlay ? "arrow.triangle.2.circlepath" : "checklist")
+                Image(systemName: setup.bannerIcon)
                     .font(.title3.weight(.semibold))
                     .frame(width: 42, height: 42)
                     .background(Color.white.opacity(0.2), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(setup.canPlay ? CartoucheText.setupBannerRenewal : CartoucheText.setupBannerTitle)
+                    Text(setup.bannerTitle)
                         .font(.headline)
-                    Text(setup.canPlay ? (setup.hasPairingFile ? CartoucheText.setupBannerSignInDetail : CartoucheText.setupBannerRenewalDetail) : CartoucheText.setupBannerDetail)
+                    Text(setup.bannerDetail(signingInAgain: account.isAutomatic))
                         .font(.subheadline)
                         .opacity(0.85)
                 }

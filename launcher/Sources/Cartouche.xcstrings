@@ -2262,6 +2262,57 @@
         }
       }
     },
+    "setup.banner.certificate" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The certificate no longer works"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Le certificat ne marche plus"
+          }
+        }
+      }
+    },
+    "setup.banner.certificate.detail" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sign in again to play"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Reconnectez-vous pour jouer"
+          }
+        }
+      }
+    },
+    "setup.banner.certificate.renewing" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cartouche signs in again…"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cartouche se reconnecte…"
+          }
+        }
+      }
+    },
     "setup.banner.detail" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -2347,6 +2398,23 @@
         }
       }
     },
+    "setup.certificate.checking" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cartouche checks that iOS accepts it."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cartouche vérifie qu’iOS l’accepte."
+          }
+        }
+      }
+    },
     "setup.certificate.done" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -2377,6 +2445,40 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Arrive tout seul après la connexion. Sinon, réinstallez Cartouche avec l’Installeur Cartouche, par-dessus cette copie : c’est lui qui donne son certificat à Cartouche."
+          }
+        }
+      }
+    },
+    "setup.certificate.refused" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "iOS no longer accepts it: an install from another computer may have revoked it. Sign in again with your Apple ID, and the built-in SideStore takes the certificate that signs Cartouche."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "iOS ne l’accepte plus : une installation depuis un autre ordinateur l’a peut-être révoqué. Reconnectez-vous avec votre identifiant Apple, et le SideStore intégré prend le certificat qui signe Cartouche."
+          }
+        }
+      }
+    },
+    "setup.certificate.renewing" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "iOS no longer accepts it. Cartouche signs in again with your Apple ID to take the certificate that signs Cartouche…"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "iOS ne l’accepte plus. Cartouche se reconnecte avec votre identifiant Apple pour prendre le certificat qui signe Cartouche…"
           }
         }
       }
@@ -6236,6 +6338,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Signature pour cet iPhone"
+          }
+        }
+      }
+    },
+    "work.start.certificateRefused" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "iOS no longer accepts the certificate the game was signed with. Cartouche signs in again with your Apple ID to take the new one: try again in a moment."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "iOS n’accepte plus le certificat qui a signé le jeu. Cartouche se reconnecte avec votre identifiant Apple pour prendre le nouveau : réessayez dans un instant."
           }
         }
       }

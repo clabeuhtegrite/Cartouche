@@ -16,6 +16,12 @@
 //  as after any sign-in, renews Cartouche with them, and Cartouche hands its
 //  certificate to LiveContainer (CartoucheSetup).
 //
+//  When iOS no longer accepts that certificate, as after an install from
+//  another computer that revoked it, Cartouche signs SideStore in again by
+//  itself, with the Apple ID and password SideStore keeps: SideStore then
+//  takes the certificate the installer put in Cartouche. The player sees
+//  the sign-in only should Apple ask for a verification code.
+//
 
 import Foundation
 
@@ -38,6 +44,15 @@ final class CartoucheAccount: ObservableObject {
     @Published private(set) var problem: String?
     /// Whether the last sign-in went through.
     @Published private(set) var signedIn = false
+    /// Whether Cartouche started this sign-in by itself, for a new
+    /// certificate: the setup then opens should Apple ask for a code.
+    @Published private(set) var isAutomatic = false
+
+    /// Apple asks the player for a verification code.
+    var needsCode: Bool {
+        if case .code = phase { return true }
+        return false
+    }
 
     /// The requests the player has answered, which SideStore may not have
     /// cleared yet.
@@ -68,6 +83,7 @@ final class CartoucheAccount: ObservableObject {
         guard phase == nil, CartoucheSignInMessage.canSignIn(appleID: appleID, password: password) else { return }
         problem = nil
         signedIn = false
+        isAutomatic = false
         guard let bridge = Self.bridge, CartoucheStoreKeychain.service != nil else {
             problem = CartoucheText.signInUnavailable
             return
@@ -89,6 +105,17 @@ final class CartoucheAccount: ObservableObject {
             let text = message.map { $0 as String }
             Task { @MainActor in self?.finished(text) }
         }
+    }
+
+    /// Has the built-in SideStore sign in again with the Apple ID and
+    /// password it keeps, for the certificate that signs Cartouche. Does
+    /// nothing when it keeps none: the setup then asks the player.
+    func signInAgain() {
+        guard phase == nil,
+              let appleID = CartoucheStoreKeychain.string("appleIDEmailAddress"),
+              let password = CartoucheStoreKeychain.string("appleIDPassword") else { return }
+        signIn(appleID: appleID, password: password)
+        isAutomatic = phase != nil
     }
 
     /// Answers Apple's request for a verification code.
@@ -133,6 +160,7 @@ final class CartoucheAccount: ObservableObject {
         CartoucheStoreKeychain.remove(CartoucheSignInMessage.responseAccount)
         problem = message
         signedIn = message == nil
+        isAutomatic = false
         CartoucheSetup.shared.refresh()
     }
 
