@@ -493,6 +493,11 @@ final class CartoucheGameActions: ObservableObject {
                 // The questions runApp may ask come to Cartouche.
                 app.delegate = self
                 try await app.runApp(multitask: false, forceJIT: false)
+            } catch let error where error.localizedDescription == "lc.signer.latestCertificateInvalidErr".loc {
+                // iOS refused the certificate LiveContainer signed the game
+                // with: Cartouche has SideStore fetch the one that works.
+                CartoucheSetup.shared.certificateRefusedAtStart()
+                notice = CartoucheGameNotice(title: CartoucheText.startFailed, message: CartoucheText.startCertificateRefused)
             } catch {
                 notice = CartoucheGameNotice(title: CartoucheText.startFailed, message: error.localizedDescription)
             }

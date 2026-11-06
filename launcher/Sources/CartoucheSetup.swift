@@ -10,7 +10,10 @@
 //    Cartouche (app/scripts/brand.py says why), and SideStore takes it into
 //    its keychain once the player signs in with their Apple ID. Cartouche
 //    then hands it to LiveContainer, which signs each game with it: no
-//    button, no file, every time Cartouche comes to the front.
+//    button, no file, every time Cartouche comes to the front. Cartouche
+//    then checks that iOS runs what it signs: an install from another
+//    computer can revoke the one SideStore keeps, and Cartouche then has
+//    SideStore sign in again, which takes the installer's new one.
 //  - The pairing file, which only a computer can make: SideStore needs it to
 //    install and renew apps. The Cartouche Installer puts it where the
 //    built-in SideStore reads it when it installs Cartouche. iloader exports
@@ -113,6 +116,26 @@ enum CartoucheCertificate {
         defaults.set(password, forKey: "LCCertificatePassword")
         defaults.set(Date(), forKey: "LCCertificateUpdateDate")
         return true
+    }
+
+    /// The certificate LiveContainer signs games with, to tell a new one.
+    static var current: Data? { LCUtils.certificateData() }
+
+    /// Whether iOS runs what LiveContainer signs with its certificate, as
+    /// LiveContainer's own test of its setup checks: it signs a small library
+    /// and asks iOS. A certificate Apple has revoked, as the installer does
+    /// with an old one when the account has too many, fails it, and so would
+    /// every game, with "the app is signed with the latest certificate but
+    /// its signature is invalid".
+    static func works() async -> Bool {
+        await withCheckedContinuation { continuation in
+            // The test waits for the signing on the thread it runs on.
+            DispatchQueue.global(qos: .userInitiated).async {
+                LCUtils.validateJITLessSetup { success, _ in
+                    continuation.resume(returning: success)
+                }
+            }
+        }
     }
 }
 
@@ -223,6 +246,9 @@ final class CartoucheSetup: ObservableObject {
     static let shared = CartoucheSetup()
 
     @Published private(set) var hasCertificate = false
+    /// Whether iOS runs what LiveContainer signs with that certificate: nil
+    /// until Cartouche has checked, once per certificate and launch.
+    @Published private(set) var certificateWorks: Bool?
     @Published private(set) var hasPairingFile = false
     @Published private(set) var appleID: String?
     /// Why the last pairing file given to Cartouche was refused.
@@ -231,11 +257,23 @@ final class CartoucheSetup: ObservableObject {
     /// games show the setup and what came of it.
     @Published var openedPairingFile = false
 
-    /// Games start once LiveContainer has the certificate.
-    var canPlay: Bool { hasCertificate }
+    /// Games start once LiveContainer has the certificate, and it works.
+    var canPlay: Bool { hasCertificate && certificateWorks != false }
+    /// LiveContainer has a certificate that iOS no longer accepts.
+    var certificateRefused: Bool { hasCertificate && certificateWorks == false }
     /// Cartouche also renews and updates itself once SideStore has the
-    /// pairing file and is signed in.
-    var isComplete: Bool { hasCertificate && hasPairingFile && appleID != nil }
+    /// pairing file and is signed in, and the certificate is known to work:
+    /// an update signed with a revoked one would not open.
+    var isComplete: Bool { hasCertificate && certificateWorks == true && hasPairingFile && appleID != nil }
+    /// Whether the setup has something left for the player: a certificate
+    /// still being checked does not show it.
+    var needsSetup: Bool { !(canPlay && hasPairingFile && appleID != nil) }
+
+    /// What Cartouche found of each certificate, for this launch.
+    private var checked: [Data: Bool] = [:]
+    private var checking: Data?
+    /// The refused certificates SideStore was asked to replace, once each.
+    private var replacing: Set<Data> = []
 
     private init() {
         refresh()
@@ -246,6 +284,7 @@ final class CartoucheSetup: ObservableObject {
     /// the player signs in from SideStore.
     func refresh() {
         hasCertificate = CartoucheCertificate.handOff()
+        checkCertificate()
         if CartouchePairing.takeDroppedFile() { pairingError = nil }
         hasPairingFile = CartouchePairing.exists
         #if CARTOUCHE_GALLERY
@@ -278,6 +317,47 @@ final class CartoucheSetup: ObservableObject {
         openedPairingFile = true
     }
 
+    // MARK: Whether the certificate works
+
+    /// Checks LiveContainer's certificate once per launch, and each time it
+    /// changes.
+    private func checkCertificate() {
+        guard hasCertificate, let certificate = CartoucheCertificate.current else {
+            certificateWorks = nil
+            return
+        }
+        if let works = checked[certificate] {
+            found(works, for: certificate)
+            return
+        }
+        if certificateWorks != nil { certificateWorks = nil }
+        guard checking != certificate else { return }
+        checking = certificate
+        Task {
+            let works = await CartoucheCertificate.works()
+            checked[certificate] = works
+            if checking == certificate { checking = nil }
+            if CartoucheCertificate.current == certificate { found(works, for: certificate) }
+        }
+    }
+
+    /// A game LiveContainer signed did not pass iOS's check.
+    func certificateRefusedAtStart() {
+        guard let certificate = CartoucheCertificate.current else { return }
+        checked[certificate] = false
+        found(false, for: certificate)
+    }
+
+    private func found(_ works: Bool, for certificate: Data) {
+        if certificateWorks != works { certificateWorks = works }
+        // SideStore signs in again with the Apple ID it keeps, and takes the
+        // certificate that signs Cartouche: the player only steps in should
+        // Apple ask for a code, or the sign-in fail.
+        if !works, !replacing.contains(certificate) {
+            replacing.insert(certificate)
+            if #available(iOS 17.0, *) { CartoucheAccount.shared.signInAgain() }
+        }
+    }
 }
 
 /// Reads the setup again whenever Cartouche comes back to the front, and

@@ -74,6 +74,7 @@ struct GalleryScenario {
     /// Puts the files the stand-ins read where the launcher looks for them.
     func prepare() {
         GalleryState.setupDone = setupDone
+        GalleryState.certificateRefused = work == "certificate"
         let pairing = GalleryState.documents.appendingPathComponent("SideStore/Documents", isDirectory: true)
         try? FileManager.default.removeItem(at: pairing)
         if setupDone {

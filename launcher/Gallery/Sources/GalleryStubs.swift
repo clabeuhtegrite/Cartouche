@@ -15,6 +15,8 @@ import UniformTypeIdentifiers
 /// The scenario's state, read by the stand-ins below.
 enum GalleryState {
     static var setupDone = false
+    /// iOS no longer accepts the certificate (work: certificate).
+    static var certificateRefused = false
 
     static let documents: URL = {
         let url = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
@@ -174,6 +176,9 @@ enum LCUtils {
     static func certificateData() -> Data? { GalleryState.setupDone ? Data([0x30]) : nil }
     static func getCertTeamId(withKeyData data: Data, password: String) -> String? { nil }
     static var appGroupUserDefault: UserDefaults { .standard }
+    static func validateJITLessSetup(completionHandler: @escaping (Bool, Error?) -> Void) {
+        DispatchQueue.main.async { completionHandler(!GalleryState.certificateRefused, nil) }
+    }
 }
 
 enum LCSharedUtils {

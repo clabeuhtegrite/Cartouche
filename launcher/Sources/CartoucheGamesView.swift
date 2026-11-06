@@ -27,6 +27,7 @@ struct CartoucheGamesView: View {
     @ObservedObject private var actions = CartoucheGameActions.shared
     @ObservedObject private var storedGames = CartoucheStoredGames.shared
     @ObservedObject private var updates = CartoucheUpdates.shared
+    @ObservedObject private var account = CartoucheAccount.shared
     @State private var path: [Route] = []
     @State private var sheetID: String?
     @State private var choosingIPA = false
@@ -211,6 +212,13 @@ struct CartoucheGamesView: View {
         .onChange(of: setup.openedPairingFile) { _, opened in
             guard opened else { return }
             setup.openedPairingFile = false
+            showingSetup = true
+        }
+        // Apple asks for a code while Cartouche signs in again by itself, for
+        // a new certificate: the setup opens on the sign-in.
+        .onChange(of: account.needsCode) { _, needsCode in
+            guard needsCode, account.isAutomatic, !showingSetup else { return }
+            sheetID = nil
             showingSetup = true
         }
         .onAppear {

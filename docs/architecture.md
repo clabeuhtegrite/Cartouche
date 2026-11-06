@@ -30,7 +30,7 @@ A computer is needed once, because iOS lets nothing install a sideloaded app unt
 
 The pairing file can also be dropped on Cartouche in Apple Devices, iTunes or the Finder (Files), as iloader's "Export" saves it, opened with Cartouche from AirDrop, Mail or Files, or chosen in the setup: Cartouche checks it and puts it at the same place. A Cartouche installed over a copy that had no certificate, such as 0.1.0, which had an app group of its own, needs to be installed again with the installer, over that copy: the App ID stays, and with it the games and the memory capability.
 
-Cartouche's SideStore never revokes a certificate on its own, nor creates one when the account already has one ([app/patches/README.md](../app/patches/README.md#applied)). When it does not find the installer's, signing in stops and asks for the install with the installer.
+Cartouche's SideStore never revokes a certificate on its own, nor creates one when the account already has one ([app/patches/README.md](../app/patches/README.md#applied)). When it does not find the installer's, signing in stops and asks for the install with the installer. An install from another computer may revoke the certificate SideStore keeps: Cartouche finds that iOS refuses what LiveContainer signs with it, and has SideStore sign in again, which takes the installer's new one ([launcher/README.md](../launcher/README.md#setup)).
 
 ## Signing and renewal
 

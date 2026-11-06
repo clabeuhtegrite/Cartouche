@@ -1,5 +1,5 @@
 {
-  "comment": "Each scenario is one screenshot: a screen of the launcher, the player's games (title IDs), whether the setup is done and whether a controller is connected; the game of a sheet or of its settings page, with the page's category (one of nxnative's sections), or the game being installed with work: installing, or a new version of Cartouche on offer with work: update; the Apple ID sign-in, with Apple's request for a verification code with work: code. A scenario with a width and a height is drawn at that size in points, with the safe area of that iPhone, on an iPad: the iPhone 17 Pro, and the iPhone Duo folded (466 x 678) and unfolded (626 x 890), from Apple's pixel sizes at 3x. A scenario with a device takes the whole screen of that simulator, with its own safe area and system bars; a landscape one turns the gallery sideways, as a game does, while the simulator stays upright.",
+  "comment": "Each scenario is one screenshot: a screen of the launcher, the player's games (title IDs), whether the setup is done and whether a controller is connected; the game of a sheet or of its settings page, with the page's category (one of nxnative's sections), or the game being installed with work: installing, or a new version of Cartouche on offer with work: update; the Apple ID sign-in, with Apple's request for a verification code with work: code; a certificate iOS no longer accepts, with work: certificate. A scenario with a width and a height is drawn at that size in points, with the safe area of that iPhone, on an iPad: the iPhone 17 Pro, and the iPhone Duo folded (466 x 678) and unfolded (626 x 890), from Apple's pixel sizes at 3x. A scenario with a device takes the whole screen of that simulator, with its own safe area and system bars; a landscape one turns the gallery sideways, as a game does, while the simulator stays upright.",
   "language": "fr",
   "scenarios": [
     {
@@ -35,6 +35,26 @@
         34,
         0
       ]
+    },
+    {
+      "name": "iphone-home-certificate-refused",
+      "screen": "games",
+      "owned": [
+        "0400C3F00006E000",
+        "040074A01BF12000",
+        "01006BB00C6F0000"
+      ],
+      "setup": true,
+      "controller": true,
+      "width": 402,
+      "height": 874,
+      "insets": [
+        62,
+        0,
+        34,
+        0
+      ],
+      "work": "certificate"
     },
     {
       "name": "iphone-home-landscape",

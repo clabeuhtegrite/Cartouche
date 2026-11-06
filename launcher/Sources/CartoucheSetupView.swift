@@ -15,6 +15,7 @@ import UniformTypeIdentifiers
 @available(iOS 17.0, *)
 struct CartoucheSetupView: View {
     @ObservedObject private var setup = CartoucheSetup.shared
+    @ObservedObject private var account = CartoucheAccount.shared
     @State private var choosingPairingFile = false
     @State private var signingIn = false
 
@@ -50,7 +51,7 @@ struct CartoucheSetupView: View {
                     title: CartoucheText.setupAppleIDTitle,
                     detail: setup.appleID.map(CartoucheText.setupAppleIDDone) ?? CartoucheText.setupAppleIDHow
                 ) {
-                    if setup.appleID == nil || !setup.hasCertificate {
+                    if setup.appleID == nil || !setup.hasCertificate || setup.certificateRefused {
                         // SideStore registers this iPhone at sign-in, through
                         // the pairing file.
                         Button {
@@ -65,9 +66,9 @@ struct CartoucheSetupView: View {
                 }
                 step(
                     number: 3,
-                    done: setup.hasCertificate,
+                    done: setup.hasCertificate && setup.certificateWorks == true,
                     title: CartoucheText.setupCertificateTitle,
-                    detail: setup.hasCertificate ? CartoucheText.setupCertificateDone : CartoucheText.setupCertificateHow
+                    detail: certificateDetail
                 ) {
                     if !setup.hasCertificate {
                         Button(CartoucheText.setupCheckAgain, systemImage: "arrow.clockwise") {
@@ -89,6 +90,11 @@ struct CartoucheSetupView: View {
         .sheet(isPresented: $signingIn) {
             CartoucheSignInView()
         }
+        // Apple asks for a code while Cartouche signs in again by itself.
+        .onAppear { if account.needsCode { signingIn = true } }
+        .onChange(of: account.needsCode) { _, needsCode in
+            if needsCode { signingIn = true }
+        }
         .fileImporter(isPresented: $choosingPairingFile, allowedContentTypes: CartouchePairing.contentTypes) { result in
             switch result {
             case .success(let url):
@@ -99,11 +105,20 @@ struct CartoucheSetupView: View {
         }
     }
 
+    private var certificateDetail: String {
+        guard setup.hasCertificate else { return CartoucheText.setupCertificateHow }
+        switch setup.certificateWorks {
+        case true?: return CartoucheText.setupCertificateDone
+        case nil: return CartoucheText.setupCertificateChecking
+        case false?: return account.isAutomatic ? CartoucheText.setupCertificateRenewing : CartoucheText.setupCertificateRefused
+        }
+    }
+
     private var header: some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text(setup.isComplete ? CartoucheText.setupAllDone : CartoucheText.setupIntroTitle)
+            Text(setup.needsSetup ? CartoucheText.setupIntroTitle : CartoucheText.setupAllDone)
                 .font(.system(.largeTitle, design: .rounded, weight: .bold))
-            Text(setup.isComplete ? CartoucheText.setupAllDoneDetail : CartoucheText.setupIntro)
+            Text(setup.needsSetup ? CartoucheText.setupIntro : CartoucheText.setupAllDoneDetail)
                 .foregroundStyle(.secondary)
         }
         .padding(.bottom, 4)
@@ -172,21 +187,22 @@ struct CartoucheSetupView: View {
 @available(iOS 17.0, *)
 struct CartoucheSetupBanner: View {
     @ObservedObject private var setup = CartoucheSetup.shared
+    @ObservedObject private var account = CartoucheAccount.shared
 
     var body: some View {
-        if !setup.isComplete {
+        if setup.needsSetup {
             NavigationLink {
                 CartoucheSetupView()
             } label: {
                 HStack(spacing: 14) {
-                    Image(systemName: setup.canPlay ? "arrow.triangle.2.circlepath" : "checklist")
+                    Image(systemName: setup.bannerIcon)
                         .font(.title2.weight(.semibold))
                         .frame(width: 44, height: 44)
                         .background(Color.white.opacity(0.18), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
                     VStack(alignment: .leading, spacing: 3) {
-                        Text(setup.canPlay ? CartoucheText.setupBannerRenewal : CartoucheText.setupBannerTitle)
+                        Text(setup.bannerTitle)
                             .font(.headline)
-                        Text(setup.canPlay ? (setup.hasPairingFile ? CartoucheText.setupBannerSignInDetail : CartoucheText.setupBannerRenewalDetail) : CartoucheText.setupBannerDetail)
+                        Text(setup.bannerDetail(signingInAgain: account.isAutomatic))
                             .font(.subheadline)
                             .opacity(0.85)
                     }
@@ -204,5 +220,26 @@ struct CartoucheSetupBanner: View {
             }
             .buttonStyle(.plain)
         }
+    }
+}
+
+/// What the setup banners say, over the home and the games.
+@available(iOS 17.0, *)
+extension CartoucheSetup {
+    var bannerIcon: String {
+        certificateRefused ? "exclamationmark.shield.fill" : canPlay ? "arrow.triangle.2.circlepath" : "checklist"
+    }
+
+    var bannerTitle: String {
+        if certificateRefused { return CartoucheText.setupBannerCertificate }
+        return canPlay ? CartoucheText.setupBannerRenewal : CartoucheText.setupBannerTitle
+    }
+
+    func bannerDetail(signingInAgain: Bool) -> String {
+        if certificateRefused {
+            return signingInAgain ? CartoucheText.setupBannerCertificateRenewing : CartoucheText.setupBannerCertificateDetail
+        }
+        guard canPlay else { return CartoucheText.setupBannerDetail }
+        return hasPairingFile ? CartoucheText.setupBannerSignInDetail : CartoucheText.setupBannerRenewalDetail
     }
 }
