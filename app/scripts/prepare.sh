@@ -6,8 +6,9 @@
 #
 # The submodules are never modified: their sources are copied, the patches in
 # app/patches/<project>/ are applied to the copies in name order, the launcher
-# (launcher/Sources) joins LiveContainer's SwiftUI sources, and
-# app/scripts/brand.py gives the copies Cartouche's identity (app/config.env).
+# (launcher/Sources) joins LiveContainer's SwiftUI sources, Cartouche's icon
+# (app/icon) replaces LiveContainer's, and app/scripts/brand.py gives the
+# copies Cartouche's identity (app/config.env).
 # app/scripts/build.sh runs this first; CI also runs it on Linux.
 set -euo pipefail
 
@@ -53,6 +54,15 @@ copy_and_patch SideStore sidestore
 # Xcode builds every file in it, so the launcher needs no project change.
 echo "== adding the launcher"
 rsync -a --delete "$ROOT/launcher/Sources/" "$SRC/LiveContainer/LiveContainerSwiftUI/Cartouche/"
+
+# Cartouche's icon over LiveContainer's: the app's own, and the grey one of an
+# extra copy installed from its settings (app/icon/make_icon.py).
+echo "== adding the icon"
+ASSETS="$SRC/LiveContainer/Resources/Assets.xcassets"
+for set in AppIcon AppIconGrey; do
+  rsync -a --delete "$APP/icon/$set.appiconset/" "$ASSETS/$set.appiconset/"
+done
+cp "$APP/icon/AppIconGrey60x60@2x.png" "$APP/icon/AppIconGrey76x76@2x~ipad.png" "$SRC/LiveContainer/Resources/"
 
 python3 "$HERE/brand.py" \
   --config "$APP/config.env" \
