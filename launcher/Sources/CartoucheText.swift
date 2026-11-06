@@ -169,17 +169,17 @@ enum CartoucheText {
     static var setupAllDoneDetail: String { s("setup.done.detail", "Cartouche signs your games and renews itself. There is nothing more to do here.") }
     static func setupStepDone(_ step: String) -> String { f("setup.step.done", "%@, done", step) }
     static var setupPairingTitle: String { s("setup.pairing.title", "Pairing file") }
-    static var setupPairingHow: String { s("setup.pairing.how", "Only a computer can make it. In iloader: Manage Pairing File › Export. Drop the file on Cartouche in Apple Devices, iTunes or the Finder (Files), or open it with Cartouche: this step ticks itself. You can also choose it here.") }
+    static var setupPairingHow: String { s("setup.pairing.how", "Only a computer can make it. The Cartouche Installer puts it in Cartouche when it installs it, from a Mac or a Windows PC: this step then ticks itself. A pairing file dropped on Cartouche in Apple Devices, iTunes or the Finder (Files), or opened with Cartouche, ticks it too. You can also choose it here.") }
     static var setupPairingDone: String { s("setup.pairing.done", "Received. The built-in SideStore uses it to install and renew apps on this iPhone.") }
     static var setupPairingChoose: String { s("setup.pairing.choose", "Choose the file") }
     static var setupPairingReplace: String { s("setup.pairing.replace", "Choose another file") }
-    static var setupPairingInvalid: String { s("setup.pairing.invalid", "This file is not a pairing file. Export it again from iloader: Manage Pairing File › Export.") }
+    static var setupPairingInvalid: String { s("setup.pairing.invalid", "This file is not a pairing file. The Cartouche Installer puts the right one in Cartouche: Put the pairing file in Cartouche again.") }
     static var setupAppleIDTitle: String { s("setup.appleID.title", "Apple ID") }
-    static var setupAppleIDHow: String { s("setup.appleID.how", "Sign in once in the SideStore built into Cartouche: it takes the certificate iloader left for it, and renews Cartouche every week. SideStore has you connect LocalDevVPN, asks for your Apple ID, then brings you back here by itself.") }
+    static var setupAppleIDHow: String { s("setup.appleID.how", "Sign in once in the SideStore built into Cartouche: it takes the certificate the Cartouche Installer left for it, and renews Cartouche every week. SideStore has you connect LocalDevVPN, asks for your Apple ID, then brings you back here by itself.") }
     static func setupAppleIDDone(_ appleID: String) -> String { f("setup.appleID.done", "Signed in: %@", appleID) }
     static var setupOpenSideStore: String { s("setup.appleID.open", "Sign in with SideStore") }
     static var setupCertificateTitle: String { s("setup.certificate.title", "Certificate") }
-    static var setupCertificateHow: String { s("setup.certificate.how", "Comes by itself once you have signed in. If it does not, install Cartouche again with iloader, over this copy: iloader gives it its certificate.") }
+    static var setupCertificateHow: String { s("setup.certificate.how", "Comes by itself once you have signed in. If it does not, install Cartouche again with the Cartouche Installer, over this copy: it gives Cartouche its certificate.") }
     static var setupCertificateDone: String { s("setup.certificate.done", "Cartouche signs your games with it.") }
     static var setupCheckAgain: String { s("setup.checkAgain", "Check again") }
     static var setupVPNTitle: String { s("setup.vpn.title", "LocalDevVPN, for renewals") }
@@ -211,7 +211,7 @@ enum CartoucheText {
     static var renewed: String { s("system.signature.renewed", "Last renewed") }
     static var team: String { s("system.signature.team", "Apple account team") }
     static var profileUnknown: String { s("system.signature.unknown", "Cartouche could not read its provisioning profile.") }
-    static var signatureFooter: String { s("system.signature.footer", "The built-in SideStore renews Cartouche, with LocalDevVPN on. Renew it before it expires: an expired Cartouche no longer opens, and has to be installed again from a computer with iloader.") }
+    static var signatureFooter: String { s("system.signature.footer", "The built-in SideStore renews Cartouche, with LocalDevVPN on. Renew it before it expires: an expired Cartouche no longer opens, and has to be installed again from a computer with the Cartouche Installer.") }
     static var renewNow: String { s("system.signature.renew", "Renew now") }
     static var renewing: String { s("system.signature.renewing", "Renewing…") }
     static var renewUnavailable: String { s("system.signature.renew.unavailable", "The built-in SideStore did not load. Close Cartouche, open it again, then renew.") }
@@ -500,7 +500,7 @@ enum CartoucheText {
     static var warning6hTitle: String { s("warning.6h.title", "Cartouche expires in 6 hours") }
     static var warningBody: String { s("warning.body", "Renew it on the System page, with LocalDevVPN connected.") }
     static var warningExpiredTitle: String { s("warning.0h.title", "Cartouche has expired") }
-    static var warningExpiredBody: String { s("warning.0h.body", "Install it again from a computer with iloader, over this copy: your games stay.") }
+    static var warningExpiredBody: String { s("warning.0h.body", "Install it again from a computer with the Cartouche Installer, over this copy: your games stay.") }
 
     // MARK: Units
 

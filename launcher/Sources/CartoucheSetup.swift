@@ -5,17 +5,19 @@
 //  What Cartouche needs before it plays games and renews itself, and what it
 //  does on its own:
 //
-//  - The certificate. iloader puts its signing certificate inside the built-in
-//    SideStore when it installs Cartouche (app/scripts/brand.py says why), and
-//    SideStore takes it into its keychain once the player signs in with their
-//    Apple ID. Cartouche then hands it to LiveContainer, which signs each game
-//    with it: no button, no file, every time Cartouche comes to the front.
+//  - The certificate. The Cartouche Installer (installer/), as iloader, puts
+//    its signing certificate inside the built-in SideStore when it installs
+//    Cartouche (app/scripts/brand.py says why), and SideStore takes it into
+//    its keychain once the player signs in with their Apple ID. Cartouche
+//    then hands it to LiveContainer, which signs each game with it: no
+//    button, no file, every time Cartouche comes to the front.
 //  - The pairing file, which only a computer can make: SideStore needs it to
-//    install and renew apps. iloader exports it, and the player drops it on
-//    Cartouche in Apple Devices, iTunes or the Finder, opens it with
-//    Cartouche, or chooses it in the setup: it goes where the built-in
-//    SideStore reads it. iloader places it there by itself only in the apps
-//    it lists by name (app/README.md says why Cartouche is not one yet).
+//    install and renew apps. The Cartouche Installer puts it where the
+//    built-in SideStore reads it when it installs Cartouche. iloader exports
+//    it, and the player drops it on Cartouche in Apple Devices, iTunes or the
+//    Finder, opens it with Cartouche, or chooses it in the setup: it goes to
+//    the same place. iloader places it there by itself only in the apps it
+//    lists by name, and Cartouche is not one (app/README.md says why).
 //  - LocalDevVPN, from the App Store, through which SideStore reaches the
 //    iPhone's own services when it renews Cartouche.
 //
@@ -28,8 +30,8 @@ import UniformTypeIdentifiers
 /// The built-in SideStore's keychain items. SideStore names its keychain
 /// service after the bundle identifier SideStoreHooks gives it, Cartouche's
 /// own without the team suffix that signing adds, which app/scripts/package.sh
-/// writes into the Info.plist; the items sit in the keychain group iloader
-/// gives Cartouche.
+/// writes into the Info.plist; the items sit in the keychain group the
+/// installer gives Cartouche, as iloader does.
 enum CartoucheStoreKeychain {
     static var service: String? {
         Bundle.main.object(forInfoDictionaryKey: "CartoucheBundleIdentifier") as? String
@@ -92,8 +94,9 @@ enum CartouchePairing {
 
     /// The names SideStore reads a pairing file under (PairingFileManager).
     static let fileNames = ["PairingFile_RemoteRP.plist", "PairingFile_Lockdown.plist", "ALTPairingFile.mobiledevicepairing"]
-    /// The one iloader writes for a LiveContainer+SideStore. SideStore works
-    /// out which kind of pairing file it is when it reads it.
+    /// The one the installer writes, as iloader does for a
+    /// LiveContainer+SideStore. SideStore works out which kind of pairing
+    /// file it is when it reads it.
     static let importName = "ALTPairingFile.mobiledevicepairing"
 
     static var exists: Bool {

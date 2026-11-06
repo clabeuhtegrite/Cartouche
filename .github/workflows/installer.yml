@@ -1,0 +1,147 @@
+name: Installer
+
+# Builds the Cartouche Installer (installer/): the Mac app, one for Apple
+# silicon and Intel, in a disk image, and the Windows setup. The builds stay
+# with the run. Cartouche's source is in the paths since the installer reads
+# it, and its tests read the one on the branch. Run from the Actions tab on main with Publish ticked, it also
+# publishes them as the release installer-v<version>, the version of
+# installer/src-tauri/tauri.conf.json, which is never marked latest: the
+# latest release stays Cartouche's. How to publish: installer/README.md.
+
+on:
+  pull_request:
+    paths: ["installer/**", "app/sidestore-source.json", ".github/workflows/installer.yml"]
+  push:
+    branches: [main]
+    paths: ["installer/**", "app/sidestore-source.json", ".github/workflows/installer.yml"]
+  workflow_dispatch:
+    inputs:
+      publish:
+        description: "Publish the builds as the release installer-v<version> (main only)"
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: installer-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Installer tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - name: Install the Linux libraries Tauri builds against
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev libdbus-1-dev
+      - name: Build the window
+        working-directory: installer
+        run: |
+          npm ci --no-audit --no-fund
+          npm run build
+      - name: Test the backend
+        working-directory: installer/src-tauri
+        run: cargo test --locked
+
+  build:
+    name: Build for ${{ matrix.name }}
+    needs: test
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: macOS
+            runner: macos-latest
+          - name: Windows
+            runner: windows-latest
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - name: Install the window's packages
+        working-directory: installer
+        run: npm ci --no-audit --no-fund
+      # The app for both kinds of Mac, ad hoc signed (tauri.conf.json): not
+      # notarized, so the Mac asks once to open it (installer/README.md).
+      - name: Build the Mac app
+        if: runner.os == 'macOS'
+        working-directory: installer
+        run: |
+          rustup target add aarch64-apple-darwin x86_64-apple-darwin
+          npx tauri build --target universal-apple-darwin --bundles app,dmg
+          VERSION=$(node -p 'require("./src-tauri/tauri.conf.json").version')
+          mkdir -p ../build/installer
+          cp src-tauri/target/universal-apple-darwin/release/bundle/dmg/*.dmg "../build/installer/Cartouche-Installer-$VERSION-Mac.dmg"
+      # As iloader's own build does: Strawberry Perl and make, and the
+      # compiler's environment, for the C parts of its cryptography.
+      - name: Install Perl and make
+        if: runner.os == 'Windows'
+        run: choco install strawberryperl make --no-progress
+      - name: Build the Windows setup
+        if: runner.os == 'Windows'
+        shell: pwsh
+        working-directory: installer
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $PSNativeCommandUseErrorActionPreference = $true
+          $vs = & "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe" -latest -property installationPath
+          & "$vs\Common7\Tools\Launch-VsDevShell.ps1" -Arch amd64 -HostArch amd64 -SkipAutomaticLocation
+          npx tauri build --bundles nsis
+          $version = (Get-Content src-tauri\tauri.conf.json -Raw | ConvertFrom-Json).version
+          $setup = @(Get-ChildItem src-tauri\target\release\bundle\nsis\*.exe)
+          if ($setup.Count -ne 1) { throw "expected one setup, found $($setup.Count)" }
+          New-Item -ItemType Directory -Force -Path ..\build\installer | Out-Null
+          Copy-Item $setup[0].FullName "..\build\installer\Cartouche-Installer-$version-Windows.exe"
+      - name: Keep the build
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: cartouche-installer-${{ matrix.name }}
+          path: build/installer
+          if-no-files-found: error
+          retention-days: 30
+
+  # The only job that can write runs nothing it built: it attaches the builds
+  # the other jobs uploaded.
+  publish:
+    name: Publish the installer
+    needs: build
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.publish && github.ref == 'refs/heads/main' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # the release installer-v<version>
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
+        with:
+          pattern: cartouche-installer-*
+          path: build/installer
+          merge-multiple: true
+      - name: Publish the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          VERSION=$(python3 -c 'import json; print(json.load(open("installer/src-tauri/tauri.conf.json"))["version"])')
+          TAG="installer-v$VERSION"
+          if gh release view "$TAG" --repo "$REPOSITORY" > /dev/null 2>&1; then
+            echo "::error::the release $TAG exists already: raise the version in installer/src-tauri/tauri.conf.json"
+            exit 1
+          fi
+          ls -l build/installer
+          gh release create "$TAG" build/installer/* \
+            --repo "$REPOSITORY" \
+            --target "$GITHUB_SHA" \
+            --title "Cartouche Installer $VERSION" \
+            --notes-file installer/RELEASE.md \
+            --latest=false

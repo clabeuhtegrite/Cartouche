@@ -2914,13 +2914,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Sign in once in the SideStore built into Cartouche: it takes the certificate iloader left for it, and renews Cartouche every week. SideStore has you connect LocalDevVPN, asks for your Apple ID, then brings you back here by itself."
+            "value" : "Sign in once in the SideStore built into Cartouche: it takes the certificate the Cartouche Installer left for it, and renews Cartouche every week. SideStore has you connect LocalDevVPN, asks for your Apple ID, then brings you back here by itself."
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Connectez-vous une fois dans le SideStore intégré à Cartouche : il prend le certificat qu’iloader lui a laissé, et renouvelle Cartouche chaque semaine. SideStore vous fait connecter LocalDevVPN, demande votre compte Apple, puis vous ramène ici tout seul."
+            "value" : "Connectez-vous une fois dans le SideStore intégré à Cartouche : il prend le certificat que l’Installeur Cartouche lui a laissé, et renouvelle Cartouche chaque semaine. SideStore vous fait connecter LocalDevVPN, demande votre compte Apple, puis vous ramène ici tout seul."
           }
         }
       }
@@ -3050,13 +3050,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Comes by itself once you have signed in. If it does not, install Cartouche again with iloader, over this copy: iloader gives it its certificate."
+            "value" : "Comes by itself once you have signed in. If it does not, install Cartouche again with the Cartouche Installer, over this copy: it gives Cartouche its certificate."
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Arrive tout seul après la connexion. Sinon, réinstallez Cartouche avec iloader, par-dessus cette copie : c’est iloader qui lui donne son certificat."
+            "value" : "Arrive tout seul après la connexion. Sinon, réinstallez Cartouche avec l’Installeur Cartouche, par-dessus cette copie : c’est lui qui donne son certificat à Cartouche."
           }
         }
       }
@@ -3203,13 +3203,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Only a computer can make it. In iloader: Manage Pairing File › Export. Drop the file on Cartouche in Apple Devices, iTunes or the Finder (Files), or open it with Cartouche: this step ticks itself. You can also choose it here."
+            "value" : "Only a computer can make it. The Cartouche Installer puts it in Cartouche when it installs it, from a Mac or a Windows PC: this step then ticks itself. A pairing file dropped on Cartouche in Apple Devices, iTunes or the Finder (Files), or opened with Cartouche, ticks it too. You can also choose it here."
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Seul un ordinateur peut le créer. Dans iloader : Gérer le fichier de jumelage › Exporter. Glissez le fichier sur Cartouche dans Appareils Apple, iTunes ou le Finder (Fichiers), ou ouvrez-le avec Cartouche : cette étape se coche toute seule. Vous pouvez aussi le choisir ici."
+            "value" : "Seul un ordinateur peut le créer. L’Installeur Cartouche le met dans Cartouche en l’installant, depuis un Mac ou un PC Windows : cette étape se coche alors toute seule. Un fichier de jumelage glissé sur Cartouche dans Appareils Apple, iTunes ou le Finder (Fichiers), ou ouvert avec Cartouche, la coche aussi. Vous pouvez aussi le choisir ici."
           }
         }
       }
@@ -3220,13 +3220,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "This file is not a pairing file. Export it again from iloader: Manage Pairing File › Export."
+            "value" : "This file is not a pairing file. The Cartouche Installer puts the right one in Cartouche: Put the pairing file in Cartouche again."
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Ce fichier n’est pas un fichier de jumelage. Exportez-le de nouveau dans iloader : Gérer le fichier de jumelage › Exporter."
+            "value" : "Ce fichier n’est pas un fichier de jumelage. L’Installeur Cartouche met le bon dans Cartouche : Remettre le fichier de jumelage dans Cartouche."
           }
         }
       }
@@ -5311,13 +5311,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "The built-in SideStore renews Cartouche, with LocalDevVPN on. Renew it before it expires: an expired Cartouche no longer opens, and has to be installed again from a computer with iloader."
+            "value" : "The built-in SideStore renews Cartouche, with LocalDevVPN on. Renew it before it expires: an expired Cartouche no longer opens, and has to be installed again from a computer with the Cartouche Installer."
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Le SideStore intégré renouvelle Cartouche, avec LocalDevVPN activé. Renouvelez-le avant qu’il expire : un Cartouche expiré ne s’ouvre plus, et doit être réinstallé depuis un ordinateur avec iloader."
+            "value" : "Le SideStore intégré renouvelle Cartouche, avec LocalDevVPN activé. Renouvelez-le avant qu’il expire : un Cartouche expiré ne s’ouvre plus, et doit être réinstallé depuis un ordinateur avec l’Installeur Cartouche."
           }
         }
       }
@@ -5617,13 +5617,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Install it again from a computer with iloader, over this copy: your games stay."
+            "value" : "Install it again from a computer with the Cartouche Installer, over this copy: your games stay."
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Réinstallez-le depuis un ordinateur avec iloader, par-dessus cette copie : vos jeux restent."
+            "value" : "Réinstallez-le depuis un ordinateur avec l’Installeur Cartouche, par-dessus cette copie : vos jeux restent."
           }
         }
       }

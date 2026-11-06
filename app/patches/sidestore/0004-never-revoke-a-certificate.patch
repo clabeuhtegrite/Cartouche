@@ -95,7 +95,7 @@ index 9412a17..8d215a8 100644
 -            return try await self.requestCertificate(for: team)
 -        }
 +        debugLog("[CertificateProvisioningFlow] replaceCertificate: \(portalCertificates.count) certificate(s) on the portal and none usable here: asking for an import instead of revoking or creating one.")
-+        throw OperationError.forbidden(failureReason: NSLocalizedString("This Apple account already has a certificate, which signs the apps installed with it. This SideStore never revokes it and does not create another one.\n\nInstall Cartouche again with iloader, over this copy: iloader gives Cartouche the certificate it signs with. Then sign in again.", comment: ""))
++        throw OperationError.forbidden(failureReason: NSLocalizedString("This Apple account already has a certificate, which signs the apps installed with it. This SideStore never revokes it and does not create another one.\n\nInstall Cartouche again with the Cartouche Installer, over this copy: it gives Cartouche the certificate it signs with. Then sign in again.", comment: ""))
      }
  }
 -- 

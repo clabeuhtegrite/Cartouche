@@ -31,6 +31,21 @@ The lab rewrites a game's modules on the iPhone (spike S2, [`engine/spikes/s2`](
 | [Capstone](https://www.capstone-engine.org) 5.0.7, built for iOS | The disassembler of the rewriter | BSD-3-Clause |
 | nxnative's `dm/tools` and `dm/games` | The rewriter, `patch_nso.py`, and the game profiles it reads | MIT |
 
+## Cartouche Installer
+
+The computer app that installs Cartouche the first time ([`installer/`](installer/README.md)) is under the MIT licence, as the project it is forked from; its [LICENSE](installer/LICENSE) keeps that project's notice.
+
+| Component | What it does in the installer | Licence |
+| --- | --- | --- |
+| [iloader](https://github.com/nab138/iloader) 2.4.1, by nab138 | The installer is a fork of it: the app, its backend and its window. iloader's name and logos are not used | MIT |
+| [isideload](https://crates.io/crates/isideload) | Signs in to the Apple account, signs and installs Cartouche, writes its certificate | MIT |
+| [idevice](https://crates.io/crates/idevice) | Talks to the iPhone: pairing, the apps installed, house arrest for the pairing file | MIT |
+| [Tauri](https://tauri.app) 2 and its dialog, opener and store plugins | The app around the window | Apache-2.0 or MIT |
+| [React](https://react.dev), [i18next](https://www.i18next.com), [sonner](https://sonner.emilkowal.ski), [react-virtuoso](https://virtuoso.dev) | The window | MIT |
+| [Font Awesome Free](https://fontawesome.com) 6 icons, through [react-icons](https://react-icons.github.io/react-icons/) (MIT) | The icons of each step of an install | CC BY 4.0 |
+
+The crates and npm packages they bring are listed in [`installer/src-tauri/Cargo.lock`](installer/src-tauri/Cargo.lock) and [`installer/package-lock.json`](installer/package-lock.json).
+
 ## Engine
 
 | Component | What it does | Licence |
