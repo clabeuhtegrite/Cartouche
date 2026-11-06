@@ -21,6 +21,8 @@ __pycache__/
 *.nca
 *.ncz
 *.nup
+*.nso
+*.nro
 prod.keys
 title.keys
 romfs.img

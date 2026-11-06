@@ -1,0 +1,56 @@
+name: Spike S2
+
+# Phase 2, spike S2 (docs/roadmap.md, engine/spikes/s2/README.md): nxnative's
+# rewriter, patch_nso.py, run under CPython for iOS in the iOS simulator on
+# synthetic modules that hold no game code, must write the same files as on
+# macOS.
+
+on:
+  pull_request:
+    paths: ["engine/**", ".github/workflows/spike-s2.yml"]
+  push:
+    branches: [main]
+    paths: ["engine/**", ".github/workflows/spike-s2.yml"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: spike-s2-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  simulator:
+    name: Rewriter in the iOS simulator
+    runs-on: macos-26
+    timeout-minutes: 45
+    env:
+      XCODE_VERSION: "26.4"
+      PYTHON_VERSION: "3.13"
+      # The release of BeeWare's Python-Apple-support whose CPython for iOS
+      # runs the rewriter. Step 2 embeds the same one in Cartouche.
+      PYTHON_SUPPORT: "3.13-b18"
+      CAPSTONE_VERSION: "5.0.7"
+    steps:
+      - uses: actions/checkout@v6
+      - name: Select Xcode
+        run: |
+          sudo xcode-select -s "/Applications/Xcode_${XCODE_VERSION}.app"
+          xcodebuild -version
+      - uses: actions/setup-python@v6
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - name: nxnative's rewriter at the pinned commit
+        run: engine/spikes/s2/fetch_nxnative.sh build/nxnative
+      - name: CPython for iOS
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release download "$PYTHON_SUPPORT" --repo beeware/Python-Apple-support \
+            --pattern "Python-${PYTHON_VERSION}-iOS-support.*.tar.gz" --dir build/download
+          mkdir -p build/support
+          tar -xzf build/download/Python-"${PYTHON_VERSION}"-iOS-support.*.tar.gz -C build/support
+          ls build/support
+      - name: Rewrite on the Mac and in the iOS simulator, and compare
+        run: engine/spikes/s2/run_simulator.sh build/support build/nxnative build/s2
