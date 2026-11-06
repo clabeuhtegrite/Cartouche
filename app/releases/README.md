@@ -15,7 +15,8 @@ A release puts a new version of Cartouche on players' iPhones without a computer
      git push origin v0.1.1
      ```
 
-3. The [Release workflow](../../.github/workflows/release.yml) checks that the tag matches `CARTOUCHE_VERSION`, that it is on main and that its notes exist. Run from the Actions tab, it also refuses a tag that already names another commit. It builds the IPA, runs the publish guard on it, and attaches it to the GitHub release `v0.1.1` as `Cartouche-0.1.1.ipa`. It then adds that version to the source with [`../scripts/add_release.py`](../scripts/add_release.py) and pushes the change to main, where SideStore finds it the next time it reads its sources.
+3. The [Release workflow](../../.github/workflows/release.yml) checks that the tag matches `CARTOUCHE_VERSION`, that it is on main, that its notes exist and that the source does not list that version yet. Run from the Actions tab, it also refuses a tag that already names another commit. It builds the IPA, runs the publish guard on it, and attaches it to the GitHub release `v0.1.1` as `Cartouche-0.1.1.ipa`. It then adds that version to the source with [`../scripts/add_release.py`](../scripts/add_release.py), on the branch `release/v0.1.1`: main takes no push, the workflow's included.
+4. Open the pull request from `release/v0.1.1`, "Source: Cartouche 0.1.1", from the link in the run's summary, and merge it once CI is green. SideStore finds the version the next time it reads its sources.
 
 The App workflow runs the publish guard and `add_release.py` on every build, so a build that a release would refuse shows up in its pull request.
 
@@ -26,3 +27,4 @@ The App workflow runs the publish guard and `add_release.py` on every build, so 
 - The source keeps the last ten versions, newest first.
 - The source always lists Cartouche, as LiveContainer's and SideStore's own sources list themselves. Without that entry, the built-in SideStore drops its record of Cartouche's store entry each time it reads the source, then rebuilds it from the profile inside the app, the first install's, each time it starts: it would show the expiry of the first install instead of the last renewal.
 - Versions 0.x are test builds, marked as pre-releases on GitHub.
+- Once the source lists a version, its IPA never changes: SideStore checks the size and SHA-256 the source gives. A fix is a new version.

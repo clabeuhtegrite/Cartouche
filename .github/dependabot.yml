@@ -1,0 +1,13 @@
+# Dependabot proposes, once a month and in one pull request, the new commits
+# of the actions the workflows pin. Merge it once CI is green.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+    groups:
+      actions:
+        patterns: ["*"]
+    commit-message:
+      prefix: "Actions"

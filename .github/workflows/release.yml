@@ -3,9 +3,11 @@ name: Release
 # Publishes a release of Cartouche when a tag v<CARTOUCHE_VERSION> is pushed
 # on main, or when the workflow is run on main from the Actions tab, which
 # needs no computer and makes the tag itself: builds the IPA, runs the publish
-# guard on it, attaches it to a GitHub release, then adds it to
-# app/sidestore-source.json on main, where Cartouche's built-in SideStore
-# finds it and offers the update on the iPhone.
+# guard on it and attaches it to a GitHub release. main takes no push, this
+# workflow's included: it pushes the branch release/v<version>, which adds the
+# release to app/sidestore-source.json, and its summary links the pull request
+# to open from it. Once that pull request is merged, Cartouche's built-in
+# SideStore finds the release and offers the update on the iPhone.
 # How to cut a release: app/releases/README.md.
 
 on:
@@ -39,9 +41,10 @@ jobs:
     outputs:
       version: ${{ steps.tag.outputs.version }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           submodules: recursive
+          persist-credentials: false
       - name: Check the tag
         id: tag
         run: |
@@ -76,6 +79,18 @@ jobs:
             echo "::error::app/releases/$VERSION.md, the release notes, is missing"
             exit 1
           fi
+          # Once the source on main lists a version, iPhones check its size
+          # and SHA-256 against it: its IPA is never replaced.
+          LISTED=$(git show FETCH_HEAD:app/sidestore-source.json | python3 -c '
+          import json, sys
+          source = json.load(sys.stdin)
+          versions = [v.get("version") for app in source["apps"] for v in app.get("versions", [])]
+          print("yes" if sys.argv[1] in versions else "no")
+          ' "$VERSION")
+          if [ "$LISTED" != "no" ]; then
+            echo "::error::the source on main lists $VERSION already: raise CARTOUCHE_VERSION for a new release"
+            exit 1
+          fi
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
       - name: Select Xcode
         run: |
@@ -85,24 +100,22 @@ jobs:
         run: brew install ldid
       - name: Build
         run: app/scripts/build.sh
-      - uses: actions/upload-artifact@v7
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: Cartouche-${{ steps.tag.outputs.version }}
           path: build/app/Cartouche.ipa
           retention-days: 14
           if-no-files-found: error
 
-  publish:
-    name: Publish the release and add it to the source
+  guard:
+    name: Publish guard
     needs: build
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
-    env:
-      VERSION: ${{ needs.build.outputs.version }}
     steps:
-      - uses: actions/checkout@v6
-      - uses: actions/download-artifact@v8
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
         with:
           name: Cartouche-${{ needs.build.outputs.version }}
           path: build/download
@@ -111,14 +124,34 @@ jobs:
           python3 -m venv .venv
           .venv/bin/pip install --quiet -e server
           .venv/bin/cartouche-server check --kind app build/download/Cartouche.ipa
+
+  # The only job that can write: it runs git, gh and the standard library
+  # only, nothing installed from a package index.
+  publish:
+    name: Publish the release and propose it to the source
+    needs: [build, guard]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # the release, and the branch release/v<version>
+    env:
+      VERSION: ${{ needs.build.outputs.version }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
+        with:
+          name: Cartouche-${{ needs.build.outputs.version }}
+          path: build/download
       - name: Publish the release
-        env:
-          GH_TOKEN: ${{ github.token }}
         run: |
           mkdir -p build/release
           IPA="build/release/Cartouche-$VERSION.ipa"
           cp build/download/Cartouche.ipa "$IPA"
           if gh release view "$TAG" >/dev/null 2>&1; then
+            # A release that is not in the source yet; once published, an
+            # immutable release refuses this.
             gh release upload "$TAG" "$IPA" --clobber
           else
             # Versions 0.x are test builds: marked as pre-releases on GitHub.
@@ -128,11 +161,14 @@ jobs:
             # release makes the tag on the commit the workflow runs on.
             TARGET=(--verify-tag)
             if [ "$GITHUB_EVENT_NAME" = "workflow_dispatch" ]; then TARGET=(--target "$GITHUB_SHA"); fi
-            gh release create "$TAG" "$IPA" --title "Cartouche $VERSION" \
+            # A draft until its IPA is attached, so that it can be immutable.
+            gh release create "$TAG" "$IPA" --draft --title "Cartouche $VERSION" \
               --notes-file "app/releases/$VERSION.md" "${TARGET[@]}" "${PRERELEASE[@]}"
           fi
-      - name: Add the release to the built-in SideStore's source
+          gh release edit "$TAG" --draft=false
+      - name: Push the branch that adds the release to the built-in SideStore's source
         run: |
+          BRANCH="release/v$VERSION"
           git fetch --no-tags origin main
           git switch --detach FETCH_HEAD
           python3 app/scripts/add_release.py \
@@ -144,4 +180,12 @@ jobs:
           git -c user.name="github-actions[bot]" \
               -c user.email="41898282+github-actions[bot]@users.noreply.github.com" \
               commit -m "Source: Cartouche $VERSION" -m "Added by the Release workflow for $TAG."
-          git push origin HEAD:main
+          gh auth setup-git
+          git push --force origin "HEAD:refs/heads/$BRANCH"
+          COMPARE="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/compare/main...$BRANCH?expand=1"
+          {
+            echo "## Cartouche $VERSION is published"
+            echo
+            echo "iPhones see it once [the pull request from \`$BRANCH\`]($COMPARE), \"Source: Cartouche $VERSION\", is merged, after CI."
+          } >> "$GITHUB_STEP_SUMMARY"
+          echo "::notice::open the pull request from $BRANCH and merge it: $COMPARE"
