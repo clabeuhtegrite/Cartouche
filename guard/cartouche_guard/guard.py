@@ -1,10 +1,10 @@
-"""The publish guard: the last check before a file goes to the update server.
+"""The publish guard: the last check before a file is published.
 
-Cartouche's update server carries the project's own build outputs only. This
-module refuses a file, or any file inside an archive, that looks like game
-content, a console key or firmware, so that a mistake in a build script
-cannot put one on the server. It fails closed: a file it cannot read is
-refused too.
+Cartouche publishes its own build outputs only: the app's IPA, as a GitHub
+release, and the catalog it carries. This module refuses a file, or any file
+inside an archive, that looks like game content, a console key or firmware,
+so that a mistake in a build script cannot publish one. It fails closed: a
+file it cannot read is refused too.
 
 What it refuses:
 
@@ -35,9 +35,6 @@ GiB = 1 << 30
 
 MAX_SIZE = {
     "app": 1 * GiB,
-    "engine-host": 512 * MiB,
-    "toolchain": 2 * GiB,
-    "pipeline-list": 64 * MiB,
     "catalog": 8 * MiB,
 }
 MAX_MEMBER = 1 * GiB
@@ -267,15 +264,6 @@ def check_catalog(data: bytes, name: str = "catalog") -> None:
     _walk_catalog(parsed, name)
 
 
-def check_pipeline_list(data: bytes, name: str = "pipeline list") -> None:
-    try:
-        text = data.decode("utf-8")
-    except UnicodeDecodeError as exc:
-        raise Rejected(f"{name}: a pipeline list is UTF-8 text") from exc
-    if "\0" in text:
-        raise Rejected(f"{name}: a pipeline list is text, not binary data")
-
-
 def check_file(path: Path, kind: str, *, app_bundle_id_expected: str | None = None) -> None:
     """Raise Rejected unless ``path`` may be published as an artifact of ``kind``."""
     if kind not in MAX_SIZE:
@@ -294,13 +282,5 @@ def check_file(path: Path, kind: str, *, app_bundle_id_expected: str | None = No
         found = app_bundle_id(data)
         if found != app_bundle_id_expected:
             raise Rejected(f"{path.name}: bundle identifier {found} is not Cartouche's ({app_bundle_id_expected})")
-    elif kind == "engine-host":
-        if not is_macho(data) and _is_archive(path.name, data) is None:
-            raise Rejected(f"{path.name}: an engine host is a Mach-O image or an archive of one")
-    elif kind == "toolchain":
-        if _is_archive(path.name, data) is None:
-            raise Rejected(f"{path.name}: a toolchain is published as an archive")
-    elif kind == "pipeline-list":
-        check_pipeline_list(data, path.name)
     elif kind == "catalog":
         check_catalog(data, path.name)

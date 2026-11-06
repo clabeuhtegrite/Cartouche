@@ -13,7 +13,7 @@
 # usage: package.sh --archive LiveContainer.xcarchive --sidestore SideStore.ipa
 #                   --dylibify PATH --resources DIR --catalog DIR --bundle-id ID
 #                   --name NAME --url-scheme SCHEME --version X.Y.Z
-#                   --source-url URL --commit SHA [--python DIR] --out OUT.ipa
+#                   --source-url URL --commit SHA --out OUT.ipa
 set -euo pipefail
 
 while [ $# -gt 0 ]; do
@@ -29,7 +29,6 @@ while [ $# -gt 0 ]; do
     --version) VERSION="$2" ;;       # Cartouche's version, from app/config.env
     --source-url) SOURCE_URL="$2" ;; # the source of Cartouche's updates, from app/config.env
     --commit) COMMIT="$2" ;;         # the commit it is built from
-    --python) PYTHON_RUNTIME="$2" ;; # engine/spikes/s2/build_ios_runtime.sh's output
     --out) OUT_IPA="$2" ;;
     *) echo "unknown option $1" >&2; exit 2 ;;
   esac
@@ -199,46 +198,6 @@ cat > "$STAGE/widget.entitlements" <<EOF
 </plist>
 EOF
 ldid -S"$STAGE/widget.entitlements" "$WIDGET/LiveWidgetExtension"
-
-# CPython for iOS, Capstone and nxnative's rewriter, for the lab's rewrite of
-# a game's modules on the iPhone (spike S2, engine/spikes/s2). The app loads
-# them only when the lab runs. iOS loads native code from frameworks only, so
-# each extension module of Python becomes a framework, and a .fwork file in
-# its place tells Python where it went, as Python-Apple-support's Xcode build
-# step does (Python.xcframework/build/utils.sh). Every binary is signed ad hoc
-# here and again by the signer that installs the app.
-if [ -n "${PYTHON_RUNTIME:-}" ]; then
-  [ -d "$PYTHON_RUNTIME/Frameworks/Python.framework" ] && [ -d "$PYTHON_RUNTIME/python/lib" ] || {
-    echo "--python: $PYTHON_RUNTIME is not build_ios_runtime.sh's output" >&2; exit 2; }
-  rsync -a "$PYTHON_RUNTIME/Frameworks/" "$FW/"
-  rsync -a "$PYTHON_RUNTIME/python/" "$APP/python/"
-  EXTENSIONS="$STAGE/extensions.txt"
-  (cd "$APP" && find python -name '*.so' | sort) > "$EXTENSIONS"
-  while read -r EXT; do
-    # The module's dotted name, from its path under lib-dynload or app:
-    # python/lib/python3.13/lib-dynload/_struct.cpython-313-iphoneos.so is _struct.
-    NAMED="${EXT#python/lib/python3.*/lib-dynload/}"
-    [ "$NAMED" != "$EXT" ] || NAMED="${EXT#python/app/}"
-    MODULE="$(echo "${NAMED%%.*}" | tr / .)"
-    MODULE_FW="$FW/$MODULE.framework"
-    [ ! -e "$MODULE_FW" ] || { echo "two extension modules named $MODULE" >&2; exit 1; }
-    mkdir -p "$MODULE_FW"
-    cp "$PYTHON_RUNTIME/dylib-Info-template.plist" "$MODULE_FW/Info.plist"
-    $PB -c "Set :CFBundleExecutable $MODULE" "$MODULE_FW/Info.plist"
-    $PB -c "Set :CFBundleIdentifier $BUNDLE_ID.python.$(echo "$MODULE" | tr _ -)" "$MODULE_FW/Info.plist"
-    $PB -c "Set :CFBundlePackageType FMWK" "$MODULE_FW/Info.plist"
-    mv "$APP/$EXT" "$MODULE_FW/$MODULE"
-    echo "Frameworks/$MODULE.framework/$MODULE" > "$APP/${EXT%.so}.fwork"
-    echo "${EXT%.so}.fwork" > "$MODULE_FW/$MODULE.origin"
-    ldid -S "$MODULE_FW/$MODULE"
-  done < "$EXTENSIONS"
-  ldid -S "$FW/Python.framework/Python"
-  ldid -S "$FW/libcapstone.dylib"
-  PY_VERSION="$(sed -n 's/^Python version: *//p' "$APP/python/VERSIONS" | tr -d ' ')"
-  $PB -c "Add :CartouchePythonVersion string $PY_VERSION" "$APP/Info.plist"
-  $PB -c "Add :CartoucheNxnativeCommit string $(cut -c1-8 "$APP/python/app/dm/nxnative.commit")" "$APP/Info.plist"
-  echo "python: $PY_VERSION, $(wc -l < "$EXTENSIONS" | tr -d ' ') extension modules as frameworks"
-fi
 
 mkdir -p "$(dirname "$OUT_IPA")"
 OUT_IPA="$(cd "$(dirname "$OUT_IPA")" && pwd)/$(basename "$OUT_IPA")"

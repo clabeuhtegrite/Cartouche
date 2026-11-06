@@ -1,6 +1,6 @@
 # Architecture
 
-Cartouche puts everything a player needs on the iPhone into one app. This page describes its parts, how it gets installed and stays signed, how games get the memory they need, how games are built, and how updates work. Choices and their reasons are in [decisions.md](decisions.md); milestones in [roadmap.md](roadmap.md).
+Cartouche puts everything a player needs on the iPhone into one app. This page describes its parts, how it gets installed and stays signed, how games get the memory they need, how they are installed, and how Cartouche updates itself. Choices and their reasons are in [decisions.md](decisions.md); milestones in [roadmap.md](roadmap.md).
 
 ## Parts
 
@@ -11,12 +11,10 @@ Cartouche puts everything a player needs on the iPhone into one app. This page d
 | | SideStore (built in) | Signs in to the Apple account; installs, re-signs and renews Cartouche; asks for the memory capability |
 | | Launcher | Catalogue of every supported game with the player's own first, import, compatibility sheets, memory probe, updates; the only screens the player sees, LiveContainer's and SideStore's never show |
 | Player's own storage | A shared folder of their Mac, PC or NAS (SMB), or a folder in Files | Keeps the player's games, as IPAs Cartouche installs from there, and copies of their saves, with the player's own account |
-| | Build pipeline (v2) | Builds a game on the phone from the player's own dump |
 | iPhone | LocalDevVPN (App Store) | A loopback VPN through which SideStore reaches the phone's own services, so it needs no computer |
 | Computer, once | Cartouche Installer, for macOS and Windows | Installs the latest Cartouche, under its own App ID with the memory capability, gives it its certificate and puts the pairing file in it ([installer/README.md](../installer/README.md)) |
 | Server | GitHub releases | Hold each version of the app, listed in the source the built-in SideStore reads |
-| Server | Cloudflare R2 bucket, public read | Holds the signed manifest and the chunks of engine builds, tools and sheets |
-| Server | GitHub Actions | Builds and releases the app; builds the engine builds and publishes them with the tools in [`server/`](../server/) |
+| Server | GitHub Actions | Builds, checks and releases the app, with the publish guard in [`guard/`](../guard/) on every IPA and on the catalog |
 
 Supported hardware follows nxnative: iOS 26 or later, an iPhone 15 Pro (A17 Pro) or newer, or an iPad with an M1 or newer. The interface adapts to each by size class, both displays and the fold of the iPhone Duo included ([launcher/README.md](../launcher/README.md#every-iphone-the-iphone-duo-included)).
 
@@ -37,7 +35,7 @@ Cartouche's SideStore never revokes a certificate on its own, nor creates one wh
 A free Apple account signs apps for seven days, allows three sideloaded apps at a time and ten new App IDs in seven days.
 
 - Cartouche is one app with one App ID. Games are guest apps inside it, signed on the phone with Cartouche's certificate (LiveContainer's signing without JIT), so they take no App ID and do not count against the limit of three. nxnative runs games natively and needs no JIT, so StikDebug is not needed either.
-- The built-in SideStore renews Cartouche before it expires, with LocalDevVPN on: from the launcher's System page (**Renew now**), or every night from a Shortcuts automation that runs Cartouche's *Refresh All Apps* action, which the System page explains how to set up, since iOS lets no app create one. The launcher shows the days left and, once the player allows it, warns 24 hours and 6 hours before expiry ([launcher/README.md](../launcher/README.md#what-the-first-build-does)).
+- The built-in SideStore renews Cartouche before it expires, with LocalDevVPN on: from the launcher's System page (**Renew now**), or every night from a Shortcuts automation that runs Cartouche's *Refresh All Apps* action, which the System page explains how to set up, since iOS lets no app create one. The launcher shows the days left and, once the player allows it, warns 24 hours and 6 hours before expiry ([launcher/README.md](../launcher/README.md#what-it-does)).
 - Cartouche reuses the account's existing certificate when it can and never revokes one on its own: every app signed with a revoked certificate stops opening.
 
 ## Memory
@@ -59,36 +57,15 @@ The launcher measures the real limit at start-up (footprint plus `os_proc_availa
 
 ## Games
 
-### v1: import a game built on a Mac
+The player builds a game's IPA on a Mac with nxnative's `scripts/build_ipa_from_nsp.py` (or a Mac app built on it) from their own dump, then imports it into Cartouche from Files, iCloud Drive, a USB-C drive, a network share or their games folder. Cartouche installs it as a guest app and signs it, on its own screens, and starts it without nxnative's settings screen, with the choices the game's settings page in Cartouche saved where nxnative reads them. Big games are built with `--romfs separate`, and their RomFS goes into the guest app's Documents folder.
 
-The player builds the IPA on a Mac with nxnative's `scripts/build_ipa_from_nsp.py` (or a Mac app built on it) from their own dump, then imports it into Cartouche from Files, iCloud Drive, a USB-C drive or a network share. Cartouche installs it as a guest app and signs it, on its own screens, and starts it without nxnative's settings screen, with the choices the game's settings page in Cartouche saved where nxnative reads them. Big games are built with `--romfs separate`, and their RomFS goes into the guest app's Documents folder.
-
-### v2: build on the iPhone
-
-nxnative builds a game in steps: read the dump (LibHac), rewrite the game's code for the Apple chip (`patch_nso.py`, with capstone), translate the shaders (Ryujinx's translator to SPIR-V, SPIRV-Cross to Metal Shading Language, then Metal), and link the app with Xcode. On the phone:
-
-- reading the dump and translating shaders run as .NET code compiled ahead of time (NativeAOT for iOS); rewriting runs on CPython for iOS (PEP 730) with capstone;
-- Metal compiles shader source at run time, so no offline compiler is needed;
-- iOS has no linker, so the engine host is not linked on the phone. Our CI builds it from nxnative's source for each supported game (nxnative builds a host per game, `make GAME=<title ID>`), with none of the game in it. The phone writes the rewritten modules into a Mach-O framework, Cartouche signs it, and the host loads it through nxnative's `dm_set_game_image_header()`, which exists for apps that link the modules into a framework instead of the executable.
-
-Spikes S2 to S4 in the roadmap test each step before v2 is built.
+Cartouche does not build games, and carries nothing of nxnative's build tools ([decisions.md](decisions.md), 28). What it knows of nxnative's games is the list of their profiles at a pinned commit ([catalog/README.md](../catalog/README.md)).
 
 ## Updates
 
-The server publishes, per channel (for example `stable`):
+Each version of Cartouche is a GitHub release of this repository, and is listed, with its size and SHA-256, in the source the built-in SideStore reads, [`app/sidestore-source.json`](../app/sidestore-source.json). Cartouche offers a version higher than its own over the console and on its System page, and has the built-in SideStore install it without showing SideStore ([app/releases/README.md](../app/releases/README.md)). The release workflow runs the publish guard on the IPA before attaching it, and the source entry goes to main through a pull request of its own.
 
-```
-channels/<channel>/manifest.json        what is available: artifacts and their chunks
-channels/<channel>/manifest.json.sig    Ed25519 signature of manifest.json
-chunks/<aa>/<sha256>                    chunk bytes, named by their SHA-256
-```
-
-- Artifacts are of five kinds only: `app`, `engine-host`, `toolchain`, `pipeline-list`, `catalog`. There is no kind for games, and the publish guard refuses files that look like game content, keys or firmware, Mach-O images carrying a game's rewritten code, IPAs with another bundle identifier, and URLs in catalog files.
-- Files are cut into chunks of 1 to 8 MiB with content-defined chunking (FastCDC), so a new engine build shares most chunks with the previous one, and engine builds of different games share most of theirs.
-- The app pins the public key, checks the signature, refuses a manifest whose `sequence` is lower than the last one it accepted, downloads only the chunks it lacks and checks each one's SHA-256.
-- App updates are installed by the built-in SideStore, which takes a whole IPA rather than chunks. Each version of the app is a GitHub release listed, with its size and SHA-256, in the source SideStore reads, [`app/sidestore-source.json`](../app/sidestore-source.json); Cartouche offers it when its version is higher than the one installed, and has the built-in SideStore install it without showing SideStore ([app/releases/README.md](../app/releases/README.md)). Engine builds, tools and sheets are applied by the launcher from the signed manifest.
-
-The format and tools are in [`server/`](../server/).
+The game sheets, device profiles and nxnative's list of games are carried inside the app ([catalog/README.md](../catalog/README.md)), so a new version of Cartouche brings new ones.
 
 ## Privacy
 

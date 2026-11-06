@@ -8,7 +8,7 @@ name: App
 on:
   push:
     branches: [main]
-    paths: ["app/**", "launcher/**", "catalog/**", "engine/**", ".gitmodules", ".github/workflows/app.yml"]
+    paths: ["app/**", "launcher/**", "catalog/**", ".gitmodules", ".github/workflows/app.yml"]
   pull_request:
   workflow_dispatch:
 
@@ -44,7 +44,7 @@ jobs:
             case "$FILE" in
               # The release workflow's pull requests change only the source.
               app/sidestore-source.json) ;;
-              app/*|launcher/*|catalog/*|engine/*|.gitmodules|.github/workflows/app.yml) BUILD=true ;;
+              app/*|launcher/*|catalog/*|.gitmodules|.github/workflows/app.yml) BUILD=true ;;
             esac
           done < <(git diff --name-only HEAD^1 HEAD)
           echo "build=$BUILD" >> "$GITHUB_OUTPUT"
@@ -103,8 +103,8 @@ jobs:
       - name: Publish guard
         run: |
           python3 -m venv .venv
-          .venv/bin/pip install --quiet -e server
-          .venv/bin/cartouche-server check --kind app build/download/Cartouche.ipa
+          .venv/bin/pip install --quiet -e guard
+          .venv/bin/cartouche-guard --kind app build/download/Cartouche.ipa
       - name: The built-in SideStore's source would take this build
         run: |
           echo '{"name": "Cartouche", "apps": []}' > build/source.json

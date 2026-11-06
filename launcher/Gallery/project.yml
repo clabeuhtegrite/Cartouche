@@ -33,14 +33,10 @@ targets:
         includes:
           - "Cartouche*.swift"
         excludes:
-          # The Lab and the system page need LiveContainer and Python, as
-          # does the root view, which opens the system page over the
-          # console, and the game actions LiveContainer's installer and
-          # launcher.
+          # The system page needs LiveContainer, as does the root view,
+          # which opens the system page over the console, and the game
+          # actions LiveContainer's installer and launcher.
           - "CartoucheGameActions.swift"
-          - "CartoucheLab.swift"
-          - "CartoucheLabView.swift"
-          - "CartouchePython.swift"
           - "CartoucheRootView.swift"
           - "CartoucheSystemView.swift"
       - path: ../Sources/Cartouche.xcstrings

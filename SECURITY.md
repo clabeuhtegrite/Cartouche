@@ -1,6 +1,6 @@
 # Security
 
-Cartouche signs in to an Apple account (through its built-in SideStore), signs code on the device and updates itself from a signed manifest. A flaw in any of these can hurt its users, so please report it privately.
+Cartouche signs in to an Apple account (through its built-in SideStore), signs code on the device and updates itself from its GitHub releases. A flaw in any of these can hurt its users, so please report it privately.
 
 ## Reporting a vulnerability
 
@@ -10,9 +10,8 @@ Include what an attacker can do, the steps to reproduce it and the version or co
 
 ## Scope
 
-- the update manifest and its signature checks, and the chunk downloads;
 - how Cartouche and its SideStore store and use Apple account credentials and certificates;
-- the publish guard in `server/` letting game content through;
+- the publish guard in `guard/` letting game content through;
 - the releases and the source the built-in SideStore installs them from (`app/sidestore-source.json`), and the workflows that make them.
 
 Vulnerabilities in LiveContainer or SideStore themselves are best reported to those projects too.
