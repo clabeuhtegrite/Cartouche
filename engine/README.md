@@ -11,3 +11,5 @@ Players build their game on a Mac with nxnative's own `scripts/build_ipa_from_ns
 ## v2 (planned)
 
 iOS has no linker, so the engine host cannot be linked on the phone. CI will build it here from nxnative's source for each supported game (`make GAME=<title ID>`), with nothing of the game in it, and publish it as an `engine-host` artifact. On the phone, Cartouche writes the game's rewritten modules into a framework, signs it, and the host loads it through `dm_set_game_image_header()`. The publish guard refuses any engine build that contains a game's rewritten code. Spike S4 in the [roadmap](../docs/roadmap.md) tests this first.
+
+Spikes in progress: [S2](spikes/s2/README.md), nxnative's rewriter under CPython for iOS.
