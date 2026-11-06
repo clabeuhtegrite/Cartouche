@@ -1,0 +1,102 @@
+From cce2b7e20b352fe2fc4e6d597f838e633d5a9885 Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Fri, 6 Nov 2026 00:31:10 +0000
+Subject: [PATCH 4/4] Never revoke a certificate, and create one only when the
+ account has none
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+When the account's certificates had no private key on the device, the
+sign-in flow offered to revoke them (for a free team, "Revoke" was the
+main button) or created one more. A certificate the account already has
+signs every app installed with it, from the computer or from another
+SideStore: revoking it stops them all from opening.
+
+The flow now creates a certificate only when the account has none at
+all, whatever their names, since the one a computer made (iloader's, for
+instance) may not be named "iOS Development". Otherwise it stops with an
+error that asks the user to import the certificate from the SideStore
+that uses it, then to retry; the Retry, Skip and Cancel choices are the
+ones every provisioning error already offers. Revoking or creating one
+stays possible by hand in Settings → Advanced Settings → Certificate
+Management.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01MzPJorvBGmBB88WUcRVhE7
+---
+ .../Flows/CertificateProvisioningFlow.swift   | 58 +++----------------
+ 1 file changed, 9 insertions(+), 49 deletions(-)
+
+diff --git a/SideStore/Core/Auth/Flows/CertificateProvisioningFlow.swift b/SideStore/Core/Auth/Flows/CertificateProvisioningFlow.swift
+index 9412a17..8d215a8 100644
+--- a/SideStore/Core/Auth/Flows/CertificateProvisioningFlow.swift
++++ b/SideStore/Core/Auth/Flows/CertificateProvisioningFlow.swift
+@@ -138,55 +138,15 @@ final class CertificateProvisioningFlow: @unchecked Sendable {
+         }
+     }
+     
++    // A certificate the account already has signs the apps installed with it,
++    // and revoking it stops them all from opening. This flow therefore never
++    // revokes one, and creates one only for an account that has none at all
++    // (fetchCertificate), whatever their names: the one a computer made, such
++    // as iloader's, may not be named "iOS Development". Otherwise the user
++    // imports the certificate they already use from the SideStore that holds
++    // it (ImportFromSideStore).
+     private func replaceCertificate(portalCertificates: [ALTX509Certificate], for team: ALTTeam) async throws -> ALTCertificate {
+-        let iosCertificates = portalCertificates.filter { cert in
+-            let nameLower = cert.name.lowercased()
+-            return nameLower.contains("ios development") || nameLower.contains("iphone developer")
+-        }
+-
+-        debugLog("[CertificateProvisioningFlow] replaceCertificate: Starting. Total certs on portal: \(portalCertificates.count), iOS Development certs: \(iosCertificates.count)")
+-        
+-        if iosCertificates.isEmpty {
+-            debugLog("[CertificateProvisioningFlow] replaceCertificate: No iOS Development certificates found on portal. Requesting new...")
+-            return try await self.requestCertificate(for: team)
+-        }
+-        
+-        if let handler = self.handler {
+-            debugLog("[CertificateProvisioningFlow] replaceCertificate: Presenting revoke alert for \(iosCertificates.count) iOS Development cert(s)...")
+-            let action = try await handler.resolveRevocation(certificates: iosCertificates, teamType: team.type)
+-            debugLog("[CertificateProvisioningFlow] replaceCertificate: User action was \(action)")
+-            switch action {
+-            case .keepExisting:
+-                debugLog("[CertificateProvisioningFlow] replaceCertificate: Keeping existing, calling requestCertificate...")
+-                return try await self.requestCertificate(for: team)
+-                
+-            case .revokeSelected(let certsToRevoke):
+-                debugLog("[CertificateProvisioningFlow] replaceCertificate: Revoking \(certsToRevoke.count) selected certificate(s)...")
+-                var firstError: Error? = nil
+-
+-                for certificate in certsToRevoke {
+-                    do {
+-                        debugLog("[CertificateProvisioningFlow] replaceCertificate: Revoking certificate '\(certificate.machineName ?? certificate.name)' (Serial: \(certificate.serialNumber))...")
+-                        _ = try await DeveloperPortalProxy.shared.revokeCertificate(certificate, team: team)
+-                        debugLog("[CertificateProvisioningFlow] replaceCertificate: Revoke succeeded.")
+-                    } catch {
+-                        debugLog("[CertificateProvisioningFlow] replaceCertificate: Revoke failed with error: \(error)")
+-                        if firstError == nil {
+-                            firstError = error
+-                        }
+-                    }
+-                }
+-
+-                if let error = firstError {
+-                    debugLog("[CertificateProvisioningFlow] replaceCertificate: Error occurred during revocation, throwing...")
+-                    throw error
+-                } else {
+-                    debugLog("[CertificateProvisioningFlow] replaceCertificate: Selected certificates successfully revoked. Requesting new certificate...")
+-                    return try await self.requestCertificate(for: team)
+-                }
+-            }
+-        } else {
+-            return try await self.requestCertificate(for: team)
+-        }
++        debugLog("[CertificateProvisioningFlow] replaceCertificate: \(portalCertificates.count) certificate(s) on the portal and none usable here: asking for an import instead of revoking or creating one.")
++        throw OperationError.forbidden(failureReason: NSLocalizedString("This Apple account already has a certificate, which signs the apps installed with it. This SideStore never revokes it and does not create another one.\n\nImport it from the SideStore that uses it, with \"Import from SideStore\" in the onboarding or in Settings → Advanced Settings → Certificate Management, then tap Retry.", comment: ""))
+     }
+ }
+-- 
+2.43.0
+

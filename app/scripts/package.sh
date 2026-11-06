@@ -76,6 +76,14 @@ SS="$FW/SideStoreApp.framework"
 mv "$SS/SideStore.dylib" "$SS/SideStore"
 ldid -S"" "$SS/SideStore"
 cp "$RESOURCES/LCAppInfo.plist" "$SS/"
+# Its own bundle identifier instead of SideStore's. iloader takes any app with
+# a com.SideStore.SideStore framework for LiveContainer+SideStore, and gives it
+# the app group that every LiveContainer+SideStore of the account shares, with
+# that LiveContainer's keychain groups. With this one, iloader installs
+# Cartouche as an ordinary app, with an app group of its own. LiveContainer
+# finds the built-in SideStore by its path, so nothing inside the app depends on
+# the old identifier.
+$PB -c "Set :CFBundleIdentifier $BUNDLE_ID.SideStore" "$SS/Info.plist"
 
 # SideStore's intents, renamed to the types SideStoreSupport defines.
 cp "$SS/Intents.intentdefinition" "$SS/ViewApp.intentdefinition" "$APP/"

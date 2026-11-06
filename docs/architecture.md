@@ -12,7 +12,7 @@ Cartouche puts everything a player needs on the iPhone into one app. This page d
 | | Launcher | Catalogue of every supported game with the player's own first, import, compatibility sheets, memory probe, updates |
 | | Build pipeline (v2) | Builds a game on the phone from the player's own dump |
 | iPhone | LocalDevVPN (App Store) | A loopback VPN through which SideStore reaches the phone's own services, so it needs no computer |
-| Computer, once | iloader | Installs Cartouche and places the pairing file |
+| Computer, once | iloader | Installs Cartouche, under its own App ID with the memory capability |
 | Server | Cloudflare R2 bucket, public read | Holds the signed manifest and the chunks of the app, engine builds, tools and sheets |
 | Server | GitHub Actions | Builds the app and the engine builds, publishes them with the tools in [`server/`](../server/) |
 
@@ -23,10 +23,15 @@ Supported hardware follows nxnative: iOS 26 or later, an iPhone 15 Pro (A17 Pro)
 A computer is needed once, because iOS lets nothing install a sideloaded app until one is already there.
 
 1. On the iPhone, install LocalDevVPN from the App Store.
-2. On a computer (Windows, macOS or Linux), [iloader](https://github.com/nab138/iloader) signs in to the player's Apple account, installs Cartouche and places the pairing file that lets SideStore talk to the phone later.
-3. Cartouche opens on the phone. Its SideStore signs in to the same account and takes over: from now on it renews Cartouche without the computer.
+2. On a computer (Windows, macOS or Linux), [iloader](https://github.com/nab138/iloader) signs in to the player's Apple account and installs Cartouche with "Import IPA", under its own App ID with Increased Memory Limit and with its own app group.
+3. Cartouche opens on the phone. Its SideStore gets the pairing file that lets it talk to the phone and the account's certificate (below), signs in to the same account and takes over: from now on it renews Cartouche without the computer.
 
-iloader handles LiveContainer with SideStore today: it imports the account's certificate into SideStore and places the pairing file where SideStore looks for it. Cartouche needs the same, either by iloader recognising Cartouche (a small contribution to iloader) or by Cartouche importing both from files. Phase 1 settles which.
+iloader installs Cartouche as an ordinary app. It would take an app with SideStore's bundle identifier inside for a LiveContainer+SideStore, and give it the app group and keychain groups that every LiveContainer+SideStore of the account shares, so Cartouche's built-in SideStore has a bundle identifier of its own ([app/README.md](../app/README.md#identity)). In return, iloader neither places the pairing file nor gives its certificate to Cartouche's SideStore, which gets both on the phone:
+
+- **From another SideStore on the iPhone**, such as the one inside a LiveContainer+SideStore: in the onboarding, "Import from SideStore" asks it for its pairing file, and "Import the Certificate from SideStore" for its certificate, before signing in. The other SideStore asks the player to confirm the export of its certificate, and Cartouche's to confirm each import. Both then sign with the same certificate, and nothing is created or revoked.
+- **Without one:** iloader exports the pairing file to the computer, and the player imports that file in the onboarding. Cartouche's SideStore creates a certificate only for an account that has none, and the account already has iloader's. If that certificate signs nothing but Cartouche, the player can revoke it by hand in Settings → Advanced Settings → Certificate Management and let Cartouche's SideStore create its own, then refresh Cartouche right away, before closing it: an app signed with a revoked certificate no longer opens.
+
+Cartouche's SideStore never revokes a certificate on its own, nor creates one when the account already has one ([app/patches/README.md](../app/patches/README.md#applied)).
 
 ## Signing and renewal
 

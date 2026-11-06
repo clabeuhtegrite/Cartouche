@@ -23,8 +23,8 @@ Cartouche ships no games, no keys and no firmware, and it never downloads them. 
  Computer, once           iPhone                                   Update server (R2)
  ──────────────           ─────────────────────────────────        ──────────────────
  iloader installs   ──▶   Cartouche                                signed manifest
- Cartouche and its        ├─ launcher: catalogue, sheets, probe ◀─ app, engine builds,
- pairing file             ├─ SideStore: sign, install, renew       tools, sheets
+ Cartouche, with its      ├─ launcher: catalogue, sheets, probe ◀─ app, engine builds,
+ own App ID               ├─ SideStore: sign, install, renew       tools, sheets
                           ├─ build pipeline (v2)                   (never games)
                           └─ games, as guest apps
                           LocalDevVPN (App Store)
