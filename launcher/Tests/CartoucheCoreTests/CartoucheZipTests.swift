@@ -8,6 +8,7 @@
 //  links, Zip64.
 //
 
+import Darwin
 import Foundation
 import XCTest
 @testable import CartoucheCore
@@ -36,6 +37,33 @@ final class MemorySink: CartoucheByteSink {
 
     func write(_ chunk: Data) async throws {
         data.append(chunk)
+    }
+}
+
+/// The memory the system counts against the process, as iOS does before it
+/// closes an app that takes too much.
+func physicalFootprint() -> Int64 {
+    var info = task_vm_info_data_t()
+    var count = mach_msg_type_number_t(MemoryLayout<task_vm_info_data_t>.size / MemoryLayout<integer_t>.size)
+    let result = withUnsafeMutablePointer(to: &info) {
+        $0.withMemoryRebound(to: integer_t.self, capacity: Int(count)) {
+            task_info(mach_task_self_, task_flavor_t(TASK_VM_INFO), $0, &count)
+        }
+    }
+    return result == KERN_SUCCESS ? Int64(info.phys_footprint) : -1
+}
+
+/// A sink that keeps nothing, and notes the process's footprint when the
+/// first bytes reach it.
+final class FootprintSink: CartoucheByteSink {
+    private(set) var footprintAtFirstWrite: Int64?
+    private(set) var written: UInt64 = 0
+
+    func write(_ chunk: Data) async throws {
+        if footprintAtFirstWrite == nil {
+            footprintAtFirstWrite = physicalFootprint()
+        }
+        written += UInt64(chunk.count)
     }
 }
 
@@ -283,6 +311,76 @@ final class CartoucheZipTests: XCTestCase {
         XCTAssertEqual(try FileManager.default.destinationOfSymbolicLink(atPath: app.appendingPathComponent("link").path), "Game")
         let mode = try FileManager.default.attributesOfItem(atPath: app.appendingPathComponent("Game").path)[.posixPermissions] as? NSNumber
         XCTAssertEqual((mode?.uint16Value ?? 0) & 0o777, 0o755)
+    }
+
+    // MARK: Large files
+
+    /// Sparse: no room taken on the disk, read back as zeros.
+    private func sparseFile(_ size: UInt64) throws -> URL {
+        let file = folder.appendingPathComponent("romfs.img")
+        FileManager.default.createFile(atPath: file.path, contents: nil)
+        let handle = try FileHandle(forWritingTo: file)
+        try handle.truncate(atOffset: size)
+        try handle.close()
+        return file
+    }
+
+    private static let largeSize: UInt64 = 768 << 20
+    /// Room for a few chunks of 8 MiB, far from a large file's size.
+    private static let boundedGrowth: Int64 = 128 << 20
+
+    /// A large file of the iPhone, as a game's romfs.img, goes into an
+    /// archive with the process holding a few chunks of it at most. The
+    /// writer reads it twice, once for its CRC-32 and once into the archive,
+    /// each time in one go: the first pass is over when the first bytes reach
+    /// the sink, and the footprint then must not have grown by the file.
+    func testLargeFileGoesInWithBoundedMemory() async throws {
+        let file = try sparseFile(Self.largeSize)
+
+        // What FileHandle alone keeps, read as the writer read before: in a
+        // loop that does not return to the run loop.
+        let kept: Int64 = try autoreleasepool {
+            let handle = try FileHandle(forReadingFrom: file)
+            defer { try? handle.close() }
+            let before = physicalFootprint()
+            var total: UInt64 = 0
+            while let chunk = try handle.read(upToCount: CartoucheSequentialReader.chunk), !chunk.isEmpty {
+                total += UInt64(chunk.count)
+            }
+            XCTAssertEqual(total, Self.largeSize)
+            return physicalFootprint() - before
+        }
+        print("FileHandle.read(upToCount:) in a loop of \(Self.largeSize >> 20) MiB, no pool of its own: +\(kept >> 20) MiB")
+
+        let sink = FootprintSink()
+        let writer = CartoucheZipWriter(sink: sink)
+        let before = physicalFootprint()
+        try await writer.addFile("Payload/Game.app/romfs.img", from: file)
+        let grown = try XCTUnwrap(sink.footprintAtFirstWrite) - before
+        print("CartoucheZipWriter.addFile, \(Self.largeSize >> 20) MiB, at its first write: +\(grown >> 20) MiB")
+        try await writer.finish()
+        XCTAssertGreaterThan(before, 0)
+        XCTAssertLessThan(grown, Self.boundedGrowth, "the CRC-32 pass kept \(grown >> 20) MiB of the file")
+        XCTAssertGreaterThan(sink.written, Self.largeSize)
+    }
+
+    /// CartoucheFileSource read from start to end in one go, as an IPA of a
+    /// Files folder is when Cartouche installs it, keeps none of the chunks
+    /// it handed over.
+    func testFileSourceReadsWithBoundedMemory() async throws {
+        let file = try sparseFile(Self.largeSize)
+        let reader = CartoucheSequentialReader(try CartoucheFileSource(file))
+        let before = physicalFootprint()
+        var total: UInt64 = 0
+        while true {
+            let part = try await reader.read(upTo: CartoucheSequentialReader.chunk)
+            if part.isEmpty { break }
+            total += UInt64(part.count)
+        }
+        let grown = physicalFootprint() - before
+        print("CartoucheFileSource through CartoucheSequentialReader, \(Self.largeSize >> 20) MiB: +\(grown >> 20) MiB")
+        XCTAssertEqual(total, Self.largeSize)
+        XCTAssertLessThan(grown, Self.boundedGrowth, "the reads kept \(grown >> 20) MiB of the file")
     }
 
     /// A file of the iPhone written through CartoucheFileSink, read back
