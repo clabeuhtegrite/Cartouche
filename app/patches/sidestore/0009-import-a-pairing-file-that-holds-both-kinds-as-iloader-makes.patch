@@ -1,0 +1,47 @@
+From 418a4549fd2362d17bf2c98758d9665eadc3aeec Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Fri, 6 Nov 2026 09:13:08 +0000
+Subject: [PATCH] Import a pairing file that holds both kinds, as iloader makes
+
+iloader's pairing file holds the Remote Pairing credentials and the
+Lockdown ones together. SideStore read such a file at launch, under its
+legacy name, but refused it as ambiguous wherever the player imported
+it, in the onboarding or in Settings. A file without a preferred kind
+that holds both is now read as Remote Pairing, as fetchPairingFile
+already reads a file of unknown kind; a file that holds one kind, or
+none, is read as before.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01MzPJorvBGmBB88WUcRVhE7
+---
+ SideStore/Core/Pairing/PairingFileManager.swift | 14 +++++++++++++-
+ 1 file changed, 13 insertions(+), 1 deletion(-)
+
+diff --git a/SideStore/Core/Pairing/PairingFileManager.swift b/SideStore/Core/Pairing/PairingFileManager.swift
+index 1f8736a..b0c10da 100644
+--- a/SideStore/Core/Pairing/PairingFileManager.swift
++++ b/SideStore/Core/Pairing/PairingFileManager.swift
+@@ -172,7 +172,19 @@ final class PairingFileManager: NSObject {
+     
+     @discardableResult
+     nonisolated func parse(content: String, preferred: PairingProtocol? = nil) throws -> any PairingFile {
+-        try PairingFileParser.parse(content: content, preferred: preferred)
++        do {
++            return try PairingFileParser.parse(content: content, preferred: preferred)
++        } catch {
++            // Cartouche: the pairing file iloader makes holds both kinds, and
++            // was refused as ambiguous wherever the player imported it. Read
++            // it as fetchPairingFile reads one of unknown kind: Remote
++            // Pairing first.
++            guard preferred == nil,
++                  let remote = try? PairingFileParser.parse(content: content, preferred: .rppairing),
++                  (try? PairingFileParser.parse(content: content, preferred: .lockdown)) != nil
++            else { throw error }
++            return remote
++        }
+     }
+ 
+     @discardableResult
+-- 
+2.43.0
+

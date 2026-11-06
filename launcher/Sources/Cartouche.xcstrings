@@ -1214,13 +1214,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Sign in once in the SideStore built into Cartouche: it takes the certificate iloader left for it, and renews Cartouche every week. Then come back to Cartouche with ⎋, at the top left of My Apps."
+            "value" : "Sign in once in the SideStore built into Cartouche: it takes the certificate iloader left for it, and renews Cartouche every week. SideStore has you connect LocalDevVPN, asks for your Apple ID, then brings you back here by itself."
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Connectez-vous une fois dans le SideStore intégré à Cartouche : il prend le certificat qu’iloader lui a laissé, et renouvelle Cartouche chaque semaine. Revenez ensuite dans Cartouche avec ⎋, en haut à gauche de My Apps."
+            "value" : "Connectez-vous une fois dans le SideStore intégré à Cartouche : il prend le certificat qu’iloader lui a laissé, et renouvelle Cartouche chaque semaine. SideStore vous fait connecter LocalDevVPN, demande votre compte Apple, puis vous ramène ici tout seul."
           }
         }
       }
@@ -1305,7 +1305,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Ajoutez votre fichier d’appairage"
+            "value" : "Ajoutez votre fichier de jumelage"
           }
         }
       }
@@ -1503,13 +1503,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Only a computer can make it. On your Mac, in iloader: Manage Pairing File › Export. Send the file to this iPhone (AirDrop or iCloud Drive), then choose it here."
+            "value" : "Only a computer can make it. In iloader, on your computer: Manage Pairing File › Place In All Apps. Cartouche is listed there as LiveContainer, and this step ticks itself. You can also open an exported file with Cartouche, or choose it here."
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Seul un ordinateur peut le créer. Sur votre Mac, dans iloader : Gérer le fichier de jumelage › Exporter. Envoyez le fichier sur cet iPhone (AirDrop ou iCloud Drive), puis choisissez-le ici."
+            "value" : "Seul un ordinateur peut le créer. Dans iloader, sur votre ordinateur : Gérer le fichier de jumelage › Placer dans toutes les applications. Cartouche y figure sous le nom LiveContainer, et cette étape se coche toute seule. Vous pouvez aussi ouvrir avec Cartouche un fichier exporté, ou le choisir ici."
           }
         }
       }
@@ -1520,13 +1520,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "This file is not a pairing file. Export it again from iloader."
+            "value" : "This file is not a pairing file. In iloader, use Place In All Apps instead."
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Ce fichier n’est pas un fichier d’appairage. Exportez-le à nouveau depuis iloader."
+            "value" : "Ce fichier n’est pas un fichier de jumelage. Dans iloader, utilisez plutôt Placer dans toutes les applications."
           }
         }
       }
@@ -1560,7 +1560,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Fichier d’appairage"
+            "value" : "Fichier de jumelage"
           }
         }
       }

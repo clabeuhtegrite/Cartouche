@@ -2,7 +2,7 @@
 //  CartoucheSetupView.swift
 //  Cartouche
 //
-//  The setup, once per iPhone: the pairing file iloader exports, the Apple ID
+//  The setup, once per iPhone: the pairing file iloader places, the Apple ID
 //  the built-in SideStore signs in with, then the certificate, which Cartouche
 //  hands to LiveContainer on its own (CartoucheSetup.swift). Each step shows
 //  where it stands, read again whenever Cartouche comes back to the front.
@@ -15,7 +15,6 @@ import UniformTypeIdentifiers
 struct CartoucheSetupView: View {
     @ObservedObject private var setup = CartoucheSetup.shared
     @State private var choosingPairingFile = false
-    @State private var pairingError: String?
 
     static let localDevVPN = URL(string: "localdevvpn://")!
     static let localDevVPNAppStore = URL(string: "https://apps.apple.com/app/localdevvpn/id6755608044")!
@@ -37,7 +36,7 @@ struct CartoucheSetupView: View {
                               systemImage: "doc.badge.plus")
                     }
                     .buttonStyle(.bordered)
-                    if let pairingError {
+                    if let pairingError = setup.pairingError {
                         Label(pairingError, systemImage: "exclamationmark.triangle.fill")
                             .font(.footnote)
                             .foregroundStyle(.red)
@@ -50,12 +49,15 @@ struct CartoucheSetupView: View {
                     detail: setup.appleID.map(CartoucheText.setupAppleIDDone) ?? CartoucheText.setupAppleIDHow
                 ) {
                     if setup.appleID == nil && !setup.hasCertificate {
+                        // SideStore registers this iPhone at sign-in, through
+                        // the pairing file.
                         Button {
-                            LCUtils.openSideStore()
+                            setup.signIn()
                         } label: {
                             Label(CartoucheText.setupOpenSideStore, systemImage: "person.crop.circle.badge.checkmark")
                         }
                         .buttonStyle(.borderedProminent)
+                        .disabled(!setup.hasPairingFile)
                     }
                 }
                 step(
@@ -84,14 +86,9 @@ struct CartoucheSetupView: View {
         .fileImporter(isPresented: $choosingPairingFile, allowedContentTypes: CartouchePairing.contentTypes) { result in
             switch result {
             case .success(let url):
-                do {
-                    try setup.importPairingFile(url)
-                    pairingError = nil
-                } catch {
-                    pairingError = error.localizedDescription
-                }
+                setup.importPairingFile(url)
             case .failure(let error):
-                pairingError = error.localizedDescription
+                setup.pairingError = error.localizedDescription
             }
         }
     }

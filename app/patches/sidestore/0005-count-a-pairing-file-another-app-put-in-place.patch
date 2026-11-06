@@ -1,38 +1,46 @@
-From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From e339b4656ec6e4904c7104362f6598765a529ed2 Mon Sep 17 00:00:00 2001
 From: Claude <noreply@anthropic.com>
-Date: Fri, 6 Nov 2026 07:55:00 +0000
-Subject: [PATCH 5/5] Count a pairing file another app put in place
+Date: Fri, 6 Nov 2026 08:39:28 +0000
+Subject: [PATCH] Count a pairing file another app put in place
 
 iloader writes the pairing file of a LiveContainer+SideStore into the
 built-in SideStore's Documents as ALTPairingFile.mobiledevicepairing,
 and Cartouche's setup does the same with the file iloader exports. The
 boot sequence reads it (fetchPairingFile tries each name), but
 hasPairingFile counted only a file under the protocol SideStore had
-recorded itself, so the onboarding asked for a pairing file it already
-had. It now counts any file that fetchPairingFile reads.
+recorded itself, and before that returned false whenever isPairingReset
+was set, which it is from the first launch until SideStore saves a
+pairing file itself. So the onboarding asked for a pairing file it
+already had. It now counts any file that fetchPairingFile reads, before
+looking at isPairingReset: resetAllPairingFiles deletes every file when
+it sets it, so a file found afterwards was put there since.
 
 Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
 Claude-Session: https://claude.ai/code/session_01MzPJorvBGmBB88WUcRVhE7
 ---
- SideStore/Core/Pairing/PairingFileManager.swift | 6 +++++-
- 1 file changed, 5 insertions(+), 1 deletion(-)
+ SideStore/Core/Pairing/PairingFileManager.swift | 9 +++++++++
+ 1 file changed, 9 insertions(+)
 
 diff --git a/SideStore/Core/Pairing/PairingFileManager.swift b/SideStore/Core/Pairing/PairingFileManager.swift
+index f7fec76..1f8736a 100644
 --- a/SideStore/Core/Pairing/PairingFileManager.swift
 +++ b/SideStore/Core/Pairing/PairingFileManager.swift
-@@ -65,7 +65,11 @@
-         if let mode = persistedActiveProtocol, hasPairingFile(for: mode) {
-             return true
-         }
--        return false
-+        // A pairing file another app put in place has no protocol recorded
-+        // yet: iloader writes one for a LiveContainer+SideStore, and Cartouche
-+        // from its setup. The boot sequence reads it (fetchPairingFile), so
-+        // count it too.
-+        return fetchPairingFile() != nil
+@@ -58,6 +58,15 @@ final class PairingFileManager: NSObject {
      }
  
-     nonisolated func metadata(for mode: PairingProtocol) -> PairingFileMetadata {
+     nonisolated func hasPairingFile() -> Bool {
++        // A pairing file another app put in place counts: iloader writes one
++        // for a LiveContainer+SideStore, and Cartouche from its setup. The
++        // boot sequence reads it (fetchPairingFile). isPairingReset cannot
++        // rule it out: it is true from the first launch until SideStore saves
++        // a pairing file itself, and resetAllPairingFiles deletes every file
++        // when it sets it.
++        if fetchPairingFile() != nil {
++            return true
++        }
+         guard !UserDefaults.standard.isPairingReset else { return false }
+         if let target = preferredProtocol, hasPairingFile(for: target) {
+             return true
 -- 
 2.43.0
 

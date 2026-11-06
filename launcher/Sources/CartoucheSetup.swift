@@ -11,8 +11,10 @@
 //    Apple ID. Cartouche then hands it to LiveContainer, which signs each game
 //    with it: no button, no file, every time Cartouche comes to the front.
 //  - The pairing file, which only a computer can make: SideStore needs it to
-//    install and renew apps. iloader exports it; Cartouche puts it where the
-//    built-in SideStore reads it, as iloader does for a LiveContainer+SideStore.
+//    install and renew apps. iloader places it where the built-in SideStore
+//    reads it, as it does for a LiveContainer+SideStore (app/scripts/
+//    package.sh says how iloader finds Cartouche). A file the player opens
+//    with Cartouche or chooses in the setup goes to the same place.
 //  - LocalDevVPN, from the App Store, through which SideStore reaches the
 //    iPhone's own services when it renews Cartouche.
 //
@@ -97,10 +99,23 @@ enum CartouchePairing {
         fileNames.contains { FileManager.default.fileExists(atPath: storeDocuments.appendingPathComponent($0).path) }
     }
 
+    /// The extensions of a pairing file iloader exports.
+    static let fileExtensions = ["mobiledevicepairing", "mobiledevicepair", "plist"]
+
     static var contentTypes: [UTType] {
-        var types = ["mobiledevicepairing", "mobiledevicepair", "plist"].compactMap { UTType(filenameExtension: $0) }
+        var types = fileExtensions.compactMap { UTType(filenameExtension: $0) }
         types.append(contentsOf: [.propertyList, .xml, .data])
         return types
+    }
+
+    /// A file another app opened Cartouche with, from AirDrop or Files
+    /// (app/patches/livecontainer/0004): whether it is Cartouche's to take,
+    /// by its extension. The setup checks it and shows what came of it.
+    @MainActor
+    static func openedFile(_ url: URL) -> Bool {
+        guard fileExtensions.contains(url.pathExtension.lowercased()) else { return false }
+        CartoucheSetup.shared.importOpenedPairingFile(url)
+        return true
     }
 
     enum Failure: LocalizedError {
@@ -139,6 +154,16 @@ final class CartoucheSetup: ObservableObject {
     @Published private(set) var hasCertificate = false
     @Published private(set) var hasPairingFile = false
     @Published private(set) var appleID: String?
+    /// Why the last pairing file given to Cartouche was refused.
+    @Published var pairingError: String?
+    /// Set when another app opens Cartouche with a pairing file, so that the
+    /// games show the setup and what came of it.
+    @Published var openedPairingFile = false
+
+    /// Set in the app group when the player taps Sign In before SideStore has
+    /// an Apple ID: the built-in SideStore then opens on its onboarding again
+    /// (SideStoreSupport/CartoucheOnboardingReturn.m).
+    static let signInRequestKey = "CartoucheSignInRequested"
 
     /// Games start once LiveContainer has the certificate.
     var canPlay: Bool { hasCertificate }
@@ -158,13 +183,42 @@ final class CartoucheSetup: ObservableObject {
         appleID = CartoucheStoreKeychain.string("appleIDEmailAddress")
     }
 
-    func importPairingFile(_ url: URL) throws {
-        try CartouchePairing.importFile(at: url)
+    /// iloader can place the pairing file while Cartouche is open.
+    func refreshPairingFile() {
+        let exists = CartouchePairing.exists
+        if exists != hasPairingFile { hasPairingFile = exists }
+    }
+
+    func importPairingFile(_ url: URL) {
+        do {
+            try CartouchePairing.importFile(at: url)
+            pairingError = nil
+        } catch {
+            pairingError = error.localizedDescription
+        }
         refresh()
+    }
+
+    func importOpenedPairingFile(_ url: URL) {
+        importPairingFile(url)
+        openedPairingFile = true
+    }
+
+    /// Opens the built-in SideStore for the player to sign in: its onboarding
+    /// goes from LocalDevVPN to the Apple ID, and once they are signed in it
+    /// brings them back here, where the certificate comes on its own.
+    func signIn() {
+        if appleID == nil {
+            let defaults = LCUtils.appGroupUserDefault
+            defaults.set(true, forKey: Self.signInRequestKey)
+            defaults.synchronize()
+        }
+        LCUtils.openSideStore()
     }
 }
 
-/// Reads the setup again whenever Cartouche comes back to the front.
+/// Reads the setup again whenever Cartouche comes back to the front, and
+/// looks for the pairing file every two seconds until it is there.
 @available(iOS 17.0, *)
 @MainActor
 struct CartoucheSetupRefresh: ViewModifier {
@@ -175,6 +229,13 @@ struct CartoucheSetupRefresh: ViewModifier {
             .onAppear { setup.refresh() }
             .onReceive(NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification)) { _ in
                 setup.refresh()
+            }
+            // The pairing step ticks itself once iloader has placed the file.
+            .task(id: setup.hasPairingFile) {
+                while !setup.hasPairingFile && !Task.isCancelled {
+                    try? await Task.sleep(for: .seconds(2))
+                    setup.refreshPairingFile()
+                }
             }
     }
 }

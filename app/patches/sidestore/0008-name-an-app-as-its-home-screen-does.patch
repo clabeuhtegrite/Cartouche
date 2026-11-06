@@ -1,0 +1,59 @@
+From cafdd6bd6cb9e17b46939566cc97c49c62f9cf85 Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Fri, 6 Nov 2026 09:07:35 +0000
+Subject: [PATCH] Name an app as its home screen does
+
+SideStore named an app after the CFBundleDisplayName of its Info.plist.
+Cartouche's Info.plist keeps the name LiveContainer, the one iloader
+looks for when it places a pairing file, and each of its localizations
+names it Cartouche (app/scripts/package.sh), as the home screen shows
+it. SideStore now takes the name a localization gives, when there is
+one, so that the built-in SideStore's My Apps, notifications and widget
+say Cartouche. The localization is read from its file, not through
+Bundle, which keeps what it first read at a path.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01MzPJorvBGmBB88WUcRVhE7
+---
+ .../SideSign/Sources/Models/AppBundle.swift    | 18 +++++++++++++++++-
+ 1 file changed, 17 insertions(+), 1 deletion(-)
+
+diff --git a/Dependencies/SideSign/Sources/Models/AppBundle.swift b/Dependencies/SideSign/Sources/Models/AppBundle.swift
+index acf0c02..c1c20f4 100644
+--- a/Dependencies/SideSign/Sources/Models/AppBundle.swift
++++ b/Dependencies/SideSign/Sources/Models/AppBundle.swift
+@@ -82,7 +82,8 @@ public struct AppBundle: Sendable, Identifiable, Hashable, Equatable {
+             return nil
+         }
+ 
+-        let name = parser.displayName
++        let name = Self.localizedDisplayName(of: bundle, at: fileURL)
++            ?? parser.displayName
+             ?? parser.bundleName
+             ?? fileURL.deletingPathExtension().lastPathComponent
+ 
+@@ -107,6 +108,21 @@ public struct AppBundle: Sendable, Identifiable, Hashable, Equatable {
+         self.infoPlist = parser.rawDictionary
+     }
+ 
++    /// Cartouche: the name the home screen shows, when a localization of the
++    /// app gives one. Cartouche's Info.plist keeps the name LiveContainer,
++    /// which iloader looks for, and each of its localizations names it
++    /// Cartouche (app/scripts/package.sh in the Cartouche repository). Read
++    /// from the file rather than through Bundle, which keeps what it first
++    /// read at a path.
++    private static func localizedDisplayName(of bundle: Bundle, at fileURL: URL) -> String? {
++        guard let localization = Bundle.preferredLocalizations(from: bundle.localizations).first,
++              let data = try? Data(contentsOf: fileURL.appendingPathComponent("\(localization).lproj/InfoPlist.strings")),
++              let strings = try? PropertyListSerialization.propertyList(from: data, format: nil) as? [String: Any],
++              let name = strings["CFBundleDisplayName"] as? String, !name.isEmpty
++        else { return nil }
++        return name
++    }
++
+     public static func == (lhs: AppBundle, rhs: AppBundle) -> Bool {
+         lhs.bundleIdentifier == rhs.bundleIdentifier && lhs.fileURL == rhs.fileURL
+     }
+-- 
+2.43.0
+
