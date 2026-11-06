@@ -16,6 +16,15 @@
       "bundleIdentifier": "io.github.clabeuhtegrite.cartouche",
       "versions": [
         {
+          "version": "0.1.2",
+          "date": "2026-11-06T09:48:10Z",
+          "localizedDescription": "Install it with iloader, from scratch or over 0.1.1: nothing to set in SideStore or anywhere else.\n\n- iloader: in Manage Pairing File, Place In All Apps now puts the pairing file into Cartouche, listed there as LiveContainer. No export, no AirDrop. Cartouche keeps its name on the home screen.\n- Setup: the pairing file step ticks itself, even while you are still at the computer. Sign in with SideStore opens LocalDevVPN, then the Apple ID sign-in, and brings you back to Cartouche once you are signed in.\n- The built-in SideStore signs in through the SideStore (New) anisette server, as iloader does, no longer asks for a pairing file it already has, and accepts the one iloader exports.\n- A pairing file exported from iloader can also be opened with Cartouche, from AirDrop or Files.",
+          "downloadURL": "https://github.com/clabeuhtegrite/Cartouche/releases/download/v0.1.2/Cartouche-0.1.2.ipa",
+          "size": 36699317,
+          "sha256": "14f73eb7ff2b381d812ca51ede0109349e1f711acdb63b92e44d9a0218a9828c",
+          "minOSVersion": "15.0"
+        },
+        {
           "version": "0.1.1",
           "date": "2026-11-06T08:23:06Z",
           "localizedDescription": "Install this version once with iloader, over Cartouche 0.1.0: your games and data stay.\n\n- iloader now gives Cartouche its certificate, as it does for LiveContainer+SideStore. Cartouche hands it to LiveContainer by itself, which signs your games with it: no file to import, no button.\n- Setup, at the top of Games until it is done: your pairing file from iloader, then signing in once in the built-in SideStore. Play leads there while the certificate is missing.\n- Lab: Python now writes its files in UTF-8, so nxnative's rewriter no longer stops on sdk.\n- Cartouche now takes the place of a LiveContainer+SideStore on the iPhone, since iloader gives both the same app group.",
