@@ -16,6 +16,15 @@
       "bundleIdentifier": "io.github.clabeuhtegrite.cartouche",
       "versions": [
         {
+          "version": "0.1.1",
+          "date": "2026-11-06T08:23:06Z",
+          "localizedDescription": "Install this version once with iloader, over Cartouche 0.1.0: your games and data stay.\n\n- iloader now gives Cartouche its certificate, as it does for LiveContainer+SideStore. Cartouche hands it to LiveContainer by itself, which signs your games with it: no file to import, no button.\n- Setup, at the top of Games until it is done: your pairing file from iloader, then signing in once in the built-in SideStore. Play leads there while the certificate is missing.\n- Lab: Python now writes its files in UTF-8, so nxnative's rewriter no longer stops on sdk.\n- Cartouche now takes the place of a LiveContainer+SideStore on the iPhone, since iloader gives both the same app group.",
+          "downloadURL": "https://github.com/clabeuhtegrite/Cartouche/releases/download/v0.1.1/Cartouche-0.1.1.ipa",
+          "size": 36678175,
+          "sha256": "860c88d660eb5ae99694300031f811d0ce8bfc30e5ac2431b7350515dae55ec8",
+          "minOSVersion": "15.0"
+        },
+        {
           "version": "0.1.0",
           "date": "2026-11-06T07:11:00Z",
           "localizedDescription": "First test build of Cartouche.\n\n- Games: the catalogue of supported games, your own first, with a sheet for each that says how it should run on this iPhone.\n- System: the memory limit iOS gives Cartouche, the days left before its signature expires, Renew now, renewing every night from Shortcuts, and expiry alerts.\n- System › Lab: rewrites the code of your own game on this iPhone with nxnative's rewriter, then compares each file with your Mac's build. A test for building games on the iPhone later.\n- The built-in SideStore asks for Increased Memory Limit on free accounts, and never revokes a certificate.",
