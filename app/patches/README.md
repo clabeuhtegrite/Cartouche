@@ -24,6 +24,4 @@ Cartouche asks for the entitlement through LiveContainer's `entitlements.xml`, s
 
 ## Planned
 
-| Project | Patch | Phase |
-| --- | --- | --- |
-| SideStore | Renewal in the background, with a warning before expiry | 1 |
+None for now. Renewal, from the System tab or every night from Shortcuts, needed no patch: the launcher reaches the built-in SideStore through its own bridge ([launcher/README.md](../../launcher/README.md#what-the-first-build-does)).

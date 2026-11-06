@@ -121,12 +121,40 @@ enum CartoucheText {
     static var profileUnknown: String { s("system.signature.unknown", "Cartouche could not read its provisioning profile.") }
     static var signatureFooter: String { s("system.signature.footer", "The built-in SideStore renews Cartouche, with LocalDevVPN on. Renew it before it expires: an expired Cartouche no longer opens, and has to be installed again from a computer with iloader.") }
     static var openSideStore: String { s("system.signature.openSideStore", "Open SideStore") }
+    static var renewNow: String { s("system.signature.renew", "Renew now") }
+    static var renewing: String { s("system.signature.renewing", "Renewing…") }
+    static var renewUnavailable: String { s("system.signature.renew.unavailable", "The built-in SideStore is not loaded. Open it to renew Cartouche.") }
+    static var automaticRenewal: String { s("system.auto", "Automatic renewal") }
+    static var renewEveryNight: String { s("system.auto.daily", "Renew every night") }
+    static var alerts: String { s("system.auto.alerts", "Expiry alerts") }
+    static var alertsOn: String { s("system.auto.alerts.on", "On") }
+    static var alertsTurnOn: String { s("system.auto.alerts.turnOn", "Turn on") }
+    static var alertsInSettings: String { s("system.auto.alerts.settings", "Turn on in Settings") }
+    static var automaticRenewalFooter: String { s("system.auto.footer", "With alerts on, Cartouche warns you 24 hours and 6 hours before it expires.") }
     static var thisIPhone: String { s("system.device", "This iPhone") }
     static var model: String { s("system.device.model", "Model") }
     static var chip: String { s("system.device.chip", "Chip") }
     static var ram: String { s("system.device.ram", "Memory") }
     static var version: String { s("system.cartouche.version", "Version") }
     static var sheets: String { s("system.cartouche.sheets", "Game sheets") }
+
+    // MARK: Renewing every night
+
+    static var dailyIntro: String { s("daily.intro", "An automation in Shortcuts can renew Cartouche every night, with no computer. It runs Cartouche’s Refresh All Apps action, which does what Renew now does.") }
+    static var dailyStepVPN: String { s("daily.step1", "Leave LocalDevVPN connected. Its traffic stays on the iPhone, so it can stay on all day.") }
+    static var dailyStepAutomation: String { s("daily.step2", "In Shortcuts, open Automation, then tap +.") }
+    static var dailyStepTime: String { s("daily.step3", "Choose Time of Day: a time when the iPhone charges and is online, such as 4 AM, every day. Then choose Run Immediately.") }
+    static var dailyStepAction: String { s("daily.step4", "Tap Next, choose New Blank Automation, and add the Refresh All Apps action of Cartouche, not LiveContainer’s.") }
+    static var dailyStepCheck: String { s("daily.step5", "Each renewal shows in the System tab as the last renewal, and gives Cartouche seven more days.") }
+    static var openShortcuts: String { s("daily.openShortcuts", "Open Shortcuts") }
+
+    // MARK: Warnings before expiry
+
+    static var warning24hTitle: String { s("warning.24h.title", "Cartouche expires in 24 hours") }
+    static var warning6hTitle: String { s("warning.6h.title", "Cartouche expires in 6 hours") }
+    static var warningBody: String { s("warning.body", "Renew it in the System tab, with LocalDevVPN connected.") }
+    static var warningExpiredTitle: String { s("warning.0h.title", "Cartouche has expired") }
+    static var warningExpiredBody: String { s("warning.0h.body", "Install it again from a computer with iloader, over this copy: your games stay.") }
 
     // MARK: Units
 

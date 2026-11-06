@@ -40,7 +40,7 @@ Details: [docs/architecture.md](docs/architecture.md). Decisions and their reaso
 | Path | What it holds |
 | --- | --- |
 | [`app/`](app/) | The iOS app: LiveContainer and SideStore at pinned commits, our patches, the build scripts |
-| [`launcher/`](launcher/) | The launcher: the catalogue of games, their sheets, the memory probe and the signature's days left |
+| [`launcher/`](launcher/) | The launcher: the catalogue of games, their sheets, the memory probe, and the signature's days left and renewal |
 | [`engine/`](engine/) | How the nxnative engine will be built for each supported game (planned) |
 | [`catalog/`](catalog/) | Device profiles and per-game compatibility sheets, with their schemas |
 | [`server/`](server/) | Tools that publish the signed update manifest and its chunks, and refuse anything that looks like game content |

@@ -84,6 +84,12 @@ struct CartoucheGamesView: View {
         }
         .onAppear {
             memory = CartoucheMemoryReading.now()
+            CartoucheRenewal.scheduleWarnings()
+        }
+        // A renewal in the background moves the expiry date: warn for the
+        // new one each time the player comes back.
+        .onReceive(NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification)) { _ in
+            CartoucheRenewal.scheduleWarnings()
         }
     }
 
