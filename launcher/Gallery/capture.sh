@@ -174,6 +174,26 @@ def displays(enumerated):
     return found
 
 
+def find_displays(udid):
+    """The simulator's built-in displays (displays()), and what simctl said
+    of them, for the notes. simctl io enumerate can give no answer: on the
+    iPhone Duo of run 42228000324, none in 60 s. When it finds fewer than two
+    displays, simctl io screenshot is asked, with none named: it lists them
+    when it cannot choose between several ("--display=3 LCD-1 (primary-1)
+    2007x2853 --display=1 LCD (primary) 1398x2034")."""
+    enumerated = maybe("xcrun", "simctl", "io", udid, "enumerate", timeout=120)
+    found = displays(enumerated)
+    said = ["Its displays (simctl io enumerate):", enumerated.rstrip()]
+    if len(found) < 2:
+        tried = maybe("xcrun", "simctl", "io", udid, "screenshot", "--type=png", str(BUILD / "raw" / "displays.png"))
+        listed = {screen: (int(width), int(height))
+                  for screen, width, height in re.findall(r"--display=(\S+) .*?\b(\d+)x(\d+)\b", tried)}
+        if len(listed) > 1:
+            found = listed
+            said += ["", "Its displays (simctl io screenshot, with none named):", tried.strip()]
+    return found, said
+
+
 def explain(udid, pid, name):
     """Prints what the gallery was doing when it did not settle: its last log
     lines, and where its main thread was (sample, kept in OUT)."""
@@ -286,9 +306,6 @@ for device in sorted({s.get("device", "") for s in document["scenarios"]}):
         continue
     # The same time in every screenshot.
     maybe("xcrun", "simctl", "status_bar", udid, "override", "--time", "9:41")
-    enumerated = maybe("xcrun", "simctl", "io", udid, "enumerate")
-    screens = displays(enumerated)
-    print(f"   displays: {screens}", flush=True)
 
     # The first launch after the install takes longer: on the iPad of run
     # 42222954313 the gallery still showed its white launch screen after
@@ -297,11 +314,18 @@ for device in sorted({s.get("device", "") for s in document["scenarios"]}):
     try:
         launch(udid, scenarios[0], "warm-up", 300)
         print(f"   first launch: settled in {time.monotonic() - warm:.0f} s", flush=True)
+        warmed = True
     except Failure as error:
         print(f"::warning::first launch on {name}: {error}", flush=True)
+        warmed = False
+
+    # Asked once the simulator has settled with the gallery open.
+    screens, seen = find_displays(udid)
+    print(f"   displays: {screens}", flush=True)
+    if not warmed:
         keep_failed_screen(udid, "warm-up", screens)
 
-    notes = [f"{name}, {runtime}", "", "Its displays (simctl io enumerate):", enumerated.rstrip(), ""]
+    notes = [f"{name}, {runtime}", "", *seen, ""]
     for scenario in scenarios:
         started = time.time()
         try:
