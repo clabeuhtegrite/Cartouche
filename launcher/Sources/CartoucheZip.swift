@@ -270,6 +270,8 @@ enum CartoucheZip {
                     throw CartoucheZipError("\(entry.name): its link is damaged")
                 }
                 links.append((path, text))
+                // A link's size is its target's, which the total counts.
+                progress?.completedUnitCount += Int64(clamping: entry.size)
                 continue
             }
 

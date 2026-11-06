@@ -206,6 +206,9 @@ final class CartoucheZipTests: XCTestCase {
 
     // MARK: Python's zipfile
 
+    /// Runs SCRIPT with Python. Process passes its arguments in their file
+    /// system form, which decomposes accented letters: a script names a
+    /// file with an accent by its escape, \u00e9 for é.
     private func python(_ script: String, _ arguments: [String]) throws -> String {
         let process = Process()
         process.executableURL = URL(fileURLWithPath: "/usr/bin/env")
@@ -237,7 +240,7 @@ final class CartoucheZipTests: XCTestCase {
                     assert z.testzip() is None
                     big = z.read("Payload/Game.app/romfs/big.bin")
                     assert len(big) == int(sys.argv[2]), len(big)
-                    assert z.read("Payload/Game.app/Données é.txt") == "Sauvegarde".encode()
+                    assert z.read("Payload/Game.app/Donn\\u00e9es \\u00e9.txt") == "Sauvegarde".encode()
                     game = z.getinfo("Payload/Game.app/Game")
                     assert (game.external_attr >> 16) & 0o777 == 0o755, oct(game.external_attr >> 16)
                     link = z.getinfo("Payload/Game.app/link")
