@@ -174,7 +174,6 @@ enum LCUtils {
     static func certificateData() -> Data? { GalleryState.setupDone ? Data([0x30]) : nil }
     static func getCertTeamId(withKeyData data: Data, password: String) -> String? { nil }
     static var appGroupUserDefault: UserDefaults { .standard }
-    static func openSideStore() {}
 }
 
 enum LCSharedUtils {

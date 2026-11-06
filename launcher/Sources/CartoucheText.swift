@@ -175,9 +175,9 @@ enum CartoucheText {
     static var setupPairingReplace: String { s("setup.pairing.replace", "Choose another file") }
     static var setupPairingInvalid: String { s("setup.pairing.invalid", "This file is not a pairing file. The Cartouche Installer puts the right one in Cartouche: Put the pairing file in Cartouche again.") }
     static var setupAppleIDTitle: String { s("setup.appleID.title", "Apple ID") }
-    static var setupAppleIDHow: String { s("setup.appleID.how", "Sign in once in the SideStore built into Cartouche: it takes the certificate the Cartouche Installer left for it, and renews Cartouche every week. SideStore has you connect LocalDevVPN, asks for your Apple ID, then brings you back here by itself.") }
+    static var setupAppleIDHow: String { s("setup.appleID.how", "Sign in once with your Apple ID, here in Cartouche: the built-in SideStore then takes the certificate the Cartouche Installer left for it, and renews Cartouche every week, without showing itself. Connect LocalDevVPN first.") }
     static func setupAppleIDDone(_ appleID: String) -> String { f("setup.appleID.done", "Signed in: %@", appleID) }
-    static var setupOpenSideStore: String { s("setup.appleID.open", "Sign in with SideStore") }
+    static var setupSignIn: String { s("setup.appleID.signIn", "Sign In") }
     static var setupCertificateTitle: String { s("setup.certificate.title", "Certificate") }
     static var setupCertificateHow: String { s("setup.certificate.how", "Comes by itself once you have signed in. If it does not, install Cartouche again with the Cartouche Installer, over this copy: it gives Cartouche its certificate.") }
     static var setupCertificateDone: String { s("setup.certificate.done", "Cartouche signs your games with it.") }
@@ -189,8 +189,36 @@ enum CartoucheText {
     static var setupBannerDetail: String { s("setup.banner.detail", "Once, before your first game") }
     static var setupBannerRenewal: String { s("setup.banner.renewal", "Renewal to set up") }
     static var setupBannerRenewalDetail: String { s("setup.banner.renewal.detail", "Add your pairing file") }
+    static var setupBannerSignInDetail: String { s("setup.banner.renewal.signIn", "Sign in with your Apple ID") }
     static var setupStatusDone: String { s("setup.status.done", "Done") }
     static var setupStatusToDo: String { s("setup.status.todo", "To do") }
+
+    // MARK: The Apple ID sign-in
+
+    static var signInTitle: String { s("signIn.title", "Sign in with your Apple ID") }
+    static var signInIntro: String { s("signIn.intro", "Once on this iPhone. The SideStore built into Cartouche signs in with it without showing itself: it registers this iPhone with your account, takes the certificate the Cartouche Installer left for it, and renews Cartouche every week.") }
+    static var signInAppleID: String { s("signIn.appleID", "Apple ID (email or phone number)") }
+    static var signInPassword: String { s("signIn.password", "Password") }
+    static var signInFreeAccount: String { s("signIn.freeAccount", "A free Apple ID will do. Your password goes to Apple only, and stays in this iPhone’s keychain for the renewals.") }
+    static var signInButton: String { s("signIn.button", "Sign In") }
+    static var signInAgain: String { s("signIn.again", "Sign in again") }
+    static var signInWorking: String { s("signIn.working", "Signing in, registering this iPhone and fetching the certificate…") }
+    static var signInCodeTitle: String { s("signIn.code.title", "Verification code") }
+    static var signInCodeTrustedDevice: String { s("signIn.code.trustedDevice", "Apple sent a code to your other Apple devices. Allow the sign-in there, then type the code here.") }
+    static func signInCodeSMS(_ phone: String) -> String { f("signIn.code.sms", "Apple sent a code by text message to %@.", phone) }
+    static var signInCodeSMSAnyNumber: String { s("signIn.code.sms.any", "Apple sent a code by text message to your phone number.") }
+    static func signInCodeVoice(_ phone: String) -> String { f("signIn.code.voice", "Apple is calling %@ with a code.", phone) }
+    static var signInCodeVoiceAnyNumber: String { s("signIn.code.voice.any", "Apple is calling your phone number with a code.") }
+    static var signInCodePlaceholder: String { s("signIn.code.placeholder", "6-digit code") }
+    static var signInCodeContinue: String { s("signIn.code.continue", "Continue") }
+    static var signInCodeBySMS: String { s("signIn.code.bySMS", "Get a text message instead") }
+    static var signInCodeByDevice: String { s("signIn.code.byDevice", "Send it to my Apple devices") }
+    static var signInFailedTitle: String { s("signIn.failed.title", "The sign-in did not go through") }
+    static var signInOpenPage: String { s("signIn.openPage", "Open the page") }
+    static var signInVPNTitle: String { s("signIn.vpn.title", "Connect LocalDevVPN first") }
+    static var signInVPNHow: String { s("signIn.vpn.how", "SideStore reaches this iPhone through it to register it with your account, as it does for each renewal.") }
+    static var signInUnavailable: String { s("signIn.unavailable", "The built-in SideStore did not load. Close Cartouche, open it again, then sign in.") }
+    static var signInKeychainFailed: String { s("signIn.keychainFailed", "Cartouche could not hand your Apple ID to the built-in SideStore. Try again.") }
 
     // MARK: System
 
@@ -237,7 +265,7 @@ enum CartoucheText {
     static var updatesFooter: String { s("system.updates.footer", "The built-in SideStore installs Cartouche’s new versions without a computer, with LocalDevVPN connected, as it renews Cartouche. Cartouche then closes for iOS to install it: open it again. Your games and their saves stay.") }
     static var updateAvailable: String { s("system.updates.available", "New version") }
     static func updateTo(_ version: String) -> String { f("system.updates.install", "Install Cartouche %@", version) }
-    static var updateNeedsSetup: String { s("system.updates.needsSetup", "Finish setting up Cartouche first: the built-in SideStore needs its certificate and the pairing file.") }
+    static var updateNeedsSetup: String { s("system.updates.needsSetup", "Finish setting up Cartouche first: the built-in SideStore needs your Apple ID, its certificate and the pairing file.") }
     static var updateNotes: String { s("system.updates.notes", "What’s new") }
     static func updateUpToDate(_ version: String) -> String { f("system.updates.upToDate", "Cartouche %@ is the latest version.", version) }
     static var updateNotChecked: String { s("system.updates.notChecked", "Cartouche has not looked for an update yet.") }

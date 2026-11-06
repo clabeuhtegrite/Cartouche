@@ -617,7 +617,7 @@ struct CartoucheHomeSetupBanner: View {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(setup.canPlay ? CartoucheText.setupBannerRenewal : CartoucheText.setupBannerTitle)
                         .font(.headline)
-                    Text(setup.canPlay ? CartoucheText.setupBannerRenewalDetail : CartoucheText.setupBannerDetail)
+                    Text(setup.canPlay ? (setup.hasPairingFile ? CartoucheText.setupBannerSignInDetail : CartoucheText.setupBannerRenewalDetail) : CartoucheText.setupBannerDetail)
                         .font(.subheadline)
                         .opacity(0.85)
                 }
