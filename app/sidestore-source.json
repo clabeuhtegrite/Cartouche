@@ -16,6 +16,15 @@
       "bundleIdentifier": "io.github.clabeuhtegrite.cartouche",
       "versions": [
         {
+          "version": "0.5.0",
+          "date": "2026-11-06T22:48:40Z",
+          "localizedDescription": "Your Apple ID, signed in inside Cartouche.\n\n- Setup: Sign In opens Cartouche's own screen, for your Apple ID, its password and the verification code Apple sends to your devices or by text message. The built-in SideStore signs in with them without showing itself, with LocalDevVPN connected. No page of SideStore shows any more.\n- Setup: Cartouche counts as set up once you are signed in, since its renewals and updates need your Apple ID. If you signed in before, nothing changes.\n- This is the first version that comes from inside Cartouche: Update, on the console or on the System page.",
+          "downloadURL": "https://github.com/clabeuhtegrite/Cartouche/releases/download/v0.5.0/Cartouche-0.5.0.ipa",
+          "size": 36934175,
+          "sha256": "5e38f69d96c5a45ea5359ffdcea507bc240e10073ed91038e423c5d2ce0e2de5",
+          "minOSVersion": "15.0"
+        },
+        {
           "version": "0.4.0",
           "date": "2026-11-06T21:40:27Z",
           "localizedDescription": "Updates from inside Cartouche, and storage that copes with large games and read-only shared folders.\n\n- Updates: Cartouche looks for its new versions itself, when it opens and when you come back to it, and offers them over the console with Update and Later. The System page shows them too, with what's new, and Check for an update. The built-in SideStore installs the new version without a computer and without showing itself, with LocalDevVPN connected, then Cartouche goes to the home screen for iOS to install it: open it again. Your games and their saves stay.\n- This is the first version that updates itself: install it once with the Cartouche Installer, over the Cartouche you have. The next ones come from inside Cartouche.\n- Storage: copying a large game to your storage, such as Mario Kart World to a NAS, no longer closes Cartouche partway through.\n- Storage: a shared folder your account can only read shows as read-only. Its games still install, but it takes no saves and no copy of a game.",
