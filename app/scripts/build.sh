@@ -68,6 +68,7 @@ echo "== packaging"
   --sidestore "$WORK/src/SideStore/SideStore.ipa" \
   --dylibify "$WORK/dylibify" \
   --resources "$WORK/src/LiveContainer/.github/sidelc" \
+  --catalog "$ROOT/catalog" \
   --bundle-id "$CARTOUCHE_BUNDLE_ID" \
   --name "$CARTOUCHE_DISPLAY_NAME" \
   --url-scheme "$CARTOUCHE_URL_SCHEME" \

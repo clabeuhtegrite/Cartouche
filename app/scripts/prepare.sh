@@ -5,7 +5,8 @@
 #     app/scripts/prepare.sh            # writes build/app/work/src/{LiveContainer,SideStore}
 #
 # The submodules are never modified: their sources are copied, the patches in
-# app/patches/<project>/ are applied to the copies in name order, and
+# app/patches/<project>/ are applied to the copies in name order, the launcher
+# (launcher/Sources) joins LiveContainer's SwiftUI sources, and
 # app/scripts/brand.py gives the copies Cartouche's identity (app/config.env).
 # app/scripts/build.sh runs this first; CI also runs it on Linux.
 set -euo pipefail
@@ -47,6 +48,11 @@ copy_and_patch() {  # <name> <patch folder>
 echo "== copying and patching the sources"
 copy_and_patch LiveContainer livecontainer
 copy_and_patch SideStore sidestore
+
+# LiveContainerSwiftUI is a synchronized folder in LiveContainer's project:
+# Xcode builds every file in it, so the launcher needs no project change.
+echo "== adding the launcher"
+rsync -a --delete "$ROOT/launcher/Sources/" "$SRC/LiveContainer/LiveContainerSwiftUI/Cartouche/"
 
 python3 "$HERE/brand.py" \
   --config "$APP/config.env" \

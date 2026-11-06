@@ -1,6 +1,6 @@
 # Launcher
 
-The interface players see: a console-style catalogue of every game Cartouche supports, with the player's own games first. It will be SwiftUI code built into the app through a patch to LiveContainer (see [`app/patches/`](../app/patches/)), in place of LiveContainer's app list. Planned for Phase 1.
+The interface players see: a console-style catalogue of every game Cartouche supports, with the player's own games first. Its SwiftUI sources are in [`Sources/`](Sources/). `app/scripts/prepare.sh` adds them to LiveContainer's SwiftUI sources, and [`livecontainer/0003`](../app/patches/livecontainer/0003-open-on-cartouches-games-with-its-system-page.patch) opens the app on them.
 
 ## Screens
 
@@ -13,6 +13,27 @@ The interface players see: a console-style catalogue of every game Cartouche sup
 - **System:** signature days left and renewal, updates, the memory probe, opt-in reports.
 
 The catalogue shows what Cartouche can run, never where to get a game.
+
+## What the first build does
+
+The first launcher, Phase 1, on iOS 17 or later; an older iOS opens on LiveContainer's app list as before. The tab bar holds **Games** and **System**, then LiveContainer's **Apps** and **Settings**. LiveContainer's Sources and Tweaks tabs are gone: Cartouche downloads no app, and games need no tweak.
+
+- **Games.** The sheets of [`catalog/`](../catalog/) as of the build, which `app/scripts/package.sh` puts in the app (`CartoucheCatalog/`); updates from the server come later.
+  - The player's games are found among LiveContainer's apps by the bundle identifier nxnative gives its iOS apps, `org.nxnative.<title ID>`, or else by the `DMLanguage` key it writes into their `Info.plist`. A game is matched to its sheet by title ID, or by name when the build had another bundle identifier. A game without a sheet still shows, as *No sheet yet*, and starts.
+  - **Import my copy** opens Files. LiveContainer's Apps tab then installs the IPA, reading it where it is: a game's IPA is too large to copy first.
+  - **Play** hands the game to the Apps tab, which starts it as a `livecontainer-launch` link does.
+- **How a game fits this iPhone,** from its sheet and what the launcher measures here:
+  - *Not supported* when iOS is older than the game needs, or the GPU cannot read BC-compressed textures;
+  - *Not recommended* when the game needs Increased Memory Limit and Cartouche does not have it, when its measured peak is above the limit measured here, or when the latest result on this model is *does not run*;
+  - *Runs on this iPhone* when the latest result on this model is playable;
+  - *Not tried on this iPhone yet* otherwise. On the player's own game, the badge reads *Ready* when nothing stands in the way.
+- **System.**
+  - The memory limit iOS sets for Cartouche, which its games share, measured as in [`devices.json`](../catalog/devices.json): footprint plus `os_proc_available_memory()`. Whether the signature carries Increased Memory Limit, and what testers measured on this model.
+  - When the signature expires, the days left, and when it was last renewed. SideStore renews an app by installing a new provisioning profile and leaves the `embedded.mobileprovision` inside the app as its last install wrote it, so the launcher takes the later of that date and the one the built-in SideStore records for its widget after each renewal (`widget_data.json` in the app group).
+  - This iPhone: model, chip and memory from `devices.json`, iOS, and the GPU's BC support. Cartouche's version and how many sheets it carries.
+- **Words** in [`Sources/Cartouche.xcstrings`](Sources/Cartouche.xcstrings), in English and French. The code carries the English too, for a missing translation. [`app/tests/test_launcher_strings.py`](../app/tests/test_launcher_strings.py) checks that both match, that every format takes the arguments the code passes, and the French no-break spaces.
+- **Layout.** In a compact width, a game's sheet opens over the catalogue. In a regular width, the catalogue and the sheet sit side by side when the view is wider than tall, and one above the other when it is taller than wide, chosen from the view's own size; folding or unfolding keeps the selected game and the catalogue's scroll position.
+- **Not yet:** Cartouche's own icon, the split `ArrangementView` and `reservedRegions` of iOS 27.1, `backgroundExtensionEffect()`, sheets updated from the server, the state of an engine update, and opt-in reports.
 
 ## Every iPhone, the iPhone Duo included
 
@@ -27,7 +48,7 @@ The launcher lays itself out from the space it is given, never from the iPhone m
 
 - **Size classes and our own bounds, not the screen.** Layout follows `horizontalSizeClass` and the bounds of the scene or the containing view, never `UIScreen.main.bounds`, `userInterfaceIdiom` or the interface orientation.
 - **System containers and bars.** `NavigationStack`, `toolbar(content:)` and the bars iOS provides, which it presents vertically on the side of the Duo's outer display, and for some views on the inner one. Every bar item has an icon and a title: iOS does not present a title-only item or a custom view vertically. The banner of the player's games extends under a vertical bar with `backgroundExtensionEffect()`.
-- **Regular width.** A split `ArrangementView` (iOS 27.1; a `NavigationSplitView` on iOS 26) holds the catalogue and the game sheet: side by side when the display is wider than tall, the catalogue above and the sheet below when it is taller than wide, and iOS places them around the fold. It sits at the top level, not inside a split view, list or scroll view, as Apple advises.
+- **Regular width.** A split `ArrangementView` (iOS 27.1) holds the catalogue and the game sheet: side by side when the display is wider than tall, the catalogue above and the sheet below when it is taller than wide, and iOS places them around the fold. It sits at the top level, not inside a split view, list or scroll view, as Apple advises. Until Cartouche is built with Xcode 27.1, two navigation stacks in the same arrangement stand in for it, since a `NavigationSplitView` cannot put one above the other.
 - **Nothing in the fold or under a camera.** Views we draw ourselves read `reservedRegions(kind:options:layoutDirectionBehavior:)` and keep text and controls out of the fold while the Duo is partly folded, and out of the outer front camera, which always covers part of the outer display. System views move on their own.
 - **Folding loses nothing.** Folding, unfolding or rotating keeps the selected game, the scroll position and any import in progress; imports run outside the views.
 - **Built with Xcode 27.1 or later.** Apple: an app built with Xcode 26 or earlier does not extend under the Duo's status bar and camera. CI builds with Xcode 26.4 today, and GitHub's macOS runners offer Xcode 27 only as a public preview ([runner-images#14404](https://github.com/actions/runner-images/issues/14404)). Cartouche moves to it once LiveContainer and SideStore build with it. Until then it works on the Duo without using the whole display.

@@ -9,8 +9,8 @@
 # build instead of a nightly download.
 #
 # usage: package.sh --archive LiveContainer.xcarchive --sidestore SideStore.ipa
-#                   --dylibify PATH --resources DIR --bundle-id ID --name NAME
-#                   --url-scheme SCHEME --out OUT.ipa
+#                   --dylibify PATH --resources DIR --catalog DIR --bundle-id ID
+#                   --name NAME --url-scheme SCHEME --out OUT.ipa
 set -euo pipefail
 
 while [ $# -gt 0 ]; do
@@ -19,6 +19,7 @@ while [ $# -gt 0 ]; do
     --sidestore) SIDESTORE_IPA="$2" ;;
     --dylibify) DYLIBIFY="$2" ;;
     --resources) RESOURCES="$2" ;;   # LiveContainer's .github/sidelc
+    --catalog) CATALOG="$2" ;;       # Cartouche's catalog/
     --bundle-id) BUNDLE_ID="$2" ;;
     --name) NAME="$2" ;;
     --url-scheme) URL_SCHEME="$2" ;;
@@ -27,7 +28,7 @@ while [ $# -gt 0 ]; do
   esac
   shift 2
 done
-: "${ARCHIVE:?} ${SIDESTORE_IPA:?} ${DYLIBIFY:?} ${RESOURCES:?} ${BUNDLE_ID:?} ${NAME:?} ${URL_SCHEME:?} ${OUT_IPA:?}"
+: "${ARCHIVE:?} ${SIDESTORE_IPA:?} ${DYLIBIFY:?} ${RESOURCES:?} ${CATALOG:?} ${BUNDLE_ID:?} ${NAME:?} ${URL_SCHEME:?} ${OUT_IPA:?}"
 APP_GROUP="group.$BUNDLE_ID"
 
 STAGE="$(mktemp -d)"
@@ -38,6 +39,11 @@ mkdir -p "$STAGE/Payload"
 cp -R "$ARCHIVE/Products/Applications/LiveContainer.app" "$STAGE/Payload/"
 APP="$STAGE/Payload/LiveContainer.app"
 FW="$APP/Frameworks"
+
+# The game sheets and device profiles the launcher reads, as of this build.
+mkdir -p "$APP/CartoucheCatalog/games"
+cp "$CATALOG/devices.json" "$APP/CartoucheCatalog/"
+cp "$CATALOG"/games/*.json "$APP/CartoucheCatalog/games/"
 
 # Name on the home screen, and of the App IDs SideStore registers.
 $PB -c "Set :CFBundleDisplayName $NAME" "$APP/Info.plist" 2>/dev/null \
