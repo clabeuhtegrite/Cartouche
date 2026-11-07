@@ -2,14 +2,14 @@
 //  CartoucheStorage.swift
 //  Cartouche
 //
-//  The player's own storage, off the iPhone: the servers they sign in to
-//  in Cartouche and the folders of theirs that iOS lets it keep, and the two
-//  places Cartouche uses there, kept apart: one for the games' IPAs, one for
-//  the backups of their saves.
+//  The player's own storage, off the iPhone: the servers and S3 buckets
+//  they sign in to in Cartouche and the folders of theirs that iOS lets it
+//  keep, and the two places Cartouche uses there, kept apart: one for the
+//  games' IPAs, one for the backups of their saves.
 //
 //  Cartouche reaches only what the player signs in to with their own
-//  account, or a folder they picked: there is no address to paste, no link
-//  to follow, no public bucket. It is where the player keeps their own
+//  account or keys, or a folder they picked: there is no link to paste or
+//  follow, no public bucket. It is where the player keeps their own
 //  copies, never a way to download games.
 //
 //  The servers and places are in Cartouche's preferences; each server's
@@ -27,6 +27,9 @@ struct CartoucheStorageServer: Codable, Identifiable, Hashable {
         case smb
         /// A folder of the iPhone, of iCloud Drive or of a disk, picked once.
         case folder
+        /// A private bucket on Amazon S3 or on a server of one's own, with
+        /// the player's keys.
+        case s3
 
         var id: String { rawValue }
     }
@@ -35,14 +38,18 @@ struct CartoucheStorageServer: Codable, Identifiable, Hashable {
     var kind: Kind
     /// What the player calls it.
     var name: String
-    /// SMB: the server's name or address.
+    /// SMB: the server's name or address. S3: its address, with http://
+    /// before it for a server of the player's network without HTTPS.
     var host: String = ""
     var port: Int?
+    /// S3: the access key ID.
     var username: String = ""
-    /// SMB: the shared folder.
+    /// SMB: the shared folder. S3: the bucket.
     var share: String = ""
     /// A picked folder: iOS's bookmark of it.
     var bookmark: Data?
+    /// S3: the bucket's region, when the player gave one.
+    var region: String?
 }
 
 /// A folder on one of the player's servers.
@@ -378,6 +385,8 @@ enum CartoucheStorage {
             #endif
         case .folder:
             return try CartoucheFolder(server)
+        case .s3:
+            return try await CartoucheS3.connect(server, secretKey: secret)
         }
     }
 }
