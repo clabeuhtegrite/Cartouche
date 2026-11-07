@@ -16,6 +16,15 @@
       "bundleIdentifier": "io.github.clabeuhtegrite.cartouche",
       "versions": [
         {
+          "version": "0.8.0",
+          "date": "2026-11-07T11:35:03Z",
+          "localizedDescription": "Your games and saves on an SFTP server of yours.\n\n- Storage: System › Storage › Add an SFTP server reaches a server of yours, such as your NAS's or your Mac's, with your account on it. Your games folder and saves folder can be there, as on a shared folder.\n- Storage: Cartouche keeps the server's key when you save it and shows its fingerprint. Should the server show another key later, Cartouche stops before sending your password; if you reinstalled the server, remove it in Cartouche and add it again. Your password stays in this iPhone's keychain.",
+          "downloadURL": "https://github.com/clabeuhtegrite/Cartouche/releases/download/v0.8.0/Cartouche-0.8.0.ipa",
+          "size": 27156787,
+          "sha256": "5ad11416945ec544cd88356f7cf1cab166596808d141a614c2f8b78915b2d7a6",
+          "minOSVersion": "15.0"
+        },
+        {
           "version": "0.7.0",
           "date": "2026-11-07T02:56:44Z",
           "localizedDescription": "Your games and saves on an FTP server of yours.\n\n- Storage: System › Storage › Add an FTP server reaches a server of your network, such as your NAS's, with your account on it. Your games folder and saves folder can be there, as on a shared folder.\n- Storage: FTP sends your password unencrypted, so use it on your own network. Cartouche keeps the password in this iPhone's keychain.",
@@ -94,15 +103,6 @@
           "downloadURL": "https://github.com/clabeuhtegrite/Cartouche/releases/download/v0.1.2/Cartouche-0.1.2.ipa",
           "size": 36699317,
           "sha256": "14f73eb7ff2b381d812ca51ede0109349e1f711acdb63b92e44d9a0218a9828c",
-          "minOSVersion": "15.0"
-        },
-        {
-          "version": "0.1.1",
-          "date": "2026-11-06T08:23:06Z",
-          "localizedDescription": "Install this version once with iloader, over Cartouche 0.1.0: your games and data stay.\n\n- iloader now gives Cartouche its certificate, as it does for LiveContainer+SideStore. Cartouche hands it to LiveContainer by itself, which signs your games with it: no file to import, no button.\n- Setup, at the top of Games until it is done: your pairing file from iloader, then signing in once in the built-in SideStore. Play leads there while the certificate is missing.\n- Lab: Python now writes its files in UTF-8, so nxnative's rewriter no longer stops on sdk.\n- Cartouche now takes the place of a LiveContainer+SideStore on the iPhone, since iloader gives both the same app group.",
-          "downloadURL": "https://github.com/clabeuhtegrite/Cartouche/releases/download/v0.1.1/Cartouche-0.1.1.ipa",
-          "size": 36678175,
-          "sha256": "860c88d660eb5ae99694300031f811d0ce8bfc30e5ac2431b7350515dae55ec8",
           "minOSVersion": "15.0"
         }
       ]
