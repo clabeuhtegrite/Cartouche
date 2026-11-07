@@ -16,6 +16,15 @@
       "bundleIdentifier": "io.github.clabeuhtegrite.cartouche",
       "versions": [
         {
+          "version": "0.5.2",
+          "date": "2026-11-07T00:40:08Z",
+          "localizedDescription": "Signing in again finds the certificate the Cartouche Installer left.\n\n- Setup: after an install with the Cartouche Installer that revoked the old certificate, signing in again stopped with \"This Apple account already has a certificate\". The built-in SideStore now finds the installer's certificate however its serial number is written, and otherwise looks for it in every key file Cartouche holds.\n- Setup: should it still not find one, the message says which certificate Cartouche names and which ones your account has.\n- Install this version with the Cartouche Installer if games do not start: Cartouche offers no update while its certificate does not work.",
+          "downloadURL": "https://github.com/clabeuhtegrite/Cartouche/releases/download/v0.5.2/Cartouche-0.5.2.ipa",
+          "size": 25631988,
+          "sha256": "5cc3f66133bc7268b3c620aec188133b8a51edc4eb2c035c31939a224fe82aab",
+          "minOSVersion": "15.0"
+        },
+        {
           "version": "0.5.1",
           "date": "2026-11-06T23:35:42Z",
           "localizedDescription": "Games start again after an install from another computer.\n\n- Games: when the Cartouche Installer, run from another computer, revoked the old certificate, games no longer started (\"the app is signed with the latest certificate but its signature is invalid\"). Cartouche now checks that iOS accepts the certificate games are signed with, and if not, signs in again with your Apple ID by itself to take the new one. It asks you only should Apple want a verification code.\n- Updates: Cartouche offers none while its certificate does not work, since an update signed with a revoked certificate would not open.\n- Install this version with the Cartouche Installer if a game shows that message: an update from inside Cartouche would be signed with the revoked certificate.",
