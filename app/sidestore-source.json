@@ -16,6 +16,15 @@
       "bundleIdentifier": "io.github.clabeuhtegrite.cartouche",
       "versions": [
         {
+          "version": "0.6.0",
+          "date": "2026-11-07T01:58:19Z",
+          "localizedDescription": "Your games and saves on an S3 bucket of yours.\n\n- Storage: System › Storage › Add S3 storage reaches a private bucket on Amazon S3, or on a server of your own such as MinIO on your NAS, with your access key. Your games folder and saves folder can be there, as on a shared folder.\n- Storage: every request is signed with your keys, and the secret key stays in this iPhone's keychain. Cartouche reaches no public bucket.\n- Storage: type http:// before the address of a server on your network without HTTPS; Cartouche uses HTTPS otherwise.",
+          "downloadURL": "https://github.com/clabeuhtegrite/Cartouche/releases/download/v0.6.0/Cartouche-0.6.0.ipa",
+          "size": 25691184,
+          "sha256": "feb17775fbfaa49098bd5336bf36c6b28048ec21952fe0b1db7e2fac8b39c12f",
+          "minOSVersion": "15.0"
+        },
+        {
           "version": "0.5.2",
           "date": "2026-11-07T00:40:08Z",
           "localizedDescription": "Signing in again finds the certificate the Cartouche Installer left.\n\n- Setup: after an install with the Cartouche Installer that revoked the old certificate, signing in again stopped with \"This Apple account already has a certificate\". The built-in SideStore now finds the installer's certificate however its serial number is written, and otherwise looks for it in every key file Cartouche holds.\n- Setup: should it still not find one, the message says which certificate Cartouche names and which ones your account has.\n- Install this version with the Cartouche Installer if games do not start: Cartouche offers no update while its certificate does not work.",
