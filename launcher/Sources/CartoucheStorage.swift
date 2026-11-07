@@ -32,6 +32,9 @@ struct CartoucheStorageServer: Codable, Identifiable, Hashable {
         case s3
         /// An FTP server of the player's network, with their account.
         case ftp
+        /// An SFTP server of the player's, with their account, whose key
+        /// Cartouche keeps.
+        case sftp
 
         var id: String { rawValue }
     }
@@ -40,7 +43,7 @@ struct CartoucheStorageServer: Codable, Identifiable, Hashable {
     var kind: Kind
     /// What the player calls it.
     var name: String
-    /// SMB and FTP: the server's name or address. S3: its address, with
+    /// SMB, FTP and SFTP: the server's name or address. S3: its address, with
     /// http:// before it for a server of the player's network without
     /// HTTPS.
     var host: String = ""
@@ -53,6 +56,9 @@ struct CartoucheStorageServer: Codable, Identifiable, Hashable {
     var bookmark: Data?
     /// S3: the bucket's region, when the player gave one.
     var region: String?
+    /// SFTP: the server's key, as OpenSSH writes it, kept when the player
+    /// saved the server.
+    var hostKey: String?
 }
 
 /// A folder on one of the player's servers.
@@ -375,6 +381,35 @@ enum CartoucheStorage {
         #endif
     }
 
+    /// Signs in to SERVER with PASSWORD, as a form holds them, before it is
+    /// saved; for SFTP, with the key it keeps, if any, and gives the key the
+    /// server showed.
+    static func check(_ server: CartoucheStorageServer, password: String) async throws -> (remote: CartoucheRemote, hostKey: String?) {
+        switch server.kind {
+        case .ftp:
+            let remote = try await CartoucheFTP.connect(server, password: password)
+            return (remote, nil)
+        case .sftp:
+            #if canImport(NIOSSH)
+            let remote = try await CartoucheSFTPServer.connect(server, password: password, knownKey: server.hostKey)
+            return (remote, remote.hostKey)
+            #else
+            throw CartoucheStorageError("SFTP is not in this build")
+            #endif
+        case .smb, .folder, .s3:
+            throw CartoucheStorageError("Not a server signed in to with a password here")
+        }
+    }
+
+    /// Whether this build reaches servers over SFTP.
+    static var hasSFTP: Bool {
+        #if canImport(NIOSSH)
+        return true
+        #else
+        return false
+        #endif
+    }
+
     /// Signs in to SERVER.
     static func connect(_ server: CartoucheStorageServer,
                         settings: CartoucheStorageSettings = .shared) async throws -> CartoucheRemote {
@@ -392,6 +427,24 @@ enum CartoucheStorage {
             return try await CartoucheS3.connect(server, secretKey: secret)
         case .ftp:
             return try await CartoucheFTP.connect(server, password: secret)
+        case .sftp:
+            #if canImport(NIOSSH)
+            let remote = try await CartoucheSFTPServer.connect(server, password: secret, knownKey: server.hostKey)
+            if server.hostKey == nil {
+                // Kept from now on: another key will be refused.
+                var kept = server
+                kept.hostKey = remote.hostKey
+                await MainActor.run {
+                    // Unless the player removed the server meanwhile.
+                    if settings.servers.contains(where: { $0.id == kept.id }) {
+                        settings.save(kept, secret: nil)
+                    }
+                }
+            }
+            return remote
+            #else
+            throw CartoucheStorageError("SFTP is not in this build")
+            #endif
         }
     }
 }
