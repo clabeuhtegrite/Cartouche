@@ -1,0 +1,133 @@
+From 77b91aa626cc33f44e7884bf37d3e5ce29986ad5 Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Sat, 7 Nov 2026 00:04:54 +0000
+Subject: [PATCH] Find the certificate a computer left in the app, however its
+ serial is written
+
+Signing in again after the Cartouche Installer had revoked the old
+certificate stopped with "This Apple account already has a certificate":
+the certificate the installer wrote into the built-in SideStore was not
+recognised.
+
+- Serial numbers compare without their leading zeros: isideload writes
+  the one it names in the framework's Info.plist with none, which a
+  serial number from the portal may keep.
+- When the named one is not found, every ALTCertificate.p12 the running
+  bundle and the app around it hold is opened with the password of each
+  certificate on the account, and taken if the account has it.
+- The error now says which certificate the app names, which key files
+  it holds and which certificates the account has, by the end of their
+  serial numbers.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01MzPJorvBGmBB88WUcRVhE7
+---
+ .../Flows/CertificateProvisioningFlow.swift   | 72 +++++++++++++++++--
+ 1 file changed, 65 insertions(+), 7 deletions(-)
+
+diff --git a/SideStore/Core/Auth/Flows/CertificateProvisioningFlow.swift b/SideStore/Core/Auth/Flows/CertificateProvisioningFlow.swift
+index 4db1ab6..7971653 100644
+--- a/SideStore/Core/Auth/Flows/CertificateProvisioningFlow.swift
++++ b/SideStore/Core/Auth/Flows/CertificateProvisioningFlow.swift
+@@ -82,7 +82,7 @@ final class CertificateProvisioningFlow: @unchecked Sendable {
+         let mainBundleCertSerial = Bundle.main.object(forInfoDictionaryKey: Bundle.Info.certificateID) as? String
+         
+         if let activeCert = CertificateManager.shared.activeCertificate,
+-           let certificate = portalCertificates.first(where: { $0.serialNumber == activeCert.serialNumber }) 
++           let certificate = portalCertificates.first(where: { Self.sameSerial($0.serialNumber, activeCert.serialNumber) })
+         {
+             var keyStoreCert = activeCert.certificate
+             keyStoreCert.machineIdentifier = certificate.machineIdentifier
+@@ -95,11 +95,7 @@ final class CertificateProvisioningFlow: @unchecked Sendable {
+             return keyStoreCert
+         }
+         
+-        if let mainBundleCertSerial = mainBundleCertSerial,
+-           let certificate = portalCertificates.first(where: { $0.serialNumber.lowercased() == mainBundleCertSerial.lowercased() }),
+-           var cert = CertificateManager.shared.getSignableCertificate(for: mainBundleCertSerial, fallbackPassword: certificate.machineIdentifier) 
+-        {
+-            cert.machineIdentifier = certificate.machineIdentifier
++        if let cert = self.bundledCertificate(named: mainBundleCertSerial, on: portalCertificates) {
+             debugLog("[CertificateProvisioningFlow] Using running bundle certificate (\(cert.serialNumber)) with valid private key from signable cache.")
+             return cert
+         }
+@@ -111,6 +107,68 @@ final class CertificateProvisioningFlow: @unchecked Sendable {
+         }
+     }
+     
++    /// Serial numbers as the portal and the computers write them: isideload
++    /// drops every leading zero, which a serial number may otherwise keep.
++    static func sameSerial(_ a: String, _ b: String) -> Bool {
++        func normalized(_ serial: String) -> Substring {
++            serial.lowercased().drop(while: { $0 == "0" })
++        }
++        return normalized(a) == normalized(b)
++    }
++
++    /// The bundles a computer or an update leaves a certificate in: the
++    /// running bundle (for the SideStore built into LiveContainer, its
++    /// framework, where iloader and the Cartouche Installer write theirs), and
++    /// the app that bundle is a framework of, where an update from SideStore
++    /// writes the one it signed with.
++    private static var certificateBundles: [URL] {
++        let bundle = Bundle.main.bundleURL
++        let app = bundle.deletingLastPathComponent().deletingLastPathComponent()
++        return app.pathExtension == "app" ? [bundle, app] : [bundle]
++    }
++
++    /// The certificate a bundle carries with its private key, when the account
++    /// still has it: first the one the bundle names, then any the bundles
++    /// hold, opened with the password of each certificate on the account.
++    private func bundledCertificate(named serial: String?, on portalCertificates: [ALTX509Certificate]) -> ALTCertificate? {
++        if let serial,
++           let certificate = portalCertificates.first(where: { Self.sameSerial($0.serialNumber, serial) }),
++           var cert = CertificateManager.shared.getSignableCertificate(for: certificate.serialNumber, fallbackPassword: certificate.machineIdentifier),
++           Self.sameSerial(cert.serialNumber, certificate.serialNumber)
++        {
++            cert.machineIdentifier = certificate.machineIdentifier
++            return cert
++        }
++        for bundle in Self.certificateBundles {
++            guard let data = try? Data(contentsOf: bundle.appendingPathComponent("ALTCertificate.p12")) else { continue }
++            for certificate in portalCertificates {
++                let passwords: [String?] = [certificate.machineIdentifier, certificate.serialNumber, nil]
++                for password in passwords {
++                    if var cert = try? ALTCertificate(p12Data: data, password: password),
++                       Self.sameSerial(cert.serialNumber, certificate.serialNumber)
++                    {
++                        debugLog("[CertificateProvisioningFlow] Found certificate (\(cert.serialNumber)) in \(bundle.lastPathComponent).")
++                        cert.machineIdentifier = certificate.machineIdentifier
++                        return cert
++                    }
++                }
++            }
++        }
++        return nil
++    }
++
++    /// What the bundles and the account hold, for the error that asks for an
++    /// install with the installer.
++    private static func certificateSummary(_ portalCertificates: [ALTX509Certificate]) -> String {
++        func short(_ serial: String) -> String { "…" + serial.suffix(6).uppercased() }
++        let named = (Bundle.main.object(forInfoDictionaryKey: Bundle.Info.certificateID) as? String).map(short) ?? "none"
++        let files = certificateBundles.filter {
++            FileManager.default.fileExists(atPath: $0.appendingPathComponent("ALTCertificate.p12").path)
++        }.map(\.lastPathComponent)
++        let account = portalCertificates.map { short($0.serialNumber) }.joined(separator: ", ")
++        return "Certificate named by the app: \(named); key files: \(files.isEmpty ? "none" : files.joined(separator: ", ")); on the account: \(account.isEmpty ? "none" : account)."
++    }
++
+     private func requestCertificate(for team: ALTTeam) async throws -> ALTCertificate {
+         let deviceName = await UIDevice.current.name
+         let accountName = team.account?.firstName ?? team.name
+@@ -147,6 +205,6 @@ final class CertificateProvisioningFlow: @unchecked Sendable {
+     // signs with inside the built-in SideStore (see app/scripts/brand.py).
+     private func replaceCertificate(portalCertificates: [ALTX509Certificate], for team: ALTTeam) async throws -> ALTCertificate {
+         debugLog("[CertificateProvisioningFlow] replaceCertificate: \(portalCertificates.count) certificate(s) on the portal and none usable here: asking for an import instead of revoking or creating one.")
+-        throw OperationError.forbidden(failureReason: NSLocalizedString("This Apple account already has a certificate, which signs the apps installed with it. This SideStore never revokes it and does not create another one.\n\nInstall Cartouche again with the Cartouche Installer, over this copy: it gives Cartouche the certificate it signs with. Then sign in again.", comment: ""))
++        throw OperationError.forbidden(failureReason: NSLocalizedString("This Apple account already has a certificate, which signs the apps installed with it. This SideStore never revokes it and does not create another one.\n\nInstall Cartouche again with the Cartouche Installer, over this copy: it gives Cartouche the certificate it signs with. Then sign in again.", comment: "") + "\n\n" + Self.certificateSummary(portalCertificates))
+     }
+ }
+-- 
+2.43.0
+

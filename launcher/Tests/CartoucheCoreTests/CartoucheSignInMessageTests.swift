@@ -58,4 +58,11 @@ final class CartoucheSignInMessageTests: XCTestCase {
         XCTAssertEqual(CartoucheSignInMessage.link(in: message), URL(string: "https://appleid.apple.com/account/manage"))
         XCTAssertNil(CartoucheSignInMessage.link(in: "The password is incorrect."))
     }
+
+    func testTheIntentErrorNameGoes() {
+        XCTAssertEqual(CartoucheSignInMessage.readable("LNPerformActionErrorCodeLocalizedStringResource: This Apple account already has a certificate."),
+                       "This Apple account already has a certificate.")
+        XCTAssertEqual(CartoucheSignInMessage.readable("The password is incorrect: try again."), "The password is incorrect: try again.")
+        XCTAssertEqual(CartoucheSignInMessage.readable("LNPerform Action: no"), "LNPerform Action: no")
+    }
 }

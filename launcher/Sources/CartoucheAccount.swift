@@ -158,7 +158,7 @@ final class CartoucheAccount: ObservableObject {
         // Should SideStore not have started, the password goes too.
         CartoucheStoreKeychain.remove(CartoucheSignInMessage.credentialsAccount)
         CartoucheStoreKeychain.remove(CartoucheSignInMessage.responseAccount)
-        problem = message
+        problem = message.map(CartoucheSignInMessage.readable)
         signedIn = message == nil
         isAutomatic = false
         CartoucheSetup.shared.refresh()
