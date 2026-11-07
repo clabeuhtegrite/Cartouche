@@ -30,6 +30,8 @@ struct CartoucheStorageServer: Codable, Identifiable, Hashable {
         /// A private bucket on Amazon S3 or on a server of one's own, with
         /// the player's keys.
         case s3
+        /// An FTP server of the player's network, with their account.
+        case ftp
 
         var id: String { rawValue }
     }
@@ -38,8 +40,9 @@ struct CartoucheStorageServer: Codable, Identifiable, Hashable {
     var kind: Kind
     /// What the player calls it.
     var name: String
-    /// SMB: the server's name or address. S3: its address, with http://
-    /// before it for a server of the player's network without HTTPS.
+    /// SMB and FTP: the server's name or address. S3: its address, with
+    /// http:// before it for a server of the player's network without
+    /// HTTPS.
     var host: String = ""
     var port: Int?
     /// S3: the access key ID.
@@ -387,6 +390,8 @@ enum CartoucheStorage {
             return try CartoucheFolder(server)
         case .s3:
             return try await CartoucheS3.connect(server, secretKey: secret)
+        case .ftp:
+            return try await CartoucheFTP.connect(server, password: secret)
         }
     }
 }

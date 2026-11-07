@@ -3962,19 +3962,36 @@
         }
       }
     },
+    "storage.addFTP" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Add an FTP server"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ajouter un serveur FTP"
+          }
+        }
+      }
+    },
     "storage.addFirst" : {
       "extractionState" : "manual",
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "First add a shared folder, an S3 bucket or a folder in Files, below."
+            "value" : "First add a shared folder, an S3 bucket, an FTP server or a folder in Files, below."
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Ajoutez d’abord un dossier partagé, un bucket S3 ou un dossier de Fichiers, plus bas."
+            "value" : "Ajoutez d’abord un dossier partagé, un bucket S3, un serveur FTP ou un dossier de Fichiers, plus bas."
           }
         }
       }
@@ -4132,6 +4149,125 @@
         }
       }
     },
+    "storage.ftp.accountNeeded" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cartouche needs the server’s address and your user name: it signs in only with your own account."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cartouche a besoin de l’adresse du serveur et de votre nom d’utilisateur : il ne se connecte qu’avec votre propre compte."
+          }
+        }
+      }
+    },
+    "storage.ftp.badName" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cartouche cannot use this name on an FTP server: it holds a line break."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cartouche ne peut pas utiliser ce nom sur un serveur FTP : il contient un retour à la ligne."
+          }
+        }
+      }
+    },
+    "storage.ftp.checking" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Signing in to the server…"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Connexion au serveur…"
+          }
+        }
+      }
+    },
+    "storage.ftp.closed" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The FTP server closed the connection."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Le serveur FTP a fermé la connexion."
+          }
+        }
+      }
+    },
+    "storage.ftp.footer" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The account of your server, such as your NAS’s. FTP sends the password unencrypted: use it on your own network."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Le compte de votre serveur, celui de votre NAS par exemple. FTP envoie le mot de passe en clair : utilisez-le sur votre propre réseau."
+          }
+        }
+      }
+    },
+    "storage.ftp.port" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Port (21 if empty)"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Port (21 si vide)"
+          }
+        }
+      }
+    },
+    "storage.ftp.tooLong" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This folder’s listing is larger than Cartouche expects."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "La liste de ce dossier est plus grande que ce que Cartouche attend."
+          }
+        }
+      }
+    },
     "storage.games" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -4223,13 +4359,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Keep your games and your saves on your own storage: a shared folder of your Mac, PC or NAS, an S3 bucket of yours, or a folder in Files. The games there show in your library, ready to install again."
+            "value" : "Keep your games and your saves on your own storage: a shared folder of your Mac, PC or NAS, an S3 bucket or an FTP server of yours, or a folder in Files. The games there show in your library, ready to install again."
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Gardez vos jeux et vos sauvegardes sur votre propre stockage : un dossier partagé de votre Mac, PC ou NAS, un bucket S3 à vous, ou un dossier de Fichiers. Les jeux qui s’y trouvent apparaissent dans votre bibliothèque, prêts à être réinstallés."
+            "value" : "Gardez vos jeux et vos sauvegardes sur votre propre stockage : un dossier partagé de votre Mac, PC ou NAS, un bucket S3 ou un serveur FTP à vous, ou un dossier de Fichiers. Les jeux qui s’y trouvent apparaissent dans votre bibliothèque, prêts à être réinstallés."
           }
         }
       }
