@@ -3985,13 +3985,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "First add a shared folder, an S3 bucket, an FTP server or a folder in Files, below."
+            "value" : "First add a shared folder, an S3 bucket, an FTP or SFTP server, or a folder in Files, below."
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Ajoutez d’abord un dossier partagé, un bucket S3, un serveur FTP ou un dossier de Fichiers, plus bas."
+            "value" : "Ajoutez d’abord un dossier partagé, un bucket S3, un serveur FTP ou SFTP, ou un dossier de Fichiers, plus bas."
           }
         }
       }
@@ -4026,6 +4026,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Ajouter un stockage S3"
+          }
+        }
+      }
+    },
+    "storage.addSFTP" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Add an SFTP server"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ajouter un serveur SFTP"
           }
         }
       }
@@ -4234,23 +4251,6 @@
         }
       }
     },
-    "storage.ftp.port" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Port (21 if empty)"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Port (21 si vide)"
-          }
-        }
-      }
-    },
     "storage.ftp.tooLong" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -4359,13 +4359,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Keep your games and your saves on your own storage: a shared folder of your Mac, PC or NAS, an S3 bucket or an FTP server of yours, or a folder in Files. The games there show in your library, ready to install again."
+            "value" : "Keep your games and your saves on your own storage: a shared folder of your Mac, PC or NAS, an S3 bucket or an FTP or SFTP server of yours, or a folder in Files. The games there show in your library, ready to install again."
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Gardez vos jeux et vos sauvegardes sur votre propre stockage : un dossier partagé de votre Mac, PC ou NAS, un bucket S3 ou un serveur FTP à vous, ou un dossier de Fichiers. Les jeux qui s’y trouvent apparaissent dans votre bibliothèque, prêts à être réinstallés."
+            "value" : "Gardez vos jeux et vos sauvegardes sur votre propre stockage : un dossier partagé de votre Mac, PC ou NAS, un bucket S3 ou un serveur FTP ou SFTP à vous, ou un dossier de Fichiers. Les jeux qui s’y trouvent apparaissent dans votre bibliothèque, prêts à être réinstallés."
           }
         }
       }
@@ -4536,6 +4536,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Mot de passe (laissez vide pour le garder)"
+          }
+        }
+      }
+    },
+    "storage.port" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Port (%lld if empty)"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Port (%lld si vide)"
           }
         }
       }
@@ -4961,6 +4978,159 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Uniquement votre propre stockage, avec votre propre compte : Cartouche garde le mot de passe ou la clé secrète dans le trousseau de cet iPhone."
+          }
+        }
+      }
+    },
+    "storage.sftp.badAnswer" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The SFTP server gave an answer Cartouche does not understand."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Le serveur SFTP a donné une réponse que Cartouche ne comprend pas."
+          }
+        }
+      }
+    },
+    "storage.sftp.closed" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The SFTP server closed the connection."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Le serveur SFTP a fermé la connexion."
+          }
+        }
+      }
+    },
+    "storage.sftp.failure" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The SFTP server refused (code %lld)."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Le serveur SFTP a refusé (code %lld)."
+          }
+        }
+      }
+    },
+    "storage.sftp.footer" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The account of your server, such as your NAS’s or your Mac’s (Remote Login). Cartouche keeps the server’s key when you save it, and refuses any other key afterwards."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Le compte de votre serveur, celui de votre NAS ou de votre Mac (Session à distance) par exemple. Cartouche garde la clé du serveur quand vous l’enregistrez, et refuse ensuite toute autre clé."
+          }
+        }
+      }
+    },
+    "storage.sftp.key" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Server key"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Clé du serveur"
+          }
+        }
+      }
+    },
+    "storage.sftp.keyChanged" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ shows another key than the one Cartouche kept, so Cartouche did not send your password. If you reinstalled the server, remove it here and add it again."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ montre une autre clé que celle que Cartouche a gardée, donc Cartouche n’a pas envoyé votre mot de passe. Si vous avez réinstallé le serveur, supprimez-le ici et ajoutez-le à nouveau."
+          }
+        }
+      }
+    },
+    "storage.sftp.noKey" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The server did not show its key."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Le serveur n’a pas montré sa clé."
+          }
+        }
+      }
+    },
+    "storage.sftp.noSubsystem" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This server does not offer SFTP to this account."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ce serveur ne propose pas SFTP à ce compte."
+          }
+        }
+      }
+    },
+    "storage.sftp.refused" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "the server refused the user name or the password, or asks for a sign-in Cartouche does not offer."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "le serveur a refusé le nom d’utilisateur ou le mot de passe, ou demande une connexion que Cartouche ne propose pas."
           }
         }
       }

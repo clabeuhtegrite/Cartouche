@@ -15,6 +15,8 @@ Cartouche is built from these projects. Each keeps its own licence; their licenc
 | [OpenSSL](https://www.openssl.org), packaged by [krzyzanowskim/OpenSSL](https://github.com/krzyzanowskim/OpenSSL) (inside LiveContainer) | Cryptography for on-device signing | Apache-2.0 |
 | ZSign (inside LiveContainer's tree) | On-device code signing | see LiveContainer |
 | [SMBClient](https://github.com/kishikawakatsumi/SMBClient) (`app/SMBClient`, pinned at `66eafaa`) | Reads and writes the player's shared folders (SMB 2 and 3) for their games and saves | MIT |
+| [swift-nio-ssh](https://github.com/apple/swift-nio-ssh) 0.15.0, by Apple (linked by `app/patches/livecontainer/0007`) | Speaks SSH to the player's SFTP servers for their games and saves | Apache-2.0 |
+| [swift-nio](https://github.com/apple/swift-nio), [swift-crypto](https://github.com/apple/swift-crypto), [swift-asn1](https://github.com/apple/swift-asn1), [swift-atomics](https://github.com/apple/swift-atomics), [swift-collections](https://github.com/apple/swift-collections) and [swift-system](https://github.com/apple/swift-system), by Apple (what swift-nio-ssh needs, pinned in the `Package.resolved` of 0007) | Networking and cryptography under swift-nio-ssh | Apache-2.0 |
 
 The Swift packages that LiveContainer and SideStore resolve at build time are listed in their `Package.resolved` files.
 

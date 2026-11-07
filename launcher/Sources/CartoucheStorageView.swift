@@ -50,7 +50,7 @@ struct CartoucheStorageView: View {
             NavigationStack {
                 if server.kind == .s3 {
                     CartoucheStorageS3Form(server: server)
-                } else if server.kind == .ftp {
+                } else if server.kind == .ftp || server.kind == .sftp {
                     CartoucheStorageFTPForm(server: server)
                 } else {
                     CartoucheStorageServerForm(server: server)
@@ -212,6 +212,13 @@ struct CartoucheStorageView: View {
             } label: {
                 Label(CartoucheText.storageAddFTP, systemImage: "externaldrive.connected.to.line.below")
             }
+            if CartoucheStorage.hasSFTP {
+                Button {
+                    editing = CartoucheStorageServer(kind: .sftp, name: "")
+                } label: {
+                    Label(CartoucheText.storageAddSFTP, systemImage: "lock.shield")
+                }
+            }
             Button {
                 choosingFolder = true
             } label: {
@@ -254,6 +261,7 @@ struct CartoucheStorageView: View {
         case .folder: return "folder.fill"
         case .s3: return "cloud.fill"
         case .ftp: return "externaldrive.fill.badge.wifi"
+        case .sftp: return "lock.shield.fill"
         }
     }
 
@@ -272,7 +280,7 @@ struct CartoucheStorageView: View {
         case .s3:
             let host = CartoucheS3Endpoint.parse(server.host)?.host ?? server.host
             return server.share + " · " + host
-        case .ftp:
+        case .ftp, .sftp:
             let port = server.port.map { ":\($0)" } ?? ""
             return "\(server.username)@\(server.host)\(port)"
         }
@@ -549,12 +557,14 @@ struct CartoucheStorageS3Form: View {
     }
 }
 
-// MARK: An FTP server
+// MARK: An FTP or SFTP server
 
 @available(iOS 17.0, *)
 struct CartoucheStorageFTPForm: View {
     @State private var server: CartoucheStorageServer
     @State private var port: String
+    /// The server as it was saved, if it was.
+    private let saved: CartoucheStorageServer?
     @State private var password = ""
     @State private var checking = false
     @State private var problem: String?
@@ -564,8 +574,12 @@ struct CartoucheStorageFTPForm: View {
     init(server: CartoucheStorageServer) {
         _server = State(initialValue: server)
         _port = State(initialValue: server.port.map(String.init) ?? "")
-        isNew = CartoucheStorageSettings.shared.server(server.id) == nil
+        saved = CartoucheStorageSettings.shared.server(server.id)
+        isNew = saved == nil
     }
+
+    private var isSFTP: Bool { server.kind == .sftp }
+    private var defaultPort: Int { isSFTP ? 22 : 21 }
 
     private var canSave: Bool {
         let fields = [server.host, server.username]
@@ -573,10 +587,11 @@ struct CartoucheStorageFTPForm: View {
         return portNumber != nil && !checking
     }
 
-    /// The port typed, 21 when none; nil for what is not a port.
+    /// The port typed, the protocol's when none; nil for what is not a
+    /// port.
     private var portNumber: Int? {
         let typed = port.trimmingCharacters(in: .whitespaces)
-        guard !typed.isEmpty else { return 21 }
+        guard !typed.isEmpty else { return defaultPort }
         guard let number = Int(typed), (1 ... 65535).contains(number) else { return nil }
         return number
     }
@@ -588,7 +603,7 @@ struct CartoucheStorageFTPForm: View {
                     .keyboardType(.URL)
                     .textInputAutocapitalization(.never)
                     .autocorrectionDisabled()
-                TextField(CartoucheText.storageFTPPort, text: $port)
+                TextField(CartoucheText.storagePort(defaultPort), text: $port)
                     .keyboardType(.numberPad)
                 TextField(CartoucheText.storageUser, text: $server.username)
                     .textContentType(.username)
@@ -596,6 +611,14 @@ struct CartoucheStorageFTPForm: View {
                     .autocorrectionDisabled()
                 SecureField(isNew ? CartoucheText.storagePassword : CartoucheText.storagePasswordKept, text: $password)
                     .textContentType(.password)
+                if isSFTP, let key = server.hostKey, let fingerprint = CartoucheSFTP.fingerprint(key) {
+                    LabeledContent(CartoucheText.storageSFTPKey) {
+                        Text(fingerprint)
+                            .font(.caption.monospaced())
+                            .lineLimit(2)
+                            .multilineTextAlignment(.trailing)
+                    }
+                }
                 if checking {
                     HStack {
                         Text(CartoucheText.storageFTPChecking)
@@ -612,7 +635,7 @@ struct CartoucheStorageFTPForm: View {
             } header: {
                 Text(CartoucheText.storageAccount)
             } footer: {
-                Text(CartoucheText.storageFTPFooter)
+                Text(isSFTP ? CartoucheText.storageSFTPFooter : CartoucheText.storageFTPFooter)
             }
             Section {
                 TextField(CartoucheText.storageName, text: $server.name)
@@ -620,7 +643,7 @@ struct CartoucheStorageFTPForm: View {
                 Text(CartoucheText.storageNameTitle)
             }
         }
-        .navigationTitle(isNew ? CartoucheText.storageAddFTP : server.name)
+        .navigationTitle(isNew ? (isSFTP ? CartoucheText.storageAddSFTP : CartoucheText.storageAddFTP) : server.name)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .cancellationAction) {
@@ -640,15 +663,21 @@ struct CartoucheStorageFTPForm: View {
         problem = nil
         server.host = server.host.trimmingCharacters(in: .whitespaces)
         server.username = server.username.trimmingCharacters(in: .whitespaces)
-        server.port = portNumber == 21 ? nil : portNumber
+        server.port = portNumber == defaultPort ? nil : portNumber
+        // Another server: its key is not the one kept.
+        if saved?.host != server.host || saved?.port != server.port {
+            server.hostKey = nil
+        }
         if server.name.trimmingCharacters(in: .whitespaces).isEmpty {
             server.name = server.host
         }
         // An empty password keeps the one saved.
         let secret = password.isEmpty && !isNew ? (CartoucheStorageSettings.shared.secret(of: server) ?? "") : password
-        let remote: CartoucheFTP
+        let remote: CartoucheRemote
         do {
-            remote = try await CartoucheFTP.connect(server, password: secret)
+            let checked = try await CartoucheStorage.check(server, password: secret)
+            remote = checked.remote
+            server.hostKey = checked.hostKey
         } catch {
             problem = error.localizedDescription
             checking = false

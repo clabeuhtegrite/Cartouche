@@ -60,6 +60,7 @@ echo "== building LiveContainer"
     -sdk iphoneos -arch arm64 \
     -configuration Release \
     -archivePath "$WORK/LiveContainer" \
+    -onlyUsePackageVersionsFromResolvedFile \
     LIVECONTAINER_BUNDLE_IDENTIFIER="$CARTOUCHE_BUNDLE_ID"
 )
 

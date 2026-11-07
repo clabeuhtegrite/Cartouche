@@ -357,7 +357,7 @@ enum CartoucheText {
     // MARK: The player's storage
 
     static var storageTitle: String { s("storage.title", "Storage") }
-    static var storageIntro: String { s("storage.intro", "Keep your games and your saves on your own storage: a shared folder of your Mac, PC or NAS, an S3 bucket or an FTP server of yours, or a folder in Files. The games there show in your library, ready to install again.") }
+    static var storageIntro: String { s("storage.intro", "Keep your games and your saves on your own storage: a shared folder of your Mac, PC or NAS, an S3 bucket or an FTP or SFTP server of yours, or a folder in Files. The games there show in your library, ready to install again.") }
     static var storageNotSet: String { s("storage.notSet", "Not set up") }
     static var storageGamesFolder: String { s("storage.games", "Games folder") }
     static var storageSavesFolder: String { s("storage.saves", "Saves folder") }
@@ -365,7 +365,7 @@ enum CartoucheText {
     static var storageReadAgain: String { s("storage.readAgain", "Read the folder again") }
     static var storageChangeFolder: String { s("storage.changeFolder", "Change folder") }
     static var storageStopUsing: String { s("storage.stopUsing", "Stop using this folder") }
-    static var storageAddFirst: String { s("storage.addFirst", "First add a shared folder, an S3 bucket, an FTP server or a folder in Files, below.") }
+    static var storageAddFirst: String { s("storage.addFirst", "First add a shared folder, an S3 bucket, an FTP or SFTP server, or a folder in Files, below.") }
     static var storageChooseFolder: String { s("storage.chooseFolder", "Choose a folder") }
     static var storageGamesFooter: String { s("storage.games.footer", "Your library lists the IPAs in this folder, and Cartouche installs them from there. Copy a game here before you uninstall it to keep it a tap away.") }
     static var storageServers: String { s("storage.servers", "Places") }
@@ -389,13 +389,23 @@ enum CartoucheText {
     static var storageS3KeysNeeded: String { s("storage.s3.keysNeeded", "Cartouche needs the access key ID and the secret access key: it reaches only private buckets, with your keys.") }
     static var storageS3BadAnswer: String { s("storage.s3.badAnswer", "The S3 server gave an answer Cartouche does not understand.") }
     static var storageAddFTP: String { s("storage.addFTP", "Add an FTP server") }
-    static var storageFTPPort: String { s("storage.ftp.port", "Port (21 if empty)") }
     static var storageFTPChecking: String { s("storage.ftp.checking", "Signing in to the server…") }
     static var storageFTPFooter: String { s("storage.ftp.footer", "The account of your server, such as your NAS’s. FTP sends the password unencrypted: use it on your own network.") }
     static var storageFTPBadName: String { s("storage.ftp.badName", "Cartouche cannot use this name on an FTP server: it holds a line break.") }
     static var storageFTPAccountNeeded: String { s("storage.ftp.accountNeeded", "Cartouche needs the server’s address and your user name: it signs in only with your own account.") }
     static var storageFTPClosed: String { s("storage.ftp.closed", "The FTP server closed the connection.") }
     static var storageFTPTooLong: String { s("storage.ftp.tooLong", "This folder’s listing is larger than Cartouche expects.") }
+    static var storageAddSFTP: String { s("storage.addSFTP", "Add an SFTP server") }
+    static var storageSFTPFooter: String { s("storage.sftp.footer", "The account of your server, such as your NAS’s or your Mac’s (Remote Login). Cartouche keeps the server’s key when you save it, and refuses any other key afterwards.") }
+    static var storageSFTPKey: String { s("storage.sftp.key", "Server key") }
+    static var storageSFTPNoKey: String { s("storage.sftp.noKey", "The server did not show its key.") }
+    static func storageSFTPKeyChanged(_ host: String) -> String { f("storage.sftp.keyChanged", "%@ shows another key than the one Cartouche kept, so Cartouche did not send your password. If you reinstalled the server, remove it here and add it again.", host) }
+    static var storageSFTPRefused: String { s("storage.sftp.refused", "the server refused the user name or the password, or asks for a sign-in Cartouche does not offer.") }
+    static var storageSFTPBadAnswer: String { s("storage.sftp.badAnswer", "The SFTP server gave an answer Cartouche does not understand.") }
+    static var storageSFTPClosed: String { s("storage.sftp.closed", "The SFTP server closed the connection.") }
+    static var storageSFTPNoSubsystem: String { s("storage.sftp.noSubsystem", "This server does not offer SFTP to this account.") }
+    static func storageSFTPFailure(_ code: Int) -> String { f("storage.sftp.failure", "The SFTP server refused (code %lld).", code) }
+    static func storagePort(_ port: Int) -> String { f("storage.port", "Port (%lld if empty)", port) }
     static var storageRemove: String { s("storage.remove", "Remove") }
     static var storageGuest: String { s("storage.guest", "guest") }
     static var storageFilesFolder: String { s("storage.filesFolder", "Folder in Files") }
