@@ -16,6 +16,15 @@
       "bundleIdentifier": "io.github.clabeuhtegrite.cartouche",
       "versions": [
         {
+          "version": "0.7.0",
+          "date": "2026-11-07T02:56:44Z",
+          "localizedDescription": "Your games and saves on an FTP server of yours.\n\n- Storage: System › Storage › Add an FTP server reaches a server of your network, such as your NAS's, with your account on it. Your games folder and saves folder can be there, as on a shared folder.\n- Storage: FTP sends your password unencrypted, so use it on your own network. Cartouche keeps the password in this iPhone's keychain.",
+          "downloadURL": "https://github.com/clabeuhtegrite/Cartouche/releases/download/v0.7.0/Cartouche-0.7.0.ipa",
+          "size": 25742990,
+          "sha256": "13b73151d9251451192f9d4958e400dd97ed6b2ad09ab719de417d11c2d18975",
+          "minOSVersion": "15.0"
+        },
+        {
           "version": "0.6.0",
           "date": "2026-11-07T01:58:19Z",
           "localizedDescription": "Your games and saves on an S3 bucket of yours.\n\n- Storage: System › Storage › Add S3 storage reaches a private bucket on Amazon S3, or on a server of your own such as MinIO on your NAS, with your access key. Your games folder and saves folder can be there, as on a shared folder.\n- Storage: every request is signed with your keys, and the secret key stays in this iPhone's keychain. Cartouche reaches no public bucket.\n- Storage: type http:// before the address of a server on your network without HTTPS; Cartouche uses HTTPS otherwise.",
@@ -94,15 +103,6 @@
           "downloadURL": "https://github.com/clabeuhtegrite/Cartouche/releases/download/v0.1.1/Cartouche-0.1.1.ipa",
           "size": 36678175,
           "sha256": "860c88d660eb5ae99694300031f811d0ce8bfc30e5ac2431b7350515dae55ec8",
-          "minOSVersion": "15.0"
-        },
-        {
-          "version": "0.1.0",
-          "date": "2026-11-06T07:11:00Z",
-          "localizedDescription": "First test build of Cartouche.\n\n- Games: the catalogue of supported games, your own first, with a sheet for each that says how it should run on this iPhone.\n- System: the memory limit iOS gives Cartouche, the days left before its signature expires, Renew now, renewing every night from Shortcuts, and expiry alerts.\n- System › Lab: rewrites the code of your own game on this iPhone with nxnative's rewriter, then compares each file with your Mac's build. A test for building games on the iPhone later.\n- The built-in SideStore asks for Increased Memory Limit on free accounts, and never revokes a certificate.",
-          "downloadURL": "https://github.com/clabeuhtegrite/Cartouche/releases/download/v0.1.0/Cartouche-0.1.0.ipa",
-          "size": 36636781,
-          "sha256": "f332dc0757960b440372c0ce0d9bb0d67bf6d72e6629bf73abc2fb8b901b1d05",
           "minOSVersion": "15.0"
         }
       ]
