@@ -50,6 +50,8 @@ struct CartoucheStorageView: View {
             NavigationStack {
                 if server.kind == .s3 {
                     CartoucheStorageS3Form(server: server)
+                } else if server.kind == .ftp {
+                    CartoucheStorageFTPForm(server: server)
                 } else {
                     CartoucheStorageServerForm(server: server)
                 }
@@ -206,6 +208,11 @@ struct CartoucheStorageView: View {
                 Label(CartoucheText.storageAddS3, systemImage: "cloud")
             }
             Button {
+                editing = CartoucheStorageServer(kind: .ftp, name: "")
+            } label: {
+                Label(CartoucheText.storageAddFTP, systemImage: "externaldrive.connected.to.line.below")
+            }
+            Button {
                 choosingFolder = true
             } label: {
                 Label(CartoucheText.storageAddFolder, systemImage: "folder.badge.plus")
@@ -246,6 +253,7 @@ struct CartoucheStorageView: View {
         case .smb: return "server.rack"
         case .folder: return "folder.fill"
         case .s3: return "cloud.fill"
+        case .ftp: return "externaldrive.fill.badge.wifi"
         }
     }
 
@@ -264,6 +272,9 @@ struct CartoucheStorageView: View {
         case .s3:
             let host = CartoucheS3Endpoint.parse(server.host)?.host ?? server.host
             return server.share + " · " + host
+        case .ftp:
+            let port = server.port.map { ":\($0)" } ?? ""
+            return "\(server.username)@\(server.host)\(port)"
         }
     }
 }
@@ -530,6 +541,122 @@ struct CartoucheStorageS3Form: View {
         CartoucheStorageSettings.shared.save(server, secret: secretKey.isEmpty && !isNew ? nil : secretKey)
         // Whether the keys may write in the bucket, for the choice of the
         // saves folder.
+        await CartoucheStorageSettings.shared.checkAccess(remote, server: server.id, path: "")
+        await remote.disconnect()
+        CartoucheStoredGames.shared.refresh()
+        checking = false
+        dismiss()
+    }
+}
+
+// MARK: An FTP server
+
+@available(iOS 17.0, *)
+struct CartoucheStorageFTPForm: View {
+    @State private var server: CartoucheStorageServer
+    @State private var port: String
+    @State private var password = ""
+    @State private var checking = false
+    @State private var problem: String?
+    @Environment(\.dismiss) private var dismiss
+    private let isNew: Bool
+
+    init(server: CartoucheStorageServer) {
+        _server = State(initialValue: server)
+        _port = State(initialValue: server.port.map(String.init) ?? "")
+        isNew = CartoucheStorageSettings.shared.server(server.id) == nil
+    }
+
+    private var canSave: Bool {
+        let fields = [server.host, server.username]
+        guard !fields.contains(where: { $0.trimmingCharacters(in: .whitespaces).isEmpty }) else { return false }
+        return portNumber != nil && !checking
+    }
+
+    /// The port typed, 21 when none; nil for what is not a port.
+    private var portNumber: Int? {
+        let typed = port.trimmingCharacters(in: .whitespaces)
+        guard !typed.isEmpty else { return 21 }
+        guard let number = Int(typed), (1 ... 65535).contains(number) else { return nil }
+        return number
+    }
+
+    var body: some View {
+        Form {
+            Section {
+                TextField(CartoucheText.storageHost, text: $server.host)
+                    .keyboardType(.URL)
+                    .textInputAutocapitalization(.never)
+                    .autocorrectionDisabled()
+                TextField(CartoucheText.storageFTPPort, text: $port)
+                    .keyboardType(.numberPad)
+                TextField(CartoucheText.storageUser, text: $server.username)
+                    .textContentType(.username)
+                    .textInputAutocapitalization(.never)
+                    .autocorrectionDisabled()
+                SecureField(isNew ? CartoucheText.storagePassword : CartoucheText.storagePasswordKept, text: $password)
+                    .textContentType(.password)
+                if checking {
+                    HStack {
+                        Text(CartoucheText.storageFTPChecking)
+                            .foregroundStyle(.secondary)
+                        Spacer()
+                        ProgressView()
+                    }
+                }
+                if let problem {
+                    Text(problem)
+                        .font(.footnote)
+                        .foregroundStyle(Color.orange)
+                }
+            } header: {
+                Text(CartoucheText.storageAccount)
+            } footer: {
+                Text(CartoucheText.storageFTPFooter)
+            }
+            Section {
+                TextField(CartoucheText.storageName, text: $server.name)
+            } header: {
+                Text(CartoucheText.storageNameTitle)
+            }
+        }
+        .navigationTitle(isNew ? CartoucheText.storageAddFTP : server.name)
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .cancellationAction) {
+                Button(CartoucheText.cancel) { dismiss() }
+            }
+            ToolbarItem(placement: .confirmationAction) {
+                Button(CartoucheText.storageSave) { Task { await save() } }
+                    .disabled(!canSave)
+            }
+        }
+    }
+
+    /// Signs in with what the form holds, and keeps the server only once
+    /// the account got in.
+    private func save() async {
+        checking = true
+        problem = nil
+        server.host = server.host.trimmingCharacters(in: .whitespaces)
+        server.username = server.username.trimmingCharacters(in: .whitespaces)
+        server.port = portNumber == 21 ? nil : portNumber
+        if server.name.trimmingCharacters(in: .whitespaces).isEmpty {
+            server.name = server.host
+        }
+        // An empty password keeps the one saved.
+        let secret = password.isEmpty && !isNew ? (CartoucheStorageSettings.shared.secret(of: server) ?? "") : password
+        let remote: CartoucheFTP
+        do {
+            remote = try await CartoucheFTP.connect(server, password: secret)
+        } catch {
+            problem = error.localizedDescription
+            checking = false
+            return
+        }
+        CartoucheStorageSettings.shared.save(server, secret: password.isEmpty && !isNew ? nil : password)
+        // Whether the account may write at the server's root, for the
+        // choice of the saves folder.
         await CartoucheStorageSettings.shared.checkAccess(remote, server: server.id, path: "")
         await remote.disconnect()
         CartoucheStoredGames.shared.refresh()

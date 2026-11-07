@@ -12,12 +12,13 @@ Cartouche is a launcher: it installs, starts and keeps the games the player buil
 | 0.4 | Updates offered in Cartouche and installed by the built-in SideStore out of sight. Large games copied to storage in bounded memory; read-only shared folders. |
 | 0.5 | The Apple ID signed in on Cartouche's own screen, with the built-in SideStore out of sight: Cartouche shows no page of SideStore any more. 0.5.1 checks that iOS accepts the certificate games are signed with, and signs in again by itself for the new one when an install from another computer revoked it; 0.5.2 finds that certificate however its serial number is written. |
 | 0.6 | The player's own S3 bucket for their games and saves, on Amazon S3 or a server of theirs such as MinIO, signed with their own keys. |
+| 0.7 | An FTP server of the player's network for their games and saves, with their own account. |
 
 Every release and its notes: [`app/releases`](../app/releases/).
 
 ## Next
 
-- **More storage:** FTP, then SFTP, a release each, with the player's own account ([decision 23](decisions.md)).
+- **More storage:** SFTP, with the player's own account ([decision 23](decisions.md)).
 - **Updates on a phone:** the first version offered from inside Cartouche, after 0.5.1, checked end to end: the offer, the install and the return to the home screen.
 
 ## Then

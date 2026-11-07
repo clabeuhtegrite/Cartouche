@@ -10,7 +10,7 @@ Cartouche puts everything a player needs on the iPhone into one app. This page d
 | | LiveContainer (base) | Runs each game as a guest app inside Cartouche and signs it with Cartouche's certificate |
 | | SideStore (built in) | Signs in to the Apple account; installs, re-signs and renews Cartouche; asks for the memory capability |
 | | Launcher | Catalogue of every supported game with the player's own first, import, compatibility sheets, memory probe, updates; the only screens the player sees, LiveContainer's and SideStore's never show |
-| Player's own storage | A shared folder of their Mac, PC or NAS (SMB), a private S3 bucket of theirs, or a folder in Files | Keeps the player's games, as IPAs Cartouche installs from there, and copies of their saves, with the player's own account |
+| Player's own storage | A shared folder of their Mac, PC or NAS (SMB), a private S3 bucket or an FTP server of theirs, or a folder in Files | Keeps the player's games, as IPAs Cartouche installs from there, and copies of their saves, with the player's own account |
 | iPhone | LocalDevVPN (App Store) | A loopback VPN through which SideStore reaches the phone's own services, so it needs no computer |
 | Computer, once | Cartouche Installer, for macOS and Windows | Installs the latest Cartouche, under its own App ID with the memory capability, gives it its certificate and puts the pairing file in it ([installer/README.md](../installer/README.md)) |
 | Server | GitHub releases | Hold each version of the app, listed in the source the built-in SideStore reads |
