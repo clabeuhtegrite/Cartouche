@@ -54,15 +54,16 @@ struct CartoucheS3Endpoint: Hashable {
 
     /// The address as Cartouche shows and keeps it.
     var text: String {
-        (secure ? "" : "http://") + authority
+        secure ? authority : "http://\(authority)"
     }
 
     /// The host and the port the requests name, without the scheme's own
     /// port.
     var authority: String {
-        let name = host.contains(":") ? "[" + host + "]" : host
-        guard let port, port != (secure ? 443 : 80) else { return name }
-        return name + ":" + String(port)
+        let name = host.contains(":") ? "[\(host)]" : host
+        let standard = secure ? 443 : 80
+        guard let port, port != standard else { return name }
+        return "\(name):\(port)"
     }
 
     /// Whether this is Amazon S3 itself.
@@ -109,21 +110,29 @@ struct CartoucheS3Bucket: Hashable {
 
     /// The host the request for KEY goes to, with its port.
     var authority: String {
-        isVirtualHosted ? name + "." + endpoint.authority : endpoint.authority
+        isVirtualHosted ? "\(name).\(endpoint.authority)" : endpoint.authority
     }
 
     /// The path of KEY, encoded as S3 signs it; "/" for the bucket itself
     /// on Amazon S3.
     func path(_ key: String) -> String {
         let encoded = CartoucheS3Signer.encode(key, keepingSlashes: true)
-        return isVirtualHosted ? "/" + encoded : "/" + CartoucheS3Signer.encode(name, keepingSlashes: false) + (key.isEmpty ? "" : "/" + encoded)
+        if isVirtualHosted {
+            return "/\(encoded)"
+        }
+        let bucket = CartoucheS3Signer.encode(name, keepingSlashes: false)
+        return key.isEmpty ? "/\(bucket)" : "/\(bucket)/\(encoded)"
     }
 
     /// The URL of KEY, with QUERY, encoded as S3 signs it.
     func url(_ key: String, query: [(String, String)] = []) -> URL? {
+        let scheme = endpoint.secure ? "https" : "http"
+        var text = "\(scheme)://\(authority)\(path(key))"
         let encodedQuery = CartoucheS3Signer.canonicalQuery(query)
-        return URL(string: (endpoint.secure ? "https://" : "http://") + authority + path(key)
-            + (encodedQuery.isEmpty ? "" : "?" + encodedQuery))
+        if !encodedQuery.isEmpty {
+            text += "?\(encodedQuery)"
+        }
+        return URL(string: text)
     }
 }
 
@@ -167,10 +176,19 @@ struct CartoucheS3Signer {
     /// QUERY as S3 signs it, and as the URL carries it: each name and value
     /// encoded, sorted by name, then by value.
     static func canonicalQuery(_ query: [(String, String)]) -> String {
-        query.map { (encode($0.0, keepingSlashes: false), encode($0.1, keepingSlashes: false)) }
-            .sorted { $0.0 == $1.0 ? $0.1 < $1.1 : $0.0 < $1.0 }
-            .map { $0.0 + "=" + $0.1 }
-            .joined(separator: "&")
+        var pairs: [(name: String, value: String)] = []
+        for (name, value) in query {
+            pairs.append((name: encode(name, keepingSlashes: false), value: encode(value, keepingSlashes: false)))
+        }
+        pairs.sort { first, second in
+            if first.name != second.name { return first.name < second.name }
+            return first.value < second.value
+        }
+        var parts: [String] = []
+        for pair in pairs {
+            parts.append("\(pair.name)=\(pair.value)")
+        }
+        return parts.joined(separator: "&")
     }
 
     private static let dateFormatter: DateFormatter = {
@@ -198,7 +216,10 @@ struct CartoucheS3Signer {
         signed["x-amz-content-sha256"] = payloadHash
         let names = signed.keys.sorted()
         let signedHeaders = names.joined(separator: ";")
-        let canonicalHeaders = names.map { $0 + ":" + (signed[$0] ?? "") + "\n" }.joined()
+        var canonicalHeaders = ""
+        for name in names {
+            canonicalHeaders += "\(name):\(signed[name] ?? "")\n"
+        }
         let canonicalRequest = [
             method,
             path.isEmpty ? "/" : path,
@@ -207,7 +228,7 @@ struct CartoucheS3Signer {
             signedHeaders,
             payloadHash,
         ].joined(separator: "\n")
-        let scope = day + "/" + region + "/" + service + "/aws4_request"
+        let scope = "\(day)/\(region)/\(service)/aws4_request"
         let stringToSign = [
             "AWS4-HMAC-SHA256",
             amzDate,
@@ -222,8 +243,7 @@ struct CartoucheS3Signer {
         var sent = headers
         sent["x-amz-date"] = amzDate
         sent["x-amz-content-sha256"] = payloadHash
-        sent["Authorization"] = "AWS4-HMAC-SHA256 Credential=" + accessKey + "/" + scope
-            + ", SignedHeaders=" + signedHeaders + ", Signature=" + signature
+        sent["Authorization"] = "AWS4-HMAC-SHA256 Credential=\(accessKey)/\(scope), SignedHeaders=\(signedHeaders), Signature=\(signature)"
         return sent
     }
 }
@@ -385,7 +405,7 @@ enum CartoucheS3Multipart {
     static func completion(_ etags: [String]) -> Data {
         var xml = "<CompleteMultipartUpload xmlns=\"http://s3.amazonaws.com/doc/2006-03-01/\">"
         for (index, etag) in etags.enumerated() {
-            xml += "<Part><PartNumber>\(index + 1)</PartNumber><ETag>" + escape(etag) + "</ETag></Part>"
+            xml += "<Part><PartNumber>\(index + 1)</PartNumber><ETag>\(escape(etag))</ETag></Part>"
         }
         xml += "</CompleteMultipartUpload>"
         return Data(xml.utf8)

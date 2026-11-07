@@ -439,11 +439,9 @@ struct CartoucheStorageS3Form: View {
     }
 
     private var canSave: Bool {
-        !server.host.trimmingCharacters(in: .whitespaces).isEmpty
-            && !server.share.trimmingCharacters(in: .whitespaces).isEmpty
-            && !server.username.trimmingCharacters(in: .whitespaces).isEmpty
-            && (!secretKey.isEmpty || !isNew)
-            && !checking
+        let fields = [server.host, server.share, server.username]
+        guard !fields.contains(where: { $0.trimmingCharacters(in: .whitespaces).isEmpty }) else { return false }
+        return (!secretKey.isEmpty || !isNew) && !checking
     }
 
     var body: some View {
