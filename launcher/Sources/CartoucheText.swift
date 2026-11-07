@@ -357,7 +357,7 @@ enum CartoucheText {
     // MARK: The player's storage
 
     static var storageTitle: String { s("storage.title", "Storage") }
-    static var storageIntro: String { s("storage.intro", "Keep your games and your saves on your own storage: a shared folder of your Mac, PC or NAS, or a folder in Files. The games there show in your library, ready to install again.") }
+    static var storageIntro: String { s("storage.intro", "Keep your games and your saves on your own storage: a shared folder of your Mac, PC or NAS, an S3 bucket of yours, or a folder in Files. The games there show in your library, ready to install again.") }
     static var storageNotSet: String { s("storage.notSet", "Not set up") }
     static var storageGamesFolder: String { s("storage.games", "Games folder") }
     static var storageSavesFolder: String { s("storage.saves", "Saves folder") }
@@ -365,13 +365,29 @@ enum CartoucheText {
     static var storageReadAgain: String { s("storage.readAgain", "Read the folder again") }
     static var storageChangeFolder: String { s("storage.changeFolder", "Change folder") }
     static var storageStopUsing: String { s("storage.stopUsing", "Stop using this folder") }
-    static var storageAddFirst: String { s("storage.addFirst", "First add a shared folder or a folder in Files, below.") }
+    static var storageAddFirst: String { s("storage.addFirst", "First add a shared folder, an S3 bucket or a folder in Files, below.") }
     static var storageChooseFolder: String { s("storage.chooseFolder", "Choose a folder") }
     static var storageGamesFooter: String { s("storage.games.footer", "Your library lists the IPAs in this folder, and Cartouche installs them from there. Copy a game here before you uninstall it to keep it a tap away.") }
     static var storageServers: String { s("storage.servers", "Places") }
-    static var storageServersFooter: String { s("storage.servers.footer", "Only storage of your own, with your own account: Cartouche keeps the password in this iPhone’s keychain.") }
+    static var storageServersFooter: String { s("storage.servers.footer", "Only storage of your own, with your own account: Cartouche keeps the password or the secret key in this iPhone’s keychain.") }
     static var storageAddSMB: String { s("storage.addSMB", "Add a shared folder (SMB)") }
     static var storageAddFolder: String { s("storage.addFolder", "Add a folder in Files") }
+    static var storageAddS3: String { s("storage.addS3", "Add S3 storage") }
+    static var storageS3Server: String { s("storage.s3.server", "Bucket") }
+    static var storageS3Address: String { s("storage.s3.address", "Address (e.g. s3.eu-west-3.amazonaws.com)") }
+    static var storageS3Bucket: String { s("storage.s3.bucket", "Bucket name") }
+    static var storageS3Region: String { s("storage.s3.region", "Region (optional)") }
+    static var storageS3ServerFooter: String { s("storage.s3.server.footer", "Amazon S3, or a server of your own such as MinIO on your NAS. Cartouche uses HTTPS, unless you type http:// before the address of a server on your network.") }
+    static var storageS3Keys: String { s("storage.s3.keys", "Keys") }
+    static var storageS3AccessKey: String { s("storage.s3.accessKey", "Access key ID") }
+    static var storageS3SecretKey: String { s("storage.s3.secretKey", "Secret access key") }
+    static var storageS3SecretKeyKept: String { s("storage.s3.secretKey.kept", "Secret access key (leave empty to keep it)") }
+    static var storageS3KeysFooter: String { s("storage.s3.keys.footer", "Keys of your own account, allowed to read and write this bucket. Cartouche signs each request with them, keeps the secret key in this iPhone’s keychain, and never makes the bucket public.") }
+    static var storageS3Checking: String { s("storage.s3.checking", "Signing in to the bucket…") }
+    static var storageS3BadAddress: String { s("storage.s3.badAddress", "Cartouche cannot use this address: type the server’s name or IP address, with its port if it needs one, and nothing after it.") }
+    static var storageS3BadBucket: String { s("storage.s3.badBucket", "Type the bucket’s name, without “/”.") }
+    static var storageS3KeysNeeded: String { s("storage.s3.keysNeeded", "Cartouche needs the access key ID and the secret access key: it reaches only private buckets, with your keys.") }
+    static var storageS3BadAnswer: String { s("storage.s3.badAnswer", "The S3 server gave an answer Cartouche does not understand.") }
     static var storageRemove: String { s("storage.remove", "Remove") }
     static var storageGuest: String { s("storage.guest", "guest") }
     static var storageFilesFolder: String { s("storage.filesFolder", "Folder in Files") }

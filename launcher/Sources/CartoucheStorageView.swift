@@ -48,7 +48,11 @@ struct CartoucheStorageView: View {
         .navigationTitle(CartoucheText.storageTitle)
         .sheet(item: $editing) { server in
             NavigationStack {
-                CartoucheStorageServerForm(server: server)
+                if server.kind == .s3 {
+                    CartoucheStorageS3Form(server: server)
+                } else {
+                    CartoucheStorageServerForm(server: server)
+                }
             }
         }
         .sheet(item: $browsing) { browsing in
@@ -164,7 +168,7 @@ struct CartoucheStorageView: View {
         Section {
             ForEach(settings.servers) { server in
                 Button {
-                    if server.kind == .smb { editing = server }
+                    if server.kind != .folder { editing = server }
                 } label: {
                     LabeledContent {
                         Text(Self.detail(server))
@@ -195,6 +199,11 @@ struct CartoucheStorageView: View {
                 } label: {
                     Label(CartoucheText.storageAddSMB, systemImage: "server.rack")
                 }
+            }
+            Button {
+                editing = CartoucheStorageServer(kind: .s3, name: "")
+            } label: {
+                Label(CartoucheText.storageAddS3, systemImage: "cloud")
             }
             Button {
                 choosingFolder = true
@@ -233,7 +242,11 @@ struct CartoucheStorageView: View {
     }
 
     static func symbol(_ server: CartoucheStorageServer) -> String {
-        server.kind == .smb ? "server.rack" : "folder.fill"
+        switch server.kind {
+        case .smb: return "server.rack"
+        case .folder: return "folder.fill"
+        case .s3: return "cloud.fill"
+        }
     }
 
     /// "NAS › Games › Switch", or the server's name alone for its root.
@@ -248,6 +261,9 @@ struct CartoucheStorageView: View {
             return user + "@" + server.host + (server.share.isEmpty ? "" : "/" + server.share)
         case .folder:
             return CartoucheText.storageFilesFolder
+        case .s3:
+            let host = CartoucheS3Endpoint.parse(server.host)?.host ?? server.host
+            return server.share + " · " + host
         }
     }
 }
@@ -400,6 +416,124 @@ struct CartoucheStorageServerForm: View {
         // of the saves folder.
         let saved = server
         Task { await CartoucheStorageSettings.shared.checkAccess(of: saved) }
+        dismiss()
+    }
+}
+
+// MARK: An S3 bucket
+
+@available(iOS 17.0, *)
+struct CartoucheStorageS3Form: View {
+    @State private var server: CartoucheStorageServer
+    @State private var region: String
+    @State private var secretKey = ""
+    @State private var checking = false
+    @State private var problem: String?
+    @Environment(\.dismiss) private var dismiss
+    private let isNew: Bool
+
+    init(server: CartoucheStorageServer) {
+        _server = State(initialValue: server)
+        _region = State(initialValue: server.region ?? "")
+        isNew = CartoucheStorageSettings.shared.server(server.id) == nil
+    }
+
+    private var canSave: Bool {
+        let fields = [server.host, server.share, server.username]
+        guard !fields.contains(where: { $0.trimmingCharacters(in: .whitespaces).isEmpty }) else { return false }
+        return (!secretKey.isEmpty || !isNew) && !checking
+    }
+
+    var body: some View {
+        Form {
+            Section {
+                TextField(CartoucheText.storageS3Address, text: $server.host)
+                    .keyboardType(.URL)
+                    .textInputAutocapitalization(.never)
+                    .autocorrectionDisabled()
+                TextField(CartoucheText.storageS3Bucket, text: $server.share)
+                    .textInputAutocapitalization(.never)
+                    .autocorrectionDisabled()
+                TextField(CartoucheText.storageS3Region, text: $region)
+                    .textInputAutocapitalization(.never)
+                    .autocorrectionDisabled()
+            } header: {
+                Text(CartoucheText.storageS3Server)
+            } footer: {
+                Text(CartoucheText.storageS3ServerFooter)
+            }
+            Section {
+                TextField(CartoucheText.storageS3AccessKey, text: $server.username)
+                    .textInputAutocapitalization(.never)
+                    .autocorrectionDisabled()
+                SecureField(isNew ? CartoucheText.storageS3SecretKey : CartoucheText.storageS3SecretKeyKept, text: $secretKey)
+                if checking {
+                    HStack {
+                        Text(CartoucheText.storageS3Checking)
+                            .foregroundStyle(.secondary)
+                        Spacer()
+                        ProgressView()
+                    }
+                }
+                if let problem {
+                    Text(problem)
+                        .font(.footnote)
+                        .foregroundStyle(Color.orange)
+                }
+            } header: {
+                Text(CartoucheText.storageS3Keys)
+            } footer: {
+                Text(CartoucheText.storageS3KeysFooter)
+            }
+            Section {
+                TextField(CartoucheText.storageName, text: $server.name)
+            } header: {
+                Text(CartoucheText.storageNameTitle)
+            }
+        }
+        .navigationTitle(isNew ? CartoucheText.storageAddS3 : server.name)
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .cancellationAction) {
+                Button(CartoucheText.cancel) { dismiss() }
+            }
+            ToolbarItem(placement: .confirmationAction) {
+                Button(CartoucheText.storageSave) { Task { await save() } }
+                    .disabled(!canSave)
+            }
+        }
+    }
+
+    /// Signs in to the bucket with the keys the form holds, and keeps it
+    /// only once the bucket lists for them.
+    private func save() async {
+        checking = true
+        problem = nil
+        server.host = CartoucheS3Endpoint.parse(server.host)?.text ?? server.host.trimmingCharacters(in: .whitespaces)
+        server.share = server.share.trimmingCharacters(in: .whitespaces)
+        server.username = server.username.trimmingCharacters(in: .whitespaces)
+        let trimmedRegion = region.trimmingCharacters(in: .whitespaces)
+        server.region = trimmedRegion.isEmpty ? nil : trimmedRegion
+        if server.name.trimmingCharacters(in: .whitespaces).isEmpty {
+            server.name = server.share
+        }
+        // An empty secret key keeps the one saved.
+        let secret = secretKey.isEmpty && !isNew ? (CartoucheStorageSettings.shared.secret(of: server) ?? "") : secretKey
+        let remote: CartoucheS3
+        do {
+            remote = try await CartoucheS3.connect(server, secretKey: secret)
+        } catch {
+            problem = error.localizedDescription
+            checking = false
+            return
+        }
+        CartoucheStorageSettings.shared.save(server, secret: secretKey.isEmpty && !isNew ? nil : secretKey)
+        // Whether the keys may write in the bucket, for the choice of the
+        // saves folder.
+        await CartoucheStorageSettings.shared.checkAccess(remote, server: server.id, path: "")
+        await remote.disconnect()
+        CartoucheStoredGames.shared.refresh()
+        checking = false
         dismiss()
     }
 }

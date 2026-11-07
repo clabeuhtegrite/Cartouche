@@ -3968,13 +3968,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "First add a shared folder or a folder in Files, below."
+            "value" : "First add a shared folder, an S3 bucket or a folder in Files, below."
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Ajoutez d’abord un dossier partagé ou un dossier de Fichiers, plus bas."
+            "value" : "Ajoutez d’abord un dossier partagé, un bucket S3 ou un dossier de Fichiers, plus bas."
           }
         }
       }
@@ -3992,6 +3992,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Ajouter un dossier de Fichiers"
+          }
+        }
+      }
+    },
+    "storage.addS3" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Add S3 storage"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ajouter un stockage S3"
           }
         }
       }
@@ -4206,13 +4223,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Keep your games and your saves on your own storage: a shared folder of your Mac, PC or NAS, or a folder in Files. The games there show in your library, ready to install again."
+            "value" : "Keep your games and your saves on your own storage: a shared folder of your Mac, PC or NAS, an S3 bucket of yours, or a folder in Files. The games there show in your library, ready to install again."
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Gardez vos jeux et vos sauvegardes sur votre propre stockage : un dossier partagé de votre Mac, PC ou NAS, ou un dossier de Fichiers. Les jeux qui s’y trouvent apparaissent dans votre bibliothèque, prêts à être réinstallés."
+            "value" : "Gardez vos jeux et vos sauvegardes sur votre propre stockage : un dossier partagé de votre Mac, PC ou NAS, un bucket S3 à vous, ou un dossier de Fichiers. Les jeux qui s’y trouvent apparaissent dans votre bibliothèque, prêts à être réinstallés."
           }
         }
       }
@@ -4472,6 +4489,261 @@
         }
       }
     },
+    "storage.s3.accessKey" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Access key ID"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ID de clé d’accès"
+          }
+        }
+      }
+    },
+    "storage.s3.address" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Address (e.g. s3.eu-west-3.amazonaws.com)"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Adresse (par ex. s3.eu-west-3.amazonaws.com)"
+          }
+        }
+      }
+    },
+    "storage.s3.badAddress" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cartouche cannot use this address: type the server’s name or IP address, with its port if it needs one, and nothing after it."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cartouche ne peut pas utiliser cette adresse : tapez le nom ou l’adresse IP du serveur, avec son port s’il en faut un, et rien après."
+          }
+        }
+      }
+    },
+    "storage.s3.badAnswer" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The S3 server gave an answer Cartouche does not understand."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Le serveur S3 a donné une réponse que Cartouche ne comprend pas."
+          }
+        }
+      }
+    },
+    "storage.s3.badBucket" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Type the bucket’s name, without “/”."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tapez le nom du bucket, sans « / »."
+          }
+        }
+      }
+    },
+    "storage.s3.bucket" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bucket name"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nom du bucket"
+          }
+        }
+      }
+    },
+    "storage.s3.checking" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Signing in to the bucket…"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Connexion au bucket…"
+          }
+        }
+      }
+    },
+    "storage.s3.keys" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Keys"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Clés"
+          }
+        }
+      }
+    },
+    "storage.s3.keys.footer" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Keys of your own account, allowed to read and write this bucket. Cartouche signs each request with them, keeps the secret key in this iPhone’s keychain, and never makes the bucket public."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Les clés de votre propre compte, autorisées à lire et écrire dans ce bucket. Cartouche signe chaque requête avec elles, garde la clé secrète dans le trousseau de cet iPhone, et ne rend jamais le bucket public."
+          }
+        }
+      }
+    },
+    "storage.s3.keysNeeded" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cartouche needs the access key ID and the secret access key: it reaches only private buckets, with your keys."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cartouche a besoin de l’ID de clé d’accès et de la clé d’accès secrète : il n’accède qu’à des buckets privés, avec vos clés."
+          }
+        }
+      }
+    },
+    "storage.s3.region" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Region (optional)"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Région (facultatif)"
+          }
+        }
+      }
+    },
+    "storage.s3.secretKey" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Secret access key"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Clé d’accès secrète"
+          }
+        }
+      }
+    },
+    "storage.s3.secretKey.kept" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Secret access key (leave empty to keep it)"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Clé d’accès secrète (laissez vide pour la garder)"
+          }
+        }
+      }
+    },
+    "storage.s3.server" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bucket"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bucket"
+          }
+        }
+      }
+    },
+    "storage.s3.server.footer" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Amazon S3, or a server of your own such as MinIO on your NAS. Cartouche uses HTTPS, unless you type http:// before the address of a server on your network."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Amazon S3, ou un serveur à vous, comme MinIO sur votre NAS. Cartouche passe par HTTPS, sauf si vous tapez http:// devant l’adresse d’un serveur de votre réseau."
+          }
+        }
+      }
+    },
     "storage.save" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -4546,13 +4818,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Only storage of your own, with your own account: Cartouche keeps the password in this iPhone’s keychain."
+            "value" : "Only storage of your own, with your own account: Cartouche keeps the password or the secret key in this iPhone’s keychain."
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Uniquement votre propre stockage, avec votre propre compte : Cartouche garde le mot de passe dans le trousseau de cet iPhone."
+            "value" : "Uniquement votre propre stockage, avec votre propre compte : Cartouche garde le mot de passe ou la clé secrète dans le trousseau de cet iPhone."
           }
         }
       }
