@@ -92,6 +92,15 @@ enum CartoucheSignInMessage {
         return id.contains("@") || id.filter(\.isNumber).count >= 6
     }
 
+    /// SideStore's message without the name of the App Intents error that
+    /// carried it, such as "LNPerformActionErrorCodeLocalizedStringResource: ".
+    static func readable(_ message: String) -> String {
+        guard let colon = message.range(of: ": "),
+              message.hasPrefix("LN"),
+              message[..<colon.lowerBound].allSatisfy({ $0.isLetter || $0.isNumber }) else { return message }
+        return String(message[colon.upperBound...])
+    }
+
     /// The address of the page an error asks the player to open, such as the
     /// one where Apple asks to review the account.
     static func link(in message: String) -> URL? {

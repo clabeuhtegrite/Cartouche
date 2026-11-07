@@ -10,7 +10,7 @@ Cartouche is a launcher: it installs, starts and keeps the games the player buil
 | 0.2 | A console's home: the player's games and the games nxnative plays on the iPhone as cartridges, every game of nxnative's list, a game controller as well as touch, layouts for every iPhone and the iPhone Duo, built with Xcode 27.2. Games installed, started, set up and uninstalled in Cartouche. |
 | 0.3 | The player's own storage over SMB or in Files, for their games and saves. The games' official covers from IGDB. No page of LiveContainer or SideStore, but for the Apple ID sign-in. Alongside it, the Cartouche Installer for macOS and Windows. |
 | 0.4 | Updates offered in Cartouche and installed by the built-in SideStore out of sight. Large games copied to storage in bounded memory; read-only shared folders. |
-| 0.5 | The Apple ID signed in on Cartouche's own screen, with the built-in SideStore out of sight: Cartouche shows no page of SideStore any more. 0.5.1 checks that iOS accepts the certificate games are signed with, and signs in again by itself for the new one when an install from another computer revoked it. |
+| 0.5 | The Apple ID signed in on Cartouche's own screen, with the built-in SideStore out of sight: Cartouche shows no page of SideStore any more. 0.5.1 checks that iOS accepts the certificate games are signed with, and signs in again by itself for the new one when an install from another computer revoked it; 0.5.2 finds that certificate however its serial number is written. |
 
 Every release and its notes: [`app/releases`](../app/releases/).
 
