@@ -1,0 +1,60 @@
+name: Telemetry
+
+# Tests the telemetry server (telemetry/README.md) and its weekly sum into the
+# game sheets on each pull request that changes them, and deploys the server
+# from main to Cloudflare: the Worker and its D1 database in the EU
+# jurisdiction (telemetry/deploy.sh). The deploy takes the secrets
+# CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID of the environment
+# cloudflare, and does nothing while they are not set. Run it by hand for a
+# first deploy, once they are.
+
+on:
+  pull_request:
+    paths: ["telemetry/**", "catalog/schema/game.schema.json", ".github/workflows/telemetry.yml"]
+  push:
+    branches: [main]
+    paths: ["telemetry/**", ".github/workflows/telemetry.yml"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: telemetry-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  test:
+    name: Telemetry server
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: The Worker
+        run: node --test telemetry/test/worker.test.js
+      # The publish guard's dev extra brings jsonschema, for the sheets the
+      # weekly sum writes.
+      - name: The database on SQLite, the deploy and the weekly sum against a stand-in for Cloudflare
+        run: |
+          python3 -m venv .venv
+          .venv/bin/pip install --quiet -e "guard[dev]"
+          .venv/bin/python -m unittest discover -s telemetry/test -v
+
+  deploy:
+    name: Deploy the telemetry server
+    needs: test
+    if: ${{ github.event_name != 'pull_request' && github.ref == 'refs/heads/main' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: cloudflare
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Deploy
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: telemetry/deploy.sh

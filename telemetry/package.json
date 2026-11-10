@@ -1,0 +1,8 @@
+{
+  "private": true,
+  "description": "Cartouche's telemetry server (README.md). No dependency: worker.js runs as it is.",
+  "type": "module",
+  "scripts": {
+    "test": "node --test test/worker.test.js"
+  }
+}
