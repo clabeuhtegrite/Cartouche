@@ -288,6 +288,14 @@ final class CartoucheCatalog: ObservableObject {
         }
     }
 
+    /// Whether these apps and the IPAs of the player's games folder give the
+    /// player a game of their own: whether entries(for:stored:) has owned
+    /// ones, an nxnative game installed or any IPA of the games folder,
+    /// without making every entry.
+    func hasOwnedGames(among apps: [LCAppModel], stored: [CartoucheStoredGame]) -> Bool {
+        !stored.isEmpty || apps.contains { gameTitle(of: $0) != nil }
+    }
+
     /// The catalogue for these apps and the IPAs of the player's games
     /// folder: each of the player's nxnative games, installed or stored, then
     /// every other game nxnative has a profile for, with the sheet testers
