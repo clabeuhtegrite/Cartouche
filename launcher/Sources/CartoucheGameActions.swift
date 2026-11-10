@@ -56,6 +56,9 @@ final class CartoucheGameActions: ObservableObject {
 
     private var progressObservation: NSKeyValueObservation?
     private var signing: AnyCancellable?
+    /// The time iOS gives a step that is on its way when the player leaves
+    /// Cartouche.
+    private var background: UIBackgroundTaskIdentifier = .invalid
 
     /// Whether a file another app opened Cartouche with is an app to
     /// install: Cartouche installs it itself instead of the Apps tab
@@ -101,6 +104,7 @@ final class CartoucheGameActions: ObservableObject {
         // A large game takes minutes to unpack: the iPhone must not lock
         // meanwhile, which would pause Cartouche.
         UIApplication.shared.isIdleTimerDisabled = true
+        beginBackground()
         Task {
             do {
                 let builtAt = await Self.builtAt(ofIPA: url)
@@ -117,13 +121,16 @@ final class CartoucheGameActions: ObservableObject {
             Self.removeIfInbox(url)
             progressObservation = nil
             UIApplication.shared.isIdleTimerDisabled = false
+            endBackground()
             work = nil
         }
     }
 
     /// Installs a game from the player's games folder, read where it sits:
     /// each file is unpacked as it arrives, so that the iPhone needs room for
-    /// the game only, not for its IPA too.
+    /// the game only, not for its IPA too. A connection that drops on the
+    /// way, or stops answering, is made again, and the install reads on
+    /// from where it stopped (CartoucheResumingSource).
     func install(stored game: CartoucheStoredGame) {
         guard work == nil, let location = CartoucheStorageSettings.shared.location(.games) else { return }
         facts = [.init("IPA", game.fileName), .init("IPA size", CartoucheReport.bytes(Int64(clamping: game.size))),
@@ -133,15 +140,38 @@ final class CartoucheGameActions: ObservableObject {
             fail(.install, CartoucheText.installFailed, message: "lc.appList.manageInPrimaryTip".loc)
             return
         }
-        work = CartoucheGameWork(kind: .installing, name: game.name,
-                                 step: CartoucheText.installFromStorageStep(location.server.name), fraction: nil)
+        let server = location.server
+        let step = CartoucheText.installFromStorageStep(server.name)
+        work = CartoucheGameWork(kind: .installing, name: game.name, step: step, fraction: nil)
         UIApplication.shared.isIdleTimerDisabled = true
+        beginBackground()
         Task {
-            var remote: CartoucheRemote?
+            var file: CartoucheResumingSource?
             do {
-                let connected = try await CartoucheStorage.connect(location.server)
-                remote = connected
-                let source = try await connected.open(game.path)
+                let source = try await CartoucheResumingSource.open {
+                    // The server as the settings hold it now: an SFTP server
+                    // keeps the key it gave the first time.
+                    let current = await MainActor.run { CartoucheStorageSettings.shared.server(server.id) } ?? server
+                    let remote = try await CartoucheStorage.connect(current)
+                    do {
+                        let opened = try await remote.open(game.path)
+                        return CartoucheResumingSource.Opened(source: opened, close: { await remote.disconnect() })
+                    } catch {
+                        await remote.disconnect()
+                        throw error
+                    }
+                }
+                file = source
+                source.onRetry = { @Sendable _, _ in
+                    Task { @MainActor in
+                        CartoucheGameActions.shared.work?.step = CartoucheText.installFromStorageRetry(server.name)
+                    }
+                }
+                source.onResumed = { @Sendable in
+                    Task { @MainActor in
+                        CartoucheGameActions.shared.work?.step = step
+                    }
+                }
                 let entries = try await CartoucheZip.entries(of: source)
                 let needed = Int64(clamping: entries.reduce(UInt64(0)) { $0 + $1.size }) + 512 * 1_048_576
                 if let free = Self.freeSpace(), free < needed {
@@ -154,14 +184,42 @@ final class CartoucheGameActions: ObservableObject {
                     try await CartoucheZip.extract(source, entries: entries, into: folder, progress: progress)
                 }
                 finishInstall(app, warning: warning)
+            } catch let lost as CartoucheResumingSource.Lost {
+                facts.append(.init("Connection", "lost after \(lost.attempts) failed attempts, "
+                                       + "the file opened again \(file?.reopened ?? 0) times before"))
+                fail(.install, CartoucheText.installFailed,
+                     message: CartoucheText.installFromStorageLost(server.name, lost.localizedDescription), error: lost.last)
             } catch {
+                if let reopened = file?.reopened, reopened > 0 {
+                    facts.append(.init("Connection", "the file opened again \(reopened) times"))
+                }
                 fail(.install, CartoucheText.installFailed, error: error)
             }
-            await remote?.disconnect()
             progressObservation = nil
             UIApplication.shared.isIdleTimerDisabled = false
+            endBackground()
             work = nil
+            // Last: a server that stopped answering keeps a goodbye waiting
+            // a few seconds (CartoucheSMB.disconnect).
+            await file?.close()
         }
+    }
+
+    /// The half-minute iOS gives a step on its way when the player leaves
+    /// Cartouche, so that a short absence does not pause it.
+    private func beginBackground() {
+        guard background == .invalid else { return }
+        background = UIApplication.shared.beginBackgroundTask(withName: "Cartouche game") {
+            // iOS calls this on the main thread, as the time runs out, and
+            // stops Cartouche unless the task ends before it returns.
+            MainActor.assumeIsolated { CartoucheGameActions.shared.endBackground() }
+        }
+    }
+
+    private func endBackground() {
+        guard background != .invalid else { return }
+        UIApplication.shared.endBackgroundTask(background)
+        background = .invalid
     }
 
     private func finishInstall(_ app: LCAppModel, warning: String?) {
@@ -377,6 +435,7 @@ final class CartoucheGameActions: ObservableObject {
         work = CartoucheGameWork(kind: .exporting, name: app.displayName,
                                  step: CartoucheText.exportStep(location.server.name), fraction: 0)
         UIApplication.shared.isIdleTimerDisabled = true
+        beginBackground()
         Task {
             var remote: CartoucheRemote?
             var copied = false
@@ -416,6 +475,7 @@ final class CartoucheGameActions: ObservableObject {
             }
             await remote?.disconnect()
             UIApplication.shared.isIdleTimerDisabled = false
+            endBackground()
             work = nil
             if copied {
                 await CartoucheStoredGames.shared.reload()

@@ -7498,6 +7498,23 @@
         }
       }
     },
+    "work.install.stored.lost" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The connection to %1$@ dropped and did not come back within three minutes. Install the game again once the network is back. (%2$@)"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "La connexion à %1$@ a été coupée et n’est pas revenue en trois minutes. Installez le jeu à nouveau une fois le réseau revenu. (%2$@)"
+          }
+        }
+      }
+    },
     "work.install.stored.noSpace" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -7511,6 +7528,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Installer ce jeu demande environ %1$@ d’espace libre, et cet iPhone en a %2$@. Libérez de la place, puis installez-le à nouveau."
+          }
+        }
+      }
+    },
+    "work.install.stored.retry" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The connection to %@ dropped. Cartouche connects again and goes on from where it stopped."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "La connexion à %@ a été coupée. Cartouche se reconnecte et reprend là où il s’était arrêté."
           }
         }
       }
