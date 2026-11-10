@@ -87,6 +87,9 @@ enum CartoucheTheme {
 enum CartouchePlayStatus: Hashable {
     /// The player has a copy and Cartouche can start it.
     case ready
+    /// The player has a copy, and a newer build of it is in their games
+    /// folder.
+    case update
     /// The player's copy is in their games folder, not on this iPhone.
     case stored
     case iphone
@@ -95,7 +98,7 @@ enum CartouchePlayStatus: Hashable {
     case unknown
 
     static func of(_ entry: CartoucheEntry) -> CartouchePlayStatus {
-        if entry.isInstalled { return .ready }
+        if entry.isInstalled { return entry.update != nil ? .update : .ready }
         if entry.stored != nil { return .stored }
         if entry.playsOnIPhone { return .iphone }
         switch entry.game?.status {
@@ -109,6 +112,7 @@ enum CartouchePlayStatus: Hashable {
     var symbol: String {
         switch self {
         case .ready: return "checkmark.circle.fill"
+        case .update: return "arrow.down.circle.fill"
         case .stored: return "externaldrive.fill"
         case .iphone: return "iphone"
         case .mac: return "laptopcomputer"
@@ -120,7 +124,7 @@ enum CartouchePlayStatus: Hashable {
     var color: Color {
         switch self {
         case .ready: return Color(red: 0.204, green: 0.827, blue: 0.494)
-        case .stored: return Color(red: 0.392, green: 0.824, blue: 1.0)
+        case .update, .stored: return Color(red: 0.392, green: 0.824, blue: 1.0)
         case .iphone: return Color(red: 0.204, green: 0.827, blue: 0.494)
         case .mac: return Color(red: 0.384, green: 0.639, blue: 1.0)
         case .bringup: return Color(red: 1.0, green: 0.690, blue: 0.247)
@@ -132,6 +136,7 @@ enum CartouchePlayStatus: Hashable {
     var short: String {
         switch self {
         case .ready: return CartoucheText.statusReadyShort
+        case .update: return CartoucheText.statusUpdateShort
         case .stored: return CartoucheText.statusStoredShort
         case .iphone: return CartoucheText.statusIPhoneShort
         case .mac: return CartoucheText.statusMacShort
@@ -144,6 +149,7 @@ enum CartouchePlayStatus: Hashable {
     var long: String {
         switch self {
         case .ready, .iphone: return CartoucheText.statusIPhoneLong
+        case .update: return CartoucheText.statusUpdateLong
         case .stored: return CartoucheText.statusStoredLong
         case .mac: return CartoucheText.statusMacLong
         case .bringup: return CartoucheText.statusBringupLong

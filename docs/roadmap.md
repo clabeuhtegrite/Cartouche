@@ -14,6 +14,7 @@ Cartouche is a launcher: it installs, starts and keeps the games the player buil
 | 0.6 | The player's own S3 bucket for their games and saves, on Amazon S3 or a server of theirs such as MinIO, signed with their own keys. |
 | 0.7 | An FTP server of the player's network for their games and saves, with their own account. |
 | 0.8 | An SFTP server of the player's for their games and saves, with their own account, its key checked at each connection. 0.8.1 installs games whose IPA holds a large deflated file read in pieces, and leaves no badge on the icon. |
+| 0.9 | A game updated from the player's games folder when it holds a newer build of it, such as one Cartouche Builder made again after a change to nxnative: Cartouche reads which build each IPA is and offers **Update** over the game. |
 
 Every release and its notes: [`app/releases`](../app/releases/). Beside the app, Cartouche Builder 0.1 builds the player's games on their Mac and builds them again when nxnative changes for them ([builder/README.md](../builder/README.md)).
 

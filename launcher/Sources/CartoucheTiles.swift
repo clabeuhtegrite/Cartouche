@@ -211,6 +211,17 @@ struct CartoucheGameCartridge: View {
                 drawnLabel(side: side)
             }
         }
+        // A newer build of the installed game is in the games folder.
+        .overlay(alignment: .topTrailing) {
+            if entry.update != nil {
+                Image(systemName: "arrow.down.circle.fill")
+                    .font(.system(size: max(14, width * 0.16), weight: .bold))
+                    .symbolRenderingMode(.palette)
+                    .foregroundStyle(Color.white, CartouchePlayStatus.update.color)
+                    .shadow(color: Color.black.opacity(0.35), radius: 2, y: 1)
+                    .padding(width * 0.04)
+            }
+        }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(Text(entry.name))
         .accessibilityValue(Text(CartouchePlayStatus.of(entry).short))

@@ -7,8 +7,10 @@
 //  IPA Cartouche wrote is known by its name, "<game> [<title ID>].ipa";
 //  any other by its Info.plist, read from the IPA where it sits: its
 //  central directory and one entry, a few reads, even for an IPA of
-//  several gigabytes. What Cartouche found is kept on the iPhone, so that
-//  each IPA is read once.
+//  several gigabytes. The Info.plist also says which build of the game
+//  the IPA is (CartoucheGameBuild), for the console to offer a newer one
+//  over the installed game. What Cartouche found is kept on the iPhone,
+//  so that each IPA is read once.
 //
 
 import Combine
@@ -24,6 +26,8 @@ struct CartoucheStoredGame: Codable, Hashable, Identifiable {
     var bundleId: String?
     var displayName: String?
     var version: String?
+    /// Which build of the game it is, from its Info.plist.
+    var build: CartoucheGameBuild?
     /// The game's title ID, from its name or its bundle ID.
     var titleId: String?
     /// Whether it is an nxnative game, as far as Cartouche can tell.
@@ -66,6 +70,71 @@ struct CartoucheStoredGame: Codable, Hashable, Identifiable {
         guard candidate.count == 16, candidate.allSatisfy(\.isHexDigit) else { return nil }
         return candidate.uppercased()
     }
+
+    /// Whether this IPA is a newer copy of the game than OTHER, of the same
+    /// games folder: by the builds they are, else by when they were written
+    /// there.
+    func isNewerCopy(than other: CartoucheStoredGame) -> Bool {
+        if let build, let otherBuild = other.build {
+            if build.isNewerCopy(than: otherBuild) { return true }
+            if otherBuild.isNewerCopy(than: build) { return false }
+        }
+        return (modified ?? .distantPast) > (other.modified ?? .distantPast)
+    }
+}
+
+/// The build of each game Cartouche installed, as the IPA it came from
+/// said: an installed game no longer says when it was built, since the
+/// time of its Info.plist goes with the install.
+final class CartoucheInstalledBuilds {
+    static let shared = CartoucheInstalledBuilds()
+
+    /// By the game's bundle ID.
+    private var builds: [String: CartoucheGameBuild] = [:]
+    private let file: URL
+
+    init() {
+        let support = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+        file = support.appendingPathComponent("Cartouche/InstalledBuilds.json")
+        if let data = try? Data(contentsOf: file),
+           let saved = try? JSONDecoder().decode([String: CartoucheGameBuild].self, from: data) {
+            builds = saved
+        }
+    }
+
+    /// Notes the build of the IPA Cartouche just installed as BUNDLEID.
+    func record(_ build: CartoucheGameBuild, bundleId: String) {
+        builds[bundleId] = build
+        guard let data = try? JSONEncoder().encode(builds) else { return }
+        try? FileManager.default.createDirectory(at: file.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try? data.write(to: file, options: .atomic)
+    }
+
+    /// The build of the installed game, as its Info.plist says.
+    static func installedBuild(of app: LCAppModel) -> CartoucheGameBuild {
+        let info = app.appInfo.info()
+        return CartoucheGameBuild(version: info?["CFBundleShortVersionString"] as? String, commit: info?["DMCommit"] as? String,
+                                  chain: info?["DMChain"] as? String)
+    }
+
+    /// The record of the game's install, when it is of the build installed.
+    func record(of app: LCAppModel) -> CartoucheGameBuild? {
+        guard let bundleId = app.appInfo.bundleIdentifier(), let recorded = builds[bundleId] else { return nil }
+        let installed = Self.installedBuild(of: app)
+        guard recorded.version == installed.version, recorded.commit == installed.commit else { return nil }
+        return recorded
+    }
+
+    /// The installed game's build, to compare with a copy in the games
+    /// folder: when it was built, from the record of its install, or, for
+    /// a game Cartouche installed before it kept one, when it was
+    /// installed, which it was built before.
+    func build(of app: LCAppModel) -> CartoucheGameBuild {
+        let installedAt: Date? = app.appInfo.installationDate
+        var build = record(of: app) ?? Self.installedBuild(of: app)
+        if build.builtAt == nil { build.builtAt = installedAt }
+        return build
+    }
 }
 
 @MainActor
@@ -83,6 +152,9 @@ final class CartoucheStoredGames: ObservableObject {
     private var known: [String: CartoucheStoredGame] = [:]
     private let cacheFile: URL
     private var scan: Task<Void, Never>?
+    #if CARTOUCHE_GALLERY
+    private var shownForGallery = false
+    #endif
 
     init(settings: CartoucheStorageSettings = .shared) {
         self.settings = settings
@@ -126,7 +198,20 @@ final class CartoucheStoredGames: ObservableObject {
         await read()
     }
 
+    #if CARTOUCHE_GALLERY
+    /// A games folder with these IPAs, for the launcher's gallery
+    /// (launcher/Gallery).
+    func showForGallery(_ stored: [CartoucheStoredGame], server: String) {
+        games = stored
+        serverName = server
+        shownForGallery = true
+    }
+    #endif
+
     private func read() async {
+        #if CARTOUCHE_GALLERY
+        if shownForGallery { return }
+        #endif
         guard let location = settings.location(.games) else {
             games = []
             serverName = nil
@@ -160,7 +245,9 @@ final class CartoucheStoredGames: ObservableObject {
                 for item in items where !item.isFolder && item.name.lowercased().hasSuffix(".ipa") {
                     let path = CartoucheStoragePath.join(folder, item.name)
                     let key = Self.key(location.server, path: path, size: item.size, modified: item.modified)
-                    if let game = known[key] {
+                    // What a scan before 0.9.0 found says nothing of the
+                    // build: read again.
+                    if let game = known[key], game.build != nil {
                         found.append(game)
                         continue
                     }
@@ -190,56 +277,63 @@ final class CartoucheStoredGames: ObservableObject {
 
     /// What the IPA at PATH is: by the title ID in its name, as Cartouche
     /// names the IPAs it writes, else by its Info.plist, else by its name
-    /// (CartoucheCatalog.titleId(inFileName:)). A file iCloud Drive has not
-    /// downloaded is known by its name only, since reading it would download
-    /// all of it. Also returns whether to remember what it found: an IPA its
-    /// name did not tell is read again at the next scan, once it is
+    /// (CartoucheCatalog.titleId(inFileName:)); and which build of the game,
+    /// by its Info.plist. A file iCloud Drive has not downloaded is known by
+    /// its name only, since reading it would download all of it. Also
+    /// returns whether to remember what it found: an IPA whose Info.plist
+    /// could not be read is read again at the next scan, once it is
     /// downloaded or once the place answers.
     private func identify(path: String, item: CartoucheRemoteItem, in remote: CartoucheRemote,
                           server: CartoucheStorageServer) async -> (CartoucheStoredGame, settled: Bool) {
         var game = CartoucheStoredGame(path: path, size: item.size, modified: item.modified,
                                        titleId: CartoucheStoredGame.titleId(inName: item.name), isGame: false)
-        if game.titleId != nil {
-            game.isGame = true
-            return (game, true)
-        }
+        let named = game.titleId != nil
         if let folder = remote as? CartoucheFolder, !folder.isDownloaded(path) {
-            game.titleId = CartoucheCatalog.shared.titleId(inFileName: item.name)
+            if !named { game.titleId = CartoucheCatalog.shared.titleId(inFileName: item.name) }
             game.isGame = game.titleId != nil
-            return (game, game.isGame)
+            return (game, false)
         }
         do {
             let source = try await remote.open(path)
-            let info = try await Self.infoPlist(of: source)
+            let (info, builtAt) = try await Self.infoPlist(of: source)
             game.bundleId = info["CFBundleIdentifier"] as? String
             game.displayName = (info["CFBundleDisplayName"] as? String) ?? (info["CFBundleName"] as? String)
             game.version = info["CFBundleShortVersionString"] as? String
-            game.titleId = game.bundleId.flatMap(CartoucheStoredGame.titleId(inBundleId:))
-                ?? game.displayName.flatMap { CartoucheCatalog.shared.titleId(matchingName: $0) }
-                ?? CartoucheCatalog.shared.titleId(inFileName: item.name)
+            game.build = CartoucheGameBuild(info: info, builtAt: builtAt)
+            if !named {
+                game.titleId = game.bundleId.flatMap(CartoucheStoredGame.titleId(inBundleId:))
+                    ?? game.displayName.flatMap { CartoucheCatalog.shared.titleId(matchingName: $0) }
+                    ?? CartoucheCatalog.shared.titleId(inFileName: item.name)
+            }
             game.isGame = game.titleId != nil || info["DMLanguage"] != nil
             return (game, true)
         } catch {
             NSLog("[Cartouche] cannot read %@: %@", path, error.localizedDescription)
-            game.titleId = CartoucheCatalog.shared.titleId(inFileName: item.name)
+            if !named { game.titleId = CartoucheCatalog.shared.titleId(inFileName: item.name) }
             game.isGame = game.titleId != nil
-            return (game, game.isGame)
+            return (game, false)
         }
     }
 
-    /// The Info.plist of the app in an IPA: Payload/<name>.app/Info.plist.
-    nonisolated static func infoPlist(of source: CartoucheByteSource) async throws -> [String: Any] {
-        let entries = try await CartoucheZip.entries(of: source)
-        guard let entry = entries.first(where: { entry in
+    /// The entry of the app's Info.plist in an IPA: Payload/<name>.app/Info.plist.
+    nonisolated static func infoPlistEntry(in entries: [CartoucheZipEntry]) -> CartoucheZipEntry? {
+        entries.first { entry in
             let parts = entry.name.split(separator: "/")
             return parts.count == 3 && parts[0] == "Payload" && parts[1].hasSuffix(".app") && parts[2] == "Info.plist"
-        }) else {
+        }
+    }
+
+    /// The Info.plist of the app in an IPA, and its time there, which says
+    /// when the IPA was built.
+    nonisolated static func infoPlist(of source: CartoucheByteSource) async throws -> (info: [String: Any], builtAt: Date?) {
+        let entries = try await CartoucheZip.entries(of: source)
+        guard let entry = infoPlistEntry(in: entries) else {
             throw CartoucheStorageError(CartoucheText.storageNotAnApp)
         }
         let data = try await CartoucheZip.data(of: entry, in: source, limit: 4 << 20)
         guard let plist = try PropertyListSerialization.propertyList(from: data, format: nil) as? [String: Any] else {
             throw CartoucheStorageError(CartoucheText.storageNotAnApp)
         }
-        return plist
+        return (plist, entry.modified)
     }
 }
