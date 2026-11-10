@@ -454,7 +454,7 @@ struct CartoucheHomeView: View {
 
     /// A button of the game in focus. While a controller is connected, it
     /// shows the controller's button that does the same, in place of its
-    /// symbol.
+    /// symbol. With its symbol alone (ICONONLY), it is round.
     @ViewBuilder
     private func actionButton(_ title: String, systemImage: String, primary: Bool, iconOnly: Bool = false,
                               input: CartoucheGamepad.Input? = nil, action: @escaping () -> Void) -> some View {
@@ -464,17 +464,20 @@ struct CartoucheHomeView: View {
                 Label(title, systemImage: symbol)
                     .labelStyle(.iconOnly)
                     .font(.headline)
-                    .padding(.horizontal, 6)
-                    .frame(minHeight: 30)
+                    .frame(minWidth: 30, minHeight: 30)
             } else {
                 Label(title, systemImage: symbol)
                     .font(.headline)
                     .lineLimit(1)
+                    // A long name, such as the server's of Install from,
+                    // shrinks a little before it is cut.
+                    .minimumScaleFactor(0.8)
                     .padding(.horizontal, 6)
                     .frame(minHeight: 30)
             }
         }
         .controlSize(.large)
+        .buttonBorderShape(iconOnly ? .circle : .automatic)
         if primary {
             button.cartouchePrimaryButton()
         } else {
@@ -683,7 +686,17 @@ struct CartoucheHomeView: View {
         var margin: CGFloat { size.width >= 600 ? 28 : 18 }
         var spacing: CGFloat { isShort ? 12 : 20 }
         var verticalPadding: CGFloat { isShort ? 8 : 12 }
-        var shelvesWidth: CGFloat { (size.width - 2 * margin) * (hasHero ? 0.6 : 1) }
+        /// The narrowest the game in focus gets beside the shelves: its name,
+        /// its badges, and Play with its other buttons round beside it.
+        static let heroMinWidth: CGFloat = 250
+        /// Beside the game in focus, 0.6 of the width, or less where the game
+        /// would get under heroMinWidth, as on the Duo folded and sideways,
+        /// but never under half of it.
+        var shelvesWidth: CGFloat {
+            let width = size.width - 2 * margin
+            guard hasHero else { return width }
+            return max(min(width * 0.6, width - columnGap - Self.heroMinWidth), width * 0.5)
+        }
         /// Beside the game in focus, the space between it and the shelves.
         var columnGap: CGFloat { spacing * 1.5 }
         /// Where the shelves start to fade, from the screen's margin to the
