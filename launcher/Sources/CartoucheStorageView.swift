@@ -45,6 +45,7 @@ struct CartoucheStorageView: View {
             placeSection(.saves)
             serversSection
         }
+        .cartoucheStageBackground()
         .navigationTitle(CartoucheText.storageTitle)
         .sheet(item: $editing) { server in
             NavigationStack {
@@ -56,6 +57,7 @@ struct CartoucheStorageView: View {
                     CartoucheStorageServerForm(server: server)
                 }
             }
+            .preferredColorScheme(.dark)
         }
         .sheet(item: $browsing) { browsing in
             NavigationStack {
@@ -70,6 +72,7 @@ struct CartoucheStorageView: View {
                     }
                 }
             }
+            .preferredColorScheme(.dark)
         }
         .sheet(isPresented: $choosingFolder) {
             CartoucheFolderPicker { url in
@@ -382,6 +385,7 @@ struct CartoucheStorageServerForm: View {
                 Text(CartoucheText.storageNameTitle)
             }
         }
+        .cartoucheStageBackground()
         .navigationTitle(isNew ? CartoucheText.storageAddSMB : server.name)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
@@ -510,6 +514,7 @@ struct CartoucheStorageS3Form: View {
                 Text(CartoucheText.storageNameTitle)
             }
         }
+        .cartoucheStageBackground()
         .navigationTitle(isNew ? CartoucheText.storageAddS3 : server.name)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
@@ -643,6 +648,7 @@ struct CartoucheStorageFTPForm: View {
                 Text(CartoucheText.storageNameTitle)
             }
         }
+        .cartoucheStageBackground()
         .navigationTitle(isNew ? (isSFTP ? CartoucheText.storageAddSFTP : CartoucheText.storageAddFTP) : server.name)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
@@ -842,6 +848,7 @@ struct CartoucheStorageFolderBrowser: View {
                 }
             }
         }
+        .cartoucheStageBackground()
         .navigationTitle(path.isEmpty ? server.name : CartoucheStoragePath.name(path))
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
@@ -1028,6 +1035,7 @@ struct CartoucheSaveCopiesView: View {
                 Text(CartoucheText.savesPutBackFooter)
             }
         }
+        .cartoucheStageBackground()
         .navigationTitle(CartoucheText.savesPutBack)
         .navigationBarTitleDisplayMode(.inline)
         .overlay {

@@ -17,20 +17,15 @@ enum CartoucheTheme {
     static let indigo = Color(red: 0.310, green: 0.275, blue: 0.898)
     static let pink = Color(red: 0.925, green: 0.282, blue: 0.600)
     static let brand = LinearGradient(colors: [indigo, pink], startPoint: .leading, endPoint: .trailing)
-    /// The gold of a cartridge's contacts.
-    static let gold = LinearGradient(
-        colors: [Color(red: 1.0, green: 0.859, blue: 0.494), Color(red: 0.910, green: 0.647, blue: 0.208)],
-        startPoint: .top, endPoint: .bottom)
 
-    /// A cartridge's label, its width over its height: a game case's, so
-    /// that a game's official cover shows whole. IGDB's covers run from
-    /// about 0.6, a Switch case, to 0.75; a narrower or wider one shows over
-    /// a blurred copy of itself (CartoucheCoverImage).
+    /// A game's tile, its width over its height: a game case's, so that a
+    /// game's official cover shows whole. IGDB's covers run from about 0.6,
+    /// a Switch case, to 0.75; a narrower or wider one shows over a blurred
+    /// copy of itself (CartoucheCoverImage).
     static let labelAspect: CGFloat = 0.68
 
-    /// A cartridge's height for its width: its ridges, its label, which is
-    /// 0.84 of its width across, and its contacts.
-    static let cartridgeAspect: CGFloat = 0.235 + 0.84 / labelAspect + 0.075 + 0.17
+    /// A game's tile's height for its width: its cover, nothing around it.
+    static let cartridgeAspect: CGFloat = 1 / labelAspect
 
     static let secondaryText = Color.white.opacity(0.68)
     /// A step that cannot be undone, such as Uninstall, legible on the stage.
@@ -44,14 +39,6 @@ enum CartoucheTheme {
         let shifted = (hue + 0.07).truncatingRemainder(dividingBy: 1)
         return (Color(hue: hue, saturation: 0.62, brightness: 0.90),
                 Color(hue: shifted, saturation: 0.80, brightness: 0.40))
-    }
-
-    /// The cartridge's own body colour: the game's hue, darker and calmer
-    /// than its label.
-    static func bodyColors(for key: String) -> (top: Color, bottom: Color) {
-        let hue = hue(for: key)
-        return (Color(hue: hue, saturation: 0.42, brightness: 0.34),
-                Color(hue: hue, saturation: 0.50, brightness: 0.19))
     }
 
     private static func hue(for key: String) -> Double {
@@ -191,6 +178,14 @@ extension View {
         } else {
             self.buttonStyle(.bordered).tint(.white)
         }
+    }
+
+    /// A list or a form on the console's dark stage, as a game's sheet has
+    /// it, in place of the system's grouped background: the System page
+    /// and the pages under it look like the console they open over.
+    func cartoucheStageBackground(key: String? = nil) -> some View {
+        self.scrollContentBackground(.hidden)
+            .background(CartoucheStage(key: key))
     }
 
     /// A game's cartridge that its sheet grows out of (iOS 18 and later).

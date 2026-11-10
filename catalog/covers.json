@@ -108,6 +108,13 @@
       "artwork": "ar3z8j"
     },
     {
+      "titleId": "0100276009872000",
+      "igdb": 20744,
+      "name": "Ōkami HD",
+      "cover": "co22s8",
+      "artwork": "ar4nv"
+    },
+    {
       "titleId": "010028600EBDA000",
       "igdb": 138227,
       "name": "Super Mario 3D World + Bowser's Fury",
@@ -196,6 +203,13 @@
       "igdb": 191519,
       "name": "Taikou Risshiden V DX",
       "cover": "co4hjt"
+    },
+    {
+      "titleId": "010035F022078000",
+      "igdb": 279634,
+      "name": "Dragon Ball: Sparking! Zero",
+      "cover": "co8bhn",
+      "artwork": "ar2o80"
     },
     {
       "titleId": "010036E00FB20000",
@@ -555,6 +569,13 @@
       "artwork": "ar5l22"
     },
     {
+      "titleId": "01008D9022462000",
+      "igdb": 296843,
+      "name": "The Rogue Prince of Persia",
+      "cover": "coab8v",
+      "artwork": "ar6p3j"
+    },
+    {
       "titleId": "01008DB008C2C000",
       "igdb": 115653,
       "name": "Pokémon Shield",
@@ -567,6 +588,13 @@
       "name": "Pokémon Violet",
       "cover": "co5sfa",
       "artwork": "ar3vl4"
+    },
+    {
+      "titleId": "01008F701C074000",
+      "igdb": 252478,
+      "name": "Sonic Superstars",
+      "cover": "cobbw4",
+      "artwork": "ar2dfa"
     },
     {
       "titleId": "010092B0091D0000",
@@ -665,6 +693,13 @@
       "name": "Fire Emblem Engage",
       "cover": "coc5d3",
       "artwork": "ar5ra7"
+    },
+    {
+      "titleId": "0100A7C01B792000",
+      "igdb": 395525,
+      "name": "Minecraft Dungeons II",
+      "cover": "coc75p",
+      "artwork": "ar60u5"
     },
     {
       "titleId": "0100A83022A22000",
@@ -870,6 +905,12 @@
       "artwork": "ar3p23"
     },
     {
+      "titleId": "0100ED7012DB2000",
+      "igdb": 350638,
+      "name": "Romance of the Three Kingdoms XIV: Diplomacy and Strategy Expansion Pack",
+      "cover": "coa0ui"
+    },
+    {
       "titleId": "0100F2C0115B6000",
       "igdb": 119388,
       "name": "The Legend of Zelda: Tears of the Kingdom",
@@ -926,11 +967,25 @@
       "artwork": "ar6jxx"
     },
     {
+      "titleId": "0400486024DEC000",
+      "igdb": 405460,
+      "name": "The Legend of Zelda: Ocarina of Time",
+      "cover": "cocv5r",
+      "artwork": "ar6knj"
+    },
+    {
       "titleId": "040074A01BF12000",
       "igdb": 338106,
       "name": "Donkey Kong Bananza",
       "cover": "cobd1q",
       "artwork": "ar3eyk"
+    },
+    {
+      "titleId": "040077201BE50000",
+      "igdb": 338105,
+      "name": "Kirby Air Riders",
+      "cover": "coaauz",
+      "artwork": "ar3eyu"
     },
     {
       "titleId": "04007EF01F8AE000",

@@ -40,6 +40,7 @@ struct CartoucheSystemView: View {
                 cartoucheSection
                 reportSection
             }
+            .cartoucheStageBackground()
             .navigationTitle(CartoucheText.systemTab)
             .refreshable { measure() }
             .toolbar {
@@ -48,6 +49,8 @@ struct CartoucheSystemView: View {
                 }
             }
         }
+        // Dark like the console under it, whatever the iPhone's appearance.
+        .preferredColorScheme(.dark)
         .onAppear(perform: measure)
         .onReceive(CartoucheGamepad.shared.inputs) { input in
             if input == .menu { close() }
@@ -453,6 +456,7 @@ struct CartoucheNightlyRenewalView: View {
                 }
             }
         }
+        .cartoucheStageBackground()
         .navigationTitle(CartoucheText.renewEveryNight)
         .navigationBarTitleDisplayMode(.inline)
     }

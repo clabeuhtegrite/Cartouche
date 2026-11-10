@@ -2,12 +2,15 @@
 //  CartoucheGameSheetView.swift
 //  Cartouche
 //
-//  A game's sheet: where nxnative plays it and what its profile says, what
-//  the game needs against what this iPhone has, the settings testers
-//  recommend, and their results. Its main action is Play for the player's
-//  own copy, with Game settings (the game's settings page) and Uninstall
-//  under it, and the copies of its saves; Install from the player's games
-//  folder for a copy there; or Import my copy.
+//  A game's sheet. On top, its cover, name and badges, and its main action:
+//  Play for the player's own copy, with Game settings and, when the games
+//  folder holds a newer build, Update beside it; Install from the player's
+//  games folder for a copy there; or Import my copy. Under them, what stops
+//  the game on this iPhone, if anything (what it needs folds into one line
+//  when this iPhone has it all), the copies of its saves, the game's copy
+//  in the games folder and Uninstall, the testers' results, and last,
+//  folded, the technical details: the recommended settings, what
+//  nxnative's profile says and which build is installed.
 //
 
 import SwiftUI
@@ -33,6 +36,10 @@ struct CartoucheGameSheetView: View {
         entry.sheet.map { CartoucheFit.of($0, memory: memory) }
     }
 
+    private var serverName: String {
+        CartoucheStoredGames.shared.serverName ?? ""
+    }
+
     var body: some View {
         List {
             Section {
@@ -51,17 +58,6 @@ struct CartoucheGameSheetView: View {
                     }
                 }
                 requirements(sheet)
-                if let recommended = sheet.recommended, recommended.resolution != nil || recommended.mode != nil {
-                    Section(CartoucheText.recommendedSettings) {
-                        if let resolution = recommended.resolution {
-                            LabeledContent(CartoucheText.resolution, value: resolution)
-                        }
-                        if let mode = recommended.mode {
-                            LabeledContent(CartoucheText.mode, value: CartoucheText.modeName(mode))
-                        }
-                    }
-                }
-                results(sheet)
             } else if entry.isOwned {
                 Section {
                     Text(CartoucheText.noSheetMessage)
@@ -73,15 +69,25 @@ struct CartoucheGameSheetView: View {
                 CartoucheSavesSection(target: saves)
             }
 
-            if let game = entry.game {
-                nxnative(game)
+            if let app = entry.app {
+                manageSection(app)
+            }
+
+            if let sheet = entry.sheet, !sheet.results.isEmpty {
+                results(sheet)
+            }
+
+            if hasDetails {
+                detailsSection
             }
         }
         .scrollContentBackground(.hidden)
         .background(CartoucheStage(key: entry.tileKey, artwork: entry.cover?.artwork))
-        .navigationTitle(entry.name)
+        // The header names the game: the bar above it stays empty.
         .navigationBarTitleDisplayMode(.inline)
     }
+
+    // MARK: Header
 
     private var header: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -94,6 +100,7 @@ struct CartoucheGameSheetView: View {
                         .foregroundStyle(Color.white)
                         .lineLimit(3)
                         .minimumScaleFactor(0.7)
+                        .accessibilityAddTraits(.isHeader)
                     // For the player's own copy, the badge says whether it
                     // is ready, or what stops it.
                     CartoucheMetaLine(entry: entry, showsStatus: entry.app == nil || entry.sheet == nil)
@@ -104,106 +111,54 @@ struct CartoucheGameSheetView: View {
             }
 
             if let app = entry.app {
-                Button {
-                    onPlay(app)
-                } label: {
-                    Label(CartoucheText.play, systemImage: "play.fill")
-                        .font(.headline)
-                        .frame(maxWidth: .infinity, minHeight: 30)
-                }
-                .controlSize(.large)
-                .cartouchePrimaryButton()
+                primaryButton(CartoucheText.play, systemImage: "play.fill") { onPlay(app) }
                 HStack(spacing: 10) {
-                    Button {
-                        onSettings(app)
-                    } label: {
-                        Label(CartoucheText.gameSettings, systemImage: "slider.horizontal.3")
-                            .font(.subheadline.weight(.semibold))
-                            .frame(maxWidth: .infinity, minHeight: 26)
+                    secondaryButton(CartoucheText.gameSettings, systemImage: "slider.horizontal.3") { onSettings(app) }
+                    if let update = entry.update {
+                        secondaryButton(CartoucheText.updateGame, systemImage: "arrow.down.circle.fill") { onInstallStored(update) }
                     }
-                    .cartoucheSecondaryButton()
-                    Button(role: .destructive) {
-                        onUninstall(app)
-                    } label: {
-                        Label(CartoucheText.uninstall, systemImage: "trash")
-                            .font(.subheadline.weight(.semibold))
-                            .foregroundStyle(CartoucheTheme.danger)
-                            .frame(maxWidth: .infinity, minHeight: 26)
-                    }
-                    .cartoucheSecondaryButton()
                 }
-                .controlSize(.regular)
-                storedCopy(of: app)
+                if let update = entry.update, let build = update.build {
+                    buildLine(CartoucheText.buildNewer(serverName, CartoucheText.build(build, showsCommit: false)),
+                              systemImage: "arrow.down.circle")
+                    if let installed = installedBuild(of: app, showsCommit: false) {
+                        buildLine(CartoucheText.buildHere(installed), systemImage: "iphone")
+                    }
+                }
             } else if let stored = entry.stored {
-                Button {
-                    onInstallStored(stored)
-                } label: {
-                    Label(CartoucheText.installFrom(CartoucheStoredGames.shared.serverName ?? ""), systemImage: "arrow.down.circle.fill")
-                        .font(.headline)
-                        .frame(maxWidth: .infinity, minHeight: 30)
-                }
-                .controlSize(.large)
-                .cartouchePrimaryButton()
-                Button(action: onImport) {
-                    Label(CartoucheText.importOtherCopy, systemImage: "square.and.arrow.down")
-                        .font(.subheadline.weight(.semibold))
-                        .frame(maxWidth: .infinity, minHeight: 26)
-                }
-                .controlSize(.regular)
-                .cartoucheSecondaryButton()
+                primaryButton(CartoucheText.installFrom(serverName), systemImage: "arrow.down.circle.fill") { onInstallStored(stored) }
+                secondaryButton(CartoucheText.importOtherCopy, systemImage: "square.and.arrow.down", action: onImport)
             } else {
-                Button(action: onImport) {
-                    Label(CartoucheText.importCopy, systemImage: "square.and.arrow.down")
-                        .font(.headline)
-                        .frame(maxWidth: .infinity, minHeight: 30)
-                }
-                .controlSize(.large)
-                .cartouchePrimaryButton()
+                primaryButton(CartoucheText.importCopy, systemImage: "square.and.arrow.down", action: onImport)
             }
         }
         .padding(.vertical, 8)
     }
 
-    /// The installed game's IPA in the player's games folder: the newer
-    /// build there, to update the game with, or where its copy is, or the
-    /// button that copies it there; and which build is on this iPhone.
-    @ViewBuilder
-    private func storedCopy(of app: LCAppModel) -> some View {
-        let serverName = CartoucheStoredGames.shared.serverName ?? ""
-        if let update = entry.update {
-            Button {
-                onInstallStored(update)
-            } label: {
-                Label(CartoucheText.updateFrom(serverName), systemImage: "arrow.down.circle.fill")
-                    .font(.subheadline.weight(.semibold))
-                    .frame(maxWidth: .infinity, minHeight: 26)
-            }
-            .controlSize(.regular)
-            .cartoucheSecondaryButton()
-            if let build = update.build {
-                buildLine(CartoucheText.buildNewer(serverName, CartoucheText.build(build)), systemImage: "arrow.down.circle")
-            }
+    /// The sheet's main action, white on Cartouche's indigo: a list would
+    /// otherwise tint its symbol with the accent colour.
+    private func primaryButton(_ title: String, systemImage: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Label(title, systemImage: systemImage)
+                .font(.headline)
+                .foregroundStyle(Color.white)
+                .frame(maxWidth: .infinity, minHeight: 30)
         }
-        if let installed = installedBuild(of: app) {
-            buildLine(CartoucheText.buildHere(installed), systemImage: "iphone")
+        .controlSize(.large)
+        .cartouchePrimaryButton()
+    }
+
+    private func secondaryButton(_ title: String, systemImage: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Label(title, systemImage: systemImage)
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(Color.white)
+                .lineLimit(1)
+                .minimumScaleFactor(0.8)
+                .frame(maxWidth: .infinity, minHeight: 26)
         }
-        if let stored = entry.stored {
-            if entry.update == nil {
-                buildLine(CartoucheText.storedIn(serverName, stored.fileName), systemImage: "externaldrive.fill")
-            }
-        } else if let server = CartoucheStorageSettings.shared.location(.games)?.server,
-                  // A folder the player's account only reads takes no copy.
-                  !CartoucheStorageSettings.shared.isReadOnly(.games) {
-            Button {
-                onExport(app)
-            } label: {
-                Label(CartoucheText.exportTo(server.name), systemImage: "externaldrive.fill.badge.plus")
-                    .font(.subheadline.weight(.semibold))
-                    .frame(maxWidth: .infinity, minHeight: 26)
-            }
-            .controlSize(.regular)
-            .cartoucheSecondaryButton()
-        }
+        .controlSize(.regular)
+        .cartoucheSecondaryButton()
     }
 
     private func buildLine(_ text: String, systemImage: String) -> some View {
@@ -216,96 +171,126 @@ struct CartoucheGameSheetView: View {
     /// Which build of the game is installed, in a few words: as the IPA
     /// Cartouche installed it from said, or, for a game installed before
     /// Cartouche kept that, its version, commit and install date.
-    private func installedBuild(of app: LCAppModel) -> String? {
+    private func installedBuild(of app: LCAppModel, showsCommit: Bool = true) -> String? {
         if let recorded = CartoucheInstalledBuilds.shared.record(of: app) {
-            return CartoucheText.build(recorded)
+            return CartoucheText.build(recorded, showsCommit: showsCommit)
         }
         let build = CartoucheInstalledBuilds.installedBuild(of: app)
         let installedAt: Date? = app.appInfo.installationDate
         guard build.version != nil || build.commit != nil || installedAt != nil else { return nil }
-        return CartoucheText.build(build, installedOn: installedAt)
+        return CartoucheText.build(build, installedOn: installedAt, showsCommit: showsCommit)
     }
 
-    /// What nxnative's profile says about the game.
-    private func nxnative(_ game: CartoucheNxGame) -> some View {
-        // The player's copy says nothing of where nxnative plays the game.
-        var status = CartouchePlayStatus.of(entry)
-        if status == .ready || status == .update || status == .stored { status = .iphone }
-        return Section(CartoucheText.sheetNxnative) {
-            Label {
-                Text(status.long)
-            } icon: {
-                Image(systemName: status.symbol)
-                    .foregroundStyle(status.color)
-            }
-            LabeledContent(CartoucheText.sheetEngine, value: game.engine)
-            LabeledContent(CartoucheText.sheetBuild, value: game.build)
-            LabeledContent(CartoucheText.sheetSDK, value: game.sdk)
-            LabeledContent(CartoucheText.sheetTitleID) {
-                Text(verbatim: game.titleId)
-                    .font(.body.monospaced())
-                    .textSelection(.enabled)
-            }
-            ForEach(game.variants ?? [], id: \.self) { variant in
-                LabeledContent(CartoucheText.region(variant.region)) {
-                    VStack(alignment: .trailing, spacing: 2) {
-                        Text(verbatim: variant.titleId)
-                            .font(.body.monospaced())
-                            .textSelection(.enabled)
-                        Text(variant.build)
-                            .font(.footnote)
-                            .foregroundStyle(.secondary)
+    // MARK: On this iPhone
+
+    private struct Requirement: Hashable {
+        let ok: Bool
+        let title: String
+        let detail: String
+    }
+
+    private func requirementList(_ sheet: CartoucheGameSheet) -> [Requirement] {
+        var list = [Requirement(ok: CartoucheDevice.runsAtLeast(sheet.requirements.minimumIOS),
+                                title: CartoucheText.iosRequirement(sheet.requirements.minimumIOS),
+                                detail: CartoucheText.iosCurrent(CartoucheDevice.iOSVersion))]
+        if sheet.requirements.bcTextureCompression {
+            list.append(Requirement(ok: CartoucheDevice.supportsBCTextureCompression,
+                                    title: CartoucheText.bcRequirement,
+                                    detail: CartoucheDevice.supportsBCTextureCompression ? CartoucheText.gpuSupported : CartoucheText.gpuUnsupported))
+        }
+        if sheet.requirements.increasedMemoryLimit {
+            let limit = memory.map { CartoucheText.memoryAmount(mebibytes: $0.limitMiB) } ?? "–"
+            list.append(Requirement(ok: CartoucheDevice.hasIncreasedMemoryLimit,
+                                    title: CartoucheText.imlRequirement,
+                                    detail: CartoucheDevice.hasIncreasedMemoryLimit ? CartoucheText.imlActive(limit) : CartoucheText.imlInactive(limit)))
+        }
+        if let peak = sheet.peakMemoryMiB {
+            let fits = memory.map { peak <= $0.limitMiB } ?? true
+            list.append(Requirement(ok: fits,
+                                    title: CartoucheText.memoryRequirement,
+                                    detail: CartoucheText.memoryNeeded(CartoucheText.memoryAmount(mebibytes: peak))))
+        }
+        return list
+    }
+
+    /// What the game needs against what this iPhone has: one line that
+    /// opens on the details when it has it all, each need otherwise.
+    @ViewBuilder
+    private func requirements(_ sheet: CartoucheGameSheet) -> some View {
+        let list = requirementList(sheet)
+        if list.allSatisfy(\.ok) {
+            Section {
+                DisclosureGroup {
+                    ForEach(list, id: \.self) { requirement in
+                        row(requirement)
                     }
+                } label: {
+                    Label {
+                        Text(CartoucheText.requirementsMet)
+                    } icon: {
+                        Image(systemName: "checkmark.circle.fill")
+                            .foregroundStyle(Color.green)
+                    }
+                }
+            }
+        } else {
+            Section(CartoucheText.onThisIPhone) {
+                ForEach(list, id: \.self) { requirement in
+                    row(requirement)
                 }
             }
         }
     }
 
-    private func requirements(_ sheet: CartoucheGameSheet) -> some View {
-        Section(CartoucheText.onThisIPhone) {
-            row(ok: CartoucheDevice.runsAtLeast(sheet.requirements.minimumIOS),
-                title: CartoucheText.iosRequirement(sheet.requirements.minimumIOS),
-                detail: CartoucheText.iosCurrent(CartoucheDevice.iOSVersion))
-            if sheet.requirements.bcTextureCompression {
-                row(ok: CartoucheDevice.supportsBCTextureCompression,
-                    title: CartoucheText.bcRequirement,
-                    detail: CartoucheDevice.supportsBCTextureCompression ? CartoucheText.gpuSupported : CartoucheText.gpuUnsupported)
-            }
-            if sheet.requirements.increasedMemoryLimit {
-                let limit = memory.map { CartoucheText.memoryAmount(mebibytes: $0.limitMiB) } ?? "–"
-                row(ok: CartoucheDevice.hasIncreasedMemoryLimit,
-                    title: CartoucheText.imlRequirement,
-                    detail: CartoucheDevice.hasIncreasedMemoryLimit ? CartoucheText.imlActive(limit) : CartoucheText.imlInactive(limit))
-            }
-            if let peak = sheet.peakMemoryMiB {
-                let fits = memory.map { peak <= $0.limitMiB } ?? true
-                row(ok: fits,
-                    title: CartoucheText.memoryRequirement,
-                    detail: CartoucheText.memoryNeeded(CartoucheText.memoryAmount(mebibytes: peak)))
-            }
-        }
-    }
-
-    private func row(ok: Bool, title: String, detail: String) -> some View {
+    private func row(_ requirement: Requirement) -> some View {
         Label {
             VStack(alignment: .leading, spacing: 2) {
-                Text(title)
-                Text(detail)
+                Text(requirement.title)
+                Text(requirement.detail)
                     .font(.footnote)
                     .foregroundStyle(.secondary)
             }
         } icon: {
-            Image(systemName: ok ? "checkmark.circle.fill" : "xmark.circle.fill")
-                .foregroundStyle(ok ? Color.green : Color.red)
+            Image(systemName: requirement.ok ? "checkmark.circle.fill" : "xmark.circle.fill")
+                .foregroundStyle(requirement.ok ? Color.green : Color.red)
         }
     }
 
+    // MARK: The player's copy
+
+    /// The game's copy in the games folder, or the button that copies it
+    /// there, and Uninstall, last, in red.
+    private func manageSection(_ app: LCAppModel) -> some View {
+        Section {
+            if let stored = entry.stored {
+                if entry.update == nil {
+                    Label(CartoucheText.storedIn(serverName, stored.fileName), systemImage: "externaldrive.fill")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(3)
+                }
+            } else if let server = CartoucheStorageSettings.shared.location(.games)?.server,
+                      // A folder the player's account only reads takes no copy.
+                      !CartoucheStorageSettings.shared.isReadOnly(.games) {
+                Button {
+                    onExport(app)
+                } label: {
+                    Label(CartoucheText.exportTo(server.name), systemImage: "externaldrive.fill.badge.plus")
+                }
+            }
+            Button(role: .destructive) {
+                onUninstall(app)
+            } label: {
+                Label(CartoucheText.uninstall, systemImage: "trash")
+                    .foregroundStyle(CartoucheTheme.danger)
+            }
+        }
+    }
+
+    // MARK: Testers' results
+
     private func results(_ sheet: CartoucheGameSheet) -> some View {
         Section(CartoucheText.results) {
-            if sheet.results.isEmpty {
-                Text(CartoucheText.noResults)
-                    .foregroundStyle(.secondary)
-            }
             ForEach(sheet.results.sorted { $0.date > $1.date }, id: \.self) { result in
                 VStack(alignment: .leading, spacing: 4) {
                     HStack {
@@ -345,5 +330,78 @@ struct CartoucheGameSheetView: View {
             name = CartoucheText.thisModel + " · " + name
         }
         return name
+    }
+
+    // MARK: Technical details
+
+    private var recommended: CartoucheGameSheet.Recommended? {
+        guard let recommended = entry.sheet?.recommended,
+              recommended.resolution != nil || recommended.mode != nil else { return nil }
+        return recommended
+    }
+
+    private var hasDetails: Bool {
+        recommended != nil || entry.game != nil || entry.app != nil
+    }
+
+    /// What players rarely need, folded: the recommended settings, what
+    /// nxnative's profile says about the game, and the build installed.
+    private var detailsSection: some View {
+        Section {
+            DisclosureGroup(CartoucheText.sheetDetails) {
+                if let recommended {
+                    if let resolution = recommended.resolution {
+                        LabeledContent(CartoucheText.resolution, value: resolution)
+                    }
+                    if let mode = recommended.mode {
+                        LabeledContent(CartoucheText.mode, value: CartoucheText.modeName(mode))
+                    }
+                }
+                if let game = entry.game {
+                    nxnative(game)
+                }
+                if let app = entry.app, let installed = installedBuild(of: app) {
+                    Label(CartoucheText.buildHere(installed), systemImage: "iphone")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                }
+            }
+        }
+    }
+
+    /// What nxnative's profile says about the game.
+    @ViewBuilder
+    private func nxnative(_ game: CartoucheNxGame) -> some View {
+        // The player's copy says nothing of where nxnative plays the game.
+        let status: CartouchePlayStatus = {
+            let status = CartouchePlayStatus.of(entry)
+            return status == .ready || status == .update || status == .stored ? .iphone : status
+        }()
+        Label {
+            Text(status.long)
+        } icon: {
+            Image(systemName: status.symbol)
+                .foregroundStyle(status.color)
+        }
+        LabeledContent(CartoucheText.sheetEngine, value: game.engine)
+        LabeledContent(CartoucheText.sheetBuild, value: game.build)
+        LabeledContent(CartoucheText.sheetSDK, value: game.sdk)
+        LabeledContent(CartoucheText.sheetTitleID) {
+            Text(verbatim: game.titleId)
+                .font(.body.monospaced())
+                .textSelection(.enabled)
+        }
+        ForEach(game.variants ?? [], id: \.self) { variant in
+            LabeledContent(CartoucheText.region(variant.region)) {
+                VStack(alignment: .trailing, spacing: 2) {
+                    Text(verbatim: variant.titleId)
+                        .font(.body.monospaced())
+                        .textSelection(.enabled)
+                    Text(variant.build)
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                }
+            }
+        }
     }
 }

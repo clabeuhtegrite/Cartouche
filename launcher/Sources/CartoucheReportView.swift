@@ -77,6 +77,7 @@ struct CartoucheReportView: View {
                 Text(CartoucheText.reportPrivacy)
             }
         }
+        .cartoucheStageBackground()
         .navigationTitle(CartoucheText.reportTitle)
         .navigationBarTitleDisplayMode(.inline)
         .onAppear {

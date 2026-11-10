@@ -3,19 +3,22 @@
 //  Cartouche
 //
 //  The console's home: the player's games on the first shelf, then the
-//  games nxnative plays on the iPhone, the game in focus described under
+//  games nxnative plays on the iPhone, the game in focus described between
 //  them with its main action, and a dock to the rest of Cartouche. The
 //  stage takes the colours of the game in focus.
 //
 //  Touch and a game controller both drive it. A tap puts a game in focus,
 //  a second tap opens its sheet; with a controller, the D-pad moves, A
-//  does the main action, X opens the sheet, Y every game and Menu the
-//  system page.
+//  does the main action of the game in focus, X opens its sheet, Y every
+//  game and Menu the system page. While a controller is connected, the
+//  buttons on screen show the controller's button that does the same.
 //
 //  The layout follows the space the screen gives it, never the iPhone
 //  model: one column when the screen is taller than wide (an iPhone, the
-//  iPhone Duo folded or unfolded upright), the shelves beside the game in
-//  focus when it is wider.
+//  iPhone Duo folded or unfolded upright), with the dock at the bottom;
+//  the shelves beside the game in focus when it is wider, with the dock
+//  in the top bar. The cartridges take the size that lets it all fit the
+//  screen, down to a size under which the home scrolls instead.
 //
 
 import SwiftUI
@@ -67,6 +70,9 @@ struct CartoucheHomeView: View {
     @State private var columns = [0, 0, 0]
     @State private var heroRow = 0
     @State private var signature = CartoucheSignature.current()
+    /// Whether the shelves stand beside the game in focus, with the dock in
+    /// the top bar, so that the D-pad goes up to the dock.
+    @State private var isWide = false
 
     enum Item: Hashable {
         case game(CartoucheEntry)
@@ -80,6 +86,10 @@ struct CartoucheHomeView: View {
     enum Dock: CaseIterable, Hashable {
         case allGames, importGame, system
     }
+
+    /// The signature's days left from which the top bar shows them: before,
+    /// renewals take care of it and the System page says when it expires.
+    static let expirySoonDays = 3
 
     /// The player's games, then the cartridge that imports one.
     private var libraryShelf: [Item] {
@@ -96,6 +106,12 @@ struct CartoucheHomeView: View {
         [libraryShelf, iPhoneShelf, Dock.allCases.map(Item.dock)]
     }
 
+    /// The rows from the top of the screen to the bottom: the dock is in
+    /// the top bar when the shelves stand beside the game in focus.
+    private var visualRows: [Int] {
+        isWide ? [2, 0, 1] : [0, 1, 2]
+    }
+
     private func item(row: Int) -> Item? {
         let items = rows[row]
         guard !items.isEmpty else { return nil }
@@ -110,17 +126,18 @@ struct CartoucheHomeView: View {
 
     var body: some View {
         GeometryReader { proxy in
-            let metrics = Metrics(size: proxy.size)
+            let metrics = Metrics(size: proxy.size, hasBanner: setup.needsSetup)
             ScrollView(.vertical) {
                 VStack(alignment: .leading, spacing: metrics.spacing) {
-                    topBar
+                    topBar(metrics)
                     if setup.needsSetup {
                         CartoucheHomeSetupBanner(action: onSetup)
                     }
                     if metrics.isWide {
                         HStack(alignment: .top, spacing: metrics.spacing * 1.5) {
                             VStack(alignment: .leading, spacing: metrics.spacing) {
-                                shelves(metrics)
+                                shelf(0, title: CartoucheText.homeLibrary, width: metrics.bigTile)
+                                shelf(1, title: CartoucheText.homeIPhone, width: metrics.smallTile)
                             }
                             .frame(width: metrics.shelvesWidth, alignment: .leading)
                             heroView(metrics)
@@ -133,28 +150,27 @@ struct CartoucheHomeView: View {
                     }
                 }
                 .padding(.horizontal, metrics.margin)
-                .padding(.vertical, 12)
+                .padding(.vertical, metrics.verticalPadding)
             }
             .scrollBounceBehavior(.basedOnSize)
             .scrollIndicators(.hidden)
-            // The dock stays at the bottom, the shelves scrolling under it
-            // where the screen is short (the iPhone Duo folded, sideways).
+            // Upright, the dock stays at the bottom; the shelves scroll under
+            // it only where the screen is too short for their smallest size.
             .safeAreaInset(edge: .bottom, spacing: 0) {
-                VStack(spacing: 10) {
-                    dock
-                    if gamepad.isConnected {
-                        hints
-                    }
-                }
-                .padding(.horizontal, metrics.margin)
-                .padding(.top, 14)
-                .padding(.bottom, 4)
-                .background {
-                    LinearGradient(colors: [CartoucheTheme.stage.opacity(0), CartoucheTheme.stage.opacity(0.88)],
-                                   startPoint: .top, endPoint: UnitPoint(x: 0.5, y: 0.45))
-                        .ignoresSafeArea(edges: .bottom)
+                if !metrics.isWide {
+                    dock(compact: false, labels: true)
+                        .padding(.horizontal, metrics.margin)
+                        .padding(.top, Metrics.dockTopPadding)
+                        .padding(.bottom, Metrics.dockBottomPadding)
+                        .background {
+                            LinearGradient(colors: [CartoucheTheme.stage.opacity(0), CartoucheTheme.stage.opacity(0.88)],
+                                           startPoint: .top, endPoint: UnitPoint(x: 0.5, y: 0.45))
+                                .ignoresSafeArea(edges: .bottom)
+                        }
                 }
             }
+            .onAppear { isWide = metrics.isWide }
+            .onChange(of: metrics.isWide) { _, wide in isWide = wide }
         }
         .background(CartoucheStage(key: heroKey, artwork: heroArtwork))
         .onReceive(gamepad.inputs) { input in
@@ -177,9 +193,9 @@ struct CartoucheHomeView: View {
 
     // MARK: Top bar
 
-    private var topBar: some View {
+    private func topBar(_ metrics: Metrics) -> some View {
         HStack(spacing: 10) {
-            CartoucheWordmark(size: 24)
+            CartoucheWordmark(size: metrics.isShort ? 22 : 24)
             Spacer(minLength: 8)
             if gamepad.isConnected {
                 Image(systemName: "gamecontroller.fill")
@@ -190,14 +206,16 @@ struct CartoucheHomeView: View {
                     .cartoucheGlass(in: Capsule())
                     .accessibilityLabel(Text(CartoucheText.controllerConnected))
             }
-            if let days = signature.daysLeft {
+            // Renewals keep Cartouche signed: its expiry shows here only
+            // when it comes close, and leads to the System page.
+            if let days = signature.daysLeft, days <= Self.expirySoonDays {
                 Button {
                     onTab(.system)
                 } label: {
                     Label(CartoucheText.daysLeftShort(max(days, 0)), systemImage: "hourglass")
                         .font(.subheadline.weight(.semibold).monospacedDigit())
                         .labelStyle(CartoucheTightLabelStyle())
-                        .foregroundStyle(days <= 1 ? Color.orange : CartoucheTheme.secondaryText)
+                        .foregroundStyle(days <= 1 ? CartoucheTheme.danger : Color.orange)
                         .padding(.horizontal, 12)
                         .frame(height: 34)
                         .cartoucheGlass(in: Capsule(), interactive: true)
@@ -206,17 +224,14 @@ struct CartoucheHomeView: View {
                 .accessibilityLabel(Text(CartoucheText.expires))
                 .accessibilityValue(Text(CartoucheText.daysLeftShort(max(days, 0))))
             }
+            if metrics.isWide {
+                dock(compact: true, labels: metrics.size.width >= 700)
+            }
         }
-        .frame(minHeight: 44)
+        .frame(minHeight: Metrics.topBarHeight)
     }
 
     // MARK: Shelves
-
-    @ViewBuilder
-    private func shelves(_ metrics: Metrics) -> some View {
-        shelf(0, title: CartoucheText.homeLibrary, width: metrics.bigTile)
-        shelf(1, title: CartoucheText.homeIPhone, width: metrics.smallTile)
-    }
 
     private func shelf(_ index: Int, title: String, width: CGFloat) -> some View {
         let items = rows[index]
@@ -228,14 +243,14 @@ struct CartoucheHomeView: View {
                 .accessibilityAddTraits(.isHeader)
             ScrollViewReader { reader in
                 ScrollView(.horizontal) {
-                    LazyHStack(alignment: .top, spacing: width * 0.16) {
+                    LazyHStack(alignment: .top, spacing: max(10, width * 0.12)) {
                         ForEach(Array(items.enumerated()), id: \.element) { column, item in
                             tile(item, width: width, isFocused: row == index && columns[index] == column)
                                 .id(item)
                                 .onTapGesture { tapped(item, row: index, column: column) }
                         }
                     }
-                    // Room for the focused cartridge's ring and glow.
+                    // Room for the focused game's ring and glow.
                     .padding(.vertical, width * 0.1)
                     .padding(.horizontal, width * 0.06)
                 }
@@ -293,6 +308,8 @@ struct CartoucheHomeView: View {
 
     // MARK: The game in focus
 
+    /// The game in focus, at the same height whatever it is, so that the
+    /// shelf under it stays in place as the focus moves.
     @ViewBuilder
     private func heroView(_ metrics: Metrics) -> some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -301,29 +318,35 @@ struct CartoucheHomeView: View {
                 gameHero(entry, metrics: metrics)
             case .importGame:
                 heroText(CartoucheText.importTile, CartoucheText.emptyMessage, metrics: metrics)
-                actionButton(CartoucheText.importCopy, systemImage: "square.and.arrow.down", primary: true, action: onImport)
+                actionButton(CartoucheText.importCopy, systemImage: "square.and.arrow.down", primary: true,
+                             input: .a, action: onImport)
             case .allGames:
                 heroText(CartoucheText.allGames, CartoucheText.allGamesDetail(gameCount), metrics: metrics)
-                actionButton(CartoucheText.allGames, systemImage: "square.grid.2x2.fill", primary: true, action: onLibrary)
+                actionButton(CartoucheText.allGames, systemImage: "square.grid.2x2.fill", primary: true,
+                             input: .a, action: onLibrary)
             case .dock, nil:
                 EmptyView()
             }
         }
-        .frame(maxWidth: 560, alignment: .leading)
+        .frame(maxWidth: 560, minHeight: metrics.isWide ? nil : metrics.heroHeight, alignment: .topLeading)
         .animation(.easeInOut(duration: 0.2), value: hero)
+    }
+
+    private func heroTitle(_ title: String, metrics: Metrics) -> some View {
+        Text(title)
+            .font(.system(size: metrics.titleSize, weight: .heavy, design: .rounded))
+            .foregroundStyle(Color.white)
+            .lineLimit(1)
+            .minimumScaleFactor(0.55)
     }
 
     private func heroText(_ title: String, _ detail: String, metrics: Metrics) -> some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text(title)
-                .font(.system(size: metrics.titleSize, weight: .heavy, design: .rounded))
-                .foregroundStyle(Color.white)
-                .lineLimit(2)
-                .minimumScaleFactor(0.7)
+            heroTitle(title, metrics: metrics)
             Text(detail)
                 .font(.subheadline)
                 .foregroundStyle(CartoucheTheme.secondaryText)
-                .fixedSize(horizontal: false, vertical: true)
+                .lineLimit(metrics.isShort ? 1 : 2)
         }
     }
 
@@ -331,16 +354,14 @@ struct CartoucheHomeView: View {
         let status = CartouchePlayStatus.of(entry)
         return VStack(alignment: .leading, spacing: 12) {
             VStack(alignment: .leading, spacing: 6) {
-                Text(entry.name)
-                    .font(.system(size: metrics.titleSize, weight: .heavy, design: .rounded))
-                    .foregroundStyle(Color.white)
-                    .lineLimit(2)
-                    .minimumScaleFactor(0.7)
+                heroTitle(entry.name, metrics: metrics)
                 CartoucheMetaLine(entry: entry)
-                Text((status == .ready || status == .update) && !setup.canPlay ? CartoucheText.setupBannerDetail : status.long)
-                    .font(.subheadline)
-                    .foregroundStyle(CartoucheTheme.secondaryText)
-                    .lineLimit(2)
+                if let detail = heroDetail(status) {
+                    Text(detail)
+                        .font(.subheadline)
+                        .foregroundStyle(CartoucheTheme.secondaryText)
+                        .lineLimit(metrics.isShort ? 1 : 2)
+                }
             }
             // With an update besides, the other buttons show only their
             // symbols when their names do not fit.
@@ -352,22 +373,38 @@ struct CartoucheHomeView: View {
         }
     }
 
+    /// The line under the badges: what stops the game, or what the player
+    /// can do with it. A game ready to play needs none: its badge says so.
+    private func heroDetail(_ status: CartouchePlayStatus) -> String? {
+        switch status {
+        case .ready, .update:
+            if !setup.canPlay {
+                return setup.bannerDetail(signingInAgain: CartoucheAccount.shared.isAutomatic)
+            }
+            return status == .update ? status.long : nil
+        default:
+            return status.long
+        }
+    }
+
     /// The buttons of the game in focus; with COMPACT, its last ones show
     /// only their symbols: Details at 1, Update and Details at 2.
     private func gameActions(_ entry: CartoucheEntry, compact: Int) -> some View {
         HStack(spacing: 10) {
             if let app = entry.app {
-                actionButton(CartoucheText.play, systemImage: "play.fill", primary: true) { onPlay(app) }
+                actionButton(CartoucheText.play, systemImage: "play.fill", primary: true, input: .a) { onPlay(app) }
                 if let update = entry.update {
                     actionButton(CartoucheText.updateGame, systemImage: "arrow.down.circle.fill", primary: false,
                                  iconOnly: compact >= 2) { onInstall(update) }
                 }
             } else if let stored = entry.stored {
-                actionButton(installTitle, systemImage: "arrow.down.circle.fill", primary: true) { onInstall(stored) }
+                actionButton(installTitle, systemImage: "arrow.down.circle.fill", primary: true, input: .a) { onInstall(stored) }
             } else {
-                actionButton(CartoucheText.importCopy, systemImage: "square.and.arrow.down", primary: true, action: onImport)
+                actionButton(CartoucheText.importCopy, systemImage: "square.and.arrow.down", primary: true,
+                             input: .a, action: onImport)
             }
-            actionButton(CartoucheText.details, systemImage: "info.circle", primary: false, iconOnly: compact >= 1) { onSheet(entry) }
+            actionButton(CartoucheText.details, systemImage: "info.circle", primary: false,
+                         iconOnly: compact >= 1, input: .x) { onSheet(entry) }
         }
     }
 
@@ -381,19 +418,24 @@ struct CartoucheHomeView: View {
         CartoucheText.updateFrom(CartoucheStoredGames.shared.serverName ?? "")
     }
 
+    /// A button of the game in focus. While a controller is connected, it
+    /// shows the controller's button that does the same, in place of its
+    /// symbol.
     @ViewBuilder
     private func actionButton(_ title: String, systemImage: String, primary: Bool, iconOnly: Bool = false,
-                              action: @escaping () -> Void) -> some View {
+                              input: CartoucheGamepad.Input? = nil, action: @escaping () -> Void) -> some View {
+        let symbol = gamepad.isConnected ? (input.map { gamepad.symbol(for: $0) } ?? systemImage) : systemImage
         let button = Button(action: action) {
             if iconOnly {
-                Label(title, systemImage: systemImage)
+                Label(title, systemImage: symbol)
                     .labelStyle(.iconOnly)
                     .font(.headline)
                     .padding(.horizontal, 6)
                     .frame(minHeight: 30)
             } else {
-                Label(title, systemImage: systemImage)
+                Label(title, systemImage: symbol)
                     .font(.headline)
+                    .lineLimit(1)
                     .padding(.horizontal, 6)
                     .frame(minHeight: 30)
             }
@@ -408,36 +450,72 @@ struct CartoucheHomeView: View {
 
     // MARK: Dock
 
-    private var dock: some View {
-        HStack(alignment: .top, spacing: 0) {
+    /// Every game, import and the System page: a bar at the bottom of an
+    /// upright screen, a row of buttons in the top bar of a wide one, with
+    /// their names where they fit (LABELS).
+    private func dock(compact: Bool, labels: Bool) -> some View {
+        HStack(spacing: compact ? 2 : 4) {
             ForEach(Array(Dock.allCases.enumerated()), id: \.element) { column, item in
-                let isFocused = row == 2 && columns[2] == column
                 Button {
                     activate(.dock(item))
                 } label: {
-                    VStack(spacing: 6) {
-                        Image(systemName: Self.symbol(item))
-                            .font(.system(size: 21, weight: .semibold))
-                            .foregroundStyle(Color.white)
-                            .frame(width: 54, height: 54)
-                            .cartoucheGlass(in: Circle(), interactive: true)
-                            .overlay(Circle().stroke(Color.white, lineWidth: isFocused ? 3 : 0).padding(-4))
-                            .scaleEffect(isFocused ? 1.08 : 1)
-                        Text(Self.title(item))
-                            .font(.caption2.weight(.semibold))
-                            .foregroundStyle(isFocused ? Color.white : CartoucheTheme.secondaryText)
-                            .lineLimit(1)
-                            .minimumScaleFactor(0.7)
-                    }
-                    .frame(maxWidth: .infinity)
-                    .contentShape(Rectangle())
+                    dockLabel(item, compact: compact, labels: labels, isFocused: row == 2 && columns[2] == column)
                 }
                 .buttonStyle(.plain)
-                .animation(.spring(response: 0.3, dampingFraction: 0.7), value: isFocused)
+                .accessibilityLabel(Text(Self.title(item)))
             }
         }
-        .frame(maxWidth: 520)
-        .frame(maxWidth: .infinity)
+        .padding(compact ? 3 : 5)
+        .frame(maxWidth: compact ? nil : CGFloat(440))
+        .cartoucheGlass(in: Capsule())
+        .frame(maxWidth: compact ? nil : CGFloat.infinity)
+    }
+
+    @ViewBuilder
+    private func dockLabel(_ item: Dock, compact: Bool, labels: Bool, isFocused: Bool) -> some View {
+        let glyph = gamepad.isConnected ? Self.input(item).map { gamepad.symbol(for: $0) } : nil
+        Group {
+            if compact {
+                HStack(spacing: 6) {
+                    Image(systemName: glyph ?? Self.symbol(item))
+                        .font(.subheadline.weight(.semibold))
+                    if labels {
+                        Text(Self.title(item))
+                            .font(.subheadline.weight(.semibold))
+                            .lineLimit(1)
+                    }
+                }
+                .padding(.horizontal, labels ? 12 : 10)
+                .frame(minWidth: 38, minHeight: 34)
+            } else {
+                VStack(spacing: 3) {
+                    Image(systemName: Self.symbol(item))
+                        .font(.system(size: 19, weight: .semibold))
+                        .frame(height: 24)
+                    HStack(spacing: 3) {
+                        if let glyph {
+                            Image(systemName: glyph)
+                                .font(.caption2.weight(.bold))
+                        }
+                        Text(Self.title(item))
+                            .font(.caption2.weight(.semibold))
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.8)
+                    }
+                }
+                .frame(maxWidth: .infinity, minHeight: 50)
+            }
+        }
+        .foregroundStyle(isFocused ? Color.white : Color.white.opacity(0.82))
+        .background {
+            if isFocused {
+                Capsule()
+                    .fill(Color.white.opacity(0.18))
+                    .overlay(Capsule().stroke(Color.white, lineWidth: 2))
+            }
+        }
+        .contentShape(Capsule())
+        .animation(.spring(response: 0.3, dampingFraction: 0.7), value: isFocused)
     }
 
     static func symbol(_ item: Dock) -> String {
@@ -456,26 +534,14 @@ struct CartoucheHomeView: View {
         }
     }
 
-    // MARK: Controller hints
-
-    private var hints: some View {
-        HStack(spacing: 16) {
-            switch focused {
-            case .game(let entry):
-                CartoucheHint(input: .a, title: entry.app != nil ? CartoucheText.play : CartoucheText.details)
-                CartoucheHint(input: .x, title: CartoucheText.details)
-            case .importGame:
-                CartoucheHint(input: .a, title: CartoucheText.dockImport)
-            case .allGames, .dock, nil:
-                CartoucheHint(input: .a, title: CartoucheText.hintOpen)
-            }
-            CartoucheHint(input: .y, title: CartoucheText.allGames)
-            CartoucheHint(input: .menu, title: CartoucheText.systemTab)
+    /// The controller's button that does what a button of the dock does,
+    /// from anywhere on the home.
+    static func input(_ item: Dock) -> CartoucheGamepad.Input? {
+        switch item {
+        case .allGames: return .y
+        case .importGame: return nil
+        case .system: return .menu
         }
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, 8)
-        .padding(.horizontal, 16)
-        .cartoucheGlass(in: Capsule())
     }
 
     // MARK: Actions
@@ -500,13 +566,17 @@ struct CartoucheHomeView: View {
         if newRow < 2 { heroRow = newRow }
     }
 
+    /// A's action, the main button of the game in focus: Play, Install from
+    /// the games folder, or Import.
     private func activate(_ item: Item) {
         switch item {
         case .game(let entry):
             if let app = entry.app {
                 onPlay(app)
+            } else if let stored = entry.stored {
+                onInstall(stored)
             } else {
-                onSheet(entry)
+                onImport()
             }
         case .importGame, .dock(.importGame):
             onImport()
@@ -523,10 +593,13 @@ struct CartoucheHomeView: View {
             if columns[row] > 0 { focus(row: row, column: columns[row] - 1) }
         case .right:
             if columns[row] < rows[row].count - 1 { focus(row: row, column: columns[row] + 1) }
-        case .up:
-            if row > 0 { focus(row: row - 1, column: min(columns[row - 1], rows[row - 1].count - 1)) }
-        case .down:
-            if row < rows.count - 1 { focus(row: row + 1, column: min(columns[row + 1], rows[row + 1].count - 1)) }
+        case .up, .down:
+            let order = visualRows
+            guard let position = order.firstIndex(of: row) else { return }
+            let next = position + (input == .up ? -1 : 1)
+            guard order.indices.contains(next) else { return }
+            let target = order[next]
+            focus(row: target, column: min(columns[target], rows[target].count - 1))
         case .a:
             if let focused { activate(focused) }
         case .x:
@@ -544,27 +617,72 @@ struct CartoucheHomeView: View {
 
     // MARK: Layout
 
+    /// The sizes of the home for the space the screen gives it.
     struct Metrics {
         let size: CGSize
+        /// The setup banner is over the shelves.
+        var hasBanner = false
 
-        /// Wider than tall: the shelves beside the game in focus.
+        static let topBarHeight: CGFloat = 44
+        static let bannerHeight: CGFloat = 72
+        /// A shelf's title and the space under it.
+        static let shelfTitleHeight: CGFloat = 26
+        /// The dock's bar (dockLabel, 50, and 5 around it) and the space
+        /// around it at the bottom of the screen.
+        static let dockHeight: CGFloat = 60
+        static let dockTopPadding: CGFloat = 10
+        static let dockBottomPadding: CGFloat = 6
+        /// A cartridge's height for its width, with the room above and
+        /// below it for the focused one's ring (shelf(_:title:width:)).
+        static let tileHeight: CGFloat = CartoucheTheme.cartridgeAspect + 0.2
+        /// The second shelf's cartridges, against the first's.
+        static let smallRatio: CGFloat = 0.74
+
+        /// Wider than tall: the shelves beside the game in focus, the dock
+        /// in the top bar.
         var isWide: Bool { size.width > size.height * 1.15 }
+        /// Too short for the roomy layout: the iPhone Duo folded, an iPhone
+        /// sideways.
+        var isShort: Bool { size.height < 720 }
         var margin: CGFloat { size.width >= 600 ? 28 : 18 }
-        var spacing: CGFloat { size.height < 500 ? 12 : 20 }
+        var spacing: CGFloat { isShort ? 12 : 20 }
+        var verticalPadding: CGFloat { isShort ? 8 : 12 }
         var shelvesWidth: CGFloat { (size.width - 2 * margin) * 0.6 }
-        var titleSize: CGFloat { isWide ? 26 : (size.width >= 600 ? 36 : 30) }
+        var titleSize: CGFloat { isWide || isShort ? 26 : (size.width >= 600 ? 34 : 30) }
+
+        /// The height of the game in focus, upright: its name, its badges,
+        /// two lines about it (one on a short screen) and its buttons.
+        var heroHeight: CGFloat {
+            let detail: CGFloat = isShort ? 20 : 40
+            return titleSize * 1.2 + 6 + 22 + 6 + detail + 12 + 52
+        }
+
+        /// The height left to the shelves' cartridges once the top bar, the
+        /// banner, the shelves' titles, the game in focus and the dock have
+        /// theirs.
+        private var shelvesHeight: CGFloat {
+            var fixed = 2 * verticalPadding + Self.topBarHeight + 2 * Self.shelfTitleHeight
+            if hasBanner { fixed += Self.bannerHeight + spacing }
+            if isWide {
+                // The shelves under the top bar, one above the other.
+                fixed += 2 * spacing
+            } else {
+                // The first shelf, the game in focus and the second shelf
+                // under the top bar, and the dock under them.
+                fixed += 3 * spacing + heroHeight + Self.dockTopPadding + Self.dockHeight + Self.dockBottomPadding
+            }
+            return max(size.height - fixed, 0)
+        }
 
         var bigTile: CGFloat {
-            if isWide {
-                // Both shelves, the bar and the dock fit the height.
-                let byHeight = (size.height - 250) * 0.56 / CartoucheTheme.cartridgeAspect
-                return min(max(min(shelvesWidth * 0.22, byHeight), 64), 170)
-            }
-            return min(max(size.width * 0.27, 92), 170)
+            let byHeight = shelvesHeight / (Self.tileHeight * (1 + Self.smallRatio))
+            let byWidth = isWide ? shelvesWidth * 0.24 : size.width * 0.3
+            let smallest: CGFloat = isWide ? 60 : 78
+            return min(max(min(byHeight, byWidth), smallest), 170)
         }
 
         var smallTile: CGFloat {
-            isWide ? bigTile * 0.74 : min(max(size.width * 0.2, 70), 130)
+            max(bigTile * Self.smallRatio, isWide ? 46 : 56)
         }
     }
 }
@@ -629,6 +747,7 @@ struct CartoucheHint: View {
                 .font(.caption.weight(.semibold))
                 .foregroundStyle(CartoucheTheme.secondaryText)
                 .lineLimit(1)
+                .fixedSize()
         }
         .accessibilityElement(children: .combine)
     }
