@@ -3,7 +3,7 @@
 //  Cartouche
 //
 //  A game that runs behind the console instead of in Cartouche's place
-//  (CartoucheGameHost, docs/decisions.md, 35): which one, whether it is on
+//  (CartoucheGameHost, docs/decisions.md, 37): which one, whether it is on
 //  screen or paused behind the console, and what its own process writes of
 //  its memory (launcher/LiveProcessSupport/CartoucheGuest.m). Also the
 //  player's choice of starting games that way, and the games that start in

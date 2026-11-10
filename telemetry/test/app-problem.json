@@ -1,0 +1,10 @@
+{
+  "device": "iPhone19,4 (A20 Pro, 12 GB)",
+  "id": "6f1c2a3b-4d5e-4f60-8a7b-9c0d1e2f3a4b",
+  "ios": "27.3 (25B72)",
+  "logs": "Cartouche report, 2026-11-10 07:12:00 +0000\nProblem: Reported by the player\nMessage: (see What happened)\nCartouche: 0.9.0 (50e8079), LiveContainer 3.8.11, SideStore 0.7.0\niOS: 27.3 (25B72)\nDevice: iPhone19,4 (A20 Pro, 12 GB)\nLanguage: fr (fr-FR)\nMemory: limit 6143 MiB, used 212 MiB, Increased Memory Limit on\nStorage: games on SMB\n\nLast steps:\nCartouche 0.9.0 (50e8079) started, iOS 27.3 (25B72), iPhone19,4\nInstalling Celeste: Unpacking\n\nFor catalog/devices.json:\n{\"identifier\": \"iPhone19,4\", \"chip\": \"A20 Pro\", \"memoryGB\": 12, \"measurements\": [{\"date\": \"2026-11-10\", \"iOS\": \"27.3\", \"increasedMemoryLimit\": true, \"appMemoryLimitMiB\": 6143}]}\n\nLast errors, newest first:\n\nCartouche report, 2026-11-09 21:03:11 +0100\nProblem: The game was not installed\nMessage: The network connection was lost.",
+  "schema": 1,
+  "title": "The game does not install from the NAS.",
+  "version": "0.9.0 (50e8079)",
+  "what": "The game does not install from the NAS.\nIt stops at 42 %."
+}

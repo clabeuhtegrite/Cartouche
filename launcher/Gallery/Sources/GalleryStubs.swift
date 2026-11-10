@@ -118,6 +118,31 @@ final class CartoucheGameActions: ObservableObject {
     }
 }
 
+/// CartoucheTelemetry.swift, which reads LiveContainer's apps for the games'
+/// sessions, as the gallery stands it in: on, with reports sent, and the
+/// last one a game session.
+@MainActor
+final class CartoucheTelemetry: ObservableObject {
+    static let shared = CartoucheTelemetry()
+    static let endpoint = URL(string: "https://telemetry.example.workers.dev")
+    static let privacyURL = URL(string: "https://github.com/clabeuhtegrite/Cartouche/blob/main/docs/privacy.md")!
+
+    @Published private(set) var isOn = true
+    @Published private(set) var lastReport: String? = """
+        {"cartouche":"0.9.0","device":"iPhone19,4","fps":{"low5":52,"median":59.9},"game":"0400C3F00006E000",\
+        "kind":"session","memory":{"peakMiB":4813},"minutes":35.2}
+        """
+    @Published private(set) var lastSent: Date? = Date(timeIntervalSince1970: 1_794_300_000)
+    @Published private(set) var sent = 42
+    @Published private(set) var waiting = 0
+    @Published private(set) var isErasing = false
+
+    func start() {}
+    func setOn(_ on: Bool) { isOn = on }
+    func erase() async -> Bool { true }
+    func event(_ name: String, game: String? = nil, fields: [String: CartoucheTelemetryValue] = [:]) {}
+}
+
 /// A settings list as nxnative writes one into a game (dm/launcher.json,
 /// from its settings.tsv), for a game played in handheld mode, and a
 /// player's choice: a lower render scale.

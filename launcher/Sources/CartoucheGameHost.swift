@@ -3,7 +3,7 @@
 //  Cartouche
 //
 //  A game that runs behind the console instead of in Cartouche's place
-//  (docs/decisions.md, 35). LiveContainer starts it in its LiveProcess
+//  (docs/decisions.md, 37). LiveContainer starts it in its LiveProcess
 //  extension, a process of its own, and shows the game's scene in a view
 //  controller of Cartouche's, AppSceneViewController, as its multitasking
 //  windows do. Cartouche shows it full screen, in a window of its own over
