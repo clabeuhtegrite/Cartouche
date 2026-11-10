@@ -95,7 +95,7 @@ struct CartoucheStorageError: LocalizedError {
 // MARK: Servers and places
 
 final class CartoucheStorageSettings: ObservableObject {
-    static let shared = CartoucheStorageSettings()
+    static let shared = CartoucheStorageSettings(keepsInKeychain: true)
 
     @Published private(set) var servers: [CartoucheStorageServer] = []
     @Published private(set) var places: [CartoucheStorageRole: CartoucheStoragePlace] = [:]
@@ -107,13 +107,23 @@ final class CartoucheStorageSettings: ObservableObject {
     @Published private(set) var readOnlyFolders: Set<String> = []
 
     private let defaults: UserDefaults
+    /// Whether the keychain keeps the settings too (Kept).
+    private let keepsInKeychain: Bool
     private static let serversKey = "Cartouche.storage.servers"
     private static let readOnlyServersKey = "Cartouche.storage.readOnly.servers"
     private static let readOnlyFoldersKey = "Cartouche.storage.readOnly.folders"
     private static let keychainService = "Cartouche storage"
 
-    init(defaults: UserDefaults = .standard) {
+    /// KEEPSINKEYCHAIN: the settings go to the keychain too, and come from
+    /// there when the preferences have none, as after Cartouche was
+    /// installed again: the player's own settings, not the tests'.
+    init(defaults: UserDefaults = .standard, keepsInKeychain: Bool = false) {
         self.defaults = defaults
+        self.keepsInKeychain = keepsInKeychain
+        if keepsInKeychain, defaults.object(forKey: Self.serversKey) == nil, let kept = Self.keptInKeychain() {
+            kept.write(to: defaults)
+            NSLog("[Cartouche] storage settings found in the keychain: %ld servers", kept.servers.count)
+        }
         let decoder = JSONDecoder()
         if let data = defaults.data(forKey: Self.serversKey),
            let servers = try? decoder.decode([CartoucheStorageServer].self, from: data) {
@@ -128,6 +138,10 @@ final class CartoucheStorageSettings: ObservableObject {
         }
         readOnlyServers = Set((defaults.stringArray(forKey: Self.readOnlyServersKey) ?? []).compactMap(UUID.init(uuidString:)))
         readOnlyFolders = Set(defaults.stringArray(forKey: Self.readOnlyFoldersKey) ?? [])
+        // Settings an older Cartouche kept in the preferences only.
+        if keepsInKeychain, Self.keptInKeychain() != kept {
+            Self.keepInKeychain(kept)
+        }
     }
 
     private static func placeKey(_ role: CartoucheStorageRole) -> String {
@@ -248,6 +262,9 @@ final class CartoucheStorageSettings: ObservableObject {
     private func persistAccess() {
         defaults.set(readOnlyServers.map(\.uuidString).sorted(), forKey: Self.readOnlyServersKey)
         defaults.set(readOnlyFolders.sorted(), forKey: Self.readOnlyFoldersKey)
+        if keepsInKeychain {
+            Self.keepInKeychain(kept)
+        }
     }
 
     func setPlace(_ place: CartoucheStoragePlace?, for role: CartoucheStorageRole) {
@@ -275,9 +292,76 @@ final class CartoucheStorageSettings: ObservableObject {
                 defaults.removeObject(forKey: Self.placeKey(role))
             }
         }
+        if keepsInKeychain {
+            Self.keepInKeychain(kept)
+        }
     }
 
     // MARK: Keychain
+
+    /// The settings as the keychain keeps them: iOS removes an app's
+    /// preferences with it, not its keychain items, so that Cartouche
+    /// installed again finds the player's servers, their secrets and
+    /// folders as they were, and the games' saves come back.
+    struct Kept: Codable, Equatable {
+        var servers: [CartoucheStorageServer]
+        /// By role.
+        var places: [String: CartoucheStoragePlace]
+        var readOnlyServers: [String]
+        var readOnlyFolders: [String]
+
+        /// Puts them in the preferences, where the settings read them.
+        func write(to defaults: UserDefaults) {
+            let encoder = JSONEncoder()
+            defaults.set(try? encoder.encode(servers), forKey: CartoucheStorageSettings.serversKey)
+            for role in CartoucheStorageRole.allCases {
+                if let place = places[role.rawValue] {
+                    defaults.set(try? encoder.encode(place), forKey: CartoucheStorageSettings.placeKey(role))
+                }
+            }
+            defaults.set(readOnlyServers, forKey: CartoucheStorageSettings.readOnlyServersKey)
+            defaults.set(readOnlyFolders, forKey: CartoucheStorageSettings.readOnlyFoldersKey)
+        }
+    }
+
+    private var kept: Kept {
+        Kept(servers: servers,
+             places: Dictionary(uniqueKeysWithValues: places.map { ($0.key.rawValue, $0.value) }),
+             readOnlyServers: readOnlyServers.map(\.uuidString).sorted(),
+             readOnlyFolders: readOnlyFolders.sorted())
+    }
+
+    /// The keychain item of the settings, beside the servers' secrets.
+    private static let keptAccount = "settings"
+
+    private static func keptInKeychain() -> Kept? {
+        let query: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: keychainService,
+            kSecAttrAccount as String: keptAccount,
+            kSecReturnData as String: true,
+            kSecMatchLimit as String: kSecMatchLimitOne,
+        ]
+        var found: CFTypeRef?
+        guard SecItemCopyMatching(query as CFDictionary, &found) == errSecSuccess, let data = found as? Data else {
+            return nil
+        }
+        return try? JSONDecoder().decode(Kept.self, from: data)
+    }
+
+    private static func keepInKeychain(_ kept: Kept) {
+        let item: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: keychainService,
+            kSecAttrAccount as String: keptAccount,
+        ]
+        SecItemDelete(item as CFDictionary)
+        guard let data = try? JSONEncoder().encode(kept) else { return }
+        var added = item
+        added[kSecValueData as String] = data
+        added[kSecAttrAccessible as String] = kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly
+        SecItemAdd(added as CFDictionary, nil)
+    }
 
     func secret(of server: CartoucheStorageServer) -> String? {
         let query: [String: Any] = [
