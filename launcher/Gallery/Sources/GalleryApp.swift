@@ -8,7 +8,7 @@
 //  the whole screen of the simulator it runs on, such as the iPhone Duo's,
 //  with its own safe area, size classes and system bars.
 //
-//      -GalleryScreen games|library|sheet|settings|setup|signin|system|storage|telemetry
+//      -GalleryScreen games|library|sheet|settings|setup|signin|guide|system|storage|telemetry|report
 //      -GalleryWidth 402 -GalleryHeight 874     (none: the whole screen)
 //      -GalleryInsets 62,0,34,0          top, leading, bottom, trailing
 //      -GalleryWidthClass compact        the width class at a scenario's
@@ -23,7 +23,9 @@
 //                                        console; update: a new version of
 //                                        Cartouche on offer; code: Apple
 //                                        asks for a verification code, on
-//                                        the sign-in
+//                                        the sign-in; paused: the sheet's
+//                                        game, or the first of the
+//                                        player's, paused behind the console
 //      -GalleryOrientation landscape     the gallery turns itself sideways,
 //                                        as a game does; the simulator
 //                                        stays upright
@@ -101,7 +103,9 @@ struct GalleryScenario {
         try? Data(renewal.utf8).write(to: GalleryState.appGroup.appendingPathComponent("widget_data.json"))
         MainActor.assumeIsolated {
             CartoucheSetup.shared.refresh()
+            CartoucheGuide.shared.startOverForGallery()
             if controller { CartoucheGamepad.shared.showHints() }
+            showStats()
             if work == "installing" {
                 let name = sheet.flatMap { CartoucheCatalog.shared.game(titleId: $0)?.name } ?? "Game"
                 CartoucheGameActions.shared.work = CartoucheGameWork(kind: .installing, name: name,
@@ -137,9 +141,42 @@ struct GalleryScenario {
         }
     }
 
+    /// The size and the play time of the player's games: the first played
+    /// for hours, until yesterday, the second for a while this morning, the
+    /// third not yet.
+    @MainActor
+    private func showStats() {
+        let sizes: [CartoucheGameSize] = [CartoucheGameSize(bundle: 21_474_836_480, data: 327_155_712),
+                                          CartoucheGameSize(bundle: 14_173_392_076, data: 48_234_496),
+                                          CartoucheGameSize(bundle: 3_113_851_290, data: 6_291_456)]
+        let times: [CartouchePlayTime] = [
+            CartouchePlayTime(seconds: 45_240, sessions: 23, firstPlayed: Date().addingTimeInterval(-9 * 86_400),
+                              lastPlayed: Date().addingTimeInterval(-86_400)),
+            CartouchePlayTime(seconds: 2_820, sessions: 2, firstPlayed: Date().addingTimeInterval(-4 * 3_600),
+                              lastPlayed: Date().addingTimeInterval(-3 * 3_600)),
+        ]
+        var shownSizes: [String: CartoucheGameSize] = [:]
+        var shownTimes: [String: CartouchePlayTime] = [:]
+        for (index, titleId) in owned.enumerated() {
+            let bundleId = "org.nxnative." + titleId.lowercased()
+            if index < sizes.count { shownSizes[bundleId] = sizes[index] }
+            if index < times.count { shownTimes[bundleId] = times[index] }
+        }
+        CartoucheGameStats.shared.showForGallery(sizes: shownSizes, playTimes: shownTimes)
+    }
+
     /// The game a newer build is in the games folder of (work: newer-build):
     /// the sheet's, or the first of the player's.
     private var updatedTitle: String? { work == "newer-build" ? sheet ?? owned.first : nil }
+
+    /// The sheet's game, or the first of the player's, paused behind the
+    /// console (work: paused).
+    @MainActor
+    func pause(among apps: [LCAppModel]) {
+        guard work == "paused", let titleId = sheet ?? owned.first,
+              let app = apps.first(where: { $0.appInfo.relativeBundlePath == titleId + ".app" }) else { return }
+        CartoucheGameActions.shared.showRunningForGallery(app)
+    }
 
     /// What capture.sh needs to cut the screen out of the simulator's
     /// screenshot, or to turn it the right way up (screenshot.swift).
@@ -233,6 +270,7 @@ struct CartoucheGalleryApp: App {
                 .preferredColorScheme(.dark)
                 .onAppear {
                     model.apps = scenario.apps()
+                    scenario.pause(among: model.apps)
                     scenario.settle()
                 }
         }
@@ -295,6 +333,15 @@ struct CartoucheGalleryApp: App {
             }
         case "signin":
             CartoucheSignInView()
+        case "guide":
+            NavigationStack {
+                CartoucheGuideView(entries: entries, onInstall: { _ in }, onImport: { _ in }, onPlay: { _ in })
+                    .toolbar {
+                        ToolbarItem(placement: .confirmationAction) {
+                            Button(CartoucheText.done) {}
+                        }
+                    }
+            }
         case "system":
             CartoucheSystemView()
         case "storage":
@@ -306,6 +353,10 @@ struct CartoucheGalleryApp: App {
                 CartoucheTelemetryView()
             }
             .preferredColorScheme(.dark)
+        case "report":
+            NavigationStack {
+                CartoucheReportView()
+            }
         default:
             CartoucheGamesView()
         }

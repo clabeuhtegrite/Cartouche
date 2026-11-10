@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "nxnative": "ab41d6a177819559c76d8e4381791550ababa097",
+  "nxnative": "f3ec8fc81e49744d178379a38ceae0fc1cba04d0",
   "games": [
     {
       "titleId": "01003FC01670C000",
@@ -827,6 +827,16 @@
       "engine": "Unity 2018.4.1f1 IL2CPP, FMOD",
       "build": "1.0.2",
       "sdk": "8.2.0"
+    },
+    {
+      "titleId": "01008DD013200000",
+      "name": "Ori and the Will of the Wisps",
+      "platform": "switch",
+      "genre": "other",
+      "status": "mac",
+      "engine": "Unity 2018.4.24f1 IL2CPP, Wwise",
+      "build": "1.2.1",
+      "sdk": "9.4.0"
     },
     {
       "titleId": "0100A3900C3E2000",

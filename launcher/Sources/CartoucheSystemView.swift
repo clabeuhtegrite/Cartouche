@@ -3,12 +3,14 @@
 //  Cartouche
 //
 //  What Cartouche has on this iPhone: the player's storage, where their
-//  games and saves are kept; the memory limit iOS sets for it, which its
-//  games share; when its signature expires, and how it is renewed; the
-//  device that the game sheets are compared with; Cartouche's updates;
-//  and the game measurements it sends (CartoucheTelemetryView). It opens
-//  over the console (CartoucheRootView), and OK or the controller's Menu
-//  button closes it.
+//  games and saves are kept; the memory limit iOS sets for it, which the
+//  games that start in its place share; whether games run behind the
+//  console, and the memory they have there; when its signature expires,
+//  and how it is renewed; the device that the game sheets are compared
+//  with; Cartouche's updates; the game measurements it sends
+//  (CartoucheTelemetryView); and Report a problem (CartoucheReportView).
+//  It opens over the console (CartoucheRootView), and OK or the
+//  controller's Menu button closes it.
 //
 
 import SwiftUI
@@ -25,6 +27,8 @@ struct CartoucheSystemView: View {
     @ObservedObject private var setup = CartoucheSetup.shared
     @ObservedObject private var storage = CartoucheStorageSettings.shared
     @ObservedObject private var updates = CartoucheUpdates.shared
+    @ObservedObject private var keeping = CartoucheGameKeeping.shared
+    @ObservedObject private var actions = CartoucheGameActions.shared
     @ObservedObject private var telemetry = CartoucheTelemetry.shared
     @EnvironmentObject private var sharedModel: SharedModel
 
@@ -36,12 +40,14 @@ struct CartoucheSystemView: View {
                 setupSection
                 storageSection
                 memorySection
+                playingSection
                 signatureSection
                 automaticRenewalSection
                 deviceSection
                 updateSection
                 telemetrySection
                 cartoucheSection
+                reportSection
             }
             .cartoucheStageBackground()
             .navigationTitle(CartoucheText.systemTab)
@@ -148,7 +154,8 @@ struct CartoucheSystemView: View {
     }
 
     private var memoryFooter: String {
-        var text = CartoucheText.memoryFooter
+        var text = CartoucheGameKeeping.isAvailable && keeping.keepsConsoleOpen
+            ? CartoucheText.memoryFooterBehind : CartoucheText.memoryFooter
         if let known = knownLimitMiB {
             text += " " + CartoucheText.memoryKnown(CartoucheText.memoryAmount(mebibytes: known))
         }
@@ -161,6 +168,28 @@ struct CartoucheSystemView: View {
             .filter(\.increasedMemoryLimit)
             .max { $0.date < $1.date }?
             .appMemoryLimitMiB
+    }
+
+    // MARK: While a game runs
+
+    /// Whether games run behind the console, and the memory iOS gave the
+    /// last one there.
+    @ViewBuilder
+    private var playingSection: some View {
+        if CartoucheGameKeeping.isAvailable {
+            Section {
+                Toggle(CartoucheText.keepConsoleOpen, isOn: $keeping.keepsConsoleOpen)
+                if keeping.keepsConsoleOpen {
+                    LabeledContent(CartoucheText.behindLimit,
+                                   value: keeping.limitMiB.map { CartoucheText.memoryAmount(mebibytes: $0) }
+                                       ?? CartoucheText.behindLimitUnknown)
+                }
+            } header: {
+                Text(CartoucheText.playingTitle)
+            } footer: {
+                Text(CartoucheText.playingFooter)
+            }
+        }
     }
 
     // MARK: Signature
@@ -339,7 +368,13 @@ struct CartoucheSystemView: View {
             Button(CartoucheText.updateTo(available.version), systemImage: "arrow.down.circle") {
                 updates.start()
             }
-            .disabled(!updates.canStart)
+            // The update closes Cartouche, and the game behind it with it.
+            .disabled(!updates.canStart || actions.running != nil)
+            if let running = actions.running {
+                Text(CartoucheText.updateWhilePlaying(running.name))
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+            }
             if !setup.isComplete {
                 Text(CartoucheText.updateNeedsSetup)
                     .font(.footnote)
@@ -428,6 +463,24 @@ struct CartoucheSystemView: View {
             return "\(base.name)\u{00A0}\(version)"
         }
         return parts.isEmpty ? nil : parts.joined(separator: ", ")
+    }
+
+    // MARK: Report a problem
+
+    private var reportSection: some View {
+        Section {
+            NavigationLink {
+                CartoucheReportView()
+            } label: {
+                Label(CartoucheText.reportTitle, systemImage: "exclamationmark.bubble")
+            }
+        } footer: {
+            // The model's measurement goes with the report, for testers'
+            // iPhones to join catalog/devices.json.
+            Text(catalog.device(CartoucheDevice.modelIdentifier) == nil
+                 ? CartoucheText.reportFooter + " " + CartoucheText.reportNewDevice
+                 : CartoucheText.reportFooter)
+        }
     }
 }
 

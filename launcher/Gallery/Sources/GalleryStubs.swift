@@ -79,17 +79,40 @@ final class CartoucheGameActions: ObservableObject {
     @Published var work: CartoucheGameWork?
     @Published var notice: CartoucheGameNotice?
     @Published var installed: LCAppModel?
+    /// The game paused behind the console (work: paused).
+    @Published var running: CartoucheRunningGame?
+    @Published var switching: CartoucheGameSwitch?
+    @Published var quitQuestion: CartoucheRunningGame?
 
     nonisolated static func takes(_ url: URL) -> Bool { false }
     func install(_ url: URL) {}
     func install(stored game: CartoucheStoredGame) {}
     func play(_ app: LCAppModel, showingSettings: Bool = false) {}
+    func resumeRunningGame() {}
+    func askToQuit() { quitQuestion = running }
+    func quitRunningGame() { quitQuestion = nil }
+    func confirmSwitch(_ change: CartoucheGameSwitch) { switching = nil }
+
+    /// APP runs behind the console, paused there, since a quarter of an hour.
+    func showRunningForGallery(_ app: LCAppModel) {
+        // On screen first, then paused as the player comes back to the
+        // console, which puts the game in focus on the home.
+        running = CartoucheRunningGame(app: app, dataFolder: "gallery", started: Date().addingTimeInterval(-15 * 60),
+                                       isInFront: true)
+        Task { @MainActor in
+            try? await Task.sleep(for: .milliseconds(600))
+            self.running?.isInFront = false
+        }
+    }
     func uninstall(_ app: LCAppModel, erasingData: Bool) {}
     func export(_ app: LCAppModel, titleId: String?, then next: (() -> Void)? = nil) {}
     /// A game's saves live in its LiveContainer data folder, which the
     /// gallery has none of.
     func saves(of app: LCAppModel) -> CartoucheSaveTarget? { nil }
     func copySaves(of apps: [LCAppModel]) {}
+    /// Nor any folder to measure: the scenario gives each game its size and
+    /// play time (CartoucheGameStats.showForGallery).
+    func folders(of app: LCAppModel) -> CartoucheGameFolders? { nil }
 
     func settings(for app: LCAppModel, tileKey: String) -> CartoucheGameSettingsModel {
         CartoucheGameSettingsModel(name: app.displayName, tileKey: tileKey,
