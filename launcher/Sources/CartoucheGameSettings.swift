@@ -157,6 +157,9 @@ final class CartoucheGameSettingsModel: ObservableObject, Hashable {
     @Published private(set) var values: [String: String] = [:]
     @Published private(set) var cloudFolder: String?
     @Published private(set) var cloudNote: String?
+    /// The report on the cloud saves folder, when it could not be read or
+    /// kept.
+    @Published private(set) var cloudReport: CartoucheReport?
 
     static let cloudKey = "cloudSavesBookmark"
 
@@ -278,10 +281,15 @@ final class CartoucheGameSettingsModel: ObservableObject, Hashable {
         cloudFolder = nil
         guard let bookmark = choices?.data(forKey: Self.cloudKey), !bookmark.isEmpty else { return }
         var stale = false
-        if let url = try? URL(resolvingBookmarkData: bookmark, options: [], relativeTo: nil, bookmarkDataIsStale: &stale) {
+        do {
+            let url = try URL(resolvingBookmarkData: bookmark, options: [], relativeTo: nil, bookmarkDataIsStale: &stale)
             cloudFolder = url.lastPathComponent
-        } else {
+        } catch {
             cloudNote = CartoucheText.cloudStale
+            // Read each time the page opens: the report is not kept.
+            cloudReport = CartoucheReports.make(.cloud, CartoucheText.cloudFailedTitle, message: CartoucheText.cloudStale,
+                                                error: error, step: "Reading the cloud saves folder of " + name,
+                                                inBackground: true)
         }
     }
 
@@ -290,14 +298,20 @@ final class CartoucheGameSettingsModel: ObservableObject, Hashable {
         // Written while the picker's access is held: a bookmark written
         // without it resolves to nothing from the next start on.
         let accessing = url.startAccessingSecurityScopedResource()
-        let bookmark = try? url.bookmarkData(options: [], includingResourceValuesForKeys: nil, relativeTo: nil)
+        let made = Result { try url.bookmarkData(options: [], includingResourceValuesForKeys: nil, relativeTo: nil) }
         if accessing { url.stopAccessingSecurityScopedResource() }
         var stale = false
-        guard let bookmark,
-              (try? URL(resolvingBookmarkData: bookmark, options: [], relativeTo: nil, bookmarkDataIsStale: &stale)) != nil else {
+        let bookmark: Data
+        do {
+            bookmark = try made.get()
+            _ = try URL(resolvingBookmarkData: bookmark, options: [], relativeTo: nil, bookmarkDataIsStale: &stale)
+        } catch {
             cloudNote = CartoucheText.cloudFailed
+            cloudReport = CartoucheReports.make(.cloud, CartoucheText.cloudFailedTitle, message: CartoucheText.cloudFailed,
+                                                error: error, step: "Keeping the cloud saves folder of " + name)
             return
         }
+        cloudReport = nil
         choices.set(bookmark, forKey: Self.cloudKey)
         readCloudFolder()
         cloudNote = CartoucheText.cloudSaved
@@ -306,6 +320,7 @@ final class CartoucheGameSettingsModel: ObservableObject, Hashable {
     func turnOffCloudSaves() {
         choices?.set(nil, forKey: Self.cloudKey)
         cloudNote = nil
+        cloudReport = nil
         readCloudFolder()
     }
 }
@@ -407,6 +422,9 @@ struct CartoucheGameSettingsView: View {
             }
             if model.cloudFolder != nil {
                 Button(CartoucheText.cloudTurnOff, role: .destructive) { model.turnOffCloudSaves() }
+            }
+            if let report = model.cloudReport {
+                CartoucheReportButton(report: report)
             }
         } footer: {
             Text(model.cloudNote ?? CartoucheText.cloudFooter)

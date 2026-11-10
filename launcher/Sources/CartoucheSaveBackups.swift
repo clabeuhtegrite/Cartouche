@@ -53,8 +53,9 @@ final class CartoucheSaveBackups: ObservableObject {
     @Published private(set) var isCopying = false
     /// The date of each game's last copy, by target key.
     @Published private(set) var lastCopy: [String: Date]
-    /// Why the last copies failed, if they did.
-    @Published private(set) var problem: String?
+    /// Why the last copies failed, if they did, and the report on it.
+    @Published private(set) var problemReport: CartoucheReport?
+    var problem: String? { problemReport?.message }
 
     private let settings: CartoucheStorageSettings
     private let defaults: UserDefaults
@@ -150,9 +151,14 @@ final class CartoucheSaveBackups: ObservableObject {
                     NSLog("[Cartouche] cannot remove old copies of %@: %@", target.name, error.localizedDescription)
                 }
             }
-            problem = nil
+            problemReport = nil
+            CartoucheReports.note("Saves copied: \(due.count) " + (due.count == 1 ? "game" : "games"))
         } catch {
-            problem = error.localizedDescription
+            // The copies Cartouche makes by itself, each time it comes
+            // back, fail away from home too: their report is not kept.
+            problemReport = CartoucheReports.make(.saves, CartoucheText.savesCopyFailed, message: error.localizedDescription,
+                                                  error: error, step: "Copying the saves to " + CartoucheReports.place(.saves),
+                                                  facts: [.init("Games", String(due.count))], inBackground: !always)
             NSLog("[Cartouche] saves not copied: %@", error.localizedDescription)
             done = false
         }

@@ -103,10 +103,11 @@ struct CartoucheStorageView: View {
                             Text(verbatim: "\(stored.games.count)")
                         }
                     }
-                    if let problem = stored.problem {
-                        Text(problem)
+                    if let problem = stored.problemReport {
+                        Text(problem.message)
                             .font(.footnote)
                             .foregroundStyle(Color.orange)
+                        CartoucheReportButton(report: problem)
                     } else if settings.isReadOnly(.games) {
                         Text(CartoucheText.storageReadOnlyGames)
                             .font(.footnote)
@@ -118,10 +119,11 @@ struct CartoucheStorageView: View {
                     Text(CartoucheText.storageReadOnlySaves)
                         .font(.footnote)
                         .foregroundStyle(Color.orange)
-                } else if let problem = backups.problem {
-                    Text(problem)
+                } else if let problem = backups.problemReport {
+                    Text(problem.message)
                         .font(.footnote)
                         .foregroundStyle(Color.orange)
+                    CartoucheReportButton(report: problem)
                 }
                 Menu {
                     serverChoices(role)
@@ -298,7 +300,7 @@ struct CartoucheStorageServerForm: View {
     @State private var password = ""
     @State private var shares: [String]?
     @State private var checking = false
-    @State private var problem: String?
+    @State private var problem: CartoucheReport?
     @StateObject private var nearby = CartoucheSMBBrowser()
     @Environment(\.dismiss) private var dismiss
     private let isNew: Bool
@@ -370,9 +372,10 @@ struct CartoucheStorageServerForm: View {
                     LabeledContent(CartoucheText.storageShare, value: server.share)
                 }
                 if let problem {
-                    Text(problem)
+                    Text(problem.message)
                         .font(.footnote)
                         .foregroundStyle(Color.orange)
+                    CartoucheReportButton(report: problem)
                 }
             } header: {
                 Text(CartoucheText.storageShare)
@@ -421,7 +424,7 @@ struct CartoucheStorageServerForm: View {
             shares = found
             if !found.contains(server.share) { server.share = found.first ?? "" }
         } catch {
-            problem = error.localizedDescription
+            problem = CartoucheReports.connectionFailed(to: server, error: error)
         }
         checking = false
         #endif
@@ -451,7 +454,7 @@ struct CartoucheStorageS3Form: View {
     @State private var region: String
     @State private var secretKey = ""
     @State private var checking = false
-    @State private var problem: String?
+    @State private var problem: CartoucheReport?
     @Environment(\.dismiss) private var dismiss
     private let isNew: Bool
 
@@ -499,9 +502,10 @@ struct CartoucheStorageS3Form: View {
                     }
                 }
                 if let problem {
-                    Text(problem)
+                    Text(problem.message)
                         .font(.footnote)
                         .foregroundStyle(Color.orange)
+                    CartoucheReportButton(report: problem)
                 }
             } header: {
                 Text(CartoucheText.storageS3Keys)
@@ -547,7 +551,7 @@ struct CartoucheStorageS3Form: View {
         do {
             remote = try await CartoucheS3.connect(server, secretKey: secret)
         } catch {
-            problem = error.localizedDescription
+            problem = CartoucheReports.connectionFailed(to: server, error: error)
             checking = false
             return
         }
@@ -572,7 +576,7 @@ struct CartoucheStorageFTPForm: View {
     private let saved: CartoucheStorageServer?
     @State private var password = ""
     @State private var checking = false
-    @State private var problem: String?
+    @State private var problem: CartoucheReport?
     @Environment(\.dismiss) private var dismiss
     private let isNew: Bool
 
@@ -633,9 +637,10 @@ struct CartoucheStorageFTPForm: View {
                     }
                 }
                 if let problem {
-                    Text(problem)
+                    Text(problem.message)
                         .font(.footnote)
                         .foregroundStyle(Color.orange)
+                    CartoucheReportButton(report: problem)
                 }
             } header: {
                 Text(CartoucheText.storageAccount)
@@ -685,7 +690,7 @@ struct CartoucheStorageFTPForm: View {
             remote = checked.remote
             server.hostKey = checked.hostKey
         } catch {
-            problem = error.localizedDescription
+            problem = CartoucheReports.connectionFailed(to: server, error: error)
             checking = false
             return
         }
@@ -790,7 +795,7 @@ struct CartoucheStorageFolderBrowser: View {
     let role: CartoucheStorageRole
     let onChoose: (String) -> Void
     @State private var folders: [String]?
-    @State private var problem: String?
+    @State private var problem: CartoucheReport?
     /// Whether the account can add a file here: nil until the server
     /// answers, and when it did not.
     @State private var writable: Bool?
@@ -840,8 +845,9 @@ struct CartoucheStorageFolderBrowser: View {
                             .foregroundStyle(.secondary)
                     }
                 } else if let problem {
-                    Text(problem)
+                    Text(problem.message)
                         .foregroundStyle(Color.orange)
+                    CartoucheReportButton(report: problem)
                 } else {
                     ProgressView()
                         .frame(maxWidth: .infinity)
@@ -884,7 +890,9 @@ struct CartoucheStorageFolderBrowser: View {
             folders = items.filter(\.isFolder).map(\.name).sorted { $0.localizedStandardCompare($1) == .orderedAscending }
             problem = nil
         } catch {
-            problem = error.localizedDescription
+            problem = CartoucheReports.make(.storage, CartoucheText.storageBrowseFailed, message: error.localizedDescription,
+                                            error: error, step: "Listing a folder on " + CartoucheReports.kindName(server.kind),
+                                            facts: [.init("Depth", String(path.split(separator: "/").count))])
         }
     }
 
@@ -901,7 +909,10 @@ struct CartoucheStorageFolderBrowser: View {
             await remote.disconnect()
             folders = ((folders ?? []) + [name]).sorted { $0.localizedStandardCompare($1) == .orderedAscending }
         } catch {
-            problem = error.localizedDescription
+            // The name the player just typed is theirs too.
+            CartoucheReports.redactTyped(names: [name])
+            problem = CartoucheReports.make(.storage, CartoucheText.storageNewFolderFailed, message: error.localizedDescription,
+                                            error: error, step: "Creating a folder on " + CartoucheReports.kindName(server.kind))
         }
     }
 }
@@ -956,10 +967,11 @@ struct CartoucheSavesSection: View {
                 } label: {
                     Label(CartoucheText.savesPutBack, systemImage: "clock.arrow.circlepath")
                 }
-                if let problem = backups.problem {
-                    Text(problem)
+                if let problem = backups.problemReport {
+                    Text(problem.message)
                         .font(.footnote)
                         .foregroundStyle(Color.orange)
+                    CartoucheReportButton(report: problem)
                 }
             } else {
                 Text(CartoucheText.savesNoFolder)
@@ -979,12 +991,12 @@ struct CartoucheSavesSection: View {
 struct CartoucheSaveCopiesView: View {
     let target: CartoucheSaveTarget
     @State private var copies: [CartoucheSaveBackup]?
-    @State private var problem: String?
+    @State private var problem: CartoucheReport?
     @State private var asking: CartoucheSaveBackup?
     @State private var restoring = false
     @State private var restored: Date?
-    /// Why the last copy was not put back.
-    @State private var failure: String?
+    /// Why the last copy was not put back, and the report on it.
+    @State private var failure: CartoucheReport?
 
     init(target: CartoucheSaveTarget) {
         self.target = target
@@ -1001,8 +1013,9 @@ struct CartoucheSaveCopiesView: View {
             }
             if let failure {
                 Section {
-                    Label(failure, systemImage: "exclamationmark.triangle.fill")
+                    Label(failure.message, systemImage: "exclamationmark.triangle.fill")
                         .foregroundStyle(Color.orange)
+                    CartoucheReportButton(report: failure)
                 }
             }
             Section {
@@ -1025,8 +1038,9 @@ struct CartoucheSaveCopiesView: View {
                             .foregroundStyle(.secondary)
                     }
                 } else if let problem {
-                    Text(problem)
+                    Text(problem.message)
                         .foregroundStyle(Color.orange)
+                    CartoucheReportButton(report: problem)
                 } else {
                     ProgressView()
                         .frame(maxWidth: .infinity)
@@ -1068,7 +1082,9 @@ struct CartoucheSaveCopiesView: View {
             copies = try await CartoucheSaveBackups.shared.copies(of: target)
             problem = nil
         } catch {
-            problem = error.localizedDescription
+            problem = CartoucheReports.make(.saves, CartoucheText.savesListFailed, message: error.localizedDescription,
+                                            error: error, step: "Listing the copies of " + target.name + "'s saves, in "
+                                                + CartoucheReports.place(.saves))
         }
     }
 
@@ -1079,8 +1095,12 @@ struct CartoucheSaveCopiesView: View {
         do {
             try await CartoucheSaveBackups.shared.restore(copy, of: target)
             restored = copy.date
+            CartoucheReports.note("Saves of " + target.name + " put back from " + CartoucheReport.timestamp(copy.date))
         } catch {
-            failure = error.localizedDescription
+            failure = CartoucheReports.make(.saves, CartoucheText.savesPutBackFailed, message: error.localizedDescription,
+                                            error: error, step: "Putting back a copy of " + target.name + "'s saves",
+                                            facts: [.init("Copy", CartoucheReport.timestamp(copy.date) + ", "
+                                                + CartoucheReport.bytes(Int64(clamping: copy.size)))])
         }
         restoring = false
         // Putting a copy back first copies the saves it replaces.
