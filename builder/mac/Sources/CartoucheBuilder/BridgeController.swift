@@ -43,6 +43,8 @@ final class BridgeController: ObservableObject, BridgeServerDelegate {
     @Published private(set) var games: URL?
     private weak var model: AppModel?
     private var panel: NSPanel?
+    /// The Mac's name and the saves folder the gallery shows (preview).
+    private var sampleMac: (name: String, saves: URL)?
 
     init(home: BuilderHome, sample: Bool) {
         self.home = home
@@ -59,12 +61,18 @@ final class BridgeController: ObservableObject, BridgeServerDelegate {
         Host.current().localizedName ?? "Mac"
     }
 
+    /// The name Cartouche shows for this Mac under Macs nearby.
+    var name: String {
+        sampleMac?.name ?? BridgeController.macName
+    }
+
     var enabled: Bool {
         UserDefaults.standard.bool(forKey: AppSettings.bridgeKey)
     }
 
     /// Where the iPhone's saves go: the folder chosen, or the builder's own.
     var saves: URL {
+        if let sampleMac { return sampleMac.saves }
         if let path = UserDefaults.standard.string(forKey: AppSettings.savesKey), !path.isEmpty {
             return URL(fileURLWithPath: path, isDirectory: true)
         }
@@ -72,7 +80,7 @@ final class BridgeController: ObservableObject, BridgeServerDelegate {
     }
 
     var savesIsDefault: Bool {
-        (UserDefaults.standard.string(forKey: AppSettings.savesKey) ?? "").isEmpty
+        sampleMac != nil || (UserDefaults.standard.string(forKey: AppSettings.savesKey) ?? "").isEmpty
     }
 
     func attach(model: AppModel) {
@@ -115,11 +123,13 @@ final class BridgeController: ObservableObject, BridgeServerDelegate {
         devices = server?.devices.all ?? []
     }
 
-    /// Shows sample iPhones, without a server: the gallery's pictures.
-    func preview(devices: [PairedDevice], connected: Set<String>, games: String) {
+    /// Shows sample iPhones, without a server, and a made-up Mac name and
+    /// saves folder in place of this Mac's: the gallery's pictures.
+    func preview(devices: [PairedDevice], connected: Set<String>, games: String, name: String, saves: URL) {
         self.devices = devices
         self.connected = connected
         self.games = URL(fileURLWithPath: games, isDirectory: true)
+        sampleMac = (name, saves)
         state = .running(port: CartoucheBridge.port)
     }
 
