@@ -203,28 +203,47 @@ call POST "/workers/scripts/$DASHBOARD/subdomain" -H "Content-Type: application/
   --data-binary "$(json '{"enabled": true, "previews_enabled": false}')" >/dev/null
 
 URL="https://$NAME.$subdomain.workers.dev"
-# A new workers.dev address can take a minute or two to answer.
+DASHBOARD_URL="https://$DASHBOARD.$subdomain.workers.dev"
+# reach WORKER: where the checks below ask a Worker, its workers.dev
+# address, or the stand-in's in the tests (TELEMETRY_CHECK_BASE).
+reach() {
+  if [ -n "${TELEMETRY_CHECK_BASE:-}" ]; then
+    echo "$TELEMETRY_CHECK_BASE$1/"
+  else
+    echo "https://$1.$subdomain.workers.dev/"
+  fi
+}
+# A new workers.dev address can take a minute or two to answer. Behind
+# Cloudflare Access, the server would send the iPhones to a sign-in page
+# instead of taking their reports: only the dashboard goes behind Access.
 answered=""
 for ((try = 0; try < ${TELEMETRY_CHECK_TRIES:-12}; try++)); do
   if [ "$try" -gt 0 ]; then sleep 10; fi
-  if [ "$(curl -sS --max-time 10 "$URL/" 2>/dev/null)" = "Cartouche telemetry" ]; then
+  rm -f "$WORK/root"
+  case "$(curl -sS -o "$WORK/root" --max-time 10 -w '%{http_code} %{redirect_url}' "$(reach "$NAME")" 2>/dev/null || true)" in
+    30[0-9]\ *cloudflareaccess.com/* | 30[0-9]\ */cdn-cgi/access/*) answered=access && break ;;
+  esac
+  if [ -f "$WORK/root" ] && [ "$(cat "$WORK/root")" = "Cartouche telemetry" ]; then
     answered=yes
     break
   fi
 done
-if [ -n "$answered" ]; then
-  echo "The telemetry server answers at $URL"
-else
-  echo "::warning::$URL does not answer yet: a new workers.dev address can take a few minutes."
-fi
+case "$answered" in
+  yes)
+    echo "The telemetry server answers at $URL" ;;
+  access)
+    server="Cloudflare Access protects the telemetry server at $URL: the iPhones cannot send it their reports or their problems. Only $DASHBOARD goes behind Access: take $NAME out of it in Workers & Pages › $NAME › Access › Manage access"
+    echo "::error::$server." ;;
+  *)
+    echo "::warning::$URL does not answer yet: a new workers.dev address can take a few minutes." ;;
+esac
 
 # Behind Access, the dashboard's address sends to the team's sign-in; without
 # it, the Worker answers its closed page.
-DASHBOARD_URL="https://$DASHBOARD.$subdomain.workers.dev"
 protection=""
 for ((try = 0; try < ${TELEMETRY_CHECK_TRIES:-12}; try++)); do
   if [ "$try" -gt 0 ]; then sleep 10; fi
-  case "$(curl -sS -o /dev/null --max-time 10 -w '%{http_code} %{redirect_url}' "$DASHBOARD_URL/" 2>/dev/null || true)" in
+  case "$(curl -sS -o /dev/null --max-time 10 -w '%{http_code} %{redirect_url}' "$(reach "$DASHBOARD")" 2>/dev/null || true)" in
     30[0-9]\ *cloudflareaccess.com/* | 30[0-9]\ */cdn-cgi/access/*) protection=access && break ;;
     403\ *) protection=closed && break ;;
   esac
@@ -243,8 +262,13 @@ esac
 
 if [ -n "${GITHUB_STEP_SUMMARY:-}" ]; then
   {
+    if [ "$answered" = access ]; then echo "**$server.**"; fi
     echo "The telemetry server is at $URL: \`CARTOUCHE_TELEMETRY_URL=$URL\` in app/config.env."
     echo "Problems: $problems."
     echo "Dashboard: $dashboard."
   } >>"$GITHUB_STEP_SUMMARY"
 fi
+
+# Both Workers are up, but behind Access the server takes nothing: the run
+# fails, for the project to see it.
+if [ "$answered" = access ]; then exit 1; fi

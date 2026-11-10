@@ -433,26 +433,22 @@ struct CartoucheGameSettingsView: View {
             .font(.subheadline)
             .listRowBackground(Color.clear)
 
-            if model.categories.count > 1 {
-                Section {
-                    CartoucheSettingsCategoryBar(model: model)
-                        .listRowInsets(EdgeInsets())
-                        .listRowBackground(Color.clear)
-                }
-            }
             if let category = model.currentCategory {
-                if category == CartoucheGameSettingsModel.savesCategory {
-                    cloudSaves
-                } else {
-                    Section {
+                // One section for every category, so that the bar over it
+                // stays put as the player moves between them.
+                Section {
+                    if category == CartoucheGameSettingsModel.savesCategory {
+                        cloudSaves
+                    } else {
                         ForEach(model.rows(in: category)) { setting in
                             CartoucheGameSettingRow(setting: setting, model: model)
                         }
-                    } header: {
-                        // The bar names the category when there is one.
-                        if model.categories.count <= 1 {
-                            Text(CartoucheText.gameSettingText(category))
-                        }
+                    }
+                } header: {
+                    categoryHeader(category)
+                } footer: {
+                    if category == CartoucheGameSettingsModel.savesCategory {
+                        Text(model.cloudNote ?? CartoucheText.cloudFooter)
                     }
                 }
             }
@@ -487,24 +483,40 @@ struct CartoucheGameSettingsView: View {
         }
     }
 
+    /// Over the category's rows: the bar of the categories when there are
+    /// several, the category's name otherwise. The bar is the header of the
+    /// rows, not a row of its own: a list clips a row to the rounded corners
+    /// of its section, which iOS 26 makes rounder than the bar's buttons,
+    /// and they cut into the buttons at both ends of the bar.
+    @ViewBuilder
+    private func categoryHeader(_ category: String) -> some View {
+        if model.categories.count > 1 {
+            CartoucheSettingsCategoryBar(model: model)
+                .textCase(nil)
+                .padding(.bottom, 4)
+                // As wide as the rows under it.
+                .listRowInsets(EdgeInsets())
+        } else {
+            Text(CartoucheSettingsCategoryBar.title(category))
+        }
+    }
+
+    /// The rows of the cloud saves, the page's last category.
+    @ViewBuilder
     private var cloudSaves: some View {
-        Section {
-            LabeledContent(CartoucheText.cloudTitle) {
-                Text(model.cloudFolder ?? CartoucheText.cloudOff)
-                    .lineLimit(1)
-                    .truncationMode(.middle)
-            }
-            Button(model.cloudFolder == nil ? CartoucheText.cloudChoose : CartoucheText.cloudChange) {
-                choosingFolder = true
-            }
-            if model.cloudFolder != nil {
-                Button(CartoucheText.cloudTurnOff, role: .destructive) { model.turnOffCloudSaves() }
-            }
-            if let report = model.cloudReport {
-                CartoucheReportButton(report: report)
-            }
-        } footer: {
-            Text(model.cloudNote ?? CartoucheText.cloudFooter)
+        LabeledContent(CartoucheText.cloudTitle) {
+            Text(model.cloudFolder ?? CartoucheText.cloudOff)
+                .lineLimit(1)
+                .truncationMode(.middle)
+        }
+        Button(model.cloudFolder == nil ? CartoucheText.cloudChoose : CartoucheText.cloudChange) {
+            choosingFolder = true
+        }
+        if model.cloudFolder != nil {
+            Button(CartoucheText.cloudTurnOff, role: .destructive) { model.turnOffCloudSaves() }
+        }
+        if let report = model.cloudReport {
+            CartoucheReportButton(report: report)
         }
     }
 }

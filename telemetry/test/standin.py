@@ -2,7 +2,9 @@
 telemetry/sheets.py call, for their tests. It runs the SQL it is sent on
 SQLite, as D1 would: a script as it comes, or one statement with its
 parameters, whose rows it answers. Under /github, it answers as GitHub's API
-does for a repository, to the deploy's check of the problems' repository.
+does for a repository, to the deploy's check of the problems' repository;
+under /workers.dev, as each Worker's workers.dev address does, to the
+deploy's checks of the server and the dashboard.
 """
 
 import email
@@ -12,6 +14,7 @@ import os
 import re
 import sqlite3
 import threading
+from collections import namedtuple
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, urlparse
 
@@ -19,6 +22,10 @@ ACCOUNT = "0123456789abcdef0123456789abcdef"
 TOKEN = "a-token-for-the-tests"
 PREFIX = f"/client/v4/accounts/{ACCOUNT}"
 GITHUB_TOKEN = "github_pat_for_the_tests"
+# An answer sent as it is, not as JSON: its headers and its bytes.
+Raw = namedtuple("Raw", "headers body")
+# Where Cloudflare Access sends a request it has not signed in.
+ACCESS_SIGN_IN = "https://team.cloudflareaccess.com/cdn-cgi/access/login/{host}?kid=0&redirect_url=%2F"
 
 
 class Cloudflare:
@@ -37,9 +44,21 @@ class Cloudflare:
         self.schedules = {}
         # GitHub's repositories the token can read: name -> private.
         self.repositories = {}
+        # What each Worker's workers.dev address answers: the server its
+        # name, the dashboard its closed page until Access protects it.
+        self.workers_dev = {
+            "cartouche-telemetry": (200, Raw({"Content-Type": "text/plain"}, b"Cartouche telemetry\n")),
+            "cartouche-dashboard": (403, Raw({"Content-Type": "text/html"}, b"<h1>Ce tableau de bord est ferm\xc3\xa9</h1>")),
+        }
+
+    def behind_access(self, name):
+        """The answer of a Worker Cloudflare Access protects: its sign-in."""
+        self.workers_dev[name] = (302, Raw({"Location": ACCESS_SIGN_IN.format(host=f"{name}.workers.dev")}, b""))
 
     def answer(self, method, path, query, headers, body):
         self.calls.append((method, path))
+        if path.startswith("/workers.dev/"):
+            return self.workers_dev.get(path[len("/workers.dev/"):].strip("/"), (404, Raw({}, b"")))
         if path.startswith("/github/repos/"):
             name = path[len("/github/repos/"):]
             if headers.get("Authorization") != f"Bearer {GITHUB_TOKEN}":
@@ -114,9 +133,10 @@ def serve(cloudflare):
             length = int(self.headers.get("Content-Length") or 0)
             body = self.rfile.read(length) if length else b""
             status, answer = cloudflare.answer(self.command, url.path, parse_qs(url.query), self.headers, body)
-            data = json.dumps(answer).encode()
+            headers, data = answer if isinstance(answer, Raw) else ({"Content-Type": "application/json"}, json.dumps(answer).encode())
             self.send_response(status)
-            self.send_header("Content-Type", "application/json")
+            for name, value in headers.items():
+                self.send_header(name, value)
             self.send_header("Content-Length", str(len(data)))
             self.end_headers()
             self.wfile.write(data)
@@ -136,5 +156,6 @@ def environment(server, **values):
     of the job's own summary or outputs unless given."""
     kept = {key: value for key, value in os.environ.items()
             if key.lower() not in ("http_proxy", "https_proxy", "all_proxy", "github_step_summary", "github_output")}
-    kept.update(CLOUDFLARE_API=f"http://127.0.0.1:{server.server_port}/client/v4", NO_PROXY="127.0.0.1", **values)
+    kept.update(CLOUDFLARE_API=f"http://127.0.0.1:{server.server_port}/client/v4",
+                TELEMETRY_CHECK_BASE=f"http://127.0.0.1:{server.server_port}/workers.dev/", NO_PROXY="127.0.0.1", **values)
     return kept

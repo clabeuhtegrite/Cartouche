@@ -15,7 +15,11 @@
   nothing in a name that could close it; the same database and problems'
   repository, no logs, its workers.dev address and no daily run; an Access
   application's team and audience when they are given; and the job's
-  summary says where it is.
+  summary says where it is;
+- the deploy reads what both addresses answer: the server its name, the
+  dashboard its closed page or Access's sign-in; a server behind Access,
+  which the iPhones could no longer send to, fails the deploy and says
+  where to take it out.
 
 The stand-in (standin.py) runs the SQL it is sent on SQLite, as D1 would.
 
@@ -53,7 +57,7 @@ class DeployTest(unittest.TestCase):
         self.addCleanup(self.server.shutdown)
 
     def deploy(self, script=DEPLOY, **secrets):
-        return subprocess.run(["bash", str(script)], env=environment(self.server, TELEMETRY_CHECK_TRIES="0", **secrets),
+        return subprocess.run(["bash", str(script)], env=environment(self.server, **{"TELEMETRY_CHECK_TRIES": "0", **secrets}),
                               capture_output=True, text=True, timeout=60)
 
     def deploy_with_secrets(self):
@@ -205,6 +209,38 @@ class DeployTest(unittest.TestCase):
             self.assertEqual(result.returncode, 0, result.stderr)
             self.assertIn(f"Dashboard: the dashboard is at https://cartouche-dashboard.{self.cloudflare.subdomain}.workers.dev",
                           summary.read_text())
+
+    def checked(self):
+        """A deploy that asks each Worker's address once, with its summary."""
+        with tempfile.TemporaryDirectory() as folder:
+            summary = Path(folder) / "summary.md"
+            result = self.deploy(CLOUDFLARE_API_TOKEN=TOKEN, CLOUDFLARE_ACCOUNT_ID=ACCOUNT, TELEMETRY_CHECK_TRIES="1",
+                                 GITHUB_STEP_SUMMARY=str(summary))
+            return result, summary.read_text() if summary.exists() else ""
+
+    def test_the_deploy_reads_what_both_addresses_answer(self):
+        result, summary = self.checked()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn(f"The telemetry server answers at https://cartouche-telemetry.{self.cloudflare.subdomain}.workers.dev",
+                      result.stdout)
+        self.assertIn("closed until Cloudflare Access protects it", result.stdout)
+        self.assertNotIn("::error::", result.stdout)
+        self.cloudflare.behind_access("cartouche-dashboard")
+        result, summary = self.checked()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("Dashboard: the dashboard is at", result.stdout)
+        self.assertIn("behind Cloudflare Access.", summary)
+
+    def test_a_server_behind_access_fails_the_deploy(self):
+        self.cloudflare.behind_access("cartouche-telemetry")
+        self.cloudflare.behind_access("cartouche-dashboard")
+        result, summary = self.checked()
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("::error::Cloudflare Access protects the telemetry server", result.stdout)
+        self.assertIn("Workers & Pages › cartouche-telemetry › Access", result.stdout)
+        self.assertIn("**Cloudflare Access protects the telemetry server", summary)
+        # Both Workers went up all the same.
+        self.assertEqual(set(self.cloudflare.scripts), {"cartouche-telemetry", "cartouche-dashboard"})
 
     def test_without_the_secrets_nothing_happens(self):
         result = self.deploy()
