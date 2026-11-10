@@ -125,13 +125,18 @@ struct CartoucheStorageView: View {
                     Button(CartoucheText.storageReadAgain, systemImage: "arrow.clockwise") { stored.refresh(evenIfOffline: true) }
                         .disabled(stored.isScanning)
                 } else if offline {
-                    CartoucheOfflineRows(message: CartoucheText.storageOffline(server.name), isTrying: reach.trying.contains(server.id)) {
-                        Task { await reach.tryAgain(server) }
-                    }
+                    // As the games folder's lines: what waits, and a way to
+                    // try the server again.
+                    Label(CartoucheText.storageOffline(server.name), systemImage: "wifi.slash")
+                        .font(.footnote)
+                        .foregroundStyle(Color.orange)
                     if !backups.waiting.isEmpty {
                         Text(CartoucheText.savesWaiting(backups.waiting.count))
                             .font(.footnote)
                             .foregroundStyle(.secondary)
+                    }
+                    CartoucheTryAgainButton(isTrying: reach.trying.contains(server.id)) {
+                        Task { await reach.tryAgain(server) }
                     }
                 } else if settings.isReadOnly(.saves) {
                     Text(CartoucheText.storageReadOnlySaves)
@@ -1188,7 +1193,19 @@ struct CartoucheOfflineRows: View {
     var body: some View {
         Label(message, systemImage: "wifi.slash")
             .foregroundStyle(Color.orange)
-        Button(action: tryAgain) {
+        CartoucheTryAgainButton(isTrying: isTrying, action: tryAgain)
+    }
+}
+
+/// Try again, for a server that does not answer from here: busy while it
+/// is being tried.
+@available(iOS 17.0, *)
+struct CartoucheTryAgainButton: View {
+    var isTrying = false
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
             HStack {
                 Label(CartoucheText.storageTryAgain, systemImage: "arrow.clockwise")
                 if isTrying {

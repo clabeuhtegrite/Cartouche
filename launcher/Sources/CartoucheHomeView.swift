@@ -118,6 +118,9 @@ struct CartoucheHomeView: View {
     /// The signature's days left from which the top bar shows them: before,
     /// renewals take care of it and the System page says when it expires.
     static let expirySoonDays = 3
+    /// The width from which the top bar names a server that is offline:
+    /// an upright iPhone shows its symbol alone.
+    private static let offlineNameWidth: CGFloat = 600
 
     /// The rows the focus moves along: the shelf, then the dock.
     private static let shelfRow = 0
@@ -246,19 +249,27 @@ struct CartoucheHomeView: View {
             }
             // A server of the player's that does not answer from here, as
             // their NAS away from home: the System page says which, and its
-            // Storage page tries it again.
+            // Storage page tries it again. Its name shows where the bar has
+            // room for it beside the wordmark; on an upright iPhone, the
+            // symbol alone, as the controller's.
             if let offline = reach.offlineInUse.first {
                 Button {
                     onTab(.system)
                 } label: {
-                    Label(CartoucheText.storageOfflineShort(offline.name), systemImage: "wifi.slash")
-                        .font(.subheadline.weight(.semibold))
-                        .labelStyle(CartoucheTightLabelStyle())
-                        .lineLimit(1)
-                        .foregroundStyle(Color.orange)
-                        .padding(.horizontal, 12)
-                        .frame(height: 34)
-                        .cartoucheGlass(in: Capsule(), interactive: true)
+                    Group {
+                        if metrics.size.width >= Self.offlineNameWidth {
+                            Label(CartoucheText.storageOfflineShort(offline.name), systemImage: "wifi.slash")
+                                .labelStyle(CartoucheTightLabelStyle())
+                        } else {
+                            Image(systemName: "wifi.slash")
+                        }
+                    }
+                    .font(.subheadline.weight(.semibold))
+                    .lineLimit(1)
+                    .foregroundStyle(Color.orange)
+                    .padding(.horizontal, 12)
+                    .frame(height: 34)
+                    .cartoucheGlass(in: Capsule(), interactive: true)
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel(Text(CartoucheText.storageOfflineTitle(offline.name)))
