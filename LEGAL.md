@@ -12,7 +12,7 @@ The app has no catalogue of downloadable games and no way to download one: it in
 
 ## Your games
 
-Use only games you own, dumped from your own console with your own keys, as the law of your country allows. Your games stay yours: Cartouche installs them on your iPhone, copies them and your saves only to the storage you set up yourself, and sends nothing about them anywhere else.
+Use only games you own, dumped from your own console with your own keys, as the law of your country allows. Your games stay yours: Cartouche installs them on your iPhone, copies them and your saves only to the storage you set up yourself, and sends nothing about them anywhere else. Cartouche Builder builds them on your Mac from your own files into your own games folder, and downloads, uploads or shares no game, key or IPA.
 
 ## Issues and pull requests
 

@@ -13,6 +13,7 @@ Cartouche is an iOS app that turns an iPhone into a console for the games [nxnat
 - **The memory games need.** Cartouche's App ID gets Increased Memory Limit, about 6 GiB instead of 3.3 GiB on a 12 GB iPhone, on a free account.
 - **Updates from the iPhone.** Cartouche offers its new versions over the console, and the built-in SideStore installs them.
 - **Every iPhone, the Duo included.** The interface follows the space it has, folded or unfolded, and keeps clear of the fold and the cameras.
+- **Your games, built on your Mac.** Cartouche Builder, a program of its own beside the app, builds your games with nxnative from your own files into your games folder, and builds a game again when a change to nxnative touches it ([builder/README.md](builder/README.md)).
 
 You never see LiveContainer or SideStore, which Cartouche is built on: it drives them out of sight.
 
@@ -35,6 +36,7 @@ Cartouche ships no games, no keys and no firmware, and never downloads them: it 
 | [`app/`](app/) | The iOS app: LiveContainer and SideStore at pinned commits, our patches, the build scripts, the releases and their source |
 | [`launcher/`](launcher/) | Cartouche's own screens: the console, the game sheets, the player's storage, setup, renewal and updates |
 | [`installer/`](installer/) | The Cartouche Installer for macOS and Windows, a fork of iloader |
+| [`builder/`](builder/) | Cartouche Builder, the Mac program that builds the player's own games with nxnative and builds them again when nxnative changes for them |
 | [`catalog/`](catalog/) | What the app knows about games and devices: nxnative's list of games, covers' IDs, compatibility sheets, device memory limits |
 | [`guard/`](guard/) | The publish guard, which refuses to publish anything that looks like game content |
 | [`docs/`](docs/) | Architecture, roadmap, decisions |
