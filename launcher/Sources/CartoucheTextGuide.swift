@@ -15,11 +15,19 @@ extension CartoucheText {
     static var guideIntro: String { s("guide.intro", "Five steps from here to your first game. Each one ticks itself once it is done.") }
     static var guideFinishedTitle: String { s("guide.finished.title", "You’re all set") }
     static var guideFinishedIntro: String { s("guide.finished.intro", "Your first game is on this iPhone. The next ones go the same way: build, then install.") }
+    /// The same, for a player who said No thanks to the Mac's step.
+    static var guideFinishedIntroNoMac: String { s("guide.finished.introNoMac", "Your first game is on this iPhone. The next ones go the same way.") }
     static func guideCardDetail(_ step: Int, _ count: Int, _ title: String) -> String { f("guide.card.detail", "Step %1$lld of %2$lld: %3$@", step, count, title) }
     static func guideStepDone(_ title: String) -> String { f("guide.step.done", "%@, done", title) }
+    static func guideStepSkipped(_ title: String) -> String { f("guide.step.skipped", "%@, skipped", title) }
     static var guideDone: String { s("guide.done", "Done.") }
     static var guideNoDownloads: String { s("guide.noDownloads", "Cartouche never downloads a game: you build yours from your own console.") }
     static var guideOpenSetup: String { s("guide.openSetup", "Open the setup") }
+    /// The × of the home's card.
+    static var guideHide: String { s("guide.hide", "Hide the guide") }
+    /// Where the player stands, on the System page.
+    static func guideStatusStep(_ step: Int, _ count: Int) -> String { f("guide.status.step", "Step %1$lld of %2$lld", step, count) }
+    static var guideStatusDone: String { s("guide.status.done", "Done") }
 
     static var guideVPNTitle: String { s("guide.vpn.title", "Connect LocalDevVPN") }
     static var guideVPNHow: String { s("guide.vpn.how", "Cartouche signs in and renews itself through LocalDevVPN, a free app from the App Store. Its traffic never leaves this iPhone, so you can leave it on.") }
@@ -40,14 +48,16 @@ extension CartoucheText {
     static var guideBuildGame: String { s("guide.build.game", "Your game, copied from your own console, with your console’s keys (prod.keys) for a Switch game") }
     static var guideBuildSend: String { s("guide.build.send", "Send the steps to my Mac") }
     static var guideBuildSendNote: String { s("guide.build.sendNote", "By AirDrop or Messages. On the Mac, the page gives Cartouche Builder: drag it into Applications, and it installs its tools itself.") }
-    /// The page of the guide for the Mac, in the player's language.
-    static var guideBuildLink: String { s("guide.build.link", "https://github.com/clabeuhtegrite/Cartouche/blob/main/docs/getting-started.md#2-build-your-game-on-your-mac") }
+    static var guideBuildSkip: String { s("guide.build.skip", "No thanks") }
+    static var guideBuildSkipped: String { s("guide.build.skipped", "Skipped: your games will come from your games folder, or from an IPA you import.") }
     static var guideBuildShareSubject: String { s("guide.build.share.subject", "Cartouche on your Mac") }
     static var guideBuildShareMessage: String { s("guide.build.share.message", "Install Cartouche Builder, then build your game with it.") }
     static var guideBuildDone: String { s("guide.build.done", "A game of yours is ready.") }
 
     static var guideFolderTitle: String { s("guide.folder.title", "Choose your games folder") }
     static var guideFolderHow: String { s("guide.folder.how", "Cartouche Builder puts your games in a folder, on the Mac or on your NAS. Add your Mac here once, with the code both screens show, or choose the folder on your NAS: Cartouche lists your games and offers their updates.") }
+    /// The same, for a player who said No thanks to the Mac's step.
+    static var guideFolderHowNoMac: String { s("guide.folder.howNoMac", "Choose the folder that holds your games, on your NAS, another server of yours or in Files: Cartouche lists them and offers their updates.") }
     static var guideFolderChoose: String { s("guide.folder.choose", "Choose the games folder") }
     static var guideFolderImport: String { s("guide.folder.import", "Import an IPA instead") }
     static func guideFolderDone(_ server: String) -> String { f("guide.folder.done", "Your games folder is on %@.", server) }
@@ -55,6 +65,8 @@ extension CartoucheText {
     static var guidePlayTitle: String { s("guide.play.title", "Install your game and play") }
     static var guidePlayReady: String { s("guide.play.ready", "Your game is in your games folder. Cartouche installs it on this iPhone, then shows Play.") }
     static var guidePlayWaiting: String { s("guide.play.waiting", "No game in your games folder yet. Yours shows here as soon as Cartouche Builder has built it. You can also import an IPA.") }
+    /// The same, for a player who said No thanks to the Mac's step.
+    static var guidePlayWaitingNoMac: String { s("guide.play.waitingNoMac", "No game in your games folder yet. Yours shows here as soon as it is there. You can also import an IPA.") }
     static func guidePlayInstall(_ game: String) -> String { f("guide.play.install", "Install %@", game) }
     static func guidePlayDone(_ game: String) -> String { f("guide.play.done", "%@ is on this iPhone.", game) }
 }

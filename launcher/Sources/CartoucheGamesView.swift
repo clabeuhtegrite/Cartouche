@@ -37,7 +37,8 @@
 //
 //  A player new to Cartouche follows its guide to their first game
 //  (CartoucheGuideView): it opens by itself on the first launch, then from
-//  the home's card, until their first game is installed.
+//  the home's card, until their first game is installed or the player
+//  takes the card off the home, and from the System page at any time.
 //
 //  A game can run behind the console, paused while the console shows
 //  (CartoucheGameHost): Play on it brings it back, and Play on another
@@ -317,6 +318,14 @@ struct CartoucheGamesView: View {
             let guideWasOpen = showingGuide
             showingGuide = false
             DispatchQueue.main.asyncAfter(deadline: .now() + (guideWasOpen ? 0.6 : 0)) { showingSetup = true }
+        }
+        // The System page asked for the guide: it opens over the console once
+        // the page has gone.
+        .onChange(of: guide.isOpenRequested) { _, requested in
+            guard requested else { return }
+            guide.noteOpenRequestTaken()
+            sheetID = nil
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) { showingGuide = true }
         }
         // Apple asks for a code while Cartouche signs in again by itself, for
         // a new certificate: the setup opens on the sign-in, unless the

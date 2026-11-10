@@ -45,7 +45,9 @@
 //                                        games folder and the saves folder;
 //                                        mac-offline: that Mac out of reach,
 //                                        away from home, with two games'
-//                                        saves waiting for it
+//                                        saves waiting for it; build-skipped:
+//                                        No thanks said to the guide's Mac
+//                                        step
 //      -GalleryOrientation landscape     the gallery turns itself sideways,
 //                                        as a game does; the simulator
 //                                        stays upright
@@ -125,6 +127,7 @@ struct GalleryScenario {
         MainActor.assumeIsolated {
             CartoucheSetup.shared.refresh()
             CartoucheGuide.shared.startOverForGallery()
+            if work == "build-skipped" { CartoucheGuide.shared.skipBuild() }
             if controller { CartoucheGamepad.shared.showHints() }
             showStats()
             if work == "installing" {
