@@ -9,4 +9,4 @@ What the launcher knows about games and devices. These files are published as `c
 
 The app carries these files as they are when it is built, in `CartoucheCatalog/` ([launcher/README.md](../launcher/README.md#what-it-does)).
 
-Catalog files never say where to get a game: the schemas have no field for it, and the publish guard refuses any URL in them. Results come from compatibility reports (see the issue form) measured on real devices; nothing is filled in from guesses.
+Catalog files never say where to get a game: the schemas have no field for it, and the publish guard refuses any URL in them. Results come from compatibility reports (see the issue form) and from Cartouche's game measurements, both measured on real devices; nothing is filled in from guesses. Each Thursday, the Game measurements workflow sums up the game sessions of the 28 days before into one result for each iPhone model that at least three iPhones played the game on, marked by its `measured`, and proposes the sheets that changed on the branch `catalog-measurements` ([telemetry/README.md](../telemetry/README.md#game-sheets)). A tester's result stays as it is.

@@ -137,8 +137,66 @@
             "type": "string",
             "maxLength": 300
           }
+        },
+        "measured": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "iPhones",
+            "sessions",
+            "from",
+            "to",
+            "endedBadlyPercent"
+          ],
+          "description": "Set on a result Cartouche's game measurements made, each week, from the sessions of the last 28 days on at least three iPhones of the model (telemetry/README.md#game-sheets); a tester's result has none. Each figure is the median of each iPhone's own, and left out when fewer than three iPhones measured it.",
+          "properties": {
+            "iPhones": {
+              "type": "integer",
+              "minimum": 3
+            },
+            "sessions": {
+              "type": "integer",
+              "minimum": 3
+            },
+            "from": {
+              "$ref": "#/$defs/day"
+            },
+            "to": {
+              "$ref": "#/$defs/day"
+            },
+            "fps": {
+              "type": "number",
+              "minimum": 0,
+              "description": "The frame rate, weighted by time."
+            },
+            "slowestFps": {
+              "type": "number",
+              "minimum": 0,
+              "description": "The frame rate of the slowest 5% of the time."
+            },
+            "targetFps": {
+              "type": "integer",
+              "minimum": 1,
+              "description": "The frame rate the game asks for, that of most sessions."
+            },
+            "stuttersPerMinute": {
+              "type": "number",
+              "minimum": 0
+            },
+            "endedBadlyPercent": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 100,
+              "description": "The sessions that crashed, never drew a frame or ran out of memory, out of all of them."
+            }
+          }
         }
       }
+    },
+    "day": {
+      "type": "string",
+      "format": "date",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
     }
   }
 }

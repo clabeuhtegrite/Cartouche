@@ -1,15 +1,16 @@
 name: Telemetry
 
-# Tests the telemetry server (telemetry/README.md) on each pull request that
-# changes it, and deploys it from main to Cloudflare: the Worker and its D1
-# database in the EU jurisdiction (telemetry/deploy.sh). The deploy takes the
-# secrets CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID of the environment
+# Tests the telemetry server (telemetry/README.md) and its weekly sum into the
+# game sheets on each pull request that changes them, and deploys the server
+# from main to Cloudflare: the Worker and its D1 database in the EU
+# jurisdiction (telemetry/deploy.sh). The deploy takes the secrets
+# CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID of the environment
 # cloudflare, and does nothing while they are not set. Run it by hand for a
 # first deploy, once they are.
 
 on:
   pull_request:
-    paths: ["telemetry/**", ".github/workflows/telemetry.yml"]
+    paths: ["telemetry/**", "catalog/schema/game.schema.json", ".github/workflows/telemetry.yml"]
   push:
     branches: [main]
     paths: ["telemetry/**", ".github/workflows/telemetry.yml"]
@@ -33,8 +34,13 @@ jobs:
           persist-credentials: false
       - name: The Worker
         run: node --test telemetry/test/worker.test.js
-      - name: The database on SQLite, and the deploy against a stand-in for Cloudflare
-        run: python3 -m unittest discover -s telemetry/test -v
+      # The publish guard's dev extra brings jsonschema, for the sheets the
+      # weekly sum writes.
+      - name: The database on SQLite, the deploy and the weekly sum against a stand-in for Cloudflare
+        run: |
+          python3 -m venv .venv
+          .venv/bin/pip install --quiet -e "guard[dev]"
+          .venv/bin/python -m unittest discover -s telemetry/test -v
 
   deploy:
     name: Deploy the telemetry server

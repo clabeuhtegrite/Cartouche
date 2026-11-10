@@ -62,6 +62,17 @@ A value the log does not have is left out.
 | `game.installed` | A game installed or updated. | `version`, `nxnative` |
 | `error` | An error Cartouche reported. | `origin`, what Cartouche was doing; `error`, the domains and codes of the error and those under it, never its words; `background` |
 
+## Game sheets
+
+Each Thursday, the Game measurements workflow ([`.github/workflows/measurements.yml`](../.github/workflows/measurements.yml)) sums up the sessions of the 28 days before into the results of the game sheets in [`catalog/games/`](../catalog/README.md), with [`sheets.py`](sheets.py), in time for Friday's version:
+
+- For each sheet, and each iPhone model at least three iPhones played the game on, one result. A copy of another region counts for its game, and a session sent again counts once, at its highest `seq`. A model fewer iPhones played the game on gets no result, and a figure fewer than three iPhones measured is left out: the sheets show figures of several iPhones, never of one.
+- Its figures are medians of each iPhone's own median, so that each iPhone counts once, however much it played: the frame rate, that of the slowest 5% of the time, the stutters a minute and the memory peak, each iPhone's highest. With them, how many sessions ended badly: crashed, never drew a frame, or ran out of memory. They are in its `measured`, and said in its note.
+- Its status: `does-not-run` when no session drew a frame; `boots` when half of the sessions or more ended badly; `playable-with-issues` when a tenth of them or more did, or the frame rate is under 90% of the rate the game asks for, or that of the slowest 5% of the time under 75% of it; `playable` otherwise.
+- Its engine is the nxnative build most sessions ran, and how many others did; its iOS the version most of the iPhones run.
+
+The results testers wrote stay as they are. A measured result is replaced by its model's new one, and stays while its model has none. The sheets that changed go on the branch `catalog-measurements`, whose pull request goes through CI before it is merged; the job summary links it, with how many sessions and iPhones were summed up. The workflow reads the database with the same secrets as the deploy, and does nothing without them.
+
 ## Deploy
 
 [`.github/workflows/telemetry.yml`](../.github/workflows/telemetry.yml) tests the server on each pull request that changes it, and deploys it from `main` with [`deploy.sh`](deploy.sh), which calls Cloudflare's API with curl and jq: the database, created in the EU jurisdiction if it is not there yet; `schema.sql`, whose every statement runs again without harm; the Worker, with the database bound as `DB` and no logs kept; its `workers.dev` address; and its daily run. The job summary gives the address, which goes in [`app/config.env`](../app/config.env) as `CARTOUCHE_TELEMETRY_URL`: a build with none sends nothing.
@@ -77,7 +88,7 @@ Run the workflow by hand for a first deploy once they are set. The free plan is 
 
 ```sh
 node --test telemetry/test/worker.test.js            # the Worker, with a stand-in for D1
-python3 -m unittest discover -s telemetry/test -v    # the database on SQLite; the deploy against a stand-in for Cloudflare's API
+python3 -m unittest discover -s telemetry/test -v    # the database on SQLite; the deploy and the weekly sum against a stand-in for Cloudflare's API
 ```
 
 [`test/app-reports.json`](test/app-reports.json) holds a report of each kind as Cartouche makes it, with every field: the launcher's tests check that Cartouche makes them so ([`CartoucheTelemetryReportTests.swift`](../launcher/Tests/CartoucheCoreTests/CartoucheTelemetryReportTests.swift)), and the Worker's that it keeps every field of them. [`app/tests/test_telemetry.py`](../app/tests/test_telemetry.py) checks that the server's address goes from `app/config.env` into the app, and that the app posts to the routes the Worker serves.

@@ -8,116 +8,21 @@
 - a database of that name in another jurisdiction stops the deploy;
 - without the secrets, the deploy does nothing.
 
-The stand-in runs the SQL it is sent on SQLite, as D1 would.
+The stand-in (standin.py) runs the SQL it is sent on SQLite, as D1 would.
 
 Run from the repository root: python3 -m unittest discover -s telemetry/test -v
 """
 
-import email
-import email.policy
-import json
-import os
-import re
 import shutil
-import sqlite3
 import subprocess
-import threading
 import unittest
-from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from urllib.parse import parse_qs, urlparse
+
+from standin import ACCOUNT, PREFIX, TOKEN, Cloudflare, environment, serve
 
 HERE = Path(__file__).resolve().parent
 DEPLOY = HERE.parent / "deploy.sh"
 WORKER = HERE.parent / "worker.js"
-ACCOUNT = "0123456789abcdef0123456789abcdef"
-TOKEN = "a-token-for-the-tests"
-PREFIX = f"/client/v4/accounts/{ACCOUNT}"
-
-
-class Cloudflare:
-    """What the stand-in holds, and every call it answered."""
-
-    def __init__(self):
-        self.calls = []
-        self.databases = []
-        self.subdomain = None
-        self.sql = sqlite3.connect(":memory:", check_same_thread=False)
-        self.scripts = {}
-        self.enabled = None
-        self.schedules = None
-
-    def answer(self, method, path, query, headers, body):
-        self.calls.append((method, path))
-        if headers.get("Authorization") != f"Bearer {TOKEN}":
-            return 403, {"success": False, "errors": [{"code": 10000, "message": "Authentication error"}]}
-        if not path.startswith(PREFIX):
-            return 404, {"success": False, "errors": [{"code": 7003, "message": "No route"}]}
-        path = path[len(PREFIX):]
-        if (method, path) == ("GET", "/d1/database"):
-            name = query.get("name", [""])[0]
-            return 200, {"success": True, "result": [d for d in self.databases if name in d["name"]]}
-        if (method, path) == ("POST", "/d1/database"):
-            request = json.loads(body)
-            database = {"uuid": f"d1-{len(self.databases)}", **request}
-            self.databases.append(database)
-            return 200, {"success": True, "result": database}
-        match = re.fullmatch(r"/d1/database/([^/]+)/query", path)
-        if method == "POST" and match:
-            self.sql.executescript(json.loads(body)["sql"])
-            self.last_sql = json.loads(body)["sql"]
-            return 200, {"success": True, "result": [{"success": True, "results": [], "meta": {}}]}
-        if (method, path) == ("GET", "/workers/subdomain"):
-            if self.subdomain is None:
-                return 404, {"success": False, "errors": [{"code": 10007, "message": "This account has no subdomain"}]}
-            return 200, {"success": True, "result": {"subdomain": self.subdomain}}
-        if (method, path) == ("PUT", "/workers/subdomain"):
-            self.subdomain = json.loads(body)["subdomain"]
-            return 200, {"success": True, "result": {"subdomain": self.subdomain}}
-        match = re.fullmatch(r"/workers/scripts/([^/]+)", path)
-        if method == "PUT" and match:
-            message = email.message_from_bytes(
-                b"Content-Type: " + headers["Content-Type"].encode() + b"\r\n\r\n" + body, policy=email.policy.HTTP)
-            parts = {part.get_param("name", header="content-disposition"): part for part in message.iter_parts()}
-            self.scripts[match.group(1)] = {
-                "metadata": json.loads(parts["metadata"].get_content()),
-                "module type": parts["worker.js"].get_content_type(),
-                "module": parts["worker.js"].get_payload(decode=True),
-            }
-            return 200, {"success": True, "result": {"id": match.group(1)}}
-        match = re.fullmatch(r"/workers/scripts/([^/]+)/subdomain", path)
-        if method == "POST" and match:
-            self.enabled = json.loads(body)
-            return 200, {"success": True, "result": self.enabled}
-        match = re.fullmatch(r"/workers/scripts/([^/]+)/schedules", path)
-        if method == "PUT" and match:
-            self.schedules = json.loads(body)
-            return 200, {"success": True, "result": {"schedules": self.schedules}}
-        return 404, {"success": False, "errors": [{"code": 7003, "message": f"No route for {method} {path}"}]}
-
-
-def serve(cloudflare):
-    class Handler(BaseHTTPRequestHandler):
-        def handle_one(self):
-            url = urlparse(self.path)
-            length = int(self.headers.get("Content-Length") or 0)
-            body = self.rfile.read(length) if length else b""
-            status, answer = cloudflare.answer(self.command, url.path, parse_qs(url.query), self.headers, body)
-            data = json.dumps(answer).encode()
-            self.send_response(status)
-            self.send_header("Content-Type", "application/json")
-            self.send_header("Content-Length", str(len(data)))
-            self.end_headers()
-            self.wfile.write(data)
-
-        do_GET = do_POST = do_PUT = handle_one
-
-        def log_message(self, *args):
-            pass
-
-    server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
-    threading.Thread(target=server.serve_forever, daemon=True).start()
-    return server
 
 
 @unittest.skipUnless(shutil.which("curl") and shutil.which("jq"), "the deploy needs curl and jq")
@@ -130,11 +35,8 @@ class DeployTest(unittest.TestCase):
         self.addCleanup(self.server.shutdown)
 
     def deploy(self, **secrets):
-        environment = {key: value for key, value in os.environ.items()
-                       if key.lower() not in ("http_proxy", "https_proxy", "all_proxy", "github_step_summary")}
-        environment.update(CLOUDFLARE_API=f"http://127.0.0.1:{self.server.server_port}/client/v4",
-                           TELEMETRY_CHECK_TRIES="0", NO_PROXY="127.0.0.1", **secrets)
-        return subprocess.run(["bash", str(DEPLOY)], env=environment, capture_output=True, text=True, timeout=60)
+        return subprocess.run(["bash", str(DEPLOY)], env=environment(self.server, TELEMETRY_CHECK_TRIES="0", **secrets),
+                              capture_output=True, text=True, timeout=60)
 
     def deploy_with_secrets(self):
         return self.deploy(CLOUDFLARE_API_TOKEN=TOKEN, CLOUDFLARE_ACCOUNT_ID=ACCOUNT)
