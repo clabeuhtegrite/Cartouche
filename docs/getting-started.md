@@ -22,7 +22,7 @@ From nothing to your first game on your iPhone, in four steps. Cartouche never d
 
 ## 2. Build your game on your Mac
 
-The guide's **Send the steps to my Mac** sends this page to the Mac, by AirDrop or Messages.
+The guide's **Send the steps to my Mac** sends the Mac [Cartouche Builder's page](https://clabeuhtegrite.github.io/Cartouche/#builder) of Cartouche's site, by AirDrop or Messages: its **Download Cartouche Builder** gives the disk image, and the steps below take it from there. Your games are built already, on your NAS for instance, or you have no Mac? **No thanks** skips this step, and the guide goes on to your games folder.
 
 1. On a Mac with Apple silicon and macOS 26.6 or later, download `Cartouche-Builder-<version>.dmg` from the latest [`builder-v<version>` release](https://github.com/clabeuhtegrite/Cartouche/releases), open it and drag **Cartouche Builder** onto **Applications**.
 2. Open Cartouche Builder. The first time, macOS says it cannot check it, as it is not signed by Apple: in **System Settings › Privacy & Security**, click **Open Anyway** beside Cartouche Builder, once.
@@ -51,6 +51,7 @@ Your game shows in the guide's last step and in your library: **Install** instal
 
 - **Leave LocalDevVPN on** when you can: Cartouche renews its seven-day signature through it, from the System page or every night with the Shortcuts automation that page explains.
 - **Updates:** Cartouche offers its new versions itself, and the update of a game when your games folder holds a newer build of it. Cartouche Builder updates itself, when it builds nothing.
+- **The guide:** the × on its card takes it off the home; **System › Your first game** opens it again whenever you want.
 - **The certificate no longer works:** the home says so; sign in again. **The pairing file is missing:** the installer puts it in Cartouche again, or installs Cartouche again over this copy, which keeps your games and their saves.
 
 Cartouche ships no games, no keys and no firmware, and never downloads them; Cartouche Builder builds yours from your own files, on your Mac, into your own games folder ([LEGAL.md](../LEGAL.md)).

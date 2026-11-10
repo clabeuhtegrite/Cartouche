@@ -970,23 +970,6 @@
         }
       }
     },
-    "guide.build.link" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "https://github.com/clabeuhtegrite/Cartouche/blob/main/docs/getting-started.md#2-build-your-game-on-your-mac"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "https://github.com/clabeuhtegrite/Cartouche/blob/main/docs/getting-started.fr.md#2-construisez-votre-jeu-sur-votre-mac"
-          }
-        }
-      }
-    },
     "guide.build.mac" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -1068,6 +1051,40 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Cartouche sur votre Mac"
+          }
+        }
+      }
+    },
+    "guide.build.skip" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No thanks"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Non merci"
+          }
+        }
+      }
+    },
+    "guide.build.skipped" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Skipped: your games will come from your games folder, or from an IPA you import."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Étape passée : vos jeux viendront du dossier des jeux, ou d’une IPA que vous importerez."
           }
         }
       }
@@ -1157,6 +1174,23 @@
         }
       }
     },
+    "guide.finished.introNoMac" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Your first game is on this iPhone. The next ones go the same way."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Votre premier jeu est sur cet iPhone. Les suivants prennent le même chemin."
+          }
+        }
+      }
+    },
     "guide.finished.title" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -1225,6 +1259,23 @@
         }
       }
     },
+    "guide.folder.howNoMac" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Choose the folder that holds your games, on your NAS, another server of yours or in Files: Cartouche lists them and offers their updates."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Choisissez le dossier qui contient vos jeux, sur votre NAS, un autre serveur à vous ou dans Fichiers : Cartouche les liste et propose leurs mises à jour."
+          }
+        }
+      }
+    },
     "guide.folder.import" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -1255,6 +1306,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Choisissez le dossier des jeux"
+          }
+        }
+      }
+    },
+    "guide.hide" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hide the guide"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Masquer le guide"
           }
         }
       }
@@ -1395,6 +1463,57 @@
         }
       }
     },
+    "guide.play.waitingNoMac" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No game in your games folder yet. Yours shows here as soon as it is there. You can also import an IPA."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pas encore de jeu dans le dossier des jeux. Le vôtre apparaît ici dès qu’il s’y trouve. Vous pouvez aussi importer une IPA."
+          }
+        }
+      }
+    },
+    "guide.status.done" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Done"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Terminé"
+          }
+        }
+      }
+    },
+    "guide.status.step" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Step %1$lld of %2$lld"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Étape %1$lld sur %2$lld"
+          }
+        }
+      }
+    },
     "guide.step.done" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -1408,6 +1527,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "%@, fait"
+          }
+        }
+      }
+    },
+    "guide.step.skipped" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@, skipped"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@, passée"
           }
         }
       }

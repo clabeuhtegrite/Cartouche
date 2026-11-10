@@ -4,7 +4,7 @@
 //
 //  Where a game has the memory it needs: behind the console, in a process of
 //  its own, with the limit iOS sets for that process, or in Cartouche's
-//  place, with Cartouche's own limit (docs/decisions.md, 38 and 46). The two
+//  place, with Cartouche's own limit (docs/decisions.md, 38 and 47). The two
 //  move apart: on an iPhone with 12 GB and Increased Memory Limit, Game Mode
 //  took Cartouche's own from 6,143 MiB to 8,192, while a game's process kept
 //  6,144. So Cartouche measures both and compares them instead of assuming
