@@ -2,10 +2,11 @@
 //  CartoucheLibraryView.swift
 //  Cartouche
 //
-//  Every game nxnative has a profile for, as cartridges: the player's own
-//  first, then the others by name. Filters keep the player's games, those
-//  nxnative plays on the iPhone or on the Mac, those still in bring-up, or
-//  the Switch 2 games; a search finds a game by name or title ID.
+//  Every game nxnative has a profile for, as covers with their names: the
+//  player's own first, then those nxnative plays on the iPhone, then the
+//  others, each by name. Filters keep the player's games, those nxnative
+//  plays on the iPhone or on the Mac, those still in bring-up, or the
+//  Switch 2 games; a search finds a game by name or title ID.
 //
 //  With a controller, the D-pad moves between games, A plays the player's
 //  own game or opens the sheet of another, X opens the sheet, B goes back
@@ -86,12 +87,24 @@ struct CartoucheLibraryView: View {
 
     private var shown: [CartoucheEntry] {
         let words = query.split(separator: " ").map(String.init)
-        return entries.all.filter { entry in
+        let found = entries.all.enumerated().filter { _, entry in
             filter.includes(entry) && words.allSatisfy { word in
                 entry.name.range(of: word, options: [.caseInsensitive, .diacriticInsensitive]) != nil
                     || (entry.titleId?.range(of: word, options: [.caseInsensitive, .anchored]) != nil)
             }
         }
+        // The games the player can play first, each group in the order of
+        // entries.all.
+        return found
+            .sorted { (Self.rank($0.element), $0.offset) < (Self.rank($1.element), $1.offset) }
+            .map(\.element)
+    }
+
+    /// The player's games, then those nxnative plays on the iPhone, then
+    /// the others.
+    private static func rank(_ entry: CartoucheEntry) -> Int {
+        if entry.isOwned { return 0 }
+        return entry.playsOnIPhone ? 1 : 2
     }
 
     private var focused: CartoucheEntry? {
@@ -198,8 +211,17 @@ struct CartoucheLibraryView: View {
                         CartoucheGameCartridge(entry: entry, width: layout.tile,
                                                isFocused: gamepad.isConnected && focusIndex == index)
                             .cartoucheZoomSource(entry.id, in: zoom)
-                        CartoucheStatusLabel(status: CartouchePlayStatus.of(entry))
-                            .padding(.horizontal, 2)
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text(entry.name)
+                                .font(.caption.weight(.semibold))
+                                .foregroundStyle(Color.white)
+                                .multilineTextAlignment(.leading)
+                                .lineLimit(2, reservesSpace: true)
+                            CartoucheStatusLabel(status: CartouchePlayStatus.of(entry), font: .caption2.weight(.semibold))
+                        }
+                        .padding(.horizontal, 2)
+                        .frame(width: layout.tile, alignment: .leading)
+                        .accessibilityHidden(true)
                     }
                     .contentShape(Rectangle())
                 }
@@ -256,7 +278,7 @@ struct CartoucheLibraryView: View {
         var margin: CGFloat { width >= 600 ? 28 : 18 }
         var spacing: CGFloat { width >= 600 ? 22 : 14 }
         var columns: Int {
-            let minimum: CGFloat = width >= 600 ? 132 : 100
+            let minimum: CGFloat = width >= 600 ? 112 : 100
             return max(3, Int((width - 2 * margin + spacing) / (minimum + spacing)))
         }
         var tile: CGFloat {
