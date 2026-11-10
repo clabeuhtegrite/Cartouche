@@ -3,7 +3,7 @@
 //  Cartouche Builder
 //
 //  The window: its pages in a sidebar, the page chosen, a message above
-//  it when something went wrong, and the first-start guide.
+//  it when something went wrong, and the setup assistant.
 //
 
 import BuilderKit
@@ -30,8 +30,8 @@ struct ContentView: View {
             }
             .animation(.snappy, value: model.banner)
         }
-        .sheet(isPresented: $model.showOnboarding) {
-            OnboardingView()
+        .sheet(isPresented: $model.showSetup) {
+            SetupAssistant(start: model.setupStep)
                 .environmentObject(model)
                 .environmentObject(setup)
                 .environmentObject(bridge)

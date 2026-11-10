@@ -16,7 +16,6 @@
     "engine_url": "/Users/player/Builder/remote",
     "game_language": "",
     "games": "/Users/player/Builder/games",
-    "imported": false,
     "jobs": 1,
     "keep_extracted": false,
     "keep_ipa": false,
@@ -29,11 +28,12 @@
     "schedule": false,
     "schedule_hour": 3,
     "schedule_minute": 30,
+    "setup_done": true,
     "shares": {},
     "skip": [],
     "sources": "/Users/player/Builder/sources",
     "unprofiled": false,
-    "version": 1,
+    "version": 2,
     "workspace": "",
     "workspace_limit_gb": 0
   }

@@ -394,7 +394,7 @@ def config(ctx: batch.Context, changes_json: str | None) -> dict:
         known = {f.name: f for f in fields(configs.Config)}
         before = (config.schedule, config.schedule_hour, config.schedule_minute)
         for key, value in changes.items():
-            if key not in known or key in ("imported", "version"):
+            if key not in known or key == "version":
                 raise BadRequest(t("cli.unknown_key", key=key, keys=", ".join(sorted(known))))
             current = getattr(config, key)
             if isinstance(current, bool) != isinstance(value, bool) or (isinstance(current, (str, int, list, dict)) and not isinstance(value, type(current))):

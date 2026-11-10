@@ -112,11 +112,16 @@ final class EngineAnswerTests: XCTestCase {
         let answer = try answer(ConfigAnswer.self, "config")
         XCTAssertEqual(answer.config.jobs, 1)
         XCTAssertEqual(answer.config.enginePolicy, "weekly")
+        XCTAssertTrue(answer.config.setupDone)
         XCTAssertFalse(answer.builder.version.isEmpty)
         var changed = answer.config
         changed.jobs = 2
         changed.keepExtracted = true
-        XCTAssertEqual(Set(changed.changes(from: answer.config).keys), ["jobs", "keep_extracted"])
+        changed.setupDone = false
+        XCTAssertEqual(Set(changed.changes(from: answer.config).keys), ["jobs", "keep_extracted", "setup_done"])
+        // Settings that do not say it: the setup assistant opens.
+        let older = try JSONDecoder().decode(BuilderConfig.self, from: Data(#"{"sources": "/s", "games": "/g"}"#.utf8))
+        XCTAssertFalse(older.setupDone)
 
         XCTAssertEqual(try self.answer(MountAnswer.self, "mount").folders.sources?.present, true)
         XCTAssertEqual(try self.answer(CleanAnswer.self, "clean").cleaned.freed, 0)

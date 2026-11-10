@@ -1,5 +1,4 @@
-"""The games' build folders: <workspace>/<title ID>_build, as nxnative and
-NxNative Batch Builder name them, so that a folder either made is reused.
+"""The games' build folders: <workspace>/<title ID>_build, one per game.
 
 nxnative keeps in a game's build folder what its next build reuses (the
 extracted files, the shader cache, Xcode's derived data): a build after a
