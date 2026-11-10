@@ -54,7 +54,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - run: shellcheck -x app/scripts/*.sh catalog/tools/*.sh launcher/Gallery/*.sh telemetry/*.sh "builder/Cartouche Builder.command"
+      - run: shellcheck -x app/scripts/*.sh catalog/tools/*.sh launcher/Gallery/*.sh telemetry/*.sh builder/install.sh "builder/Cartouche Builder.command"
 
   builder:
     name: Cartouche Builder

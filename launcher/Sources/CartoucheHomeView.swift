@@ -44,6 +44,8 @@ struct CartoucheHomeView: View {
     let onSheet: (CartoucheEntry) -> Void
     let onLibrary: () -> Void
     let onSetup: () -> Void
+    /// Opens the first game's guide (CartoucheGuideView).
+    let onGuide: () -> Void
     let onTab: (LCTabIdentifier) -> Void
     /// Where a game's sheet grows out of its cartridge.
     let zoom: Namespace.ID?
@@ -59,7 +61,7 @@ struct CartoucheHomeView: View {
          onPlay: @escaping (LCAppModel) -> Void, onImport: @escaping () -> Void,
          onInstall: @escaping (CartoucheStoredGame) -> Void = { _ in },
          onUninstall: @escaping (LCAppModel) -> Void, onSheet: @escaping (CartoucheEntry) -> Void,
-         onLibrary: @escaping () -> Void, onSetup: @escaping () -> Void,
+         onLibrary: @escaping () -> Void, onSetup: @escaping () -> Void, onGuide: @escaping () -> Void = {},
          onTab: @escaping (LCTabIdentifier) -> Void, zoom: Namespace.ID? = nil,
          showsHero: Bool = true, onFocus: @escaping (CartoucheEntry) -> Void = { _ in }) {
         self.entries = entries
@@ -72,6 +74,7 @@ struct CartoucheHomeView: View {
         self.onSheet = onSheet
         self.onLibrary = onLibrary
         self.onSetup = onSetup
+        self.onGuide = onGuide
         self.onTab = onTab
         self.zoom = zoom
         self.showsHero = showsHero
@@ -79,6 +82,7 @@ struct CartoucheHomeView: View {
     }
 
     @ObservedObject private var setup = CartoucheSetup.shared
+    @ObservedObject private var guide = CartoucheGuide.shared
     @ObservedObject private var gamepad = CartoucheGamepad.shared
     @State private var row = CartoucheHomeView.shelfRow
     @State private var columns = [0, 0]
@@ -86,6 +90,10 @@ struct CartoucheHomeView: View {
     /// Whether the shelf stands beside the game in focus, with the dock in
     /// the top bar, so that the D-pad goes up to the dock.
     @State private var isWide = false
+    /// The height of the banner over the shelf, the guide's card or the
+    /// setup banner, as last laid out: its detail can take one line or two,
+    /// as the guide's does on an iPhone upright (Metrics).
+    @State private var bannerHeight: CGFloat?
 
     enum Item: Hashable {
         case game(CartoucheEntry)
@@ -139,13 +147,23 @@ struct CartoucheHomeView: View {
 
     var body: some View {
         GeometryReader { proxy in
-            let metrics = Metrics(size: proxy.size, hasBanner: setup.needsSetup, hasHero: showsHero)
+            // Until the first game is installed, the guide's card stands in
+            // the setup banner's place, whose steps it begins with.
+            let guideProgress = guide.progress(entries)
+            let showsGuide = guide.showsCard(guideProgress)
+            let metrics = Metrics(size: proxy.size, hasBanner: showsGuide || setup.needsSetup, hasHero: showsHero,
+                                  measuredBanner: bannerHeight)
             ScrollView(.vertical) {
                 VStack(alignment: .leading, spacing: metrics.spacing) {
                     topBar(metrics)
-                    if setup.needsSetup {
-                        CartoucheHomeSetupBanner(action: onSetup)
+                    Group {
+                        if showsGuide {
+                            CartoucheGuideCard(progress: guideProgress, action: onGuide)
+                        } else if setup.needsSetup {
+                            CartoucheHomeSetupBanner(action: onSetup)
+                        }
                     }
+                    .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { bannerHeight = $0 }
                     shelfAndHero(metrics)
                         // In the middle of the room the screen leaves them.
                         .padding(.top, metrics.slack / 2)
@@ -667,10 +685,13 @@ struct CartoucheHomeView: View {
     /// The sizes of the home for the space the screen gives it.
     struct Metrics {
         let size: CGSize
-        /// The setup banner is over the shelf.
+        /// The setup banner, or the guide's card, is over the shelf.
         var hasBanner = false
         /// The game in focus is under the shelf, or beside it.
         var hasHero = true
+        /// The banner's height as the home laid it out; bannerHeight until
+        /// it has.
+        var measuredBanner: CGFloat? = nil
 
         static let topBarHeight: CGFloat = 44
         static let bannerHeight: CGFloat = 72
@@ -727,7 +748,7 @@ struct CartoucheHomeView: View {
         private var shelfSpace: CGFloat {
             // The shelf under the top bar.
             var fixed = 2 * verticalPadding + Self.topBarHeight + spacing + Self.shelfTitleHeight
-            if hasBanner { fixed += Self.bannerHeight + spacing }
+            if hasBanner { fixed += (measuredBanner ?? Self.bannerHeight) + spacing }
             if !isWide {
                 // The game in focus under the shelf, the dock under them.
                 fixed += Self.dockTopPadding + Self.dockHeight + Self.dockBottomPadding
