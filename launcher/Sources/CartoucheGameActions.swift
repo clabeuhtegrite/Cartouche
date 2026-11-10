@@ -29,6 +29,9 @@
 //    needs more memory than it gets there starts in Cartouche's place, as
 //    LiveContainer's Run does (CartoucheGameKeeping).
 //
+//  Each step goes into Cartouche's journal, and a step that fails tells the
+//  player why with a report they can copy (CartoucheReporting.swift).
+//
 
 import Combine
 import SwiftUI
@@ -38,8 +41,14 @@ import UIKit
 final class CartoucheGameActions: ObservableObject {
     static let shared = CartoucheGameActions()
 
-    /// What Cartouche is doing with a game, shown over the console.
-    @Published private(set) var work: CartoucheGameWork?
+    /// What Cartouche is doing with a game, shown over the console and
+    /// noted in the journal.
+    @Published private(set) var work: CartoucheGameWork? {
+        didSet {
+            if oldValue == nil { workFailed = false }
+            CartoucheReports.noteWork(from: oldValue, to: work, failed: workFailed)
+        }
+    }
     /// Why the last step failed, or what the player should know of it.
     @Published var notice: CartoucheGameNotice?
     /// The game the last import installed: the console shows it.
@@ -51,6 +60,11 @@ final class CartoucheGameActions: ObservableObject {
     @Published var switching: CartoucheGameSwitch?
     /// The running game the player asked to quit: the console asks first.
     @Published var quitQuestion: CartoucheRunningGame?
+
+    /// What a report on the step under way says of it, such as its sizes.
+    private var facts: [CartoucheReport.Fact] = []
+    /// Whether the step under way failed, which its report noted.
+    private var workFailed = false
 
     private var progressObservation: NSKeyValueObservation?
     private var signing: AnyCancellable?
@@ -76,25 +90,28 @@ final class CartoucheGameActions: ObservableObject {
     /// picker granted stays open until the end.
     func install(_ url: URL) {
         guard work == nil else { return }
+        facts = [.init("IPA", url.lastPathComponent), .init("From", "a file on this iPhone")]
         let model = DataManager.shared.model
         guard model.multiLCStatus != 2 else {
-            notice = CartoucheGameNotice(title: CartoucheText.installFailed, message: "lc.appList.manageInPrimaryTip".loc)
+            fail(.install, CartoucheText.installFailed, message: "lc.appList.manageInPrimaryTip".loc)
             return
         }
         let accessing = url.startAccessingSecurityScopedResource()
         guard FileManager.default.isReadableFile(atPath: url.path) else {
             if accessing { url.stopAccessingSecurityScopedResource() }
-            notice = CartoucheGameNotice(title: CartoucheText.installFailed, message: "lc.appList.ipaAccessError".loc)
+            fail(.install, CartoucheText.installFailed, message: "lc.appList.ipaAccessError".loc)
             return
         }
         // Unpacking writes about as much as the IPA holds.
         let size = Int64((try? url.resourceValues(forKeys: [.fileSizeKey]).fileSize) ?? 0)
         let needed = size + 512 * 1_048_576
+        facts.insert(.init("IPA size", CartoucheReport.bytes(size)), at: 1)
         if let free = Self.freeSpace(), free < needed {
             if accessing { url.stopAccessingSecurityScopedResource() }
-            notice = CartoucheGameNotice(title: CartoucheText.installFailed,
-                                         message: CartoucheText.installNoSpace(needed: CartoucheText.storageAmount(bytes: needed),
-                                                                               free: CartoucheText.storageAmount(bytes: free)))
+            facts.append(.init("Needed", CartoucheReport.bytes(needed)))
+            fail(.install, CartoucheText.installFailed,
+                 message: CartoucheText.installNoSpace(needed: CartoucheText.storageAmount(bytes: needed),
+                                                       free: CartoucheText.storageAmount(bytes: free)))
             return
         }
 
@@ -114,7 +131,7 @@ final class CartoucheGameActions: ObservableObject {
                 }
                 finishInstall(app, warning: warning)
             } catch {
-                notice = CartoucheGameNotice(title: CartoucheText.installFailed, message: error.localizedDescription)
+                fail(.install, CartoucheText.installFailed, error: error)
             }
             if accessing { url.stopAccessingSecurityScopedResource() }
             Self.removeIfInbox(url)
@@ -132,9 +149,11 @@ final class CartoucheGameActions: ObservableObject {
     /// from where it stopped (CartoucheResumingSource).
     func install(stored game: CartoucheStoredGame) {
         guard work == nil, let location = CartoucheStorageSettings.shared.location(.games) else { return }
+        facts = [.init("IPA", game.fileName), .init("IPA size", CartoucheReport.bytes(Int64(clamping: game.size))),
+                 .init("From", CartoucheReports.place(.games))] + Self.buildFacts(game.build)
         let model = DataManager.shared.model
         guard model.multiLCStatus != 2 else {
-            notice = CartoucheGameNotice(title: CartoucheText.installFailed, message: "lc.appList.manageInPrimaryTip".loc)
+            fail(.install, CartoucheText.installFailed, message: "lc.appList.manageInPrimaryTip".loc)
             return
         }
         let server = location.server
@@ -182,10 +201,15 @@ final class CartoucheGameActions: ObservableObject {
                 }
                 finishInstall(app, warning: warning)
             } catch let lost as CartoucheResumingSource.Lost {
-                notice = CartoucheGameNotice(title: CartoucheText.installFailed,
-                                             message: CartoucheText.installFromStorageLost(server.name, lost.localizedDescription))
+                facts.append(.init("Connection", "lost after \(lost.attempts) failed attempts, "
+                                       + "the file opened again \(file?.reopened ?? 0) times before"))
+                fail(.install, CartoucheText.installFailed,
+                     message: CartoucheText.installFromStorageLost(server.name, lost.localizedDescription), error: lost.last)
             } catch {
-                notice = CartoucheGameNotice(title: CartoucheText.installFailed, message: error.localizedDescription)
+                if let reopened = file?.reopened, reopened > 0 {
+                    facts.append(.init("Connection", "the file opened again \(reopened) times"))
+                }
+                fail(.install, CartoucheText.installFailed, error: error)
             }
             progressObservation = nil
             UIApplication.shared.isIdleTimerDisabled = false
@@ -217,7 +241,8 @@ final class CartoucheGameActions: ObservableObject {
     private func finishInstall(_ app: LCAppModel, warning: String?) {
         installed = app
         if let warning {
-            notice = CartoucheGameNotice(title: CartoucheText.installSignWarning, message: warning)
+            // Installed, but not signed: the game would not start.
+            fail(.install, CartoucheText.installSignWarning, message: warning)
         } else if CartoucheCatalog.shared.entries(for: [app]).owned.isEmpty {
             notice = CartoucheGameNotice(title: CartoucheText.installDone, message: CartoucheText.installNotAGame(app.displayName))
         }
@@ -423,7 +448,9 @@ final class CartoucheGameActions: ObservableObject {
         let path = CartoucheStoragePath.join(location.path, name)
         // The copy's Info.plist keeps the time the game's IPA gave it, which
         // says when the game was built (CartoucheGameBuild).
-        let builtAt = CartoucheInstalledBuilds.shared.build(of: app).builtAt
+        let build = CartoucheInstalledBuilds.shared.build(of: app)
+        let builtAt = build.builtAt
+        facts = [.init("To", CartoucheReports.place(.games))] + Self.buildFacts(build)
         work = CartoucheGameWork(kind: .exporting, name: app.displayName,
                                  step: CartoucheText.exportStep(location.server.name), fraction: 0)
         UIApplication.shared.isIdleTimerDisabled = true
@@ -446,6 +473,7 @@ final class CartoucheGameActions: ObservableObject {
                                                          mode: item.mode, date: builtAt)
                 }
                 let total = items.reduce(UInt64(0)) { $0 + $1.size }
+                facts.append(.init("IPA size", CartoucheReport.bytes(Int64(clamping: total))))
                 if let free = try? await connected.freeSpace(), free < total + 64 << 20 {
                     throw CartoucheStorageError(CartoucheText.exportNoSpace(
                         needed: CartoucheText.storageAmount(bytes: Int64(clamping: total)),
@@ -462,7 +490,7 @@ final class CartoucheGameActions: ObservableObject {
                 }
                 copied = true
             } catch {
-                notice = CartoucheGameNotice(title: CartoucheText.exportFailed, message: error.localizedDescription)
+                fail(.export, CartoucheText.exportFailed, error: error)
             }
             await remote?.disconnect()
             UIApplication.shared.isIdleTimerDisabled = false
@@ -573,6 +601,8 @@ final class CartoucheGameActions: ObservableObject {
             return
         }
         guard work == nil, !app.isAppRunning else { return }
+        facts = Self.buildFacts(CartoucheInstalledBuilds.shared.build(of: app))
+            + [.init("nxnative's settings screen", showingSettings ? "shown" : "skipped")]
         work = CartoucheGameWork(kind: .starting, name: app.displayName,
                                  step: showingSettings ? CartoucheText.startSettings : CartoucheText.startSoon, fraction: nil)
         signing = app.$signProgress
@@ -607,9 +637,9 @@ final class CartoucheGameActions: ObservableObject {
                 // iOS refused the certificate LiveContainer signed the game
                 // with: Cartouche has SideStore fetch the one that works.
                 CartoucheSetup.shared.certificateRefusedAtStart()
-                notice = CartoucheGameNotice(title: CartoucheText.startFailed, message: CartoucheText.startCertificateRefused)
+                fail(.start, CartoucheText.startFailed, message: CartoucheText.startCertificateRefused, error: error)
             } catch {
-                notice = CartoucheGameNotice(title: CartoucheText.startFailed, message: error.localizedDescription)
+                fail(.start, CartoucheText.startFailed, error: error)
             }
             // Still here: the game did not start.
             app.delegate = delegate
@@ -846,6 +876,7 @@ final class CartoucheGameActions: ObservableObject {
             (name: container.folderName,
              url: (container.isShared ? LCPath.lcGroupDataPath : LCPath.dataPath).appendingPathComponent(container.folderName))
         }
+        facts = [.init("Saves", erasingData ? "erased too" : "kept")]
         work = CartoucheGameWork(kind: .uninstalling, name: app.displayName, step: CartoucheText.uninstallStep, fraction: nil)
         Task {
             do {
@@ -859,10 +890,33 @@ final class CartoucheGameActions: ObservableObject {
                     }
                 }
             } catch {
-                notice = CartoucheGameNotice(title: CartoucheText.uninstallFailed, message: error.localizedDescription)
+                fail(.uninstall, CartoucheText.uninstallFailed, error: error)
             }
             work = nil
         }
+    }
+
+    // MARK: Reports
+
+    /// Tells the player that the step failed, with the report they can copy:
+    /// TITLE, and MESSAGE, or else ERROR's, as they read it.
+    private func fail(_ origin: CartoucheReport.Origin, _ title: String, message: String? = nil, error: Error? = nil) {
+        let message = message ?? error?.localizedDescription ?? ""
+        let report = CartoucheReports.make(origin, title, message: message, error: error,
+                                           step: work.map { $0.title + ": " + $0.step }, fraction: work?.fraction,
+                                           facts: facts)
+        workFailed = true
+        notice = CartoucheGameNotice(title: title, message: message, report: report)
+    }
+
+    /// "Game build: 1.0.0, nxnative 844bf1a5ea8f, built 2026-11-06 19:12:40 +0100".
+    private static func buildFacts(_ build: CartoucheGameBuild?) -> [CartoucheReport.Fact] {
+        guard let build else { return [] }
+        var parts: [String] = []
+        if let version = build.version { parts.append(version) }
+        if let commit = build.shortCommit { parts.append("nxnative " + commit + (build.isDirty ? "+dirty" : "")) }
+        if let builtAt = build.builtAt { parts.append("built " + CartoucheReport.timestamp(builtAt)) }
+        return parts.isEmpty ? [] : [.init("Game build", parts.joined(separator: ", "))]
     }
 
     /// Off the main thread: a game's bundle holds gigabytes.

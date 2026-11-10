@@ -49,7 +49,7 @@ struct CartoucheSignInView: View {
                     } else {
                         accountCard
                     }
-                    if let problem = account.problem, !isBusy {
+                    if let problem = account.problemReport, !isBusy {
                         problemCard(problem)
                     }
                     vpnCard
@@ -202,13 +202,13 @@ struct CartoucheSignInView: View {
 
     // MARK: What went wrong, and LocalDevVPN
 
-    private func problemCard(_ problem: String) -> some View {
+    private func problemCard(_ problem: CartoucheReport) -> some View {
         card {
             VStack(alignment: .leading, spacing: 10) {
                 Label(CartoucheText.signInFailedTitle, systemImage: "exclamationmark.triangle.fill")
                     .font(.headline)
                     .foregroundStyle(.red)
-                Text(problem)
+                Text(problem.message)
                     .font(.subheadline)
                     .textSelection(.enabled)
                     .fixedSize(horizontal: false, vertical: true)
@@ -218,6 +218,8 @@ struct CartoucheSignInView: View {
                     }
                     .buttonStyle(.bordered)
                 }
+                CartoucheReportButton(report: problem)
+                    .buttonStyle(.bordered)
             }
         }
     }

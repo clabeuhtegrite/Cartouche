@@ -4,7 +4,8 @@
 //
 //  Cartouche's own update over the console (CartoucheUpdates): the new
 //  version on offer, how far the built-in SideStore has gone with it, then
-//  what came of it. A controller answers with A and B.
+//  what came of it, with the report on a failure to copy. A controller
+//  answers with A and B, and copies the report with Y.
 //
 
 import SwiftUI
@@ -13,6 +14,8 @@ import SwiftUI
 struct CartoucheUpdateView: View {
     @ObservedObject var updates: CartoucheUpdates
     @ObservedObject private var gamepad = CartoucheGamepad.shared
+    /// The report was just copied: its button says so for a moment.
+    @State private var copied = false
 
     /// A button of the card, and the controller's button for it.
     private struct Choice {
@@ -49,13 +52,22 @@ struct CartoucheUpdateView: View {
     }
 
     private var symbol: String {
-        if updates.notice != nil, updates.phase == nil { return "checkmark.seal.fill" }
+        if let notice = updates.notice, updates.phase == nil {
+            return notice.report == nil ? "checkmark.seal.fill" : "exclamationmark.triangle.fill"
+        }
         return updates.phase == .installing ? "arrow.down.app.fill" : "arrow.down.circle.fill"
     }
 
     private var choices: [Choice] {
-        if updates.notice != nil, updates.phase == nil {
-            return [Choice(title: CartoucheText.done, input: .a) { updates.dismissNotice() }]
+        if let notice = updates.notice, updates.phase == nil {
+            var choices = [Choice(title: CartoucheText.done, input: .a) { updates.dismissNotice() }]
+            if let report = notice.report {
+                choices.append(Choice(title: copied ? CartoucheText.reportCopied : CartoucheText.reportCopy, input: .y) {
+                    CartoucheReports.copy(report)
+                    copied = true
+                })
+            }
+            return choices
         }
         switch updates.phase {
         case .preparing:
@@ -117,6 +129,12 @@ struct CartoucheUpdateView: View {
         .accessibilityElement(children: .contain)
         .onReceive(CartoucheGamepad.shared.inputs) { input in
             choices.first { $0.input == input }?.action()
+        }
+        .sensoryFeedback(.success, trigger: copied) { _, now in now }
+        .task(id: copied) {
+            guard copied else { return }
+            try? await Task.sleep(for: .seconds(2))
+            copied = false
         }
     }
 

@@ -143,8 +143,10 @@ final class CartoucheStoredGames: ObservableObject {
 
     @Published private(set) var games: [CartoucheStoredGame] = []
     @Published private(set) var isScanning = false
-    /// Why the games folder could not be read, the last time.
-    @Published private(set) var problem: String?
+    /// Why the games folder could not be read, the last time, and the
+    /// report on it.
+    @Published private(set) var problemReport: CartoucheReport?
+    var problem: String? { problemReport?.message }
     /// The server the games are on, for the console to name.
     @Published private(set) var serverName: String?
 
@@ -215,7 +217,7 @@ final class CartoucheStoredGames: ObservableObject {
         guard let location = settings.location(.games) else {
             games = []
             serverName = nil
-            problem = nil
+            problemReport = nil
             return
         }
         serverName = location.server.name
@@ -225,7 +227,7 @@ final class CartoucheStoredGames: ObservableObject {
         do {
             remote = try await CartoucheStorage.connect(location.server, settings: settings)
         } catch {
-            problem = error.localizedDescription
+            problemReport = Self.readFailed(error, step: "Connecting to " + CartoucheReports.place(.games))
             return
         }
         var found: [CartoucheStoredGame] = []
@@ -256,13 +258,22 @@ final class CartoucheStoredGames: ObservableObject {
                     found.append(game)
                 }
             }
-            problem = nil
+            problemReport = nil
         } catch {
-            problem = error.localizedDescription
+            problemReport = Self.readFailed(error, step: "Listing " + CartoucheReports.place(.games),
+                                            facts: [.init("Games found", String(found.count))])
         }
         await remote.disconnect()
         games = found.filter(\.isGame).sorted(by: Self.byName)
         save()
+    }
+
+    /// The report on the games folder, which ERROR kept Cartouche from
+    /// reading at STEP. Cartouche reads it each time it comes back, away
+    /// from home too: the report is not kept.
+    private static func readFailed(_ error: Error, step: String, facts: [CartoucheReport.Fact] = []) -> CartoucheReport {
+        CartoucheReports.make(.storage, CartoucheText.storageGamesFailed, message: error.localizedDescription, error: error,
+                              step: step, facts: facts, inBackground: true)
     }
 
     private static func key(_ server: CartoucheStorageServer, path: String, size: UInt64, modified: Date?) -> String {

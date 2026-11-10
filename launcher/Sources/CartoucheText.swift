@@ -178,6 +178,7 @@ enum CartoucheText {
     static var setupPairingChoose: String { s("setup.pairing.choose", "Choose the file") }
     static var setupPairingReplace: String { s("setup.pairing.replace", "Choose another file") }
     static var setupPairingInvalid: String { s("setup.pairing.invalid", "This file is not a pairing file. The Cartouche Installer puts the right one in Cartouche: Put the pairing file in Cartouche again.") }
+    static var setupPairingFailed: String { s("setup.pairing.failed", "The pairing file was refused") }
     static var setupAppleIDTitle: String { s("setup.appleID.title", "Apple ID") }
     static var setupAppleIDHow: String { s("setup.appleID.how", "Sign in once, here in Cartouche, with LocalDevVPN connected: Cartouche then takes its certificate and renews itself every week.") }
     static func setupAppleIDDone(_ appleID: String) -> String { f("setup.appleID.done", "Signed in: %@", appleID) }
@@ -253,6 +254,7 @@ enum CartoucheText {
     static var renewNow: String { s("system.signature.renew", "Renew now") }
     static var renewing: String { s("system.signature.renewing", "Renewing…") }
     static var renewUnavailable: String { s("system.signature.renew.unavailable", "The built-in SideStore did not load. Close Cartouche, open it again, then renew.") }
+    static var renewFailed: String { s("system.signature.renew.failed", "The renewal did not go through") }
     static var automaticRenewal: String { s("system.auto", "Automatic renewal") }
     static var renewEveryNight: String { s("system.auto.daily", "Renew every night") }
     static var alerts: String { s("system.auto.alerts", "Expiry alerts") }
@@ -281,6 +283,7 @@ enum CartoucheText {
     static var updateNotChecked: String { s("system.updates.notChecked", "Cartouche has not looked for an update yet.") }
     static var updateCheck: String { s("system.updates.check", "Check for an update") }
     static func updateCheckFailed(_ reason: String) -> String { f("updates.check.failed", "Cartouche could not look for an update: %@", reason) }
+    static var updateCheckFailedTitle: String { s("updates.check.failed.title", "The update check did not go through") }
     static func updateSourceStatus(_ status: Int) -> String { f("updates.source.status", "its source answered with error %lld.", status) }
     static var updateUnavailable: String { s("updates.unavailable", "The built-in SideStore did not load. Close Cartouche, open it again, then update.") }
     static func updateOfferTitle(_ version: String) -> String { f("updates.offer.title", "Cartouche %@ is available", version) }
@@ -498,6 +501,10 @@ enum CartoucheText {
     static func storageSavesFooter(_ kept: Int) -> String { f("storage.saves.footer", "After each game, Cartouche copies the game’s saves here, in a folder per game, and keeps the %lld newest copies.", kept) }
     static func storageSignInFailed(_ host: String, _ reason: String) -> String { f("storage.signInFailed", "Cartouche could not sign in to %1$@: %2$@", host, reason) }
     static func storageTooLarge(_ name: String) -> String { f("storage.tooLarge", "%@ is larger than Cartouche expects.", name) }
+    static var storageConnectFailed: String { s("storage.failed.connect", "Cartouche could not connect") }
+    static var storageBrowseFailed: String { s("storage.failed.browse", "The folder did not open") }
+    static var storageNewFolderFailed: String { s("storage.failed.newFolder", "The folder was not created") }
+    static var storageGamesFailed: String { s("storage.failed.games", "The games folder was not read") }
 
     // MARK: A game's saves
 
@@ -515,6 +522,9 @@ enum CartoucheText {
     static func savesFooter(_ kept: Int) -> String { f("saves.footer", "After each game, Cartouche copies these saves to your saves folder and keeps the %lld newest copies.", kept) }
     static func savesPutBackAction(_ date: String) -> String { f("saves.putBack.action", "Put back the copy of %@", date) }
     static func savesPutBackDone(_ date: String) -> String { f("saves.putBack.done", "The copy of %@ is back in place.", date) }
+    static var savesCopyFailed: String { s("saves.failed.copy", "The saves were not copied") }
+    static var savesListFailed: String { s("saves.failed.list", "The copies of the saves were not read") }
+    static var savesPutBackFailed: String { s("saves.failed.putBack", "The copy was not put back") }
 
     // MARK: A game's settings
 
@@ -538,6 +548,7 @@ enum CartoucheText {
     static var cloudSaved: String { s("settings.cloud.saved", "Saved. The game uses this folder when you press Play.") }
     static var cloudStale: String { s("settings.cloud.stale", "The folder you chose before can no longer be read: the app was signed differently. Choose it again.") }
     static var cloudFailed: String { s("settings.cloud.failed", "That folder could not be remembered: try a different one.") }
+    static var cloudFailedTitle: String { s("settings.cloud.failed.title", "The cloud saves folder was not kept") }
 
     /// A text of nxnative's settings list (a game's dm/launcher.json, from
     /// nxnative's settings.tsv) in the reader's language: a section, a
@@ -617,6 +628,13 @@ enum CartoucheText {
     private static func percent(_ value: Double) -> String {
         value.formatted(.percent.precision(.fractionLength(0)))
     }
+
+    // MARK: Error reports
+
+    static var reportCopy: String { s("errorReport.copy", "Copy the report") }
+    static var reportCopied: String { s("errorReport.copied", "Report copied") }
+    static var reportCopiedDetail: String { s("errorReport.copied.detail", "Paste it where you ask for help.") }
+    static var reportHint: String { s("errorReport.hint", "Copies what went wrong, with the versions of Cartouche and iOS, without any password or server address.") }
 
     // MARK: Warnings before expiry
 

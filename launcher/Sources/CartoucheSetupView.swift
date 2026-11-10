@@ -39,10 +39,13 @@ struct CartoucheSetupView: View {
                               systemImage: "doc.badge.plus")
                     }
                     .buttonStyle(.bordered)
-                    if let pairingError = setup.pairingError {
-                        Label(pairingError, systemImage: "exclamationmark.triangle.fill")
+                    if let pairingReport = setup.pairingReport {
+                        Label(pairingReport.message, systemImage: "exclamationmark.triangle.fill")
                             .font(.footnote)
                             .foregroundStyle(.red)
+                        CartoucheReportButton(report: pairingReport)
+                            .font(.footnote)
+                            .buttonStyle(.bordered)
                     }
                 }
                 step(
@@ -100,7 +103,7 @@ struct CartoucheSetupView: View {
             case .success(let url):
                 setup.importPairingFile(url)
             case .failure(let error):
-                setup.pairingError = error.localizedDescription
+                setup.pairingFailed(error)
             }
         }
     }
