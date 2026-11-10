@@ -77,8 +77,11 @@ struct CartoucheSystemView: View {
                 CartoucheSetupView()
             } label: {
                 LabeledContent {
+                    // In a list, a Label beside the row's own made the row
+                    // several lines tall: the tight style keeps it one line.
                     Label(setup.isComplete ? CartoucheText.setupStatusDone : CartoucheText.setupStatusToDo,
                           systemImage: setup.isComplete ? "checkmark.circle.fill" : "exclamationmark.circle.fill")
+                        .labelStyle(CartoucheTightLabelStyle())
                         .foregroundStyle(setup.isComplete ? Color.green : Color.orange)
                 } label: {
                     Label(CartoucheText.setupTitle, systemImage: "checklist")
@@ -129,6 +132,7 @@ struct CartoucheSystemView: View {
                 let active = CartoucheDevice.hasIncreasedMemoryLimit
                 Label(active ? CartoucheText.imlOn : CartoucheText.imlOff,
                       systemImage: active ? "checkmark.circle.fill" : "exclamationmark.triangle.fill")
+                    .labelStyle(CartoucheTightLabelStyle())
                     .foregroundStyle(active ? Color.green : Color.orange)
             }
             Button(CartoucheText.measureAgain, systemImage: "arrow.clockwise", action: measure)

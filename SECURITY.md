@@ -12,7 +12,8 @@ Include what an attacker can do, the steps to reproduce it and the version or co
 
 - how Cartouche and its SideStore store and use Apple account credentials and certificates;
 - the publish guard in `guard/` letting game content through;
-- the releases and the source the built-in SideStore installs them from (`app/sidestore-source.json`), and the workflows that make them.
+- the releases and the source the built-in SideStore installs them from (`app/sidestore-source.json`), and the workflows that make them;
+- the covers Cartouche reads every day from the branch `live-covers`, and the workflow that writes them.
 
 Vulnerabilities in LiveContainer or SideStore themselves are best reported to those projects too.
 
@@ -20,6 +21,6 @@ Vulnerabilities in LiveContainer or SideStore themselves are best reported to th
 
 - main takes changes only through pull requests, squashed, once CI has passed ([`.github/rulesets`](.github/rulesets)). Nobody pushes to it, the release workflow included: a release proposes its source entry in a pull request of its own ([app/releases/README.md](app/releases/README.md)).
 - Release tags can't be moved or deleted, and a version the source lists never gets another IPA.
-- Workflows get a read-only token. Only the release's last job can write, to publish the release and push its branch, and it runs nothing installed from a package index.
+- Workflows get a read-only token. Only the jobs that publish Cartouche's release and push its branch, publish the installer's release, and push the covers and the screenshots to their branches can write, and none of them runs anything installed from a package index.
 - Workflows pin each action to a commit, which Dependabot updates, and keep no credentials in their checkouts. The Workflow audit, [zizmor](https://docs.zizmor.sh), fails a pull request that breaks one of these rules.
 - The repository never holds games, keys, firmware, pairing files, certificates or provisioning profiles ([LEGAL.md](LEGAL.md), [.gitignore](.gitignore)).
