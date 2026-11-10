@@ -85,6 +85,46 @@ class Batches(Home):
         log = Path(ctx.store.get(MKW).attempt.log)
         self.assertIn("a warning on stderr", log.read_text())
 
+    def test_kept_ipa_is_reused_and_only_a_new_one_delivered(self):
+        paths = Paths.default()
+        config = configs.load(paths)
+        config.keep_ipa = True
+        configs.save(paths, config)
+        plan, summary = self.run_due(only={MKW})
+        self.assertEqual(summary.failed, [])
+        ctx = batch.context()
+        kept = ctx.workspace.root / ".cartouche-builder" / "out" / f"{MKW}.ipa"
+        self.assertTrue(kept.is_file())
+        delivered = self.games / f"Mario Kart World [{MKW}].ipa"
+        first = delivered.read_bytes()
+        # The next build finds the kept IPA where it writes the new one.
+        commit(self.remote, "Mario Kart World's menus (PR #3)", {"dm/host/menu.c": "x"})
+        plan, summary = self.run_due(only={MKW})
+        self.assertEqual(summary.failed, [])
+        self.assertEqual((ctx.workspace.build_folder(MKW) / "had_ipa.txt").read_text(), "yes")
+        self.assertNotEqual(delivered.read_bytes(), first)
+        # A build that ends without writing an IPA delivers nothing, not the kept one.
+        second = delivered.read_bytes()
+        os.environ["FAKE_NO_IPA"] = MKW
+        commit(self.remote, "Mario Kart World's results screen (PR #4)", {"dm/host/results.c": "x"})
+        plan, summary = self.run_due(only={MKW})
+        self.assertEqual(len(summary.failed), 1)
+        self.assertEqual(delivered.read_bytes(), second)
+
+    def test_unticked_game_says_its_last_build(self):
+        self.run_due(only={MKW})
+        paths = Paths.default()
+        config = configs.load(paths)
+        config.only = [ODYSSEY]
+        configs.save(paths, config)
+        ctx = batch.context()
+        plan = batch.survey(ctx, update=False)
+        entry = next(e for e in plan.entries if e.title_id == MKW)
+        self.assertEqual(entry.reasons, ["not_selected"])
+        self.assertIn(ctx.engine.head()[:12], entry.detail)
+        hollow = next(e for e in plan.entries if e.title_id == HOLLOW)
+        self.assertNotIn(ctx.engine.head()[:12], hollow.detail)
+
     def test_stop(self):
         os.environ["FAKE_SLEEP"] = "30"
         stop = threading.Event()
