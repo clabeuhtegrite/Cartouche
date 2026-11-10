@@ -60,8 +60,8 @@ struct BridgeView: View {
 
     private var stateText: String {
         guard bridge.enabled else {
-            return tr("Off. On, the iPhone finds this Mac on your Wi-Fi and installs games from it, encrypted, once paired.",
-                      "Désactivé. Activé, l’iPhone trouve ce Mac sur votre Wi-Fi et y installe ses jeux, chiffrés, une fois associé.")
+            return tr("Off. On, the iPhone finds this Mac on your Wi-Fi and installs games from it, encrypted on the way, once paired.",
+                      "Désactivé. Activé, l’iPhone trouve ce Mac sur votre Wi-Fi et y installe ses jeux, chiffrés en chemin, une fois associé.")
         }
         switch bridge.state {
         case .stopped, .starting: return tr("Starting…", "Démarrage…")

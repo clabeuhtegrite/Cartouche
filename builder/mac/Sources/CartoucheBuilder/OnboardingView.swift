@@ -128,8 +128,8 @@ struct OnboardingView: View {
         VStack(alignment: .leading, spacing: 18) {
             Text(tr("Cartouche on the iPhone", "Cartouche sur l’iPhone"))
                 .font(.title.weight(.bold))
-            Text(tr("On, this Mac becomes a storage place Cartouche can add: it installs your games and keeps your saves here, encrypted, after you pair the iPhone once.",
-                    "Activé, ce Mac devient un stockage que Cartouche peut ajouter : il y installe vos jeux et y garde vos sauvegardes, chiffrés, une fois l’iPhone associé."))
+            Text(tr("On, this Mac becomes a storage place Cartouche can add: it installs your games and keeps your saves here, encrypted on the way, after you pair the iPhone once.",
+                    "Activé, ce Mac devient un stockage que Cartouche peut ajouter : il y installe vos jeux et y garde vos sauvegardes, chiffrées en chemin, une fois l’iPhone associé."))
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
             Card {
