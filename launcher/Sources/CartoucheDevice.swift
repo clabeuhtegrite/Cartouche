@@ -3,8 +3,9 @@
 //  Cartouche
 //
 //  What this iPhone gives a game: its model, iOS version, GPU, the memory
-//  limit iOS sets for Cartouche (games run inside Cartouche and share it),
-//  and how long Cartouche's signature lasts.
+//  limit iOS sets for Cartouche (games started in its place share it; one
+//  behind the console has the limit of its own process, in
+//  CartoucheRunningGame.swift), and how long Cartouche's signature lasts.
 //
 
 import Foundation
@@ -202,7 +203,9 @@ enum CartoucheFit: Hashable {
         }
     }
 
-    static func of(_ sheet: CartoucheGameSheet, memory: CartoucheMemoryReading?) -> CartoucheFit {
+    /// LIMITMIB is the memory the game has here, where Play starts it
+    /// (CartoucheGameKeeping.gameLimitMiB).
+    static func of(_ sheet: CartoucheGameSheet, limitMiB: Int?) -> CartoucheFit {
         var blockers: [String] = []
         if !CartoucheDevice.runsAtLeast(sheet.requirements.minimumIOS) {
             blockers.append(CartoucheText.reasonIOS(sheet.requirements.minimumIOS))
@@ -216,9 +219,9 @@ enum CartoucheFit: Hashable {
         if sheet.requirements.increasedMemoryLimit && !CartoucheDevice.hasIncreasedMemoryLimit {
             warnings.append(CartoucheText.reasonIML)
         }
-        if let peak = sheet.peakMemoryMiB, let memory, peak > memory.limitMiB {
+        if let peak = sheet.peakMemoryMiB, let limitMiB, peak > limitMiB {
             warnings.append(CartoucheText.reasonMemory(
-                needed: CartoucheText.mebibytes(peak), limit: CartoucheText.mebibytes(memory.limitMiB)))
+                needed: CartoucheText.mebibytes(peak), limit: CartoucheText.mebibytes(limitMiB)))
         }
         let here = sheet.results.filter { $0.device == CartoucheDevice.modelIdentifier }
         let latest = here.max { $0.date < $1.date }

@@ -1809,13 +1809,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Needs about %1$@; Cartouche may use %2$@ on this iPhone."
+            "value" : "Needs about %1$@; a game may use %2$@ on this iPhone."
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Nécessite environ %1$@ ; Cartouche peut utiliser %2$@ sur cet iPhone."
+            "value" : "Nécessite environ %1$@ ; un jeu peut utiliser %2$@ sur cet iPhone."
           }
         }
       }
@@ -2411,6 +2411,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "iOS a fermé le jeu près de sa limite de %@ derrière Cartouche. Désormais, il démarre à la place de Cartouche, avec toute la mémoire de Cartouche."
+          }
+        }
+      }
+    },
+    "running.stopped.memory.behind" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "iOS closed the game near its limit of %@ behind Cartouche: in Cartouche’s place, it would have no more memory. Your progress is kept up to its last save."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "iOS a fermé le jeu près de sa limite de %@ derrière Cartouche : à la place de Cartouche, il n’aurait pas plus de mémoire. Votre progression est gardée jusqu’à sa dernière sauvegarde."
           }
         }
       }
@@ -8337,13 +8354,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "The Home button over the game, or the controller’s, brings back the console and pauses the game. A game that needs more memory starts in Cartouche’s place, as before."
+            "value" : "The Home button over the game, or the controller’s, brings back the console and pauses the game. A game that needs more memory than it has here starts in Cartouche’s place, when Cartouche has more."
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Le bouton Home sur le jeu, ou celui de la manette, ramène la console et met le jeu en pause. Un jeu qui demande plus de mémoire démarre à la place de Cartouche, comme avant."
+            "value" : "Le bouton Home sur le jeu, ou celui de la manette, ramène la console et met le jeu en pause. Un jeu qui demande plus de mémoire qu’il n’en a ici démarre à la place de Cartouche, si Cartouche en a plus."
           }
         }
       }

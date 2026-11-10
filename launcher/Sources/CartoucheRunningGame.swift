@@ -148,7 +148,9 @@ struct CartoucheGameMemoryReading {
 /// memory iOS gives that process. A game that needs Increased Memory Limit
 /// starts in Cartouche's place when that process has less than Cartouche
 /// itself, and so does a game iOS stopped there for its memory: in
-/// Cartouche's place, it has all of Cartouche's.
+/// Cartouche's place, it has all of Cartouche's. When iOS gives that
+/// process as much as Cartouche or more, every game goes behind the console,
+/// where it has the most.
 @MainActor
 final class CartoucheGameKeeping: ObservableObject {
     static let shared = CartoucheGameKeeping()
@@ -186,8 +188,22 @@ final class CartoucheGameKeeping: ObservableObject {
         limitMiB = limit > 0 ? limit : nil
     }
 
-    func startsInPlace(bundleId: String?) -> Bool {
-        bundleId.map { inPlace.contains($0) } ?? false
+    /// Whether the game with BUNDLEID starts in Cartouche's place: it ran
+    /// short of memory behind the console, and Cartouche's place has more
+    /// than the limit last measured there, by Cartouche's own, OWNLIMITMIB.
+    /// Once it has no more, the game goes behind the console again.
+    func startsInPlace(bundleId: String?, ownLimitMiB: Int?) -> Bool {
+        guard let bundleId, inPlace.contains(bundleId) else { return false }
+        return CartoucheGamePlace.staysInPlace(behindMiB: limitMiB, ownMiB: ownLimitMiB)
+    }
+
+    /// The most memory Play can give a game here, against Cartouche's own,
+    /// OWNLIMITMIB: while games run behind the console, the limit iOS gave
+    /// the last one there, or Cartouche's own when that is higher, for a
+    /// game short of memory there.
+    func gameLimitMiB(ownLimitMiB: Int?) -> Int? {
+        guard Self.isAvailable, keepsConsoleOpen else { return ownLimitMiB }
+        return CartoucheGamePlace.gameLimitMiB(behindMiB: limitMiB, ownMiB: ownLimitMiB)
     }
 
     /// The game starts in Cartouche's place from now on.
@@ -208,16 +224,12 @@ final class CartoucheGameKeeping: ObservableObject {
         UserDefaults.standard.set(limit, forKey: Self.limitKey)
     }
 
-    /// Whether a game that needs NEEDSIML, or PEAKMIB at its most, has the
-    /// memory it needs behind the console, by the limit measured there,
-    /// LIMITMIB or the last one, against Cartouche's own, OWNLIMITMIB.
+    /// Whether a game that needs NEEDSIML, or PEAKMIB at its most, starts
+    /// behind the console, by the limit measured there, LIMITMIB or the last
+    /// one, against Cartouche's own, OWNLIMITMIB: unless it needs more memory
+    /// than it has there, and Cartouche's place has more.
     func fitsBehind(needsIML: Bool, peakMiB: Int?, limitMiB limit: Int? = nil, ownLimitMiB: Int?) -> Bool {
-        guard let behind = limit ?? limitMiB else { return true }
-        if let peakMiB, peakMiB > behind { return false }
-        // Increased Memory Limit raises Cartouche's limit, and the process
-        // behind the console stays under it.
-        if needsIML, let ownLimitMiB, behind + 256 < ownLimitMiB { return false }
-        return true
+        CartoucheGamePlace.startsBehind(needsIML: needsIML, peakMiB: peakMiB, behindMiB: limit ?? limitMiB, ownMiB: ownLimitMiB)
     }
 }
 

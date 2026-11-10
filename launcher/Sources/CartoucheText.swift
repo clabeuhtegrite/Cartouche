@@ -98,7 +98,7 @@ enum CartoucheText {
     static var reasonGPU: String { s("reason.gpu", "Needs a GPU that reads BC-compressed textures.") }
     static var reasonIML: String { s("reason.iml", "Needs Increased Memory Limit, which is not active for Cartouche yet.") }
     static func reasonMemory(needed: String, limit: String) -> String {
-        f("reason.memory", "Needs about %1$@; Cartouche may use %2$@ on this iPhone.", needed, limit)
+        f("reason.memory", "Needs about %1$@; a game may use %2$@ on this iPhone.", needed, limit)
     }
     static var reasonDoesNotRun: String { s("reason.doesNotRun", "Testers could not run it on this iPhone model.") }
 
@@ -410,13 +410,16 @@ enum CartoucheText {
     static func gameStoppedMemory(_ limit: String) -> String {
         f("running.stopped.memory", "iOS closed the game near its limit of %@ behind Cartouche. From now on, it starts in Cartouche’s place, with all of Cartouche’s memory.", limit)
     }
+    static func gameStoppedMemoryBehind(_ limit: String) -> String {
+        f("running.stopped.memory.behind", "iOS closed the game near its limit of %@ behind Cartouche: in Cartouche’s place, it would have no more memory. Your progress is kept up to its last save.", limit)
+    }
     static var startsInPlaceNote: String { s("sheet.inPlace", "Behind Cartouche, this game would run short of memory: it starts in Cartouche’s place, and the console closes while it runs.") }
     static var tryBehindAgain: String { s("sheet.inPlace.retry", "Try behind Cartouche again") }
     static var playingTitle: String { s("system.playing", "While a game runs") }
     static var keepConsoleOpen: String { s("system.playing.keep", "Keep Cartouche open behind the game") }
     static var behindLimit: String { s("system.playing.limit", "Memory for a game behind Cartouche") }
     static var behindLimitUnknown: String { s("system.playing.limit.unknown", "Measured at the next game") }
-    static var playingFooter: String { s("system.playing.footer", "The Home button over the game, or the controller’s, brings back the console and pauses the game. A game that needs more memory starts in Cartouche’s place, as before.") }
+    static var playingFooter: String { s("system.playing.footer", "The Home button over the game, or the controller’s, brings back the console and pauses the game. A game that needs more memory than it has here starts in Cartouche’s place, when Cartouche has more.") }
     static var memoryFooterBehind: String { s("system.memory.footer.behind", "Games that start in Cartouche’s place share this limit; behind Cartouche, a game has its own. With Increased Memory Limit, an iPhone with 12 GB allows about 6 GiB.") }
     static func updateWhilePlaying(_ name: String) -> String { f("system.updates.playing", "Quit %@ first: Cartouche closes to install its update.", name) }
 
