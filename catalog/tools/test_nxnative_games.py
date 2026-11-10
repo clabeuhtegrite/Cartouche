@@ -34,6 +34,15 @@ PROFILES = {
                         "name\tCeleste\napp_category\tpublic.app-category.action-games\n",
 }
 
+# The notes of some games (README.md), whose opening paragraphs are newer than
+# the profile's comment.
+NOTES = {
+    "01003FC01670C000": "# 13 Sentinels: Aegis Rim\n\nVanillaware's engine. Playable on the iPhone; on the Mac\n"
+                        "a new game gets through the prologue.\n\n## What it needs\n\nPlays on the Mac only.\n",
+    "0400C3F00006E000": "# Mario Kart World\n\nPlays on the Mac from a dump; the iPhone is untested.\n\n"
+                        "## Open\n\nPlays on the iPhone? Not tried.\n",
+}
+
 
 class NxnativeGamesTest(unittest.TestCase):
     def setUp(self):
@@ -45,6 +54,8 @@ class NxnativeGamesTest(unittest.TestCase):
         for title_id, text in PROFILES.items():
             (games / title_id).mkdir()
             (games / title_id / "game.tsv").write_text(text, encoding="utf-8")
+        for title_id, text in NOTES.items():
+            (games / title_id / "README.md").write_text(text, encoding="utf-8")
         self.games = nxnative_games.games(root)
 
     def tearDown(self):
@@ -70,7 +81,7 @@ class NxnativeGamesTest(unittest.TestCase):
             "name": "Mario Kart World",
             "platform": "switch2",
             "genre": "racing",
-            "status": "bringup",
+            "status": "mac",
             "engine": "Nintendo EPD",
             "build": "1.0.0 (base)",
             "sdk": "19.3.3",
@@ -79,8 +90,16 @@ class NxnativeGamesTest(unittest.TestCase):
     def test_status_from_the_opening_comment(self):
         self.assertEqual(self.game("01002B30028F6000")["status"], "iphone")
         self.assertEqual(self.game("010049900F546000")["status"], "mac")
-        self.assertEqual(self.game("01003FC01670C000")["status"], "bringup")
         self.assertEqual(nxnative_games.status("Game profile of Portal 2, SDK 13.3.0"), "unknown")
+
+    def test_the_notes_say_it_before_the_comment(self):
+        # The comment says bring-up, the notes' opening paragraphs say it plays on the iPhone.
+        self.assertEqual(self.game("01003FC01670C000")["status"], "iphone")
+        # The notes say the iPhone is untested, and only a later section asks: the Mac.
+        self.assertEqual(self.game("0400C3F00006E000")["status"], "mac")
+        self.assertEqual(nxnative_games.status("Game profile", "Plays on the Mac. The iPhone are not tested here."), "mac")
+        self.assertEqual(nxnative_games.status("Game profile", "Brought up on the Mac and plays on the iPhone."), "iphone")
+        self.assertEqual(nxnative_games.status("In bring-up", "Nothing said."), "bringup")
 
     def test_a_profile_missing_from_the_table_stops(self):
         games = Path(self.tmp.name) / "dm" / "games"

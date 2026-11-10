@@ -19,9 +19,16 @@ You never see LiveContainer or SideStore, which Cartouche is built on: it drives
 
 ## Install
 
-1. On the iPhone, install **LocalDevVPN** from the App Store: the built-in SideStore needs it to renew Cartouche without a computer.
+Step by step, from nothing to your first game: [docs/getting-started.md](docs/getting-started.md), in French [docs/getting-started.fr.md](docs/getting-started.fr.md). In short:
+
+1. On the iPhone, install **LocalDevVPN** from the App Store: the built-in SideStore needs it to sign in and to renew Cartouche without a computer.
 2. On a Mac or a Windows PC, download the **Cartouche Installer** from its latest [`installer-v…` release](https://github.com/clabeuhtegrite/Cartouche/releases), plug in the iPhone, sign in with your Apple account (a free one is enough) and install. It puts the latest Cartouche on the iPhone with its certificate, the memory capability and the pairing file ([installer/README.md](installer/README.md)).
-3. Open Cartouche and follow its setup.
+3. Open Cartouche: its guide, **Your first game**, takes you from there, and ticks each step by itself.
+4. On a Mac with Apple silicon, install Cartouche Builder and the tools nxnative builds with, in one command in Terminal, then build your game into your games folder ([builder/README.md](builder/README.md#install)):
+
+   ```
+   /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/clabeuhtegrite/Cartouche/main/builder/install.sh)"
+   ```
 
 Supported: iOS 26 or later on an iPhone 15 Pro or newer, or an iPad with an M1 or newer, as nxnative. The bigger games need a 12 GB iPhone.
 
@@ -39,7 +46,8 @@ Cartouche ships no games, no keys and no firmware, and never downloads them: it 
 | [`builder/`](builder/) | Cartouche Builder, the Mac program that builds the player's own games with nxnative and builds them again when nxnative changes for them |
 | [`catalog/`](catalog/) | What the app knows about games and devices: nxnative's list of games, covers' IDs, compatibility sheets, device memory limits |
 | [`guard/`](guard/) | The publish guard, which refuses to publish anything that looks like game content |
-| [`docs/`](docs/) | Architecture, roadmap, decisions |
+| [`site/`](site/) | The showcase page, on [GitHub Pages](https://clabeuhtegrite.github.io/Cartouche/): Cartouche's screens rebuilt in HTML around games of nxnative's list, their covers loaded from IGDB, in French and English |
+| [`docs/`](docs/) | Getting started, architecture, roadmap, decisions |
 
 ## Building
 
@@ -51,7 +59,7 @@ brew install ldid
 app/scripts/build.sh          # writes build/app/Cartouche.ipa, unsigned
 ```
 
-CI builds it on every pull request that touches the app and attaches the unsigned IPA to the run; a pull request that touches the launcher also gets screenshots of every screen. How a release is cut: [app/releases/README.md](app/releases/README.md). More in [app/README.md](app/README.md) and [docs/architecture.md](docs/architecture.md).
+CI builds it on every pull request that touches the app and attaches the unsigned IPA to the run; a pull request that changes the launcher's screens also gets screenshots of every screen, which its rebases keep. How a release is cut: [app/releases/README.md](app/releases/README.md). More in [app/README.md](app/README.md) and [docs/architecture.md](docs/architecture.md).
 
 ## Contributing
 

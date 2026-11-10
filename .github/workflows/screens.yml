@@ -6,10 +6,24 @@ name: Launcher screens
 # folded and unfolded, and on the iPhone Duo simulator itself. They are kept
 # with the run, and for a branch of this repository on the branch
 # launcher-screens/<branch>, one commit that each run replaces.
+#
+# A pull request's screenshots are taken once for what it changes in the
+# gallery's files: a rebase or a merge of main that leaves those changes as
+# they were keeps the ones taken before, about half an hour of a Mac each
+# time. Run the workflow from the Actions tab to take them again.
 
 on:
   pull_request:
-    paths: ["launcher/**", "catalog/**", ".github/workflows/screens.yml"]
+    # What the gallery is built from and shows (launcher/Gallery/project.yml
+    # and capture.sh).
+    paths:
+      - "launcher/Sources/**"
+      - "launcher/Gallery/**"
+      - "catalog/devices.json"
+      - "catalog/nxnative.json"
+      - "catalog/covers.json"
+      - "catalog/games/**"
+      - ".github/workflows/screens.yml"
   workflow_dispatch:
 
 permissions:
@@ -19,13 +33,61 @@ concurrency:
   group: screens-${{ github.head_ref || github.ref }}
   cancel-in-progress: true
 
+env:
+  XCODE_VERSION: "27.2"
+
 jobs:
+  # The pull request's changes to the files in the paths above, as its merge
+  # into main has them, and whether a run of this pull request took their
+  # screenshots already. Its key goes to the Actions cache once they are.
+  taken:
+    name: Screenshots taken already?
+    if: ${{ github.event_name == 'pull_request' }}
+    runs-on: ubuntu-latest
+    outputs:
+      key: ${{ steps.changes.outputs.key }}
+      taken: ${{ steps.memo.outputs.cache-hit }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 2
+          persist-credentials: false
+      - name: What the pull request changes in the gallery's files
+        id: changes
+        run: |
+          # HEAD^1 is main, HEAD the pull request merged into it.
+          CHANGES="$(git diff --binary HEAD^1 HEAD -- launcher/Sources launcher/Gallery \
+            catalog/devices.json catalog/nxnative.json catalog/covers.json catalog/games \
+            .github/workflows/screens.yml | sha256sum | cut -c1-64)"
+          echo "key=screens-xcode-$XCODE_VERSION-$CHANGES" >> "$GITHUB_OUTPUT"
+      - name: Were their screenshots taken?
+        id: memo
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: build/screens-taken
+          key: ${{ steps.changes.outputs.key }}
+          lookup-only: true
+      - name: Say so
+        if: ${{ steps.memo.outputs.cache-hit == 'true' }}
+        env:
+          BRANCH: launcher-screens/${{ github.head_ref }}
+        run: |
+          echo "::notice::An earlier run took the screenshots of these very changes, on $BRANCH: run this workflow from the Actions tab to take them again."
+          echo "The screenshots of these very changes are on \`$BRANCH\` already." >> "$GITHUB_STEP_SUMMARY"
+
   screens:
     name: Screenshots
+    needs: taken
+    # Taken unless the first job found them, so that a failure there cannot
+    # skip them.
+    if: ${{ !cancelled() && needs.taken.outputs.taken != 'true' }}
     runs-on: xcode-27
     timeout-minutes: 60
     env:
-      XCODE_VERSION: "27.2"
+      # brew install takes the formula the runner knows, without updating
+      # Homebrew first.
+      HOMEBREW_NO_AUTO_UPDATE: "1"
+      HOMEBREW_NO_INSTALL_CLEANUP: "1"
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -46,13 +108,27 @@ jobs:
           path: build/screens
           retention-days: 14
           if-no-files-found: warn
+      # Once every scenario has its screenshot.
+      - name: Note that they are taken
+        if: ${{ needs.taken.outputs.key != '' }}
+        env:
+          SOURCE: ${{ github.event.pull_request.head.sha }}
+        run: |
+          mkdir -p build/screens-taken
+          echo "$SOURCE" > build/screens-taken/source
+      - name: Keep the note in the cache
+        if: ${{ needs.taken.outputs.key != '' }}
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: build/screens-taken
+          key: ${{ needs.taken.outputs.key }}
 
   # The only job that can write runs nothing from the pull request: it
-  # commits the screenshots the first job uploaded.
+  # commits the screenshots the job above uploaded.
   keep:
     name: Keep the screenshots on a branch
     needs: screens
-    if: ${{ !cancelled() && (github.event_name == 'workflow_dispatch' || github.event.pull_request.head.repo.full_name == github.repository) }}
+    if: ${{ !cancelled() && needs.screens.result != 'skipped' && (github.event_name == 'workflow_dispatch' || github.event.pull_request.head.repo.full_name == github.repository) }}
     runs-on: ubuntu-latest
     permissions:
       contents: write # the branch launcher-screens/<branch>

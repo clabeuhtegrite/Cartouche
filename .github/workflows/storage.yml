@@ -1,0 +1,116 @@
+name: Storage
+
+# Runs the launcher's storage code, as the app does, against real servers on
+# a Mac: Samba (SMB), MinIO (S3), pyftpdlib (FTP, with and without MLSD) and
+# OpenSSH (SFTP), on the runner itself, with made-up apps for IPAs, one past
+# 4 GiB (launcher/StorageTests/README.md). For a pull request that changes
+# that code, its tests or the servers, and from main after one.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "launcher/StorageTests/**"
+      - "launcher/Sources/Cartouche*.swift"
+      - "app/SMBClient"
+      - "app/patches/livecontainer/0007-*"
+      - "catalog/nxnative.commit"
+      - ".github/workflows/storage.yml"
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: storage-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  changes:
+    name: Files the storage tests run
+    runs-on: ubuntu-latest
+    outputs:
+      run: ${{ steps.paths.outputs.run }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 2
+          persist-credentials: false
+      - name: Does this change touch them?
+        id: paths
+        run: |
+          # A pull request is checked out as its merge into main: HEAD^1 is
+          # main, HEAD^2 the pull request. On main, HEAD is the pull request
+          # just merged, squashed into one commit, and HEAD^1 main before it.
+          # Either way the tests run only for the launcher files they link,
+          # where the paths above let in every one.
+          if [ "$GITHUB_EVENT_NAME" = "workflow_dispatch" ]; then
+            echo "run=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          # The launcher's files the tests build, as their links name them.
+          LINKED="$(find launcher/StorageTests/Sources -type l -name '*.swift' | while IFS= read -r LINK; do
+            python3 -c 'import os, sys; print(os.path.relpath(os.path.realpath(sys.argv[1])))' "$LINK"
+          done)"
+          RUN=false
+          while IFS= read -r FILE; do
+            case "$FILE" in
+              launcher/StorageTests/*|app/SMBClient|app/patches/livecontainer/0007-*|catalog/nxnative.commit|.github/workflows/storage.yml) RUN=true ;;
+            esac
+            if printf '%s\n' "$LINKED" | grep -qxF -- "$FILE"; then RUN=true; fi
+          done < <(git diff --name-only HEAD^1 HEAD)
+          echo "run=$RUN" >> "$GITHUB_OUTPUT"
+          echo "Run the storage tests: $RUN"
+
+  storage:
+    name: Storage against real servers
+    needs: changes
+    if: ${{ !cancelled() && needs.changes.outputs.run != 'false' }}
+    runs-on: xcode-27
+    timeout-minutes: 75
+    env:
+      XCODE_VERSION: "27.2"
+      SERVERS: /tmp/cartouche-servers
+      HOMEBREW_NO_AUTO_UPDATE: "1"
+      HOMEBREW_NO_INSTALL_CLEANUP: "1"
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Check out SMBClient
+        run: git submodule update --init app/SMBClient
+      - name: Select Xcode
+        run: |
+          sudo xcode-select -s "/Applications/Xcode_${XCODE_VERSION}.app"
+          xcodebuild -version
+      - name: Install Samba, MinIO and its client
+        run: |
+          brew install samba minio minio-mc
+          df -h /tmp
+      # Before the servers, so that a mistake in the code shows at once.
+      - name: Build the tests
+        run: swift build --build-tests --package-path launcher/StorageTests
+      - name: Start the servers
+        run: launcher/StorageTests/servers.sh start "$SERVERS" --big-mib 4112
+      - name: Storage tests
+        run: CARTOUCHE_STORAGE_SERVERS="$SERVERS/servers.json" swift test --package-path launcher/StorageTests
+      # The servers' logs, never servers.json, which has the passwords.
+      - name: What the servers logged
+        if: ${{ failure() }}
+        run: |
+          df -h /tmp
+          for LOG in smb/smbd.log smb/log/*.log ssh/sshd.log ftp/ftp.log ftp-list/ftp.log s3/minio.log; do
+            for FILE in "$SERVERS"/$LOG; do
+              [ -f "$FILE" ] || continue
+              echo "::group::$FILE"
+              sudo tail -n 300 "$FILE"
+              echo "::endgroup::"
+            done
+          done
+      - name: Stop the servers
+        if: ${{ always() }}
+        run: |
+          if [ -f "$SERVERS/.cartouche-storage-servers" ]; then
+            launcher/StorageTests/servers.sh stop "$SERVERS"
+          fi

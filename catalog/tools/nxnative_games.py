@@ -6,7 +6,11 @@ The list comes from nxnative's game profiles at the commit Cartouche pins
 (catalog/nxnative.commit), fetched by catalog/tools/fetch_nxnative.sh:
 
 - dm/games/<title ID>/game.tsv: the game's name, App Store category, and
-  the profile's opening comment, which says where nxnative plays it;
+  the profile's opening comment;
+- dm/games/<title ID>/README.md: the game's notes, whose opening paragraphs
+  say where nxnative plays it now. The opening comment of game.tsv is often
+  older ("In bring-up" for a game that plays on the iPhone), so the notes
+  come first and the comment only fills in what they do not say;
 - dm/games/README.md: the table of games, with the build, SDK and engine.
 
 A release for another region with its own profile ("13 Sentinels: Aegis
@@ -69,15 +73,48 @@ def read_profile(path: Path) -> tuple[dict[str, str], str]:
     return keys, " ".join(comment)
 
 
-def status(comment: str) -> str:
-    """Where nxnative says the game plays, from its profile's opening comment:
-    "iphone", "mac", "bringup", or "unknown" when the comment does not say."""
-    if re.search(r"\bon the iPhone\b|\bMac and (on )?(the )?iPhone\b|\bPlays on the iPhone\b", comment):
-        return "iphone"
-    if re.search(r"\b[Ii]n bring-up\b|\b[Bb]ring-up has just started\b", comment):
-        return "bringup"
-    if re.search(r"\bPlays on the Mac\b|\b(tested|played|brought up) on the Mac\b|\bon the Mac\b", comment):
-        return "mac"
+# Where the notes or the comment say nxnative plays the game on the iPhone.
+# Only what says it plays: "the iPhone are not tested" and "iPhone and iPad
+# are untested" say nothing of the kind.
+IPHONE = re.compile(
+    r"\bplay(s|able|ed)? on (the|an) iPhone\b"
+    r"|\bon the Mac and (on )?(the )?iPhone\b"
+    r"|\bon the iPhone and (on )?the Mac\b"
+    r"|\band on the iPhone\b"
+    r"|\bMac and iPhone gameplay have been tested\b"
+    r"|\bconfirmed playable on the iPhone\b", re.I)
+BRINGUP = re.compile(r"\b[Ii]n bring-up\b|\b[Bb]ring-up has just started\b")
+MAC = re.compile(r"\bPlays on the Mac\b|\b(tested|played|brought up) on the Mac\b|\bon the Mac\b", re.I)
+
+
+def read_notes(readme: Path) -> str:
+    """The opening paragraphs of a game's notes, before their first section:
+    nxnative's own summary of the game, where it says where it plays it."""
+    if not readme.is_file():
+        return ""
+    lines = readme.read_text(encoding="utf-8").splitlines()[1:]
+    intro = []
+    for line in lines:
+        if line.startswith("## "):
+            break
+        intro.append(line.strip())
+    return " ".join(line for line in intro if line)
+
+
+def status(comment: str, notes: str = "") -> str:
+    """Where nxnative says the game plays: "iphone", "mac", "bringup", or
+    "unknown" when neither its notes nor its profile's opening comment say.
+    The notes are the newer of the two, so they come first: a game they say
+    plays on the iPhone, is in bring-up or plays on the Mac does, whatever
+    the comment says."""
+    for text in (notes, comment):
+        if IPHONE.search(text):
+            return "iphone"
+    for text in (notes, comment):
+        if BRINGUP.search(text):
+            return "bringup"
+        if MAC.search(text):
+            return "mac"
     return "unknown"
 
 
@@ -110,7 +147,7 @@ def games(nxnative: Path) -> list[dict]:
             "name": keys.get("name") or row["name"],
             "platform": "switch2" if title_id.startswith("04") else "switch",
             "genre": GENRES.get(category, "other"),
-            "status": status(comment),
+            "status": status(comment, read_notes(tsv.parent / "README.md")),
             "engine": row["engine"],
             "build": row["build"],
             "sdk": row["sdk"],

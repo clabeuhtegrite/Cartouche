@@ -1,13 +1,13 @@
 {
   "schema": 1,
-  "nxnative": "6c3aeb3768c43ea0bb89297ba9a7a347e3aa2d21",
+  "nxnative": "f3ec8fc81e49744d178379a38ceae0fc1cba04d0",
   "games": [
     {
       "titleId": "01003FC01670C000",
       "name": "13 Sentinels: Aegis Rim",
       "platform": "switch",
       "genre": "rpg",
-      "status": "bringup",
+      "status": "iphone",
       "engine": "Vanillaware's engine",
       "build": "1.10",
       "sdk": "11.4.3",
@@ -79,7 +79,7 @@
       "name": "Animal Crossing: New Horizons",
       "platform": "switch",
       "genre": "simulation",
-      "status": "bringup",
+      "status": "iphone",
       "engine": "Nintendo EPD (sead / agl / gsys)",
       "build": "3.0.3",
       "sdk": "20.5.4"
@@ -169,7 +169,7 @@
       "name": "Bayonetta",
       "platform": "switch",
       "genre": "action",
-      "status": "unknown",
+      "status": "iphone",
       "engine": "PlatinumGames' engine (Wii U form)",
       "build": "1.1",
       "sdk": "3.6.0"
@@ -179,7 +179,7 @@
       "name": "Bayonetta 2",
       "platform": "switch",
       "genre": "action",
-      "status": "unknown",
+      "status": "iphone",
       "engine": "PlatinumGames' engine (Wii U form)",
       "build": "1.2",
       "sdk": "3.6.0"
@@ -259,7 +259,7 @@
       "name": "Catherine: Full Body",
       "platform": "switch",
       "genre": "puzzle",
-      "status": "bringup",
+      "status": "iphone",
       "engine": "Atlus GFD (CRI middleware)",
       "build": "1.0.1a",
       "sdk": "8.2.1"
@@ -339,7 +339,7 @@
       "name": "Donkey Kong Bananza",
       "platform": "switch2",
       "genre": "action",
-      "status": "bringup",
+      "status": "mac",
       "engine": "Nintendo EPD (sead / agl / gsys)",
       "build": "v458752 (Switch 2)",
       "sdk": "20.5.19 (Ounce)"
@@ -409,7 +409,7 @@
       "name": "DRAGON QUEST VII Reimagined",
       "platform": "switch",
       "genre": "other",
-      "status": "mac",
+      "status": "iphone",
       "engine": "Unreal Engine 4.27",
       "build": "1.2.0",
       "sdk": "19.3.1"
@@ -449,7 +449,7 @@
       "name": "FINAL FANTASY RESONANCE",
       "platform": "switch",
       "genre": "other",
-      "status": "mac",
+      "status": "iphone",
       "engine": "Unreal Engine 5.6.1",
       "build": "1.0.1",
       "sdk": "20.5.17",
@@ -486,7 +486,7 @@
       "name": "Fire Emblem Engage",
       "platform": "switch",
       "genre": "strategy",
-      "status": "mac",
+      "status": "iphone",
       "engine": "Unity 2020.3.18f1 IL2CPP, Wwise",
       "build": "2.0.0",
       "sdk": "12.3.7"
@@ -506,7 +506,7 @@
       "name": "Fire Emblem: Three Houses",
       "platform": "switch",
       "genre": "rpg",
-      "status": "bringup",
+      "status": "iphone",
       "engine": "Koei Tecmo's KTGL",
       "build": "1.2.0",
       "sdk": "6.5.0"
@@ -526,7 +526,7 @@
       "name": "Hades",
       "platform": "switch",
       "genre": "action",
-      "status": "unknown",
+      "status": "iphone",
       "engine": "Supergiant Games' engine (The Forge)",
       "build": "1.0.38233",
       "sdk": "9.3.0"
@@ -536,7 +536,7 @@
       "name": "Hades II",
       "platform": "switch",
       "genre": "action",
-      "status": "unknown",
+      "status": "iphone",
       "engine": "Supergiant Games' engine",
       "build": "1.0.141667 (and base game)",
       "sdk": "20.5.15 (base game: 19.3.9)"
@@ -566,7 +566,7 @@
       "name": "Hyrule Warriors: Age of Calamity",
       "platform": "switch",
       "genre": "action",
-      "status": "unknown",
+      "status": "iphone",
       "engine": "Koei Tecmo's KTGL",
       "build": "1.3.0",
       "sdk": "9.6.0"
@@ -576,7 +576,7 @@
       "name": "Hyrule Warriors: Age of Imprisonment",
       "platform": "switch2",
       "genre": "action",
-      "status": "unknown",
+      "status": "mac",
       "engine": "Koei Tecmo's KTGL",
       "build": "v196608 (Switch 2)",
       "sdk": "20.5.15 (Ounce)"
@@ -626,7 +626,7 @@
       "name": "Luigi's Mansion 3",
       "platform": "switch",
       "genre": "action",
-      "status": "unknown",
+      "status": "iphone",
       "engine": "Next Level Games' engine",
       "build": "1.4.0",
       "sdk": "7.3.2"
@@ -676,7 +676,7 @@
       "name": "Mario Kart World",
       "platform": "switch2",
       "genre": "racing",
-      "status": "bringup",
+      "status": "mac",
       "engine": "Nintendo EPD (sead / agl / gsys, Pia)",
       "build": "v0 (Switch 2)",
       "sdk": "19.3.3 (Ounce)"
@@ -706,7 +706,7 @@
       "name": "Mario vs. Donkey Kong",
       "platform": "switch",
       "genre": "other",
-      "status": "mac",
+      "status": "iphone",
       "engine": "Nintendo (sead / agl / gsys)",
       "build": "1.0.1 (cartridge base)",
       "sdk": "15.3.0"
@@ -716,7 +716,7 @@
       "name": "Metroid Dread",
       "platform": "switch",
       "genre": "action",
-      "status": "bringup",
+      "status": "iphone",
       "engine": "MercurySteam's engine",
       "build": "2.1.0",
       "sdk": "11.4.3"
@@ -746,7 +746,7 @@
       "name": "Monster Hunter Rise",
       "platform": "switch",
       "genre": "action",
-      "status": "unknown",
+      "status": "iphone",
       "engine": "Capcom's RE Engine",
       "build": "16.0.2",
       "sdk": "11.4.3"
@@ -766,7 +766,7 @@
       "name": "Need For Speed™ Hot Pursuit Remastered",
       "platform": "switch",
       "genre": "other",
-      "status": "unknown",
+      "status": "mac",
       "engine": "Criterion's engine (Stellar Entertainment port)",
       "build": "1.0.3",
       "sdk": "10.4.1"
@@ -776,7 +776,7 @@
       "name": "NieR:Automata The End of YoRHa Edition",
       "platform": "switch",
       "genre": "action",
-      "status": "unknown",
+      "status": "iphone",
       "engine": "PlatinumGames' engine",
       "build": "1.0.3",
       "sdk": "12.3.9",
@@ -803,7 +803,7 @@
       "name": "OCTOPATH TRAVELER 0",
       "platform": "switch",
       "genre": "other",
-      "status": "mac",
+      "status": "iphone",
       "engine": "Unreal Engine 5",
       "build": "1.0.5",
       "sdk": "19.3.13"
@@ -813,10 +813,30 @@
       "name": "OCTOPATH TRAVELER II",
       "platform": "switch",
       "genre": "other",
-      "status": "mac",
+      "status": "iphone",
       "engine": "Unreal Engine 4.27",
       "build": "1.1.1",
       "sdk": "12.3.2"
+    },
+    {
+      "titleId": "010061D00DB74000",
+      "name": "Ori and the Blind Forest: Definitive Edition",
+      "platform": "switch",
+      "genre": "other",
+      "status": "mac",
+      "engine": "Unity 2018.4.1f1 IL2CPP, FMOD",
+      "build": "1.0.2",
+      "sdk": "8.2.0"
+    },
+    {
+      "titleId": "01008DD013200000",
+      "name": "Ori and the Will of the Wisps",
+      "platform": "switch",
+      "genre": "other",
+      "status": "mac",
+      "engine": "Unity 2018.4.24f1 IL2CPP, Wwise",
+      "build": "1.2.1",
+      "sdk": "9.4.0"
     },
     {
       "titleId": "0100A3900C3E2000",
@@ -833,7 +853,7 @@
       "name": "Paper Mario: The Thousand-Year Door",
       "platform": "switch",
       "genre": "rpg",
-      "status": "mac",
+      "status": "iphone",
       "engine": "Intelligent Systems' engine on NintendoWare",
       "build": "1.0.1",
       "sdk": "15.3.2"
@@ -853,7 +873,7 @@
       "name": "Persona 4 Golden",
       "platform": "switch",
       "genre": "rpg",
-      "status": "unknown",
+      "status": "mac",
       "engine": "Atlus in-house (CRI middleware)",
       "build": "1.0.2",
       "sdk": "14.3.0"
@@ -873,7 +893,7 @@
       "name": "Pikmin 4",
       "platform": "switch",
       "genre": "other",
-      "status": "mac",
+      "status": "iphone",
       "engine": "Unreal Engine 4.26.2",
       "build": "1.1.1",
       "sdk": "10.4.8"
@@ -893,7 +913,7 @@
       "name": "Pokémon Brilliant Diamond",
       "platform": "switch",
       "genre": "rpg",
-      "status": "unknown",
+      "status": "mac",
       "engine": "Unity 2019.4.27f1 IL2CPP",
       "build": "1.3.0",
       "sdk": "11.4.3"
@@ -913,7 +933,7 @@
       "name": "Pokémon Legends: Z-A",
       "platform": "switch",
       "genre": "other",
-      "status": "mac",
+      "status": "iphone",
       "engine": "Game Freak's Trinity engine",
       "build": "2.0.2",
       "sdk": "19.3.11"
@@ -923,7 +943,7 @@
       "name": "Pokémon Scarlet",
       "platform": "switch",
       "genre": "other",
-      "status": "unknown",
+      "status": "mac",
       "engine": "Game Freak's Trinity engine",
       "build": "1.0.0",
       "sdk": "13.3.5"
@@ -953,7 +973,7 @@
       "name": "Pokémon Violet",
       "platform": "switch",
       "genre": "other",
-      "status": "unknown",
+      "status": "mac",
       "engine": "Game Freak's Trinity engine",
       "build": "1.0.0",
       "sdk": "13.3.5"
@@ -963,7 +983,7 @@
       "name": "Portal",
       "platform": "switch",
       "genre": "other",
-      "status": "unknown",
+      "status": "mac",
       "engine": "Valve's Source engine (28 NROs)",
       "build": "1.0.3",
       "sdk": "13.3.0"
@@ -973,7 +993,7 @@
       "name": "Portal 2",
       "platform": "switch",
       "genre": "other",
-      "status": "unknown",
+      "status": "mac",
       "engine": "Valve's Source engine (21 NROs)",
       "build": "1.0.3",
       "sdk": "13.3.0"
@@ -993,10 +1013,20 @@
       "name": "Raging Loop",
       "platform": "switch",
       "genre": "adventure",
-      "status": "mac",
+      "status": "iphone",
       "engine": "Unity 2018.3.10f1 IL2CPP",
       "build": "1.0.0 (base)",
       "sdk": "7.3.2"
+    },
+    {
+      "titleId": "01007820196A6000",
+      "name": "Red Dead Redemption",
+      "platform": "switch",
+      "genre": "other",
+      "status": "mac",
+      "engine": "Rockstar's RAGE (Double Eleven port)",
+      "build": "1.0.7",
+      "sdk": "15.3.2"
     },
     {
       "titleId": "010032E00E6E2000",
@@ -1013,7 +1043,7 @@
       "name": "Rhythm Heaven Groove",
       "platform": "switch",
       "genre": "other",
-      "status": "bringup",
+      "status": "iphone",
       "engine": "Nintendo's own 2D engine",
       "build": "1.0.0 (base)",
       "sdk": "21.4.0"
@@ -1053,7 +1083,7 @@
       "name": "SHIN MEGAMI TENSEI V: Vengeance",
       "platform": "switch",
       "genre": "other",
-      "status": "unknown",
+      "status": "mac",
       "engine": "Unreal Engine 4.27",
       "build": "1.0.3",
       "sdk": "15.3.2"
@@ -1063,7 +1093,7 @@
       "name": "Silver Pines",
       "platform": "switch",
       "genre": "adventure",
-      "status": "unknown",
+      "status": "mac",
       "engine": "Unity 6000.3.15f1 IL2CPP",
       "build": "1.0.0 (base)",
       "sdk": "21.4.7"
@@ -1083,7 +1113,7 @@
       "name": "Splatoon Raiders",
       "platform": "switch2",
       "genre": "action",
-      "status": "bringup",
+      "status": "mac",
       "engine": "Nintendo EPD (sead / agl / gsys)",
       "build": "v65536 (Switch 2)",
       "sdk": "21.4.4 (Ounce)"
@@ -1133,7 +1163,7 @@
       "name": "SteamWorld Heist II",
       "platform": "switch",
       "genre": "strategy",
-      "status": "unknown",
+      "status": "mac",
       "engine": "Thunderful's own engine (SteamWorld)",
       "build": "1.5.1",
       "sdk": "17.5.6"
@@ -1173,7 +1203,7 @@
       "name": "Subnautica",
       "platform": "switch",
       "genre": "adventure",
-      "status": "unknown",
+      "status": "mac",
       "engine": "Unity 2019.4.36f1 IL2CPP, FMOD",
       "build": "1.23.83358",
       "sdk": "13.3.5"
@@ -1203,7 +1233,7 @@
       "name": "Super Mario 3D World + Bowser's Fury",
       "platform": "switch",
       "genre": "action",
-      "status": "bringup",
+      "status": "iphone",
       "engine": "Nintendo EPD (sead / agl, NintendoWare)",
       "build": "1.2.2",
       "sdk": "10.4.0"
@@ -1213,7 +1243,7 @@
       "name": "Super Mario Bros. Wonder",
       "platform": "switch",
       "genre": "action",
-      "status": "unknown",
+      "status": "iphone",
       "engine": "Nintendo EPD (sead / agl)",
       "build": "1.2.1 (and 1.0.0)",
       "sdk": "16.2.12 (1.0.0: 16.2.0)"
@@ -1223,7 +1253,7 @@
       "name": "Super Mario Galaxy",
       "platform": "switch",
       "genre": "action",
-      "status": "unknown",
+      "status": "iphone",
       "engine": "NERD's Hagi Wii layer (recompiled PowerPC)",
       "build": "1.3.1",
       "sdk": "18.3.5"
@@ -1233,7 +1263,7 @@
       "name": "Super Mario Galaxy 2",
       "platform": "switch",
       "genre": "action",
-      "status": "unknown",
+      "status": "iphone",
       "engine": "NERD's Hagi Wii layer (recompiled PowerPC)",
       "build": "1.4.0",
       "sdk": "18.3.5"
@@ -1243,7 +1273,7 @@
       "name": "Super Mario Odyssey",
       "platform": "switch",
       "genre": "action",
-      "status": "unknown",
+      "status": "iphone",
       "engine": "Nintendo EPD (sead / agl, NintendoWare)",
       "build": "1.4.1",
       "sdk": "7.3.2"
@@ -1333,7 +1363,7 @@
       "name": "The Legend of Zelda: Breath of the Wild",
       "platform": "switch",
       "genre": "adventure",
-      "status": "bringup",
+      "status": "iphone",
       "engine": "Nintendo EPD (sead / agl / gsys / ksys, Havok)",
       "build": "1.9.0",
       "sdk": "20.5.22"
@@ -1353,7 +1383,7 @@
       "name": "The Legend of Zelda: Link's Awakening",
       "platform": "switch",
       "genre": "adventure",
-      "status": "bringup",
+      "status": "iphone",
       "engine": "Grezzo's engine on NintendoWare",
       "build": "1.1.0",
       "sdk": "8.2.0"
@@ -1363,7 +1393,7 @@
       "name": "The Legend of Zelda: Ocarina of Time",
       "platform": "switch2",
       "genre": "adventure",
-      "status": "unknown",
+      "status": "mac",
       "engine": "Nintendo EPD's sead, agl, gsys, Havok, CRIWARE",
       "build": "v131072 (Switch 2)",
       "sdk": "22.2.8 (Ounce)"
@@ -1373,7 +1403,7 @@
       "name": "The Legend of Zelda: Skyward Sword HD",
       "platform": "switch",
       "genre": "other",
-      "status": "unknown",
+      "status": "mac",
       "engine": "Nintendo's Wii-era engine, ported by Tantalus",
       "build": "1.0.1",
       "sdk": "11.4.0"
@@ -1383,7 +1413,7 @@
       "name": "The Legend of Zelda: Tears of the Kingdom",
       "platform": "switch",
       "genre": "adventure",
-      "status": "bringup",
+      "status": "iphone",
       "engine": "Nintendo EPD (sead / agl / gsys)",
       "build": "1.4.3",
       "sdk": "20.5.22"
@@ -1409,11 +1439,21 @@
       "sdk": "12.3.2"
     },
     {
+      "titleId": "0100DA801624E000",
+      "name": "TUNIC",
+      "platform": "switch",
+      "genre": "other",
+      "status": "mac",
+      "engine": "Unity 2020.3.36f1 IL2CPP, FMOD",
+      "build": "1.0.3",
+      "sdk": "14.3.0"
+    },
+    {
       "titleId": "010069401ADB8000",
       "name": "Unicorn Overlord",
       "platform": "switch",
       "genre": "rpg",
-      "status": "bringup",
+      "status": "iphone",
       "engine": "Vanillaware's engine",
       "build": "1.05",
       "sdk": "16.2.4",
@@ -1470,7 +1510,7 @@
       "name": "Yoshi and the Mysterious Book",
       "platform": "switch2",
       "genre": "action",
-      "status": "unknown",
+      "status": "mac",
       "engine": "Unreal Engine 5.4.4",
       "build": "1.0.2 (Switch 2)",
       "sdk": "20.5.15 (Ounce)"

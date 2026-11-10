@@ -54,7 +54,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - run: shellcheck -x app/scripts/*.sh catalog/tools/*.sh launcher/Gallery/*.sh telemetry/*.sh "builder/Cartouche Builder.command"
+      - run: shellcheck -x app/scripts/*.sh catalog/tools/*.sh launcher/Gallery/*.sh launcher/StorageTests/*.sh telemetry/*.sh builder/install.sh "builder/Cartouche Builder.command"
 
   builder:
     name: Cartouche Builder
@@ -90,3 +90,16 @@ jobs:
           .venv/bin/zizmor --offline --no-progress .github/workflows
       - name: main requires only checks that every pull request reports
         run: .venv/bin/python .github/rulesets/check_rulesets.py
+
+  site:
+    name: Showcase site
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      # Games of the catalog with their IGDB images by ID, nothing else loaded
+      # from another site, links to this repository, nxnative's and IGDB only,
+      # every text in both languages.
+      - name: Tests
+        run: python3 -m unittest discover -s site/tests -v

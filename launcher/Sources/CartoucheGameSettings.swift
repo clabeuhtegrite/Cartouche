@@ -12,7 +12,8 @@
 //  with them, without that screen (DM_LAUNCHER=0: nxnative applies the
 //  saved choices), and the game's in-game menu changes the same ones. A
 //  setting an env file sets wins over a choice (nxnative's main.m): it
-//  shows, but does not change here.
+//  shows, but does not change here. The game's language follows the
+//  iPhone's until the player chooses one (CartoucheGameLanguage.swift).
 //
 
 import SwiftUI
@@ -53,6 +54,8 @@ struct CartoucheGameSetting: Decodable, Identifiable, Hashable {
     var offValue: String { off ?? "0" }
     /// A choice's options that have a value and a label.
     var choices: [[String]] { (options ?? []).filter { $0.count >= 2 } }
+    /// Their values: for the game's language, the codes of its languages.
+    var optionValues: [String] { choices.map { $0[0] } }
 
     /// A range compares as numbers: a slider writes 1.00 for 1.0.
     func isDefault(_ value: String) -> Bool {
@@ -143,6 +146,26 @@ protocol CartoucheGameChoices: AnyObject {
     func set(_ value: Any?, forKey key: String)
 }
 
+extension CartoucheGameChoices {
+    /// What the game's preferences hold of its language
+    /// (CartoucheGameLanguage).
+    var languageRecord: CartoucheGameLanguage.Record {
+        CartoucheGameLanguage.Record(
+            saved: string(forKey: CartoucheGameLanguage.savedKey),
+            source: string(forKey: CartoucheGameLanguage.sourceKey).flatMap { CartoucheGameLanguage.Source(rawValue: $0) },
+            iPhone: string(forKey: CartoucheGameLanguage.iPhoneKey))
+    }
+
+    /// Keeps RECORD, writing only what changed: each write goes to cfprefsd
+    /// at once.
+    func keepLanguage(_ record: CartoucheGameLanguage.Record) {
+        let old = languageRecord
+        if record.saved != old.saved { set(record.saved, forKey: CartoucheGameLanguage.savedKey) }
+        if record.source != old.source { set(record.source?.rawValue, forKey: CartoucheGameLanguage.sourceKey) }
+        if record.iPhone != old.iPhone { set(record.iPhone, forKey: CartoucheGameLanguage.iPhoneKey) }
+    }
+}
+
 /// A game's settings and the player's choices, as nxnative's LauncherModel
 /// keeps them.
 @MainActor
@@ -155,6 +178,12 @@ final class CartoucheGameSettingsModel: ObservableObject, Hashable {
     /// nil when Cartouche cannot reach the game's preferences.
     private let choices: CartoucheGameChoices?
     @Published private(set) var values: [String: String] = [:]
+    /// While the game's language follows the iPhone's, the one it starts
+    /// in; nil once the player chose one.
+    @Published private(set) var iPhoneLanguage: String?
+    /// Whether that one is among the iPhone's, not the game's own for want
+    /// of one.
+    @Published private(set) var iPhoneLanguageFound = false
     @Published private(set) var cloudFolder: String?
     @Published private(set) var cloudNote: String?
     /// The report on the cloud saves folder, when it could not be read or
@@ -178,6 +207,11 @@ final class CartoucheGameSettingsModel: ObservableObject, Hashable {
             let saved = choices?.string(forKey: "launcher." + setting.env)
             values[setting.env] = saved.flatMap { setting.accepts($0) ? $0 : nil } ?? setting.def
         }
+        if let row = languageRow, let choices {
+            // As Play will find it; nothing changes before the player does.
+            showLanguage(CartoucheGameLanguage.beforeStart(choices.languageRecord, preferred: Locale.preferredLanguages,
+                                                           offered: row.optionValues, gameDefault: row.def), of: row)
+        }
         readCloudFolder()
     }
 
@@ -194,11 +228,45 @@ final class CartoucheGameSettingsModel: ObservableObject, Hashable {
         fixed[setting.env] != nil
     }
 
-    /// Saved at once, as nxnative's Play saves it: a default leaves no choice.
+    /// Saved at once, as nxnative's Play saves it: a default leaves no
+    /// choice. A language the player chooses is saved even when it is the
+    /// game's own: the game no longer follows the iPhone's.
     func choose(_ setting: CartoucheGameSetting, _ value: String) {
-        guard let choices, !isFixed(setting), setting.accepts(value), values[setting.env] != value else { return }
+        guard let choices, !isFixed(setting), setting.accepts(value) else { return }
+        if setting.env == languageRow?.env {
+            guard values[setting.env] != value || iPhoneLanguage != nil else { return }
+            let record = CartoucheGameLanguage.chosen(value)
+            choices.keepLanguage(record)
+            showLanguage(record, of: setting)
+            return
+        }
+        guard values[setting.env] != value else { return }
         values[setting.env] = value
         choices.set(setting.isDefault(value) ? nil : value, forKey: "launcher." + setting.env)
+    }
+
+    // MARK: The game's language
+
+    /// The game's language, when the player chooses it here: Cartouche
+    /// picks it from the iPhone's languages until they do.
+    var languageRow: CartoucheGameSetting? {
+        guard canChange else { return nil }
+        return settings.first { $0.env == CartoucheGameLanguage.variable && $0.kind == "choice" && !isFixed($0) }
+    }
+
+    /// The game's language follows the iPhone's again.
+    func followIPhoneLanguage() {
+        guard let choices, let row = languageRow else { return }
+        let record = CartoucheGameLanguage.following(Locale.preferredLanguages, offered: row.optionValues, gameDefault: row.def)
+        choices.keepLanguage(record)
+        showLanguage(record, of: row)
+    }
+
+    private func showLanguage(_ record: CartoucheGameLanguage.Record, of row: CartoucheGameSetting) {
+        let language = CartoucheGameLanguage.language(of: record, offered: row.optionValues, gameDefault: row.def)
+        values[row.env] = language
+        iPhoneLanguage = record.source == .iPhone ? language : nil
+        iPhoneLanguageFound = CartoucheGameLanguage.best(for: Locale.preferredLanguages, among: row.optionValues) != nil
     }
 
     var sections: [String] {
@@ -260,16 +328,25 @@ final class CartoucheGameSettingsModel: ObservableObject, Hashable {
     }
 
     var changed: Bool {
-        settings.contains { !isFixed($0) && !$0.isDefault(value($0)) }
+        let language = languageRow?.env
+        return settings.contains { setting in
+            guard !isFixed(setting) else { return false }
+            // The language changed once the player chose one.
+            if setting.env == language { return iPhoneLanguage == nil }
+            return !setting.isDefault(value(setting))
+        }
     }
 
-    /// Every choice back to the settings the game was tested with.
+    /// Every choice back to the settings the game was tested with, and its
+    /// language to the iPhone's.
     func reset() {
         guard let choices else { return }
-        for setting in settings where !isFixed(setting) {
+        let language = languageRow?.env
+        for setting in settings where !isFixed(setting) && setting.env != language {
             values[setting.env] = setting.def
             choices.set(nil, forKey: "launcher." + setting.env)
         }
+        followIPhoneLanguage()
     }
 
     // MARK: Cloud saves
@@ -475,6 +552,59 @@ struct CartoucheGameSettingRow: View {
         return note.isEmpty ? CartoucheText.settingFixed : note + " · " + CartoucheText.settingFixed
     }
 
+    /// The game's language, which can follow the iPhone's.
+    private var isLanguage: Bool { setting.env == model.languageRow?.env }
+
+    /// The language option's own value: the iPhone's languages.
+    static let iPhoneOption = "cartouche.iPhone"
+
+    /// What the language says under its row while it follows the
+    /// iPhone's: the one the game starts in.
+    private var languageLine: String? {
+        guard isLanguage, !isLocked, let language = model.iPhoneLanguage else { return nil }
+        let english = setting.choices.first(where: { $0[0] == language })?[1] ?? language
+        let name = CartoucheText.languageNameInText(language, english: english)
+        return model.iPhoneLanguageFound ? CartoucheText.languageIPhoneStarts(name) : CartoucheText.languageIPhoneMissing(name)
+    }
+
+    /// A choice's options; the game's language starts with the iPhone's.
+    @ViewBuilder private var options: some View {
+        if isLanguage {
+            Text(CartoucheText.languageIPhone).tag(Self.iPhoneOption)
+        }
+        ForEach(setting.choices, id: \.self) { option in
+            Text(optionName(option)).tag(option[0])
+        }
+    }
+
+    /// The game's language: its menu beside its name, as the other
+    /// settings' are, and the language the game starts in under both. Under
+    /// the name, that line would push the menu onto a line of its own.
+    private var languageMenu: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            // The menu takes its width first, then the name, then the space
+            // between them: an equal share each put "iPhone language" on
+            // two lines.
+            HStack(alignment: .firstTextBaseline) {
+                label
+                    .layoutPriority(1)
+                Spacer(minLength: 8)
+                Picker(title, selection: choice) {
+                    options
+                }
+                .labelsHidden()
+                .pickerStyle(.menu)
+                .layoutPriority(2)
+            }
+            if let languageLine {
+                Text(languageLine)
+                    .font(.footnote)
+                    .foregroundStyle(CartoucheTheme.secondaryText)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+    }
+
     private var label: some View {
         VStack(alignment: .leading, spacing: 4) {
             HStack(spacing: 6) {
@@ -522,7 +652,8 @@ struct CartoucheGameSettingRow: View {
     }
 
     private var choice: Binding<String> {
-        Binding(get: { model.value(setting) }, set: { model.choose(setting, $0) })
+        Binding(get: { isLanguage && model.iPhoneLanguage != nil ? Self.iPhoneOption : model.value(setting) },
+                set: { $0 == Self.iPhoneOption ? model.followIPhoneLanguage() : model.choose(setting, $0) })
     }
 
     private var range: Binding<Double> {
@@ -534,14 +665,16 @@ struct CartoucheGameSettingRow: View {
         Group {
             switch setting.kind {
             case "choice":
-                Picker(selection: choice) {
-                    ForEach(setting.choices, id: \.self) { option in
-                        Text(optionName(option)).tag(option[0])
+                if isLanguage {
+                    languageMenu
+                } else {
+                    Picker(selection: choice) {
+                        options
+                    } label: {
+                        label
                     }
-                } label: {
-                    label
+                    .pickerStyle(.menu)
                 }
-                .pickerStyle(.menu)
             case "range":
                 let low = setting.min ?? 0
                 let high = Swift.max(setting.max ?? 1, low)

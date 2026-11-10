@@ -6,8 +6,10 @@
 #
 #     launcher/Gallery/capture.sh OUT     # XcodeGen and Xcode, on a Mac
 #
-# The Launcher screens workflow runs it on every pull request that touches
-# the launcher or the catalog.
+# The Launcher screens workflow runs it on every pull request that changes
+# the gallery, the launcher's sources or the catalog it shows, once for each
+# version of those changes: a rebase that leaves them as they were keeps the
+# screenshots taken before.
 
 name: CartoucheGallery
 options:
@@ -33,10 +35,11 @@ targets:
         includes:
           - "Cartouche*.swift"
         excludes:
-          # The root view, the game actions and the telemetry need
-          # LiveContainer: its tabs, its installer, its launcher and its
-          # list of apps.
+          # The root view, the game actions, the game behind the console and
+          # the telemetry need LiveContainer: its tabs, its installer, its
+          # launcher, its scenes of a game's own process and its list of apps.
           - "CartoucheGameActions.swift"
+          - "CartoucheGameHost.swift"
           - "CartoucheRootView.swift"
           - "CartoucheTelemetry.swift"
       - path: ../Sources/Cartouche.xcstrings

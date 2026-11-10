@@ -11,10 +11,9 @@ name: Installer
 # publish: installer/README.md.
 
 on:
+  # Not on main after a pull request: that one built the same files, and
+  # Publish builds them again.
   pull_request:
-    paths: ["installer/**", "app/sidestore-source.json", ".github/workflows/installer.yml"]
-  push:
-    branches: [main]
     paths: ["installer/**", "app/sidestore-source.json", ".github/workflows/installer.yml"]
   workflow_dispatch:
     inputs:
