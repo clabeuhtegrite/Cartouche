@@ -359,8 +359,10 @@ struct CartoucheGuideView: View {
                 .foregroundStyle(Color.white)
                 .fixedSize(horizontal: false, vertical: true)
         } icon: {
+            // One width for every icon, so that the lines start together.
             Image(systemName: systemImage)
                 .foregroundStyle(CartoucheTheme.pink)
+                .frame(width: 24)
         }
         .font(.subheadline)
     }
