@@ -3,8 +3,9 @@ environment nxnative's scripts run in, which the builder makes itself.
 
 nxnative needs Xcode 27.2 (its Metal compiler: the one its shader chain was
 locked with), Xcode's iOS platform and Metal toolchain, xcodegen, zstd and
-glslang from Homebrew, the .NET 10 SDK, git, and a native (arm64) Python 3.12
-or later with the packages of its .github/requirements/tools.txt. The builder
+glslang from Homebrew, git, and a native (arm64) Python 3.12 or later with the
+packages of its .github/requirements/tools.txt. A checkout older than its
+641636e2 (10 November 2026) also needs the .NET 10 SDK. The builder
 installs none of the Apple or Homebrew tools: it says which command does, and
 can open it in Terminal. It makes the Python environment in its own folder.
 """
@@ -46,6 +47,8 @@ PYTHON_CANDIDATES = (
     "/usr/local/bin/python3",
 )
 STAMP = ".cartouche-builder-requirements"
+# nxnative's committed nx_extract: a checkout that has it builds without .NET.
+NATIVE_NX_EXTRACT = "dm/tools/nx_extract_bin/nx_extract"
 
 
 @dataclass
@@ -298,18 +301,35 @@ def doctor(paths: Paths, engine_root: Path | None = None) -> list[Check]:
     # Another compiler stops only an NVN game's build (nxnative checks it
     # itself); a missing one stops every build.
     checks.append(Check("metal", metal_ok, metal or "", t("fix.metal", locked=locked or "Xcode 27.2"), "xcodebuild -downloadComponent MetalToolchain", blocking=not metal))
-    brew = [name for name, command in (("xcodegen", "xcodegen"), ("zstd", "zstd"), ("glslang", "glslangValidator")) if not which(command, env)]
-    checks.append(Check("homebrew_tools", not brew, ", ".join(brew), t("fix.homebrew", tools=" ".join(brew)), f"brew install {' '.join(brew)}" if brew else ""))
+    tools = {name: which(command, env) for name, command in (("xcodegen", "xcodegen"), ("zstd", "zstd"), ("glslang", "glslangValidator"))}
+    brew = [name for name, path in tools.items() if not path]
+    # What is there: the folders the tools were found in ("/opt/homebrew/bin").
+    where = ", ".join(sorted({str(Path(path).parent) for path in tools.values() if path}))
+    checks.append(Check("homebrew_tools", not brew, where, t("fix.homebrew", tools=" ".join(brew)), f"brew install {' '.join(brew)}" if brew else ""))
     dotnet = which("dotnet", env)
     sdks = run([dotnet, "--list-sdks"], env)[1] if dotnet else ""
     dotnet_ok = bool(re.search(r"^1\d\.", sdks, re.MULTILINE))
-    checks.append(Check("dotnet", dotnet_ok, (sdks.splitlines() or [""])[-1], t("fix.dotnet"), "brew install --cask dotnet-sdk"))
+    if needs_dotnet(engine_root):
+        checks.append(Check("dotnet", dotnet_ok, (sdks.splitlines() or [""])[-1], t("fix.dotnet"), "brew install --cask dotnet-sdk"))
+    else:
+        checks.append(Check("dotnet", True, (sdks.splitlines() or [""])[-1] if dotnet_ok else t("check.dotnet_unneeded"), blocking=False))
     base = base_python()
     checks.append(Check("python", bool(base), base or "", t("fix.python"), "brew install python@3.13"))
     if engine_root:
         ready = python_ready(paths, engine_root / ".github/requirements/tools.txt")
         checks.append(Check("venv", ready, str(paths.python) if ready else "", t("fix.venv"), blocking=False))
     return checks
+
+
+def needs_dotnet(engine_root: Path | None) -> bool:
+    """Whether this nxnative checkout builds with .NET. Since nxnative 641636e2
+    (10 November 2026) nx_extract and the shader translator are committed as
+    native executables, and a build runs no dotnet; an older checkout builds
+    nx_extract with dotnet at every run. Before the first clone, the newest
+    nxnative is what will be cloned: no .NET."""
+    if engine_root is None or not (engine_root / "dm").is_dir():
+        return False
+    return not (engine_root / NATIVE_NX_EXTRACT).is_file()
 
 
 def blocking(checks: list[Check]) -> list[Check]:
