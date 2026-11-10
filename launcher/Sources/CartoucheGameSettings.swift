@@ -570,14 +570,19 @@ struct CartoucheGameSettingRow: View {
     /// the name, that line would push the menu onto a line of its own.
     private var languageMenu: some View {
         VStack(alignment: .leading, spacing: 4) {
+            // The menu takes its width first, then the name, then the space
+            // between them: an equal share each put "iPhone language" on
+            // two lines.
             HStack(alignment: .firstTextBaseline) {
                 label
+                    .layoutPriority(1)
                 Spacer(minLength: 8)
                 Picker(title, selection: choice) {
                     options
                 }
                 .labelsHidden()
                 .pickerStyle(.menu)
+                .layoutPriority(2)
             }
             if let languageLine {
                 Text(languageLine)
