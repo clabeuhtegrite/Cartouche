@@ -1990,6 +1990,23 @@
         }
       }
     },
+    "settings.about" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "About this setting"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "À propos de ce réglage"
+          }
+        }
+      }
+    },
     "settings.category.saves" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -2183,13 +2200,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "The settings nxnative’s screen shows before this game. Play starts the game with them, and its in-game menu changes the same ones."
+            "value" : "The settings Play starts this game with. Its in-game menu changes the same ones."
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Les réglages que l’écran de nxnative montre avant ce jeu. Jouer lance le jeu avec eux, et son menu en jeu change les mêmes."
+            "value" : "Les réglages avec lesquels Jouer lance ce jeu. Son menu en jeu change les mêmes."
           }
         }
       }
@@ -2319,13 +2336,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Sign in once with your Apple ID, here in Cartouche: the built-in SideStore then takes the certificate the Cartouche Installer left for it, and renews Cartouche every week, without showing itself. Connect LocalDevVPN first."
+            "value" : "Sign in once, here in Cartouche, with LocalDevVPN connected: Cartouche then takes its certificate and renews itself every week."
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Connectez-vous une fois avec votre identifiant Apple, ici dans Cartouche : le SideStore intégré prend alors le certificat que l’Installeur Cartouche lui a laissé, et renouvelle Cartouche chaque semaine, sans s’afficher. Connectez d’abord LocalDevVPN."
+            "value" : "Connectez-vous une fois, ici dans Cartouche, avec LocalDevVPN connecté : Cartouche prend alors son certificat et se renouvelle chaque semaine."
           }
         }
       }
@@ -2540,13 +2557,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Comes by itself once you have signed in. If it does not, install Cartouche again with the Cartouche Installer, over this copy: it gives Cartouche its certificate."
+            "value" : "Comes by itself once you have signed in. If not, install Cartouche again over this copy with the Cartouche Installer."
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Arrive tout seul après la connexion. Sinon, réinstallez Cartouche avec l’Installeur Cartouche, par-dessus cette copie : c’est lui qui donne son certificat à Cartouche."
+            "value" : "Arrive tout seul après la connexion. Sinon, réinstallez Cartouche par-dessus cette copie avec l’Installeur Cartouche."
           }
         }
       }
@@ -2557,13 +2574,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "iOS no longer accepts it: an install from another computer may have revoked it. Sign in again with your Apple ID, and the built-in SideStore takes the certificate that signs Cartouche."
+            "value" : "iOS no longer accepts it, perhaps after an install from another computer. Sign in again with your Apple ID: Cartouche takes a new one."
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "iOS ne l’accepte plus : une installation depuis un autre ordinateur l’a peut-être révoqué. Reconnectez-vous avec votre identifiant Apple, et le SideStore intégré prend le certificat qui signe Cartouche."
+            "value" : "iOS ne l’accepte plus, peut-être après une installation depuis un autre ordinateur. Reconnectez-vous avec votre identifiant Apple : Cartouche en prend un nouveau."
           }
         }
       }
@@ -2574,13 +2591,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "iOS no longer accepts it. Cartouche signs in again with your Apple ID to take the certificate that signs Cartouche…"
+            "value" : "iOS no longer accepts it. Cartouche signs in again with your Apple ID to take a new one…"
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "iOS ne l’accepte plus. Cartouche se reconnecte avec votre identifiant Apple pour prendre le certificat qui signe Cartouche…"
+            "value" : "iOS ne l’accepte plus. Cartouche se reconnecte avec votre identifiant Apple pour en prendre un nouveau…"
           }
         }
       }
@@ -2659,13 +2676,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Three steps, once on this iPhone. Then Cartouche looks after its certificate and its renewal by itself."
+            "value" : "Three steps, once on this iPhone. Then Cartouche renews itself."
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Trois étapes, une seule fois sur cet iPhone. Ensuite, Cartouche s’occupe tout seul de son certificat et de son renouvellement."
+            "value" : "Trois étapes, une seule fois sur cet iPhone. Ensuite, Cartouche se renouvelle tout seul."
           }
         }
       }
@@ -2727,13 +2744,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Only a computer can make it. The Cartouche Installer puts it in Cartouche when it installs it, from a Mac or a Windows PC: this step then ticks itself. A pairing file dropped on Cartouche in Apple Devices, iTunes or the Finder (Files), or opened with Cartouche, ticks it too. You can also choose it here."
+            "value" : "Only a computer can make it: the Cartouche Installer puts it in Cartouche as it installs it, and this step ticks itself. You can also choose it here, or open it with Cartouche."
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Seul un ordinateur peut le créer. L’Installeur Cartouche le met dans Cartouche en l’installant, depuis un Mac ou un PC Windows : cette étape se coche alors toute seule. Un fichier de jumelage glissé sur Cartouche dans Appareils Apple, iTunes ou le Finder (Fichiers), ou ouvert avec Cartouche, la coche aussi. Vous pouvez aussi le choisir ici."
+            "value" : "Seul un ordinateur peut le créer : l’Installeur Cartouche le dépose en installant Cartouche, et cette étape se coche toute seule. Vous pouvez aussi le choisir ici, ou l’ouvrir avec Cartouche."
           }
         }
       }
@@ -2863,13 +2880,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "SideStore renews Cartouche every 7 days through this free VPN from the App Store, which never leaves this iPhone. Turn it on before a renewal."
+            "value" : "This free VPN from the App Store lets Cartouche renew itself every 7 days, while it is on. Its traffic never leaves this iPhone."
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "SideStore renouvelle Cartouche tous les 7 jours par ce VPN gratuit de l’App Store, qui ne sort jamais de cet iPhone. Allumez-le avant un renouvellement."
+            "value" : "Ce VPN gratuit de l’App Store permet à Cartouche de se renouveler tous les 7 jours, s’il est allumé. Son trafic ne quitte jamais cet iPhone."
           }
         }
       }
@@ -3679,13 +3696,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "A free Apple ID will do. Your password goes to Apple only, and stays in this iPhone’s keychain for the renewals."
+            "value" : "A free Apple ID will do. Your password goes to Apple only, and stays in this iPhone’s keychain."
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Un identifiant Apple gratuit suffit. Votre mot de passe ne va qu’à Apple, et reste dans le trousseau de cet iPhone pour les renouvellements."
+            "value" : "Un identifiant Apple gratuit suffit. Votre mot de passe ne va qu’à Apple et reste dans le trousseau de cet iPhone."
           }
         }
       }
@@ -3696,13 +3713,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Once on this iPhone. The SideStore built into Cartouche signs in with it without showing itself: it registers this iPhone with your account, takes the certificate the Cartouche Installer left for it, and renews Cartouche every week."
+            "value" : "Once on this iPhone: Cartouche registers it with your account, takes its certificate and renews itself every week, without asking you again."
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Une fois sur cet iPhone. Le SideStore intégré à Cartouche s’en sert sans s’afficher : il inscrit cet iPhone sur votre compte, prend le certificat que l’Installeur Cartouche lui a laissé, et renouvelle Cartouche chaque semaine."
+            "value" : "Une fois sur cet iPhone : Cartouche l’inscrit sur votre compte, prend son certificat et se renouvelle chaque semaine, sans vous le redemander."
           }
         }
       }
@@ -3798,13 +3815,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "SideStore reaches this iPhone through it to register it with your account, as it does for each renewal."
+            "value" : "Cartouche goes through it to register this iPhone with your account, as for each renewal."
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "SideStore passe par lui pour joindre cet iPhone et l’inscrire sur votre compte, comme à chaque renouvellement."
+            "value" : "Cartouche passe par lui pour inscrire cet iPhone sur votre compte, comme à chaque renouvellement."
           }
         }
       }
@@ -4495,13 +4512,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Your library lists the IPAs in this folder, and Cartouche installs them from there. Copy a game here before you uninstall it to keep it a tap away."
+            "value" : "Your library shows the IPAs of this folder, ready to install. Copy a game here before you uninstall it."
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Votre bibliothèque liste les IPA de ce dossier, et Cartouche les installe depuis celui-ci. Copiez-y un jeu avant de le désinstaller pour le garder à portée de main."
+            "value" : "Votre bibliothèque montre les IPA de ce dossier, prêtes à installer. Copiez-y un jeu avant de le désinstaller."
           }
         }
       }
@@ -4563,13 +4580,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Keep your games and your saves on your own storage: a shared folder of your Mac, PC or NAS, an S3 bucket or an FTP or SFTP server of yours, or a folder in Files. The games there show in your library, ready to install again."
+            "value" : "Your games and saves on your own storage: a shared folder of your Mac, PC or NAS, an S3 bucket, an FTP or SFTP server, or a folder in Files. Its games show in your library."
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Gardez vos jeux et vos sauvegardes sur votre propre stockage : un dossier partagé de votre Mac, PC ou NAS, un bucket S3 ou un serveur FTP ou SFTP à vous, ou un dossier de Fichiers. Les jeux qui s’y trouvent apparaissent dans votre bibliothèque, prêts à être réinstallés."
+            "value" : "Vos jeux et sauvegardes sur votre propre stockage : dossier partagé de votre Mac, PC ou NAS, bucket S3, serveur FTP ou SFTP, ou dossier de Fichiers. Ses jeux apparaissent dans votre bibliothèque."
           }
         }
       }
@@ -5770,13 +5787,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Games run inside Cartouche and share this limit. With Increased Memory Limit, an iPhone with 12 GB of memory allows about 6 GiB."
+            "value" : "Your games share this limit. With Increased Memory Limit, an iPhone with 12 GB allows about 6 GiB."
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Les jeux tournent dans Cartouche et partagent cette limite. Avec la mémoire augmentée, un iPhone de 12 Go de mémoire accorde environ 6 Gio."
+            "value" : "Vos jeux partagent cette limite. Avec la mémoire augmentée, un iPhone de 12 Go accorde environ 6 Gio."
           }
         }
       }
@@ -5974,13 +5991,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "The built-in SideStore renews Cartouche, with LocalDevVPN on. Renew it before it expires: an expired Cartouche no longer opens, and has to be installed again from a computer with the Cartouche Installer."
+            "value" : "Cartouche renews itself with LocalDevVPN on. Once expired, it no longer opens: install it again with the Cartouche Installer."
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Le SideStore intégré renouvelle Cartouche, avec LocalDevVPN activé. Renouvelez-le avant qu’il expire : un Cartouche expiré ne s’ouvre plus, et doit être réinstallé depuis un ordinateur avec l’Installeur Cartouche."
+            "value" : "Cartouche se renouvelle avec LocalDevVPN activé. Expiré, il ne s’ouvre plus : réinstallez-le avec l’Installeur Cartouche."
           }
         }
       }
@@ -6144,13 +6161,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "The built-in SideStore installs Cartouche’s new versions without a computer, with LocalDevVPN connected, as it renews Cartouche. Cartouche then closes for iOS to install it: open it again. Your games and their saves stay."
+            "value" : "New versions install without a computer, with LocalDevVPN connected. Cartouche then closes: open it again. Your games and saves stay."
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Le SideStore intégré installe les nouvelles versions de Cartouche sans ordinateur, avec LocalDevVPN connecté, comme pour un renouvellement. Cartouche se ferme alors pour qu’iOS l’installe : rouvrez-le. Vos jeux et leurs sauvegardes restent."
+            "value" : "Les nouvelles versions s’installent sans ordinateur, avec LocalDevVPN connecté. Cartouche se ferme ensuite : rouvrez-le. Vos jeux et sauvegardes restent."
           }
         }
       }
@@ -6178,13 +6195,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Finish setting up Cartouche first: the built-in SideStore needs your Apple ID, its certificate and the pairing file."
+            "value" : "Finish setting up Cartouche first."
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Terminez d’abord la configuration de Cartouche : le SideStore intégré a besoin de votre identifiant Apple, de son certificat et du fichier d’appairage."
+            "value" : "Terminez d’abord la configuration de Cartouche."
           }
         }
       }
@@ -6620,13 +6637,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "You have version %@. The built-in SideStore installs the new one without a computer, with LocalDevVPN connected. Cartouche then closes for iOS to install it: open it again. Your games and their saves stay."
+            "value" : "You have version %@. With LocalDevVPN connected, Cartouche installs the new one without a computer, then closes: open it again. Your games and saves stay."
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Vous avez la version %@. Le SideStore intégré installe la nouvelle sans ordinateur, avec LocalDevVPN connecté. Cartouche se ferme alors pour qu’iOS l’installe : rouvrez-le. Vos jeux et leurs sauvegardes restent."
+            "value" : "Vous avez la version %@. Avec LocalDevVPN connecté, Cartouche installe la nouvelle sans ordinateur, puis se ferme : rouvrez-le. Vos jeux et sauvegardes restent."
           }
         }
       }
@@ -6671,13 +6688,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "The built-in SideStore downloads the new version, checks it and signs it. Keep Cartouche open."
+            "value" : "Cartouche downloads the new version, checks it and signs it. Keep Cartouche open."
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Le SideStore intégré télécharge la nouvelle version, la vérifie et la signe. Gardez Cartouche ouvert."
+            "value" : "Cartouche télécharge la nouvelle version, la vérifie et la signe. Gardez Cartouche ouvert."
           }
         }
       }
