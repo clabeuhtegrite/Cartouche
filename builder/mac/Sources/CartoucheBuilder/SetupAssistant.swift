@@ -215,10 +215,10 @@ struct SetupAssistant: View {
 
     private var welcome: some View {
         VStack(spacing: 18) {
+            Spacer(minLength: 0)
             AppIconView()
                 .frame(width: 112, height: 112)
                 .shadow(color: Theme.indigo.opacity(0.25), radius: 16, y: 6)
-                .padding(.top, 6)
             Text(tr("Welcome to Cartouche Builder", "Bienvenue dans Cartouche Builder"))
                 .font(.largeTitle.weight(.bold))
                 .multilineTextAlignment(.center)
@@ -238,8 +238,8 @@ struct SetupAssistant: View {
             }
             .padding(.top, 4)
             Spacer(minLength: 0)
-            Text(tr("A few short steps, and nothing is chosen for you: each folder starts empty. All of it can be changed later in the settings.",
-                    "Quelques étapes courtes, et rien n’est choisi à votre place : chaque dossier part vide. Tout se change ensuite dans les réglages."))
+            Text(tr("A few short steps, and nothing is chosen for you: each folder starts empty.",
+                    "Quelques étapes courtes, et rien n’est choisi à votre place : chaque dossier part vide."))
                 .font(.callout)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
@@ -386,11 +386,8 @@ struct SetupAssistant: View {
                                 "Cartouche Builder suit chaque jeu de votre dossier des dumps et vous dit quand nxnative en améliore un. Il peut aussi les construire la nuit, pendant que vous dormez."))
             Card(padding: 16) {
                 VStack(alignment: .leading, spacing: 12) {
-                    Toggle(isOn: setting(model, \.schedule, false)) {
-                        Label(tr("Build what is due every night", "Construire chaque nuit ce qui est à reconstruire"), systemImage: "moon.stars")
-                            .font(.headline)
-                    }
-                    .toggleStyle(.switch)
+                    SwitchRow(title: tr("Build what is due every night", "Construire chaque nuit ce qui est à reconstruire"), symbol: "moon.stars",
+                              isOn: setting(model, \.schedule, false))
                     DatePicker(tr("At", "À"), selection: Binding(get: { nightly }, set: { date in
                         let parts = Calendar.current.dateComponents([.hour, .minute], from: date)
                         model.update {
@@ -407,12 +404,8 @@ struct SetupAssistant: View {
                 }
             }
             Card(padding: 16) {
-                Toggle(isOn: setting(model, \.notifications, true)) {
-                    Label(tr("Tell me when a build ends or nxnative improves a game", "Me prévenir quand une construction finit ou que nxnative améliore un jeu"),
-                          systemImage: "bell.badge")
-                        .font(.headline)
-                }
-                .toggleStyle(.switch)
+                SwitchRow(title: tr("Tell me when a build ends or nxnative improves a game", "Me prévenir quand une construction finit ou que nxnative améliore un jeu"),
+                          symbol: "bell.badge", isOn: setting(model, \.notifications, true))
             }
         }
     }
@@ -428,11 +421,8 @@ struct SetupAssistant: View {
                                 "Ce Mac peut devenir un stockage de Cartouche : l’iPhone y installe vos jeux et y garde vos sauvegardes, chiffrées en chemin."))
             Card(padding: 16) {
                 VStack(alignment: .leading, spacing: 12) {
-                    Toggle(isOn: Binding(get: { bridge.enabled }, set: { bridge.setEnabled($0) })) {
-                        Label(tr("Share with Cartouche on the iPhone", "Partager avec Cartouche sur l’iPhone"), systemImage: "iphone.radiowaves.left.and.right")
-                            .font(.headline)
-                    }
-                    .toggleStyle(.switch)
+                    SwitchRow(title: tr("Share with Cartouche on the iPhone", "Partager avec Cartouche sur l’iPhone"), symbol: "iphone.radiowaves.left.and.right",
+                              isOn: Binding(get: { bridge.enabled }, set: { bridge.setEnabled($0) }))
                     if bridge.enabled {
                         Divider()
                         HowTo(number: 1, text: tr("In Cartouche: System › Storage › Add your Mac (Cartouche Builder).",
@@ -445,11 +435,8 @@ struct SetupAssistant: View {
             }
             Card(padding: 16) {
                 VStack(alignment: .leading, spacing: 4) {
-                    Toggle(isOn: Binding(get: { model.opensAtLogin }, set: { model.setOpensAtLogin($0) })) {
-                        Label(tr("Open Cartouche Builder at login", "Ouvrir Cartouche Builder à l’ouverture de session"), systemImage: "power")
-                            .font(.headline)
-                    }
-                    .toggleStyle(.switch)
+                    SwitchRow(title: tr("Open Cartouche Builder at login", "Ouvrir Cartouche Builder à l’ouverture de session"), symbol: "power",
+                              isOn: Binding(get: { model.opensAtLogin }, set: { model.setOpensAtLogin($0) }))
                     Text(tr("The iPhone finds this Mac while the app is open, in the menu bar too.",
                             "L’iPhone trouve ce Mac tant que l’app est ouverte, même dans la barre des menus seulement."))
                         .font(.caption)
@@ -689,6 +676,7 @@ struct PlaceChoice: View {
             card(.mac, symbol: "laptopcomputer", title: tr("On this Mac", "Sur ce Mac"), text: mac)
             card(.nas, symbol: "server.rack", title: tr("On a NAS", "Sur un NAS"), text: nas)
         }
+        .fixedSize(horizontal: false, vertical: true)
     }
 
     private func card(_ value: FolderPlace, symbol: String, title: String, text: String) -> some View {
@@ -715,7 +703,7 @@ struct PlaceChoice: View {
                     .foregroundStyle(chosen ? Theme.indigo : Color.secondary.opacity(0.5))
             }
             .padding(14)
-            .frame(maxWidth: .infinity, alignment: .leading)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
             .background(
                 RoundedRectangle(cornerRadius: 12, style: .continuous)
                     .fill(Color(nsColor: .controlBackgroundColor))
@@ -886,6 +874,26 @@ struct NetworkShare: Identifiable, Hashable {
         guard let url = URL(string: text), let scheme = url.scheme?.lowercased(), ["smb", "afp", "nfs", "cifs"].contains(scheme),
               let host = url.host, !host.isEmpty else { return nil }
         return url
+    }
+}
+
+/// A setting turned on or off: its symbol and title, its switch at the
+/// end of the row.
+struct SwitchRow: View {
+    let title: String
+    let symbol: String
+    @Binding var isOn: Bool
+
+    var body: some View {
+        HStack(spacing: 12) {
+            Label(title, systemImage: symbol)
+                .font(.headline)
+                .fixedSize(horizontal: false, vertical: true)
+            Spacer(minLength: 12)
+            Toggle(title, isOn: $isOn)
+                .labelsHidden()
+                .toggleStyle(.switch)
+        }
     }
 }
 

@@ -128,7 +128,8 @@ enum Gallery {
             controller = panel
         default:
             if let step = page.step {
-                controller = hosted(SetupAssistant(start: step), model, bridged: false)
+                // The sheet it is, under no title bar.
+                controller = hosted(SetupAssistant(start: step).ignoresSafeArea(), model, bridged: false)
             } else {
                 controller = hosted(ContentView(), model)
             }
@@ -149,7 +150,12 @@ enum Gallery {
             }
         }
         window.contentViewController = controller
-        window.setContentSize(size)
+        if page.step != nil {
+            // All of the window, the title bar's height too, as a sheet.
+            window.setFrame(CGRect(origin: window.frame.origin, size: size), display: false)
+        } else {
+            window.setContentSize(size)
+        }
         window.orderFrontRegardless()
         wait(until: Date().addingTimeInterval(2.5))
         defer {
