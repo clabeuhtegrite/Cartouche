@@ -5,9 +5,10 @@
 //  What Cartouche has on this iPhone: the player's storage, where their
 //  games and saves are kept; the memory limit iOS sets for it, which its
 //  games share; when its signature expires, and how it is renewed; the
-//  device that the game sheets are compared with; and Cartouche's
-//  updates. It opens over the console (CartoucheRootView), and OK or the
-//  controller's Menu button closes it.
+//  device that the game sheets are compared with; Cartouche's updates;
+//  and the game measurements it sends (CartoucheTelemetryView). It opens
+//  over the console (CartoucheRootView), and OK or the controller's Menu
+//  button closes it.
 //
 
 import SwiftUI
@@ -24,6 +25,7 @@ struct CartoucheSystemView: View {
     @ObservedObject private var setup = CartoucheSetup.shared
     @ObservedObject private var storage = CartoucheStorageSettings.shared
     @ObservedObject private var updates = CartoucheUpdates.shared
+    @ObservedObject private var telemetry = CartoucheTelemetry.shared
     @EnvironmentObject private var sharedModel: SharedModel
 
     private let catalog = CartoucheCatalog.shared
@@ -38,6 +40,7 @@ struct CartoucheSystemView: View {
                 automaticRenewalSection
                 deviceSection
                 updateSection
+                telemetrySection
                 cartoucheSection
             }
             .cartoucheStageBackground()
@@ -368,6 +371,22 @@ struct CartoucheSystemView: View {
                 .foregroundStyle(.red)
             CartoucheReportButton(report: problem)
                 .font(.footnote)
+        }
+    }
+
+    // MARK: Game measurements
+
+    private var telemetrySection: some View {
+        Section {
+            NavigationLink {
+                CartoucheTelemetryView()
+            } label: {
+                LabeledContent {
+                    Text(telemetry.isOn ? CartoucheText.telemetryOn : CartoucheText.telemetryOff)
+                } label: {
+                    Label(CartoucheText.telemetryTitle, systemImage: "chart.bar.xaxis")
+                }
+            }
         }
     }
 
