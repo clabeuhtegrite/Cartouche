@@ -3,9 +3,10 @@ import os
 import unittest
 from pathlib import Path
 
+from cartouche_builder import batch, schedule, storage
 from cartouche_builder import config as configs
 from cartouche_builder.paths import Paths
-from cartouche_builder.state import Build, Store, attempt_now
+from cartouche_builder.state import TAKEN_OVER, Attempt, Build, Store, attempt_now
 from cartouche_builder.workspace import NOTES, Workspace
 
 from support import MKW, ODYSSEY, Home
@@ -16,7 +17,9 @@ class Settings(Home):
         paths = Paths.default()
         config = configs.load(paths)
         self.assertEqual(config.engine_policy, "weekly")
-        self.assertFalse(config.imported)
+        self.assertEqual((config.sources, config.games, config.keys, config.workspace), ("", "", "", ""))
+        self.assertFalse(config.setup_done)
+        self.assertFalse(paths.config.exists())
         config.sources = str(self.tmp / "sources")
         config.only = [MKW.lower()]
         configs.save(paths, config)
@@ -72,63 +75,100 @@ class Settings(Home):
         config.follow(MKW, True)
         self.assertEqual(config.only, sorted([MKW, ODYSSEY]))
 
-    def test_an_older_file_follows_every_game(self):
-        # The first builder took NxNative Batch Builder's selection over.
+    def test_settings_an_older_builder_took_over_are_forgotten(self):
+        # The first builders took NxNative Batch Builder's settings over at
+        # their first start, and said so with "imported".
         paths = Paths.default()
         paths.root.mkdir(parents=True)
-        paths.config.write_text(json.dumps({"sources": "/s", "games": "/g", "imported": True, "only": [MKW]}))
+        paths.config.write_text(json.dumps({
+            "sources": "/Volumes/Share/Sources", "games": "/Volumes/Share/Games", "keys": "/Users/player/prod.keys",
+            "workspace": "/Users/player/Library/Application Support/NxNative Batch Builder/workspace", "min_free_gb": 40,
+            "schedule": True, "only": [MKW], "imported": True, "version": 1,
+        }))
         config = configs.load(paths)
-        self.assertEqual(config.only, [])
+        self.assertEqual((config.sources, config.games, config.keys, config.workspace), ("", "", "", ""))
+        self.assertEqual((config.min_free_gb, config.schedule, config.only), (20, False, []))
+        self.assertFalse(config.setup_done)
         self.assertEqual(config.version, configs.VERSION)
-        self.assertEqual(json.loads(paths.config.read_text())["version"], configs.VERSION)
-        # Once migrated, a selection made since stays.
-        config.only = [MKW]
+        saved = json.loads(paths.config.read_text())
+        self.assertNotIn("imported", saved)
+        self.assertEqual(saved["version"], configs.VERSION)
+        # Once: what the player chooses then stays.
+        config.sources, config.setup_done = "/s", True
         configs.save(paths, config)
-        self.assertEqual(configs.load(paths).only, [MKW])
+        again = configs.load(paths)
+        self.assertEqual((again.sources, again.setup_done), ("/s", True))
+
+    def test_settings_chosen_in_an_older_builder_stay(self):
+        paths = Paths.default()
+        paths.root.mkdir(parents=True)
+        paths.config.write_text(json.dumps({"sources": "/s", "games": "/g", "jobs": 2, "imported": False, "version": 1}))
+        config = configs.load(paths)
+        self.assertEqual((config.sources, config.games, config.jobs), ("/s", "/g", 2))
+        self.assertTrue(config.setup_done)  # both folders were chosen: no assistant again
+        paths.config.write_text(json.dumps({"sources": "/s", "version": 1}))
+        self.assertFalse(configs.load(paths).setup_done)
 
 
-class Legacy(Home):
-    def write_legacy(self) -> Path:
-        legacy = Path(os.environ["CARTOUCHE_BUILDER_LEGACY_HOME"])
-        workspace = self.tmp / "legacy-workspace"
+class NothingOfAnotherTool(Home):
+    """NxNative Batch Builder's files, where it left them in the player's
+    Library, are never read."""
+
+    def write_old_tool(self) -> Path:
+        old = Path.home() / "Library" / "Application Support" / "NxNative Batch Builder"
+        workspace = old / "workspace"
         (workspace / "nxnative_batch_state").mkdir(parents=True)
-        (legacy).mkdir(parents=True)
-        (legacy / "config.json").write_text(json.dumps({
+        (old / "config.json").write_text(json.dumps({
             "source_root": "/Volumes/Share/Sources", "games_output": "/Volumes/Share/Games",
-            "workspace": str(workspace), "keys_path": "/Users/player/prod.keys", "workers": 3,
-            "selection_customized": True, "selected_game_ids": [MKW.lower(), "bad"], "min_free_gb": 40,
+            "workspace": str(workspace), "keys_path": "/Users/player/prod.keys", "min_free_gb": 40,
         }))
         (workspace / "nxnative_batch_state" / f"{MKW}_build.json").write_text(json.dumps({
             "schema": 3, "title_id": MKW, "state": "success", "built_at": "2026-11-08T10:00:00+00:00",
             "nxnative_commit": "48d0b372abcdef0123456789", "ipa": {"path": "/Volumes/Share/Games/Mario Kart World.ipa", "size": 123},
         }))
-        (workspace / "nxnative_batch_state" / f"{ODYSSEY}_build.json").write_text(json.dumps({"schema": 3, "state": "failed"}))
-        (workspace / f"{MKW}_build").mkdir()
+        (workspace / f"{MKW}_build" / "shader").mkdir(parents=True)
         return workspace
 
-    def test_takes_over_settings_and_builds(self):
-        workspace = self.write_legacy()
+    def test_a_first_start_takes_nothing_over(self):
+        workspace = self.write_old_tool()
+        ctx = batch.context()
+        self.assertEqual((ctx.config.sources, ctx.config.games, ctx.config.keys, ctx.config.workspace), ("", "", "", ""))
+        self.assertEqual(ctx.config.min_free_gb, 20)
+        self.assertFalse(ctx.config.setup_done)
+        self.assertEqual(ctx.store.all(), {})
+        self.assertNotIn(workspace, storage.workspaces(ctx.config, ctx.paths))
+
+    def test_builds_an_older_builder_took_over_are_forgotten(self):
         paths = Paths.default()
-        config = configs.load(paths)
-        self.assertTrue(config.imported)
-        self.assertEqual(config.sources, "/Volumes/Share/Sources")
-        self.assertEqual(config.games, "/Volumes/Share/Games")
-        self.assertEqual(config.keys, "/Users/player/prod.keys")
-        self.assertEqual(config.workspace, str(workspace))
-        # Every game is followed, whatever the old tool had selected.
-        self.assertEqual(config.only, [])
-        self.assertEqual(config.version, configs.VERSION)
-        self.assertEqual(config.min_free_gb, 40)
-        self.assertEqual(config.jobs, 1)
-        self.assertTrue(paths.config.exists())
         store = Store(paths)
-        self.assertEqual(store.import_legacy(), 1)
-        record = store.get(MKW)
-        self.assertEqual(record.build.commit, "48d0b372abcdef0123456789")
-        self.assertEqual(record.build.ipa, "Mario Kart World.ipa")
-        self.assertEqual(record.build.origin, "legacy")
-        self.assertIsNone(store.get(ODYSSEY).build)
-        self.assertEqual(store.import_legacy(), 0)  # once
+        taken = Build(commit="48d0b372abcd", built_at="2026-11-08T10:00:00+00:00", ipa="Mario Kart World.ipa", origin="legacy")
+        store.built(MKW, taken)
+        # A game built here since: its own build stays, the one taken over goes.
+        store.built(ODYSSEY, taken)
+        store.built(ODYSSEY, Build(commit="c" * 12, built_at="2026-11-10T00:00:00+00:00", ipa="Odyssey.ipa"))
+        # A game taken over that failed here since keeps its failure.
+        failed = "0100A0000E2F0000"
+        store.built(failed, taken)
+        store.failed(failed, Attempt(commit="d" * 12, at="2026-11-10T01:00:00+00:00", result="failed"))
+        marker = paths.state / TAKEN_OVER
+        marker.write_text("2026-11-10T21:06:00+00:00\n")
+        # The nightly run, on in the settings taken over.
+        paths.root.mkdir(parents=True, exist_ok=True)
+        paths.config.write_text(json.dumps({"sources": "/s", "games": "/g", "schedule": True, "imported": True, "version": 1}))
+        schedule.sync(paths, True, 3, 30)
+        self.assertIsNotNone(schedule.installed())
+        ctx = batch.context()
+        self.assertFalse(marker.exists())
+        self.assertIsNone(schedule.installed())
+        self.assertFalse(store.path(MKW).exists())
+        odyssey = store.get(ODYSSEY)
+        self.assertEqual((odyssey.build.commit, odyssey.build.origin, odyssey.history), ("c" * 12, "builder", []))
+        kept = store.get(failed)
+        self.assertIsNone(kept.build)
+        self.assertEqual(kept.attempt.result, "failed")
+        self.assertEqual(sorted(ctx.store.all()), sorted([ODYSSEY, failed]))
+        # Once.
+        self.assertEqual(store.forget_taken_over(), 0)
 
 
 class Records(Home):

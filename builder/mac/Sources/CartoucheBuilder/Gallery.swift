@@ -21,22 +21,42 @@ import SwiftUI
 @MainActor
 enum Gallery {
     enum Page: String, CaseIterable {
-        case library, game, activity, storage, iphone, setup, settings, onboarding, menubar, menubarBuilding = "menubar-building"
+        case library, game, activity, storage, iphone, setup, settings, menubar, menubarBuilding = "menubar-building"
+        case assistantWelcome = "assistant-welcome", assistantTools = "assistant-tools", assistantSources = "assistant-sources"
+        case assistantGames = "assistant-games", assistantKeys = "assistant-keys", assistantBuilds = "assistant-builds"
+        case assistantIPhone = "assistant-iphone", assistantDone = "assistant-done"
+
+        /// The setup assistant's step the page shows.
+        var step: SetupStep? {
+            switch self {
+            case .assistantWelcome: return .welcome
+            case .assistantTools: return .tools
+            case .assistantSources: return .sources
+            case .assistantGames: return .games
+            case .assistantKeys: return .keys
+            case .assistantBuilds: return .builds
+            case .assistantIPhone: return .iphone
+            case .assistantDone: return .done
+            default: return nil
+            }
+        }
 
         var size: CGSize {
+            if step != nil { return SetupAssistant.size }
             switch self {
             case .settings: return SettingsTab.size
-            case .onboarding: return CGSize(width: 680, height: 600)
             case .menubar, .menubarBuilding: return CGSize(width: 330, height: 0)
             default: return CGSize(width: 1220, height: 780)
             }
         }
 
-        var inEnglish: Bool { [.library, .game, .setup, .menubar].contains(self) }
+        var inEnglish: Bool { [.library, .game, .setup, .menubar, .assistantWelcome, .assistantGames].contains(self) }
 
         /// The window as the app opens it: the settings as the Settings
-        /// scene does, the menu bar's panel without a frame.
+        /// scene does, the menu bar's panel without a frame, the setup
+        /// assistant as the sheet it is, without a title bar.
         var styleMask: NSWindow.StyleMask {
+            if step != nil { return [.titled, .fullSizeContentView] }
             switch self {
             case .settings: return [.titled, .closable]
             case .menubar, .menubarBuilding: return [.borderless]
@@ -102,14 +122,16 @@ enum Gallery {
         switch page {
         case .settings:
             controller = settings(model)
-        case .onboarding:
-            controller = hosted(OnboardingView(), model)
         case .menubar, .menubarBuilding:
             let panel = hosted(MenuBarView().background(Color(nsColor: .windowBackgroundColor)), model)
             size.height = ceil(panel.sizeThatFits(in: CGSize(width: size.width, height: 2000)).height)
             controller = panel
         default:
-            controller = hosted(ContentView(), model)
+            if let step = page.step {
+                controller = hosted(SetupAssistant(start: step), model, bridged: false)
+            } else {
+                controller = hosted(ContentView(), model)
+            }
         }
         let window = NSWindow(contentRect: CGRect(origin: CGPoint(x: 80, y: 80), size: size),
                               styleMask: page.styleMask, backing: .buffered, defer: false)
@@ -118,6 +140,13 @@ enum Gallery {
         window.title = page == .settings ? SettingsTab.general.title : "Cartouche Builder"
         if page == .settings {
             window.toolbarStyle = .preference
+        }
+        if page.step != nil {
+            window.titlebarAppearsTransparent = true
+            window.titleVisibility = .hidden
+            for button in [NSWindow.ButtonType.closeButton, .miniaturizeButton, .zoomButton] {
+                window.standardWindowButton(button)?.isHidden = true
+            }
         }
         window.contentViewController = controller
         window.setContentSize(size)
@@ -257,7 +286,7 @@ enum Gallery {
             default: break
             }
             if page == .game { model.selection = "0100152000022000" }
-            if page == .setup {
+            if page == .setup || page == .assistantTools {
                 model.setup.preview([
                     .mac: .ready("macOS 26.1"),
                     .xcode: .ready("Xcode 27.2"),

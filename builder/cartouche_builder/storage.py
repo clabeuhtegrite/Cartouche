@@ -2,9 +2,9 @@
 
 The builder's own folder holds nxnative's checkout, its Python environment,
 the logs and the games' icons, all small. What is large is in the
-workspaces (the configured one, the builder's own and NxNative Batch
-Builder's, when they are other folders): one build folder per game, and the
-IPAs kept beside them for nxnative's packer.
+workspaces (the configured one and the builder's own, when they are two
+folders): one build folder per game, and the IPAs kept beside them for
+nxnative's packer.
 
 A build folder is made of parts nxnative names (build_ipa_from_nsp.py):
 extract/ (the game's files, as big as the game, made again in minutes),
@@ -48,7 +48,7 @@ def workspaces(config: configs.Config, paths: Paths) -> list[Path]:
     """The workspaces the builder may have filled, each once."""
     found: list[Path] = []
     seen: set[str] = set()
-    for root in (config.workspace_path(paths), paths.workspace, configs.legacy_workspace()):
+    for root in (config.workspace_path(paths), paths.workspace):
         try:
             key = str(root.expanduser().resolve())
         except OSError:
