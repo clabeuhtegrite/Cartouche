@@ -6,11 +6,12 @@
 //  Play for the player's own copy, with Game settings and, when the games
 //  folder holds a newer build, Update beside it, or Resume, with Quit, for
 //  the game paused behind the console; Install from the player's
-//  games folder for a copy there; or Import my copy. Under them, what stops
-//  the game on this iPhone, if anything (what it needs folds into one line
-//  when this iPhone has it all), the copies of its saves, the game's copy
-//  in the games folder and Uninstall, the testers' results, and last,
-//  folded, the technical details: the recommended settings, what
+//  games folder for a copy there; or Import my copy. Under them, the time
+//  the player played it and the space it takes (CartoucheGameStats), what
+//  stops the game on this iPhone, if anything (what it needs folds into
+//  one line when this iPhone has it all), the copies of its saves, the
+//  game's copy in the games folder and Uninstall, the testers' results,
+//  and last, folded, the technical details: the recommended settings, what
 //  nxnative's profile says and which build is installed.
 //
 
@@ -67,6 +68,8 @@ struct CartoucheGameSheetView: View {
                     .listRowInsets(EdgeInsets())
                     .listRowBackground(Color.clear)
             }
+
+            CartoucheGameStatsSection(entry: entry)
 
             if let sheet = entry.sheet {
                 if let fit, !fit.reasons.isEmpty {
