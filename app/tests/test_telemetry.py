@@ -4,7 +4,8 @@
 - app/scripts/build.sh passes it to app/scripts/package.sh, which writes it
   into the Info.plist under the key the launcher reads
   (launcher/Sources/CartoucheTelemetry.swift);
-- the launcher posts its reports to the routes the Worker serves
+- the launcher posts its reports, and System › Report a problem the
+  problems players send, to the routes the Worker serves
   (telemetry/worker.js).
 
 Run from the repository root: python3 -m unittest discover -s app/tests -v
@@ -19,6 +20,7 @@ CONFIG = ROOT / "app" / "config.env"
 BUILD = ROOT / "app" / "scripts" / "build.sh"
 PACKAGE = ROOT / "app" / "scripts" / "package.sh"
 LAUNCHER = ROOT / "launcher" / "Sources" / "CartoucheTelemetry.swift"
+REPORT_PAGE = ROOT / "launcher" / "Sources" / "CartoucheReportView.swift"
 WORKER = ROOT / "telemetry" / "worker.js"
 
 
@@ -42,12 +44,17 @@ class TelemetryAddressTest(unittest.TestCase):
         self.assertIn('--telemetry-url "${CARTOUCHE_TELEMETRY_URL:-}"', BUILD.read_text(encoding="utf-8"))
 
     def test_the_launcher_posts_to_the_routes_the_worker_serves(self):
-        launcher = LAUNCHER.read_text(encoding="utf-8")
         worker = WORKER.read_text(encoding="utf-8")
-        routes = re.findall(r'appendingPathComponent\("(v1/\w+)"\)', launcher)
-        self.assertEqual(sorted(routes), ["v1/forget", "v1/reports"])
+        routes = []
+        for source in (LAUNCHER, REPORT_PAGE):
+            routes += re.findall(r'appendingPathComponent\("(v1/\w+)"\)', source.read_text(encoding="utf-8"))
+        self.assertEqual(sorted(routes), ["v1/forget", "v1/problems", "v1/reports"])
         for route in routes:
             self.assertIn(f'"/{route}"', worker)
+
+    def test_the_report_page_sends_only_where_cartouche_has_a_server(self):
+        page = REPORT_PAGE.read_text(encoding="utf-8")
+        self.assertIn("if let endpoint = CartoucheTelemetry.endpoint", page)
 
 
 if __name__ == "__main__":
