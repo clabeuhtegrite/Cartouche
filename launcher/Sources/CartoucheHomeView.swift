@@ -804,11 +804,12 @@ struct CartoucheHomeView: View {
             (margin + shelfWidth) / (margin + shelfWidth + columnGap)
         }
         var titleSize: CGFloat { isWide || isShort ? 26 : (size.width >= 600 ? 34 : 30) }
-        /// The lines of what the game in focus says: one on a short screen
-        /// where it stands under the shelf, whose room counts it
-        /// (heroHeight); two beside the shelf, which is taller, as on an
-        /// iPhone Duo unfolded sideways before the player's first game.
-        var detailLines: Int { isShort && !isWide ? 1 : 2 }
+        /// The lines of what the game in focus says. Under the shelf, whose
+        /// room counts them (heroHeight): one on a short screen, two on a
+        /// taller one. Beside the shelf, which leaves room below it: three,
+        /// the whole of what Import a game says on an iPhone Duo unfolded
+        /// sideways before the player's first game.
+        var detailLines: Int { isWide ? 3 : (isShort ? 1 : 2) }
 
         /// The height of the game in focus, upright: its name, its badges,
         /// its play time and size (CartoucheGameStatsLine), two lines about
