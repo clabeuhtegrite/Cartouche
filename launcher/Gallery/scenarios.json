@@ -156,6 +156,26 @@
       ]
     },
     {
+      "name": "iphone-sheet-new-release",
+      "screen": "sheet",
+      "sheet": "0400486024DEC000",
+      "owned": [
+        "0400C3F00006E000",
+        "040074A01BF12000",
+        "0400486024DEC000"
+      ],
+      "setup": true,
+      "controller": false,
+      "width": 402,
+      "height": 874,
+      "insets": [
+        62,
+        0,
+        34,
+        0
+      ]
+    },
+    {
       "name": "iphone-game-settings",
       "screen": "settings",
       "sheet": "0400C3F00006E000",
