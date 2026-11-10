@@ -6,10 +6,9 @@
 //  games and saves are kept; the memory limit iOS sets for it, which the
 //  games that start in its place share; whether games run behind the
 //  console, and the memory they have there; when its signature expires,
-//  and how it is renewed; the
-//  device that the game sheets are compared with; and Cartouche's
-//  updates. It opens over the console (CartoucheRootView), and OK or the
-//  controller's Menu button closes it.
+//  and how it is renewed; the device that the game sheets are compared
+//  with; and Cartouche's updates. It opens over the console
+//  (CartoucheRootView), and OK or the controller's Menu button closes it.
 //
 
 import SwiftUI
@@ -82,8 +81,11 @@ struct CartoucheSystemView: View {
                 CartoucheSetupView()
             } label: {
                 LabeledContent {
+                    // In a list, a Label beside the row's own made the row
+                    // several lines tall: the tight style keeps it one line.
                     Label(setup.isComplete ? CartoucheText.setupStatusDone : CartoucheText.setupStatusToDo,
                           systemImage: setup.isComplete ? "checkmark.circle.fill" : "exclamationmark.circle.fill")
+                        .labelStyle(CartoucheTightLabelStyle())
                         .foregroundStyle(setup.isComplete ? Color.green : Color.orange)
                 } label: {
                     Label(CartoucheText.setupTitle, systemImage: "checklist")
@@ -134,6 +136,7 @@ struct CartoucheSystemView: View {
                 let active = CartoucheDevice.hasIncreasedMemoryLimit
                 Label(active ? CartoucheText.imlOn : CartoucheText.imlOff,
                       systemImage: active ? "checkmark.circle.fill" : "exclamationmark.triangle.fill")
+                    .labelStyle(CartoucheTightLabelStyle())
                     .foregroundStyle(active ? Color.green : Color.orange)
             }
             Button(CartoucheText.measureAgain, systemImage: "arrow.clockwise", action: measure)
