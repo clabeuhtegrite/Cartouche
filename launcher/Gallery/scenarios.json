@@ -458,6 +458,21 @@
       ]
     },
     {
+      "name": "duo-unfolded-landscape-first-launch",
+      "screen": "games",
+      "owned": [],
+      "setup": false,
+      "controller": false,
+      "width": 890,
+      "height": 626,
+      "insets": [
+        24,
+        0,
+        20,
+        0
+      ]
+    },
+    {
       "name": "duo-unfolded-library",
       "screen": "library",
       "owned": [

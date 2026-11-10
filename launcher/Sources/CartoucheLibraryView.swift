@@ -10,7 +10,9 @@
 //
 //  With a controller, the D-pad moves between games, A plays the player's
 //  own game or opens the sheet of another, X opens the sheet, B goes back
-//  and the shoulder buttons change the filter.
+//  and the shoulder buttons change the filter. Beside the sheet of the game
+//  in focus, on an iPhone Duo unfolded (CartoucheGamesView), the sheet
+//  follows the controller's focus.
 //
 
 import SwiftUI
@@ -26,18 +28,21 @@ struct CartoucheLibraryView: View {
     let onBack: () -> Void
     /// Where a game's sheet grows out of its cartridge.
     let zoom: Namespace.ID?
+    /// Tells which game the controller's focus is on, each time it moves.
+    let onFocus: (CartoucheEntry) -> Void
 
     // Written out: before Swift 6.4 (SE-0502), the private state below made
     // the synthesized initializer private.
     init(entries: CartoucheCatalog.Entries, isActive: Bool, onPlay: @escaping (LCAppModel) -> Void,
          onSheet: @escaping (CartoucheEntry) -> Void, onBack: @escaping () -> Void,
-         zoom: Namespace.ID? = nil) {
+         zoom: Namespace.ID? = nil, onFocus: @escaping (CartoucheEntry) -> Void = { _ in }) {
         self.entries = entries
         self.isActive = isActive
         self.onPlay = onPlay
         self.onSheet = onSheet
         self.onBack = onBack
         self.zoom = zoom
+        self.onFocus = onFocus
     }
 
     enum Filter: CaseIterable, Hashable {
@@ -148,6 +153,10 @@ struct CartoucheLibraryView: View {
         .searchable(text: $query, placement: .navigationBarDrawer(displayMode: .always), prompt: CartoucheText.searchPrompt)
         .onChange(of: filter) { _, _ in focusIndex = 0 }
         .onChange(of: query) { _, _ in focusIndex = 0 }
+        // A tap opens the sheet itself; the controller's focus shows it.
+        .onChange(of: focused?.id) { _, _ in
+            if gamepad.isConnected, let focused { onFocus(focused) }
+        }
         .onReceive(gamepad.inputs) { input in
             if isActive { handle(input) }
         }

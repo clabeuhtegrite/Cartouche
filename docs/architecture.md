@@ -66,8 +66,8 @@ Cartouche does not build games, and carries nothing of nxnative's build tools ([
 
 Each version of Cartouche is a GitHub release of this repository, and is listed, with its size and SHA-256, in the source the built-in SideStore reads, [`app/sidestore-source.json`](../app/sidestore-source.json). Cartouche offers a version higher than its own over the console and on its System page, and has the built-in SideStore install it without showing SideStore ([app/releases/README.md](../app/releases/README.md)). The release workflow runs the publish guard on the IPA before attaching it, and the source entry goes to main through a pull request of its own.
 
-The game sheets, device profiles and nxnative's list of games are carried inside the app ([catalog/README.md](../catalog/README.md)), so a new version of Cartouche brings new ones.
+The game sheets, device profiles and nxnative's list of games are carried inside the app ([catalog/README.md](../catalog/README.md)), so a new version of Cartouche brings new ones. The games' covers are carried too, and Cartouche also reads a newer list of them every day, which the Live covers workflow keeps on the branch `live-covers`: the covers of the games nxnative added since the version, which a game of the player's finds by its title ID, and those IGDB had none for yet ([decisions.md](decisions.md), 33).
 
 ## Privacy
 
-Cartouche sends nothing about the player's games. Their games and saves go only to the storage they set up themselves, with their own account, and the password stays in the iPhone's keychain. Telemetry is planned as opt-in anonymous reports (device model, iOS version, game title ID, memory peak, crash signature), with no account data and no files.
+Cartouche sends nothing about the player's games: what it reads from this repository, its source and the newest covers, is the same for every player. Their games and saves go only to the storage they set up themselves, with their own account, and the password stays in the iPhone's keychain. Telemetry is planned as opt-in anonymous reports (device model, iOS version, game title ID, memory peak, crash signature), with no account data and no files.

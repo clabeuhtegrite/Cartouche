@@ -20,6 +20,10 @@
 //  in the top bar. The cartridges take the size that lets it all fit the
 //  screen, down to a size under which the home scrolls instead.
 //
+//  Beside the sheet of the game in focus, on an iPhone Duo unfolded
+//  (CartoucheGamesView), the home leaves out the game in focus, which the
+//  sheet describes in full, and its shelves take the room.
+//
 
 import SwiftUI
 
@@ -41,6 +45,11 @@ struct CartoucheHomeView: View {
     let onTab: (LCTabIdentifier) -> Void
     /// Where a game's sheet grows out of its cartridge.
     let zoom: Namespace.ID?
+    /// Whether the game in focus is described with its buttons between the
+    /// shelves, or beside them: not when its sheet stands beside the home.
+    let showsHero: Bool
+    /// Tells which game is in focus, each time another one is.
+    let onFocus: (CartoucheEntry) -> Void
 
     // Written out: before Swift 6.4 (SE-0502), the private state below made
     // the synthesized initializer private.
@@ -49,7 +58,8 @@ struct CartoucheHomeView: View {
          onInstall: @escaping (CartoucheStoredGame) -> Void = { _ in },
          onUninstall: @escaping (LCAppModel) -> Void, onSheet: @escaping (CartoucheEntry) -> Void,
          onLibrary: @escaping () -> Void, onSetup: @escaping () -> Void,
-         onTab: @escaping (LCTabIdentifier) -> Void, zoom: Namespace.ID? = nil) {
+         onTab: @escaping (LCTabIdentifier) -> Void, zoom: Namespace.ID? = nil,
+         showsHero: Bool = true, onFocus: @escaping (CartoucheEntry) -> Void = { _ in }) {
         self.entries = entries
         self.gameCount = gameCount
         self.isActive = isActive
@@ -62,6 +72,8 @@ struct CartoucheHomeView: View {
         self.onSetup = onSetup
         self.onTab = onTab
         self.zoom = zoom
+        self.showsHero = showsHero
+        self.onFocus = onFocus
     }
 
     @ObservedObject private var setup = CartoucheSetup.shared
@@ -126,20 +138,35 @@ struct CartoucheHomeView: View {
 
     var body: some View {
         GeometryReader { proxy in
-            let metrics = Metrics(size: proxy.size, hasBanner: setup.needsSetup)
+            let metrics = Metrics(size: proxy.size, hasBanner: setup.needsSetup, hasHero: showsHero)
             ScrollView(.vertical) {
                 VStack(alignment: .leading, spacing: metrics.spacing) {
                     topBar(metrics)
                     if setup.needsSetup {
                         CartoucheHomeSetupBanner(action: onSetup)
                     }
-                    if metrics.isWide {
-                        HStack(alignment: .top, spacing: metrics.spacing * 1.5) {
+                    if !showsHero {
+                        shelf(0, title: CartoucheText.homeLibrary, width: metrics.bigTile)
+                        shelf(1, title: CartoucheText.homeIPhone, width: metrics.smallTile)
+                    } else if metrics.isWide {
+                        HStack(alignment: .top, spacing: metrics.columnGap) {
                             VStack(alignment: .leading, spacing: metrics.spacing) {
                                 shelf(0, title: CartoucheText.homeLibrary, width: metrics.bigTile)
                                 shelf(1, title: CartoucheText.homeIPhone, width: metrics.smallTile)
                             }
                             .frame(width: metrics.shelvesWidth, alignment: .leading)
+                            // The shelves end at their column, the covers past it
+                            // fading out in the gap rather than running under the
+                            // game in focus; above, below and on the left, the
+                            // focused cover's ring and glow still show.
+                            .mask {
+                                LinearGradient(stops: [.init(color: .black, location: metrics.shelvesFadeStart),
+                                                       .init(color: .clear, location: 1)],
+                                               startPoint: .leading, endPoint: .trailing)
+                                    .padding(.vertical, -metrics.bigTile * 0.5)
+                                    .padding(.leading, -metrics.margin)
+                                    .padding(.trailing, -metrics.columnGap)
+                            }
                             heroView(metrics)
                                 .frame(maxWidth: .infinity, alignment: .leading)
                         }
@@ -173,6 +200,9 @@ struct CartoucheHomeView: View {
             .onChange(of: metrics.isWide) { _, wide in isWide = wide }
         }
         .background(CartoucheStage(key: heroKey, artwork: heroArtwork))
+        .onChange(of: hero) { _, hero in
+            if case .game(let entry) = hero { onFocus(entry) }
+        }
         .onReceive(gamepad.inputs) { input in
             if isActive { handle(input) }
         }
@@ -256,6 +286,10 @@ struct CartoucheHomeView: View {
                 }
                 .scrollIndicators(.hidden)
                 .scrollClipDisabled()
+                // The height Metrics counts for the shelf: its covers and the
+                // room for the focused one's ring, which a horizontal scroll
+                // view did not always keep beside the game in focus.
+                .frame(height: width * Metrics.tileHeight)
                 .onChange(of: columns[index]) { _, column in
                     guard row == index, column < items.count else { return }
                     withAnimation(.easeOut(duration: 0.25)) {
@@ -622,6 +656,8 @@ struct CartoucheHomeView: View {
         let size: CGSize
         /// The setup banner is over the shelves.
         var hasBanner = false
+        /// The game in focus is between the shelves, or beside them.
+        var hasHero = true
 
         static let topBarHeight: CGFloat = 44
         static let bannerHeight: CGFloat = 72
@@ -647,7 +683,14 @@ struct CartoucheHomeView: View {
         var margin: CGFloat { size.width >= 600 ? 28 : 18 }
         var spacing: CGFloat { isShort ? 12 : 20 }
         var verticalPadding: CGFloat { isShort ? 8 : 12 }
-        var shelvesWidth: CGFloat { (size.width - 2 * margin) * 0.6 }
+        var shelvesWidth: CGFloat { (size.width - 2 * margin) * (hasHero ? 0.6 : 1) }
+        /// Beside the game in focus, the space between it and the shelves.
+        var columnGap: CGFloat { spacing * 1.5 }
+        /// Where the shelves start to fade, from the screen's margin to the
+        /// end of the gap: at the end of their column.
+        var shelvesFadeStart: CGFloat {
+            (margin + shelvesWidth) / (margin + shelvesWidth + columnGap)
+        }
         var titleSize: CGFloat { isWide || isShort ? 26 : (size.width >= 600 ? 34 : 30) }
 
         /// The height of the game in focus, upright: its name, its badges,
@@ -669,14 +712,15 @@ struct CartoucheHomeView: View {
             } else {
                 // The first shelf, the game in focus and the second shelf
                 // under the top bar, and the dock under them.
-                fixed += 3 * spacing + heroHeight + Self.dockTopPadding + Self.dockHeight + Self.dockBottomPadding
+                fixed += 2 * spacing + Self.dockTopPadding + Self.dockHeight + Self.dockBottomPadding
+                if hasHero { fixed += spacing + heroHeight }
             }
             return max(size.height - fixed, 0)
         }
 
         var bigTile: CGFloat {
             let byHeight = shelvesHeight / (Self.tileHeight * (1 + Self.smallRatio))
-            let byWidth = isWide ? shelvesWidth * 0.24 : size.width * 0.3
+            let byWidth = isWide ? shelvesWidth * 0.3 : size.width * 0.3
             let smallest: CGFloat = isWide ? 60 : 78
             return min(max(min(byHeight, byWidth), smallest), 170)
         }
