@@ -20,6 +20,10 @@
 //  in the top bar. The cartridges take the size that lets it all fit the
 //  screen, down to a size under which the home scrolls instead.
 //
+//  Beside the sheet of the game in focus, on an iPhone Duo unfolded
+//  (CartoucheGamesView), the home leaves out the game in focus, which the
+//  sheet describes in full, and its shelves take the room.
+//
 
 import SwiftUI
 
@@ -41,6 +45,11 @@ struct CartoucheHomeView: View {
     let onTab: (LCTabIdentifier) -> Void
     /// Where a game's sheet grows out of its cartridge.
     let zoom: Namespace.ID?
+    /// Whether the game in focus is described with its buttons between the
+    /// shelves, or beside them: not when its sheet stands beside the home.
+    let showsHero: Bool
+    /// Tells which game is in focus, each time another one is.
+    let onFocus: (CartoucheEntry) -> Void
 
     // Written out: before Swift 6.4 (SE-0502), the private state below made
     // the synthesized initializer private.
@@ -49,7 +58,8 @@ struct CartoucheHomeView: View {
          onInstall: @escaping (CartoucheStoredGame) -> Void = { _ in },
          onUninstall: @escaping (LCAppModel) -> Void, onSheet: @escaping (CartoucheEntry) -> Void,
          onLibrary: @escaping () -> Void, onSetup: @escaping () -> Void,
-         onTab: @escaping (LCTabIdentifier) -> Void, zoom: Namespace.ID? = nil) {
+         onTab: @escaping (LCTabIdentifier) -> Void, zoom: Namespace.ID? = nil,
+         showsHero: Bool = true, onFocus: @escaping (CartoucheEntry) -> Void = { _ in }) {
         self.entries = entries
         self.gameCount = gameCount
         self.isActive = isActive
@@ -62,6 +72,8 @@ struct CartoucheHomeView: View {
         self.onSetup = onSetup
         self.onTab = onTab
         self.zoom = zoom
+        self.showsHero = showsHero
+        self.onFocus = onFocus
     }
 
     @ObservedObject private var setup = CartoucheSetup.shared
@@ -126,14 +138,17 @@ struct CartoucheHomeView: View {
 
     var body: some View {
         GeometryReader { proxy in
-            let metrics = Metrics(size: proxy.size, hasBanner: setup.needsSetup)
+            let metrics = Metrics(size: proxy.size, hasBanner: setup.needsSetup, hasHero: showsHero)
             ScrollView(.vertical) {
                 VStack(alignment: .leading, spacing: metrics.spacing) {
                     topBar(metrics)
                     if setup.needsSetup {
                         CartoucheHomeSetupBanner(action: onSetup)
                     }
-                    if metrics.isWide {
+                    if !showsHero {
+                        shelf(0, title: CartoucheText.homeLibrary, width: metrics.bigTile)
+                        shelf(1, title: CartoucheText.homeIPhone, width: metrics.smallTile)
+                    } else if metrics.isWide {
                         HStack(alignment: .top, spacing: metrics.spacing * 1.5) {
                             VStack(alignment: .leading, spacing: metrics.spacing) {
                                 shelf(0, title: CartoucheText.homeLibrary, width: metrics.bigTile)
@@ -173,6 +188,9 @@ struct CartoucheHomeView: View {
             .onChange(of: metrics.isWide) { _, wide in isWide = wide }
         }
         .background(CartoucheStage(key: heroKey, artwork: heroArtwork))
+        .onChange(of: hero) { _, hero in
+            if case .game(let entry) = hero { onFocus(entry) }
+        }
         .onReceive(gamepad.inputs) { input in
             if isActive { handle(input) }
         }
@@ -622,6 +640,8 @@ struct CartoucheHomeView: View {
         let size: CGSize
         /// The setup banner is over the shelves.
         var hasBanner = false
+        /// The game in focus is between the shelves, or beside them.
+        var hasHero = true
 
         static let topBarHeight: CGFloat = 44
         static let bannerHeight: CGFloat = 72
@@ -647,7 +667,7 @@ struct CartoucheHomeView: View {
         var margin: CGFloat { size.width >= 600 ? 28 : 18 }
         var spacing: CGFloat { isShort ? 12 : 20 }
         var verticalPadding: CGFloat { isShort ? 8 : 12 }
-        var shelvesWidth: CGFloat { (size.width - 2 * margin) * 0.6 }
+        var shelvesWidth: CGFloat { (size.width - 2 * margin) * (hasHero ? 0.6 : 1) }
         var titleSize: CGFloat { isWide || isShort ? 26 : (size.width >= 600 ? 34 : 30) }
 
         /// The height of the game in focus, upright: its name, its badges,
@@ -669,7 +689,8 @@ struct CartoucheHomeView: View {
             } else {
                 // The first shelf, the game in focus and the second shelf
                 // under the top bar, and the dock under them.
-                fixed += 3 * spacing + heroHeight + Self.dockTopPadding + Self.dockHeight + Self.dockBottomPadding
+                fixed += 2 * spacing + Self.dockTopPadding + Self.dockHeight + Self.dockBottomPadding
+                if hasHero { fixed += spacing + heroHeight }
             }
             return max(size.height - fixed, 0)
         }

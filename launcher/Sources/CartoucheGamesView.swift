@@ -3,10 +3,21 @@
 //  Cartouche
 //
 //  The Games tab, Cartouche's console: the home (CartoucheHomeView), every
-//  game (CartoucheLibraryView), and a game's sheet over either, with the
-//  game's settings one step further (CartoucheGameSettingsView). The
-//  console takes the whole screen, dark: the home's dock opens the System
-//  page over it (CartoucheRootView).
+//  game (CartoucheLibraryView), and a game's sheet, with the game's
+//  settings one step further (CartoucheGameSettingsView). The console takes
+//  the whole screen, dark: the home's dock opens the System page over it
+//  (CartoucheRootView).
+//
+//  In a compact width, on any iPhone and on the iPhone Duo's outer display,
+//  a game's sheet opens over the home or every game. In a regular width,
+//  on the Duo's inner display or an iPad, with iOS 27.1 or later, the sheet
+//  of the game in focus stands beside them instead, on the other side of
+//  the Duo's fold (CartoucheArrangement): moving the focus, with a tap or
+//  the controller, changes the game it shows, and the home leaves out the
+//  description of the game in focus that the sheet gives in full. Unfolding
+//  the Duo moves an open sheet beside the console; folding it puts the
+//  settings page open beside the console back in a sheet over it, and
+//  otherwise leaves the game the sheet showed in focus.
 //
 //  Cartouche installs, starts and uninstalls a game itself, on these
 //  screens (CartoucheGameActions): the player never lands in the Apps tab.
@@ -24,22 +35,28 @@ import UniformTypeIdentifiers
 @available(iOS 17.0, *)
 struct CartoucheGamesView: View {
     @EnvironmentObject private var sharedModel: SharedModel
+    @Environment(\.horizontalSizeClass) private var widthClass
     @ObservedObject private var setup = CartoucheSetup.shared
     @ObservedObject private var actions = CartoucheGameActions.shared
     @ObservedObject private var storedGames = CartoucheStoredGames.shared
     @ObservedObject private var updates = CartoucheUpdates.shared
     @ObservedObject private var account = CartoucheAccount.shared
     @State private var path: [Route] = []
+    /// The game whose sheet is open over the console, in a compact width.
     @State private var sheetID: String?
+    /// The game in focus, or the last one whose sheet opened: the game of
+    /// the sheet beside the console, in a regular width.
+    @State private var paneID: String?
     @State private var choosingIPA = false
     @State private var choosingIPAInSheet = false
     @State private var memory = CartoucheMemoryReading.now()
     @State private var showingSetup = false
     /// The game whose uninstall the player is asked about, from the home or
-    /// from the sheet.
+    /// from the sheet, over the console or beside it.
     @State private var uninstalling: LCAppModel?
     @State private var uninstallingInSheet: LCAppModel?
-    /// The settings page open over the game's sheet.
+    /// The settings page open over the game's sheet, over the console or
+    /// beside it.
     @State private var gameSettings: CartoucheGameSettingsModel?
     /// The report of a failure was just copied, from its alert.
     @State private var reportCopied = false
@@ -52,11 +69,19 @@ struct CartoucheGamesView: View {
 
     private let catalog = CartoucheCatalog.shared
 
+    /// The console and the sheet of the game in focus side by side, around
+    /// the fold of an iPhone Duo unfolded (CartoucheArrangement).
+    private var splits: Bool { widthClass == .regular && CartoucheSplit.isAvailable }
+
     private var onGames: Bool { sharedModel.selectedTab == .games }
-    private var nothingOver: Bool {
+    /// Nothing over the console, but maybe a game's settings page open
+    /// beside it.
+    private var nothingOverConsole: Bool {
         sheetID == nil && !showingSetup && !choosingIPA && uninstalling == nil
             && actions.work == nil && actions.notice == nil && !showsUpdate
     }
+    /// Nothing over the console or beside it that takes the controller.
+    private var nothingOver: Bool { nothingOverConsole && gameSettings == nil }
     /// Cartouche's own update shows over the console alone, once nothing
     /// else is over it.
     private var showsUpdate: Bool {
@@ -66,37 +91,19 @@ struct CartoucheGamesView: View {
 
     var body: some View {
         let entries = catalog.entries(for: sharedModel.apps, stored: storedGames.games)
-        NavigationStack(path: $path) {
-            CartoucheHomeView(
-                entries: entries,
-                gameCount: entries.all.count,
-                isActive: onGames && path.isEmpty && nothingOver,
-                onPlay: { play($0) },
-                onImport: { choosingIPA = true },
-                onInstall: { installStored($0) },
-                onUninstall: { uninstalling = $0 },
-                onSheet: { sheetID = $0.id },
-                onLibrary: { path.append(.library) },
-                onSetup: { showingSetup = true },
-                onTab: { sharedModel.selectedTab = $0 },
-                // One cartridge per game to grow from: the library's, once
-                // it is over the home.
-                zoom: path.isEmpty ? zoom : nil)
-                .toolbar(.hidden, for: .navigationBar)
-                .toolbar(.hidden, for: .tabBar)
-                .navigationDestination(for: Route.self) { route in
-                    switch route {
-                    case .library:
-                        CartoucheLibraryView(
-                            entries: entries,
-                            isActive: onGames && path.last == .library && nothingOver,
-                            onPlay: { play($0) },
-                            onSheet: { sheetID = $0.id },
-                            onBack: { if !path.isEmpty { path.removeLast() } },
-                            zoom: zoom)
-                            .toolbar(.hidden, for: .tabBar)
+        CartoucheArrangement(splits: splits) {
+            console(entries)
+        } secondary: {
+            if splits, let entry = paneEntry(in: entries) {
+                gameSheet(entry, beside: true)
+                    .modifier(CartoucheUninstallQuestion(app: $uninstallingInSheet, onAnswer: uninstall, onCopyFirst: copyThenUninstall))
+                    // The settings page beside the console takes the
+                    // controller; the console has it otherwise.
+                    .onReceive(CartoucheGamepad.shared.inputs) { input in
+                        guard onGames, nothingOverConsole, uninstallingInSheet == nil else { return }
+                        _ = handleSettings(input)
                     }
-                }
+            }
         }
         // Dark always, under the System page too, which covers it.
         .preferredColorScheme(.dark)
@@ -107,63 +114,26 @@ struct CartoucheGamesView: View {
         }
         .sheet(isPresented: sheetPresented) {
             if let entry = entries.entry(id: sheetID) {
-                NavigationStack {
-                    CartoucheGameSheetView(
-                        entry: entry,
-                        memory: memory,
-                        onPlay: { play($0) },
-                        onSettings: { gameSettings = actions.settings(for: $0, tileKey: entry.tileKey) },
-                        onImport: { choosingIPAInSheet = true },
-                        onUninstall: { uninstallingInSheet = $0 },
-                        onInstallStored: { installStored($0) },
-                        onExport: { exportCopy($0) })
-                        .id(entry.id)
-                        .toolbar {
-                            ToolbarItem(placement: .confirmationAction) {
-                                Button(CartoucheText.done) { sheetID = nil }
-                            }
+                gameSheet(entry, beside: false)
+                    .cartoucheZoom(from: entry.id, in: zoom)
+                    .preferredColorScheme(.dark)
+                    .fileImporter(isPresented: $choosingIPAInSheet, allowedContentTypes: [.ipa]) { result in
+                        if case .success(let url) = result {
+                            importCopy(url)
                         }
-                        .navigationDestination(item: $gameSettings) { settings in
-                            CartoucheGameSettingsView(model: settings) {
-                                if let app = entry.app { play(app, showingSettings: true) }
-                            }
-                            .toolbar {
-                                ToolbarItem(placement: .confirmationAction) {
-                                    Button(CartoucheText.done) { sheetID = nil }
-                                }
-                            }
-                        }
-                }
-                .cartoucheZoom(from: entry.id, in: zoom)
-                .preferredColorScheme(.dark)
-                .fileImporter(isPresented: $choosingIPAInSheet, allowedContentTypes: [.ipa]) { result in
-                    if case .success(let url) = result {
-                        importCopy(url)
                     }
-                }
-                .modifier(CartoucheUninstallQuestion(app: $uninstallingInSheet, onAnswer: uninstall, onCopyFirst: copyThenUninstall))
-                .onReceive(CartoucheGamepad.shared.inputs) { input in
-                    guard uninstallingInSheet == nil else { return }
-                    // On the settings page, L and R change the category and B
-                    // goes back to the sheet.
-                    if let settings = gameSettings {
+                    .modifier(CartoucheUninstallQuestion(app: $uninstallingInSheet, onAnswer: uninstall, onCopyFirst: copyThenUninstall))
+                    .onReceive(CartoucheGamepad.shared.inputs) { input in
+                        guard uninstallingInSheet == nil, !handleSettings(input) else { return }
                         switch input {
-                        case .b: gameSettings = nil
-                        case .previous: settings.moveCategory(by: -1)
-                        case .next: settings.moveCategory(by: 1)
-                        default: break
+                        case .b:
+                            sheetID = nil
+                        case .a:
+                            if let app = entry.app { play(app) }
+                        default:
+                            break
                         }
-                        return
                     }
-                    switch input {
-                    case .b:
-                        sheetID = nil
-                    case .a:
-                        if let app = entry.app { play(app) }
-                    default:
-                        break
-                    }
-                }
             }
         }
         .sheet(isPresented: $showingSetup) {
@@ -171,7 +141,7 @@ struct CartoucheGamesView: View {
                 CartoucheSetupView()
                     .toolbar {
                         ToolbarItem(placement: .confirmationAction) {
-                            Button(CartoucheText.done) { showingSetup = false }
+                            doneButton { showingSetup = false }
                         }
                     }
             }
@@ -191,8 +161,23 @@ struct CartoucheGamesView: View {
         }
         .animation(.easeInOut(duration: 0.2), value: actions.work)
         .animation(.easeInOut(duration: 0.2), value: showsUpdate)
-        // Another game's sheet, or none: its settings page goes too.
-        .onChange(of: sheetID) { _, _ in gameSettings = nil }
+        // The sheet over the console closed: its settings page goes too. It
+        // stays when the sheet moves beside the console.
+        .onChange(of: sheetID) { _, id in
+            if id == nil && !splits { gameSettings = nil }
+        }
+        // The iPhone Duo unfolded: the sheet open over the console moves
+        // beside it, with its settings page. Folded: the settings page open
+        // beside the console comes back over it, in the game's sheet; the
+        // sheet alone stays behind, as the game in focus.
+        .onChange(of: splits) { _, splits in
+            if splits {
+                if let sheetID { paneID = sheetID }
+                sheetID = nil
+            } else if gameSettings != nil {
+                sheetID = paneID
+            }
+        }
         .alert(actions.notice?.title ?? "", isPresented: noticeShown, presenting: actions.notice) { notice in
             if let report = notice.report {
                 Button(CartoucheText.reportCopy) {
@@ -208,20 +193,22 @@ struct CartoucheGamesView: View {
             Text(notice.message)
         }
         // A controller answers the alert: A or B closes it, Y copies the
-        // report.
+        // report. It closes once every view has had the input, so that the
+        // console and the page beside it, which wait for it to close, do not
+        // take that input too.
         .onReceive(CartoucheGamepad.shared.inputs) { input in
             guard let notice = actions.notice else { return }
             switch input {
             case .a, .b:
-                actions.notice = nil
+                break
             case .y:
                 guard let report = notice.report else { return }
                 CartoucheReports.copy(report)
-                actions.notice = nil
                 reportCopied = true
             default:
-                break
+                return
             }
+            DispatchQueue.main.async { actions.notice = nil }
         }
         .overlay(alignment: .top) {
             if reportCopied {
@@ -248,7 +235,7 @@ struct CartoucheGamesView: View {
                   let entry = catalog.entries(for: sharedModel.apps, stored: storedGames.games).owned
                     .first(where: { $0.app === app }) else { return }
             path.removeAll()
-            sheetID = entry.id
+            showSheet(entry)
         }
         // Hands the built-in SideStore's certificate to LiveContainer as soon
         // as the player has signed in, before they pick a game.
@@ -283,6 +270,139 @@ struct CartoucheGamesView: View {
             actions.copySaves(of: sharedModel.apps)
             updates.checkIfDue()
         }
+    }
+
+    /// The home, and every game one step further.
+    private func console(_ entries: CartoucheCatalog.Entries) -> some View {
+        NavigationStack(path: $path) {
+            CartoucheHomeView(
+                entries: entries,
+                gameCount: entries.all.count,
+                isActive: onGames && path.isEmpty && nothingOver,
+                onPlay: { play($0) },
+                onImport: { choosingIPA = true },
+                onInstall: { installStored($0) },
+                onUninstall: { uninstalling = $0 },
+                onSheet: { showSheet($0) },
+                onLibrary: { path.append(.library) },
+                onSetup: { showingSetup = true },
+                onTab: { sharedModel.selectedTab = $0 },
+                // One cartridge per game to grow from: the library's, once
+                // it is over the home.
+                zoom: path.isEmpty ? zoom : nil,
+                // Beside the console, the sheet describes the game in focus.
+                showsHero: !splits,
+                onFocus: { focus($0) })
+                .toolbar(.hidden, for: .navigationBar)
+                .toolbar(.hidden, for: .tabBar)
+                .navigationDestination(for: Route.self) { route in
+                    switch route {
+                    case .library:
+                        CartoucheLibraryView(
+                            entries: entries,
+                            isActive: onGames && path.last == .library && nothingOver,
+                            onPlay: { play($0) },
+                            onSheet: { showSheet($0) },
+                            onBack: { if !path.isEmpty { path.removeLast() } },
+                            zoom: zoom,
+                            onFocus: { focus($0) })
+                            .toolbar(.hidden, for: .tabBar)
+                    }
+                }
+        }
+    }
+
+    /// A game's sheet, with its settings page one step further: over the
+    /// console, with Done, or BESIDE it, where the player's games are
+    /// imported, and asked about, by the console's own file importer and
+    /// questions.
+    private func gameSheet(_ entry: CartoucheEntry, beside: Bool) -> some View {
+        NavigationStack {
+            CartoucheGameSheetView(
+                entry: entry,
+                memory: memory,
+                onPlay: { play($0) },
+                onSettings: { app in
+                    // The sheet shows the game the console falls back on:
+                    // the settings page is for it.
+                    if beside { paneID = entry.id }
+                    gameSettings = actions.settings(for: app, tileKey: entry.tileKey)
+                },
+                onImport: {
+                    if beside { choosingIPA = true } else { choosingIPAInSheet = true }
+                },
+                onUninstall: { uninstallingInSheet = $0 },
+                onInstallStored: { installStored($0) },
+                onExport: { exportCopy($0) })
+                .id(entry.id)
+                // Beside the console, the sheet's bar would hold nothing.
+                .toolbar(beside ? .hidden : .automatic, for: .navigationBar)
+                .toolbar {
+                    if !beside {
+                        ToolbarItem(placement: .confirmationAction) {
+                            doneButton { sheetID = nil }
+                        }
+                    }
+                }
+                .navigationDestination(item: $gameSettings) { settings in
+                    CartoucheGameSettingsView(model: settings) {
+                        if let app = entry.app { play(app, showingSettings: true) }
+                    }
+                    .toolbar {
+                        if !beside {
+                            ToolbarItem(placement: .confirmationAction) {
+                                doneButton { sheetID = nil }
+                            }
+                        }
+                    }
+                }
+        }
+    }
+
+    /// Done, with a symbol as well as its name: the iPhone Duo shows the
+    /// bars of a sheet down the side of its outer display, where an item
+    /// with a name alone does not appear.
+    private func doneButton(_ action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Label(CartoucheText.done, systemImage: "checkmark")
+        }
+    }
+
+    /// The game of the sheet beside the console: the game in focus, or the
+    /// last whose sheet opened; before any, the player's first game, or the
+    /// first that plays on the iPhone.
+    private func paneEntry(in entries: CartoucheCatalog.Entries) -> CartoucheEntry? {
+        entries.entry(id: paneID) ?? entries.owned.first ?? entries.others.first(where: \.playsOnIPhone)
+            ?? entries.all.first
+    }
+
+    /// On the controller, a game's settings page open: L and R change the
+    /// category, B goes back to the sheet. Whether the page took the input.
+    private func handleSettings(_ input: CartoucheGamepad.Input) -> Bool {
+        guard let settings = gameSettings else { return false }
+        switch input {
+        case .b: gameSettings = nil
+        case .previous: settings.moveCategory(by: -1)
+        case .next: settings.moveCategory(by: 1)
+        default: break
+        }
+        return true
+    }
+
+    /// The game in focus on the home or in every game: the sheet beside the
+    /// console shows it. Another game in focus closes the settings page of
+    /// the last. With a sheet over the console, the focus does not move.
+    private func focus(_ entry: CartoucheEntry) {
+        guard sheetID == nil, paneID != entry.id else { return }
+        gameSettings = nil
+        paneID = entry.id
+    }
+
+    /// A game's sheet: beside the console in a split, over it otherwise.
+    private func showSheet(_ entry: CartoucheEntry) {
+        if paneID != entry.id { gameSettings = nil }
+        paneID = entry.id
+        if !splits { sheetID = entry.id }
     }
 
     private var sheetPresented: Binding<Bool> {
