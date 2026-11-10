@@ -6,7 +6,9 @@ name: Telemetry
 # jurisdiction (telemetry/deploy.sh). The deploy takes the secrets
 # CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID of the environment
 # cloudflare, and does nothing while they are not set. Run it by hand for a
-# first deploy, once they are.
+# first deploy, once they are. Its secret CARTOUCHE_REPORTS_TOKEN lets the
+# Worker file the problems players send in the private repository
+# <owner>/cartouche-reports, or the variable CARTOUCHE_REPORTS_REPOSITORY.
 
 on:
   pull_request:
@@ -57,4 +59,6 @@ jobs:
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CARTOUCHE_REPORTS_TOKEN: ${{ secrets.CARTOUCHE_REPORTS_TOKEN }}
+          CARTOUCHE_REPORTS_REPOSITORY: ${{ vars.CARTOUCHE_REPORTS_REPOSITORY || format('{0}/cartouche-reports', github.repository_owner) }}
         run: telemetry/deploy.sh
