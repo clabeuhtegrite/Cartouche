@@ -25,7 +25,8 @@
 //  games of the player's games folder are among theirs, installed or not
 //  (CartoucheStoredGames), and the saves of the games that changed are
 //  copied to the saves folder whenever Cartouche comes back, after a game
-//  (CartoucheSaveBackups). A step that fails says why, with the report the
+//  (CartoucheSaveBackups), when the games' play times are read again too
+//  (CartoucheGameStats). A step that fails says why, with the report the
 //  player can copy (CartoucheReporting.swift).
 //
 //  A player new to Cartouche follows its guide to their first game
@@ -313,18 +314,20 @@ struct CartoucheGamesView: View {
             CartoucheRenewal.scheduleWarnings()
             storedGames.refresh()
             actions.copySaves(of: sharedModel.apps)
+            CartoucheGameStats.shared.cameBack(sharedModel.apps)
             updates.checkIfDue()
             catalog.refreshCoversIfDue()
             openGuideIfNew()
         }
         // A renewal in the background moves the expiry date: warn for the
-        // new one each time the player comes back. A game may have saved
-        // meanwhile, and the games folder changed. Cartouche's source may
-        // list a new version, and newer covers may be out.
+        // new one each time the player comes back. A game may have saved and
+        // counted its play time meanwhile, and the games folder changed.
+        // Cartouche's source may list a new version, newer covers may be out.
         .onReceive(NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification)) { _ in
             CartoucheRenewal.scheduleWarnings()
             storedGames.refresh()
             actions.copySaves(of: sharedModel.apps)
+            CartoucheGameStats.shared.cameBack(sharedModel.apps)
             updates.checkIfDue()
             catalog.refreshCoversIfDue()
         }

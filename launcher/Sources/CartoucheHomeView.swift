@@ -435,6 +435,7 @@ struct CartoucheHomeView: View {
             VStack(alignment: .leading, spacing: 6) {
                 heroTitle(entry.name, metrics: metrics)
                 CartoucheMetaLine(entry: entry, isPaused: actions.isRunning(entry.app))
+                CartoucheGameStatsLine(entry: entry)
                 if let detail = heroDetail(status) {
                     Text(detail)
                         .font(.subheadline)
@@ -757,10 +758,11 @@ struct CartoucheHomeView: View {
         var titleSize: CGFloat { isWide || isShort ? 26 : (size.width >= 600 ? 34 : 30) }
 
         /// The height of the game in focus, upright: its name, its badges,
-        /// two lines about it (one on a short screen) and its buttons.
+        /// its play time and size (CartoucheGameStatsLine), two lines about
+        /// it (one on a short screen) and its buttons.
         var heroHeight: CGFloat {
             let detail: CGFloat = isShort ? 20 : 40
-            return titleSize * 1.2 + 6 + 22 + 6 + detail + 12 + 52
+            return titleSize * 1.2 + 6 + 22 + 6 + 16 + 6 + detail + 12 + 52
         }
 
         /// The height left to the shelf's covers once the top bar, the
