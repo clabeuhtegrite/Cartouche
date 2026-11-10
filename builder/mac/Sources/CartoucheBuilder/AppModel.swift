@@ -224,7 +224,11 @@ final class AppModel: ObservableObject {
 
     /// Everything is installed: the library can be read and checked.
     private func toolsReady() async {
-        if engine == nil, let python = setup.python ?? (await PythonFinder.find()) { makeEngine(python) }
+        if engine == nil {
+            var python = setup.python
+            if python == nil { python = await PythonFinder.find() }
+            if let python { makeEngine(python) }
+        }
         await loadConfig()
         await refreshLibrary(update: true)
     }
@@ -446,17 +450,16 @@ final class AppModel: ObservableObject {
     }
 
     func notify(title: String, body: String, section: AppSection, game: String? = nil) {
-        let center = UNUserNotificationCenter.current()
-        center.requestAuthorization(options: [.alert, .sound]) { granted, _ in
+        var info: [String: String] = ["section": section.rawValue]
+        if let game { info["game"] = game }
+        UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound]) { [info] granted, _ in
             guard granted else { return }
             let content = UNMutableNotificationContent()
             content.title = title
             content.body = body
             content.sound = .default
-            var info: [String: String] = ["section": section.rawValue]
-            if let game { info["game"] = game }
             content.userInfo = info
-            center.add(UNNotificationRequest(identifier: UUID().uuidString, content: content, trigger: nil))
+            UNUserNotificationCenter.current().add(UNNotificationRequest(identifier: UUID().uuidString, content: content, trigger: nil))
         }
     }
 

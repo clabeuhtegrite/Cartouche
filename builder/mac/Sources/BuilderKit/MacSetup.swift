@@ -93,12 +93,12 @@ public enum SetupState: Equatable, Sendable {
 @MainActor
 public final class MacSetup: ObservableObject {
     /// The Xcode nxnative's shaders are locked with.
-    public static let xcodeVersion = "27.2"
+    public nonisolated static let xcodeVersion = "27.2"
     public static let xcodeStore = URL(string: "macappstore://apps.apple.com/app/xcode/id497799835")!
     public static let softwareUpdate = URL(string: "x-apple.systempreferences:com.apple.Software-Update-Settings.extension")!
     static let brew = "/opt/homebrew/bin/brew"
     /// Homebrew's formula of each tool nxnative runs.
-    static let formulae = [("xcodegen", "xcodegen"), ("zstd", "zstd"), ("glslangValidator", "glslang")]
+    nonisolated static let formulae = [("xcodegen", "xcodegen"), ("zstd", "zstd"), ("glslangValidator", "glslang")]
 
     @Published public private(set) var states: [SetupItem: SetupState] = [:]
     @Published public private(set) var log: [String] = []

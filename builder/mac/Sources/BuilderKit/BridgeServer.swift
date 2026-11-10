@@ -251,21 +251,16 @@ public final class BridgeServer: @unchecked Sendable {
 
     /// One pairing at a time, a few in ten minutes, each asked of the player.
     private func askPairing(name: String, code: String) async -> Bool {
-        lock.lock()
         let now = Date()
-        pairingTimes.removeAll { now.timeIntervalSince($0) > 600 }
-        guard !pairing, pairingTimes.count < BridgeServer.pairingsPerWindow else {
-            lock.unlock()
-            return false
+        let asking = lock.withLock { () -> Bool in
+            pairingTimes.removeAll { now.timeIntervalSince($0) > 600 }
+            guard !pairing, pairingTimes.count < BridgeServer.pairingsPerWindow else { return false }
+            pairing = true
+            pairingTimes.append(now)
+            return true
         }
-        pairing = true
-        pairingTimes.append(now)
-        lock.unlock()
-        defer {
-            lock.lock()
-            pairing = false
-            lock.unlock()
-        }
+        guard asking else { return false }
+        defer { lock.withLock { pairing = false } }
         guard let delegate = await MainActor.run(body: { self.delegate }) else { return false }
         return await delegate.bridgeServer(self, allowPairing: name, code: code)
     }
@@ -273,13 +268,13 @@ public final class BridgeServer: @unchecked Sendable {
     private func serve(_ channel: CartoucheBridgeSecureChannel) async {
         let id = UUID()
         devices.seen(channel.peer)
-        lock.lock()
-        sessions[id] = channel.peer
-        if activity == nil {
-            activity = ProcessInfo.processInfo.beginActivity(options: [.idleSystemSleepDisabled, .userInitiated],
-                                                             reason: "Cartouche on an iPhone reads or writes its games")
+        lock.withLock {
+            sessions[id] = channel.peer
+            if activity == nil {
+                activity = ProcessInfo.processInfo.beginActivity(options: [.idleSystemSleepDisabled, .userInitiated],
+                                                                 reason: "Cartouche on an iPhone reads or writes its games")
+            }
         }
-        lock.unlock()
         changed()
         let session = Session(server: self, peer: channel.peer)
         let idle = Flag()
@@ -288,13 +283,13 @@ public final class BridgeServer: @unchecked Sendable {
             session.discardUploads()
             channel.close()
             idle.clear()
-            lock.lock()
-            sessions[id] = nil
-            if sessions.isEmpty, let current = activity {
-                ProcessInfo.processInfo.endActivity(current)
-                activity = nil
+            lock.withLock {
+                sessions[id] = nil
+                if sessions.isEmpty, let current = activity {
+                    ProcessInfo.processInfo.endActivity(current)
+                    activity = nil
+                }
             }
-            lock.unlock()
             changed()
         }
         while true {
