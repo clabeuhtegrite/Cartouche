@@ -40,8 +40,9 @@ final class CartoucheAccount: ObservableObject {
 
     @Published private(set) var phase: Phase?
     @Published private(set) var progress: Progress?
-    /// Why the last sign-in failed.
-    @Published private(set) var problem: String?
+    /// Why the last sign-in failed, and the report on it.
+    @Published private(set) var problemReport: CartoucheReport?
+    var problem: String? { problemReport?.message }
     /// Whether the last sign-in went through.
     @Published private(set) var signedIn = false
     /// Whether Cartouche started this sign-in by itself, for a new
@@ -81,11 +82,13 @@ final class CartoucheAccount: ObservableObject {
     /// Has the built-in SideStore sign in with this Apple ID.
     func signIn(appleID: String, password: String) {
         guard phase == nil, CartoucheSignInMessage.canSignIn(appleID: appleID, password: password) else { return }
-        problem = nil
+        problemReport = nil
         signedIn = false
         isAutomatic = false
+        // SideStore keeps the Apple ID only once signed in.
+        CartoucheReports.redactTyped(accounts: [appleID])
         guard let bridge = Self.bridge, CartoucheStoreKeychain.service != nil else {
-            problem = CartoucheText.signInUnavailable
+            failed(CartoucheText.signInUnavailable)
             return
         }
         // What an earlier sign-in may have left.
@@ -93,13 +96,14 @@ final class CartoucheAccount: ObservableObject {
         CartoucheStoreKeychain.remove(CartoucheSignInMessage.responseAccount)
         guard CartoucheStoreKeychain.set(CartoucheSignInMessage.credentials(appleID: appleID, password: password),
                                          for: CartoucheSignInMessage.credentialsAccount) else {
-            problem = CartoucheText.signInKeychainFailed
+            failed(CartoucheText.signInKeychainFailed)
             return
         }
         answered = []
         let progress = Progress(totalUnitCount: 100)
         self.progress = progress
         phase = .signingIn
+        CartoucheReports.note("Sign-in started")
         watchForRequests()
         bridge.call(bridge.receiver, Self.signInSelector, progress) { [weak self] message in
             let text = message.map { $0 as String }
@@ -143,7 +147,10 @@ final class CartoucheAccount: ObservableObject {
         let request = CartoucheStoreKeychain.data(CartoucheSignInMessage.requestAccount)
             .flatMap(CartoucheSignInMessage.request(from:))
         if let request, !answered.contains(request.id) {
-            if phase != .code(request) { phase = .code(request) }
+            if phase != .code(request) {
+                CartoucheReports.note("Sign-in: Apple asks for a code")
+                phase = .code(request)
+            }
         } else if case .code = phase {
             // SideStore went on without an answer.
             phase = .signingIn
@@ -151,6 +158,7 @@ final class CartoucheAccount: ObservableObject {
     }
 
     private func finished(_ message: String?) {
+        let fraction = progress?.fractionCompleted
         watching?.cancel()
         watching = nil
         phase = nil
@@ -158,10 +166,21 @@ final class CartoucheAccount: ObservableObject {
         // Should SideStore not have started, the password goes too.
         CartoucheStoreKeychain.remove(CartoucheSignInMessage.credentialsAccount)
         CartoucheStoreKeychain.remove(CartoucheSignInMessage.responseAccount)
-        problem = message.map(CartoucheSignInMessage.readable)
+        if let message {
+            failed(CartoucheSignInMessage.readable(message), fraction: fraction)
+        } else {
+            CartoucheReports.note("Sign-in done")
+        }
         signedIn = message == nil
         isAutomatic = false
         CartoucheSetup.shared.refresh()
+    }
+
+    /// The sign-in failed, as MESSAGE says.
+    private func failed(_ message: String, fraction: Double? = nil) {
+        problemReport = CartoucheReports.make(.signIn, CartoucheText.signInFailedTitle, message: message,
+                                              step: isAutomatic ? "Signing in again by itself, for a new certificate" : "Signing in",
+                                              fraction: fraction)
     }
 
     /// The page an error asks the player to open, such as Apple's own when it
