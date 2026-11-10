@@ -25,7 +25,7 @@ COVERS = SITE / "covers"
 REPOSITORY = "https://github.com/clabeuhtegrite/Cartouche"
 ALLOWED_LINKS = [
     re.compile(re.escape(REPOSITORY)),
-    re.compile(re.escape(REPOSITORY) + r"/blob/main/[\w/.-]+\.md"),
+    re.compile(re.escape(REPOSITORY) + r"/blob/main/[\w/.-]+\.md(?:#[\w-]+)?"),
     re.compile(re.escape(REPOSITORY) + r"/releases\?q=installer&expanded=true"),
     re.compile(r"https://github\.com/seedds/nxnative"),
 ]

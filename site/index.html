@@ -884,6 +884,9 @@
         font: 800 1.35rem/1 var(--display);
     }
     .step .btn { margin-top: 16px; }
+    .step p a, .guide a { color: var(--ink); }
+    .guide { margin-top: 30px; padding-left: 70px; }
+    @media (max-width: 520px) { .guide { padding-left: 0; } }
     .need { padding: clamp(24px, 3vw, 34px); }
     .need h3 { font: 800 1.3rem/1.2 var(--display); }
     .need dl { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 14px 20px; margin: 20px 0 0; }
@@ -1219,13 +1222,15 @@
             <div class="wrap split" style="align-items:start">
                 <div>
                     <p class="label"><span lang="fr">Installer</span><span lang="en">Install</span></p>
-                    <h2><span lang="fr">Un ordinateur, une seule fois.</span><span lang="en">A computer, just once.</span></h2>
+                    <h2><span lang="fr">De l’installation à votre premier jeu.</span><span lang="en">From the install to your first game.</span></h2>
                     <ol class="steps">
-                        <li class="step"><span class="step__n" aria-hidden="true">1</span><div><h3><span lang="fr">LocalDevVPN sur l’iPhone</span><span lang="en">LocalDevVPN on the iPhone</span></h3><p><span lang="fr">Installez-le depuis l’App Store : le SideStore intégré s’en sert pour renouveler Cartouche sans ordinateur.</span><span lang="en">Install it from the App Store: the built-in SideStore uses it to renew Cartouche without a computer.</span></p></div></li>
+                        <li class="step"><span class="step__n" aria-hidden="true">1</span><div><h3><span lang="fr">LocalDevVPN sur l’iPhone</span><span lang="en">LocalDevVPN on the iPhone</span></h3><p><span lang="fr">Installez-le depuis l’App Store : Cartouche se connecte et se renouvelle par lui, sans ordinateur. Son trafic ne sort jamais de l’iPhone.</span><span lang="en">Install it from the App Store: Cartouche signs in and renews itself through it, without a computer. Its traffic never leaves the iPhone.</span></p></div></li>
                         <li class="step"><span class="step__n" aria-hidden="true">2</span><div><h3><span lang="fr">L’Installeur Cartouche</span><span lang="en">The Cartouche Installer</span></h3><p><span lang="fr">Sur un Mac ou un PC Windows, branchez l’iPhone et connectez-vous avec votre compte Apple. L’Installeur pose Cartouche avec son certificat, la mémoire augmentée et le fichier de jumelage.</span><span lang="en">On a Mac or a Windows PC, plug in the iPhone and sign in with your Apple account. The Installer puts Cartouche on it with its certificate, Increased Memory Limit and the pairing file.</span></p>
                             <a class="btn btn--primary" href="https://github.com/clabeuhtegrite/Cartouche/releases?q=installer&amp;expanded=true"><svg aria-hidden="true"><use href="#i-download"/></svg><span lang="fr">Télécharger l’Installeur</span><span lang="en">Download the Installer</span></a></div></li>
-                        <li class="step"><span class="step__n" aria-hidden="true">3</span><div><h3><span lang="fr">La mise en route</span><span lang="en">The setup</span></h3><p><span lang="fr">Ouvrez Cartouche et suivez ses étapes, puis importez votre premier jeu.</span><span lang="en">Open Cartouche and follow its steps, then import your first game.</span></p></div></li>
+                        <li class="step"><span class="step__n" aria-hidden="true">3</span><div><h3><span lang="fr">Le guide de Cartouche</span><span lang="en">Cartouche’s guide</span></h3><p><span lang="fr">Ouvrez Cartouche : son guide, « Votre premier jeu », vous accompagne jusqu’à votre première partie et coche chaque étape tout seul.</span><span lang="en">Open Cartouche: its guide, Your first game, takes you all the way to playing, and ticks off each step by itself.</span></p></div></li>
+                        <li class="step"><span class="step__n" aria-hidden="true">4</span><div><h3><span lang="fr">Vos jeux, sur votre Mac</span><span lang="en">Your games, on your Mac</span></h3><p><span lang="fr">Une commande dans Terminal installe Cartouche Builder et ce qu’il faut à nxnative. Il construit vos jeux à partir de vos propres copies, dans votre dossier de jeux. <a href="https://github.com/clabeuhtegrite/Cartouche/blob/main/builder/README.md#install">Installer Cartouche Builder</a></span><span lang="en">One command in Terminal installs Cartouche Builder and what nxnative needs. It builds your games from your own copies, into your games folder. <a href="https://github.com/clabeuhtegrite/Cartouche/blob/main/builder/README.md#install">Install Cartouche Builder</a></span></p></div></li>
                     </ol>
+                    <p class="small guide"><span lang="fr">Pas à pas, de rien à votre premier jeu : <a href="https://github.com/clabeuhtegrite/Cartouche/blob/main/docs/getting-started.fr.md">le guide Premiers pas</a>.</span><span lang="en">Step by step, from nothing to your first game: <a href="https://github.com/clabeuhtegrite/Cartouche/blob/main/docs/getting-started.md">the Getting started guide</a>.</span></p>
                 </div>
                 <div class="panel need">
                     <h3><span lang="fr">Ce qu’il faut</span><span lang="en">What you need</span></h3>
