@@ -8,10 +8,11 @@
 # app/patches/<project>/ are applied to the copies in name order, the SMBClient
 # package (app/SMBClient) goes where LiveContainer's project looks for it
 # (Packages/SMBClient, app/patches/livecontainer/0005), the launcher
-# (launcher/Sources) joins LiveContainer's SwiftUI sources and its bridge to
-# the built-in SideStore (launcher/SideStoreSupport) joins SideStoreSupport,
-# Cartouche's icon (app/icon) replaces LiveContainer's, and app/scripts/brand.py
-# gives the copies Cartouche's identity (app/config.env).
+# (launcher/Sources) joins LiveContainer's SwiftUI sources, its bridge to the
+# built-in SideStore (launcher/SideStoreSupport) joins SideStoreSupport, what
+# it adds to a game's own process (launcher/LiveProcessSupport) joins
+# LiveProcess, Cartouche's icon (app/icon) replaces LiveContainer's, and
+# app/scripts/brand.py gives the copies Cartouche's identity (app/config.env).
 # app/scripts/build.sh runs this first; CI also runs it on Linux.
 set -euo pipefail
 
@@ -59,12 +60,15 @@ echo "== adding the SMBClient package"
 mkdir -p "$SRC/LiveContainer/Packages"
 rsync -a --delete --exclude .git "$APP/SMBClient/" "$SRC/LiveContainer/Packages/SMBClient/"
 
-# LiveContainerSwiftUI and SideStoreSupport are synchronized folders in
-# LiveContainer's project: Xcode builds every file in them, so the launcher
-# needs no project change.
+# LiveContainerSwiftUI, SideStoreSupport and LiveProcess are synchronized
+# folders in LiveContainer's project: Xcode builds every file in them, so the
+# launcher needs no project change. LiveProcess is the extension a game runs
+# in when Cartouche keeps its console open behind it
+# (app/patches/livecontainer/0008).
 echo "== adding the launcher"
 rsync -a --delete "$ROOT/launcher/Sources/" "$SRC/LiveContainer/LiveContainerSwiftUI/Cartouche/"
 rsync -a --delete "$ROOT/launcher/SideStoreSupport/" "$SRC/LiveContainer/SideStoreSupport/Cartouche/"
+rsync -a --delete "$ROOT/launcher/LiveProcessSupport/" "$SRC/LiveContainer/LiveProcess/Cartouche/"
 
 # Cartouche's icon over LiveContainer's: the app's own, and the grey one of an
 # extra copy installed from its settings (app/icon/make_icon.py).

@@ -1,5 +1,6 @@
 """Checks the launcher's words: launcher/Sources/Cartouche.xcstrings against
-the keys and English fallbacks in launcher/Sources/CartoucheText.swift.
+the keys and English fallbacks in launcher/Sources/CartoucheText.swift and
+the files that carry on its list, CartoucheText<Topic>.swift.
 
 Run from the repository root: python3 -m unittest discover -s app/tests -v
 """
@@ -13,7 +14,7 @@ ROOT = Path(__file__).resolve().parents[2]
 SOURCES = ROOT / "launcher" / "Sources"
 LANGUAGES = ("en", "fr")
 
-# s("key", "English") and f("key", "English", arguments...) in CartoucheText.swift.
+# s("key", "English") and f("key", "English", arguments...) in CartoucheText*.swift.
 CALL = re.compile(r'\b([sf])\("([^"]+)", "((?:[^"\\]|\\.)*)"((?:, [^)]*)?)\)')
 # printf placeholders as Foundation reads them: %@, %1$@, %lld, %%...
 PLACEHOLDER = re.compile(r"%(?:(\d+)\$)?[-+ #0]*\d*(?:\.\d+)?(?:hh|h|ll|l|q|z|t|j)?([@dDiuUxXoOfeEgGcCsSpaA%])")
@@ -40,17 +41,18 @@ def placeholders(text: str) -> list[str]:
 class LauncherStringsTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        swift = (SOURCES / "CartoucheText.swift").read_text(encoding="utf-8")
         cls.calls = {}
-        for kind, key, english, arguments in CALL.findall(swift):
-            if key in cls.calls:
-                raise AssertionError(f"{key} is defined twice in CartoucheText.swift")
-            count = len([a for a in arguments.split(",") if a.strip()])
-            cls.calls[key] = (kind, swift_unescape(english), count)
+        for source in sorted(SOURCES.glob("CartoucheText*.swift")):
+            swift = source.read_text(encoding="utf-8")
+            for kind, key, english, arguments in CALL.findall(swift):
+                if key in cls.calls:
+                    raise AssertionError(f"{key} is defined twice in {source.name} and before")
+                count = len([a for a in arguments.split(",") if a.strip()])
+                cls.calls[key] = (kind, swift_unescape(english), count)
         cls.catalog = json.loads((SOURCES / "Cartouche.xcstrings").read_text(encoding="utf-8"))
 
     def test_the_catalog_holds_exactly_the_keys_the_code_uses(self):
-        self.assertTrue(self.calls, "no string found in CartoucheText.swift")
+        self.assertTrue(self.calls, "no string found in CartoucheText*.swift")
         keys = set(self.catalog["strings"])
         self.assertEqual(sorted(set(self.calls) - keys), [], "keys missing from Cartouche.xcstrings")
         self.assertEqual(sorted(keys - set(self.calls)), [], "keys no code uses")

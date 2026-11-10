@@ -29,3 +29,17 @@ CREATE TABLE IF NOT EXISTS daily (
   count INTEGER NOT NULL,
   PRIMARY KEY (install, day)
 );
+
+-- The problems players send from Report a problem, until GitHub has them
+-- as issues of the project's private repository (worker.js, POST
+-- /v1/problems): title and body are the issue's. Once filed, only the day
+-- and the issue's number stay, for the daily cap, until the day after.
+CREATE TABLE IF NOT EXISTS problems (
+  id TEXT PRIMARY KEY,
+  day TEXT NOT NULL,
+  title TEXT NOT NULL,
+  body TEXT NOT NULL,
+  issue INTEGER
+);
+CREATE INDEX IF NOT EXISTS problems_by_day ON problems (day);
+CREATE INDEX IF NOT EXISTS problems_waiting ON problems (issue, day);

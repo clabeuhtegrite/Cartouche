@@ -12,7 +12,17 @@
 // POST /v1/forget deletes every report of one copy of Cartouche, by its
 // random number.
 //
-// Every day, reports older than 25 months are deleted.
+// POST /v1/problems takes a report a player sends from System › Report a
+// problem with Send to Cartouche (launcher/Sources/
+// CartoucheProblemReport.swift), and files it as an issue of the project's
+// private repository, PROBLEMS_REPOSITORY, with the token PROBLEMS_TOKEN.
+// The database keeps it until GitHub has it: one GitHub does not take, or
+// one sent before the token is set, is filed by the daily run. Once filed,
+// the database keeps only its day and its issue's number, for the daily
+// cap, and forgets them two days later.
+//
+// Every day, reports older than 25 months are deleted, and the problems
+// GitHub does not have yet are filed.
 //
 // No dependency: the Worker is this file, deployed as it is by
 // .github/workflows/telemetry.yml.
@@ -32,6 +42,18 @@ export const LIMITS = {
   perAddressPerMinute: 120,
   // Months a report is kept.
   keptMonths: 25,
+  // A problem a player sends: the length of its fields, as JavaScript
+  // counts it, which the request's 64 KiB bound anyway.
+  problemTitle: 256,
+  problemWhat: 16000,
+  problemLogs: 60000,
+  problemField: 64,
+  // Problems one address may send in an hour, counted in each Worker
+  // instance's memory and never kept; problems taken in a day, from every
+  // address; problems the daily run files.
+  problemsPerAddressPerHour: 10,
+  problemsPerDay: 50,
+  problemsPerRun: 25,
 };
 
 export const SQL = {
@@ -45,6 +67,12 @@ export const SQL = {
   forgetDaily: "DELETE FROM daily WHERE install = ?1",
   expireReports: "DELETE FROM reports WHERE day < ?1",
   expireDaily: "DELETE FROM daily WHERE day < ?1",
+  problem: "SELECT issue FROM problems WHERE id = ?1",
+  problemsOfDay: "SELECT count(*) AS count FROM problems WHERE day = ?1",
+  keepProblem: "INSERT INTO problems (id, day, title, body) VALUES (?1, ?2, ?3, ?4) ON CONFLICT (id) DO NOTHING",
+  problemFiled: "UPDATE problems SET issue = ?2, title = '', body = '' WHERE id = ?1",
+  waitingProblems: "SELECT id, title, body FROM problems WHERE issue IS NULL ORDER BY day, id LIMIT ?1",
+  expireProblems: "DELETE FROM problems WHERE (issue IS NOT NULL AND day < ?1) OR day < ?2",
 };
 
 // MARK: Fields
@@ -201,26 +229,155 @@ export function clean(report) {
   return undefined;
 }
 
+// MARK: Problems
+
+const REPOSITORY = /^[A-Za-z0-9-]{1,39}\/[A-Za-z0-9._-]{1,100}$/;
+
+// TEXT without control characters: a line's become spaces; LINES keep
+// their line feeds and tabs, and a carriage return becomes a line feed.
+const plain = (text, lines) => {
+  const unified = text.replace(/\r\n?/g, "\n");
+  return lines ? unified.replace(/[\u0000-\u0008\u000b-\u001f\u007f]/g, "") : unified.replace(/[\u0000-\u001f\u007f]/g, " ");
+};
+
+// A string of at most MAXIMUM code units, made plain, that says something
+// unless it MAY BE BLANK.
+const words = (maximum, lines, mayBeBlank = false) => (value) => {
+  if (typeof value !== "string" || value.length > maximum) return undefined;
+  const kept = plain(value, lines);
+  return mayBeBlank || kept.trim() !== "" ? kept : undefined;
+};
+
+const problemFields = {
+  schema: oneOf(SCHEMA),
+  id: text(UUID),
+  title: words(LIMITS.problemTitle, false),
+  what: words(LIMITS.problemWhat, true, true),
+  device: words(LIMITS.problemField, false),
+  ios: words(LIMITS.problemField, false),
+  version: words(LIMITS.problemField, false),
+  logs: words(LIMITS.problemLogs, true, true),
+};
+const problemRequired = ["schema", "id", "title", "device", "ios", "version"];
+
+/** The problem as the server files it, without control characters, or
+ * undefined when it refuses it: a field it knows whose value is not of the
+ * form it expects refuses it whole; a field it does not know is left
+ * out. */
+export function cleanProblem(value) {
+  if (!isObject(value)) return undefined;
+  const kept = {};
+  for (const [key, check] of Object.entries(problemFields)) {
+    if (!has(value, key)) continue;
+    const checked = check(value[key]);
+    if (checked === undefined) return undefined;
+    kept[key] = checked;
+  }
+  return problemRequired.every((key) => has(kept, key)) ? kept : undefined;
+}
+
+/** The issue's body, as GitHub writes one of its bug report form's
+ * (.github/ISSUE_TEMPLATE/bug_report.yml), which catalog/tools/
+ * add_device.py reads too. The logs' fence is longer than any run of
+ * backticks in them. */
+export function issueBody(problem) {
+  const answer = (value) => (value && value.trim() ? value.trim() : "_No response_");
+  const logs = problem.logs?.trim() ?? "";
+  const longest = Math.max(0, ...(logs.match(/`+/g) ?? []).map((run) => run.length));
+  const fence = "`".repeat(Math.max(3, longest + 1));
+  return [
+    "### What happened",
+    "",
+    answer(problem.what),
+    "",
+    "### iPhone or iPad model",
+    "",
+    answer(problem.device),
+    "",
+    "### iOS version",
+    "",
+    answer(problem.ios),
+    "",
+    "### Cartouche version",
+    "",
+    answer(problem.version),
+    "",
+    "### Logs",
+    "",
+    ...(logs ? [fence + "text", logs, fence] : ["_No response_"]),
+    "",
+    "_Sent from Cartouche, System › Report a problem._",
+  ].join("\n");
+}
+
+/** Files an issue of PROBLEMS_REPOSITORY: its number, or undefined when the
+ * server has no token or GitHub did not take it. */
+async function fileIssue(env, title, body) {
+  const repository = env.PROBLEMS_REPOSITORY;
+  if (!env.PROBLEMS_TOKEN || typeof repository !== "string" || !REPOSITORY.test(repository)) return undefined;
+  try {
+    const response = await fetch(`https://api.github.com/repos/${repository}/issues`, {
+      method: "POST",
+      headers: {
+        accept: "application/vnd.github+json",
+        authorization: `Bearer ${env.PROBLEMS_TOKEN}`,
+        "content-type": "application/json",
+        "user-agent": "cartouche-telemetry",
+        "x-github-api-version": "2022-11-28",
+      },
+      body: JSON.stringify({ title, body }),
+    });
+    if (response.status !== 201) return undefined;
+    const issue = await response.json();
+    return Number.isInteger(issue?.number) ? issue.number : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+/** Files the problems GitHub does not have yet, the oldest first, until
+ * GitHub refuses one: the next run tries again. */
+export async function fileWaiting(env) {
+  if (!env.PROBLEMS_TOKEN) return 0;
+  const waiting = await env.DB.prepare(SQL.waitingProblems).bind(LIMITS.problemsPerRun).all();
+  let filed = 0;
+  for (const row of waiting?.results ?? []) {
+    const issue = await fileIssue(env, row.title, row.body);
+    if (issue === undefined) break;
+    await env.DB.prepare(SQL.problemFiled).bind(row.id, issue).run();
+    filed += 1;
+  }
+  return filed;
+}
+
 // MARK: Requests
 
 const recent = new Map();
+const recentProblems = new Map();
 
-/** Whether ADDRESS made too many requests this minute. Kept only in memory. */
-function throttled(address, now) {
+/** Whether ADDRESS made more than MAXIMUM requests in this PERIOD, in
+ * milliseconds, as SEEN counts them. Kept only in memory. */
+function over(seen, address, now, period, maximum) {
   if (!address) return false;
-  const minute = Math.floor(now / 60000);
-  if (recent.size > 10000) recent.clear();
-  const seen = recent.get(address);
-  if (!seen || seen.minute !== minute) {
-    recent.set(address, { minute, count: 1 });
+  const slot = Math.floor(now / period);
+  if (seen.size > 10000) seen.clear();
+  const known = seen.get(address);
+  if (!known || known.slot !== slot) {
+    seen.set(address, { slot, count: 1 });
     return false;
   }
-  seen.count += 1;
-  return seen.count > LIMITS.perAddressPerMinute;
+  known.count += 1;
+  return known.count > maximum;
+}
+
+/** Whether ADDRESS made too many requests this minute. */
+function throttled(address, now) {
+  return over(recent, address, now, 60000, LIMITS.perAddressPerMinute);
 }
 
 export function resetThrottle() {
   recent.clear();
+  recentProblems.clear();
 }
 
 function reply(status, body, headers = {}) {
@@ -311,21 +468,59 @@ async function forget(request, env) {
   return reply(200, { forgotten: true });
 }
 
-/** Deletes the reports older than 25 months, and the counts of past days. */
+async function problems(request, env, now) {
+  const read = await readJSON(request);
+  if (read.error) return read.error;
+  const problem = cleanProblem(read.value);
+  if (!problem) return reply(400, { error: "not a problem report" });
+  if (over(recentProblems, request.headers.get("cf-connecting-ip"), now, 3600000, LIMITS.problemsPerAddressPerHour)) {
+    return reply(429, { error: "too many problems from this address" }, { "retry-after": "3600" });
+  }
+  const day = today(now);
+  const body = issueBody(problem);
+  try {
+    const known = await env.DB.prepare(SQL.problem).bind(problem.id).first();
+    // Sent again, after an answer that did not reach the app.
+    if (known && known.issue !== null && known.issue !== undefined) return reply(200, { filed: true });
+    if (!known) {
+      const counted = await env.DB.prepare(SQL.problemsOfDay).bind(day).first();
+      if ((counted?.count ?? 0) >= LIMITS.problemsPerDay) {
+        return reply(429, { error: "too many problems today" }, { "retry-after": "3600" });
+      }
+      await env.DB.prepare(SQL.keepProblem).bind(problem.id, day, problem.title, body).run();
+    }
+  } catch {
+    return reply(503, { error: "unavailable" }, { "retry-after": "3600" });
+  }
+  const issue = await fileIssue(env, problem.title, body);
+  // Kept: the daily run files it.
+  if (issue === undefined) return reply(202, { kept: true });
+  try {
+    await env.DB.prepare(SQL.problemFiled).bind(problem.id, issue).run();
+  } catch {
+    // GitHub has it; the database will forget it with its day.
+  }
+  return reply(201, { filed: true });
+}
+
+/** Deletes the reports older than 25 months, the counts of past days, and
+ * the problems filed before yesterday. */
 export async function expire(env, now) {
   const cutoff = new Date(now);
   cutoff.setUTCMonth(cutoff.getUTCMonth() - LIMITS.keptMonths);
-  // The counts of today and yesterday are all the daily cap reads.
+  // The counts of today and yesterday are all the daily caps read.
   const counted = new Date(now - 2 * 86400000);
   await env.DB.batch([
     env.DB.prepare(SQL.expireReports).bind(cutoff.toISOString().slice(0, 10)),
     env.DB.prepare(SQL.expireDaily).bind(counted.toISOString().slice(0, 10)),
+    env.DB.prepare(SQL.expireProblems).bind(counted.toISOString().slice(0, 10), cutoff.toISOString().slice(0, 10)),
   ]);
 }
 
 const ROUTES = new Map([
   ["/v1/reports", reports],
   ["/v1/forget", forget],
+  ["/v1/problems", problems],
 ]);
 
 export default {
@@ -344,6 +539,6 @@ export default {
   },
 
   async scheduled(controller, env, context) {
-    context.waitUntil(expire(env, Date.now()));
+    context.waitUntil(Promise.all([expire(env, Date.now()), fileWaiting(env)]));
   },
 };

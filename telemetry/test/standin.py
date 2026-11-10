@@ -1,7 +1,8 @@
 """A stand-in for the part of Cloudflare's API that telemetry/deploy.sh and
 telemetry/sheets.py call, for their tests. It runs the SQL it is sent on
 SQLite, as D1 would: a script as it comes, or one statement with its
-parameters, whose rows it answers.
+parameters, whose rows it answers. Under /github, it answers as GitHub's API
+does for a repository, to the deploy's check of the problems' repository.
 """
 
 import email
@@ -17,6 +18,7 @@ from urllib.parse import parse_qs, urlparse
 ACCOUNT = "0123456789abcdef0123456789abcdef"
 TOKEN = "a-token-for-the-tests"
 PREFIX = f"/client/v4/accounts/{ACCOUNT}"
+GITHUB_TOKEN = "github_pat_for_the_tests"
 
 
 class Cloudflare:
@@ -32,9 +34,18 @@ class Cloudflare:
         self.scripts = {}
         self.enabled = None
         self.schedules = None
+        # GitHub's repositories the token can read: name -> private.
+        self.repositories = {}
 
     def answer(self, method, path, query, headers, body):
         self.calls.append((method, path))
+        if path.startswith("/github/repos/"):
+            name = path[len("/github/repos/"):]
+            if headers.get("Authorization") != f"Bearer {GITHUB_TOKEN}":
+                return 401, {"message": "Bad credentials"}
+            if method != "GET" or name not in self.repositories:
+                return 404, {"message": "Not Found"}
+            return 200, {"full_name": name, "private": self.repositories[name]}
         if headers.get("Authorization") != f"Bearer {TOKEN}":
             return 403, {"success": False, "errors": [{"code": 10000, "message": "Authentication error"}]}
         if not path.startswith(PREFIX):

@@ -8,8 +8,11 @@
 //  and the shoulder buttons change the list's filter. A held direction
 //  repeats. Touch keeps working alongside.
 //
-//  A game takes over the controller once it starts: LiveContainer runs it
-//  in place of the launcher.
+//  A game takes over the controller once it starts. LiveContainer runs it
+//  in place of the launcher, or behind the console (CartoucheGameHost):
+//  there, while the game is on screen, the console takes none of the
+//  controller's buttons, and the Home button, which comes to Cartouche
+//  rather than to iOS, shows the console, then the game again.
 //
 
 import Combine
@@ -32,6 +35,28 @@ final class CartoucheGamepad: ObservableObject {
 
     /// Each press once; a held direction repeats.
     let inputs = PassthroughSubject<Input, Never>()
+
+    /// Each press of the Home button. iOS keeps them while no game runs
+    /// behind the console (holdsHome).
+    let homePresses = PassthroughSubject<Void, Never>()
+
+    /// While a game runs behind the console, the Home button is Cartouche's.
+    var holdsHome = false {
+        didSet {
+            for controller in GCController.controllers() {
+                holdHome(of: controller)
+            }
+        }
+    }
+
+    /// While the game behind the console is on screen, the controller is
+    /// the game's: the console takes none of its buttons but Home.
+    var gameInFront = false {
+        didSet {
+            held = nil
+            repeating?.cancel()
+        }
+    }
 
     private var held: Input?
     private var repeating: Task<Void, Never>?
@@ -102,13 +127,30 @@ final class CartoucheGamepad: ObservableObject {
         for (button, input) in buttons {
             button?.pressedChangedHandler = { [weak self] _, _, pressed in
                 guard pressed else { return }
-                MainActor.assumeIsolated { self?.inputs.send(input) }
+                MainActor.assumeIsolated { self?.send(input) }
             }
         }
+        pad.buttonHome?.pressedChangedHandler = { [weak self] _, _, pressed in
+            guard pressed else { return }
+            MainActor.assumeIsolated { self?.homePresses.send(()) }
+        }
+        holdHome(of: controller)
+    }
+
+    private func send(_ input: Input) {
+        guard !gameInFront else { return }
+        inputs.send(input)
+    }
+
+    /// The press comes to Cartouche rather than to iOS, as nxnative asks for
+    /// a game that runs in Cartouche's place.
+    private func holdHome(of controller: GCController) {
+        controller.extendedGamepad?.buttonHome?.preferredSystemGestureState = holdsHome ? .disabled : .enabled
     }
 
     /// A direction from the D-pad or the stick, past half its travel.
     private func direction(x: Float, y: Float) {
+        guard !gameInFront else { return }
         let input: Input?
         if abs(x) >= abs(y) {
             input = x > 0.5 ? .right : (x < -0.5 ? .left : nil)
@@ -123,7 +165,7 @@ final class CartoucheGamepad: ObservableObject {
         repeating = Task { @MainActor [weak self] in
             try? await Task.sleep(for: .milliseconds(380))
             while !Task.isCancelled {
-                self?.inputs.send(input)
+                self?.send(input)
                 try? await Task.sleep(for: .milliseconds(110))
             }
         }

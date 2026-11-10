@@ -26,6 +26,10 @@
 //  (CartoucheGamesView), the home leaves out the game in focus, which the
 //  sheet describes in full, and its shelf takes the room.
 //
+//  A game paused behind the console (CartoucheGameHost) has a pause badge
+//  on its cartridge, Resume as its main action and Quit beside it; the
+//  focus goes to it each time the console comes back over it.
+//
 
 import SwiftUI
 
@@ -44,6 +48,8 @@ struct CartoucheHomeView: View {
     let onSheet: (CartoucheEntry) -> Void
     let onLibrary: () -> Void
     let onSetup: () -> Void
+    /// Opens the first game's guide (CartoucheGuideView).
+    let onGuide: () -> Void
     let onTab: (LCTabIdentifier) -> Void
     /// Where a game's sheet grows out of its cartridge.
     let zoom: Namespace.ID?
@@ -59,7 +65,7 @@ struct CartoucheHomeView: View {
          onPlay: @escaping (LCAppModel) -> Void, onImport: @escaping () -> Void,
          onInstall: @escaping (CartoucheStoredGame) -> Void = { _ in },
          onUninstall: @escaping (LCAppModel) -> Void, onSheet: @escaping (CartoucheEntry) -> Void,
-         onLibrary: @escaping () -> Void, onSetup: @escaping () -> Void,
+         onLibrary: @escaping () -> Void, onSetup: @escaping () -> Void, onGuide: @escaping () -> Void = {},
          onTab: @escaping (LCTabIdentifier) -> Void, zoom: Namespace.ID? = nil,
          showsHero: Bool = true, onFocus: @escaping (CartoucheEntry) -> Void = { _ in }) {
         self.entries = entries
@@ -72,6 +78,7 @@ struct CartoucheHomeView: View {
         self.onSheet = onSheet
         self.onLibrary = onLibrary
         self.onSetup = onSetup
+        self.onGuide = onGuide
         self.onTab = onTab
         self.zoom = zoom
         self.showsHero = showsHero
@@ -79,13 +86,19 @@ struct CartoucheHomeView: View {
     }
 
     @ObservedObject private var setup = CartoucheSetup.shared
+    @ObservedObject private var guide = CartoucheGuide.shared
     @ObservedObject private var gamepad = CartoucheGamepad.shared
+    @ObservedObject private var actions = CartoucheGameActions.shared
     @State private var row = CartoucheHomeView.shelfRow
     @State private var columns = [0, 0]
     @State private var signature = CartoucheSignature.current()
     /// Whether the shelf stands beside the game in focus, with the dock in
     /// the top bar, so that the D-pad goes up to the dock.
     @State private var isWide = false
+    /// The height of the banner over the shelf, the guide's card or the
+    /// setup banner, as last laid out: its detail can take one line or two,
+    /// as the guide's does on an iPhone upright (Metrics).
+    @State private var bannerHeight: CGFloat?
 
     enum Item: Hashable {
         case game(CartoucheEntry)
@@ -139,13 +152,23 @@ struct CartoucheHomeView: View {
 
     var body: some View {
         GeometryReader { proxy in
-            let metrics = Metrics(size: proxy.size, hasBanner: setup.needsSetup, hasHero: showsHero)
+            // Until the first game is installed, the guide's card stands in
+            // the setup banner's place, whose steps it begins with.
+            let guideProgress = guide.progress(entries)
+            let showsGuide = guide.showsCard(guideProgress)
+            let metrics = Metrics(size: proxy.size, hasBanner: showsGuide || setup.needsSetup, hasHero: showsHero,
+                                  measuredBanner: bannerHeight)
             ScrollView(.vertical) {
                 VStack(alignment: .leading, spacing: metrics.spacing) {
                     topBar(metrics)
-                    if setup.needsSetup {
-                        CartoucheHomeSetupBanner(action: onSetup)
+                    Group {
+                        if showsGuide {
+                            CartoucheGuideCard(progress: guideProgress, action: onGuide)
+                        } else if setup.needsSetup {
+                            CartoucheHomeSetupBanner(action: onSetup)
+                        }
                     }
+                    .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { bannerHeight = $0 }
                     shelfAndHero(metrics)
                         // In the middle of the room the screen leaves them.
                         .padding(.top, metrics.slack / 2)
@@ -176,6 +199,15 @@ struct CartoucheHomeView: View {
         .background(CartoucheStage(key: heroKey, artwork: heroArtwork))
         .onChange(of: hero) { _, hero in
             if case .game(let entry) = hero { onFocus(entry) }
+        }
+        // Back from the game behind the console: the focus on it, with
+        // Resume under A.
+        .onChange(of: actions.running?.isInFront) { _, inFront in
+            guard inFront == false, let column = libraryShelf.firstIndex(where: { item in
+                if case .game(let entry) = item { return actions.isRunning(entry.app) }
+                return false
+            }) else { return }
+            focus(row: Self.shelfRow, column: column)
         }
         .onReceive(gamepad.inputs) { input in
             if isActive { handle(input) }
@@ -315,7 +347,7 @@ struct CartoucheHomeView: View {
     private func tile(_ item: Item, width: CGFloat, isFocused: Bool) -> some View {
         switch item {
         case .game(let entry):
-            CartoucheGameCartridge(entry: entry, width: width, isFocused: isFocused)
+            CartoucheGameCartridge(entry: entry, width: width, isFocused: isFocused, isPaused: actions.isRunning(entry.app))
                 .cartoucheZoomSource(entry.id, in: zoom)
                 .accessibilityAddTraits(.isButton)
                 .accessibilityAction(named: Text(CartoucheText.details)) { onSheet(entry) }
@@ -333,7 +365,10 @@ struct CartoucheHomeView: View {
     /// being in the sheet.
     @ViewBuilder
     private func gameMenu(_ entry: CartoucheEntry) -> some View {
-        if let app = entry.app {
+        if let app = entry.app, actions.isRunning(app) {
+            Button { onPlay(app) } label: { Label(CartoucheText.resume, systemImage: "play.fill") }
+            Button(role: .destructive) { actions.askToQuit() } label: { Label(CartoucheText.quit, systemImage: "xmark.circle") }
+        } else if let app = entry.app {
             Button { onPlay(app) } label: { Label(CartoucheText.play, systemImage: "play.fill") }
             if let update = entry.update {
                 Button { onInstall(update) } label: { Label(updateTitle, systemImage: "arrow.down.circle.fill") }
@@ -344,7 +379,7 @@ struct CartoucheHomeView: View {
             Button(action: onImport) { Label(CartoucheText.importCopy, systemImage: "square.and.arrow.down") }
         }
         Button { onSheet(entry) } label: { Label(CartoucheText.details, systemImage: "info.circle") }
-        if let app = entry.app {
+        if let app = entry.app, !actions.isRunning(app) {
             Divider()
             Button(role: .destructive) { onUninstall(app) } label: { Label(CartoucheText.uninstall, systemImage: "trash") }
         }
@@ -395,11 +430,11 @@ struct CartoucheHomeView: View {
     }
 
     private func gameHero(_ entry: CartoucheEntry, metrics: Metrics) -> some View {
-        let status = CartouchePlayStatus.of(entry)
+        let status = CartouchePlayStatus.of(entry, in: actions)
         return VStack(alignment: .leading, spacing: 12) {
             VStack(alignment: .leading, spacing: 6) {
                 heroTitle(entry.name, metrics: metrics)
-                CartoucheMetaLine(entry: entry)
+                CartoucheMetaLine(entry: entry, isPaused: actions.isRunning(entry.app))
                 if let detail = heroDetail(status) {
                     Text(detail)
                         .font(.subheadline)
@@ -432,10 +467,14 @@ struct CartoucheHomeView: View {
     }
 
     /// The buttons of the game in focus; with COMPACT, its last ones show
-    /// only their symbols: Details at 1, Update and Details at 2.
+    /// only their symbols: Details at 1, Update or Quit and Details at 2.
     private func gameActions(_ entry: CartoucheEntry, compact: Int) -> some View {
         HStack(spacing: 10) {
-            if let app = entry.app {
+            if let app = entry.app, actions.isRunning(app) {
+                actionButton(CartoucheText.resume, systemImage: "play.fill", primary: true, input: .a) { onPlay(app) }
+                actionButton(CartoucheText.quit, systemImage: "xmark.circle", primary: false,
+                             iconOnly: compact >= 2) { actions.askToQuit() }
+            } else if let app = entry.app {
                 actionButton(CartoucheText.play, systemImage: "play.fill", primary: true, input: .a) { onPlay(app) }
                 if let update = entry.update {
                     actionButton(CartoucheText.updateGame, systemImage: "arrow.down.circle.fill", primary: false,
@@ -667,10 +706,13 @@ struct CartoucheHomeView: View {
     /// The sizes of the home for the space the screen gives it.
     struct Metrics {
         let size: CGSize
-        /// The setup banner is over the shelf.
+        /// The setup banner, or the guide's card, is over the shelf.
         var hasBanner = false
         /// The game in focus is under the shelf, or beside it.
         var hasHero = true
+        /// The banner's height as the home laid it out; bannerHeight until
+        /// it has.
+        var measuredBanner: CGFloat? = nil
 
         static let topBarHeight: CGFloat = 44
         static let bannerHeight: CGFloat = 72
@@ -727,7 +769,7 @@ struct CartoucheHomeView: View {
         private var shelfSpace: CGFloat {
             // The shelf under the top bar.
             var fixed = 2 * verticalPadding + Self.topBarHeight + spacing + Self.shelfTitleHeight
-            if hasBanner { fixed += Self.bannerHeight + spacing }
+            if hasBanner { fixed += (measuredBanner ?? Self.bannerHeight) + spacing }
             if !isWide {
                 // The game in focus under the shelf, the dock under them.
                 fixed += Self.dockTopPadding + Self.dockHeight + Self.dockBottomPadding
@@ -758,6 +800,8 @@ struct CartoucheMetaLine: View {
     let entry: CartoucheEntry
     /// Off where a badge under the line says it already.
     var showsStatus = true
+    /// The game runs behind the console, paused there.
+    var isPaused = false
 
     var body: some View {
         HStack(spacing: 8) {
@@ -778,7 +822,7 @@ struct CartoucheMetaLine: View {
                     .lineLimit(1)
             }
             if showsStatus {
-                CartoucheStatusLabel(status: CartouchePlayStatus.of(entry))
+                CartoucheStatusLabel(status: isPaused ? .paused : CartouchePlayStatus.of(entry))
             }
         }
     }

@@ -23,6 +23,11 @@
 //    choices saved in its preferences, which the game's settings page in
 //    Cartouche writes (CartoucheGameSettings.swift). Start on nxnative's
 //    screen takes the line out, so that the screen shows.
+//  - The game runs behind the console, in a process of its own, so that
+//    the Home button brings the player back to Cartouche without ending it
+//    (CartoucheGameHost); one game at a time, and Quit ends it. A game that
+//    needs more memory than it gets there starts in Cartouche's place, as
+//    LiveContainer's Run does (CartoucheGameKeeping).
 //
 //  Each step goes into Cartouche's journal, and a step that fails tells the
 //  player why with a report they can copy (CartoucheReporting.swift).
@@ -48,6 +53,13 @@ final class CartoucheGameActions: ObservableObject {
     @Published var notice: CartoucheGameNotice?
     /// The game the last import installed: the console shows it.
     @Published var installed: LCAppModel?
+    /// The game running behind the console.
+    @Published private(set) var running: CartoucheRunningGame?
+    /// Another game the player asked for while one runs: the console asks
+    /// before it quits the one that runs.
+    @Published var switching: CartoucheGameSwitch?
+    /// The running game the player asked to quit: the console asks first.
+    @Published var quitQuestion: CartoucheRunningGame?
 
     /// What a report on the step under way says of it, such as its sizes.
     private var facts: [CartoucheReport.Fact] = []
@@ -59,6 +71,10 @@ final class CartoucheGameActions: ObservableObject {
     /// The time iOS gives a step that is on its way when the player leaves
     /// Cartouche.
     private var background: UIBackgroundTaskIdentifier = .invalid
+    /// The game to start once the running one has ended.
+    private var pendingStart: (app: LCAppModel, showingSettings: Bool)?
+    /// The running game opened on nxnative's settings screen.
+    private var runningShowsSettings = false
 
     /// Whether a file another app opened Cartouche with is an app to
     /// install: Cartouche installs it itself instead of the Apps tab
@@ -270,6 +286,9 @@ final class CartoucheGameActions: ObservableObject {
 
         // The same game installed already: this copy takes its place.
         let previous = model.apps.first { $0.appInfo.bundleIdentifier() == bundleId }
+        if let previous, previous === running?.app {
+            throw CartoucheText.quitFirst(previous.displayName)
+        }
         var relativePath = "\(bundleId.sanitizeNonACSII()).app"
         var destination = LCPath.bundlePath.appendingPathComponent(relativePath)
         if let previous, let previousPath = previous.appInfo.relativeBundlePath {
@@ -567,10 +586,20 @@ final class CartoucheGameActions: ObservableObject {
 
     // MARK: Play
 
-    /// Starts the game, signed for this iPhone first if it needs to be.
-    /// Cartouche then opens again as the game. With showingSettings,
-    /// nxnative shows its settings screen before the game.
+    /// Starts the game, signed for this iPhone first if it needs to be,
+    /// behind the console or in Cartouche's place. With showingSettings,
+    /// nxnative shows its settings screen before the game. The game that
+    /// runs behind the console comes back to the screen instead; another
+    /// game takes its place once the player has said so.
     func play(_ app: LCAppModel, showingSettings: Bool = false) {
+        if let running {
+            if running.app === app && !showingSettings {
+                resumeRunningGame()
+            } else {
+                switching = CartoucheGameSwitch(running: running, next: app, showingSettings: showingSettings)
+            }
+            return
+        }
         guard work == nil, !app.isAppRunning else { return }
         facts = Self.buildFacts(CartoucheInstalledBuilds.shared.build(of: app))
             + [.init("nxnative's settings screen", showingSettings ? "shown" : "skipped")]
@@ -596,6 +625,11 @@ final class CartoucheGameActions: ObservableObject {
                     work?.step = showingSettings ? CartoucheText.startSettings : CartoucheText.startSoon
                 }
                 try Self.prepareStart(of: app, showingSettings: showingSettings)
+                if #available(iOS 18.0, *), try await startBehindConsole(app, showingSettings: showingSettings) {
+                    signing = nil
+                    work = nil
+                    return
+                }
                 // The questions runApp may ask come to Cartouche.
                 app.delegate = self
                 try await app.runApp(multitask: false, forceJIT: false)
@@ -611,6 +645,130 @@ final class CartoucheGameActions: ObservableObject {
             app.delegate = delegate
             signing = nil
             work = nil
+        }
+    }
+
+    /// Starts the game behind the console, if it plays there: true once it
+    /// runs. False when it starts in Cartouche's place instead, as before:
+    /// the player turned it off, the game needs more memory than it gets
+    /// there, or it did not start there.
+    @available(iOS 18.0, *)
+    private func startBehindConsole(_ app: LCAppModel, showingSettings: Bool) async throws -> Bool {
+        guard startsBehindConsole(app), let bundle = app.appInfo.relativeBundlePath,
+              let container = Self.dataFolder(of: app) else { return false }
+        // What runApp does first: it signs the game and its tweaks.
+        try await app.signApp(force: false)
+        running = CartoucheRunningGame(app: app, dataFolder: container.folderName, started: Date(), isInFront: true)
+        runningShowsSettings = showingSettings
+        do {
+            try await CartoucheGameHost.shared.start(app, bundle: bundle, dataFolder: container.folderName)
+        } catch {
+            running = nil
+            NSLog("[Cartouche] %@ did not start behind the console, it starts in Cartouche's place: %@",
+                  app.displayName, String(describing: error))
+            return false
+        }
+        app.appInfo.lastLaunched = Date()
+        return true
+    }
+
+    @available(iOS 18.0, *)
+    private func startsBehindConsole(_ app: LCAppModel) -> Bool {
+        let keeping = CartoucheGameKeeping.shared
+        let info = app.appInfo
+        guard keeping.keepsConsoleOpen, CartoucheGameKeeping.isAvailable,
+              // LiveContainer runs these only in its own place.
+              info.defaultClassicMode == 0, !info.isJITNeeded, !info.is32bit,
+              !keeping.startsInPlace(bundleId: info.bundleIdentifier()) else { return false }
+        return fitsBehindConsole(app, limitMiB: nil)
+    }
+
+    /// Whether the game has the memory it needs behind the console, by its
+    /// sheet, with the limit measured there.
+    private func fitsBehindConsole(_ app: LCAppModel, limitMiB: Int?) -> Bool {
+        let sheet = CartoucheCatalog.shared.entries(for: [app]).owned.first?.sheet
+        return CartoucheGameKeeping.shared.fitsBehind(needsIML: sheet?.requirements.increasedMemoryLimit ?? false,
+                                                      peakMiB: sheet?.peakMemoryMiB, limitMiB: limitMiB,
+                                                      ownLimitMiB: CartoucheMemoryReading.now()?.limitMiB)
+    }
+
+    // MARK: The game behind the console
+
+    /// The game behind the console, on screen again, where it was.
+    func resumeRunningGame() {
+        if #available(iOS 18.0, *) {
+            CartoucheGameHost.shared.showGame()
+        }
+    }
+
+    /// The console asks whether to quit the running game.
+    func askToQuit() {
+        quitQuestion = running
+    }
+
+    func quitRunningGame() {
+        quitQuestion = nil
+        if #available(iOS 18.0, *) {
+            CartoucheGameHost.shared.quit()
+        }
+    }
+
+    /// The player said so: the running game quits, and the other starts
+    /// once it has.
+    func confirmSwitch(_ change: CartoucheGameSwitch) {
+        switching = nil
+        pendingStart = (change.next, change.showingSettings)
+        quitRunningGame()
+    }
+
+    /// The running game went behind the console, paused, or came back.
+    func gameDidMove(inFront: Bool) {
+        guard let current = running else { return }
+        running?.isInFront = inFront
+        if !inFront {
+            NotificationCenter.default.post(name: .cartoucheGameDidPause, object: current.app)
+        }
+    }
+
+    /// The first reading of the running game's memory: the limit iOS set
+    /// behind the console. A game that needs more starts again in
+    /// Cartouche's place at once, before the player is into it.
+    func gameMeasured(_ app: LCAppModel, reading: CartoucheGameMemoryReading) {
+        CartoucheGameKeeping.shared.measured(limitMiB: reading.limitMiB)
+        guard running?.app === app, pendingStart == nil, let bundleId = app.appInfo.bundleIdentifier(),
+              !fitsBehindConsole(app, limitMiB: reading.limitMiB) else { return }
+        NSLog("[Cartouche] %@ needs more memory than the %lld MiB it has behind the console: it starts in Cartouche's place",
+              app.displayName, reading.limitMiB)
+        CartoucheGameKeeping.shared.startInPlace(bundleId: bundleId)
+        pendingStart = (app, runningShowsSettings)
+        quitRunningGame()
+    }
+
+    /// The running game has ended: the player quit it, or iOS stopped it,
+    /// and then the console says so. A game iOS stopped close to its memory
+    /// limit starts in Cartouche's place from then on.
+    func gameDidEnd(_ app: LCAppModel, quit: Bool, wasInFront: Bool, reading: CartoucheGameMemoryReading?) {
+        guard running?.app === app else { return }
+        running = nil
+        quitQuestion = nil
+        switching = nil
+        NotificationCenter.default.post(name: .cartoucheGameDidEnd, object: app)
+        if !quit {
+            let title = CartoucheText.gameStoppedTitle(app.displayName)
+            if wasInFront, let reading, reading.wasNearLimit, let bundleId = app.appInfo.bundleIdentifier() {
+                CartoucheGameKeeping.shared.startInPlace(bundleId: bundleId)
+                notice = CartoucheGameNotice(title: title, message: CartoucheText.gameStoppedMemory(
+                    CartoucheText.memoryAmount(mebibytes: reading.limitMiB)))
+            } else {
+                notice = CartoucheGameNotice(title: title,
+                                             message: wasInFront ? CartoucheText.gameStopped : CartoucheText.gameStoppedPaused)
+            }
+        }
+        copySaves(of: [app])
+        if let next = pendingStart {
+            pendingStart = nil
+            // Once LiveContainer has let go of the game's data folder.
+            Task { play(next.app, showingSettings: next.showingSettings) }
         }
     }
 
@@ -702,7 +860,9 @@ final class CartoucheGameActions: ObservableObject {
     func copySaves(of apps: [LCAppModel]) {
         let backups = CartoucheSaveBackups.shared
         guard backups.isOn, work == nil else { return }
-        backups.copyChanged(apps.compactMap { saves(of: $0) })
+        // The game behind the console may be writing its saves: they are
+        // copied once it has ended.
+        backups.copyChanged(apps.filter { $0 !== running?.app }.compactMap { saves(of: $0) })
     }
 
     // MARK: Settings
@@ -734,6 +894,10 @@ final class CartoucheGameActions: ObservableObject {
     /// game makes again at each start goes either way.
     func uninstall(_ app: LCAppModel, erasingData: Bool) {
         guard work == nil, let bundlePath = app.appInfo.bundlePath() else { return }
+        if app === running?.app {
+            notice = CartoucheGameNotice(title: CartoucheText.uninstallFailed, message: CartoucheText.quitFirst(app.displayName))
+            return
+        }
         let model = DataManager.shared.model
         // Folders the player picked elsewhere are theirs: never deleted.
         let folders = app.uiContainers.filter { $0.storageBookMark == nil }.map { container in

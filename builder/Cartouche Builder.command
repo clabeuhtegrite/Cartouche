@@ -13,6 +13,9 @@ for candidate in python3.14 python3.13 python3.12 python3; do
 done
 echo "Cartouche Builder needs Python 3.12 or later with Tk:"
 echo "  brew install python@3.13 python-tk@3.13"
+echo "Or install it with every tool it needs, in one command (builder/install.sh):"
+# shellcheck disable=SC2016 # the command to type, as is
+echo '  /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/clabeuhtegrite/Cartouche/main/builder/install.sh)"'
 printf "Press Return to close. "
 read -r _
 exit 1

@@ -11,6 +11,10 @@ The Worker has no dependency and no build: the file is deployed as it is.
   - 429 with `Retry-After: 60`: the address sent more than 120 requests in the minute. The count is kept in the Worker's memory only, never written.
   - 503 with `Retry-After: 3600`: the database is unavailable, or past its daily limit. Cartouche keeps its reports and tries again later.
 - `POST /v1/forget` takes `{"install": "<number>"}` and deletes every report of that copy of Cartouche, and its count of the day: **Erase what this iPhone sent** on Cartouche's Game measurements page. Cartouche then takes a new number.
+- `POST /v1/problems` takes a problem a player sends from **System › Report a problem** with **Send to Cartouche** ([`CartoucheProblemReport.swift`](../launcher/Sources/CartoucheProblemReport.swift)), and files it as an issue of the project's private repository, in the bug report form's sections ([Problems](#problems)). It answers 201 when GitHub has it, 200 when it had it already, and 202 when the server keeps it for its daily run: Cartouche says it is sent in all three.
+  - 400 or 413: not a problem the server takes.
+  - 429 with `Retry-After: 3600`: the address sent more than 10 problems in the hour, or the server took 50 today.
+  - 503 with `Retry-After: 3600`: the database is unavailable.
 - `GET /` answers `Cartouche telemetry`, to check that it runs.
 
 ## What the server keeps
@@ -20,7 +24,15 @@ Each report is checked field by field and kept as the server rebuilt it: a field
 - `reports`: one row per report, its `id` once whatever the times it is sent. The report itself is `body`, and the columns beside it are what queries read: `kind`, `install`, `day`, `seq`, `cartouche`, `device`, `ios`, `game`, `name` and `session`. `day` is the day the server received it, in UTC: there is no time, and no address.
 - `daily`: how many reports each copy of Cartouche sent each day, for its cap of 2,000 a day; the counts of the days before yesterday go.
 
-Every day at 03:17 UTC, the reports older than 25 months go.
+- `problems`: each problem a player sent, as its issue's title and body, until GitHub has it; then only its `day` and its `issue`'s number, for the daily cap, until the day after.
+
+Every day at 03:17 UTC, the reports older than 25 months go, and the problems GitHub does not have yet are filed, 25 at most.
+
+## Problems
+
+A problem is the report of **System › Report a problem**, as Cartouche makes it of an error, with what the player wrote: `schema` (1), a random `id` in lowercase, so that a problem sent again after an answer that did not reach the app is filed once; `title`, the first line the player wrote; `what`, all of it; `device`, `ios` and `version`, as the bug report form's fields have them, such as `iPhone19,4 (A20 Pro, 12 GB)`, `27.3 (25B72)` and `0.10.0 (1a2b3c4)`; and `logs`, the report itself, with this iPhone's entry for `catalog/devices.json` and the reports of the last errors. Cartouche has taken the player's names and addresses out of all of it; the server takes out control characters, and refuses a problem whose fields are not of that form, or longer than it takes: 256 characters for the title, 16,000 for `what`, 60,000 for the logs.
+
+The issue is written as GitHub writes one of the [bug report form](../.github/ISSUE_TEMPLATE/bug_report.yml)'s, so that [`catalog/tools/add_device.py`](../catalog/tools/add_device.py) reads the iPhone's measurement out of it as out of a public one. The repository is private: problems sent from Cartouche are not public, unlike those posted through GitHub's form.
 
 ## Reports
 
@@ -82,6 +94,8 @@ The deploy takes two secrets of the repository's environment `cloudflare`, and d
 - `CLOUDFLARE_API_TOKEN`: a token of the account with **Account › Workers Scripts › Edit** and **Account › D1 › Edit**;
 - `CLOUDFLARE_ACCOUNT_ID`: the account's ID.
 
+A third, `CARTOUCHE_REPORTS_TOKEN`, lets the Worker file problems: a fine-grained token of the repository `<owner>/cartouche-reports` alone (or the variable `CARTOUCHE_REPORTS_REPOSITORY`), private, with **Issues › Read and write**. The deploy binds it to the Worker as the secret `PROBLEMS_TOKEN`, with the repository as `PROBLEMS_REPOSITORY`, once it has checked with GitHub that the repository is private: it binds nothing to a public one. Without it, the server keeps the problems players send, and files them at the first daily run after a deploy with it. The job summary says where problems go.
+
 Run the workflow by hand for a first deploy once they are set. The free plan is enough: 100,000 requests and 100,000 rows written a day.
 
 ## Tests
@@ -91,4 +105,4 @@ node --test telemetry/test/worker.test.js            # the Worker, with a stand-
 python3 -m unittest discover -s telemetry/test -v    # the database on SQLite; the deploy and the weekly sum against a stand-in for Cloudflare's API
 ```
 
-[`test/app-reports.json`](test/app-reports.json) holds a report of each kind as Cartouche makes it, with every field: the launcher's tests check that Cartouche makes them so ([`CartoucheTelemetryReportTests.swift`](../launcher/Tests/CartoucheCoreTests/CartoucheTelemetryReportTests.swift)), and the Worker's that it keeps every field of them. [`app/tests/test_telemetry.py`](../app/tests/test_telemetry.py) checks that the server's address goes from `app/config.env` into the app, and that the app posts to the routes the Worker serves.
+[`test/app-problem.json`](test/app-problem.json) holds a problem as Cartouche sends it, which the launcher's tests check too ([`CartoucheProblemReportTests.swift`](../launcher/Tests/CartoucheCoreTests/CartoucheProblemReportTests.swift)). [`test/app-reports.json`](test/app-reports.json) holds a report of each kind as Cartouche makes it, with every field: the launcher's tests check that Cartouche makes them so ([`CartoucheTelemetryReportTests.swift`](../launcher/Tests/CartoucheCoreTests/CartoucheTelemetryReportTests.swift)), and the Worker's that it keeps every field of them. [`app/tests/test_telemetry.py`](../app/tests/test_telemetry.py) checks that the server's address goes from `app/config.env` into the app, and that the app posts to the routes the Worker serves.
