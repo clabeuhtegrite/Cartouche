@@ -121,6 +121,7 @@ struct CartoucheStorageMacForm: View {
                     Text(verbatim: CartoucheBridge.spaced(code))
                         .font(.system(size: 44, weight: .bold, design: .rounded).monospacedDigit())
                         .frame(maxWidth: .infinity)
+                        .listRowSeparator(.hidden)
                         .accessibilityLabel(code.map(String.init).joined(separator: " "))
                     Text(CartoucheText.storageMacCheckCode)
                         .font(.subheadline)
@@ -189,7 +190,8 @@ struct CartoucheStorageMacForm: View {
 
     private var nearbySection: some View {
         Section {
-            if nearby.found.isEmpty {
+            // No search to wait for while iOS refuses the local network.
+            if nearby.found.isEmpty && !nearby.refused {
                 HStack {
                     ProgressView()
                     Text(CartoucheText.storageMacLooking)
