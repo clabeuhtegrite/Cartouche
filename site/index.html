@@ -1,0 +1,1741 @@
+<!doctype html>
+<html lang="en" data-lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Cartouche for iPhone</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<meta name="description" content="Cartouche turns an iPhone into a console for the games nxnative runs natively, from your own copies. Free software, no developer account needed." data-en="Cartouche turns an iPhone into a console for the games nxnative runs natively, from your own copies. Free software, no developer account needed." data-fr="Cartouche transforme un iPhone en console pour les jeux que nxnative fait tourner nativement, à partir de vos propres copies. Logiciel libre, sans compte développeur.">
+<meta name="color-scheme" content="dark">
+<meta name="theme-color" content="#090A11">
+<meta name="referrer" content="no-referrer">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<script>
+    // The page's language before it is drawn: the visitor's choice, else the browser's.
+    (function () {
+        var lang;
+        try { lang = localStorage.getItem("cartouche.site.lang"); } catch (e) {}
+        if (lang !== "fr" && lang !== "en") {
+            var wanted = (navigator.languages && navigator.languages[0]) || navigator.language || "en";
+            lang = wanted.toLowerCase().indexOf("fr") === 0 ? "fr" : "en";
+        }
+        document.documentElement.setAttribute("data-lang", lang);
+        document.documentElement.lang = lang;
+    })();
+</script>
+<style>
+    /* The page is the console's stage: dark, lit from above by the colours of
+       the game in focus, with Cartouche's own screens standing on it, rebuilt
+       here in HTML at the app's sizes in points. One theme, the app's own. */
+    :root {
+        color-scheme: dark;
+        --stage: #090A11;
+        --ink: #F6F6FA;
+        --ink-2: rgba(246, 246, 250, .7);
+        --ink-3: rgba(246, 246, 250, .48);
+        --line: rgba(255, 255, 255, .1);
+        --indigo: #4F46E5;
+        --pink: #EC4899;
+        --ready: #34D37E;
+        --stored: #64D2FF;
+        --mac: #62A3FF;
+        --bringup: #FFB03F;
+        --link: #0A84FF;
+        --danger: #FF7373;
+        --panel: rgba(28, 28, 33, .74);
+        --display: ui-rounded, "SF Pro Rounded", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+        --text: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+        --mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, monospace;
+        /* The game in focus, as the console lights its stage with it. */
+        --light: #3BE3C3;
+        --dark: #3A1C7A;
+    }
+    @property --light { syntax: "<color>"; inherits: true; initial-value: #3BE3C3; }
+    @property --dark { syntax: "<color>"; inherits: true; initial-value: #3A1C7A; }
+
+    *, *::before, *::after { box-sizing: border-box; }
+    html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; background: var(--stage); }
+    body {
+        margin: 0;
+        background: var(--stage);
+        color: var(--ink);
+        font-family: var(--text);
+        font-size: 17px;
+        line-height: 1.55;
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
+    }
+    body::before {
+        content: "";
+        position: fixed;
+        inset: 0 0 auto;
+        height: env(safe-area-inset-top, 0px);
+        z-index: 40;
+        background: var(--stage);
+    }
+    html[data-lang="fr"] [lang="en"], html[data-lang="en"] [lang="fr"] { display: none !important; }
+    img, svg { display: block; max-width: 100%; }
+    a { color: inherit; text-decoration-thickness: 1px; text-underline-offset: .2em; }
+    button { font: inherit; color: inherit; }
+    :focus-visible { outline: 2px solid #fff; outline-offset: 3px; }
+    p { margin: 0; }
+    .page { position: relative; overflow-x: clip; }
+    .wrap {
+        width: 100%;
+        max-width: 1200px;
+        margin-inline: auto;
+        padding-left: max(16px, env(safe-area-inset-left, 0px));
+        padding-right: max(16px, env(safe-area-inset-right, 0px));
+    }
+    @media (min-width: 760px) {
+        .wrap {
+            padding-left: max(40px, env(safe-area-inset-left, 0px));
+            padding-right: max(40px, env(safe-area-inset-right, 0px));
+        }
+    }
+
+    /* ---------- Header: the console's dock, as a capsule of glass ---------- */
+    .top { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 30; padding-block: 12px; }
+    .top__bar {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        min-height: 58px;
+        padding: 0 9px 0 18px;
+        border-radius: 999px;
+        background: rgba(16, 17, 27, .64);
+        box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .13), 0 14px 34px -16px rgba(0, 0, 0, .8);
+        -webkit-backdrop-filter: blur(22px) saturate(1.6);
+        backdrop-filter: blur(22px) saturate(1.6);
+    }
+    .wordmark { display: inline-flex; align-items: center; gap: 9px; margin-right: auto; text-decoration: none; }
+    .wordmark svg { width: 18px; height: 24px; }
+    .wordmark b, .brandtext {
+        font: 800 1.38rem/1 var(--display);
+        letter-spacing: -.01em;
+        background: linear-gradient(90deg, #7A73FF, var(--pink));
+        -webkit-background-clip: text;
+        background-clip: text;
+        color: transparent;
+    }
+    .nav { display: flex; gap: 2px; }
+    .nav a { padding: 8px 13px; border-radius: 999px; color: var(--ink-2); font-size: .95rem; font-weight: 500; text-decoration: none; }
+    .nav a:hover { color: var(--ink); background: rgba(255, 255, 255, .08); }
+    .lang { display: inline-flex; padding: 3px; border-radius: 999px; background: rgba(255, 255, 255, .07); box-shadow: inset 0 0 0 1px var(--line); }
+    .lang button {
+        border: 0;
+        background: none;
+        padding: 7px 10px;
+        border-radius: 999px;
+        font: 700 .78rem/1 var(--display);
+        letter-spacing: .08em;
+        color: var(--ink-3);
+        cursor: pointer;
+    }
+    .lang button[aria-pressed="true"] { background: rgba(255, 255, 255, .16); color: var(--ink); }
+    .gh {
+        display: inline-grid;
+        place-items: center;
+        width: 42px;
+        height: 42px;
+        border-radius: 50%;
+        background: rgba(255, 255, 255, .07);
+        box-shadow: inset 0 0 0 1px var(--line);
+    }
+    .gh svg { width: 20px; height: 20px; }
+    @media (max-width: 919px) { .nav { display: none; } }
+
+    /* ---------- Type ---------- */
+    h1, h2, h3 { margin: 0; font-family: var(--display); text-wrap: balance; }
+    h1 { font-weight: 800; font-size: clamp(2.7rem, 1.3rem + 5.4vw, 5.6rem); line-height: .97; letter-spacing: -.028em; }
+    h2 { font-weight: 800; font-size: clamp(2.05rem, 1.25rem + 2.9vw, 3.5rem); line-height: 1.03; letter-spacing: -.022em; }
+    .label {
+        margin: 0 0 16px;
+        font: 800 .78rem/1.2 var(--display);
+        letter-spacing: .16em;
+        text-transform: uppercase;
+        color: var(--ink-3);
+    }
+    .prose { display: grid; gap: 14px; margin-top: 22px; max-width: 33em; color: var(--ink-2); }
+    .prose a { color: var(--ink); }
+    .small { font-size: .92rem; color: var(--ink-3); }
+
+    /* ---------- Buttons, as Cartouche draws them ---------- */
+    .btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+        min-height: 52px;
+        padding: 0 21px 0 14px;
+        border: 0;
+        border-radius: 999px;
+        color: #fff;
+        font-weight: 600;
+        font-size: 1.04rem;
+        text-decoration: none;
+        cursor: pointer;
+        transition: transform .18s ease, box-shadow .18s ease, background-color .18s ease;
+    }
+    .btn:hover { transform: translateY(-1px); }
+    .btn:active { transform: translateY(1px); }
+    .btn--primary {
+        background: linear-gradient(180deg, #6159F2, var(--indigo));
+        box-shadow: inset 0 1px 0 rgba(255, 255, 255, .28), 0 12px 30px -12px rgba(79, 70, 229, .9);
+    }
+    .btn--glass {
+        background: rgba(255, 255, 255, .09);
+        box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .16);
+        -webkit-backdrop-filter: blur(16px) saturate(1.5);
+        backdrop-filter: blur(16px) saturate(1.5);
+    }
+    .btn--glass:hover { background: rgba(255, 255, 255, .13); }
+    .btn svg { width: 20px; height: 20px; }
+    .glyph {
+        display: inline-grid;
+        place-items: center;
+        flex: none;
+        width: 24px;
+        height: 24px;
+        border: 1.6px solid currentColor;
+        border-radius: 50%;
+        font: 700 12px/1 var(--text);
+        font-style: normal;
+    }
+    .actions { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 26px; }
+
+    /* ---------- Hero ---------- */
+    .hero { position: relative; isolation: isolate; padding-block: clamp(28px, 5vw, 64px) clamp(64px, 8vw, 110px); transition: --light .8s ease, --dark .8s ease; }
+    .hero::before {
+        content: "";
+        position: absolute;
+        inset: -110px 0 0;
+        z-index: -1;
+        pointer-events: none;
+        background:
+            radial-gradient(62% 52% at 12% 0%, color-mix(in srgb, var(--light) 36%, transparent), transparent 72%),
+            radial-gradient(58% 50% at 94% 34%, color-mix(in srgb, var(--dark) 74%, transparent), transparent 74%),
+            linear-gradient(to bottom, transparent 62%, var(--stage));
+    }
+    .hero__head { display: grid; gap: 22px; }
+    @media (min-width: 980px) {
+        .hero__head { grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); gap: 64px; align-items: end; }
+        .hero__head .lede { padding-bottom: 6px; }
+    }
+    .eyebrow { display: inline-flex; align-items: center; gap: 10px; }
+    .eyebrow svg { width: 15px; height: 20px; }
+    .hero h1 { margin-top: 16px; }
+    .lede { font-size: clamp(1.07rem, 1rem + .3vw, 1.24rem); color: var(--ink-2); max-width: 32em; }
+    .lede a { color: var(--ink); }
+    .hero__device { margin-top: clamp(40px, 6vw, 72px); }
+    /* On a phone, the hero's iPhone stands upright, as the visitor holds theirs. */
+    @media (max-width: 699px) {
+        .hero .device { --w: 402 !important; --h: 874 !important; max-width: 290px !important; }
+    }
+    .hint { margin-top: 18px; text-align: center; color: var(--ink-3); font-size: .9rem; }
+    .hint kbd {
+        display: inline-block;
+        min-width: 1.7em;
+        padding: 1px 6px;
+        border-radius: 6px;
+        background: rgba(255, 255, 255, .08);
+        box-shadow: inset 0 0 0 1px var(--line);
+        font: 600 .8rem/1.5 var(--text);
+        text-align: center;
+    }
+    .facts { list-style: none; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0 28px; margin: clamp(48px, 6vw, 80px) 0 0; padding: 0; }
+    .facts li { padding-top: 18px; border-top: 1px solid var(--line); color: var(--ink-2); font-size: .95rem; }
+    .facts b { display: block; margin-bottom: 4px; color: var(--ink); font: 800 1.16rem/1.25 var(--display); }
+    @media (max-width: 860px) { .facts { grid-template-columns: repeat(2, minmax(0, 1fr)); row-gap: 26px; } }
+
+    /* ---------- Sections ---------- */
+    .section { position: relative; isolation: isolate; padding-block: clamp(64px, 8.5vw, 124px); }
+    .section::before {
+        content: "";
+        position: absolute;
+        inset: 0;
+        z-index: -1;
+        pointer-events: none;
+        background:
+            radial-gradient(46% 42% at var(--gx, 10%) 6%, color-mix(in srgb, var(--light) 15%, transparent), transparent 72%),
+            radial-gradient(44% 48% at var(--gx2, 90%) 44%, color-mix(in srgb, var(--dark) 42%, transparent), transparent 72%);
+        -webkit-mask-image: linear-gradient(transparent, #000 22%, #000 78%, transparent);
+        mask-image: linear-gradient(transparent, #000 22%, #000 78%, transparent);
+    }
+    .split { display: grid; gap: clamp(44px, 6vw, 96px); align-items: center; }
+    @media (min-width: 940px) {
+        .split { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+        .split--flip > :first-child { order: 2; }
+    }
+    .intro { display: grid; gap: 22px; }
+    @media (min-width: 980px) {
+        .intro--wide { grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); gap: 64px; align-items: end; }
+        .intro--wide .prose { margin-top: 0; }
+    }
+
+    .keys { list-style: none; display: grid; gap: 12px; margin: 30px 0 0; padding: 0; }
+    .keys li { display: grid; grid-template-columns: 58px minmax(0, 1fr); gap: 14px; align-items: baseline; color: var(--ink-2); }
+    .keys b { color: var(--ink); font-weight: 600; }
+    .keys .glyph, .keys .shoulder { transform: translateY(5px); }
+    .shoulder {
+        display: inline-block;
+        padding: 3px 5px;
+        border: 1.6px solid currentColor;
+        border-radius: 6px;
+        font: 700 11px/1 var(--text);
+        font-style: normal;
+    }
+    .keys__k { display: inline-flex; gap: 4px; color: var(--ink); }
+
+    figure { margin: 0; }
+    figcaption {
+        margin-top: 18px;
+        text-align: center;
+        font: 800 .74rem/1.3 var(--display);
+        letter-spacing: .16em;
+        text-transform: uppercase;
+        color: var(--ink-3);
+    }
+
+    /* ---------- Devices ----------
+       --w, --h: the screen's size in points; --r: its corner radius; --b: the
+       bezel. The screen is a size container: every size inside is a number of
+       points times --pt, so each screen is drawn as the app lays it out. */
+    .device { --b: 12; --r: 55; position: relative; width: 100%; margin-inline: auto; }
+    .device__body {
+        position: relative;
+        container-type: inline-size;
+        padding: calc(var(--b) / (var(--w) + 2 * var(--b)) * 100%);
+        border-radius: calc((var(--r) + var(--b)) / (var(--w) + 2 * var(--b)) * 100%) / calc((var(--r) + var(--b)) / (var(--h) + 2 * var(--b)) * 100%);
+        background: linear-gradient(145deg, #63656f 0%, #2a2b33 12%, #121318 42%, #1c1d23 72%, #54555f 100%);
+        box-shadow:
+            inset 0 0 0 1.5px rgba(255, 255, 255, .14),
+            0 44px 80px -34px rgba(0, 0, 0, .95),
+            0 90px 140px -70px color-mix(in srgb, var(--dark) 90%, transparent);
+    }
+    .device__body::before {
+        content: "";
+        position: absolute;
+        inset: calc(var(--b) * .5 / (var(--w) + 2 * var(--b)) * 100cqw);
+        border-radius: calc((var(--r) + var(--b) * .5) / (var(--w) + var(--b)) * 100%) / calc((var(--r) + var(--b) * .5) / (var(--h) + var(--b)) * 100%);
+        background: #030304;
+    }
+    .screen {
+        position: relative;
+        container-type: size;
+        aspect-ratio: var(--w) / var(--h);
+        border-radius: calc(var(--r) / var(--w) * 100%) / calc(var(--r) / var(--h) * 100%);
+        overflow: hidden;
+        overflow: clip;
+        isolation: isolate;
+        -webkit-mask-image: -webkit-radial-gradient(white, black);
+        background: var(--stage);
+    }
+    .device[tabindex]:focus-visible { outline: none; }
+    .device[tabindex]:focus-visible .device__body { box-shadow: 0 0 0 3px #fff, 0 44px 80px -34px rgba(0, 0, 0, .95); }
+
+    .ui {
+        --pt: calc(100cqw / var(--w));
+        position: absolute;
+        inset: 0;
+        overflow: hidden;
+        overflow: clip;
+        color: #fff;
+        font-family: var(--text);
+        font-size: calc(17 * var(--pt));
+        line-height: 1.25;
+        -webkit-user-select: none;
+        user-select: none;
+    }
+    .ui .ic { width: 1em; height: 1em; flex: none; }
+    .island, .indicator, .punch { position: absolute; z-index: 9; pointer-events: none; }
+    .island { left: 50%; top: calc(11 * var(--pt)); width: calc(124 * var(--pt)); height: calc(36 * var(--pt)); transform: translateX(-50%); border-radius: 999px; background: #000; }
+    .indicator { left: 50%; bottom: calc(8 * var(--pt)); width: calc(140 * var(--pt)); height: calc(5 * var(--pt)); transform: translateX(-50%); border-radius: 99px; background: rgba(255, 255, 255, .86); }
+    .punch { left: 50%; top: calc(15 * var(--pt)); width: calc(12 * var(--pt)); height: calc(12 * var(--pt)); transform: translateX(-50%); border-radius: 50%; background: #000; box-shadow: 0 0 0 calc(1.5 * var(--pt)) rgba(255, 255, 255, .05); }
+    .statusbar {
+        position: absolute;
+        z-index: 9;
+        top: calc(18 * var(--pt));
+        left: calc(38 * var(--pt));
+        right: calc(30 * var(--pt));
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        font: 600 calc(16.5 * var(--pt))/1 var(--text);
+        letter-spacing: -.01em;
+        pointer-events: none;
+    }
+    .statusbar__icons { display: flex; align-items: center; gap: calc(6 * var(--pt)); }
+    .statusbar .ic--signal { width: calc(18 * var(--pt)); height: calc(12 * var(--pt)); }
+    .statusbar .ic--wifi { width: calc(16 * var(--pt)); height: calc(12 * var(--pt)); }
+    .statusbar .ic--battery { width: calc(27 * var(--pt)); height: calc(13 * var(--pt)); }
+    @container (orientation: landscape) {
+        .island { left: calc(11 * var(--pt)); top: 50%; width: calc(36 * var(--pt)); height: calc(124 * var(--pt)); transform: translateY(-50%); }
+        .indicator { width: calc(200 * var(--pt)); }
+        .statusbar { display: none; }
+    }
+
+    /* The stage behind every console screen (CartoucheStage). */
+    .stage { position: absolute; inset: 0; z-index: 0; overflow: hidden; background: var(--stage); }
+    .stage img {
+        position: absolute;
+        left: 0;
+        top: 0;
+        width: 100%;
+        height: 62%;
+        object-fit: cover;
+        opacity: 0;
+        transform: scale(1.08);
+        filter: blur(calc(10 * var(--pt)));
+        -webkit-mask-image: linear-gradient(#000, transparent);
+        mask-image: linear-gradient(#000, transparent);
+        transition: opacity .45s ease;
+    }
+    .stage img.is-on { opacity: .5; }
+    .stage::after {
+        content: "";
+        position: absolute;
+        inset: 0;
+        background:
+            radial-gradient(circle calc(520 * var(--pt)) at 15% 0%, color-mix(in srgb, var(--light) 55%, transparent), transparent),
+            radial-gradient(circle calc(460 * var(--pt)) at 95% 35%, color-mix(in srgb, var(--dark) 65%, transparent), transparent),
+            linear-gradient(to bottom, transparent 50%, rgba(0, 0, 0, .55));
+    }
+
+    /* Glass, chips, statuses and buttons inside the app. */
+    .glass {
+        background: rgba(255, 255, 255, .1);
+        box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .15);
+        -webkit-backdrop-filter: blur(14px) saturate(1.4);
+        backdrop-filter: blur(14px) saturate(1.4);
+    }
+    .uglyph {
+        display: inline-grid;
+        place-items: center;
+        flex: none;
+        width: 1.25em;
+        height: 1.25em;
+        border: calc(1.5 * var(--pt)) solid currentColor;
+        border-radius: 50%;
+        font-style: normal;
+        font-weight: 700;
+        line-height: 1;
+    }
+    .uglyph > span, .uglyph > b { font-size: .6em; font-weight: 700; }
+    .uglyph .ic { width: .66em; height: .66em; }
+    .ushoulder {
+        display: inline-block;
+        padding: calc(3 * var(--pt)) calc(4.5 * var(--pt));
+        border: calc(1.4 * var(--pt)) solid currentColor;
+        border-radius: calc(5 * var(--pt));
+        font: 700 calc(10 * var(--pt))/1 var(--text);
+        font-style: normal;
+    }
+    .uchip {
+        flex: none;
+        padding: calc(4 * var(--pt)) calc(9 * var(--pt));
+        border-radius: 999px;
+        background: rgba(255, 255, 255, .16);
+        color: #fff;
+        font: 800 calc(12 * var(--pt))/1 var(--display);
+        letter-spacing: calc(1.6 * var(--pt));
+        text-transform: uppercase;
+    }
+    .umeta, .ustat { display: inline-flex; align-items: center; gap: calc(5 * var(--pt)); white-space: nowrap; }
+    .ustat { color: var(--c); font-weight: 600; }
+    .ubtn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: calc(10 * var(--pt));
+        height: calc(54 * var(--pt));
+        padding: 0 calc(24 * var(--pt)) 0 calc(18 * var(--pt));
+        border: 0;
+        border-radius: 999px;
+        color: #fff;
+        font: 600 calc(19 * var(--pt))/1 var(--text);
+        text-decoration: none;
+        white-space: nowrap;
+    }
+    a.ubtn, button.ubtn { cursor: pointer; }
+    a.ubtn:hover, button.ubtn:hover { filter: brightness(1.1); }
+    .ubtn--primary {
+        background: linear-gradient(180deg, #5F57F1, #4F46E5);
+        box-shadow: inset 0 1px 0 rgba(255, 255, 255, .3), 0 calc(8 * var(--pt)) calc(20 * var(--pt)) rgba(79, 70, 229, .42);
+    }
+    .ubtn--round { width: calc(54 * var(--pt)); padding: 0; }
+    .ubtn--wide { width: 100%; padding: 0; }
+    .ubtn--slim { height: calc(40 * var(--pt)); font-size: calc(17 * var(--pt)); }
+    .ubtn .ic { font-size: calc(21 * var(--pt)); }
+
+    /* ---------- The home ---------- */
+    .home { display: flex; flex-direction: column; }
+    .home__bar { position: relative; z-index: 2; display: flex; align-items: center; gap: calc(10 * var(--pt)); padding: calc(14 * var(--pt)) calc(58 * var(--pt)) 0; }
+    .mark { display: flex; align-items: center; gap: calc(8 * var(--pt)); margin-right: auto; }
+    .mark i { position: relative; width: calc(17 * var(--pt)); height: calc(23 * var(--pt)); border-radius: calc(2.6 * var(--pt)); background: linear-gradient(90deg, #4F46E5, #EC4899); }
+    .mark i::before, .mark i::after {
+        content: "";
+        position: absolute;
+        left: 50%;
+        width: calc(7.7 * var(--pt));
+        height: calc(1.2 * var(--pt));
+        margin-left: calc(-3.85 * var(--pt));
+        border-radius: 9px;
+        background: rgba(255, 255, 255, .55);
+    }
+    .mark i::before { top: calc(2.6 * var(--pt)); }
+    .mark i::after { top: calc(5.2 * var(--pt)); }
+    .mark b {
+        font: 800 calc(24 * var(--pt))/1 var(--display);
+        letter-spacing: -.01em;
+        background: linear-gradient(90deg, #4F46E5, #EC4899);
+        -webkit-background-clip: text;
+        background-clip: text;
+        color: transparent;
+    }
+    .upill { display: inline-grid; place-items: center; height: calc(34 * var(--pt)); padding: 0 calc(15 * var(--pt)); border-radius: 999px; font-size: calc(19 * var(--pt)); }
+    .dock { display: flex; align-items: center; border-radius: 999px; }
+    .dock__item { display: inline-flex; align-items: center; gap: calc(7 * var(--pt)); height: 100%; padding: 0 calc(12 * var(--pt)); border-radius: 999px; color: #fff; text-decoration: none; }
+    a.dock__item:hover { background: rgba(255, 255, 255, .1); }
+    .dock--top { height: calc(38 * var(--pt)); padding: 0 calc(5 * var(--pt)); font-size: calc(15 * var(--pt)); font-weight: 500; }
+    .dock--top .ic, .dock--top .uglyph { font-size: calc(17 * var(--pt)); }
+    .dock--bottom { position: relative; z-index: 2; display: none; justify-content: space-around; height: calc(62 * var(--pt)); margin: 0 calc(18 * var(--pt)) calc(24 * var(--pt)); }
+    .dock--bottom .dock__item { flex-direction: column; justify-content: center; gap: calc(5 * var(--pt)); font-size: calc(12.5 * var(--pt)); font-weight: 500; color: rgba(255, 255, 255, .84); }
+    .dock--bottom .dock__item > .ic { font-size: calc(22 * var(--pt)); }
+    .dock__label { display: inline-flex; align-items: center; gap: calc(4 * var(--pt)); }
+    .dock__label .uglyph { font-size: calc(14 * var(--pt)); }
+
+    .home__main {
+        position: relative;
+        z-index: 1;
+        flex: 1;
+        min-height: 0;
+        display: grid;
+        grid-template-columns: calc(520 * var(--pt)) minmax(0, 1fr);
+        grid-template-rows: auto minmax(0, 1fr);
+        column-gap: calc(18 * var(--pt));
+        padding: calc(10 * var(--pt)) calc(58 * var(--pt)) calc(12 * var(--pt)) 0;
+    }
+    .home--paused .home__main { grid-template-columns: calc(420 * var(--pt)) minmax(0, 1fr); }
+    .home__label {
+        grid-column: 1;
+        height: calc(20 * var(--pt));
+        padding: 0 0 0 calc(58 * var(--pt));
+        font: 800 calc(12 * var(--pt))/1 var(--display);
+        letter-spacing: calc(1.7 * var(--pt));
+        text-transform: uppercase;
+        color: rgba(255, 255, 255, .55);
+    }
+    .shelf {
+        --tw: calc(182 * var(--pt));
+        grid-column: 1;
+        grid-row: 2;
+        align-self: center;
+        overflow: hidden;
+        overflow: clip;
+        /* Room above and below the covers for the focused one's ring. */
+        padding: calc(18 * var(--pt)) 0 calc(18 * var(--pt)) calc(54 * var(--pt));
+        -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - 64 * var(--pt)), transparent);
+        mask-image: linear-gradient(90deg, #000 calc(100% - 64 * var(--pt)), transparent);
+    }
+    .track {
+        --gap: calc(18 * var(--pt));
+        display: flex;
+        gap: var(--gap);
+        transform: translateX(calc(var(--i, 0) * -1 * (var(--tw) + var(--gap))));
+        transition: transform .6s cubic-bezier(.22, .8, .24, 1);
+    }
+
+    /* A game's tile (CartoucheCartridge): its cover whole, a case's shape. */
+    .tile {
+        position: relative;
+        display: block;
+        flex: none;
+        width: var(--tw);
+        aspect-ratio: .68;
+        padding: 0;
+        border: 0;
+        border-radius: calc(var(--tw) * .08);
+        background: rgba(255, 255, 255, .06);
+        box-shadow: 0 calc(var(--tw) * .04) calc(var(--tw) * .12) rgba(0, 0, 0, .45);
+        transition: transform .4s cubic-bezier(.34, 1.45, .5, 1);
+    }
+    button.tile { cursor: pointer; }
+    .tile > img { width: 100%; height: 100%; object-fit: cover; border-radius: inherit; }
+    .tile::after {
+        content: "";
+        position: absolute;
+        inset: 0;
+        border-radius: inherit;
+        background: linear-gradient(rgba(255, 255, 255, .1), transparent 35%);
+        box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .14);
+        pointer-events: none;
+    }
+    .tile::before {
+        content: "";
+        position: absolute;
+        inset: calc(var(--tw) * -.04);
+        border-radius: calc(var(--tw) * .12);
+        border: max(calc(2.5 * var(--pt)), calc(var(--tw) * .025)) solid #fff;
+        box-shadow: 0 0 calc(var(--tw) * .16) color-mix(in srgb, var(--glow, #fff) 90%, transparent);
+        opacity: 0;
+        transition: opacity .25s ease;
+        pointer-events: none;
+    }
+    .tile.is-focused { transform: translateY(calc(var(--tw) * -.03)) scale(1.05); }
+    .tile.is-focused::before { opacity: 1; }
+    .tile:focus-visible { outline: none; }
+    .tile:focus-visible::before { opacity: 1; border-color: #fff; }
+    .tile__badge {
+        position: absolute;
+        z-index: 2;
+        top: calc(var(--tw) * .06);
+        left: calc(var(--tw) * .06);
+        display: grid;
+        place-items: center;
+        width: calc(var(--tw) * .17);
+        height: calc(var(--tw) * .17);
+        border-radius: 50%;
+        background: var(--pink);
+        color: #fff;
+        font-size: calc(var(--tw) * .09);
+        box-shadow: 0 calc(var(--tw) * .01) calc(var(--tw) * .04) rgba(0, 0, 0, .4);
+    }
+    .tile--outline { display: grid; place-items: center; background: rgba(255, 255, 255, .05); box-shadow: none; }
+    .tile--outline::after { display: none; }
+    .tile--outline > .dash { position: absolute; inset: 0; width: 100%; height: 100%; }
+    .tile__out { position: relative; display: grid; justify-items: center; gap: calc(8 * var(--pt)); padding: 0 calc(12 * var(--pt)); text-align: center; color: rgba(255, 255, 255, .72); font: 600 calc(15 * var(--pt))/1.2 var(--text); }
+    .tile__out .ic { font-size: calc(30 * var(--pt)); }
+    .tile--drawn { overflow: hidden; background: linear-gradient(135deg, var(--a), var(--b)); }
+    .drawn__band { position: absolute; inset: 0; background: linear-gradient(118deg, transparent 22%, rgba(255, 255, 255, .13) 46%, transparent 66%); }
+    .drawn__sym { position: absolute; top: -4%; right: -10%; width: 62% !important; height: auto !important; aspect-ratio: 1; color: rgba(255, 255, 255, .17); transform: rotate(-12deg); }
+    .drawn__plat {
+        position: absolute;
+        top: 7.5%;
+        left: 7.5%;
+        padding: calc(var(--tw) * .015) calc(var(--tw) * .045);
+        border-radius: 99px;
+        background: rgba(0, 0, 0, .28);
+        font: 800 calc(var(--tw) * .075)/1.1 var(--display);
+        letter-spacing: calc(var(--tw) * .008);
+        text-transform: uppercase;
+    }
+    .drawn__name { position: absolute; left: 7.5%; right: 7.5%; bottom: 5.5%; font: 700 calc(var(--tw) * .135)/1.08 var(--display); text-align: left; text-shadow: 0 1px 2px rgba(0, 0, 0, .35); }
+
+    .focus { grid-column: 2; grid-row: 1 / span 2; align-self: center; min-width: 0; }
+    .focus > * { animation: rise .45s ease both; }
+    @keyframes rise { from { opacity: 0; transform: translateY(calc(8 * var(--pt))); } }
+    .focus__title { font: 800 calc(30 * var(--pt))/1.08 var(--display); letter-spacing: -.01em; }
+    .focus__chips { display: flex; flex-wrap: wrap; align-items: center; gap: calc(6 * var(--pt)) calc(12 * var(--pt)); margin-top: calc(10 * var(--pt)); color: rgba(255, 255, 255, .68); font-size: calc(15 * var(--pt)); }
+    .focus__stats { display: flex; gap: calc(16 * var(--pt)); margin-top: calc(9 * var(--pt)); color: rgba(255, 255, 255, .68); font-size: calc(15 * var(--pt)); }
+    .focus__stats span { display: inline-flex; align-items: center; gap: calc(5 * var(--pt)); }
+    .focus__note { margin-top: calc(8 * var(--pt)); color: rgba(255, 255, 255, .7); font-size: calc(15 * var(--pt)); }
+    .focus__actions { display: flex; gap: calc(12 * var(--pt)); margin-top: calc(18 * var(--pt)); }
+    .ubtn .uglyph { font-size: calc(20 * var(--pt)); }
+
+    @container (orientation: portrait) {
+        .home__bar { padding: calc(58 * var(--pt)) calc(18 * var(--pt)) 0; }
+        .dock--top { display: none; }
+        .home__main { display: flex; flex-direction: column; justify-content: center; padding: 0 0 calc(10 * var(--pt)); }
+        .home__label { padding: 0 0 0 calc(18 * var(--pt)); }
+        .shelf { --tw: 36cqw; align-self: stretch; padding: calc(16 * var(--pt)) 0 calc(24 * var(--pt)) calc(18 * var(--pt)); }
+        .focus { padding: 0 calc(18 * var(--pt)); }
+        .dock--bottom { display: flex; }
+    }
+    .home--shelf .focus { display: none; }
+
+    /* ---------- A game's sheet, its settings, the System page ---------- */
+    .navtitle { position: absolute; z-index: 3; top: calc(66 * var(--pt)); left: 0; right: 0; text-align: center; font: 600 calc(17 * var(--pt))/1 var(--text); }
+    .okbtn { position: absolute; z-index: 3; top: calc(54 * var(--pt)); right: calc(16 * var(--pt)); display: grid; place-items: center; height: calc(44 * var(--pt)); padding: 0 calc(16 * var(--pt)); border-radius: 999px; font: 600 calc(17 * var(--pt))/1 var(--text); }
+    .sheet__body { position: relative; z-index: 1; display: flex; flex-direction: column; gap: calc(12 * var(--pt)); padding: calc(118 * var(--pt)) calc(18 * var(--pt)) 0; }
+    .sheet__head { display: flex; align-items: center; gap: calc(18 * var(--pt)); margin-bottom: calc(8 * var(--pt)); }
+    .sheet__cover { flex: none; width: calc(104 * var(--pt)); aspect-ratio: .68; object-fit: cover; border-radius: calc(8 * var(--pt)); box-shadow: 0 calc(6 * var(--pt)) calc(16 * var(--pt)) rgba(0, 0, 0, .45); }
+    .sheet__title { font: 800 calc(27 * var(--pt))/1.1 var(--display); }
+    .sheet__chips { display: flex; flex-wrap: wrap; align-items: center; gap: calc(8 * var(--pt)) calc(12 * var(--pt)); margin-top: calc(10 * var(--pt)); color: rgba(255, 255, 255, .68); font-size: calc(15 * var(--pt)); }
+    .sheet__status { margin-top: calc(10 * var(--pt)); }
+    .ugroup { margin-top: calc(10 * var(--pt)); padding: 0 calc(20 * var(--pt)); color: rgba(255, 255, 255, .5); font: 600 calc(17 * var(--pt))/1.2 var(--text); }
+    .ufoot { padding: 0 calc(20 * var(--pt)); color: rgba(255, 255, 255, .5); font-size: calc(13 * var(--pt)); line-height: 1.35; }
+    .ucard { padding: 0 calc(20 * var(--pt)); border-radius: calc(26 * var(--pt)); background: rgba(28, 28, 32, .9); }
+    .urow { display: flex; align-items: center; gap: calc(13 * var(--pt)); min-height: calc(52 * var(--pt)); padding: calc(12 * var(--pt)) 0; font-size: calc(17 * var(--pt)); line-height: 1.25; }
+    .urow + .urow { border-top: 1px solid rgba(255, 255, 255, .1); }
+    .urow > .ic { font-size: calc(23 * var(--pt)); }
+    .urow__main { flex: 1; min-width: 0; }
+    .urow__main small { display: block; margin-top: calc(3 * var(--pt)); color: rgba(255, 255, 255, .55); font-size: calc(15 * var(--pt)); }
+    .urow__main b { font-weight: 600; }
+    .urow__val { color: rgba(255, 255, 255, .6); text-align: right; white-space: nowrap; }
+    .urow .urow__chev { font-size: calc(14 * var(--pt)); color: rgba(255, 255, 255, .38); }
+    .urow--danger { color: var(--danger); }
+    .urow--stack { flex-direction: column; align-items: stretch; gap: calc(10 * var(--pt)); }
+    .ulink { color: var(--link); }
+    .ublue { color: var(--link); }
+    .uinfo { display: inline-block; vertical-align: -.12em; margin-left: calc(6 * var(--pt)); color: rgba(255, 255, 255, .55); }
+    .upick { display: inline-flex; align-items: center; gap: calc(4 * var(--pt)); color: var(--link); white-space: nowrap; }
+    .upick .ic { font-size: calc(13 * var(--pt)); }
+    .settings__intro { padding: 0 calc(4 * var(--pt)); color: rgba(255, 255, 255, .62); font-size: calc(15 * var(--pt)); line-height: 1.35; }
+    .tabs { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: calc(8 * var(--pt)); margin: calc(6 * var(--pt)) 0 calc(4 * var(--pt)); }
+    .tab { display: flex; flex-direction: column; align-items: center; gap: calc(6 * var(--pt)); padding: calc(11 * var(--pt)) 0 calc(10 * var(--pt)); border-radius: calc(16 * var(--pt)); background: rgba(255, 255, 255, .07); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .12); color: rgba(255, 255, 255, .72); font-size: calc(12 * var(--pt)); }
+    .tab .ic { font-size: calc(22 * var(--pt)); }
+    .tab.is-on { background: linear-gradient(180deg, #5F57F1, #4F46E5); color: #fff; font-weight: 600; }
+    .uscale__legend { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; margin-top: calc(4 * var(--pt)); color: rgba(255, 255, 255, .5); font-size: calc(12 * var(--pt)); }
+    .uscale__legend output { text-align: center; color: var(--link); font: 600 calc(17 * var(--pt))/1 var(--text); font-variant-numeric: tabular-nums; }
+    .uslider { --fill: 70%; -webkit-appearance: none; appearance: none; display: block; width: 100%; height: calc(30 * var(--pt)); margin: 0; background: transparent; cursor: grab; touch-action: pan-y; }
+    .uslider:focus-visible { outline: 2px solid #fff; outline-offset: 2px; border-radius: 99px; }
+    .uslider::-webkit-slider-runnable-track { height: calc(6 * var(--pt)); border-radius: 99px; background: linear-gradient(90deg, var(--link) var(--fill), rgba(120, 120, 128, .4) var(--fill)); }
+    .uslider::-webkit-slider-thumb { -webkit-appearance: none; width: calc(38 * var(--pt)); height: calc(24 * var(--pt)); margin-top: calc(-9 * var(--pt)); border-radius: 99px; background: #fff; box-shadow: 0 calc(2 * var(--pt)) calc(6 * var(--pt)) rgba(0, 0, 0, .35); }
+    .uslider::-moz-range-track { height: calc(6 * var(--pt)); border-radius: 99px; background: linear-gradient(90deg, var(--link) var(--fill), rgba(120, 120, 128, .4) var(--fill)); }
+    .uslider::-moz-range-thumb { width: calc(38 * var(--pt)); height: calc(24 * var(--pt)); border: 0; border-radius: 99px; background: #fff; box-shadow: 0 calc(2 * var(--pt)) calc(6 * var(--pt)) rgba(0, 0, 0, .35); }
+    .uswitch { position: relative; flex: none; width: calc(62 * var(--pt)); height: calc(30 * var(--pt)); border-radius: 99px; background: rgba(120, 120, 128, .36); }
+    .uswitch::after { content: ""; position: absolute; top: calc(3 * var(--pt)); left: calc(3 * var(--pt)); width: calc(38 * var(--pt)); height: calc(24 * var(--pt)); border-radius: 99px; background: #fff; box-shadow: 0 calc(2 * var(--pt)) calc(4 * var(--pt)) rgba(0, 0, 0, .25); }
+    .bigtitle { padding: 0 calc(2 * var(--pt)); font: 700 calc(34 * var(--pt))/1.1 var(--text); letter-spacing: -.01em; }
+    .membar { height: calc(12 * var(--pt)); margin-top: calc(2 * var(--pt)); border-radius: 99px; background: rgba(255, 255, 255, .12); overflow: hidden; }
+    .membar i { display: block; width: 1.6%; min-width: calc(10 * var(--pt)); height: 100%; border-radius: 99px; background: var(--link); }
+
+    /* ---------- All games ---------- */
+    .lib__body { position: relative; z-index: 1; padding: calc(100 * var(--pt)) calc(18 * var(--pt)) 0; }
+    .usearch { display: flex; align-items: center; gap: calc(10 * var(--pt)); height: calc(46 * var(--pt)); padding: 0 calc(16 * var(--pt)); border-radius: 999px; color: rgba(255, 255, 255, .5); }
+    .usearch .ic { font-size: calc(19 * var(--pt)); color: rgba(255, 255, 255, .8); }
+    .filters { display: flex; gap: calc(10 * var(--pt)); margin: calc(16 * var(--pt)) calc(-18 * var(--pt)) calc(20 * var(--pt)) 0; overflow: hidden; white-space: nowrap; }
+    .filter { display: inline-flex; flex: none; align-items: center; gap: calc(7 * var(--pt)); height: calc(40 * var(--pt)); padding: 0 calc(15 * var(--pt)); border-radius: 999px; background: rgba(255, 255, 255, .08); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .14); color: rgba(255, 255, 255, .82); font-size: calc(16 * var(--pt)); }
+    .filter .ic { font-size: calc(17 * var(--pt)); }
+    .filter b { font-weight: 500; color: rgba(255, 255, 255, .5); }
+    .filter.is-on { background: linear-gradient(90deg, #4F46E5, #8B5CF6); box-shadow: none; color: #fff; }
+    .filter.is-on b { color: rgba(255, 255, 255, .78); }
+    .ggrid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: calc(20 * var(--pt)) calc(14 * var(--pt)); }
+    .gtile { --tw: calc((100cqw - 64 * var(--pt)) / 3); min-width: 0; }
+    .gtile__name { margin-top: calc(10 * var(--pt)); font-size: calc(15 * var(--pt)); line-height: 1.2; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; min-height: 2.4em; }
+    .gtile .ustat { margin-top: calc(4 * var(--pt)); font-size: calc(14 * var(--pt)); }
+    .hints {
+        position: absolute;
+        z-index: 3;
+        left: calc(16 * var(--pt));
+        right: calc(16 * var(--pt));
+        bottom: calc(24 * var(--pt));
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: calc(7 * var(--pt));
+        height: calc(48 * var(--pt));
+        border-radius: 999px;
+        background: rgba(30, 30, 36, .62);
+        font-size: calc(15 * var(--pt));
+        white-space: nowrap;
+    }
+    .hints .uglyph { font-size: calc(19 * var(--pt)); }
+    .hints span + .uglyph, .hints span + .ushoulder { margin-left: calc(8 * var(--pt)); }
+
+    /* ---------- The game behind the console ---------- */
+    .play .game { position: absolute; inset: 0; overflow: hidden; background: linear-gradient(#05081F, #121648 34%, #33195E 52%, #6A2A74 59%, #1B1036 60%, #0B0A1E); }
+    .game__aurora {
+        position: absolute;
+        inset: 4% -12% auto;
+        height: 42%;
+        background:
+            radial-gradient(52% 46% at 28% 62%, rgba(46, 242, 184, .78), transparent 72%),
+            radial-gradient(46% 42% at 70% 44%, rgba(164, 123, 255, .66), transparent 72%);
+        filter: blur(calc(16 * var(--pt)));
+        transform: skewY(-5deg);
+        animation: aurora 9s ease-in-out infinite alternate;
+    }
+    @keyframes aurora { to { transform: skewY(-2deg) translateX(4%); opacity: .85; } }
+    .game__stars, .game__hills { position: absolute; inset: 0; width: 100%; height: 100%; }
+    .game__road {
+        position: absolute;
+        left: 50%;
+        bottom: -2%;
+        width: 48%;
+        height: 1200%;
+        transform-origin: 50% 100%;
+        transform: translateX(-50%) perspective(calc(550 * var(--pt))) rotateX(72deg);
+        background: linear-gradient(90deg, #4A3C8C, #2E2768 9%, #2E2768 91%, #4A3C8C);
+        -webkit-mask-image: linear-gradient(to top, #000 55%, transparent 96%);
+        mask-image: linear-gradient(to top, #000 55%, transparent 96%);
+    }
+    .game__road::before, .game__road::after { content: ""; position: absolute; top: 0; bottom: 0; width: 1.4%; background: rgba(200, 192, 255, .85); }
+    .game__road::before { left: 5%; }
+    .game__road::after { right: 5%; }
+    .game__dash, .game__rumble { position: absolute; top: 0; bottom: 0; animation: rush var(--speed, .42s) linear infinite; }
+    .game__dash {
+        --period: calc(150 * var(--pt));
+        left: 50%;
+        width: 2.4%;
+        transform: translateX(-50%);
+        background: repeating-linear-gradient(to top, #FFE9A8 0 calc(64 * var(--pt)), transparent calc(64 * var(--pt)) var(--period));
+    }
+    .game__rumble { --period: calc(80 * var(--pt)); width: 4%; background: repeating-linear-gradient(to top, #E8485F 0 calc(40 * var(--pt)), #F4F0FF calc(40 * var(--pt)) var(--period)); }
+    .game__rumble--l { left: 0; }
+    .game__rumble--r { right: 0; }
+    @keyframes rush { from { background-position: 0 0; } to { background-position: 0 var(--period); } }
+    .game__car { position: absolute; left: 50%; bottom: 7%; width: 19%; transform: translateX(-50%); animation: bob 1.4s ease-in-out infinite; }
+    @keyframes bob { 50% { transform: translateX(-50%) translateY(calc(2 * var(--pt))); } }
+    .hud { position: absolute; z-index: 2; color: #fff; text-shadow: 0 1px 4px rgba(0, 0, 0, .6); }
+    .hud small { display: block; font: 800 calc(11 * var(--pt))/1 var(--display); letter-spacing: calc(1.6 * var(--pt)); opacity: .82; }
+    .hud--lap { top: calc(20 * var(--pt)); left: calc(64 * var(--pt)); }
+    .hud--lap b { display: block; margin-top: calc(5 * var(--pt)); font: 700 calc(26 * var(--pt))/1 var(--mono); font-variant-numeric: tabular-nums; }
+    .hud--pos { top: calc(14 * var(--pt)); right: calc(64 * var(--pt)); display: flex; align-items: baseline; gap: calc(6 * var(--pt)); }
+    .hud--pos b { font: 900 calc(44 * var(--pt))/1 var(--display); font-style: italic; }
+    .hud--pos sup { font-size: .45em; }
+    .hud--speed { right: calc(64 * var(--pt)); bottom: calc(20 * var(--pt)); display: flex; align-items: baseline; gap: calc(6 * var(--pt)); }
+    .hud--speed b { font: 900 calc(36 * var(--pt))/1 var(--display); font-style: italic; font-variant-numeric: tabular-nums; }
+    .homebtn {
+        position: absolute;
+        z-index: 4;
+        left: calc(64 * var(--pt));
+        bottom: calc(20 * var(--pt));
+        display: grid;
+        place-items: center;
+        width: calc(48 * var(--pt));
+        height: calc(48 * var(--pt));
+        padding: 0;
+        border: 0;
+        border-radius: 50%;
+        color: #fff;
+        font-size: calc(22 * var(--pt));
+        cursor: pointer;
+        transition: opacity .3s ease, transform .3s ease;
+    }
+    .homebtn:hover { background: rgba(255, 255, 255, .2); }
+    .play .console { position: absolute; inset: 0; z-index: 5; transition: opacity .45s ease, transform .45s cubic-bezier(.22, .8, .24, 1), visibility 0s linear 0s; }
+    .play[data-state="game"] .console { opacity: 0; transform: translateY(6%) scale(.98); visibility: hidden; transition: opacity .35s ease, transform .35s ease, visibility 0s linear .35s; }
+    .play[data-state="console"] .homebtn { opacity: 0; pointer-events: none; }
+    .play[data-state="console"] .game *, .play[data-state="console"] .game *::before { animation-play-state: paused; }
+    .demo-bar { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 12px 18px; margin-top: 26px; }
+    .demo-bar p { color: var(--ink-3); font-size: .92rem; }
+
+    /* ---------- iPhone Duo ---------- */
+    .half { position: absolute; top: 0; bottom: 0; width: 50%; overflow: hidden; overflow: clip; container-type: size; }
+    .half--left { left: 0; }
+    .half--right { right: 0; }
+    .half .home__bar { padding-top: calc(30 * var(--pt)); }
+    .half .sheet__body { padding-top: calc(84 * var(--pt)); }
+    .half .okbtn { top: calc(22 * var(--pt)); }
+    .fold {
+        position: absolute;
+        z-index: 8;
+        top: 0;
+        bottom: 0;
+        left: 50%;
+        width: calc(18 * var(--pt));
+        transform: translateX(-50%);
+        background: linear-gradient(90deg, transparent, rgba(255, 255, 255, .05) 32%, rgba(0, 0, 0, .5) 50%, rgba(255, 255, 255, .05) 68%, transparent);
+        pointer-events: none;
+    }
+    .duo-stage { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 2.65fr); gap: clamp(24px, 4vw, 64px); align-items: end; margin-top: clamp(44px, 6vw, 72px); }
+    @media (max-width: 760px) { .duo-stage { grid-template-columns: minmax(0, 1fr); } .duo-stage figure:first-child { order: 2; } }
+
+    /* ---------- Plain page parts ---------- */
+    .panel { border-radius: 28px; background: var(--panel); box-shadow: inset 0 0 0 1px var(--line); }
+    .stores { list-style: none; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; margin: 0; padding: 0; }
+    .store { padding: 22px 22px 24px; border-radius: 26px; background: var(--panel); box-shadow: inset 0 0 0 1px var(--line); }
+    .tag-icon {
+        display: grid;
+        place-items: center;
+        width: 46px;
+        height: 46px;
+        margin-bottom: 16px;
+        border-radius: 14px;
+        background: linear-gradient(140deg, rgba(79, 70, 229, .45), rgba(236, 72, 153, .32));
+        box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .14);
+    }
+    .tag-icon svg { width: 24px; height: 24px; }
+    .store h3, .perk h3, .flow h3, .step h3 { font: 700 1.1rem/1.3 var(--display); }
+    .store p, .perk p, .flow p, .step p { margin-top: 6px; color: var(--ink-2); font-size: .97rem; }
+    @media (max-width: 560px) { .stores { grid-template-columns: minmax(0, 1fr); } }
+    .keeps { list-style: none; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px 36px; margin: clamp(44px, 6vw, 72px) 0 0; padding: 0; }
+    .keeps li { display: grid; grid-template-columns: 28px minmax(0, 1fr); gap: 12px; color: var(--ink-2); }
+    .keeps svg { width: 24px; height: 24px; color: var(--ready); margin-top: 1px; }
+    .keeps b { color: var(--ink); font-weight: 600; }
+    @media (max-width: 760px) { .keeps { grid-template-columns: minmax(0, 1fr); } }
+    .note { display: flex; gap: 12px; align-items: center; margin-top: 30px; color: var(--ink-2); }
+    .note svg { width: 22px; height: 22px; flex: none; color: var(--stored); }
+
+    .perks { list-style: none; display: grid; gap: 26px; margin: 34px 0 0; padding: 0; }
+    @media (min-width: 640px) and (max-width: 939px) { .perks { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+    .perk { display: grid; grid-template-columns: 46px minmax(0, 1fr); gap: 16px; }
+    .perk .tag-icon { margin: 0; }
+
+    .flow { list-style: none; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 18px; margin: clamp(40px, 5vw, 60px) 0 0; padding: 0; }
+    .flow li { position: relative; padding: 22px; border-radius: 26px; background: var(--panel); box-shadow: inset 0 0 0 1px var(--line); }
+    .flow li:not(:last-child)::after {
+        content: "";
+        position: absolute;
+        top: 50%;
+        right: -14px;
+        width: 10px;
+        height: 10px;
+        border-top: 2px solid var(--ink-3);
+        border-right: 2px solid var(--ink-3);
+        transform: translateY(-50%) rotate(45deg);
+    }
+    @media (max-width: 939px) {
+        .flow { grid-template-columns: minmax(0, 1fr); gap: 22px; }
+        .flow li:not(:last-child)::after { top: auto; right: auto; left: 50%; bottom: -16px; transform: translateX(-50%) rotate(135deg); }
+    }
+    .builder-need { margin-top: 18px; color: var(--ink-3); font-size: .95rem; }
+
+    .steps { list-style: none; display: grid; gap: 30px; margin: 36px 0 0; padding: 0; }
+    .step { display: grid; grid-template-columns: 52px minmax(0, 1fr); gap: 18px; }
+    .step__n {
+        display: grid;
+        place-items: center;
+        width: 52px;
+        height: 52px;
+        border: 2px solid transparent;
+        border-radius: 50%;
+        background: linear-gradient(var(--stage), var(--stage)) padding-box, linear-gradient(135deg, #6A62FF, var(--pink)) border-box;
+        font: 800 1.35rem/1 var(--display);
+    }
+    .step .btn { margin-top: 16px; }
+    .need { padding: clamp(24px, 3vw, 34px); }
+    .need h3 { font: 800 1.3rem/1.2 var(--display); }
+    .need dl { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 14px 20px; margin: 20px 0 0; }
+    .need dt { font-weight: 600; }
+    .need dd { margin: 0; color: var(--ink-2); }
+    @media (max-width: 520px) { .need dl { grid-template-columns: minmax(0, 1fr); gap: 2px; } .need dd { margin-bottom: 12px; } }
+
+    .never { list-style: none; display: grid; gap: 12px; margin: 28px 0 0; padding: 0; }
+    .never li { display: flex; align-items: center; gap: 12px; font-weight: 600; }
+    .never svg { width: 22px; height: 22px; flex: none; color: var(--danger); }
+    .bring { --tw: min(280px, 64vw); position: relative; display: grid; place-items: center; width: var(--tw); aspect-ratio: .68; margin-inline: auto; border-radius: calc(var(--tw) * .08); background: rgba(255, 255, 255, .04); }
+    .bring .dash { position: absolute; inset: 0; width: 100%; height: 100%; }
+    .bring span { position: relative; display: grid; justify-items: center; gap: 14px; padding: 0 24px; color: var(--ink-2); font: 600 1.15rem/1.25 var(--text); text-align: center; }
+    .bring svg.ic { width: 46px; height: 46px; color: var(--ink); }
+
+    .faq { max-width: 880px; }
+    .qa { margin-top: 32px; padding: 0 clamp(20px, 3vw, 30px); }
+    .qa details + details { border-top: 1px solid var(--line); }
+    .qa summary { display: flex; align-items: center; gap: 18px; padding: 22px 0; cursor: pointer; list-style: none; font: 700 1.1rem/1.35 var(--display); }
+    .qa summary::-webkit-details-marker { display: none; }
+    .qa summary::after {
+        content: "";
+        flex: none;
+        width: 9px;
+        height: 9px;
+        margin-left: auto;
+        border-right: 2px solid var(--ink-3);
+        border-bottom: 2px solid var(--ink-3);
+        transform: translateY(-2px) rotate(45deg);
+        transition: transform .2s ease;
+    }
+    .qa details[open] summary::after { transform: translateY(2px) rotate(-135deg); }
+    .qa details p { padding-bottom: 22px; max-width: 46em; color: var(--ink-2); }
+
+    .foot { padding-block: 56px calc(44px + env(safe-area-inset-bottom, 0px)); border-top: 1px solid var(--line); }
+    .foot__row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 18px 32px; }
+    .foot nav { display: flex; flex-wrap: wrap; gap: 8px 22px; }
+    .foot nav a { color: var(--ink-2); text-decoration: none; }
+    .foot nav a:hover { color: var(--ink); text-decoration: underline; }
+    .foot p { margin-top: 18px; max-width: 62em; color: var(--ink-3); font-size: .88rem; }
+    .foot p:first-of-type { color: var(--ink-2); }
+
+    @media (prefers-reduced-motion: reduce) {
+        *, *::before, *::after { animation: none !important; transition-duration: .01ms !important; }
+    }
+    @media (prefers-reduced-motion: no-preference) { html { scroll-behavior: smooth; } }
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
+    <defs>
+        <linearGradient id="g-brand" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#4F46E5"/><stop offset="1" stop-color="#EC4899"/></linearGradient>
+        <symbol id="i-cartridge" viewBox="0 0 18 24"><rect x=".35" y=".6" width="17.3" height="22.8" rx="1.9" fill="url(#g-brand)"/><rect x="5.15" y="3.2" width="7.7" height="1.2" rx=".6" fill="#fff" fill-opacity=".55"/><rect x="5.15" y="5.85" width="7.7" height="1.2" rx=".6" fill="#fff" fill-opacity=".55"/></symbol>
+        <symbol id="i-gamepad" viewBox="0 0 24 24"><path fill="currentColor" fill-rule="evenodd" d="M7.3 6.2h9.4c2.6 0 4.8 1.9 5.2 4.4l.9 5.4c.3 1.9-1.2 3.6-3.1 3.6-1 0-1.9-.5-2.5-1.3l-1.3-1.9H8.1l-1.3 1.9c-.6.8-1.5 1.3-2.5 1.3-1.9 0-3.4-1.7-3.1-3.6l.9-5.4c.4-2.5 2.6-4.4 5.2-4.4ZM6.4 9.1v1.8H4.6v1.6h1.8v1.8H8v-1.8h1.8v-1.6H8V9.1H6.4Zm10.1.1a1.1 1.1 0 1 0 0 2.2 1.1 1.1 0 0 0 0-2.2Zm2.1 2.3a1.1 1.1 0 1 0 0 2.2 1.1 1.1 0 0 0 0-2.2Z"/></symbol>
+        <symbol id="i-import" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M12 3.5v11M7.5 10l4.5 4.5 4.5-4.5M4.5 13.5v4A2.5 2.5 0 0 0 7 20h10a2.5 2.5 0 0 0 2.5-2.5v-4"/></symbol>
+        <symbol id="i-grid" viewBox="0 0 24 24"><g fill="currentColor"><rect x="3" y="3" width="8" height="8" rx="2.2"/><rect x="13" y="3" width="8" height="8" rx="2.2"/><rect x="3" y="13" width="8" height="8" rx="2.2"/><rect x="13" y="13" width="8" height="8" rx="2.2"/></g></symbol>
+        <symbol id="i-cpu" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><rect x="6" y="6" width="12" height="12" rx="2.2"/><rect x="9.3" y="9.3" width="5.4" height="5.4" rx=".8"/><path d="M9 2.8V6M12 2.8V6M15 2.8V6M9 18v3.2M12 18v3.2M15 18v3.2M2.8 9H6M2.8 12H6M2.8 15H6M18 9h3.2M18 12h3.2M18 15h3.2"/></g></symbol>
+        <symbol id="i-menu" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" d="M6 7h12M6 12h12M6 17h12"/></symbol>
+        <symbol id="i-clock" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.2 2"/></g></symbol>
+        <symbol id="i-iphone" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2"><rect x="6.5" y="2.5" width="11" height="19" rx="2.8"/><path stroke-linecap="round" d="M10.5 5.6h3"/></g></symbol>
+        <symbol id="i-check" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="currentColor"/><path fill="none" stroke="#0B0C12" stroke-opacity=".85" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" d="m7.4 12.3 3.1 3.1 6.1-6.6"/></symbol>
+        <symbol id="i-tick" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" d="m5 12.5 4.5 4.5L19 7.5"/></symbol>
+        <symbol id="i-drive" viewBox="0 0 24 24"><path fill="currentColor" d="M5.6 5h12.8c.8 0 1.5.5 1.8 1.2L22 12v5.5a2.5 2.5 0 0 1-2.5 2.5h-15A2.5 2.5 0 0 1 2 17.5V12l1.8-5.8C4.1 5.5 4.8 5 5.6 5Z"/><path stroke="#0B0C12" stroke-opacity=".45" stroke-width="1.2" d="M2.5 12.2h19"/><circle cx="17.5" cy="16.2" r="1.4" fill="#0B0C12"/></symbol>
+        <symbol id="i-pause" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="currentColor"/><path fill="#fff" d="M8.8 7.6h2.2v8.8H8.8zm4.2 0h2.2v8.8H13z"/></symbol>
+        <symbol id="i-pausebars" viewBox="0 0 24 24"><path fill="currentColor" d="M6.5 4.5H10v15H6.5zm7.5 0h3.5v15H14z"/></symbol>
+        <symbol id="i-laptop" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.9" stroke-linejoin="round"><rect x="4.5" y="5" width="15" height="10.5" rx="1.6"/><path stroke-linecap="round" d="M2.5 19h19"/></g></symbol>
+        <symbol id="i-hammer" viewBox="0 0 24 24"><path fill="currentColor" d="M13.5 3.2 20.8 8l-1.6 2.4-2.6-1.7-9.9 11.6a1.9 1.9 0 0 1-2.9-2.4l9-11.1-1.6-1.1z"/></symbol>
+        <symbol id="i-flag" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" d="M5 21V4.5M5 4.5h13.5v9H5"/><path fill="currentColor" d="M5 4.5h4.5V9H5zM14 4.5h4.5V9H14zM9.5 9H14v4.5H9.5z"/></symbol>
+        <symbol id="i-map" viewBox="0 0 24 24"><path fill="currentColor" d="M2.5 6.2 8.6 4v15.8l-6.1 2.2zM9.9 4l5.3 2.2V22l-5.3-2.2zM16.5 6.2 21.5 4v15.8l-5 2.2z"/></symbol>
+        <symbol id="i-bolt" viewBox="0 0 24 24"><path fill="currentColor" d="M13.6 2 4.8 13.4h6.1L9.8 22l9.4-12h-6.3z"/></symbol>
+        <symbol id="i-shield" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" d="M12 2.8 19.5 5.6v6c0 4.9-3.2 8.3-7.5 9.6-4.3-1.3-7.5-4.7-7.5-9.6v-6z"/><path fill="currentColor" d="M12 2.8v18.4c-4.3-1.3-7.5-4.7-7.5-9.6v-6z"/></symbol>
+        <symbol id="i-puzzle" viewBox="0 0 24 24"><path fill="currentColor" d="M9.6 4.5a2.4 2.4 0 1 1 4.6 0H17a1.5 1.5 0 0 1 1.5 1.5v3a2.4 2.4 0 1 1 0 4.6V18a1.5 1.5 0 0 1-1.5 1.5h-3a2.4 2.4 0 1 0-4.5 0H6A1.5 1.5 0 0 1 4.5 18v-3.4a2.4 2.4 0 1 0 0-4.4V6A1.5 1.5 0 0 1 6 4.5z"/></symbol>
+        <symbol id="i-family" viewBox="0 0 24 24"><g fill="currentColor"><circle cx="8" cy="5.6" r="2.6"/><circle cx="16.6" cy="8.6" r="2.2"/><path d="M4.4 21v-7.2a3.6 3.6 0 0 1 7.2 0V21zM13.1 21v-5.4a3.5 3.5 0 0 1 7 0V21z"/></g></symbol>
+        <symbol id="i-crown" viewBox="0 0 24 24"><path fill="currentColor" d="M3 7.5 7.8 11 12 4.5l4.2 6.5L21 7.5 19.2 18H4.8z"/></symbol>
+        <symbol id="i-play" viewBox="0 0 24 24"><path fill="currentColor" d="M7 4.7v14.6c0 .8.9 1.3 1.6.9l12-7.3a1 1 0 0 0 0-1.8l-12-7.3c-.7-.4-1.6.1-1.6.9Z"/></symbol>
+        <symbol id="i-sliders" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M3.5 6.5h2.2M10.3 6.5h10.2M3.5 12h9.7M17.8 12h2.7M3.5 17.5h4.2M12.3 17.5h8.2"/><circle cx="8" cy="6.5" r="2.3"/><circle cx="15.5" cy="12" r="2.3"/><circle cx="10" cy="17.5" r="2.3"/></g></symbol>
+        <symbol id="i-chevron" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round" d="m9 4.5 7.5 7.5L9 19.5"/></symbol>
+        <symbol id="i-trash" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" d="M4 6.5h16M9.5 6.5V4.2h5v2.3M6 6.5l1 13.3h10l1-13.3M10 10.5v6M14 10.5v6"/></symbol>
+        <symbol id="i-search" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m15.5 15.5 5 5"/></g></symbol>
+        <symbol id="i-cloud" viewBox="0 0 24 24"><path fill="currentColor" d="M7 19.5a5 5 0 0 1-.7-10A6.5 6.5 0 0 1 18.8 9a4.8 4.8 0 0 1-.8 10.5z"/></symbol>
+        <symbol id="i-server" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3.5" y="4" width="17" height="7" rx="2"/><rect x="3.5" y="13" width="17" height="7" rx="2"/></g><g fill="currentColor"><circle cx="7.5" cy="7.5" r="1.2"/><circle cx="7.5" cy="16.5" r="1.2"/></g></symbol>
+        <symbol id="i-nas" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><rect x="4" y="3" width="16" height="13" rx="2.5"/><path d="M12 16v3.3M4.5 20.5h15M8 7h8M8 10.5h5"/></g></symbol>
+        <symbol id="i-folder" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" d="M3 7.5A2.5 2.5 0 0 1 5.5 5h4l2 2.2h7A2.5 2.5 0 0 1 21 9.7v7.8a2.5 2.5 0 0 1-2.5 2.5h-13A2.5 2.5 0 0 1 3 17.5z"/></symbol>
+        <symbol id="i-refresh" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19.5 12a7.5 7.5 0 1 1-2.2-5.3"/><path d="M19.8 3.8v4.6h-4.6"/></g></symbol>
+        <symbol id="i-download" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7.5v8.5M8.3 12.5 12 16.2l3.7-3.7"/></g></symbol>
+        <symbol id="i-house" viewBox="0 0 24 24"><path fill="currentColor" d="M12 3.2 2.8 11a1 1 0 0 0 1.3 1.5l.9-.8V19a1.5 1.5 0 0 0 1.5 1.5H10v-5.2h4v5.2h3.5A1.5 1.5 0 0 0 19 19v-7.3l.9.8a1 1 0 0 0 1.3-1.5z"/></symbol>
+        <symbol id="i-xmark" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" d="m6.5 6.5 11 11M17.5 6.5l-11 11"/></symbol>
+        <symbol id="i-updown" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" d="m7.5 9 4.5-4.5L16.5 9M7.5 15l4.5 4.5 4.5-4.5"/></symbol>
+        <symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="1.8"/><path fill="currentColor" d="M11 10.5h2v6.5h-2zM12 6.4a1.3 1.3 0 1 1 0 2.6 1.3 1.3 0 0 1 0-2.6Z"/></symbol>
+        <symbol id="i-dpad" viewBox="0 0 24 24"><g fill="currentColor"><circle cx="12" cy="5.5" r="3"/><circle cx="12" cy="18.5" r="3"/><circle cx="5.5" cy="12" r="3"/><circle cx="18.5" cy="12" r="3"/></g></symbol>
+        <symbol id="i-gauge" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-linecap="round"><circle cx="12" cy="12" r="9" stroke-width="1.8"/><path stroke-width="2" d="m12 13 3.6-4.6"/><path stroke-width="2.6" d="M7 12.5h.01M8.6 8.6h.01M12 7h.01M17 12.5h.01"/></g></symbol>
+        <symbol id="i-checklist" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="7.5" r="2.7"/><circle cx="6" cy="16.5" r="2.7"/><path d="M11.5 7.5h9M11.5 16.5h9M4.8 7.6l.9.9 1.6-1.8"/></g></symbol>
+        <symbol id="i-hidden" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M3 12s3.3-6 9-6c1.5 0 2.8.4 4 1M21 12s-3.3 6-9 6c-1.5 0-2.8-.4-4-1M9.8 14.2a3 3 0 0 1 4.4-4.4M4 20 20 4"/></g></symbol>
+        <symbol id="i-copy" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><rect x="8" y="8" width="12" height="13" rx="2.2"/><path d="M5.5 16H5a1.5 1.5 0 0 1-1.5-1.5V4.5A1.5 1.5 0 0 1 5 3h9.5A1.5 1.5 0 0 1 16 4.5V5"/></g></symbol>
+        <symbol id="i-ban" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="m5.6 5.6 12.8 12.8"/></g></symbol>
+        <symbol id="i-lock" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.8"><rect x="5" y="10.5" width="14" height="10" rx="2.2"/><path d="M8 10.5V8a4 4 0 0 1 8 0v2.5"/></g></symbol>
+        <symbol id="i-signal" viewBox="0 0 18 12"><g fill="currentColor"><rect y="8" width="3" height="4" rx=".8"/><rect x="5" y="5.5" width="3" height="6.5" rx=".8"/><rect x="10" y="3" width="3" height="9" rx=".8"/><rect x="15" width="3" height="12" rx=".8"/></g></symbol>
+        <symbol id="i-wifi" viewBox="0 0 16 12"><path fill="currentColor" d="M8 2.2c2.4 0 4.6.9 6.3 2.5l1.2-1.2A10.6 10.6 0 0 0 8 .5 10.6 10.6 0 0 0 .5 3.5l1.2 1.2A9 9 0 0 1 8 2.2Zm0 3.4c1.5 0 2.9.6 4 1.6l1.2-1.2A7.3 7.3 0 0 0 8 3.9a7.3 7.3 0 0 0-5.2 2.1L4 7.2a5.6 5.6 0 0 1 4-1.6Zm0 3.3c.6 0 1.2.2 1.6.6L8 11.2 6.4 9.5c.4-.4 1-.6 1.6-.6Z"/></symbol>
+        <symbol id="i-battery" viewBox="0 0 27 13"><rect x=".5" y=".5" width="23" height="12" rx="3.5" fill="none" stroke="currentColor" stroke-opacity=".4"/><rect x="2" y="2" width="20" height="9" rx="2" fill="currentColor"/><path fill="currentColor" fill-opacity=".4" d="M25 4.5v4c.8-.3 1.4-1.1 1.4-2s-.6-1.7-1.4-2Z"/></symbol>
+        <symbol id="i-github" viewBox="0 0 16 16"><path fill="currentColor" d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8Z"/></symbol>
+    </defs>
+</svg>
+
+<div class="page">
+    <header class="top wrap">
+        <div class="top__bar">
+            <a class="wordmark" href="#top" aria-label="Cartouche"><svg aria-hidden="true"><use href="#i-cartridge"/></svg><b>Cartouche</b></a>
+            <nav class="nav" data-label-fr="Sections" data-label-en="Sections" aria-label="Sections">
+                <a href="#console"><span lang="fr">La console</span><span lang="en">Console</span></a>
+                <a href="#duo">Duo</a>
+                <a href="#storage"><span lang="fr">Stockage</span><span lang="en">Storage</span></a>
+                <a href="#install"><span lang="fr">Installer</span><span lang="en">Install</span></a>
+                <a href="#faq"><span lang="fr">Questions</span><span lang="en">FAQ</span></a>
+            </nav>
+            <div class="lang" role="group" data-label-fr="Langue" data-label-en="Language" aria-label="Language">
+                <button type="button" data-set-lang="fr" aria-pressed="false">FR</button>
+                <button type="button" data-set-lang="en" aria-pressed="true">EN</button>
+            </div>
+            <a class="gh" href="https://github.com/clabeuhtegrite/Cartouche" data-label-fr="Le code de Cartouche sur GitHub" data-label-en="Cartouche's code on GitHub" aria-label="Cartouche's code on GitHub"><svg aria-hidden="true"><use href="#i-github"/></svg></a>
+        </div>
+    </header>
+
+    <main>
+        <section class="hero" id="top">
+            <div class="wrap">
+                <div class="hero__head">
+                    <div>
+                        <p class="label eyebrow"><svg aria-hidden="true"><use href="#i-cartridge"/></svg><span lang="fr">Pour iPhone · Logiciel libre</span><span lang="en">For iPhone · Free software</span></p>
+                        <h1><span lang="fr">Votre iPhone devient une console.</span><span lang="en">Your iPhone becomes a console.</span></h1>
+                    </div>
+                    <div>
+                        <p class="lede" lang="fr">Cartouche installe, lance et garde les jeux que <a href="https://github.com/seedds/nxnative">nxnative</a> fait tourner nativement sur iPhone, à partir de vos propres copies. Il se signe, se renouvelle et se met à jour tout seul, et donne à vos jeux la mémoire qu’il leur faut.</p>
+                        <p class="lede" lang="en">Cartouche installs, starts and keeps the games <a href="https://github.com/seedds/nxnative">nxnative</a> runs natively on iPhone, from your own copies. It signs, renews and updates itself, and gets your games the memory they need.</p>
+                        <div class="actions">
+                            <a class="btn btn--primary" href="#install"><i class="glyph" aria-hidden="true">A</i><span lang="fr">Installer Cartouche</span><span lang="en">Install Cartouche</span></a>
+                            <a class="btn btn--glass" href="https://github.com/clabeuhtegrite/Cartouche"><i class="glyph" aria-hidden="true">X</i><span lang="fr">Le code sur GitHub</span><span lang="en">Code on GitHub</span></a>
+                        </div>
+                    </div>
+                </div>
+                <div class="hero__device">
+                    <div class="device" data-hero tabindex="0" role="group" style="--w:874;--h:402;--r:55;--b:13;max-width:1060px" data-label-fr="L’accueil de Cartouche, en paysage sur un iPhone 17 Pro" data-label-en="Cartouche’s home, in landscape on an iPhone 17 Pro" aria-label="Cartouche’s home, in landscape on an iPhone 17 Pro">
+                        <div class="device__body"><div class="screen" data-screen="hero"></div></div>
+                    </div>
+                    <p class="hint"><span lang="fr">Touchez une jaquette, ou <kbd>←</kbd> <kbd>→</kbd> au clavier. Jouer, Fiche et le dock mènent à la suite.</span><span lang="en">Tap a cover, or press <kbd>←</kbd> <kbd>→</kbd>. Play, Details and the dock lead to the rest of the page.</span></p>
+                </div>
+                <ul class="facts">
+                    <li><span lang="fr"><b>≈ 6 Gio de mémoire</b> pour vos jeux, sur un iPhone de 12 Go</span><span lang="en"><b>≈ 6 GiB of memory</b> for your games, on a 12 GB iPhone</span></li>
+                    <li><span lang="fr"><b>Un compte Apple gratuit</b> suffit, sans compte développeur</span><span lang="en"><b>A free Apple account</b> is enough, no developer account</span></li>
+                    <li><span lang="fr"><b>Manette ou tactile</b> sur chaque écran</span><span lang="en"><b>Controller or touch</b> on every screen</span></li>
+                    <li><span lang="fr"><b>Vos propres copies</b> de vos jeux, aucun jeu fourni</span><span lang="en"><b>Your own copies</b> of your games, none included</span></li>
+                </ul>
+            </div>
+        </section>
+
+        <section class="section" id="console" style="--light:#3BE3C3;--dark:#3A1C7A">
+            <div class="wrap split">
+                <div>
+                    <p class="label"><span lang="fr">La console</span><span lang="en">The console</span></p>
+                    <h2><span lang="fr">Vos jeux en grand, sur une seule étagère.</span><span lang="en">Your games, large, on one shelf.</span></h2>
+                    <div class="prose">
+                        <p lang="fr">L’accueil ne montre que vos jeux, avec leurs jaquettes officielles, et le jeu en focus avec ce qu’il faut pour y jouer. Tous les jeux de la liste de nxnative sont à un geste, et chacun dit comment il tourne sur votre iPhone.</p>
+                        <p lang="en">The home shows your games alone, with their official covers, and the game in focus with what you need to play it. Every game on nxnative’s list is one step away, and each says how it runs on your iPhone.</p>
+                    </div>
+                    <ul class="keys">
+                        <li><span class="keys__k"><i class="glyph" aria-hidden="true">A</i></span><span lang="fr"><b>Jouer</b> : le jeu démarre tout de suite, avec ses réglages.</span><span lang="en"><b>Play</b>: the game starts at once, with its settings.</span></li>
+                        <li><span class="keys__k"><i class="glyph" aria-hidden="true">X</i></span><span lang="fr"><b>Fiche</b> : comment il tourne ici, son temps de jeu, sa taille.</span><span lang="en"><b>Details</b>: how it runs here, its play time, its size.</span></li>
+                        <li><span class="keys__k"><i class="glyph" aria-hidden="true">Y</i></span><span lang="fr"><b>Tous les jeux</b> : la liste de nxnative, avec ses filtres.</span><span lang="en"><b>All games</b>: nxnative’s list, with its filters.</span></li>
+                        <li><span class="keys__k"><i class="shoulder" aria-hidden="true">L1</i><i class="shoulder" aria-hidden="true">R1</i></span><span lang="fr"><b>Filtre</b> : Tous, Ma bibliothèque, Sur iPhone.</span><span lang="en"><b>Filter</b>: All, My library, On iPhone.</span></li>
+                        <li><span class="keys__k"><i class="glyph" aria-hidden="true"><svg width="12" height="12" aria-hidden="true"><use href="#i-menu"/></svg></i></span><span lang="fr"><b>Système</b> : mémoire, signature, stockage, mises à jour.</span><span lang="en"><b>System</b>: memory, signature, storage, updates.</span></li>
+                    </ul>
+                </div>
+                <figure>
+                    <div class="device" style="--w:402;--h:874;--r:55;--b:12;max-width:340px;--light:#3BE3C3;--dark:#3A1C7A">
+                        <div class="device__body"><div class="screen" data-screen="library" role="img" data-label-fr="Tous les jeux, avec une manette connectée" data-label-en="All games, with a controller connected" aria-label="All games, with a controller connected"></div></div>
+                    </div>
+                    <figcaption><span lang="fr">Tous les jeux, manette connectée</span><span lang="en">All games, controller connected</span></figcaption>
+                </figure>
+            </div>
+        </section>
+
+        <section class="section" id="sheet" style="--light:#FF9C5B;--dark:#5B2468;--gx:88%;--gx2:12%">
+            <div class="wrap split split--flip">
+                <div>
+                    <p class="label"><span lang="fr">La fiche du jeu</span><span lang="en">A game’s sheet</span></p>
+                    <h2><span lang="fr">Chaque jeu dit comment il tourne ici.</span><span lang="en">Every game says how it runs here.</span></h2>
+                    <div class="prose">
+                        <p lang="fr">La fiche vérifie que votre iPhone a ce qu’il faut : la mémoire, iOS, la puce. Elle montre les résultats des testeurs sur votre modèle, votre temps de jeu et la place que prend le jeu.</p>
+                        <p lang="en">The sheet checks that your iPhone has what it takes: memory, iOS, chip. It shows testers’ results on your model, your play time and the space the game takes.</p>
+                        <p lang="fr">Les réglages de nxnative se changent sur une page de Cartouche : images par seconde, échelle de rendu, mode portable ou TV, langue du jeu. « Revenir aux réglages testés » remet ceux avec lesquels le jeu a été essayé.</p>
+                        <p lang="en">nxnative’s settings change on a page of Cartouche’s own: frame rate, render scale, handheld or docked, game language. Reset to tested defaults brings back the ones the game was tried with.</p>
+                    </div>
+                    <p class="small" style="margin-top:22px"><span lang="fr">Faites glisser l’échelle de rendu, sur la page des réglages.</span><span lang="en">Drag the render scale, on the settings page.</span></p>
+                </div>
+                <div class="pair" style="display:flex;align-items:flex-start;justify-content:center">
+                    <div class="device" style="--w:402;--h:874;--r:55;--b:12;width:48%;max-width:300px;margin:0;--light:#FF9C5B;--dark:#5B2468">
+                        <div class="device__body"><div class="screen" data-screen="sheet" role="img" data-label-fr="La fiche de Lanterne" data-label-en="Lanterne’s sheet" aria-label="Lanterne’s sheet"></div></div>
+                    </div>
+                    <div class="device" style="--w:402;--h:874;--r:55;--b:12;width:48%;max-width:300px;margin:12% 0 0 4%;--light:#FF9C5B;--dark:#5B2468">
+                        <div class="device__body"><div class="screen" data-screen="settings"></div></div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section class="section" id="pause" style="--light:#3BE3C3;--dark:#3A1C7A">
+            <div class="wrap">
+                <div class="intro intro--wide">
+                    <div>
+                        <p class="label"><span lang="fr">Pendant une partie</span><span lang="en">During a game</span></p>
+                        <h2><span lang="fr">Le jeu attend derrière la console.</span><span lang="en">The game waits behind the console.</span></h2>
+                    </div>
+                    <div class="prose">
+                        <p lang="fr">Le bouton Home, sur l’écran ou sur la manette, ramène la console sans quitter le jeu. Il reste en pause là où vous l’avez laissé : Reprendre y retourne, Quitter l’arrête.</p>
+                        <p lang="en">The Home button, on screen or on the controller, brings back the console without ending the game. It stays paused where you left it: Resume goes back to it, Quit ends it.</p>
+                        <p class="small"><span lang="fr">Un jeu qui a besoin de plus de mémoire démarre à la place de Cartouche.</span><span lang="en">A game that needs more memory starts in Cartouche’s place.</span></p>
+                    </div>
+                </div>
+                <div class="device" data-pause style="--w:874;--h:402;--r:55;--b:13;max-width:940px;margin-top:clamp(40px,5vw,64px);--light:#3BE3C3;--dark:#3A1C7A">
+                    <div class="device__body"><div class="screen" data-screen="pause"></div></div>
+                </div>
+                <div class="demo-bar">
+                    <button type="button" class="btn btn--glass" data-pause-toggle></button>
+                </div>
+            </div>
+        </section>
+
+        <section class="section" id="duo" style="--light:#8BE86D;--dark:#0D5C47;--gx:86%;--gx2:14%">
+            <div class="wrap">
+                <div class="intro intro--wide">
+                    <div>
+                        <p class="label">iPhone Duo</p>
+                        <h2><span lang="fr">Plié, une console. Déplié, la fiche à côté.</span><span lang="en">Folded, a console. Unfolded, the sheet beside it.</span></h2>
+                    </div>
+                    <div class="prose">
+                        <p lang="fr">Déplié, l’accueil et la fiche du jeu en focus se partagent l’écran, chacun d’un côté du pli. La fiche suit le focus, au doigt ou à la manette, et ouvre les réglages sur place. Plier ou déplier garde votre place.</p>
+                        <p lang="en">Unfolded, the home and the sheet of the game in focus share the screen, one on each side of the fold. The sheet follows the focus, by touch or controller, and opens the settings in place. Folding or unfolding keeps your place.</p>
+                        <p lang="fr">Sur chaque iPhone, l’interface suit la place qu’elle a, jamais le modèle, et laisse libres le pli et les caméras.</p>
+                        <p lang="en">On every iPhone, the interface follows the space it has, never the model, and keeps clear of the fold and the cameras.</p>
+                    </div>
+                </div>
+                <div class="duo-stage">
+                    <figure>
+                        <div class="device" style="--w:466;--h:678;--r:42;--b:13;max-width:250px;--light:#3BE3C3;--dark:#3A1C7A">
+                            <div class="device__body"><div class="screen" data-screen="duo-closed" role="img" data-label-fr="L’accueil sur l’iPhone Duo plié" data-label-en="The home on the folded iPhone Duo" aria-label="The home on the folded iPhone Duo"></div></div>
+                        </div>
+                        <figcaption><span lang="fr">Plié</span><span lang="en">Folded</span></figcaption>
+                    </figure>
+                    <figure>
+                        <div class="device" data-duo style="--w:890;--h:626;--r:30;--b:14;max-width:760px;--light:#3BE3C3;--dark:#3A1C7A">
+                            <div class="device__body"><div class="screen" data-screen="duo-open"></div></div>
+                        </div>
+                        <figcaption><span lang="fr">Déplié · touchez une jaquette, la fiche suit</span><span lang="en">Unfolded · tap a cover, the sheet follows</span></figcaption>
+                    </figure>
+                </div>
+            </div>
+        </section>
+
+        <section class="section" id="storage" style="--light:#F49CC4;--dark:#3D2B96">
+            <div class="wrap">
+                <div class="split" style="align-items:start">
+                    <div>
+                        <p class="label"><span lang="fr">Votre stockage</span><span lang="en">Your storage</span></p>
+                        <h2><span lang="fr">Vos jeux et vos sauvegardes restent chez vous.</span><span lang="en">Your games and saves stay at home.</span></h2>
+                        <div class="prose">
+                            <p lang="fr">Gardez vos jeux sur votre propre stockage, avec votre propre compte. Ceux qui s’y trouvent apparaissent dans votre bibliothèque, prêts à installer, et Cartouche y copie vos sauvegardes après chaque partie.</p>
+                            <p lang="en">Keep your games on storage of your own, with your own account. The games there show in your library, ready to install, and Cartouche copies your saves there after each game.</p>
+                        </div>
+                        <p class="note"><svg aria-hidden="true"><use href="#i-lock"/></svg><span lang="fr">Uniquement votre propre stockage, avec votre propre compte : jamais de lien public.</span><span lang="en">Only storage of your own, with your own account: never a public link.</span></p>
+                    </div>
+                    <ul class="stores">
+                        <li class="store"><span class="tag-icon"><svg aria-hidden="true"><use href="#i-nas"/></svg></span><h3><span lang="fr">Dossier partagé</span><span lang="en">Shared folder</span></h3><p><span lang="fr">SMB 2 ou 3, sur votre Mac, votre PC ou votre NAS.</span><span lang="en">SMB 2 or 3, on your Mac, PC or NAS.</span></p></li>
+                        <li class="store"><span class="tag-icon"><svg aria-hidden="true"><use href="#i-cloud"/></svg></span><h3><span lang="fr">Bucket S3 privé</span><span lang="en">Private S3 bucket</span></h3><p><span lang="fr">Sur Amazon S3 ou votre MinIO, chaque requête signée avec vos clés.</span><span lang="en">On Amazon S3 or your own MinIO, each request signed with your keys.</span></p></li>
+                        <li class="store"><span class="tag-icon"><svg aria-hidden="true"><use href="#i-server"/></svg></span><h3><span lang="fr">Serveur FTP ou SFTP</span><span lang="en">FTP or SFTP server</span></h3><p><span lang="fr">Avec votre compte. En SFTP, Cartouche vérifie la clé du serveur.</span><span lang="en">With your account. Over SFTP, Cartouche checks the server’s key.</span></p></li>
+                        <li class="store"><span class="tag-icon"><svg aria-hidden="true"><use href="#i-folder"/></svg></span><h3><span lang="fr">Dossier de Fichiers</span><span lang="en">Folder in Files</span></h3><p><span lang="fr">N’importe quel dossier que l’app Fichiers atteint.</span><span lang="en">Any folder the Files app reaches.</span></p></li>
+                    </ul>
+                </div>
+                <ul class="keeps">
+                    <li><svg aria-hidden="true"><use href="#i-tick"/></svg><span lang="fr"><b>Après chaque partie</b>, une copie datée de vos sauvegardes ; Cartouche garde les 10 plus récentes.</span><span lang="en"><b>After each game</b>, a dated copy of your saves; Cartouche keeps the 10 most recent.</span></li>
+                    <li><svg aria-hidden="true"><use href="#i-tick"/></svg><span lang="fr"><b>Une installation coupée</b> reprend là où elle s’était arrêtée.</span><span lang="en"><b>An install that was cut off</b> picks up where it stopped.</span></li>
+                    <li><svg aria-hidden="true"><use href="#i-tick"/></svg><span lang="fr"><b>Une version plus récente</b> dans votre dossier ? Cartouche propose la mise à jour et garde vos sauvegardes.</span><span lang="en"><b>A newer build</b> in your folder? Cartouche offers the update and keeps your saves.</span></li>
+                    <li><svg aria-hidden="true"><use href="#i-tick"/></svg><span lang="fr"><b>Un dossier en lecture seule</b> ? Cartouche installe ses jeux sans rien y écrire.</span><span lang="en"><b>A read-only folder</b>? Cartouche installs its games and writes nothing there.</span></li>
+                </ul>
+            </div>
+        </section>
+
+        <section class="section" id="system" style="--light:#4F46E5;--dark:#EC4899;--gx:84%;--gx2:16%">
+            <div class="wrap split split--flip">
+                <div>
+                    <p class="label"><span lang="fr">En coulisse</span><span lang="en">Behind the scenes</span></p>
+                    <h2><span lang="fr">Il s’occupe du reste.</span><span lang="en">It takes care of the rest.</span></h2>
+                    <ul class="perks">
+                        <li class="perk"><span class="tag-icon"><svg aria-hidden="true"><use href="#i-cpu"/></svg></span><div><h3><span lang="fr">La mémoire des gros jeux</span><span lang="en">Memory for big games</span></h3><p><span lang="fr">La mémoire augmentée donne à Cartouche environ 6 Gio sur un iPhone de 12 Go, au lieu de 3,3 Gio, avec un compte Apple gratuit.</span><span lang="en">Increased Memory Limit gives Cartouche about 6 GiB on a 12 GB iPhone instead of 3.3 GiB, on a free Apple account.</span></p></div></li>
+                        <li class="perk"><span class="tag-icon"><svg aria-hidden="true"><use href="#i-refresh"/></svg></span><div><h3><span lang="fr">Signé et renouvelé</span><span lang="en">Signed and renewed</span></h3><p><span lang="fr">Le SideStore intégré renouvelle sa signature de 7 jours depuis la page Système, ou chaque nuit par une automatisation Raccourcis. Cartouche prévient 24 h et 6 h avant.</span><span lang="en">The built-in SideStore renews its seven-day signature from the System page, or every night from a Shortcuts automation. Cartouche warns you 24 h and 6 h before.</span></p></div></li>
+                        <li class="perk"><span class="tag-icon"><svg aria-hidden="true"><use href="#i-download"/></svg></span><div><h3><span lang="fr">Mis à jour sans ordinateur</span><span lang="en">Updated without a computer</span></h3><p><span lang="fr">Cartouche propose ses nouvelles versions sur la console et les installe lui-même. Vos jeux et vos sauvegardes restent.</span><span lang="en">Cartouche offers its new versions over the console and installs them itself. Your games and saves stay.</span></p></div></li>
+                        <li class="perk"><span class="tag-icon"><svg aria-hidden="true"><use href="#i-hidden"/></svg></span><div><h3><span lang="fr">Hors de vue</span><span lang="en">Out of sight</span></h3><p><span lang="fr">Cartouche s’appuie sur LiveContainer et SideStore sans jamais les montrer. Vos jeux tournent dans Cartouche et ne comptent pas dans la limite de trois apps d’un compte gratuit.</span><span lang="en">Cartouche is built on LiveContainer and SideStore and never shows them. Your games run inside Cartouche and don’t count against a free account’s limit of three apps.</span></p></div></li>
+                        <li class="perk"><span class="tag-icon"><svg aria-hidden="true"><use href="#i-copy"/></svg></span><div><h3><span lang="fr">Une erreur ? Copiez le rapport.</span><span lang="en">An error? Copy the report.</span></h3><p><span lang="fr">Sous chaque erreur, un bouton copie ce qu’il faut pour la comprendre, sans mot de passe ni adresse.</span><span lang="en">Under each error, a button copies what it takes to understand it, with no password or address.</span></p></div></li>
+                    </ul>
+                </div>
+                <figure>
+                    <div class="device" style="--w:402;--h:874;--r:55;--b:12;max-width:340px;--light:#4F46E5;--dark:#EC4899">
+                        <div class="device__body"><div class="screen" data-screen="system" role="img" data-label-fr="La page Système de Cartouche" data-label-en="Cartouche’s System page" aria-label="Cartouche’s System page"></div></div>
+                    </div>
+                    <figcaption><span lang="fr">La page Système</span><span lang="en">The System page</span></figcaption>
+                </figure>
+            </div>
+        </section>
+
+        <section class="section" id="builder" style="--light:#79C3FF;--dark:#2A5AA6">
+            <div class="wrap">
+                <div class="intro intro--wide">
+                    <div>
+                        <p class="label"><span lang="fr">Sur votre Mac</span><span lang="en">On your Mac</span></p>
+                        <h2><span lang="fr">Vos jeux, construits par Cartouche Builder.</span><span lang="en">Your games, built by Cartouche Builder.</span></h2>
+                    </div>
+                    <div>
+                        <div class="prose">
+                            <p lang="fr">Cartouche Builder construit vos jeux avec nxnative à partir de vos propres fichiers, les dépose dans votre dossier de jeux, et reconstruit un jeu quand un changement de nxnative le concerne. Il peut tourner chaque nuit.</p>
+                            <p lang="en">Cartouche Builder builds your games with nxnative from your own files, puts them in your games folder, and builds a game again when a change to nxnative touches it. It can run every night.</p>
+                        </div>
+                        <p class="builder-need"><span lang="fr">Il demande un Mac à puce Apple, macOS 26.6 et Xcode 27.2. <a href="https://github.com/clabeuhtegrite/Cartouche/blob/main/builder/README.md">Le guide de Cartouche Builder</a></span><span lang="en">It needs a Mac with Apple silicon, macOS 26.6 and Xcode 27.2. <a href="https://github.com/clabeuhtegrite/Cartouche/blob/main/builder/README.md">Cartouche Builder’s guide</a></span></p>
+                    </div>
+                </div>
+                <ol class="flow">
+                    <li><span class="tag-icon"><svg aria-hidden="true"><use href="#i-folder"/></svg></span><h3><span lang="fr">Vos fichiers</span><span lang="en">Your files</span></h3><p><span lang="fr">Votre jeu et ses mises à jour, tirés de votre propre console.</span><span lang="en">Your game and its updates, dumped from your own console.</span></p></li>
+                    <li><span class="tag-icon"><svg aria-hidden="true"><use href="#i-laptop"/></svg></span><h3>Cartouche Builder</h3><p><span lang="fr">Construit le jeu avec nxnative, sur votre Mac.</span><span lang="en">Builds the game with nxnative, on your Mac.</span></p></li>
+                    <li><span class="tag-icon"><svg aria-hidden="true"><use href="#i-nas"/></svg></span><h3><span lang="fr">Votre dossier de jeux</span><span lang="en">Your games folder</span></h3><p><span lang="fr">Sur votre Mac, votre PC ou votre NAS.</span><span lang="en">On your Mac, PC or NAS.</span></p></li>
+                    <li><span class="tag-icon"><svg aria-hidden="true"><use href="#i-iphone"/></svg></span><h3>Cartouche</h3><p><span lang="fr">Propose la mise à jour sur la fiche du jeu, sauvegardes gardées.</span><span lang="en">Offers the update on the game’s sheet, saves kept.</span></p></li>
+                </ol>
+            </div>
+        </section>
+
+        <section class="section" id="install" style="--light:#4F46E5;--dark:#EC4899">
+            <div class="wrap split" style="align-items:start">
+                <div>
+                    <p class="label"><span lang="fr">Installer</span><span lang="en">Install</span></p>
+                    <h2><span lang="fr">Un ordinateur, une seule fois.</span><span lang="en">A computer, just once.</span></h2>
+                    <ol class="steps">
+                        <li class="step"><span class="step__n" aria-hidden="true">1</span><div><h3><span lang="fr">LocalDevVPN sur l’iPhone</span><span lang="en">LocalDevVPN on the iPhone</span></h3><p><span lang="fr">Installez-le depuis l’App Store : le SideStore intégré s’en sert pour renouveler Cartouche sans ordinateur.</span><span lang="en">Install it from the App Store: the built-in SideStore uses it to renew Cartouche without a computer.</span></p></div></li>
+                        <li class="step"><span class="step__n" aria-hidden="true">2</span><div><h3><span lang="fr">L’Installeur Cartouche</span><span lang="en">The Cartouche Installer</span></h3><p><span lang="fr">Sur un Mac ou un PC Windows, branchez l’iPhone et connectez-vous avec votre compte Apple. L’Installeur pose Cartouche avec son certificat, la mémoire augmentée et le fichier de jumelage.</span><span lang="en">On a Mac or a Windows PC, plug in the iPhone and sign in with your Apple account. The Installer puts Cartouche on it with its certificate, Increased Memory Limit and the pairing file.</span></p>
+                            <a class="btn btn--primary" href="https://github.com/clabeuhtegrite/Cartouche/releases?q=installer&amp;expanded=true"><svg aria-hidden="true"><use href="#i-download"/></svg><span lang="fr">Télécharger l’Installeur</span><span lang="en">Download the Installer</span></a></div></li>
+                        <li class="step"><span class="step__n" aria-hidden="true">3</span><div><h3><span lang="fr">La mise en route</span><span lang="en">The setup</span></h3><p><span lang="fr">Ouvrez Cartouche et suivez ses étapes, puis importez votre premier jeu.</span><span lang="en">Open Cartouche and follow its steps, then import your first game.</span></p></div></li>
+                    </ol>
+                </div>
+                <div class="panel need">
+                    <h3><span lang="fr">Ce qu’il faut</span><span lang="en">What you need</span></h3>
+                    <dl>
+                        <dt>iPhone</dt>
+                        <dd><span lang="fr">iOS 26 ou ultérieur, sur un iPhone 15 Pro ou plus récent. Les plus gros jeux demandent un iPhone de 12 Go.</span><span lang="en">iOS 26 or later, on an iPhone 15 Pro or newer. The biggest games need a 12 GB iPhone.</span></dd>
+                        <dt>iPad</dt>
+                        <dd><span lang="fr">Avec une puce M1 ou plus récente.</span><span lang="en">With an M1 chip or newer.</span></dd>
+                        <dt><span lang="fr">Compte Apple</span><span lang="en">Apple account</span></dt>
+                        <dd><span lang="fr">Un compte gratuit suffit.</span><span lang="en">A free one is enough.</span></dd>
+                        <dt><span lang="fr">Ordinateur</span><span lang="en">Computer</span></dt>
+                        <dd><span lang="fr">Un Mac ou un PC Windows pour la première installation, un Mac à puce Apple pour construire vos jeux.</span><span lang="en">A Mac or a Windows PC for the first install, a Mac with Apple silicon to build your games.</span></dd>
+                        <dt><span lang="fr">Vos jeux</span><span lang="en">Your games</span></dt>
+                        <dd><span lang="fr">Vos propres copies, tirées de votre console.</span><span lang="en">Your own copies, dumped from your console.</span></dd>
+                    </dl>
+                </div>
+            </div>
+        </section>
+
+        <section class="section" id="legal" style="--light:#FF6A57;--dark:#5C0F2E">
+            <div class="wrap split">
+                <div>
+                    <p class="label"><span lang="fr">Ce qu’il ne fait pas</span><span lang="en">What it does not do</span></p>
+                    <h2><span lang="fr">Aucun jeu fourni. Jamais.</span><span lang="en">No games included. Ever.</span></h2>
+                    <div class="prose">
+                        <p lang="fr">Cartouche ne contient et ne télécharge aucun jeu, aucune clé et aucun firmware. Il n’a ni catalogue de jeux à télécharger, ni lien vers un tel catalogue, ni stockage public. Vous importez les jeux que vous possédez et que vous avez construits vous-même.</p>
+                        <p lang="en">Cartouche contains and downloads no games, no keys and no firmware. It has no catalogue of games to download, no link to one and no public storage. You import games you own and built yourself.</p>
+                    </div>
+                    <ul class="never">
+                        <li><svg aria-hidden="true"><use href="#i-ban"/></svg><span lang="fr">Aucun jeu ni mise à jour de jeu</span><span lang="en">No games or game updates</span></li>
+                        <li><svg aria-hidden="true"><use href="#i-ban"/></svg><span lang="fr">Aucune clé ni firmware</span><span lang="en">No keys or firmware</span></li>
+                        <li><svg aria-hidden="true"><use href="#i-ban"/></svg><span lang="fr">Aucun lien de téléchargement</span><span lang="en">No download links</span></li>
+                    </ul>
+                    <p class="small" style="margin-top:26px"><a href="https://github.com/clabeuhtegrite/Cartouche/blob/main/LEGAL.md"><span lang="fr">Lire les mentions légales</span><span lang="en">Read the legal notes</span></a></p>
+                </div>
+                <div class="bring" aria-hidden="true">
+                    <svg class="dash" viewBox="0 0 100 147" preserveAspectRatio="none"><rect x=".8" y=".8" width="98.4" height="145.4" rx="8" fill="none" stroke="rgba(255,255,255,.4)" stroke-width="1.2" stroke-dasharray="6 4.5"/></svg>
+                    <span><svg class="ic" aria-hidden="true"><use href="#i-import"/></svg><span lang="fr">Importer ma copie</span><span lang="en">Import my copy</span></span>
+                </div>
+            </div>
+        </section>
+
+        <section class="section faq-section" id="faq" style="--light:#7CC6FF;--dark:#2A5AA6">
+            <div class="wrap faq">
+                <p class="label"><span lang="fr">Questions</span><span lang="en">Questions</span></p>
+                <h2><span lang="fr">Ce qu’on nous demande.</span><span lang="en">What people ask.</span></h2>
+                <div class="panel qa">
+                    <details>
+                        <summary><span lang="fr">Cartouche est-il gratuit ?</span><span lang="en">Is Cartouche free?</span></summary>
+                        <p><span lang="fr">Oui. C’est un logiciel libre sous licence AGPL-3.0, et il marche avec un compte Apple gratuit.</span><span lang="en">Yes. It is free software under the AGPL-3.0, and it works with a free Apple account.</span></p>
+                    </details>
+                    <details>
+                        <summary><span lang="fr">Faut-il un ordinateur ?</span><span lang="en">Do I need a computer?</span></summary>
+                        <p><span lang="fr">Une fois, pour installer Cartouche depuis un Mac ou un PC Windows. Ensuite, il se renouvelle et se met à jour depuis l’iPhone. Pour construire vos jeux, il faut un Mac à puce Apple.</span><span lang="en">Once, to install Cartouche from a Mac or a Windows PC. Then it renews and updates itself from the iPhone. Building your games takes a Mac with Apple silicon.</span></p>
+                    </details>
+                    <details>
+                        <summary><span lang="fr">Quels jeux tournent ?</span><span lang="en">Which games run?</span></summary>
+                        <p><span lang="fr">Ceux que nxnative fait tourner nativement. Dans Cartouche, Tous les jeux montre chaque jeu qui a un profil dans nxnative, et sa fiche dit s’il tourne sur votre iPhone.</span><span lang="en">The ones nxnative runs natively. In Cartouche, All games lists every game that has a profile in nxnative, and its sheet says whether it runs on your iPhone.</span></p>
+                    </details>
+                    <details>
+                        <summary><span lang="fr">Je ne connais aucun de ces jeux.</span><span lang="en">I don’t know any of these games.</span></summary>
+                        <p><span lang="fr">C’est normal : ils sont inventés pour cette page, jaquettes comprises. Dans Cartouche, vos jeux ont leurs jaquettes officielles.</span><span lang="en">That’s expected: they are made up for this page, covers included. In Cartouche, your games show their official covers.</span></p>
+                    </details>
+                    <details>
+                        <summary><span lang="fr">Cartouche envoie-t-il des données ?</span><span lang="en">Does Cartouche send any data?</span></summary>
+                        <p><span lang="fr">Des mesures de vos parties, comme les images par seconde et la mémoire, pour que les jeux tournent mieux sur iPhone ; jamais vos fichiers, vos sauvegardes ni vos comptes. Vous pouvez les couper dans Système › Mesures de jeu. Le détail est dans <a href="https://github.com/clabeuhtegrite/Cartouche/blob/main/docs/privacy.md">la page Confidentialité</a>.</span><span lang="en">Measurements of your game sessions, such as frame rate and memory, so that games run better on iPhone; never your files, saves or accounts. You can turn them off in System › Game measurements. The details are on <a href="https://github.com/clabeuhtegrite/Cartouche/blob/main/docs/privacy.md">the privacy page</a>.</span></p>
+                    </details>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <footer class="foot">
+        <div class="wrap">
+            <div class="foot__row">
+                <a class="wordmark" href="#top" aria-label="Cartouche"><svg aria-hidden="true"><use href="#i-cartridge"/></svg><b>Cartouche</b></a>
+                <nav data-label-fr="Liens" data-label-en="Links" aria-label="Links">
+                    <a href="https://github.com/clabeuhtegrite/Cartouche">GitHub</a>
+                    <a href="https://github.com/clabeuhtegrite/Cartouche/blob/main/LEGAL.md"><span lang="fr">Mentions légales</span><span lang="en">Legal</span></a>
+                    <a href="https://github.com/clabeuhtegrite/Cartouche/blob/main/docs/privacy.md"><span lang="fr">Confidentialité</span><span lang="en">Privacy</span></a>
+                    <a href="https://github.com/clabeuhtegrite/Cartouche/blob/main/docs/roadmap.md"><span lang="fr">Feuille de route</span><span lang="en">Roadmap</span></a>
+                </nav>
+            </div>
+            <p><span lang="fr">Cartouche est un logiciel libre sous licence AGPL-3.0, construit sur LiveContainer et SideStore.</span><span lang="en">Cartouche is free software under the AGPL-3.0, built on LiveContainer and SideStore.</span></p>
+            <p><span lang="fr">Cartouche n’est affilié ni à Nintendo, ni à Apple, ni aux projets LiveContainer, SideStore, iloader et nxnative. Les jeux et les jaquettes de cette page sont inventés.</span><span lang="en">Cartouche is not affiliated with Nintendo, Apple, or the LiveContainer, SideStore, iloader and nxnative projects. The games and covers on this page are made up.</span></p>
+        </div>
+    </footer>
+</div>
+
+<script>
+(function () {
+    "use strict";
+
+    var root = document.documentElement;
+    var $ = function (selector, scope) { return (scope || document).querySelector(selector); };
+    var $$ = function (selector, scope) { return Array.prototype.slice.call((scope || document).querySelectorAll(selector)); };
+    var reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+    // Text in both languages: the page shows the one of <html data-lang>.
+    function t(fr, en) {
+        if (en === undefined || en === fr) return fr;
+        return '<span lang="fr">' + fr + '</span><span lang="en">' + en + "</span>";
+    }
+    function tt(pair) { return t(pair[0], pair[1]); }
+    function ic(name, cls) {
+        return '<svg class="ic' + (cls ? " " + cls : "") + '" aria-hidden="true" focusable="false"><use href="#i-' + name + '"/></svg>';
+    }
+    function glyph(inner) { return '<i class="uglyph" aria-hidden="true"><b>' + inner + "</b></i>"; }
+    var MENU = '<i class="uglyph" aria-hidden="true">' + ic("menu") + "</i>";
+
+    // The made-up games: covers drawn by covers/make_covers.py, colours of
+    // their stage taken from their covers.
+    var GAMES = [
+        { id: "aurora", file: "aurora-rally", name: "Aurora Rally", platform: "Switch 2", genre: ["Course", "Racing"], icon: "flag", status: "ready",
+          time: ["12 h 34 min", "12 hr 34 min"], sessions: ["23 sessions, dernière partie hier", "23 sessions, last played yesterday"],
+          size: ["21,8 Go", "21.8 GB"], detail: ["Jeu 21,5 Go, données 327 Mo", "Game 21.5 GB, data 327 MB"], peak: ["4,6 Gio", "4.6 GiB"], light: "#3BE3C3", dark: "#3A1C7A" },
+        { id: "lanterne", file: "lanterne", name: "Lanterne", platform: "Switch", genre: ["Aventure", "Adventure"], icon: "map", status: "ready",
+          time: ["47 min", "47 min"], sessions: ["2 sessions, dernière partie il y a 3 heures", "2 sessions, last played 3 hours ago"],
+          size: ["14,2 Go", "14.2 GB"], detail: ["Jeu 14,2 Go, données 48 Mo", "Game 14.2 GB, data 48 MB"], peak: ["3,1 Gio", "3.1 GiB"], light: "#FF9C5B", dark: "#5B2468" },
+        { id: "mosslight", file: "mosslight", name: "Mosslight", platform: "Switch", genre: ["Action", "Action"], icon: "bolt", status: "ready",
+          time: ["3 h 05 min", "3 hr 5 min"], sessions: ["9 sessions, dernière partie samedi", "9 sessions, last played Saturday"],
+          size: ["6,4 Go", "6.4 GB"], detail: ["Jeu 6,3 Go, données 112 Mo", "Game 6.3 GB, data 112 MB"], peak: ["2,4 Gio", "2.4 GiB"], light: "#8BE86D", dark: "#0D5C47" },
+        { id: "ironveil", file: "ironveil", name: "Ironveil", platform: "Switch 2", genre: ["Jeu de rôle", "Role-playing"], icon: "shield", status: "ready",
+          time: ["31 h 12 min", "31 hr 12 min"], sessions: ["41 sessions, dernière partie ce matin", "41 sessions, last played this morning"],
+          size: ["18,9 Go", "18.9 GB"], detail: ["Jeu 18,1 Go, données 802 Mo", "Game 18.1 GB, data 802 MB"], peak: ["5,2 Gio", "5.2 GiB"], light: "#FF6A57", dark: "#5C0F2E" },
+        { id: "orbit", file: "orbit-garden", name: "Orbit Garden", platform: "Switch", genre: ["Réflexion", "Puzzle"], icon: "puzzle", status: "stored", light: "#F49CC4", dark: "#3D2B96" },
+        { id: "paper", file: "paper-peaks", name: "Paper Peaks", platform: "Switch 2", genre: ["Famille", "Family"], icon: "family", status: "iphone", light: "#7CC6FF", dark: "#2A5AA6" }
+    ];
+    var OWNED = GAMES.slice(0, 4);
+    // Games with no cover: Cartouche draws their label (CartoucheLabelArt).
+    var DRAWN = [
+        { name: "Signal Fjord", platform: "Switch", icon: "map", status: "iphone", a: "#5AC8E8", b: "#0E4C66" },
+        { name: "Tiny Tactics", platform: "Switch", icon: "crown", status: "mac", a: "#F2B24C", b: "#6B3A0B" },
+        { name: "Moonbake", platform: "Switch 2", icon: "family", status: "bringup", a: "#B58CF0", b: "#3F1E73" }
+    ];
+    var STATUS = {
+        ready: { icon: "check", color: "var(--ready)", label: ["Prêt", "Ready"] },
+        stored: { icon: "drive", color: "var(--stored)", label: ["En stockage", "In storage"] },
+        iphone: { icon: "iphone", color: "var(--ready)", label: ["Sur iPhone", "On iPhone"] },
+        mac: { icon: "laptop", color: "var(--mac)", label: ["Sur Mac", "On Mac"] },
+        bringup: { icon: "hammer", color: "var(--bringup)", label: ["En portage", "In bring-up"] },
+        paused: { icon: "pause", color: "var(--pink)", label: ["En pause", "Paused"] },
+        done: { icon: "check", color: "var(--ready)", label: ["Faite", "Done"] },
+        active: { icon: "check", color: "var(--ready)", label: ["Active", "Active"] }
+    };
+
+    function status(kind) {
+        var s = STATUS[kind];
+        return '<span class="ustat" style="--c:' + s.color + '">' + ic(s.icon) + tt(s.label) + "</span>";
+    }
+    function statusbar() {
+        return '<div class="statusbar" aria-hidden="true"><span>9:41</span><span class="statusbar__icons">' +
+            ic("signal", "ic--signal") + ic("wifi", "ic--wifi") + ic("battery", "ic--battery") + "</span></div>";
+    }
+    function stage(games, focusId) {
+        return '<div class="stage" aria-hidden="true">' + games.map(function (g) {
+            return '<img src="covers/' + g.file + '.svg" alt="" data-art="' + g.id + '"' + (g.id === focusId ? ' class="is-on"' : "") + ">";
+        }).join("") + "</div>";
+    }
+    var DASH = '<svg class="dash" viewBox="0 0 100 147" preserveAspectRatio="none" aria-hidden="true"><rect x=".8" y=".8" width="98.4" height="145.4" rx="8" fill="none" stroke="rgba(255,255,255,.38)" stroke-width="1.6" stroke-dasharray="6 4.5"/></svg>';
+
+    function tile(g, o) {
+        var focused = o.focused, tag = o.interactive ? "button" : "span";
+        var attrs = o.interactive ? ' type="button" aria-label="' + g.name + '"' + (focused ? ' aria-current="true"' : "") : ' aria-hidden="true"';
+        return "<" + tag + ' class="tile' + (focused ? " is-focused" : "") + '" data-game="' + g.id + '" style="--glow:' + g.light + '"' + attrs + ">" +
+            '<img src="covers/' + g.file + '.svg" alt="">' +
+            (o.paused ? '<i class="tile__badge" aria-hidden="true">' + ic("pausebars") + "</i>" : "") + "</" + tag + ">";
+    }
+    function outline(icon, label) {
+        return '<span class="tile tile--outline" aria-hidden="true">' + DASH + '<span class="tile__out">' + ic(icon) + "<span>" + label + "</span></span></span>";
+    }
+    function drawn(d) {
+        return '<span class="tile tile--drawn" style="--a:' + d.a + ";--b:" + d.b + '" aria-hidden="true"><i class="drawn__band"></i>' +
+            ic(d.icon, "drawn__sym") + '<b class="drawn__plat">' + d.platform + '</b><b class="drawn__name">' + d.name + "</b></span>";
+    }
+
+    var DOCK = [
+        { icon: "grid", key: glyph("Y"), label: ["Tous les jeux", "All games"], href: "#console" },
+        { icon: "import", key: "", label: ["Importer", "Import"], href: "#storage" },
+        { icon: "cpu", key: MENU, label: ["Système", "System"], href: "#system" }
+    ];
+    function dock(where, links) {
+        return '<span class="dock dock--' + where + ' glass">' + DOCK.map(function (d) {
+            var open = links ? '<a class="dock__item" href="' + d.href + '">' : '<span class="dock__item">';
+            var close = links ? "</a>" : "</span>";
+            if (where === "top") return open + (d.key || ic(d.icon)) + tt(d.label) + close;
+            return open + ic(d.icon) + '<span class="dock__label">' + d.key + tt(d.label) + "</span>" + close;
+        }).join("") + "</span>";
+    }
+
+    function focusInfo(g, o) {
+        var middle, actions;
+        if (o.paused) {
+            middle = '<p class="focus__note">' + t("En pause derrière Cartouche, là où vous l’avez laissé.", "Paused behind Cartouche, where you left it.") + "</p>";
+            actions = '<button type="button" class="ubtn ubtn--primary" data-resume>' + glyph("A") + t("Reprendre", "Resume") + "</button>" +
+                '<span class="ubtn glass ubtn--round" aria-hidden="true">' + glyph("X") + "</span>" +
+                '<span class="ubtn glass">' + ic("xmark") + t("Quitter", "Quit") + "</span>";
+        } else {
+            middle = '<div class="focus__stats"><span>' + ic("clock") + tt(g.time) + "</span><span>" + ic("iphone") + tt(g.size) + "</span></div>";
+            var open = function (href, cls) { return o.links ? '<a class="ubtn ' + cls + '" href="' + href + '">' : '<span class="ubtn ' + cls + '">'; };
+            var close = o.links ? "</a>" : "</span>";
+            actions = open("#pause", "ubtn--primary") + glyph("A") + t("Jouer", "Play") + close +
+                open("#sheet", "glass") + glyph("X") + t("Fiche", "Details") + close;
+        }
+        return '<h3 class="focus__title">' + g.name + "</h3>" +
+            '<div class="focus__chips"><span class="uchip">' + g.platform + '</span><span class="umeta">' + ic(g.icon) + tt(g.genre) + "</span>" +
+            status(o.paused ? "paused" : g.status) + "</div>" + middle + '<div class="focus__actions">' + actions + "</div>";
+    }
+
+    function home(o) {
+        var games = o.games, g = games[o.index];
+        return '<div class="ui home' + (o.shelfOnly ? " home--shelf" : "") + (o.paused ? " home--paused" : "") + '">' +
+            stage(games, g.id) +
+            (o.statusbar === false ? "" : statusbar()) +
+            '<div class="home__bar"><span class="mark" aria-hidden="true"><i></i><b>Cartouche</b></span>' +
+            '<span class="upill glass" aria-hidden="true">' + ic("gamepad") + "</span>" + dock("top", o.links) + "</div>" +
+            '<div class="home__main"><p class="home__label">' + t("Ma bibliothèque", "My library") + "</p>" +
+            '<div class="shelf"><div class="track" style="--i:' + o.index + '">' +
+            games.map(function (x, i) { return tile(x, { focused: i === o.index, interactive: o.interactive, paused: o.paused && i === o.index }); }).join("") +
+            outline("import", t("Importer un jeu", "Import a game")) + outline("grid", t("Tous les jeux", "All games")) + "</div></div>" +
+            (o.shelfOnly ? "" : '<div class="focus" data-focus>' + focusInfo(g, o) + "</div>") + "</div>" +
+            dock("bottom", o.links) +
+            (o.punch ? '<i class="punch"></i>' : "") + (o.island ? '<i class="island"></i>' : "") + '<i class="indicator"></i></div>';
+    }
+
+    function sheet(g, o) {
+        o = o || {};
+        return '<div class="ui sheet">' + stage([g], g.id) + (o.statusbar === false ? "" : statusbar()) +
+            '<span class="okbtn glass" aria-hidden="true">OK</span>' +
+            '<div class="sheet__body"><div class="sheet__head"><img class="sheet__cover" src="covers/' + g.file + '.svg" alt="">' +
+            '<div><h3 class="sheet__title">' + g.name + '</h3><div class="sheet__chips"><span class="uchip">' + g.platform + '</span><span class="umeta">' + ic(g.icon) + tt(g.genre) + "</span></div>" +
+            '<div class="sheet__status">' + status(g.status) + "</div></div></div>" +
+            '<span class="ubtn ubtn--primary ubtn--wide">' + ic("play") + t("Jouer", "Play") + "</span>" +
+            '<span class="ubtn glass ubtn--wide ubtn--slim">' + ic("sliders") + t("Réglages du jeu", "Game settings") + "</span>" +
+            '<p class="ugroup">' + t("Temps de jeu et taille", "Play time and size") + "</p>" +
+            '<div class="ucard"><div class="urow"><span class="urow__main">' + t("Temps de jeu", "Play time") + "<small>" + tt(g.sessions) + '</small></span><span class="urow__val">' + tt(g.time) + "</span></div>" +
+            '<div class="urow"><span class="urow__main">' + t("Sur cet iPhone", "On this iPhone") + "<small>" + tt(g.detail) + '</small></span><span class="urow__val">' + tt(g.size) + "</span></div></div>" +
+            '<div class="ucard"><div class="urow"><span class="ustat" style="--c:var(--ready)">' + ic("check") + '</span><span class="urow__main">' + t("Cet iPhone a tout ce qu’il faut", "This iPhone has what it needs") + "</span>" + ic("chevron", "urow__chev") + "</div></div>" +
+            '<div class="ucard"><div class="urow urow--danger">' + ic("trash") + '<span class="urow__main">' + t("Désinstaller", "Uninstall") + "</span></div></div>" +
+            '<p class="ugroup">' + t("Résultats des testeurs", "Testers’ results") + "</p>" +
+            '<div class="ucard"><div class="urow"><span class="urow__main">' + t("Jouable", "Playable") + "<small>" + t("iPhone 17 Pro · pic mémoire : " + g.peak[0], "iPhone 17 Pro · memory peak: " + g.peak[1]) + '</small></span><span class="urow__val">' + t("8 nov.", "Nov 8") + "</span></div></div>" +
+            "</div>" + (o.island === false ? "" : '<i class="island"></i>') + '<i class="indicator"></i></div>';
+    }
+
+    function scaleText(s) {
+        var w = Math.round(1280 * s / 100), h = Math.round(720 * s / 100);
+        return t(w + " × " + h + " (" + s + "&nbsp;%)", w + " × " + h + " (" + s + "%)");
+    }
+    function settings(g) {
+        var pick = function (fr, en) { return '<span class="upick">' + t(fr, en) + ic("updown") + "</span>"; };
+        return '<div class="ui sheet">' + stage([g], g.id) + statusbar() +
+            '<p class="navtitle">' + t("Réglages du jeu", "Game settings") + '</p><span class="okbtn glass" aria-hidden="true">OK</span>' +
+            '<div class="sheet__body"><p class="settings__intro">' + t("Les réglages avec lesquels Jouer lance ce jeu. Son menu en jeu change les mêmes.", "The settings Play starts this game with. Its in-game menu changes the same ones.") + "</p>" +
+            '<div class="tabs" aria-hidden="true"><span class="tab is-on">' + ic("gamepad") + t("Jeu", "Game") + '</span><span class="tab">' + ic("dpad") + t("Commandes", "Controls") +
+            '</span><span class="tab">' + ic("gauge") + t("Performances", "Performance") + '</span><span class="tab">' + ic("cloud") + t("Sauvegardes", "Saves") + "</span></div>" +
+            '<div class="ucard">' +
+            '<div class="urow"><span class="urow__main">' + t("Fréquence d’images", "Frame rate") + "</span>" + pick("60 i/s", "60 fps") + "</div>" +
+            '<div class="urow urow--stack"><span class="urow__main">' + t("Échelle de rendu", "Render scale") + "</span>" +
+            '<div class="uscale"><input class="uslider" type="range" min="50" max="100" step="5" value="85" data-scale data-label-fr="Échelle de rendu" data-label-en="Render scale" aria-label="Render scale">' +
+            '<div class="uscale__legend"><span>50' + t("&nbsp;%", "%") + "</span><output data-scale-out>" + scaleText(85) + "</output><span>100" + t("&nbsp;%", "%") + "</span></div></div></div>" +
+            '<div class="urow"><span class="urow__main">' + t("Mode de la console", "Console mode") + "</span>" + pick("Portable", "Handheld") + "</div>" +
+            '<div class="urow"><span class="urow__main">' + t("Mise à l’échelle", "Upscaling") + ic("info", "uinfo") + "</span>" + pick("Standard", "Standard") + "</div>" +
+            '<div class="urow"><span class="urow__main">' + t("Langue du jeu", "Game language") + "</span>" + pick("Français", "English") + "</div>" +
+            '<div class="urow"><span class="urow__main">' + t("Image", "Picture") + ic("info", "uinfo") + "</span>" + pick("Ajuster", "Fit") + "</div>" +
+            '<div class="urow"><span class="urow__main">' + t("Compteur d’images par seconde", "Frame-rate counter") + '</span><span class="uswitch" aria-hidden="true"></span></div>' +
+            "</div>" +
+            '<div class="ucard"><div class="urow"><span class="urow__main ulink">' + t("Revenir aux réglages testés", "Reset to tested defaults") + "</span></div></div>" +
+            '</div><i class="island"></i><i class="indicator"></i></div>';
+    }
+
+    function system() {
+        return '<div class="ui sheet">' + stage([], null) + statusbar() + '<span class="okbtn glass" aria-hidden="true">OK</span>' +
+            '<div class="sheet__body"><h3 class="bigtitle">' + t("Système", "System") + "</h3>" +
+            '<div class="ucard"><div class="urow">' + ic("checklist", "ublue") + '<span class="urow__main">' + t("Mise en route", "Setup") + "</span>" + status("done") + ic("chevron", "urow__chev") + "</div></div>" +
+            '<div class="ucard"><div class="urow">' + ic("drive", "ublue") + '<span class="urow__main">' + t("Stockage", "Storage") + '</span><span class="urow__val">NAS</span>' + ic("chevron", "urow__chev") + "</div></div>" +
+            '<p class="ugroup">' + t("Mémoire", "Memory") + "</p>" +
+            '<div class="ucard"><div class="urow urow--stack"><span class="urow__main"><b>' + t("Limite pour Cartouche", "Limit for Cartouche") + "</b><small>" + t("6&nbsp;143 Mio (6,0 Gio)", "6,143 MiB (6.0 GiB)") + '</small></span><div class="membar"><i></i></div></div>' +
+            '<div class="urow"><span class="urow__main">' + t("Utilisée", "Used now") + '</span><span class="urow__val">' + t("96 Mio (0,1 Gio)", "96 MiB (0.1 GiB)") + "</span></div>" +
+            '<div class="urow"><span class="urow__main">' + t("Disponible", "Available now") + '</span><span class="urow__val">' + t("6&nbsp;047 Mio (5,9 Gio)", "6,047 MiB (5.9 GiB)") + "</span></div>" +
+            '<div class="urow"><span class="urow__main">' + t("Mémoire augmentée", "Increased Memory Limit") + "</span>" + status("active") + "</div>" +
+            '<div class="urow">' + ic("refresh", "ublue") + '<span class="urow__main ulink">' + t("Mesurer à nouveau", "Measure again") + "</span></div></div>" +
+            '<p class="ufoot">' + t("Vos jeux partagent cette limite. Avec la mémoire augmentée, un iPhone de 12 Go accorde environ 6 Gio.", "Your games share this limit. With Increased Memory Limit, an iPhone with 12 GB allows about 6 GiB.") + "</p>" +
+            '<p class="ugroup">' + t("Signature", "Signature") + "</p>" +
+            '<div class="ucard"><div class="urow"><span class="urow__main">' + t("Expire le", "Expires") + '</span><span class="urow__val">' + t("16 nov. à 12:29", "Nov 16 at 12:29 PM") + "</span></div>" +
+            '<div class="urow"><span class="urow__main">' + t("Jours restants", "Days left") + '</span><span class="urow__val">6</span></div>' +
+            '<div class="urow">' + ic("refresh", "ublue") + '<span class="urow__main ulink">' + t("Renouveler maintenant", "Renew now") + "</span></div></div>" +
+            '</div><i class="island"></i><i class="indicator"></i></div>';
+    }
+
+    function library() {
+        var mine = GAMES.map(function (g, i) {
+            return '<div class="gtile">' + tile(g, { focused: i === 0 }) + '<p class="gtile__name">' + g.name + "</p>" + status(g.status) + "</div>";
+        }).join("");
+        var others = DRAWN.map(function (d) {
+            return '<div class="gtile">' + drawn(d) + '<p class="gtile__name">' + d.name + "</p>" + status(d.status) + "</div>";
+        }).join("");
+        return '<div class="ui lib">' + stage([GAMES[0]], GAMES[0].id) + statusbar() +
+            '<p class="navtitle">' + t("Tous les jeux", "All games") + "</p>" +
+            '<div class="lib__body"><div class="usearch glass">' + ic("search") + "<span>" + t("Nom ou ID du titre", "Name or title ID") + "</span></div>" +
+            '<div class="filters"><span class="filter is-on">' + ic("grid") + t("Tous", "All") + " <b>146</b></span>" +
+            '<span class="filter">' + ic("check") + t("Ma bibliothèque", "My library") + " <b>5</b></span>" +
+            '<span class="filter">' + ic("iphone") + t("Sur iPhone", "On iPhone") + " <b>64</b></span></div>" +
+            '<div class="ggrid">' + mine + others + "</div></div>" +
+            '<div class="hints glass" aria-hidden="true">' + glyph("A") + t("Jouer", "Play") + glyph("X") + t("Fiche", "Details") +
+            '<i class="ushoulder">L1</i><i class="ushoulder">R1</i>' + t("Filtre", "Filter") + glyph("B") + t("Retour", "Back") + "</div>" +
+            '<i class="island"></i><i class="indicator"></i></div>';
+    }
+
+    // A night race of Aurora Rally, drawn here: sky, road and car.
+    function stars(count, seed) {
+        var s = seed, out = "";
+        var rnd = function () { s = (s * 16807) % 2147483647; return s / 2147483647; };
+        for (var i = 0; i < count; i++) {
+            out += '<circle cx="' + (rnd() * 100).toFixed(1) + '" cy="' + (rnd() * 25).toFixed(1) + '" r="' + (0.08 + rnd() * 0.16).toFixed(2) + '" opacity="' + (0.35 + rnd() * 0.65).toFixed(2) + '"/>';
+        }
+        return '<svg class="game__stars" viewBox="0 0 100 46" preserveAspectRatio="none" aria-hidden="true"><g fill="#fff">' + out + "</g></svg>";
+    }
+    var HILLS = '<svg class="game__hills" viewBox="0 0 100 46" preserveAspectRatio="none" aria-hidden="true">' +
+        '<path d="M0 26.2 L6 24.6 L11 25.8 L17 23.4 L23 25.2 L29 24 L35 25.6 L41 23.9 L47 25.4 L53 24.4 L59 25.9 L65 23.6 L71 25.3 L77 24.2 L83 25.7 L89 23.8 L95 25.1 L100 24.5 L100 27.7 L0 27.7 Z" fill="#16133D"/>' +
+        '<path d="M0 27 L8 26.1 L15 26.9 L24 25.9 L33 26.8 L42 26.2 L51 27 L60 26 L69 26.9 L78 26.1 L87 26.8 L94 26.2 L100 26.7 L100 27.7 L0 27.7 Z" fill="#0B0A24"/></svg>';
+    var CAR = '<svg class="game__car" viewBox="0 0 120 70" aria-hidden="true"><defs><linearGradient id="g-tail" x1="0" x2="1"><stop offset="0" stop-color="#FF3D6E"/><stop offset="1" stop-color="#FF9A3D"/></linearGradient>' +
+        '<filter id="f-glow" x="-50%" y="-80%" width="200%" height="260%"><feGaussianBlur stdDeviation="3"/></filter></defs>' +
+        '<ellipse cx="60" cy="64" rx="56" ry="6" fill="#000" opacity=".5"/>' +
+        '<path d="M22 24 L32 6 Q35 1 42 1 L78 1 Q85 1 88 6 L98 24 Z" fill="#241C4D"/><path d="M33 22 L40 8 L80 8 L87 22 Z" fill="#6E6BD8" opacity=".55"/>' +
+        '<rect x="4" y="22" width="112" height="36" rx="12" fill="#3A2F7A"/><rect x="4" y="22" width="112" height="11" rx="5.5" fill="#4E43A0"/>' +
+        '<g filter="url(#f-glow)"><rect x="11" y="36" width="28" height="10" rx="5" fill="url(#g-tail)"/><rect x="81" y="36" width="28" height="10" rx="5" fill="url(#g-tail)"/></g>' +
+        '<rect x="11" y="36" width="28" height="10" rx="5" fill="#FFC1D2"/><rect x="81" y="36" width="28" height="10" rx="5" fill="#FFC1D2"/>' +
+        '<rect x="45" y="39" width="30" height="11" rx="2.5" fill="#E9E6FF"/><text x="60" y="47.6" text-anchor="middle" font-family="ui-monospace, monospace" font-weight="700" font-size="8" fill="#241C4D">AR·26</text>' +
+        '<rect x="8" y="56" width="22" height="9" rx="3" fill="#120E26"/><rect x="90" y="56" width="22" height="9" rx="3" fill="#120E26"/></svg>';
+
+    function playScreen() {
+        return '<div class="ui play" data-state="console">' +
+            '<div class="game" aria-hidden="true"><div class="game__aurora"></div>' + stars(70, 4021) + HILLS +
+            '<div class="game__road"><i class="game__rumble game__rumble--l"></i><i class="game__dash"></i><i class="game__rumble game__rumble--r"></i></div>' + CAR +
+            '<div class="hud hud--lap"><small>' + t("TOUR 2/3", "LAP 2/3") + '</small><b data-laptime>1:12.48</b></div>' +
+            '<div class="hud hud--pos"><b>' + t("3<sup>e</sup>", "3<sup>rd</sup>") + "</b><small>/ 8</small></div>" +
+            '<div class="hud hud--speed"><b data-speed>184</b><small>km/h</small></div></div>' +
+            '<button type="button" class="homebtn glass" data-home data-label-fr="Home : revenir à la console" data-label-en="Home: back to the console" aria-label="Home: back to the console">' + ic("house") + "</button>" +
+            '<div class="console">' + home({ games: OWNED, index: 0, paused: true, island: false }) + "</div>" +
+            '<i class="island"></i><i class="indicator"></i></div>';
+    }
+
+    function duoOpen(index) {
+        return '<div class="ui duo">' +
+            '<div class="half half--left" style="--w:445;--h:626">' + home({ games: OWNED, index: index, shelfOnly: true, interactive: true, statusbar: false }) + "</div>" +
+            '<div class="half half--right" style="--w:445;--h:626" data-duo-sheet>' + sheet(OWNED[index], { statusbar: false, island: false }) + "</div>" +
+            '<i class="fold" aria-hidden="true"></i></div>';
+    }
+
+    // Moves the focus of a home to the game at index, as the console does.
+    function setFocus(scope, games, index, o) {
+        var g = games[index];
+        $$(".tile[data-game]", scope).forEach(function (el) {
+            var on = el.getAttribute("data-game") === g.id;
+            el.classList.toggle("is-focused", on);
+            if (el.tagName === "BUTTON") { if (on) el.setAttribute("aria-current", "true"); else el.removeAttribute("aria-current"); }
+        });
+        var track = $(".track", scope);
+        if (track) track.style.setProperty("--i", index);
+        $$("[data-art]", scope).forEach(function (img) { img.classList.toggle("is-on", img.getAttribute("data-art") === g.id); });
+        var focus = $("[data-focus]", scope);
+        if (focus) focus.innerHTML = focusInfo(g, o || {});
+        var target = (o && o.light) || scope;
+        target.style.setProperty("--light", g.light);
+        target.style.setProperty("--dark", g.dark);
+    }
+
+    // ---------- Language ----------
+    var TITLES = { fr: "Cartouche pour iPhone", en: "Cartouche for iPhone" };
+    function applyLang(lang) {
+        root.setAttribute("data-lang", lang);
+        root.lang = lang;
+        document.title = TITLES[lang];
+        var meta = $('meta[name="description"]');
+        if (meta) meta.setAttribute("content", meta.getAttribute("data-" + lang));
+        $$("[data-set-lang]").forEach(function (b) { b.setAttribute("aria-pressed", String(b.getAttribute("data-set-lang") === lang)); });
+        $$("[data-label-fr]").forEach(function (el) { el.setAttribute("aria-label", el.getAttribute("data-label-" + lang)); });
+        updatePauseToggle();
+    }
+    $$("[data-set-lang]").forEach(function (b) {
+        b.addEventListener("click", function () {
+            var lang = b.getAttribute("data-set-lang");
+            try { localStorage.setItem("cartouche.site.lang", lang); } catch (e) {}
+            applyLang(lang);
+        });
+    });
+
+    // ---------- The screens ----------
+    var heroSection = $("#top");
+    var heroDevice = $("[data-hero]");
+    var heroScreen = $('[data-screen="hero"]');
+    var heroIndex = 0;
+    heroScreen.innerHTML = home({ games: OWNED, index: 0, links: true, interactive: true, island: true });
+    $('[data-screen="library"]').innerHTML = library();
+    $('[data-screen="sheet"]').innerHTML = sheet(GAMES[1]);
+    $('[data-screen="settings"]').innerHTML = settings(GAMES[1]);
+    $('[data-screen="system"]').innerHTML = system();
+    $('[data-screen="duo-closed"]').innerHTML = home({ games: OWNED, index: 0, punch: true });
+    var pauseScreen = $('[data-screen="pause"]');
+    pauseScreen.innerHTML = playScreen();
+    var duoDevice = $("[data-duo]");
+    var duoScreen = $('[data-screen="duo-open"]');
+    duoScreen.innerHTML = duoOpen(0);
+
+    // The hero's home: the focus moves on by itself until the visitor takes over.
+    function heroFocus(i) {
+        i = (i + OWNED.length) % OWNED.length;
+        if (i === heroIndex) return;
+        heroIndex = i;
+        setFocus(heroScreen, OWNED, heroIndex, { links: true, light: heroSection });
+    }
+    var heldUntil = 0, heroVisible = true;
+    function hold(ms) { heldUntil = Date.now() + ms; }
+    heroScreen.addEventListener("click", function (e) {
+        var b = e.target.closest("button.tile");
+        if (!b) return;
+        heroFocus(OWNED.map(function (g) { return g.id; }).indexOf(b.getAttribute("data-game")));
+        hold(14000);
+    });
+    heroDevice.addEventListener("keydown", function (e) {
+        if (e.key !== "ArrowRight" && e.key !== "ArrowLeft") return;
+        e.preventDefault();
+        heroFocus(heroIndex + (e.key === "ArrowRight" ? 1 : -1));
+        hold(14000);
+    });
+    heroScreen.addEventListener("focusin", function (e) {
+        var b = e.target.closest("button.tile");
+        if (!b) return;
+        heroFocus(OWNED.map(function (g) { return g.id; }).indexOf(b.getAttribute("data-game")));
+        hold(14000);
+    });
+    heroDevice.addEventListener("pointerenter", function () { hold(Infinity); });
+    heroDevice.addEventListener("pointerleave", function () { hold(2500); });
+    if ("IntersectionObserver" in window) {
+        new IntersectionObserver(function (entries) { heroVisible = entries[0].isIntersecting; }).observe(heroDevice);
+    }
+    if (!reduced) {
+        setInterval(function () {
+            if (!heroVisible || document.hidden || Date.now() < heldUntil) return;
+            heroFocus(heroIndex + 1);
+        }, 3800);
+    }
+
+    // Render scale: nxnative's handheld picture, 1280 × 720 at 100 %.
+    $$("[data-scale]").forEach(function (input) {
+        var out = input.closest(".uscale").querySelector("[data-scale-out]");
+        function update() {
+            var s = Number(input.value);
+            input.style.setProperty("--fill", ((s - 50) * 2) + "%");
+            out.innerHTML = scaleText(s);
+        }
+        input.addEventListener("input", update);
+        update();
+    });
+
+    // The game behind the console: Home brings the console back, Resume the game.
+    var pauseState = "console", lap = 72480, last = 0, speedPhase = 0;
+    var lapEl = $("[data-laptime]", pauseScreen), speedEl = $("[data-speed]", pauseScreen);
+    var toggle = $("[data-pause-toggle]");
+    function fmt(ms) {
+        var m = Math.floor(ms / 60000), s = Math.floor(ms / 1000) % 60, c = Math.floor(ms / 10) % 100;
+        return m + ":" + (s < 10 ? "0" : "") + s + "." + (c < 10 ? "0" : "") + c;
+    }
+    function frame(ts) {
+        if (pauseState !== "game") { last = 0; return; }
+        if (last) {
+            lap += ts - last;
+            speedPhase += (ts - last) / 900;
+            speedEl.textContent = String(Math.round(184 + 6 * Math.sin(speedPhase)));
+        }
+        last = ts;
+        lapEl.textContent = fmt(lap);
+        requestAnimationFrame(frame);
+    }
+    function updatePauseToggle() {
+        if (!toggle) return;
+        toggle.innerHTML = pauseState === "console"
+            ? '<svg aria-hidden="true"><use href="#i-play"/></svg>' + t("Reprendre la partie", "Resume the game")
+            : '<svg aria-hidden="true"><use href="#i-house"/></svg>' + t("Appuyer sur Home", "Press Home");
+    }
+    var playUi = $(".play", pauseScreen);
+    function setPause(state) {
+        pauseState = state;
+        playUi.setAttribute("data-state", state);
+        updatePauseToggle();
+        if (state === "game") requestAnimationFrame(frame);
+    }
+    pauseScreen.addEventListener("click", function (e) {
+        if (e.target.closest("[data-resume]")) setPause("game");
+        else if (e.target.closest("[data-home]")) setPause("console");
+    });
+    toggle.addEventListener("click", function () { setPause(pauseState === "console" ? "game" : "console"); });
+
+    // The unfolded Duo: the sheet on the right follows the focus on the left.
+    var duoIndex = 0;
+    function duoFocus(e) {
+        var b = e.target.closest("button.tile");
+        if (!b) return;
+        var index = OWNED.map(function (g) { return g.id; }).indexOf(b.getAttribute("data-game"));
+        if (index === duoIndex) return;
+        duoIndex = index;
+        setFocus($(".half--left", duoScreen), OWNED, index, { light: duoDevice });
+        $("[data-duo-sheet]", duoScreen).innerHTML = sheet(OWNED[index], { statusbar: false, island: false });
+    }
+    duoScreen.addEventListener("click", duoFocus);
+    duoScreen.addEventListener("focusin", duoFocus);
+
+    setPause("console");
+    applyLang(root.getAttribute("data-lang") === "fr" ? "fr" : "en");
+})();
+</script>
+</body>
+</html>

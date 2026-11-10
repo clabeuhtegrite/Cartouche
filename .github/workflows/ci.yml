@@ -90,3 +90,15 @@ jobs:
           .venv/bin/zizmor --offline --no-progress .github/workflows
       - name: main requires only checks that every pull request reports
         run: .venv/bin/python .github/rulesets/check_rulesets.py
+
+  site:
+    name: Showcase site
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      # Made-up games and covers only, nothing loaded from another site, links
+      # to this repository and nxnative's only, every text in both languages.
+      - name: Tests
+        run: python3 -m unittest discover -s site/tests -v
