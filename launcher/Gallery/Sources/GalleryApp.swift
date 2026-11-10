@@ -90,6 +90,7 @@ struct GalleryScenario {
         try? Data(renewal.utf8).write(to: GalleryState.appGroup.appendingPathComponent("widget_data.json"))
         MainActor.assumeIsolated {
             CartoucheSetup.shared.refresh()
+            CartoucheGuide.shared.startOverForGallery()
             if controller { CartoucheGamepad.shared.showHints() }
             if work == "installing" {
                 let name = sheet.flatMap { CartoucheCatalog.shared.game(titleId: $0)?.name } ?? "Game"

@@ -116,6 +116,17 @@ final class CartoucheGuide: ObservableObject {
         defaults.set(true, forKey: Self.finishedKey)
     }
 
+    #if CARTOUCHE_GALLERY
+    /// A guide never opened nor finished, as on a new install, for each
+    /// scenario of the launcher's gallery (launcher/Gallery): they run one
+    /// after the other, and a scenario with a game installed finishes it.
+    func startOverForGallery() {
+        defaults.removeObject(forKey: Self.openedKey)
+        defaults.removeObject(forKey: Self.finishedKey)
+        isFinishedOnce = false
+    }
+    #endif
+
     // MARK: LocalDevVPN
 
     static let localDevVPN = URL(string: "localdevvpn://")!
