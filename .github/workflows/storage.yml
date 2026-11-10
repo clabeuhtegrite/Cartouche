@@ -41,8 +41,11 @@ jobs:
         id: paths
         run: |
           # A pull request is checked out as its merge into main: HEAD^1 is
-          # main, HEAD^2 the pull request.
-          if [ "$GITHUB_EVENT_NAME" != "pull_request" ]; then
+          # main, HEAD^2 the pull request. On main, HEAD is the pull request
+          # just merged, squashed into one commit, and HEAD^1 main before it.
+          # Either way the tests run only for the launcher files they link,
+          # where the paths above let in every one.
+          if [ "$GITHUB_EVENT_NAME" = "workflow_dispatch" ]; then
             echo "run=true" >> "$GITHUB_OUTPUT"
             exit 0
           fi

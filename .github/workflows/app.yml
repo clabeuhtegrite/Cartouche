@@ -1,14 +1,33 @@
 name: App
 
-# Builds Cartouche.ipa from a pull request that changes the app, and from
-# main after it. Every pull request reports these checks, which main
-# requires (.github/rulesets/main.json): one that changes none of the app's
-# files skips the build, and a skipped check counts as passed.
+# Builds Cartouche.ipa from a pull request that changes the app. Every pull
+# request reports these checks, which main requires
+# (.github/rulesets/main.json): one that changes none of the app's files
+# skips the build, and a skipped check counts as passed.
+#
+# The built-in SideStore, about five minutes of the build, changes only with
+# its own sources: the build takes it from the Actions cache when one was
+# built from the same prepared sources, with the same recipe, Xcode and ldid
+# (app/scripts/build.sh --sidestore-cache). A pull request finds the one main
+# keeps, or the one its own first run kept. main builds only when what the
+# SideStore is built from changes, to keep the one every pull request finds:
+# the pull request it comes from has built the rest already. A release builds
+# everything again (release.yml).
 
 on:
   push:
     branches: [main]
-    paths: ["app/**", "launcher/**", "!launcher/StorageTests/**", "catalog/**", ".gitmodules", ".github/workflows/app.yml"]
+    # What the built-in SideStore is built from (build.sh --sidestore-key).
+    paths:
+      - "app/SideStore"
+      - "app/patches/sidestore/**"
+      - "app/scripts/build.sh"
+      - "app/scripts/prepare.sh"
+      - "app/scripts/brand.py"
+      - "app/scripts/tree_digest.py"
+      - "app/config.env"
+      - ".gitmodules"
+      - ".github/workflows/app.yml"
   pull_request:
   workflow_dispatch:
 
@@ -25,6 +44,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       build: ${{ steps.paths.outputs.build }}
+      launcher: ${{ steps.paths.outputs.launcher }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -33,24 +53,35 @@ jobs:
       - name: Does this change touch them?
         id: paths
         run: |
+          # main tested the launcher in the pull request it comes from; the
+          # Actions tab builds and tests everything.
+          case "$GITHUB_EVENT_NAME" in
+            push) printf 'build=true\nlauncher=false\n' >> "$GITHUB_OUTPUT"; exit 0 ;;
+            pull_request) ;;
+            *) printf 'build=true\nlauncher=true\n' >> "$GITHUB_OUTPUT"; exit 0 ;;
+          esac
           # A pull request is checked out as its merge into main: HEAD^1 is
           # main, HEAD^2 the pull request.
-          if [ "$GITHUB_EVENT_NAME" != "pull_request" ]; then
-            echo "build=true" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
           BUILD=false
+          LAUNCHER=false
           while IFS= read -r FILE; do
             case "$FILE" in
-              # The release workflow's pull requests change only the source.
-              app/sidestore-source.json) ;;
-              # The storage tests, which the Storage workflow runs.
-              launcher/StorageTests/*) ;;
-              app/*|launcher/*|catalog/*|.gitmodules|.github/workflows/app.yml) BUILD=true ;;
+              # What swift test builds and reads (launcher/Package.swift,
+              # launcher/Tests), and the app with it.
+              launcher/Package.swift|launcher/Sources/*|launcher/Tests/*|catalog/covers.json|telemetry/test/app-*.json|.github/workflows/app.yml)
+                BUILD=true; LAUNCHER=true ;;
+              # Read by no build: the notes, the release workflow's pull
+              # requests, which change only the source, and what the CI,
+              # Storage and Launcher screens workflows check.
+              app/README.md|app/patches/README.md|app/releases/*|app/sidestore-source.json|app/tests/*|launcher/README.md|launcher/StorageTests/*|launcher/Gallery/*) ;;
+              # What the app is built from (app/scripts/prepare.sh and
+              # package.sh).
+              app/*|.gitmodules|launcher/*|catalog/devices.json|catalog/nxnative.json|catalog/games/*)
+                BUILD=true ;;
             esac
           done < <(git diff --name-only HEAD^1 HEAD)
-          echo "build=$BUILD" >> "$GITHUB_OUTPUT"
-          echo "Build the app: $BUILD"
+          printf 'build=%s\nlauncher=%s\n' "$BUILD" "$LAUNCHER" >> "$GITHUB_OUTPUT"
+          echo "Build the app: $BUILD. Test the launcher: $LAUNCHER."
 
   build:
     name: Build Cartouche.ipa
@@ -64,6 +95,10 @@ jobs:
     timeout-minutes: 90
     env:
       XCODE_VERSION: "27.2"
+      # brew install takes the formula the runner knows, without updating
+      # Homebrew first.
+      HOMEBREW_NO_AUTO_UPDATE: "1"
+      HOMEBREW_NO_INSTALL_CLEANUP: "1"
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -79,9 +114,33 @@ jobs:
       # The launcher's parts that need neither LiveContainer nor UIKit
       # (launcher/Package.swift), with their tests, before the app.
       - name: Launcher tests
+        if: ${{ needs.changes.outputs.launcher != 'false' }}
         run: swift test --package-path launcher
+      - name: Prepare the sources
+        run: app/scripts/prepare.sh
+      # Before the build, which changes the prepared sources.
+      - name: The built-in SideStore's key
+        id: sidestore
+        run: |
+          KEY="$(app/scripts/build.sh --prepared --sidestore-key)"
+          echo "key=sidestore-$KEY" >> "$GITHUB_OUTPUT"
+          echo "The built-in SideStore's key: $KEY"
+      - name: Look for that SideStore in the cache
+        id: sidestore-cache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: build/sidestore
+          key: ${{ steps.sidestore.outputs.key }}
       - name: Build
-        run: app/scripts/build.sh
+        run: app/scripts/build.sh --prepared --sidestore-cache build/sidestore
+      # Kept even when the rest of the build fails: build.sh writes the key
+      # once the SideStore is built.
+      - name: Keep the SideStore in the cache
+        if: ${{ !cancelled() && steps.sidestore-cache.outputs.cache-hit != 'true' && hashFiles('build/sidestore/key') != '' }}
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: build/sidestore
+          key: ${{ steps.sidestore.outputs.key }}
       - name: Upload the unsigned IPA
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:

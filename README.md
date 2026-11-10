@@ -59,7 +59,7 @@ brew install ldid
 app/scripts/build.sh          # writes build/app/Cartouche.ipa, unsigned
 ```
 
-CI builds it on every pull request that touches the app and attaches the unsigned IPA to the run; a pull request that touches the launcher also gets screenshots of every screen. How a release is cut: [app/releases/README.md](app/releases/README.md). More in [app/README.md](app/README.md) and [docs/architecture.md](docs/architecture.md).
+CI builds it on every pull request that touches the app and attaches the unsigned IPA to the run; a pull request that changes the launcher's screens also gets screenshots of every screen, which its rebases keep. How a release is cut: [app/releases/README.md](app/releases/README.md). More in [app/README.md](app/README.md) and [docs/architecture.md](docs/architecture.md).
 
 ## Contributing
 
