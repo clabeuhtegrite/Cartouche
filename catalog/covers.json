@@ -359,6 +359,13 @@
       "artwork": "ar6m4q"
     },
     {
+      "titleId": "010061D00DB74000",
+      "igdb": 19456,
+      "name": "Ori and the Blind Forest: Definitive Edition",
+      "cover": "co2s0m",
+      "artwork": "ar89r"
+    },
+    {
       "titleId": "0100620012D6E000",
       "igdb": 166489,
       "name": "Big Brain Academy: Brain vs. Brain",
@@ -411,7 +418,7 @@
       "titleId": "0100698009C6E000",
       "igdb": 26820,
       "name": "Blasphemous",
-      "cover": "cob0xj",
+      "cover": "codc10",
       "artwork": "ar68m6"
     },
     {
@@ -490,6 +497,13 @@
       "name": "Bayonetta",
       "cover": "co8ngp",
       "artwork": "ar2r5m"
+    },
+    {
+      "titleId": "01007820196A6000",
+      "igdb": 260737,
+      "name": "Red Dead Redemption",
+      "cover": "co8y6p",
+      "artwork": "ar5xte"
     },
     {
       "titleId": "01007960049A0000",
@@ -581,6 +595,13 @@
       "name": "Pokémon Shield",
       "cover": "co1zk1",
       "artwork": "ar5wf"
+    },
+    {
+      "titleId": "01008DD013200000",
+      "igdb": 37001,
+      "name": "Ori and the Will of the Wisps",
+      "cover": "cocjl7",
+      "artwork": "ar89s"
     },
     {
       "titleId": "01008F6008C5E000",
@@ -861,6 +882,13 @@
       "name": "Rhythm Heaven Groove",
       "cover": "cobwkn",
       "artwork": "ar5ooc"
+    },
+    {
+      "titleId": "0100DA801624E000",
+      "igdb": 23733,
+      "name": "Tunic",
+      "cover": "td1t8kb33gyo8mvhl2pc",
+      "artwork": "arklp"
     },
     {
       "titleId": "0100DCA0064A6000",
