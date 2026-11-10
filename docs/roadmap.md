@@ -27,7 +27,7 @@ Every release and its notes: [`app/releases`](../app/releases/). Beside the app,
 - On an iPhone Duo: folding or unfolding mid-game keeps the game running under its memory limit, checked on a Duo closed, open and partly folded. The home and a game's sheet already stand on either side of the fold, in a split `ArrangementView` of iOS 27.1 ([launcher/README.md](../launcher/README.md#every-iphone-the-iphone-duo-included)).
 - A week of renewals by the built-in SideStore alone, with Increased Memory Limit kept.
 - More testers: their iPhones measured and added to [`catalog/devices.json`](../catalog/devices.json), and compatibility sheets from their reports.
-- Game measurements from every iPhone, on unless the player turns them off ([decision 33](decisions.md)): the telemetry server deployed and its address in the app, then the measurements of several iPhones in the game sheets, each week.
+- Game measurements from every iPhone, on unless the player turns them off ([decision 34](decisions.md)): the telemetry server deployed and its address in the app, then the measurements of several iPhones in the game sheets, each week.
 
 ## Not planned
 

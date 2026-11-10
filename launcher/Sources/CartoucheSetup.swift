@@ -251,8 +251,10 @@ final class CartoucheSetup: ObservableObject {
     @Published private(set) var certificateWorks: Bool?
     @Published private(set) var hasPairingFile = false
     @Published private(set) var appleID: String?
-    /// Why the last pairing file given to Cartouche was refused.
-    @Published var pairingError: String?
+    /// Why the last pairing file given to Cartouche was refused, and the
+    /// report on it.
+    @Published private(set) var pairingReport: CartoucheReport?
+    var pairingError: String? { pairingReport?.message }
     /// Set when another app opens Cartouche with a pairing file, so that the
     /// games show the setup and what came of it.
     @Published var openedPairingFile = false
@@ -285,7 +287,7 @@ final class CartoucheSetup: ObservableObject {
     func refresh() {
         hasCertificate = CartoucheCertificate.handOff()
         checkCertificate()
-        if CartouchePairing.takeDroppedFile() { pairingError = nil }
+        if CartouchePairing.takeDroppedFile() { pairingReport = nil }
         hasPairingFile = CartouchePairing.exists
         #if CARTOUCHE_GALLERY
         // The gallery has no SideStore keychain.
@@ -297,7 +299,7 @@ final class CartoucheSetup: ObservableObject {
 
     /// The player can drop the pairing file on Cartouche while it is open.
     func refreshPairingFile() {
-        if CartouchePairing.takeDroppedFile() { pairingError = nil }
+        if CartouchePairing.takeDroppedFile() { pairingReport = nil }
         let exists = CartouchePairing.exists
         if exists != hasPairingFile { hasPairingFile = exists }
     }
@@ -305,11 +307,18 @@ final class CartoucheSetup: ObservableObject {
     func importPairingFile(_ url: URL) {
         do {
             try CartouchePairing.importFile(at: url)
-            pairingError = nil
+            pairingReport = nil
+            CartoucheReports.note("Pairing file received")
         } catch {
-            pairingError = error.localizedDescription
+            pairingFailed(error)
         }
         refresh()
+    }
+
+    /// The pairing file the player gave could not be taken, as ERROR says.
+    func pairingFailed(_ error: Error) {
+        pairingReport = CartoucheReports.make(.pairing, CartoucheText.setupPairingFailed, message: error.localizedDescription,
+                                              error: error, step: "Taking the pairing file")
     }
 
     func importOpenedPairingFile(_ url: URL) {

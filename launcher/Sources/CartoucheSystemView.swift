@@ -19,7 +19,8 @@ struct CartoucheSystemView: View {
     @State private var memory = CartoucheMemoryReading.now()
     @State private var signature = CartoucheSignature.current()
     @State private var renewal: Progress?
-    @State private var renewalError: String?
+    /// Why the last renewal from this page failed, and the report on it.
+    @State private var renewalReport: CartoucheReport?
     @State private var alertStatus: UNAuthorizationStatus?
     @ObservedObject private var setup = CartoucheSetup.shared
     @ObservedObject private var storage = CartoucheStorageSettings.shared
@@ -80,8 +81,11 @@ struct CartoucheSystemView: View {
                 CartoucheSetupView()
             } label: {
                 LabeledContent {
+                    // In a list, a Label beside the row's own made the row
+                    // several lines tall: the tight style keeps it one line.
                     Label(setup.isComplete ? CartoucheText.setupStatusDone : CartoucheText.setupStatusToDo,
                           systemImage: setup.isComplete ? "checkmark.circle.fill" : "exclamationmark.circle.fill")
+                        .labelStyle(CartoucheTightLabelStyle())
                         .foregroundStyle(setup.isComplete ? Color.green : Color.orange)
                 } label: {
                     Label(CartoucheText.setupTitle, systemImage: "checklist")
@@ -132,6 +136,7 @@ struct CartoucheSystemView: View {
                 let active = CartoucheDevice.hasIncreasedMemoryLimit
                 Label(active ? CartoucheText.imlOn : CartoucheText.imlOff,
                       systemImage: active ? "checkmark.circle.fill" : "exclamationmark.triangle.fill")
+                    .labelStyle(CartoucheTightLabelStyle())
                     .foregroundStyle(active ? Color.green : Color.orange)
             }
             Button(CartoucheText.measureAgain, systemImage: "arrow.clockwise", action: measure)
@@ -205,22 +210,28 @@ struct CartoucheSystemView: View {
         } else {
             Button(CartoucheText.renewNow, systemImage: "arrow.triangle.2.circlepath", action: renew)
         }
-        if let renewalError {
-            Label(renewalError, systemImage: "exclamationmark.triangle.fill")
+        if let renewalReport {
+            Label(renewalReport.message, systemImage: "exclamationmark.triangle.fill")
                 .font(.footnote)
                 .foregroundStyle(.red)
+            CartoucheReportButton(report: renewalReport)
+                .font(.footnote)
         }
     }
 
     private func renew() {
         let progress = Progress(totalUnitCount: 100)
         renewal = progress
-        renewalError = nil
+        renewalReport = nil
+        CartoucheReports.note("Renewal started")
         Task {
             do {
                 try await CartoucheRenewal.renew(progress: progress)
+                CartoucheReports.note("Renewal done")
             } catch {
-                renewalError = error.localizedDescription
+                renewalReport = CartoucheReports.make(.renewal, CartoucheText.renewFailed, message: error.localizedDescription,
+                                                      error: error, step: CartoucheText.renewing,
+                                                      fraction: progress.fractionCompleted)
             }
             renewal = nil
             measure()
@@ -354,10 +365,12 @@ struct CartoucheSystemView: View {
             }
             .disabled(updates.isChecking)
         }
-        if updates.phase == nil, let problem = updates.problem ?? updates.checkProblem {
-            Label(problem, systemImage: "exclamationmark.triangle.fill")
+        if updates.phase == nil, let problem = updates.problemReport ?? updates.checkReport {
+            Label(problem.message, systemImage: "exclamationmark.triangle.fill")
                 .font(.footnote)
                 .foregroundStyle(.red)
+            CartoucheReportButton(report: problem)
+                .font(.footnote)
         }
     }
 

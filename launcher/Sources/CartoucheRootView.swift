@@ -24,6 +24,7 @@ struct CartoucheRootView: View {
                     .environmentObject(sharedModel)
             }
             .onAppear {
+                CartoucheReports.noteStart()
                 Self.clearBadge()
                 CartoucheTelemetry.shared.start()
             }

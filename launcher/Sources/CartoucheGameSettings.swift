@@ -157,6 +157,9 @@ final class CartoucheGameSettingsModel: ObservableObject, Hashable {
     @Published private(set) var values: [String: String] = [:]
     @Published private(set) var cloudFolder: String?
     @Published private(set) var cloudNote: String?
+    /// The report on the cloud saves folder, when it could not be read or
+    /// kept.
+    @Published private(set) var cloudReport: CartoucheReport?
 
     static let cloudKey = "cloudSavesBookmark"
 
@@ -278,10 +281,15 @@ final class CartoucheGameSettingsModel: ObservableObject, Hashable {
         cloudFolder = nil
         guard let bookmark = choices?.data(forKey: Self.cloudKey), !bookmark.isEmpty else { return }
         var stale = false
-        if let url = try? URL(resolvingBookmarkData: bookmark, options: [], relativeTo: nil, bookmarkDataIsStale: &stale) {
+        do {
+            let url = try URL(resolvingBookmarkData: bookmark, options: [], relativeTo: nil, bookmarkDataIsStale: &stale)
             cloudFolder = url.lastPathComponent
-        } else {
+        } catch {
             cloudNote = CartoucheText.cloudStale
+            // Read each time the page opens: the report is not kept.
+            cloudReport = CartoucheReports.make(.cloud, CartoucheText.cloudFailedTitle, message: CartoucheText.cloudStale,
+                                                error: error, step: "Reading the cloud saves folder of " + name,
+                                                inBackground: true)
         }
     }
 
@@ -290,14 +298,20 @@ final class CartoucheGameSettingsModel: ObservableObject, Hashable {
         // Written while the picker's access is held: a bookmark written
         // without it resolves to nothing from the next start on.
         let accessing = url.startAccessingSecurityScopedResource()
-        let bookmark = try? url.bookmarkData(options: [], includingResourceValuesForKeys: nil, relativeTo: nil)
+        let made = Result { try url.bookmarkData(options: [], includingResourceValuesForKeys: nil, relativeTo: nil) }
         if accessing { url.stopAccessingSecurityScopedResource() }
         var stale = false
-        guard let bookmark,
-              (try? URL(resolvingBookmarkData: bookmark, options: [], relativeTo: nil, bookmarkDataIsStale: &stale)) != nil else {
+        let bookmark: Data
+        do {
+            bookmark = try made.get()
+            _ = try URL(resolvingBookmarkData: bookmark, options: [], relativeTo: nil, bookmarkDataIsStale: &stale)
+        } catch {
             cloudNote = CartoucheText.cloudFailed
+            cloudReport = CartoucheReports.make(.cloud, CartoucheText.cloudFailedTitle, message: CartoucheText.cloudFailed,
+                                                error: error, step: "Keeping the cloud saves folder of " + name)
             return
         }
+        cloudReport = nil
         choices.set(bookmark, forKey: Self.cloudKey)
         readCloudFolder()
         cloudNote = CartoucheText.cloudSaved
@@ -306,6 +320,7 @@ final class CartoucheGameSettingsModel: ObservableObject, Hashable {
     func turnOffCloudSaves() {
         choices?.set(nil, forKey: Self.cloudKey)
         cloudNote = nil
+        cloudReport = nil
         readCloudFolder()
     }
 }
@@ -408,33 +423,82 @@ struct CartoucheGameSettingsView: View {
             if model.cloudFolder != nil {
                 Button(CartoucheText.cloudTurnOff, role: .destructive) { model.turnOffCloudSaves() }
             }
+            if let report = model.cloudReport {
+                CartoucheReportButton(report: report)
+            }
         } footer: {
             Text(model.cloudNote ?? CartoucheText.cloudFooter)
         }
     }
 }
 
-/// One setting: a menu, a slider with its value, or a switch.
+/// One setting: a menu, a slider with its value, or a switch. What it
+/// does, when nxnative says, is behind an info button beside its name, so
+/// that the page stays a list of settings; a setting that cannot change
+/// says it under its name, with what it does.
 @available(iOS 17.0, *)
 struct CartoucheGameSettingRow: View {
     let setting: CartoucheGameSetting
     @ObservedObject var model: CartoucheGameSettingsModel
+    @State private var showsNote = false
 
-    private var note: String {
-        let note = CartoucheText.gameSettingText(setting.note)
+    // Written out: before Swift 6.4 (SE-0502), the private state above made
+    // the synthesized initializer private.
+    init(setting: CartoucheGameSetting, model: CartoucheGameSettingsModel) {
+        self.setting = setting
+        self.model = model
+    }
+
+    private var title: String { CartoucheText.gameSettingText(setting.label) }
+
+    private var note: String { CartoucheText.gameSettingText(setting.note) }
+
+    /// The row is off, its info button with it: an env.txt file sets it,
+    /// or the game's settings are out of reach.
+    private var isLocked: Bool { model.isFixed(setting) || !model.canChange }
+
+    /// What shows under the name of a setting that cannot change.
+    private var lockedNote: String {
         guard model.isFixed(setting) else { return note }
         return note.isEmpty ? CartoucheText.settingFixed : note + " · " + CartoucheText.settingFixed
     }
 
     private var label: some View {
         VStack(alignment: .leading, spacing: 4) {
-            Text(CartoucheText.gameSettingText(setting.label))
-            if !note.isEmpty {
-                Text(note)
+            HStack(spacing: 6) {
+                Text(title)
+                if !note.isEmpty && !isLocked {
+                    noteButton
+                }
+            }
+            if isLocked && !lockedNote.isEmpty {
+                Text(lockedNote)
                     .font(.footnote)
                     .foregroundStyle(CartoucheTheme.secondaryText)
                     .fixedSize(horizontal: false, vertical: true)
             }
+        }
+    }
+
+    /// What the setting does, in a popover, on the iPhone too.
+    private var noteButton: some View {
+        Button {
+            showsNote = true
+        } label: {
+            Image(systemName: "info.circle")
+                .font(.subheadline)
+                .foregroundStyle(CartoucheTheme.secondaryText)
+        }
+        .buttonStyle(.borderless)
+        .accessibilityLabel(Text(CartoucheText.settingAbout))
+        .accessibilityHint(Text(note))
+        .popover(isPresented: $showsNote) {
+            Text(note)
+                .font(.subheadline)
+                .fixedSize(horizontal: false, vertical: true)
+                .frame(width: 280, alignment: .leading)
+                .padding()
+                .presentationCompactAdaptation(.popover)
         }
     }
 
@@ -495,7 +559,7 @@ struct CartoucheGameSettingRow: View {
                 }
             }
         }
-        .disabled(model.isFixed(setting) || !model.canChange)
+        .disabled(isLocked)
     }
 }
 
@@ -506,41 +570,54 @@ struct CartoucheSettingsCategoryBar: View {
     @ObservedObject var model: CartoucheGameSettingsModel
 
     var body: some View {
-        ScrollViewReader { reader in
-            ScrollView(.horizontal) {
-                HStack(spacing: 10) {
-                    ForEach(model.categories, id: \.self) { category in
-                        button(category, selected: category == model.currentCategory)
-                            .id(category)
-                    }
+        // Every category across the width when their names fit, the
+        // buttons sharing it; a row that scrolls otherwise.
+        ViewThatFits(in: .horizontal) {
+            HStack(spacing: 8) {
+                ForEach(model.categories, id: \.self) { category in
+                    button(category, selected: category == model.currentCategory, fills: true)
                 }
-                .padding(.horizontal, 2)
-                .padding(.vertical, 4)
             }
-            .scrollIndicators(.hidden)
-            .onChange(of: model.currentCategory) { _, category in
-                guard let category else { return }
-                withAnimation(.easeOut(duration: 0.2)) {
-                    reader.scrollTo(category, anchor: .center)
+            .padding(.vertical, 4)
+            ScrollViewReader { reader in
+                ScrollView(.horizontal) {
+                    HStack(spacing: 8) {
+                        ForEach(model.categories, id: \.self) { category in
+                            button(category, selected: category == model.currentCategory, fills: false)
+                                .id(category)
+                        }
+                    }
+                    .padding(.horizontal, 2)
+                    .padding(.vertical, 4)
+                }
+                .scrollIndicators(.hidden)
+                .onChange(of: model.currentCategory) { _, category in
+                    guard let category else { return }
+                    withAnimation(.easeOut(duration: 0.2)) {
+                        reader.scrollTo(category, anchor: .center)
+                    }
                 }
             }
         }
     }
 
-    private func button(_ category: String, selected: Bool) -> some View {
+    private func button(_ category: String, selected: Bool, fills: Bool) -> some View {
         Button {
             model.category = category
         } label: {
             VStack(spacing: 6) {
                 Image(systemName: Self.symbol(category))
                     .font(.system(size: 17, weight: selected ? .semibold : .regular))
+                // Sharing the width, the buttons are as wide as each other:
+                // a long name shrinks a little rather than being cut.
                 Text(Self.title(category))
                     .font(.system(size: 12, weight: selected ? .semibold : .regular))
                     .lineLimit(1)
+                    .minimumScaleFactor(fills ? 0.8 : 1)
             }
             .foregroundStyle(selected ? Color.white : CartoucheTheme.secondaryText)
-            .padding(.horizontal, 12)
-            .frame(minWidth: 78, minHeight: 58)
+            .padding(.horizontal, fills ? 4 : 8)
+            .frame(minWidth: 64, maxWidth: fills ? CGFloat.infinity : nil, minHeight: 58)
             .background(
                 RoundedRectangle(cornerRadius: 14, style: .continuous)
                     .fill(selected ? CartoucheTheme.indigo.opacity(0.5) : Color.white.opacity(0.06)))

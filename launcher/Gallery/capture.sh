@@ -351,12 +351,6 @@ for device in sorted({s.get("device", "") for s in document["scenarios"]}):
         keep_failed_screen(udid, "warm-up", screens)
 
     notes = [f"{name}, {runtime}", "", *seen, ""]
-    if device:
-        # Temporary: what this Xcode's simctl and devicectl offer to open,
-        # close or partly fold a simulated iPhone Duo, which Device Hub does
-        # with buttons under the device.
-        for args in (("simctl", "help"), ("simctl", "help", "ui"), ("simctl", "help", "io"), ("devicectl", "help")):
-            notes += [f"$ xcrun {' '.join(args)}", maybe("xcrun", *args).rstrip(), ""]
     for scenario in scenarios:
         started = time.time()
         try:

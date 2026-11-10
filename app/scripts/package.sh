@@ -13,8 +13,8 @@
 # usage: package.sh --archive LiveContainer.xcarchive --sidestore SideStore.ipa
 #                   --dylibify PATH --resources DIR --catalog DIR --bundle-id ID
 #                   --name NAME --url-scheme SCHEME --version X.Y.Z
-#                   --source-url URL [--telemetry-url URL] --commit SHA
-#                   --out OUT.ipa
+#                   --source-url URL --covers-url URL [--telemetry-url URL]
+#                   --commit SHA --out OUT.ipa
 set -euo pipefail
 
 while [ $# -gt 0 ]; do
@@ -29,6 +29,7 @@ while [ $# -gt 0 ]; do
     --url-scheme) URL_SCHEME="$2" ;;
     --version) VERSION="$2" ;;       # Cartouche's version, from app/config.env
     --source-url) SOURCE_URL="$2" ;; # the source of Cartouche's updates, from app/config.env
+    --covers-url) COVERS_URL="$2" ;; # the covers it reads every day, from app/config.env
     --telemetry-url) TELEMETRY_URL="$2" ;; # the telemetry server, from app/config.env; may be empty
     --commit) COMMIT="$2" ;;         # the commit it is built from
     --out) OUT_IPA="$2" ;;
@@ -36,12 +37,13 @@ while [ $# -gt 0 ]; do
   esac
   shift 2
 done
-: "${ARCHIVE:?} ${SIDESTORE_IPA:?} ${DYLIBIFY:?} ${RESOURCES:?} ${CATALOG:?} ${BUNDLE_ID:?} ${NAME:?} ${URL_SCHEME:?} ${VERSION:?} ${SOURCE_URL:?} ${COMMIT:?} ${OUT_IPA:?}"
+: "${ARCHIVE:?} ${SIDESTORE_IPA:?} ${DYLIBIFY:?} ${RESOURCES:?} ${CATALOG:?} ${BUNDLE_ID:?} ${NAME:?} ${URL_SCHEME:?} ${VERSION:?} ${SOURCE_URL:?} ${COVERS_URL:?} ${COMMIT:?} ${OUT_IPA:?}"
 # LiveContainer+SideStore's: iloader gives it, with the team identifier, to
 # any app that carries a com.SideStore.SideStore framework.
 APP_GROUP="group.com.SideStore.SideStore"
 [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "version must be major.minor.patch: $VERSION" >&2; exit 2; }
 [[ "$SOURCE_URL" =~ ^https://[^[:space:]]+$ ]] || { echo "the source URL must be an https address: $SOURCE_URL" >&2; exit 2; }
+[[ "$COVERS_URL" =~ ^https://[^[:space:]]+$ ]] || { echo "the covers URL must be an https address: $COVERS_URL" >&2; exit 2; }
 TELEMETRY_URL="${TELEMETRY_URL:-}"
 [[ -z "$TELEMETRY_URL" || "$TELEMETRY_URL" =~ ^https://[^[:space:]]+$ ]] || { echo "the telemetry URL must be an https address: $TELEMETRY_URL" >&2; exit 2; }
 
@@ -115,6 +117,9 @@ $PB -c "Add :CartoucheBundleIdentifier string $BUNDLE_ID" "$APP/Info.plist"
 # offer Cartouche's updates over its console and on the System page
 # (launcher/Sources/CartoucheUpdates.swift).
 $PB -c "Add :CartoucheSourceURL string $SOURCE_URL" "$APP/Info.plist"
+# The covers the launcher reads every day, over those of CartoucheCatalog/
+# (launcher/Sources/CartoucheCoverList.swift).
+$PB -c "Add :CartoucheCoversURL string $COVERS_URL" "$APP/Info.plist"
 # The telemetry server the launcher sends its reports to
 # (launcher/Sources/CartoucheTelemetry.swift); without one it sends nothing.
 if [ -n "$TELEMETRY_URL" ]; then
