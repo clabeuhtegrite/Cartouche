@@ -154,6 +154,40 @@
         }
       }
     },
+    "action.quit" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Quit"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Quitter"
+          }
+        }
+      }
+    },
+    "action.resume" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Resume"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Reprendre"
+          }
+        }
+      }
+    },
     "action.uninstall" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -2156,6 +2190,227 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Jouable avec des défauts"
+          }
+        }
+      }
+    },
+    "running.back" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Back to Cartouche"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Revenir à Cartouche"
+          }
+        }
+      }
+    },
+    "running.homeHint" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The controller’s Home button brings you back to Cartouche."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Le bouton Home de la manette vous ramène à Cartouche."
+          }
+        }
+      }
+    },
+    "running.paused" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Paused behind Cartouche, where you left it."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "En pause derrière Cartouche, là où vous l’avez laissé."
+          }
+        }
+      }
+    },
+    "running.quit.confirm" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Quit the game"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Quitter le jeu"
+          }
+        }
+      }
+    },
+    "running.quit.message" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Progress since the game last saved will be lost."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "La progression depuis la dernière sauvegarde du jeu sera perdue."
+          }
+        }
+      }
+    },
+    "running.quit.question" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Quit %@?"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Quitter %@ ?"
+          }
+        }
+      }
+    },
+    "running.quitFirst" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ is running behind Cartouche: quit it first."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ tourne derrière Cartouche : quittez-le d’abord."
+          }
+        }
+      }
+    },
+    "running.stopped" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The game closed on its own. Your progress is kept up to its last save."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Le jeu s’est fermé de lui-même. Votre progression est gardée jusqu’à sa dernière sauvegarde."
+          }
+        }
+      }
+    },
+    "running.stopped.memory" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "iOS closed the game near its limit of %@ behind Cartouche. From now on, it starts in Cartouche’s place, with all of Cartouche’s memory."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "iOS a fermé le jeu près de sa limite de %@ derrière Cartouche. Désormais, il démarre à la place de Cartouche, avec toute la mémoire de Cartouche."
+          }
+        }
+      }
+    },
+    "running.stopped.paused" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "iOS closed the game while it was paused. Your progress is kept up to its last save."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "iOS a fermé le jeu pendant sa pause. Votre progression est gardée jusqu’à sa dernière sauvegarde."
+          }
+        }
+      }
+    },
+    "running.stopped.title" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ has closed"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ s’est fermé"
+          }
+        }
+      }
+    },
+    "running.switch.action" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Quit and start %@"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Quitter et lancer %@"
+          }
+        }
+      }
+    },
+    "running.switch.message" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "One game at a time: progress since the game last saved will be lost, then %@ starts."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Un seul jeu à la fois : la progression depuis la dernière sauvegarde du jeu sera perdue, puis %@ démarrera."
           }
         }
       }
@@ -4183,6 +4438,40 @@
         }
       }
     },
+    "sheet.inPlace" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Behind Cartouche, this game would run short of memory: it starts in Cartouche’s place, and the console closes while it runs."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Derrière Cartouche, ce jeu manquerait de mémoire : il démarre à la place de Cartouche, et la console se ferme pendant qu’il tourne."
+          }
+        }
+      }
+    },
+    "sheet.inPlace.retry" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Try behind Cartouche again"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Réessayer derrière Cartouche"
+          }
+        }
+      }
+    },
     "sheet.ios" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -5097,6 +5386,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Déconseillé sur cet iPhone"
+          }
+        }
+      }
+    },
+    "status.paused.short" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Paused"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "En pause"
           }
         }
       }
@@ -6988,6 +7294,23 @@
         }
       }
     },
+    "system.memory.footer.behind" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Games that start in Cartouche’s place share this limit; behind Cartouche, a game has its own. With Increased Memory Limit, an iPhone with 12 GB allows about 6 GiB."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Les jeux lancés à la place de Cartouche partagent cette limite ; derrière Cartouche, un jeu a la sienne. Avec la mémoire augmentée, un iPhone de 12 Go accorde environ 6 Gio."
+          }
+        }
+      }
+    },
     "system.memory.iml.off" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -7103,6 +7426,91 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Utilisée"
+          }
+        }
+      }
+    },
+    "system.playing" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "While a game runs"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pendant une partie"
+          }
+        }
+      }
+    },
+    "system.playing.footer" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The Home button over the game, or the controller’s, brings back the console and pauses the game. A game that needs more memory starts in Cartouche’s place, as before."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Le bouton Home sur le jeu, ou celui de la manette, ramène la console et met le jeu en pause. Un jeu qui demande plus de mémoire démarre à la place de Cartouche, comme avant."
+          }
+        }
+      }
+    },
+    "system.playing.keep" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Keep Cartouche open behind the game"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Garder Cartouche ouvert derrière le jeu"
+          }
+        }
+      }
+    },
+    "system.playing.limit" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Memory for a game behind Cartouche"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mémoire d’un jeu derrière Cartouche"
+          }
+        }
+      }
+    },
+    "system.playing.limit.unknown" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Measured at the next game"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mesurée au prochain jeu"
           }
         }
       }
@@ -7443,6 +7851,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Nouveautés"
+          }
+        }
+      }
+    },
+    "system.updates.playing" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Quit %@ first: Cartouche closes to install its update."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Quittez d’abord %@ : Cartouche se ferme pour installer sa mise à jour."
           }
         }
       }

@@ -79,6 +79,8 @@ enum CartouchePlayStatus: Hashable {
     case update
     /// The player's copy is in their games folder, not on this iPhone.
     case stored
+    /// The player's copy runs behind the console, paused there.
+    case paused
     case iphone
     case mac
     case bringup
@@ -96,11 +98,18 @@ enum CartouchePlayStatus: Hashable {
         }
     }
 
+    /// As of(_:), with the game that runs behind the console paused there.
+    @MainActor
+    static func of(_ entry: CartoucheEntry, in actions: CartoucheGameActions) -> CartouchePlayStatus {
+        actions.isRunning(entry.app) ? .paused : of(entry)
+    }
+
     var symbol: String {
         switch self {
         case .ready: return "checkmark.circle.fill"
         case .update: return "arrow.down.circle.fill"
         case .stored: return "externaldrive.fill"
+        case .paused: return "pause.circle.fill"
         case .iphone: return "iphone"
         case .mac: return "laptopcomputer"
         case .bringup: return "hammer.fill"
@@ -112,6 +121,7 @@ enum CartouchePlayStatus: Hashable {
         switch self {
         case .ready: return Color(red: 0.204, green: 0.827, blue: 0.494)
         case .update, .stored: return Color(red: 0.392, green: 0.824, blue: 1.0)
+        case .paused: return CartoucheTheme.pink
         case .iphone: return Color(red: 0.204, green: 0.827, blue: 0.494)
         case .mac: return Color(red: 0.384, green: 0.639, blue: 1.0)
         case .bringup: return Color(red: 1.0, green: 0.690, blue: 0.247)
@@ -125,6 +135,7 @@ enum CartouchePlayStatus: Hashable {
         case .ready: return CartoucheText.statusReadyShort
         case .update: return CartoucheText.statusUpdateShort
         case .stored: return CartoucheText.statusStoredShort
+        case .paused: return CartoucheText.statusPausedShort
         case .iphone: return CartoucheText.statusIPhoneShort
         case .mac: return CartoucheText.statusMacShort
         case .bringup: return CartoucheText.statusBringupShort
@@ -138,6 +149,7 @@ enum CartouchePlayStatus: Hashable {
         case .ready, .iphone: return CartoucheText.statusIPhoneLong
         case .update: return CartoucheText.statusUpdateLong
         case .stored: return CartoucheText.statusStoredLong
+        case .paused: return CartoucheText.pausedDetail
         case .mac: return CartoucheText.statusMacLong
         case .bringup: return CartoucheText.statusBringupLong
         case .unknown: return CartoucheText.statusUnknownLong

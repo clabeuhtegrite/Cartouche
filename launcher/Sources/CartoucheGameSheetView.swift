@@ -4,7 +4,8 @@
 //
 //  A game's sheet. On top, its cover, name and badges, and its main action:
 //  Play for the player's own copy, with Game settings and, when the games
-//  folder holds a newer build, Update beside it; Install from the player's
+//  folder holds a newer build, Update beside it, or Resume, with Quit, for
+//  the game paused behind the console; Install from the player's
 //  games folder for a copy there; or Import my copy. Under them, what stops
 //  the game on this iPhone, if anything (what it needs folds into one line
 //  when this iPhone has it all), the copies of its saves, the game's copy
@@ -31,6 +32,25 @@ struct CartoucheGameSheetView: View {
     var onInstallStored: (CartoucheStoredGame) -> Void = { _ in }
     /// Copies the installed game to the player's games folder.
     var onExport: (LCAppModel) -> Void = { _ in }
+    @ObservedObject private var actions = CartoucheGameActions.shared
+    @ObservedObject private var keeping = CartoucheGameKeeping.shared
+
+    // Written out: the private state above would make the synthesized
+    // initializer private.
+    init(entry: CartoucheEntry, memory: CartoucheMemoryReading?, onPlay: @escaping (LCAppModel) -> Void,
+         onSettings: @escaping (LCAppModel) -> Void, onImport: @escaping () -> Void,
+         onUninstall: @escaping (LCAppModel) -> Void,
+         onInstallStored: @escaping (CartoucheStoredGame) -> Void = { _ in },
+         onExport: @escaping (LCAppModel) -> Void = { _ in }) {
+        self.entry = entry
+        self.memory = memory
+        self.onPlay = onPlay
+        self.onSettings = onSettings
+        self.onImport = onImport
+        self.onUninstall = onUninstall
+        self.onInstallStored = onInstallStored
+        self.onExport = onExport
+    }
 
     private var fit: CartoucheFit? {
         entry.sheet.map { CartoucheFit.of($0, memory: memory) }
@@ -92,7 +112,7 @@ struct CartoucheGameSheetView: View {
     private var header: some View {
         VStack(alignment: .leading, spacing: 16) {
             HStack(alignment: .center, spacing: 18) {
-                CartoucheGameCartridge(entry: entry, width: 104)
+                CartoucheGameCartridge(entry: entry, width: 104, isPaused: actions.isRunning(entry.app))
                     .padding(.vertical, 8)
                 VStack(alignment: .leading, spacing: 8) {
                     Text(entry.name)
@@ -102,15 +122,25 @@ struct CartoucheGameSheetView: View {
                         .minimumScaleFactor(0.7)
                         .accessibilityAddTraits(.isHeader)
                     // For the player's own copy, the badge says whether it
-                    // is ready, or what stops it.
-                    CartoucheMetaLine(entry: entry, showsStatus: entry.app == nil || entry.sheet == nil)
-                    if entry.sheet != nil {
+                    // is ready, or what stops it; while the game runs
+                    // behind the console, the line says it is paused.
+                    let isRunning = actions.isRunning(entry.app)
+                    CartoucheMetaLine(entry: entry, showsStatus: entry.app == nil || entry.sheet == nil || isRunning,
+                                      isPaused: isRunning)
+                    if entry.sheet != nil, !isRunning {
                         CartoucheFitBadge(fit: fit, owned: entry.app != nil)
                     }
                 }
             }
 
-            if let app = entry.app {
+            if let app = entry.app, actions.isRunning(app) {
+                primaryButton(CartoucheText.resume, systemImage: "play.fill") { onPlay(app) }
+                HStack(spacing: 10) {
+                    secondaryButton(CartoucheText.gameSettings, systemImage: "slider.horizontal.3") { onSettings(app) }
+                    secondaryButton(CartoucheText.quit, systemImage: "xmark.circle") { actions.askToQuit() }
+                }
+                buildLine(CartoucheText.pausedDetail, systemImage: "pause.circle")
+            } else if let app = entry.app {
                 primaryButton(CartoucheText.play, systemImage: "play.fill") { onPlay(app) }
                 HStack(spacing: 10) {
                     secondaryButton(CartoucheText.gameSettings, systemImage: "slider.horizontal.3") { onSettings(app) }
@@ -258,10 +288,24 @@ struct CartoucheGameSheetView: View {
 
     // MARK: The player's copy
 
-    /// The game's copy in the games folder, or the button that copies it
-    /// there, and Uninstall, last, in red.
+    /// Whether the game starts in Cartouche's place, the game's copy in the
+    /// games folder, or the button that copies it there, and Uninstall,
+    /// last, in red.
     private func manageSection(_ app: LCAppModel) -> some View {
         Section {
+            if keeping.keepsConsoleOpen, CartoucheGameKeeping.isAvailable,
+               let bundleId = app.appInfo.bundleIdentifier(), keeping.startsInPlace(bundleId: bundleId) {
+                VStack(alignment: .leading, spacing: 8) {
+                    Label(CartoucheText.startsInPlaceNote, systemImage: "rectangle.on.rectangle.slash")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                    Button(CartoucheText.tryBehindAgain) {
+                        keeping.startBehind(bundleId: bundleId)
+                    }
+                    .font(.subheadline.weight(.semibold))
+                }
+                .padding(.vertical, 2)
+            }
             if let stored = entry.stored {
                 if entry.update == nil {
                     Label(CartoucheText.storedIn(serverName, stored.fileName), systemImage: "externaldrive.fill")
@@ -278,11 +322,14 @@ struct CartoucheGameSheetView: View {
                     Label(CartoucheText.exportTo(server.name), systemImage: "externaldrive.fill.badge.plus")
                 }
             }
-            Button(role: .destructive) {
-                onUninstall(app)
-            } label: {
-                Label(CartoucheText.uninstall, systemImage: "trash")
-                    .foregroundStyle(CartoucheTheme.danger)
+            // Quit the game first.
+            if !actions.isRunning(app) {
+                Button(role: .destructive) {
+                    onUninstall(app)
+                } label: {
+                    Label(CartoucheText.uninstall, systemImage: "trash")
+                        .foregroundStyle(CartoucheTheme.danger)
+                }
             }
         }
     }

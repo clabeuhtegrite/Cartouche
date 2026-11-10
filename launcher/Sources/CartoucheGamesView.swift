@@ -32,6 +32,12 @@
 //  (CartoucheGuideView): it opens by itself on the first launch, then from
 //  the home's card, until their first game is installed.
 //
+//  A game can run behind the console, paused while the console shows
+//  (CartoucheGameHost): Play on it brings it back, and Play on another
+//  asks first whether to quit it, over the sheet if one is open
+//  (CartoucheRunningGameQuestions). Cartouche's own update waits until it
+//  has ended, since the update closes Cartouche.
+//
 
 import SwiftUI
 import UniformTypeIdentifiers
@@ -86,6 +92,7 @@ struct CartoucheGamesView: View {
     private var nothingOverConsole: Bool {
         sheetID == nil && !showingSetup && !showingGuide && !choosingIPA && uninstalling == nil
             && actions.work == nil && actions.notice == nil && !showsUpdate
+            && actions.switching == nil && actions.quitQuestion == nil
     }
     /// Nothing over the console or beside it that takes the controller.
     private var nothingOver: Bool { nothingOverConsole && gameSettings == nil }
@@ -94,6 +101,7 @@ struct CartoucheGamesView: View {
     private var showsUpdate: Bool {
         updates.isShowing && onGames && sheetID == nil && !showingSetup && !showingGuide && !choosingIPA
             && uninstalling == nil && actions.work == nil && actions.notice == nil
+            && actions.running == nil && actions.switching == nil && actions.quitQuestion == nil
     }
 
     var body: some View {
@@ -130,8 +138,11 @@ struct CartoucheGamesView: View {
                         }
                     }
                     .modifier(CartoucheUninstallQuestion(app: $uninstallingInSheet, onAnswer: uninstall, onCopyFirst: copyThenUninstall))
+                    // Over the sheet, which the other game's start closes.
+                    .modifier(CartoucheRunningGameQuestions(shown: true, onSwitch: { sheetID = nil }))
                     .onReceive(CartoucheGamepad.shared.inputs) { input in
-                        guard uninstallingInSheet == nil, !handleSettings(input) else { return }
+                        guard uninstallingInSheet == nil, actions.switching == nil, actions.quitQuestion == nil,
+                              !handleSettings(input) else { return }
                         switch input {
                         case .b:
                             sheetID = nil
@@ -186,6 +197,9 @@ struct CartoucheGamesView: View {
             }
         }
         .modifier(CartoucheUninstallQuestion(app: $uninstalling, onAnswer: uninstall, onCopyFirst: copyThenUninstall))
+        // Over the console, or the sheet beside it; the sheet over the
+        // console asks itself.
+        .modifier(CartoucheRunningGameQuestions(shown: sheetID == nil))
         .overlay {
             if let work = actions.work {
                 CartoucheGameWorkView(work: work)
@@ -479,9 +493,16 @@ struct CartoucheGamesView: View {
             })
     }
 
-    /// Starts the game from Cartouche, which opens again as the game. With
+    /// Starts the game, behind the console or in Cartouche's place. With
     /// showingSettings, nxnative's settings screen comes first.
     private func play(_ app: LCAppModel, showingSettings: Bool = false) {
+        // A game runs behind the console: it comes back on screen, or the
+        // player is asked whether to quit it for another, where they are.
+        if actions.running != nil {
+            if actions.isRunning(app) && !showingSettings { sheetID = nil }
+            actions.play(app, showingSettings: showingSettings)
+            return
+        }
         // Without the certificate, LiveContainer could only refuse to start
         // the game: show what is missing instead, once the game's sheet,
         // which may hold the Play button, has gone.
