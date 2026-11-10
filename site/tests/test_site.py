@@ -28,12 +28,13 @@ PAGE = SITE / "index.html"
 CATALOG = SITE.parent / "catalog"
 
 # Every absolute link the page may hold, whole: the repository and its pages,
-# the Installer's releases, nxnative, and IGDB, which the page credits.
+# the releases of the Installer and of Cartouche Builder, nxnative, and IGDB,
+# which the page credits.
 REPOSITORY = "https://github.com/clabeuhtegrite/Cartouche"
 ALLOWED_LINKS = [
     re.compile(re.escape(REPOSITORY)),
     re.compile(re.escape(REPOSITORY) + r"/blob/main/[\w/.-]+\.md(?:#[\w-]+)?"),
-    re.compile(re.escape(REPOSITORY) + r"/releases\?q=installer&expanded=true"),
+    re.compile(re.escape(REPOSITORY) + r"/releases\?q=(?:installer|builder)&expanded=true"),
     re.compile(r"https://github\.com/seedds/nxnative"),
     re.compile(r"https://www\.igdb\.com"),
 ]
