@@ -9,9 +9,12 @@
 //  those installed among LiveContainer's apps, and those in the player's
 //  games folder (CartoucheStoredGames). The app carries these files in
 //  CartoucheCatalog/ (catalog/ in the Cartouche repository). None says
-//  where to get a game.
+//  where to get a game. Newer covers come every day (CartoucheLiveCovers),
+//  with those of the games nxnative added since: a game of the player's
+//  that the list does not know yet shows its cover by its title ID.
 //
 
+import Combine
 import Foundation
 
 struct CartoucheGameSheet: Decodable, Hashable {
@@ -103,6 +106,12 @@ struct CartoucheEntry: Identifiable, Hashable {
     /// That IPA, when it is a newer build than the installed game: the
     /// console offers to update the game with it.
     var update: CartoucheStoredGame? = nil
+    /// The title ID the player's copy says it is, that of a game the list
+    /// may not know yet.
+    var ownTitleId: String? = nil
+    /// The game's official cover and artwork on IGDB, if Cartouche has them
+    /// (CartoucheCatalog.cover(titleId:)).
+    var cover: CartoucheCover? = nil
 
     var name: String {
         if let sheet { return sheet.name }
@@ -110,9 +119,7 @@ struct CartoucheEntry: Identifiable, Hashable {
         return app?.appInfo.displayName() ?? stored?.name ?? ""
     }
 
-    var titleId: String? { game?.titleId ?? sheet?.titleId }
-    /// The game's official cover and artwork on IGDB, if covers.json has them.
-    var cover: CartoucheCover? { titleId.flatMap { CartoucheCatalog.shared.cover(titleId: $0) } }
+    var titleId: String? { game?.titleId ?? sheet?.titleId ?? ownTitleId }
     var platform: String? { sheet?.platform ?? game?.platform }
     var genre: String? { game?.genre }
     var isOwned: Bool { app != nil || stored != nil }
@@ -134,6 +141,7 @@ struct CartoucheEntry: Identifiable, Hashable {
 
     static func == (lhs: CartoucheEntry, rhs: CartoucheEntry) -> Bool {
         lhs.id == rhs.id && lhs.app === rhs.app && lhs.stored == rhs.stored && lhs.update == rhs.update
+            && lhs.ownTitleId == rhs.ownTitleId && lhs.cover == rhs.cover
     }
 
     func hash(into hasher: inout Hasher) {
@@ -141,7 +149,7 @@ struct CartoucheEntry: Identifiable, Hashable {
     }
 }
 
-final class CartoucheCatalog {
+final class CartoucheCatalog: ObservableObject {
     static let shared = CartoucheCatalog()
 
     let games: [CartoucheNxGame]
@@ -149,8 +157,14 @@ final class CartoucheCatalog {
     let devices: [CartoucheDeviceProfile]
     /// Each title ID, every region's, to its game.
     private let gamesByTitle: [String: CartoucheNxGame]
-    /// Each game's title ID in nxnative.json to its cover.
-    private let covers: [String: CartoucheCover]
+    /// Each game's title ID in nxnative.json to the cover the app carries.
+    private let carriedCovers: [String: CartoucheCover]
+    /// Those, under the newer ones Cartouche read (CartoucheLiveCovers),
+    /// which also have the games nxnative added since.
+    private var covers: [String: CartoucheCover]
+    private let coversLock = NSLock()
+    /// Changes when newer covers arrive, for the views to show them.
+    @Published private(set) var coversRevision = 0
 
     /// The title ID each app's folder was found to hold, or "" for an
     /// nxnative game without one, so that every Info.plist is read once.
@@ -187,15 +201,20 @@ final class CartoucheCatalog {
         }
         self.gamesByTitle = byTitle
 
-        struct CoverList: Decodable { let covers: [CartoucheCover] }
+        var carried: [String: CartoucheCover] = [:]
         do {
             let data = try Data(contentsOf: folder.appendingPathComponent("covers.json"))
-            self.covers = Dictionary(try decoder.decode(CoverList.self, from: data).covers.map { ($0.titleId, $0) },
-                                     uniquingKeysWith: { first, _ in first })
+            if let covers = CartoucheCoverList.covers(in: data) {
+                carried = covers
+            } else {
+                NSLog("[Cartouche] covers.json is not a list of covers")
+            }
         } catch {
             NSLog("[Cartouche] cannot read the covers: %@", String(describing: error))
-            self.covers = [:]
         }
+        self.carriedCovers = carried
+        // The newer covers read the last time, until the next read.
+        self.covers = CartoucheCoverList.merged(carried, with: CartoucheLiveCovers.kept(at: CartoucheLiveCovers.defaultFile))
 
         struct DeviceList: Decodable { let devices: [CartoucheDeviceProfile] }
         do {
@@ -220,9 +239,39 @@ final class CartoucheCatalog {
         gamesByTitle[titleId]
     }
 
-    /// The official cover of the game of a title ID of any of its regions.
+    /// The official cover of the game of a title ID of any of its regions,
+    /// or of a game the list does not know yet.
     func cover(titleId: String) -> CartoucheCover? {
-        covers[gamesByTitle[titleId]?.titleId ?? titleId]
+        let key = gamesByTitle[titleId]?.titleId ?? titleId
+        coversLock.lock()
+        defer { coversLock.unlock() }
+        return covers[key]
+    }
+
+    /// Reads the newer covers when they are due, and shows them
+    /// (CartoucheLiveCovers): when Cartouche opens, and when it comes back.
+    @MainActor
+    func refreshCoversIfDue() {
+        CartoucheLiveCovers.shared.refreshIfDue { [weak self] newer in
+            self?.showCovers(newer)
+        }
+    }
+
+    @MainActor
+    private func showCovers(_ newer: [String: CartoucheCover]) {
+        let merged = CartoucheCoverList.merged(carriedCovers, with: newer)
+        coversLock.lock()
+        let changed = merged != covers
+        covers = merged
+        coversLock.unlock()
+        if changed { coversRevision += 1 }
+    }
+
+    /// ENTRY with its game's cover, as Cartouche has them now.
+    private func withCover(_ entry: CartoucheEntry) -> CartoucheEntry {
+        var entry = entry
+        entry.cover = entry.titleId.flatMap { cover(titleId: $0) }
+        return entry
     }
 
     struct Entries {
@@ -270,7 +319,7 @@ final class CartoucheCatalog {
                 update = storedCopy
             }
             result.owned.append(CartoucheEntry(id: "app:" + folder, game: game, sheet: sheet, app: app, stored: storedCopy,
-                                               update: update))
+                                               update: update, ownTitleId: titleId))
         }
         // The games of the games folder that are not installed, one entry
         // each: the newest IPA of a game that has several.
@@ -280,8 +329,10 @@ final class CartoucheCatalog {
             if let titleId, ownedTitles.contains(titleId) { continue }
             if let game { ownedTitles.formUnion(game.titleIds) } else if let titleId { ownedTitles.insert(titleId) }
             let sheet = titleId.flatMap { self.sheet(titleId: $0) }
-            result.owned.append(CartoucheEntry(id: "stored:" + copy.path, game: game, sheet: sheet, app: nil, stored: copy))
+            result.owned.append(CartoucheEntry(id: "stored:" + copy.path, game: game, sheet: sheet, app: nil, stored: copy,
+                                               ownTitleId: titleId))
         }
+        result.owned = result.owned.map { withCover($0) }
         result.owned.sort { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
         var others = games
             .filter { !ownedTitles.contains($0.titleId) }
@@ -291,7 +342,7 @@ final class CartoucheCatalog {
         others += sheets
             .filter { !ownedTitles.contains($0.titleId) && game(titleId: $0.titleId) == nil }
             .map { CartoucheEntry(id: "game:" + $0.titleId, game: nil, sheet: $0, app: nil) }
-        result.others = others.sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
+        result.others = others.sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending }.map { withCover($0) }
         return result
     }
 

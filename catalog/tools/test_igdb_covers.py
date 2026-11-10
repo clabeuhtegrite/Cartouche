@@ -122,6 +122,18 @@ class IgdbCoversTest(unittest.TestCase):
         self.assertEqual(records[0]["igdb"], 6)
         self.assertFalse(any(query.startswith("search") for query in asked))
 
+    def test_several_lists_are_searched_a_title_once(self):
+        # The pinned list, then nxnative's main branch: a game both list is
+        # searched once, as the pinned list has it; a newer game joins.
+        pinned = {"games": [CATALOG["games"][0], CATALOG["games"][2]]}
+        newest = {"games": [dict(CATALOG["games"][0], name="Mario Kart World (newer name)"),
+                            CATALOG["games"][1]]}
+        games = igdb_covers.merged([pinned, newest])["games"]
+        self.assertEqual([g["titleId"] for g in games], ["0400C3F00006E000", "01002B30028F6000", "0100F2C0115B6000"])
+        self.assertEqual(games[0]["name"], "Mario Kart World")
+        records = igdb_covers.covers(igdb_covers.merged([pinned, newest]), stand_in([]), log=io.StringIO())
+        self.assertEqual([r["igdb"] for r in records], [4, 1])
+
     def test_document_has_no_address(self):
         text = igdb_covers.document([{"titleId": "0400C3F00006E000", "igdb": 1, "name": "Mario Kart World",
                                       "cover": "mkw"}])

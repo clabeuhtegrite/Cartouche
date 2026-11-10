@@ -432,27 +432,73 @@ struct CartoucheGameSettingsView: View {
     }
 }
 
-/// One setting: a menu, a slider with its value, or a switch.
+/// One setting: a menu, a slider with its value, or a switch. What it
+/// does, when nxnative says, is behind an info button beside its name, so
+/// that the page stays a list of settings; a setting that cannot change
+/// says it under its name, with what it does.
 @available(iOS 17.0, *)
 struct CartoucheGameSettingRow: View {
     let setting: CartoucheGameSetting
     @ObservedObject var model: CartoucheGameSettingsModel
+    @State private var showsNote = false
 
-    private var note: String {
-        let note = CartoucheText.gameSettingText(setting.note)
+    // Written out: before Swift 6.4 (SE-0502), the private state above made
+    // the synthesized initializer private.
+    init(setting: CartoucheGameSetting, model: CartoucheGameSettingsModel) {
+        self.setting = setting
+        self.model = model
+    }
+
+    private var title: String { CartoucheText.gameSettingText(setting.label) }
+
+    private var note: String { CartoucheText.gameSettingText(setting.note) }
+
+    /// The row is off, its info button with it: an env.txt file sets it,
+    /// or the game's settings are out of reach.
+    private var isLocked: Bool { model.isFixed(setting) || !model.canChange }
+
+    /// What shows under the name of a setting that cannot change.
+    private var lockedNote: String {
         guard model.isFixed(setting) else { return note }
         return note.isEmpty ? CartoucheText.settingFixed : note + " · " + CartoucheText.settingFixed
     }
 
     private var label: some View {
         VStack(alignment: .leading, spacing: 4) {
-            Text(CartoucheText.gameSettingText(setting.label))
-            if !note.isEmpty {
-                Text(note)
+            HStack(spacing: 6) {
+                Text(title)
+                if !note.isEmpty && !isLocked {
+                    noteButton
+                }
+            }
+            if isLocked && !lockedNote.isEmpty {
+                Text(lockedNote)
                     .font(.footnote)
                     .foregroundStyle(CartoucheTheme.secondaryText)
                     .fixedSize(horizontal: false, vertical: true)
             }
+        }
+    }
+
+    /// What the setting does, in a popover, on the iPhone too.
+    private var noteButton: some View {
+        Button {
+            showsNote = true
+        } label: {
+            Image(systemName: "info.circle")
+                .font(.subheadline)
+                .foregroundStyle(CartoucheTheme.secondaryText)
+        }
+        .buttonStyle(.borderless)
+        .accessibilityLabel(Text(CartoucheText.settingAbout))
+        .accessibilityHint(Text(note))
+        .popover(isPresented: $showsNote) {
+            Text(note)
+                .font(.subheadline)
+                .fixedSize(horizontal: false, vertical: true)
+                .frame(width: 280, alignment: .leading)
+                .padding()
+                .presentationCompactAdaptation(.popover)
         }
     }
 
@@ -513,7 +559,7 @@ struct CartoucheGameSettingRow: View {
                 }
             }
         }
-        .disabled(model.isFixed(setting) || !model.canChange)
+        .disabled(isLocked)
     }
 }
 
@@ -524,41 +570,54 @@ struct CartoucheSettingsCategoryBar: View {
     @ObservedObject var model: CartoucheGameSettingsModel
 
     var body: some View {
-        ScrollViewReader { reader in
-            ScrollView(.horizontal) {
-                HStack(spacing: 10) {
-                    ForEach(model.categories, id: \.self) { category in
-                        button(category, selected: category == model.currentCategory)
-                            .id(category)
-                    }
+        // Every category across the width when their names fit, the
+        // buttons sharing it; a row that scrolls otherwise.
+        ViewThatFits(in: .horizontal) {
+            HStack(spacing: 8) {
+                ForEach(model.categories, id: \.self) { category in
+                    button(category, selected: category == model.currentCategory, fills: true)
                 }
-                .padding(.horizontal, 2)
-                .padding(.vertical, 4)
             }
-            .scrollIndicators(.hidden)
-            .onChange(of: model.currentCategory) { _, category in
-                guard let category else { return }
-                withAnimation(.easeOut(duration: 0.2)) {
-                    reader.scrollTo(category, anchor: .center)
+            .padding(.vertical, 4)
+            ScrollViewReader { reader in
+                ScrollView(.horizontal) {
+                    HStack(spacing: 8) {
+                        ForEach(model.categories, id: \.self) { category in
+                            button(category, selected: category == model.currentCategory, fills: false)
+                                .id(category)
+                        }
+                    }
+                    .padding(.horizontal, 2)
+                    .padding(.vertical, 4)
+                }
+                .scrollIndicators(.hidden)
+                .onChange(of: model.currentCategory) { _, category in
+                    guard let category else { return }
+                    withAnimation(.easeOut(duration: 0.2)) {
+                        reader.scrollTo(category, anchor: .center)
+                    }
                 }
             }
         }
     }
 
-    private func button(_ category: String, selected: Bool) -> some View {
+    private func button(_ category: String, selected: Bool, fills: Bool) -> some View {
         Button {
             model.category = category
         } label: {
             VStack(spacing: 6) {
                 Image(systemName: Self.symbol(category))
                     .font(.system(size: 17, weight: selected ? .semibold : .regular))
+                // Sharing the width, the buttons are as wide as each other:
+                // a long name shrinks a little rather than being cut.
                 Text(Self.title(category))
                     .font(.system(size: 12, weight: selected ? .semibold : .regular))
                     .lineLimit(1)
+                    .minimumScaleFactor(fills ? 0.8 : 1)
             }
             .foregroundStyle(selected ? Color.white : CartoucheTheme.secondaryText)
-            .padding(.horizontal, 12)
-            .frame(minWidth: 78, minHeight: 58)
+            .padding(.horizontal, fills ? 4 : 8)
+            .frame(minWidth: 64, maxWidth: fills ? CGFloat.infinity : nil, minHeight: 58)
             .background(
                 RoundedRectangle(cornerRadius: 14, style: .continuous)
                     .fill(selected ? CartoucheTheme.indigo.opacity(0.5) : Color.white.opacity(0.06)))
