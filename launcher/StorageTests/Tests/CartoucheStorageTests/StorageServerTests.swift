@@ -74,16 +74,18 @@ class StorageServerTests: XCTestCase {
 
     override func tearDown() async throws {
         guard Self.serverName != nil, servers != nil else { return }
+        // Signed out first: SMB does not remove a file a reader still holds
+        // open, and signing out closes what the test left open.
+        for remote in remotes {
+            await remote.disconnect()
+        }
+        remotes = []
         if !scratch.isEmpty, let remote = try? await connect() {
             for folder in scratch.reversed() {
                 await removeAll(folder, in: remote)
             }
             await remote.disconnect()
         }
-        for remote in remotes {
-            await remote.disconnect()
-        }
-        remotes = []
         for folder in localFolders {
             try? FileManager.default.removeItem(at: folder)
         }
@@ -533,13 +535,23 @@ class StorageServerTests: XCTestCase {
         print("\(label): copied \(megabytes(Int64(written))) in \(Int(Date().timeIntervalSince(started))) s, the footprint \(megabytes(grew)) above its start")
         XCTAssertLessThan(grew, 256 << 20, "the copy took more and more memory")
         try? FileManager.default.removeItem(at: installed)
-        let copy = try await remote.open(path)
-        XCTAssertEqual(copy.size, written)
-        let copied = try await CartoucheZip.entries(of: copy)
-        let copiedLast = try XCTUnwrap(copied.first { $0.name == big.bundle + "/suite/fin.bin" })
-        XCTAssertGreaterThan(copiedLast.localHeaderOffset, UInt64(1) << 32)
-        let copiedData = try await CartoucheZip.data(of: copiedLast, in: copy)
-        XCTAssertEqual(sha256(copiedData), big.files["suite/fin.bin"]?.sha256)
+        // Read on a connection of its own, which goes once it has read, as
+        // an install's does: SMB does not remove a file a reader still holds
+        // open.
+        let reading = try await connect()
+        do {
+            let copy = try await reading.open(path)
+            XCTAssertEqual(copy.size, written)
+            let copied = try await CartoucheZip.entries(of: copy)
+            let copiedLast = try XCTUnwrap(copied.first { $0.name == big.bundle + "/suite/fin.bin" })
+            XCTAssertGreaterThan(copiedLast.localHeaderOffset, UInt64(1) << 32)
+            let copiedData = try await CartoucheZip.data(of: copiedLast, in: copy)
+            XCTAssertEqual(sha256(copiedData), big.files["suite/fin.bin"]?.sha256)
+        } catch {
+            await reading.disconnect()
+            throw error
+        }
+        await reading.disconnect()
         try await remote.delete(path)
     }
 }
