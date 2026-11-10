@@ -8,7 +8,7 @@ name: App
 on:
   push:
     branches: [main]
-    paths: ["app/**", "launcher/**", "catalog/**", ".gitmodules", ".github/workflows/app.yml"]
+    paths: ["app/**", "launcher/**", "!launcher/StorageTests/**", "catalog/**", ".gitmodules", ".github/workflows/app.yml"]
   pull_request:
   workflow_dispatch:
 
@@ -44,6 +44,8 @@ jobs:
             case "$FILE" in
               # The release workflow's pull requests change only the source.
               app/sidestore-source.json) ;;
+              # The storage tests, which the Storage workflow runs.
+              launcher/StorageTests/*) ;;
               app/*|launcher/*|catalog/*|.gitmodules|.github/workflows/app.yml) BUILD=true ;;
             esac
           done < <(git diff --name-only HEAD^1 HEAD)

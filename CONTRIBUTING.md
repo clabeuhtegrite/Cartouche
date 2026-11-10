@@ -12,7 +12,7 @@ Thanks for helping. Cartouche is written in English: code, comments, docs and co
 
 - Every change to main goes through a pull request, squashed when it is merged: main takes no push ([.github/rulesets](.github/rulesets/README.md)).
 - One change per pull request, with a description of what it does and how it was tested.
-- CI must pass: the publish guard's tests, the catalog checks, the shell checks, the workflow audit and, when the app's files change, the app build. main requires them all.
+- CI must pass: the publish guard's tests, the catalog checks, the shell checks, the workflow audit and, when the app's files change, the app build. main requires them all. When the storage code changes, the storage tests against real servers must pass too ([launcher/StorageTests](launcher/StorageTests/README.md)).
 - A compatibility sheet in `catalog/games/` needs a result measured on a real device; see the compatibility report issue form.
 
 ## Development

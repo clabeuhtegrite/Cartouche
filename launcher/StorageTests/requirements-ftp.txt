@@ -1,0 +1,12 @@
+# pyftpdlib, for ftp_server.py, pinned with its hashes:
+#     pip install --require-hashes -r requirements-ftp.txt
+# Python 3.12 removed asyncore and asynchat, which pyasyncore and pyasynchat
+# bring back.
+pyftpdlib==2.2.0 \
+    --hash=sha256:4ba0642078792df63dd3b2e9c8f838f2a3ecf428c7518d5921c0530d53512acf
+pyasynchat==1.0.5 ; python_version >= "3.12" \
+    --hash=sha256:35b7859515693e479e8d95ebe9f32cbf4d6312ab7599ced39fc24699e51de46f \
+    --hash=sha256:36665473ae730dac51e6d7dad70f8295962120c830ab692f0a31efba32687e24
+pyasyncore==1.0.5 ; python_version >= "3.12" \
+    --hash=sha256:269bbc5252671827387636822841a1fb721ec6e858b23a3e12cf92eb1f97da2a \
+    --hash=sha256:dd483d5103a6d59b66b86e0ca2334ad43dca732ff23a0ac5d63c88c52510542e

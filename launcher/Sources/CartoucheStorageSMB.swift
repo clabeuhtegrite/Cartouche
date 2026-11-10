@@ -101,11 +101,34 @@ final class CartoucheSMB: CartoucheRemote {
             throw CartoucheStorageError(CartoucheText.storageSignInFailed(server.host, error.localizedDescription))
         }
         defer { Task { _ = try? await client.logoff() } }
-        return try await client.listShares()
+        return try await listShares(client)
             // Disk shares have type 0; special ones (IPC$, ADMIN$) a high bit.
             .filter { $0.type.rawValue & 0x0FFF_FFFF == 0 && !$0.type.contains(.special) && !$0.name.hasSuffix("$") }
             .map(\.name)
             .sorted { $0.localizedStandardCompare($1) == .orderedAscending }
+    }
+
+    /// STATUS_PIPE_NOT_AVAILABLE, STATUS_PIPE_DISCONNECTED,
+    /// STATUS_PIPE_BROKEN: the server hung up the pipe the list comes
+    /// through.
+    private static let hangUps: Set<UInt32> = [0xC000_00AC, 0xC000_00B0, 0xC000_014B]
+
+    /// The list comes from the server's RPC services, through a pipe of its
+    /// IPC$. Samba, since 4.16, starts them when a pipe is first opened, as
+    /// on a NAS nobody used for a minute, since it stops them then, and it
+    /// can hang up the pipe while they start: Samba 4.25 did, on a Mac, in
+    /// the storage tests. Started, they answer: the list is asked again,
+    /// twice at most, a second and then two seconds later.
+    private static func listShares(_ client: SMBClient) async throws -> [Share] {
+        var retries: UInt64 = 0
+        while true {
+            do {
+                return try await client.listShares()
+            } catch let hungUp as ErrorResponse where hangUps.contains(hungUp.header.status) && retries < 2 {
+                retries += 1
+                try await Task.sleep(nanoseconds: retries * 1_000_000_000)
+            }
+        }
     }
 
     func list(_ path: String) async throws -> [CartoucheRemoteItem] {
