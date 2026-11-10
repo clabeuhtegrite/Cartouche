@@ -9,15 +9,24 @@
 - without the secrets, the deploy does nothing;
 - with the problems' token, the Worker has it and the private repository
   to file problems in, never one GitHub says is public, and the token is
-  never printed.
+  never printed;
+- the dashboard goes with them: its Worker and its page as they are, with
+  the catalog's names, covers and chips in the page's place for them, and
+  nothing in a name that could close it; the same database and problems'
+  repository, no logs, its workers.dev address and no daily run; an Access
+  application's team and audience when they are given; and the job's
+  summary says where it is.
 
 The stand-in (standin.py) runs the SQL it is sent on SQLite, as D1 would.
 
 Run from the repository root: python3 -m unittest discover -s telemetry/test -v
 """
 
+import json
+import re
 import shutil
 import subprocess
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -26,6 +35,12 @@ from standin import ACCOUNT, GITHUB_TOKEN, PREFIX, TOKEN, Cloudflare, environmen
 HERE = Path(__file__).resolve().parent
 DEPLOY = HERE.parent / "deploy.sh"
 WORKER = HERE.parent / "worker.js"
+DASHBOARD_WORKER = HERE.parent / "dashboard" / "worker.js"
+DASHBOARD_PAGE = HERE.parent / "dashboard" / "index.html"
+CATALOG = HERE.parent.parent / "catalog"
+PLACEHOLDER = '<script type="application/json" id="catalog">{}</script>'
+CATALOG_ELEMENT = re.compile(r'<script type="application/json" id="catalog">(.*?)</script>', re.S)
+AUD = "4714c1358e65fe4b408ad6d432a5f878f08194bdb4752441fd56faefa9b2b6f2"
 
 
 @unittest.skipUnless(shutil.which("curl") and shutil.which("jq"), "the deploy needs curl and jq")
@@ -37,8 +52,8 @@ class DeployTest(unittest.TestCase):
         self.addCleanup(self.server.server_close)
         self.addCleanup(self.server.shutdown)
 
-    def deploy(self, **secrets):
-        return subprocess.run(["bash", str(DEPLOY)], env=environment(self.server, TELEMETRY_CHECK_TRIES="0", **secrets),
+    def deploy(self, script=DEPLOY, **secrets):
+        return subprocess.run(["bash", str(script)], env=environment(self.server, TELEMETRY_CHECK_TRIES="0", **secrets),
                               capture_output=True, text=True, timeout=60)
 
     def deploy_with_secrets(self):
@@ -61,8 +76,9 @@ class DeployTest(unittest.TestCase):
         self.assertEqual(script["module type"], "application/javascript+module")
         self.assertEqual(script["module"], WORKER.read_bytes())
         self.assertRegex(self.cloudflare.subdomain, r"^cartouche-[0-9a-f]{8}$")
-        self.assertEqual(self.cloudflare.enabled, {"enabled": True, "previews_enabled": False})
-        self.assertEqual(self.cloudflare.schedules, [{"cron": "17 3 * * *"}])
+        self.assertEqual(self.cloudflare.enabled, {name: {"enabled": True, "previews_enabled": False}
+                                                   for name in ("cartouche-telemetry", "cartouche-dashboard")})
+        self.assertEqual(self.cloudflare.schedules, {"cartouche-telemetry": [{"cron": "17 3 * * *"}]})
         self.assertIn(f"https://cartouche-telemetry.{self.cloudflare.subdomain}.workers.dev", result.stdout + result.stderr)
         self.assertNotIn(TOKEN, result.stdout + result.stderr)
 
@@ -108,6 +124,7 @@ class DeployTest(unittest.TestCase):
         ])
         self.assertIn("go to clabeuhtegrite/cartouche-reports, a private repository", result.stdout)
         self.assertNotIn(GITHUB_TOKEN, result.stdout + result.stderr)
+        self.assertEqual(self.cloudflare.scripts["cartouche-dashboard"]["metadata"]["bindings"], self.bindings())
 
     def test_a_token_github_refuses_still_goes_to_the_worker(self):
         result = self.deploy_with_problems(token="github_pat_expired")
@@ -122,6 +139,72 @@ class DeployTest(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual([binding["name"] for binding in self.bindings()], ["DB"])
         self.assertIn("::error::Problems: clabeuhtegrite/Cartouche is public", result.stdout)
+
+    def dashboard(self):
+        return self.cloudflare.scripts["cartouche-dashboard"]
+
+    def test_the_dashboard_goes_with_its_page_and_the_catalog(self):
+        result = self.deploy_with_secrets()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        metadata = self.dashboard()["metadata"]
+        self.assertEqual(metadata["main_module"], "worker.js")
+        self.assertEqual(metadata["bindings"], [{"type": "d1", "name": "DB", "id": self.cloudflare.databases[0]["uuid"]}])
+        self.assertEqual(metadata["observability"], {"enabled": False})
+        self.assertEqual(metadata["compatibility_date"], self.cloudflare.scripts["cartouche-telemetry"]["metadata"]["compatibility_date"])
+        modules = self.dashboard()["modules"]
+        self.assertEqual(sorted(modules), ["index.html", "worker.js"])
+        self.assertEqual(modules["worker.js"], ("application/javascript+module", DASHBOARD_WORKER.read_bytes()))
+        kind, page = modules["index.html"]
+        self.assertEqual(kind, "text/plain")
+        page = page.decode()
+        element = CATALOG_ELEMENT.search(page)
+        self.assertEqual(page.replace(element.group(0), PLACEHOLDER), DASHBOARD_PAGE.read_text(encoding="utf-8"))
+        catalog = json.loads(element.group(1))
+        covers = {cover["titleId"]: cover["cover"] for cover in json.loads((CATALOG / "covers.json").read_text())["covers"]}
+        for game in json.loads((CATALOG / "nxnative.json").read_text())["games"]:
+            self.assertEqual(catalog["games"][game["titleId"]], [game["name"], covers.get(game["titleId"])])
+            for variant in game.get("variants", []):
+                self.assertEqual(catalog["aliases"][variant["titleId"]], game["titleId"])
+        for device in json.loads((CATALOG / "devices.json").read_text())["devices"]:
+            self.assertEqual(catalog["devices"][device["identifier"]], [device["chip"], device["memoryGB"]])
+        self.assertIn(f"https://cartouche-dashboard.{self.cloudflare.subdomain}.workers.dev", result.stdout)
+        self.assertIn("opens behind Cloudflare Access only", result.stdout)
+
+    def test_a_name_in_the_catalog_cannot_close_the_catalogs_element(self):
+        name = "</script><script>alert(1)</script> & <!-- co"
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            shutil.copytree(HERE.parent, root / "telemetry", ignore=shutil.ignore_patterns("__pycache__", "test"))
+            (root / "catalog").mkdir()
+            for file in ("covers.json", "devices.json"):
+                shutil.copy(CATALOG / file, root / "catalog" / file)
+            games = json.loads((CATALOG / "nxnative.json").read_text())
+            games["games"][0]["name"] = name
+            (root / "catalog" / "nxnative.json").write_text(json.dumps(games))
+            result = self.deploy(root / "telemetry" / "deploy.sh", CLOUDFLARE_API_TOKEN=TOKEN, CLOUDFLARE_ACCOUNT_ID=ACCOUNT)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        page = self.dashboard()["modules"]["index.html"][1].decode()
+        self.assertEqual(page.count("</script>"), DASHBOARD_PAGE.read_text(encoding="utf-8").count("</script>"))
+        self.assertNotIn("<!--", CATALOG_ELEMENT.search(page).group(1))
+        self.assertEqual(json.loads(CATALOG_ELEMENT.search(page).group(1))["games"][games["games"][0]["titleId"]][0], name)
+
+    def test_the_dashboard_reads_the_tokens_of_an_access_application_given_to_it(self):
+        result = self.deploy(CLOUDFLARE_API_TOKEN=TOKEN, CLOUDFLARE_ACCOUNT_ID=ACCOUNT,
+                             CLOUDFLARE_ACCESS_TEAM="cartouche", CLOUDFLARE_ACCESS_AUD=AUD)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(self.dashboard()["metadata"]["bindings"][1:], [
+            {"type": "plain_text", "name": "ACCESS_TEAM_DOMAIN", "text": "cartouche"},
+            {"type": "plain_text", "name": "ACCESS_AUD", "text": AUD},
+        ])
+        self.assertEqual([binding["name"] for binding in self.bindings()], ["DB"])
+
+    def test_the_jobs_summary_says_where_the_dashboard_is(self):
+        with tempfile.TemporaryDirectory() as folder:
+            summary = Path(folder) / "summary.md"
+            result = self.deploy(CLOUDFLARE_API_TOKEN=TOKEN, CLOUDFLARE_ACCOUNT_ID=ACCOUNT, GITHUB_STEP_SUMMARY=str(summary))
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertIn(f"Dashboard: the dashboard is at https://cartouche-dashboard.{self.cloudflare.subdomain}.workers.dev",
+                          summary.read_text())
 
     def test_without_the_secrets_nothing_happens(self):
         result = self.deploy()

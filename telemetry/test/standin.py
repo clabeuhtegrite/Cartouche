@@ -32,8 +32,9 @@ class Cloudflare:
         self.sql.row_factory = sqlite3.Row
         self.queries = []
         self.scripts = {}
-        self.enabled = None
-        self.schedules = None
+        # Each script's workers.dev address and daily run: name -> body.
+        self.enabled = {}
+        self.schedules = {}
         # GitHub's repositories the token can read: name -> private.
         self.repositories = {}
 
@@ -88,16 +89,19 @@ class Cloudflare:
                 "metadata": json.loads(parts["metadata"].get_content()),
                 "module type": parts["worker.js"].get_content_type(),
                 "module": parts["worker.js"].get_payload(decode=True),
+                # Every module, by its name: its type and its bytes.
+                "modules": {name: (part.get_content_type(), part.get_payload(decode=True))
+                            for name, part in parts.items() if name != "metadata"},
             }
             return 200, {"success": True, "result": {"id": match.group(1)}}
         match = re.fullmatch(r"/workers/scripts/([^/]+)/subdomain", path)
         if method == "POST" and match:
-            self.enabled = json.loads(body)
-            return 200, {"success": True, "result": self.enabled}
+            self.enabled[match.group(1)] = json.loads(body)
+            return 200, {"success": True, "result": self.enabled[match.group(1)]}
         match = re.fullmatch(r"/workers/scripts/([^/]+)/schedules", path)
         if method == "PUT" and match:
-            self.schedules = json.loads(body)
-            return 200, {"success": True, "result": {"schedules": self.schedules}}
+            self.schedules[match.group(1)] = json.loads(body)
+            return 200, {"success": True, "result": {"schedules": self.schedules[match.group(1)]}}
         return 404, {"success": False, "errors": [{"code": 7003, "message": f"No route for {method} {path}"}]}
 
 

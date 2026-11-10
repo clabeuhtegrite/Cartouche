@@ -1,0 +1,2053 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<meta name="referrer" content="no-referrer">
+<meta name="color-scheme" content="light dark">
+<title>Télémétrie de Cartouche</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%234F46E5'/%3E%3Cstop offset='1' stop-color='%23EC4899'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='64' height='64' rx='14' fill='url(%23g)'/%3E%3Crect x='17' y='10' width='30' height='44' rx='5' fill='%23fff'/%3E%3Crect x='20' y='22' width='24' height='18' rx='3' fill='url(%23g)'/%3E%3C/svg%3E">
+<style nonce="{{nonce}}">
+    /* Cartouche's telemetry, for the project alone (telemetry/README.md#dashboard).
+       The colours are the roles of a validated chart palette: categorical slots
+       in a fixed order, a status set kept for what is good or bad, hairline
+       chrome; dark mode has its own steps, not a flip. */
+    :root {
+        color-scheme: light;
+        --plane: #f9f9f7;
+        --surface: #fcfcfb;
+        --raised: #ffffff;
+        --ink: #0b0b0b;
+        --ink-2: #52514e;
+        --ink-3: #898781;
+        --grid: #e1e0d9;
+        --axis: #c3c2b7;
+        --ring: rgba(11, 11, 11, .10);
+        --wash: rgba(42, 120, 214, .10);
+        --s1: #2a78d6;
+        --s2: #eb6834;
+        --s3: #1baf7a;
+        --track: #cde2fb;
+        --other: #c3c2b7;
+        --p50: #86b6ef;
+        --p95: #2a78d6;
+        --p99: #104281;
+        --good: #0ca30c;
+        --warning: #fab219;
+        --serious: #ec835a;
+        --critical: #d03b3b;
+        --good-ink: #006300;
+        --brand-a: #4F46E5;
+        --brand-b: #EC4899;
+        --glow: rgba(79, 70, 229, .10);
+        --radius: 14px;
+        --text: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    }
+    @media (prefers-color-scheme: dark) {
+        :root:where(:not([data-theme="light"])) {
+            color-scheme: dark;
+            --plane: #0d0d0d;
+            --surface: #1a1a19;
+            --raised: #222220;
+            --ink: #f0efec;
+            --ink-2: #c3c2b7;
+            --ink-3: #898781;
+            --grid: #2c2c2a;
+            --axis: #383835;
+            --ring: rgba(255, 255, 255, .10);
+            --wash: rgba(57, 135, 229, .14);
+            --s1: #3987e5;
+            --s2: #d95926;
+            --s3: #199e70;
+            --track: #0d366b;
+            --other: #5a5955;
+            --p50: #184f95;
+            --p95: #3987e5;
+            --p99: #9ec5f4;
+            --good-ink: #0ca30c;
+            --glow: rgba(79, 70, 229, .22);
+        }
+    }
+    :root[data-theme="dark"] {
+        color-scheme: dark;
+        --plane: #0d0d0d;
+        --surface: #1a1a19;
+        --raised: #222220;
+        --ink: #f0efec;
+        --ink-2: #c3c2b7;
+        --ink-3: #898781;
+        --grid: #2c2c2a;
+        --axis: #383835;
+        --ring: rgba(255, 255, 255, .10);
+        --wash: rgba(57, 135, 229, .14);
+        --s1: #3987e5;
+        --s2: #d95926;
+        --s3: #199e70;
+        --track: #0d366b;
+        --other: #5a5955;
+        --p50: #184f95;
+        --p95: #3987e5;
+        --p99: #9ec5f4;
+        --good-ink: #0ca30c;
+        --glow: rgba(79, 70, 229, .22);
+    }
+
+    *, *::before, *::after { box-sizing: border-box; }
+    html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+    body {
+        margin: 0;
+        background:
+            radial-gradient(1200px 380px at 12% -120px, var(--glow), transparent 70%),
+            radial-gradient(900px 320px at 92% -140px, rgba(236, 72, 153, .08), transparent 70%),
+            var(--plane);
+        background-repeat: no-repeat;
+        color: var(--ink);
+        font: 15px/1.5 var(--text);
+        -webkit-font-smoothing: antialiased;
+    }
+    a { color: inherit; }
+    button, select { font: inherit; color: inherit; }
+    .wrap { max-width: 1320px; margin: 0 auto; padding: 0 24px; }
+    @media (max-width: 640px) { .wrap { padding: 0 16px; } }
+
+    /* Top: the brand, the period and who is signed in. */
+    .top { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 22px 0 14px; flex-wrap: wrap; }
+    .brand { display: flex; align-items: center; gap: 14px; min-width: 0; }
+    .brand svg { flex: none; width: 44px; height: 44px; filter: drop-shadow(0 6px 14px rgba(79, 70, 229, .35)); }
+    .brand h1 { margin: 0; font-size: 21px; line-height: 1.2; font-weight: 650; letter-spacing: -.01em; }
+    .brand p { margin: 2px 0 0; color: var(--ink-2); font-size: 13.5px; }
+    .who { display: flex; align-items: center; gap: 12px; color: var(--ink-2); font-size: 13.5px; flex-wrap: wrap; }
+    .who a { color: var(--ink-2); text-decoration: none; padding: 6px 10px; border-radius: 8px; border: 1px solid var(--ring); }
+    .who a:hover { color: var(--ink); background: var(--wash); }
+
+    /* One row of controls above everything they scope. */
+    .controls { position: sticky; top: 0; z-index: 20; padding: 10px 0; background: color-mix(in srgb, var(--plane) 88%, transparent);
+                -webkit-backdrop-filter: saturate(1.4) blur(12px); backdrop-filter: saturate(1.4) blur(12px); border-bottom: 1px solid var(--ring); }
+    .controls .wrap { display: flex; align-items: center; gap: 10px 14px; flex-wrap: wrap; }
+    .range { display: inline-flex; padding: 3px; border-radius: 10px; background: var(--surface); border: 1px solid var(--ring); }
+    .range button { border: 0; background: transparent; padding: 5px 11px; border-radius: 7px; cursor: pointer; color: var(--ink-2); font-size: 13.5px; }
+    .range button[aria-checked="true"] { background: var(--raised); color: var(--ink); font-weight: 600; box-shadow: 0 1px 2px rgba(0, 0, 0, .12), 0 0 0 1px var(--ring); }
+    .controls label { display: inline-flex; align-items: center; gap: 6px; color: var(--ink-2); font-size: 13.5px; }
+    .controls select { max-width: 220px; padding: 5px 28px 5px 10px; border-radius: 9px; border: 1px solid var(--ring); background: var(--surface); }
+    .controls .ghost { border: 1px solid var(--ring); background: var(--surface); padding: 5px 11px; border-radius: 9px; cursor: pointer; font-size: 13.5px; }
+    .controls .ghost:hover { background: var(--wash); }
+    .controls .state { color: var(--ink-3); font-size: 13px; margin-left: auto; }
+    @media (max-width: 640px) {
+        .controls { position: static; }
+        .controls label { flex: 1 1 140px; min-width: 0; }
+        .controls select { flex: 1; width: 100%; min-width: 0; max-width: none; }
+    }
+    nav.jump { display: flex; gap: 4px; overflow-x: auto; padding: 8px 0 2px; scrollbar-width: none; }
+    nav.jump::-webkit-scrollbar { display: none; }
+    nav.jump a { flex: none; text-decoration: none; color: var(--ink-2); font-size: 13px; padding: 4px 10px; border-radius: 999px; }
+    nav.jump a:hover { background: var(--wash); color: var(--ink); }
+
+    .notice { margin: 16px 0 0; padding: 12px 16px; border-radius: 12px; border: 1px solid var(--ring); background: var(--surface); color: var(--ink-2); font-size: 14px; }
+    .notice b { color: var(--ink); }
+    .notice.demo { border-color: color-mix(in srgb, var(--brand-a) 45%, transparent); background: color-mix(in srgb, var(--brand-a) 9%, var(--surface)); }
+
+    main { padding-bottom: 64px; transition: opacity .2s; }
+    main.loading { opacity: .55; }
+    section.block { scroll-margin-top: 110px; margin-top: 34px; }
+    section.block > header { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 12px; }
+    section.block h2 { margin: 0; font-size: 18px; font-weight: 650; letter-spacing: -.005em; }
+    section.block > header p { margin: 0; color: var(--ink-2); font-size: 13.5px; }
+    .grid { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); }
+    .grid.wide { grid-template-columns: repeat(auto-fit, minmax(420px, 1fr)); }
+    @media (max-width: 520px) { .grid, .grid.wide { grid-template-columns: 1fr; } }
+    .card { background: var(--surface); border: 1px solid var(--ring); border-radius: var(--radius); padding: 16px 18px 18px; min-width: 0; container-type: inline-size; }
+    .card.span { grid-column: 1 / -1; }
+    .card h3 { margin: 0 0 2px; font-size: 14.5px; font-weight: 620; }
+    .card .sub { margin: 0 0 12px; color: var(--ink-2); font-size: 13px; }
+    .card .empty { color: var(--ink-3); font-size: 13.5px; margin: 6px 0 0; }
+    .card .foot { margin: 12px 0 0; color: var(--ink-3); font-size: 12.5px; }
+    .card > :is(dl, ol, ul, div, table, .empty) + :is(dl, ol, ul, div, table, .empty) { margin-top: 16px; }
+    .endcell { min-width: 120px; }
+
+    /* Stat tiles. */
+    .tiles { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); }
+    .tile { background: var(--surface); border: 1px solid var(--ring); border-radius: var(--radius); padding: 14px 16px 12px; display: flex; flex-direction: column; min-width: 0; }
+    .tile .label { color: var(--ink-2); font-size: 13px; }
+    .tile .value { font-size: 30px; font-weight: 650; line-height: 1.15; margin-top: 4px; letter-spacing: -.02em; }
+    .tile .value small { font-size: 15px; font-weight: 550; color: var(--ink-2); letter-spacing: 0; margin-left: 3px; }
+    .tile .note { color: var(--ink-3); font-size: 12.5px; margin-top: 2px; min-height: 18px; }
+    .tile svg { display: block; width: 100%; height: 34px; margin-top: 8px; overflow: visible; }
+    @media (max-width: 640px) {
+        .tiles { grid-template-columns: 1fr 1fr; gap: 10px; }
+        .tile { padding: 12px 12px 10px; }
+        .tile .value { font-size: 25px; }
+    }
+    .status { display: inline-flex; align-items: center; gap: 6px; }
+    .status i { width: 9px; height: 9px; border-radius: 50%; flex: none; display: inline-block; }
+
+    /* Ranked bars and meters: a name, a bar and a figure per row. */
+    ol.bars { list-style: none; margin: 0; padding: 0; display: grid; gap: 9px; }
+    ol.bars li { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(60px, 1fr) auto; align-items: center; gap: 10px; border-radius: 6px; outline-offset: 2px; }
+    ol.bars li:hover .fill, ol.bars li:focus-visible .fill { filter: brightness(1.12); }
+    ol.bars .name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13.5px; }
+    ol.bars .name small { color: var(--ink-3); margin-left: 6px; font-size: 12px; }
+    ol.bars .track { position: relative; height: 10px; border-radius: 0 4px 4px 0; }
+    ol.bars .track.meter { background: var(--track); border-radius: 4px; }
+    ol.bars .fill { position: absolute; inset: 0 auto 0 0; width: var(--w, 0%); min-width: 2px; background: var(--fill, var(--s1)); border-radius: 0 4px 4px 0; }
+    ol.bars .track.meter .fill { border-radius: 4px; }
+    ol.bars .mark { position: absolute; top: -3px; bottom: -3px; left: var(--at); width: 2px; background: var(--ink-3); border-radius: 1px; }
+    ol.bars .figure { font-variant-numeric: tabular-nums; font-size: 13px; color: var(--ink); text-align: right; white-space: nowrap; }
+    ol.bars .figure small { color: var(--ink-3); margin-left: 4px; }
+    /* In a narrow card, the bar goes under its name and figure. */
+    @container (max-width: 380px) {
+        ol.bars li { grid-template-columns: minmax(0, 1fr) auto; row-gap: 5px; }
+        ol.bars .track { grid-column: 1 / -1; grid-row: 2; }
+    }
+
+    /* Segmented bars: one whole, split into parts. */
+    .seg { display: flex; gap: 2px; height: 28px; margin: 4px 0 10px; }
+    .seg.thin { height: 8px; margin: 0; gap: 2px; }
+    .seg > span { position: relative; flex: var(--part) 1 0; min-width: 3px; border-radius: 4px; background: var(--fill); display: flex; align-items: center; padding-left: 7px;
+                  font-size: 12px; font-weight: 600; color: #fff; white-space: nowrap; overflow: visible; outline-offset: 2px; }
+    .seg.thin > span { border-radius: 4px; padding: 0; }
+    .seg > span.dark-ink { color: #0b0b0b; }
+    .seg > span:hover, .seg > span:focus-visible { filter: brightness(1.1); }
+    .legend { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 12.5px; color: var(--ink-2); margin: 0; padding: 0; list-style: none; }
+    .legend li { display: inline-flex; align-items: center; gap: 6px; }
+    .legend i { width: 10px; height: 10px; border-radius: 3px; background: var(--fill); display: inline-block; }
+    .legend b { color: var(--ink); font-weight: 600; font-variant-numeric: tabular-nums; }
+    .legend.dots i { border-radius: 50%; }
+
+    /* Figures in a row. */
+    dl.facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 12px 16px; margin: 0; }
+    /* A name on two lines keeps the figures of its row level. */
+    dl.facts div { min-width: 0; display: flex; flex-direction: column; }
+    dl.facts dt { color: var(--ink-2); font-size: 12.5px; }
+    dl.facts dd { margin: auto 0 0; padding-top: 2px; font-size: 18px; font-weight: 620; letter-spacing: -.01em; }
+    dl.facts dd small { font-size: 12.5px; color: var(--ink-3); font-weight: 500; margin-left: 3px; letter-spacing: 0; }
+
+    /* Charts. */
+    .chart { position: relative; }
+    .chart svg { display: block; width: 100%; overflow: visible; }
+    .chart svg:focus-visible { outline: 2px solid var(--s1); outline-offset: 4px; border-radius: 6px; }
+    .tabs { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 14px; }
+    .tabs button { border: 1px solid var(--ring); background: transparent; color: var(--ink-2); padding: 4px 11px; border-radius: 999px; font-size: 13px; cursor: pointer; }
+    .tabs button[aria-selected="true"] { background: var(--ink); color: var(--surface); border-color: var(--ink); }
+    .tabs .spacer { flex: 1; }
+    .linkish { border: 0; background: none; color: var(--ink-2); text-decoration: underline; text-underline-offset: 3px; cursor: pointer; padding: 4px 0; font-size: 13px; }
+
+    /* Tables. */
+    .scroll { overflow-x: auto; margin: 0 -18px; padding: 0 18px; }
+    table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+    th { text-align: left; font-weight: 600; color: var(--ink-2); font-size: 12.5px; padding: 0 10px 8px; white-space: nowrap; border-bottom: 1px solid var(--grid); }
+    th button { all: unset; cursor: pointer; }
+    th button:focus-visible { outline: 2px solid var(--s1); outline-offset: 2px; border-radius: 3px; }
+    th[aria-sort="descending"] button::after { content: " ↓"; }
+    th[aria-sort="ascending"] button::after { content: " ↑"; }
+    td { padding: 8px 10px; border-bottom: 1px solid var(--grid); vertical-align: middle; }
+    tr:last-child td { border-bottom: 0; }
+    td.n, th.n { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+    td.mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12.5px; }
+    /* A list in a cell keeps a few words a line where the table is narrow. */
+    td.wide { min-width: 220px; }
+    td small { color: var(--ink-3); }
+    tbody tr.pick { cursor: pointer; }
+    tbody tr.pick:hover td { background: var(--wash); }
+    .game { display: flex; align-items: center; gap: 10px; min-width: 200px; }
+    .cover { width: 34px; height: 46px; border-radius: 6px; flex: none; object-fit: cover; background: linear-gradient(135deg, var(--brand-a), var(--brand-b));
+             display: grid; place-items: center; color: #fff; font-size: 12px; font-weight: 700; box-shadow: 0 0 0 1px var(--ring); }
+    .game b { font-weight: 600; display: block; }
+    .game small { display: block; color: var(--ink-3); font-size: 11.5px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+    .pill { display: inline-block; padding: 1px 8px; border-radius: 999px; font-size: 12px; border: 1px solid var(--ring); color: var(--ink-2); }
+    .issues { list-style: none; margin: 0; padding: 0; }
+    .issues li { display: flex; gap: 10px; align-items: baseline; padding: 8px 0; border-bottom: 1px solid var(--grid); }
+    .issues li:last-child { border-bottom: 0; }
+    .issues a { text-decoration: none; font-weight: 550; }
+    .issues a:hover { text-decoration: underline; }
+    .issues small { color: var(--ink-3); white-space: nowrap; }
+
+    #tip { position: fixed; z-index: 50; pointer-events: none; background: var(--raised); color: var(--ink); border: 1px solid var(--ring); border-radius: 10px;
+           padding: 8px 10px; font-size: 12.5px; box-shadow: 0 8px 24px rgba(0, 0, 0, .18); max-width: 280px; opacity: 0; transition: opacity .08s; }
+    #tip.on { opacity: 1; }
+    #tip strong { display: block; font-size: 14px; font-variant-numeric: tabular-nums; }
+    #tip span { display: flex; align-items: center; gap: 6px; color: var(--ink-2); }
+    #tip span i { width: 12px; height: 2px; border-radius: 1px; background: var(--fill); display: inline-block; }
+    .visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+    @media (forced-colors: active) { .fill, .seg > span, .status i, .legend i { forced-color-adjust: none; } }
+    @media (prefers-reduced-motion: reduce) { main { transition: none; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+    <header class="top">
+        <div class="brand">
+            <svg viewBox="0 0 64 64" aria-hidden="true">
+                <defs><linearGradient id="brand" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#4F46E5"/><stop offset="1" stop-color="#EC4899"/></linearGradient></defs>
+                <rect width="64" height="64" rx="14" fill="url(#brand)"/>
+                <rect x="17" y="9" width="30" height="46" rx="5" fill="#fff"/>
+                <rect x="21" y="13" width="22" height="2.5" rx="1.25" fill="#D3D5E3"/>
+                <rect x="20" y="21" width="24" height="19" rx="3.5" fill="url(#brand)"/>
+                <rect x="21" y="45" width="22" height="6" rx="1.5" fill="#2C2A4A"/>
+            </svg>
+            <div>
+                <h1>Télémétrie de Cartouche</h1>
+                <p id="span">Mesures des parties et événements de l'app</p>
+            </div>
+        </div>
+        <div class="who"><span id="viewer"></span><a href="/cdn-cgi/access/logout" id="logout">Se déconnecter</a></div>
+    </header>
+</div>
+<div class="controls">
+    <div class="wrap">
+        <div class="range" role="radiogroup" aria-label="Période">
+            <button type="button" role="radio" data-days="7">7 j</button>
+            <button type="button" role="radio" data-days="28">28 j</button>
+            <button type="button" role="radio" data-days="90">90 j</button>
+            <button type="button" role="radio" data-days="365">1 an</button>
+        </div>
+        <label>Jeu <select id="f-game"><option value="">Tous les jeux</option></select></label>
+        <label>Appareil <select id="f-device"><option value="">Tous</option></select></label>
+        <label>Version <select id="f-version"><option value="">Toutes</option></select></label>
+        <button type="button" class="ghost" id="reset" hidden>Tout afficher</button>
+        <button type="button" class="ghost" id="refresh">Actualiser</button>
+        <span class="state" id="state" aria-live="polite"></span>
+    </div>
+    <div class="wrap">
+        <nav class="jump" aria-label="Sections">
+            <a href="#jeux">Jeux</a><a href="#activite">Activité</a><a href="#fluidite">Fluidité</a><a href="#chaleur">Chaleur</a>
+            <a href="#memoire">Mémoire</a><a href="#fins">Plantages</a><a href="#appareils">Appareils</a><a href="#installations">Installations</a>
+            <a href="#erreurs">Erreurs</a><a href="#problemes">Problèmes</a><a href="#builder">Builder</a><a href="#serveur">Serveur</a>
+        </nav>
+    </div>
+</div>
+<div class="wrap">
+    <p class="notice demo" id="demo" hidden><b>Aperçu avec des données d'exemple.</b> Les chiffres sont inventés, pour montrer ce que le tableau affichera une fois les mesures arrivées.</p>
+    <p class="notice" id="problem" hidden></p>
+    <main id="main" aria-busy="true"></main>
+</div>
+<div id="tip" role="status" aria-live="polite"></div>
+
+<script type="application/json" id="catalog">{}</script>
+
+<script nonce="{{nonce}}" id="model">
+// What the page shows, summed up from the reports /data sends (dashboard/
+// worker.js): pure functions, no page, so that the tests can run them.
+(function (root) {
+    "use strict";
+
+    const DAY = 86400000;
+    // How a session ended (CartoucheGameLog.swift): no end is a session that
+    // showed no sign of trouble; "unknown" a game closed by the player as
+    // much as one iOS stopped without a word.
+    const ENDS = ["ok", "unknown", "boot", "memory", "crash"];
+    const END_OF = { crash: "crash", "memory-likely": "memory", "boot-failed": "boot", unknown: "unknown" };
+    const BAD = new Set(["crash", "memory", "boot"]);
+    const THERMAL = ["nominal", "fair", "serious", "critical"];
+
+    // Every field of a session the page shows, so that a field the server
+    // starts to send is not left out (telemetry/test/dashboard.test.js).
+    const SHOWN = [
+        "session", "gameVersion", "nxnative", "nxnativeChanged", "settings", "minutes", "reader", "frames", "targetFps",
+        "fps.median", "fps.low5", "frameMs.p50", "frameMs.p95", "frameMs.p99", "gpuMs.p50", "gpuMs.p95", "gpuMs.p99",
+        "overTargetPercent", "droppedPercent", "stutters.count", "stutters.perMinute", "stutters.shaders", "stutters.textures",
+        "stutters.other", "shaderStallMsPerMinute", "prepare.seconds", "prepare.lines", "cpu.watts", "cpu.percent",
+        "cpu.performanceCoresPercent", "gpuBusyMsPerSecond", "thermal.nominal", "thermal.fair", "thermal.serious",
+        "thermal.critical", "thermal.seriousAfterMinutes", "lowPowerMinutes", "memory.peakMiB", "memory.exactPeak",
+        "memory.gpuPeakMiB", "memory.lowestHeadroomMiB", "guestFile", "upscaler.kind", "upscaler.gpuMs",
+        "audioUnderrunsPerMinute", "display.tv", "display.foldSplit", "dlc", "end.kind", "end.signal", "end.pc", "end.lr",
+    ];
+
+    const num = (value) => (typeof value === "number" && Number.isFinite(value) ? value : null);
+    const flag = (value) => (value === true || value === 1 ? true : value === false || value === 0 ? false : null);
+    const text = (value) => (typeof value === "string" && value !== "" ? value : null);
+
+    function median(values) {
+        const sorted = values.map(num).filter((value) => value !== null).sort((a, b) => a - b);
+        if (!sorted.length) return null;
+        const middle = sorted.length >> 1;
+        return sorted.length % 2 ? sorted[middle] : (sorted[middle - 1] + sorted[middle]) / 2;
+    }
+    function sum(values) {
+        let total = 0;
+        for (const value of values) if (num(value) !== null) total += value;
+        return total;
+    }
+    function highest(values) {
+        let found = null;
+        for (const value of values) if (num(value) !== null && (found === null || value > found)) found = value;
+        return found;
+    }
+    // The share of ITEMS for which TEST is true, among those it knows.
+    function share(items, read) {
+        let known = 0;
+        let yes = 0;
+        for (const item of items) {
+            const value = flag(read(item));
+            if (value === null) continue;
+            known += 1;
+            if (value) yes += 1;
+        }
+        return known ? { share: yes / known, yes, known } : null;
+    }
+    function groupBy(items, key) {
+        const groups = new Map();
+        for (const item of items) {
+            const name = key(item);
+            if (name === null || name === undefined) continue;
+            if (!groups.has(name)) groups.set(name, []);
+            groups.get(name).push(item);
+        }
+        return groups;
+    }
+    // [{ key, count, installs }], the most first.
+    function countBy(items, key) {
+        return [...groupBy(items, key)]
+            .map(([name, list]) => ({ key: name, count: list.length, installs: new Set(list.map((item) => item.install)).size }))
+            .sort((a, b) => b.count - a.count || String(a.key).localeCompare(String(b.key)));
+    }
+    function mode(values) {
+        const counted = countBy(values.filter((value) => value !== null && value !== undefined).map((value) => ({ value })), (item) => item.value);
+        return counted.length ? counted[0].key : null;
+    }
+    // The latest of each group, by seq: what a copy of Cartouche last said.
+    function latestBy(items, key) {
+        const kept = new Map();
+        for (const item of items) {
+            const name = key(item);
+            const known = kept.get(name);
+            if (!known || (item.seq ?? 0) > (known.seq ?? 0)) kept.set(name, item);
+        }
+        return [...kept.values()];
+    }
+    // Versions such as 0.10.0, the newest first.
+    function newestFirst(a, b) {
+        const left = String(a).split(/[.-]/);
+        const right = String(b).split(/[.-]/);
+        for (let index = 0; index < Math.max(left.length, right.length); index += 1) {
+            const x = Number(left[index] ?? 0);
+            const y = Number(right[index] ?? 0);
+            if (Number.isNaN(x) || Number.isNaN(y)) return String(b).localeCompare(String(a));
+            if (x !== y) return y - x;
+        }
+        return 0;
+    }
+    function histogram(values, edges) {
+        // EDGES: [{ label, from, to, tone }]: from included, to excluded.
+        return edges.map((edge) => ({
+            ...edge,
+            count: values.filter((value) => value !== null && value >= edge.from && value < edge.to).length,
+        }));
+    }
+
+    const dayOf = (time) => new Date(time).toISOString().slice(0, 10);
+    function dayList(from, to) {
+        const days = [];
+        for (let time = Date.parse(from + "T00:00:00Z"); time <= Date.parse(to + "T00:00:00Z") && days.length < 800; time += DAY) {
+            days.push(dayOf(time));
+        }
+        return days;
+    }
+
+    /** The reports of /data as objects: a session's fields under their
+     * paths, such as "fps.median"; an event's under fields. */
+    function expand(data) {
+        const report = data?.columns?.report ?? [];
+        const session = data?.columns?.session ?? [];
+        const at = {};
+        report.forEach((name, index) => (at[name] = index));
+        const sessions = [];
+        const events = [];
+        for (const row of data?.reports ?? []) {
+            if (!Array.isArray(row)) continue;
+            const item = {};
+            for (const name of report) if (name !== "data") item[name] = row[at[name]] ?? null;
+            const part = row[at.data];
+            if (item.kind === "session") {
+                const values = Array.isArray(part) ? part : [];
+                session.forEach((name, index) => (item[name] = values[index] ?? null));
+                sessions.push(item);
+            } else if (item.kind === "event") {
+                item.fields = part && typeof part === "object" && !Array.isArray(part) ? part : {};
+                events.push(item);
+            }
+        }
+        return { sessions, events };
+    }
+
+    /** A report as a row of /data, for the sample data and the tests. */
+    function compact(columns, item) {
+        return columns.report.map((name) => {
+            if (name !== "data") return item[name] ?? null;
+            return item.kind === "session" ? columns.session.map((path) => item[path] ?? null) : item.fields ?? null;
+        });
+    }
+
+    // A session sent again because its log grew counts once, at its highest seq.
+    function latestSessions(sessions) {
+        return latestBy(sessions, (session) => session.install + "|" + session.session);
+    }
+
+    // Cartouche Builder's reports come from a Mac: events named builder.*.
+    const fromMac = (report) => (typeof report.name === "string" && report.name.startsWith("builder.")) || /^Mac/.test(report.device ?? "");
+    const endOf = (session) => END_OF[session["end.kind"]] ?? "ok";
+    const cadence = (session) => {
+        const fps = num(session["fps.median"]);
+        const target = num(session.targetFps);
+        return fps !== null && target ? fps / target : null;
+    };
+
+    function gameOf(catalog, titleId) {
+        if (!titleId) return { id: null, name: null, cover: null };
+        const main = catalog?.aliases?.[titleId] ?? titleId;
+        const known = catalog?.games?.[main];
+        return { id: main, name: known ? text(known[0]) : null, cover: known ? text(known[1]) : null };
+    }
+
+    function endsOf(sessions) {
+        const ends = Object.fromEntries(ENDS.map((kind) => [kind, 0]));
+        for (const session of sessions) ends[endOf(session)] += 1;
+        ends.bad = ends.crash + ends.memory + ends.boot;
+        return ends;
+    }
+
+    /** Everything the page shows, for FILTERS: { game, device, version }. */
+    function build(data, catalog, filters = {}) {
+        const all = expand(data);
+        const days = dayList(data.from, data.today);
+        const sessionsAll = latestSessions(all.sessions.filter((session) => !fromMac(session)));
+        const phoneEvents = all.events.filter((event) => !fromMac(event));
+        const macEvents = all.events.filter(fromMac);
+        const gameId = (report) => gameOf(catalog, report.game).id;
+
+        // What the filters offer, from the whole window.
+        const phoneReports = [...sessionsAll, ...phoneEvents];
+        const options = {
+            games: countBy(sessionsAll, gameId).map((row) => ({ value: row.key, label: gameOf(catalog, row.key).name ?? row.key, count: row.count })),
+            devices: countBy(latestBy(phoneReports, (report) => report.install), (report) => report.device).map((row) => ({ value: row.key, count: row.count })),
+            versions: countBy(latestBy(phoneReports, (report) => report.install), (report) => report.cartouche).map((row) => ({ value: row.key, count: row.count })),
+        };
+
+        const inContext = (report) => (!filters.device || report.device === filters.device) && (!filters.version || report.cartouche === filters.version);
+        const sessions = sessionsAll.filter((session) => inContext(session) && (!filters.game || gameId(session) === filters.game));
+        // A game picked: the iPhones that played it, with their events.
+        const players = filters.game ? new Set(sessions.map((session) => session.install)) : null;
+        const events = phoneEvents.filter(
+            (event) => inContext(event) && (!players || players.has(event.install)) && (!filters.game || !event.game || gameId(event) === filters.game),
+        );
+        const reports = [...sessions, ...events];
+        const iphones = latestBy(reports, (report) => report.install);
+        const named = (name) => events.filter((event) => event.name === name);
+        const opened = latestBy(named("app.opened"), (event) => event.install);
+        const errors = named("error");
+
+        // MARK: Days
+        const byDay = new Map(days.map((day) => [day, { day, iphones: new Set(), sessions: 0, minutes: 0, opens: 0, errors: 0, bad: 0, cadences: [] }]));
+        for (const report of reports) byDay.get(report.day)?.iphones.add(report.install);
+        for (const session of sessions) {
+            const day = byDay.get(session.day);
+            if (!day) continue;
+            day.sessions += 1;
+            day.minutes += num(session.minutes) ?? 0;
+            day.cadences.push(cadence(session));
+            if (BAD.has(endOf(session))) day.bad += 1;
+        }
+        for (const event of events) {
+            const day = byDay.get(event.day);
+            if (!day) continue;
+            if (event.name === "app.opened") day.opens += 1;
+            if (event.name === "error") day.errors += 1;
+        }
+        const daily = [...byDay.values()].map(({ cadences, ...day }) => ({ ...day, iphones: day.iphones.size, hours: day.minutes / 60, cadence: median(cadences) }));
+
+        // MARK: Games
+        const games = [...groupBy(sessions, gameId)]
+            .map(([id, list]) => {
+                const info = gameOf(catalog, id);
+                const ends = endsOf(list);
+                const builds = countBy(list, (session) => session.nxnative);
+                return {
+                    id,
+                    name: info.name,
+                    cover: info.cover,
+                    iphones: new Set(list.map((session) => session.install)).size,
+                    sessions: list.length,
+                    minutes: sum(list.map((session) => session.minutes)),
+                    fps: median(list.map((session) => session["fps.median"])),
+                    low5: median(list.map((session) => session["fps.low5"])),
+                    target: mode(list.map((session) => session.targetFps)),
+                    cadence: median(list.map(cadence)),
+                    stutters: median(list.map((session) => session["stutters.perMinute"])),
+                    peak: highest(list.map((session) => session["memory.peakMiB"])),
+                    peakMedian: median(list.map((session) => session["memory.peakMiB"])),
+                    tightest: list.reduce((found, session) => {
+                        const peak = num(session["memory.peakMiB"]);
+                        const limit = num(session.memoryLimitMiB);
+                        if (peak === null || !limit || (found && peak / limit <= found.ratio)) return found;
+                        return { peak, limit, ratio: peak / limit };
+                    }, null),
+                    ends,
+                    badShare: list.length ? ends.bad / list.length : null,
+                    build: builds[0]?.key ?? null,
+                    builds: builds.length,
+                    version: mode(list.map((session) => session.gameVersion)),
+                    hot: sum(list.map((session) => (num(session["thermal.serious"]) ?? 0) + (num(session["thermal.critical"]) ?? 0))),
+                    thermalMinutes: sum(list.map((session) => THERMAL.reduce((total, state) => total + (num(session["thermal." + state]) ?? 0), 0))),
+                    last: list.reduce((latest, session) => (session.day > latest ? session.day : latest), ""),
+                };
+            })
+            .sort((a, b) => b.minutes - a.minutes || b.sessions - a.sessions);
+
+        // MARK: Fluidity
+        const targets = mode(sessions.map((session) => session.targetFps));
+        const settings = [];
+        for (const session of sessions) {
+            if (session.settings && typeof session.settings === "object") {
+                for (const [key, value] of Object.entries(session.settings)) settings.push({ install: session.install, pair: key + "=" + value });
+            }
+        }
+        const upscalers = groupBy(sessions, (session) => text(session["upscaler.kind"]));
+        const fluidity = {
+            sessions: sessions.length,
+            frames: sum(sessions.map((session) => session.frames)),
+            cadence: median(sessions.map(cadence)),
+            bins: histogram(sessions.map(cadence), [
+                { label: "≥ 95 %", from: 0.95, to: Infinity, tone: "good" },
+                { label: "80–95 %", from: 0.8, to: 0.95, tone: "warning" },
+                { label: "50–80 %", from: 0.5, to: 0.8, tone: "serious" },
+                { label: "< 50 %", from: -Infinity, to: 0.5, tone: "critical" },
+            ]),
+            fps: median(sessions.map((session) => session["fps.median"])),
+            low5: median(sessions.map((session) => session["fps.low5"])),
+            target: targets,
+            targets: countBy(sessions, (session) => session.targetFps),
+            frameMs: ["p50", "p95", "p99"].map((p) => ({ key: p, value: median(sessions.map((session) => session["frameMs." + p])) })),
+            gpuMs: ["p50", "p95", "p99"].map((p) => ({ key: p, value: median(sessions.map((session) => session["gpuMs." + p])) })),
+            overTarget: median(sessions.map((session) => session.overTargetPercent)),
+            dropped: median(sessions.map((session) => session.droppedPercent)),
+            stutters: {
+                perMinute: median(sessions.map((session) => session["stutters.perMinute"])),
+                count: sum(sessions.map((session) => session["stutters.count"])),
+                causes: [
+                    { key: "shaders", count: sum(sessions.map((session) => session["stutters.shaders"])) },
+                    { key: "textures", count: sum(sessions.map((session) => session["stutters.textures"])) },
+                    { key: "other", count: sum(sessions.map((session) => session["stutters.other"])) },
+                ],
+            },
+            shaderStall: median(sessions.map((session) => session.shaderStallMsPerMinute)),
+            prepare: {
+                seconds: median(sessions.map((session) => session["prepare.seconds"])),
+                lines: median(sessions.map((session) => session["prepare.lines"])),
+                longest: highest(sessions.map((session) => session["prepare.seconds"])),
+            },
+            upscaler: [...upscalers].map(([kind, list]) => ({ key: kind, count: list.length, gpuMs: median(list.map((session) => session["upscaler.gpuMs"])) }))
+                .sort((a, b) => b.count - a.count),
+            audio: median(sessions.map((session) => session.audioUnderrunsPerMinute)),
+            audioAny: share(sessions.filter((session) => num(session.audioUnderrunsPerMinute) !== null), (session) => session.audioUnderrunsPerMinute > 0),
+            settings: countBy(settings, (item) => item.pair).slice(0, 16),
+            readers: countBy(sessions, (session) => session.reader),
+            changed: share(sessions, (session) => session.nxnativeChanged),
+            tv: share(sessions, (session) => session["display.tv"]),
+            fold: share(sessions, (session) => session["display.foldSplit"]),
+            dlc: share(sessions, (session) => session.dlc),
+            gameVersions: countBy(sessions, (session) => (session.gameVersion ? (gameOf(catalog, session.game).name ?? session.game) + " " + session.gameVersion : null)).slice(0, 8),
+        };
+
+        // MARK: Heat and power
+        const heat = {
+            minutes: THERMAL.map((state) => ({ key: state, minutes: sum(sessions.map((session) => session["thermal." + state])) })),
+            seriousAfter: median(sessions.map((session) => session["thermal.seriousAfterMinutes"])),
+            hot: share(
+                sessions.filter((session) => THERMAL.some((state) => num(session["thermal." + state]) !== null)),
+                (session) => (num(session["thermal.serious"]) ?? 0) + (num(session["thermal.critical"]) ?? 0) > 0,
+            ),
+            watts: median(sessions.map((session) => session["cpu.watts"])),
+            cpu: median(sessions.map((session) => session["cpu.percent"])),
+            performanceCores: median(sessions.map((session) => session["cpu.performanceCoresPercent"])),
+            gpuBusy: median(sessions.map((session) => session.gpuBusyMsPerSecond)),
+            lowPowerMinutes: sum(sessions.map((session) => session.lowPowerMinutes)),
+            lowPower: share(sessions.filter((session) => num(session.lowPowerMinutes) !== null), (session) => session.lowPowerMinutes > 0),
+            playMinutes: sum(sessions.map((session) => session.minutes)),
+            byGame: games
+                .filter((game) => game.thermalMinutes > 0)
+                .map((game) => ({ id: game.id, name: game.name, hotShare: game.hot / game.thermalMinutes, minutes: game.thermalMinutes }))
+                .sort((a, b) => b.hotShare - a.hotShare)
+                .slice(0, 8),
+        };
+
+        // MARK: Memory
+        const memory = {
+            peak: median(sessions.map((session) => session["memory.peakMiB"])),
+            highest: highest(sessions.map((session) => session["memory.peakMiB"])),
+            gpuPeak: median(sessions.map((session) => session["memory.gpuPeakMiB"])),
+            headroom: median(sessions.map((session) => session["memory.lowestHeadroomMiB"])),
+            lowestHeadroom: sessions.reduce((low, session) => {
+                const value = num(session["memory.lowestHeadroomMiB"]);
+                return value !== null && (low === null || value < low) ? value : low;
+            }, null),
+            exactPeak: share(sessions, (session) => session["memory.exactPeak"]),
+            guestFile: share(sessions, (session) => session.guestFile),
+            byGame: games
+                .filter((game) => game.tightest)
+                .map((game) => ({ id: game.id, name: game.name, ...game.tightest, highest: game.peak, median: game.peakMedian }))
+                .sort((a, b) => b.ratio - a.ratio)
+                .slice(0, 10),
+            limits: countBy(iphones, (report) => report.memoryLimitMiB),
+            increased: share(iphones, (report) => report.increasedMemoryLimit),
+        };
+
+        // MARK: Endings
+        const crashes = groupBy(
+            sessions.filter((session) => endOf(session) === "crash"),
+            (session) => [session["end.signal"] ?? "", session["end.pc"] ?? "", session["end.lr"] ?? ""].join("|"),
+        );
+        const endings = {
+            ends: endsOf(sessions),
+            byBuild: [...groupBy(sessions, (session) => session.nxnative)]
+                .map(([build, list]) => ({ build, sessions: list.length, bad: endsOf(list).bad, last: list.reduce((latest, session) => (session.day > latest ? session.day : latest), "") }))
+                .sort((a, b) => (b.last > a.last ? 1 : b.last < a.last ? -1 : b.sessions - a.sessions))
+                .slice(0, 8),
+            crashes: [...crashes.values()]
+                .map((list) => ({
+                    signal: num(list[0]["end.signal"]),
+                    pc: text(list[0]["end.pc"]),
+                    lr: text(list[0]["end.lr"]),
+                    count: list.length,
+                    iphones: new Set(list.map((session) => session.install)).size,
+                    games: [...new Set(list.map((session) => gameOf(catalog, session.game).name ?? session.game))],
+                    builds: [...new Set(list.map((session) => session.nxnative).filter(Boolean))],
+                    last: list.reduce((latest, session) => (session.day > latest ? session.day : latest), ""),
+                }))
+                .sort((a, b) => b.count - a.count || (b.last > a.last ? 1 : -1))
+                .slice(0, 20),
+        };
+
+        // MARK: Devices
+        const updates = named("app.updated");
+        const renewals = named("signature.renewed");
+        const devices = {
+            iphones: iphones.length,
+            models: countBy(iphones, (report) => report.device),
+            ios: countBy(iphones, (report) => report.ios),
+            versions: countBy(iphones, (report) => report.cartouche),
+            languages: countBy(iphones, (report) => report.language),
+            storage: countBy(opened, (event) => text(event.fields.storage)),
+            saves: countBy(opened, (event) => text(event.fields.saves)),
+            games: histogram(
+                opened.map((event) => num(event.fields.games)),
+                [
+                    { label: "0", from: 0, to: 1 },
+                    { label: "1–2", from: 1, to: 3 },
+                    { label: "3–5", from: 3, to: 6 },
+                    { label: "6–10", from: 6, to: 11 },
+                    { label: "> 10", from: 11, to: Infinity },
+                ],
+            ),
+            setUp: share(opened, (event) => event.fields.setUp),
+            signature: histogram(
+                opened.map((event) => num(event.fields.signatureDays)),
+                [
+                    { label: "0 ou 1 j", from: -Infinity, to: 2, tone: "critical" },
+                    { label: "2 ou 3 j", from: 2, to: 4, tone: "warning" },
+                    { label: "4 à 7 j", from: 4, to: Infinity, tone: "good" },
+                ],
+            ),
+            opens: named("app.opened").length,
+            updates: countBy(updates, (event) => (text(event.fields.from) && text(event.fields.to) ? event.fields.from + " → " + event.fields.to : null)),
+            renewals: renewals.length,
+            renewalDays: median(renewals.map((event) => event.fields.daysLeft)),
+        };
+
+        // MARK: Installs
+        const installed = named("game.installed");
+        const installs = {
+            count: installed.length,
+            iphones: new Set(installed.map((event) => event.install)).size,
+            byGame: countBy(installed, (event) => gameId(event) ?? "?").map((row) => ({ ...row, name: gameOf(catalog, row.key).name })).slice(0, 12),
+            versions: countBy(installed, (event) => (text(event.fields.version) ? (gameOf(catalog, event.game).name ?? event.game ?? "?") + " " + event.fields.version : null)).slice(0, 8),
+            builds: countBy(installed, (event) => text(event.fields.nxnative)).slice(0, 6),
+            fromStorage: share(installed, (event) => event.fields.fromStorage),
+            size: median(installed.map((event) => event.fields.sizeMiB)),
+        };
+
+        // MARK: Errors
+        const codes = groupBy(errors, (event) => (text(event.fields.origin) ?? "?") + "|" + (text(event.fields.error) ?? ""));
+        const errorsView = {
+            count: errors.length,
+            iphones: new Set(errors.map((event) => event.install)).size,
+            background: share(errors, (event) => event.fields.background),
+            byOrigin: countBy(errors, (event) => text(event.fields.origin) ?? "?"),
+            byCode: [...codes.values()]
+                .map((list) => ({
+                    origin: text(list[0].fields.origin),
+                    error: text(list[0].fields.error),
+                    count: list.length,
+                    iphones: new Set(list.map((event) => event.install)).size,
+                    versions: [...new Set(list.map((event) => event.cartouche).filter(Boolean))],
+                    background: share(list, (event) => event.fields.background),
+                    last: list.reduce((latest, event) => (event.day > latest ? event.day : latest), ""),
+                }))
+                .sort((a, b) => b.count - a.count)
+                .slice(0, 20),
+            byVersion: [...groupBy(events.filter((event) => event.name === "error" || event.name === "app.opened"), (event) => event.cartouche)]
+                .map(([version, list]) => ({
+                    version,
+                    errors: list.filter((event) => event.name === "error").length,
+                    opens: list.filter((event) => event.name === "app.opened").length,
+                }))
+                .sort((a, b) => newestFirst(a.version, b.version))
+                .slice(0, 8),
+        };
+
+        // MARK: Cartouche Builder
+        const mac = (name) => macEvents.filter((event) => event.name === name && (!filters.game || !event.game || gameId(event) === filters.game));
+        const macs = latestBy(macEvents, (event) => event.install);
+        const builderOpened = latestBy(mac("builder.opened"), (event) => event.install);
+        const built = mac("builder.built");
+        const failed = mac("builder.failed");
+        const batches = mac("builder.batch");
+        const setups = mac("builder.setup");
+        const cleaned = mac("builder.cleaned");
+        const paired = mac("builder.paired");
+        const reasons = (list) => countBy(list.flatMap((event) => (text(event.fields.reasons) ?? "").split(",").filter(Boolean).map((reason) => ({ install: event.install, reason }))), (item) => item.reason);
+        const builder = {
+            macs: macs.length,
+            events: macEvents.length,
+            versions: countBy(macs, (event) => event.cartouche),
+            macos: countBy(macs, (event) => event.ios),
+            xcode: countBy(builderOpened, (event) => text(event.fields.xcode)),
+            hardware: countBy(builderOpened, (event) => (num(event.fields.memoryGB) ? event.fields.memoryGB + " Go" + (num(event.fields.cores) ? ", " + event.fields.cores + " cœurs" : "") : null)),
+            followed: median(builderOpened.map((event) => event.fields.followed)),
+            games: median(builderOpened.map((event) => event.fields.games)),
+            policy: countBy(builderOpened, (event) => text(event.fields.policy)),
+            switches: ["bridge", "remote", "menuBar", "atLogin", "automaticUpdates", "schedule"].map((key) => ({ key, value: share(builderOpened, (event) => event.fields[key]) })),
+            built: {
+                count: built.length,
+                seconds: median(built.map((event) => event.fields.seconds)),
+                ipaMB: median(built.map((event) => event.fields.ipaMB)),
+                sources: countBy(built, (event) => text(event.fields.source)),
+                reasons: reasons(built),
+                games: countBy(built, (event) => gameId(event)).map((row) => ({ ...row, name: gameOf(catalog, row.key).name })).slice(0, 8),
+            },
+            failed: {
+                count: failed.length,
+                stages: countBy(failed, (event) => text(event.fields.stage)),
+                reasons: reasons(failed),
+                games: countBy(failed, (event) => gameId(event)).map((row) => ({ ...row, name: gameOf(catalog, row.key).name })).slice(0, 8),
+            },
+            batches: {
+                count: batches.length,
+                minutes: median(batches.map((event) => event.fields.minutes)),
+                built: sum(batches.map((event) => event.fields.built)),
+                failed: sum(batches.map((event) => event.fields.failed)),
+                skipped: sum(batches.map((event) => event.fields.skipped)),
+                stopped: sum(batches.map((event) => event.fields.stopped)),
+                scheduled: share(batches, (event) => event.fields.scheduled),
+            },
+            setup: [...groupBy(setups, (event) => text(event.fields.item))]
+                .map(([item, list]) => ({ item, count: list.length, ready: list.filter((event) => event.fields.result === "ready").length, seconds: median(list.map((event) => event.fields.seconds)) }))
+                .sort((a, b) => b.count - a.count),
+            cleaned: { count: cleaned.length, freedMB: sum(cleaned.map((event) => event.fields.freedMB)) },
+            paired: { count: paired.length, allowed: share(paired, (event) => event.fields.allowed) },
+            errors: countBy(mac("builder.error"), (event) => [text(event.fields.origin), text(event.fields.kind) ?? text(event.fields.error)].filter(Boolean).join(" · ") || "?").slice(0, 8),
+            updates: countBy(mac("builder.updated"), (event) => (text(event.fields.from) && text(event.fields.to) ? event.fields.from + " → " + event.fields.to : null)),
+            daily: days.map((day) => ({
+                day,
+                built: built.filter((event) => event.day === day).length,
+                failed: failed.filter((event) => event.day === day).length,
+            })),
+        };
+
+        const eventNames = countBy(events, (event) => text(event.name));
+
+        return {
+            days,
+            filters,
+            options,
+            totals: {
+                iphones: new Set(reports.map((report) => report.install)).size,
+                sessions: sessions.length,
+                minutes: sum(sessions.map((session) => session.minutes)),
+                cadence: median(sessions.map(cadence)),
+                bad: sessions.length ? endsOf(sessions).bad / sessions.length : null,
+                errors: errors.length,
+                errorIphones: new Set(errors.map((event) => event.install)).size,
+                macs: macs.length,
+                reports: reports.length + macEvents.length,
+            },
+            daily,
+            games,
+            fluidity,
+            heat,
+            memory,
+            endings,
+            devices,
+            installs,
+            errors: errorsView,
+            builder,
+            eventNames,
+            problems: data.problems ?? null,
+            server: {
+                count: data.count ?? 0,
+                truncated: !!data.truncated,
+                received: data.received ?? null,
+                bytes: num(data.database?.bytes),
+                rowsRead: num(data.database?.rowsRead),
+                generated: data.generated ?? null,
+            },
+        };
+    }
+
+    // MARK: Sample data
+    // The page with ?demo, or the preview: made-up reports of a dozen
+    // iPhones and two Macs, as /data would send them, so that every section
+    // shows something. Never mistaken for real ones: the page says so.
+
+    const DEMO_COLUMNS = {
+        report: ["kind", "day", "install", "seq", "device", "ios", "cartouche", "language", "memoryLimitMiB", "increasedMemoryLimit", "game", "name", "data"],
+        session: SHOWN,
+    };
+    const DEMO_GAMES = [
+        ["0100000000010000", "Super Mario Odyssey"],
+        ["01006BB00C6F0000", "The Legend of Zelda: Link's Awakening"],
+        ["0100152000022000", "Mario Kart 8 Deluxe"],
+        ["01002DA013484000", "The Legend of Zelda: Skyward Sword HD"],
+        ["010012101468C000", "Metroid Prime Remastered"],
+        ["0100A83022A22000", "Absolum"],
+        ["010005501E68C000", "Ace Attorney Investigations Collection"],
+        ["0100300012F2A000", "Advance Wars 1+2: Re-Boot Camp"],
+        ["010093801237C000", "Hades"],
+        ["0100E95004038000", "Xenoblade Chronicles 2"],
+    ];
+
+    function random(seed) {
+        let state = seed >>> 0;
+        return function () {
+            state = (state + 0x6d2b79f5) >>> 0;
+            let t = state;
+            t = Math.imul(t ^ (t >>> 15), t | 1);
+            t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+            return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+        };
+    }
+
+    function demo(days, catalog, now) {
+        const rand = random(20261113);
+        const pick = (list) => list[Math.floor(rand() * list.length)];
+        const between = (low, high) => low + rand() * (high - low);
+        const round = (value, digits = 1) => Math.round(value * 10 ** digits) / 10 ** digits;
+        const hex = (length) => Array.from({ length }, () => Math.floor(rand() * 16).toString(16)).join("");
+        const today = dayOf(now);
+        const from = dayOf(now - (days - 1) * DAY);
+        const dayIndex = dayList(from, today);
+
+        // Games the catalog knows, those with covers first.
+        const known = Object.entries(catalog?.games ?? {}).filter(([, entry]) => entry && entry[0]);
+        const titles = DEMO_GAMES.filter(([id]) => !known.length || catalog.games[id]).map(([id]) => id);
+        for (const [id, entry] of known.sort((a, b) => String(a[1][0]).localeCompare(String(b[1][0])))) {
+            if (titles.length >= 10) break;
+            if (!titles.includes(id) && entry[1]) titles.push(id);
+        }
+        while (titles.length < 6) titles.push(DEMO_GAMES[titles.length][0]);
+        const profiles = titles.map((id, index) => ({
+            id,
+            target: index % 3 === 1 ? 30 : 60,
+            quality: [0.99, 0.97, 0.9, 0.995, 0.82, 0.96, 1, 0.98, 0.93, 0.7][index % 10],
+            peak: [3900, 2600, 3300, 4400, 5200, 1800, 1500, 2100, 2900, 5600][index % 10],
+            risk: [0.03, 0.01, 0.06, 0.02, 0.12, 0.01, 0, 0.02, 0.04, 0.2][index % 10],
+            heat: [0.25, 0.1, 0.3, 0.2, 0.45, 0.05, 0.02, 0.08, 0.15, 0.5][index % 10],
+            version: ["1.3.0", "1.0.2", "3.0.1", "1.0.1", "1.0.0", "1.1.2", "1.0.0.2", "1.0.0", "1.0.11", "2.2.0"][index % 10],
+        }));
+        const models = ["iPhone19,4", "iPhone19,4", "iPhone19,4", "iPhone18,1", "iPhone18,1", "iPhone18,2", "iPhone19,1", "iPhone19,4", "iPhone18,1", "iPhone19,2", "iPhone19,4", "iPhone18,3"];
+        const phones = models.map((device, index) => ({
+            install: hex(8),
+            device,
+            ios: index % 5 === 3 ? "27.2" : index % 7 === 6 ? "27.4" : "27.3",
+            language: index % 4 === 3 ? "en" : index === 10 ? "de" : "fr",
+            increased: index !== 4 && index !== 9,
+            seq: 1,
+            favourites: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9].sort(() => rand() - 0.5).slice(0, 3 + (index % 3)),
+            updatedOn: dayIndex.length > 10 ? dayIndex.length - 9 + (index % 4) : 0,
+            storage: index % 5 === 2 ? "sftp" : index % 6 === 5 ? "folder" : "smb",
+            renewed: Math.floor(rand() * 7),
+            activity: 0.35 + rand() * 0.55,
+            builds: [],
+        }));
+        const builds = ["6c3aeb3d70a1", "f3ec8fc81e49", "0d9b6358a2c4"];
+        const reports = [];
+        const add = (phone, day, item) => {
+            reports.push({
+                install: phone.install,
+                seq: phone.seq++,
+                device: phone.device,
+                ios: phone.ios,
+                cartouche: phone.version,
+                language: phone.language,
+                memoryLimitMiB: phone.increased ? 6143 : 3376,
+                increasedMemoryLimit: phone.increased,
+                day,
+                game: null,
+                name: null,
+                ...item,
+            });
+        };
+        const origins = [
+            ["storage", "NSPOSIXErrorDomain 60", 5],
+            ["storage", "SMBErrorDomain 2 < NSPOSIXErrorDomain 54", 3],
+            ["install", "NSCocoaErrorDomain 640 < NSPOSIXErrorDomain 28", 2],
+            ["start", "LCErrorDomain 3", 1],
+            ["saves", "NSURLErrorDomain -1005", 2],
+            ["update", "NSURLErrorDomain -1009", 1],
+            ["renewal", "SideStoreErrorDomain 1004", 1],
+        ];
+        const weighted = (list) => {
+            const total = list.reduce((all, item) => all + item[2], 0);
+            let at = rand() * total;
+            for (const item of list) if ((at -= item[2]) <= 0) return item;
+            return list[0];
+        };
+
+        dayIndex.forEach((day, d) => {
+            for (const phone of phones) {
+                phone.version = d >= phone.updatedOn ? "0.10.0" : "0.9.0";
+                if (d === phone.updatedOn && d > 0) add(phone, day, { kind: "event", name: "app.updated", fields: { from: "0.9.0", to: "0.10.0" } });
+                if (rand() > phone.activity) continue;
+                const opens = 1 + Math.floor(rand() * 3);
+                for (let o = 0; o < opens; o += 1) {
+                    add(phone, day, {
+                        kind: "event",
+                        name: "app.opened",
+                        fields: { games: phone.favourites.length + (phone.device === "iPhone19,4" ? 2 : 0), setUp: phone.install !== phones[11].install || d > 3, storage: phone.storage, saves: phone.storage === "folder" ? "none" : phone.storage, signatureDays: 7 - ((d + phone.renewed) % 7) },
+                    });
+                    if (rand() < 0.07) {
+                        const [origin, error] = weighted(origins);
+                        add(phone, day, { kind: "event", name: "error", fields: { origin, error, background: origin === "storage" && rand() < 0.6 } });
+                    }
+                }
+                if ((d + phone.renewed) % 7 === 0) add(phone, day, { kind: "event", name: "signature.renewed", fields: { daysLeft: 7 } });
+                const sessions = Math.floor(rand() * 3.2);
+                for (let s = 0; s < sessions; s += 1) {
+                    const profile = profiles[pick(phone.favourites) % profiles.length];
+                    const build = d < dayIndex.length * 0.4 ? builds[2] : d < dayIndex.length * 0.75 ? builds[1] : builds[0];
+                    if (!phone.builds.includes(profile.id + build)) {
+                        phone.builds.push(profile.id + build);
+                        add(phone, day, { kind: "event", name: "game.installed", game: profile.id, fields: { version: profile.version, nxnative: build, fromStorage: phone.storage !== "folder", sizeMiB: Math.round(profile.peak * 3.4 + between(-400, 400)) } });
+                    }
+                    const minutes = round(between(4, 70) * (rand() < 0.15 ? 2 : 1));
+                    const strain = phone.device.startsWith("iPhone18") ? 0.96 : 1;
+                    const ratio = Math.min(1, profile.quality * strain * between(0.95, 1.03));
+                    const fps = round(profile.target * ratio, 1);
+                    const crashRoll = rand();
+                    const memoryTight = !phone.increased && profile.peak > 3000;
+                    // What a game takes stops short of what its iPhone gives it.
+                    const limit = phone.increased ? 6143 : 3376;
+                    const peak = Math.round(Math.min(profile.peak * between(0.92, 1.08), limit * between(0.9, 0.99)));
+                    let end = null;
+                    if (crashRoll < profile.risk * (memoryTight ? 3 : 1) + 0.02) end = memoryTight || (profile.peak > 5000 && rand() < 0.6) ? { kind: "memory-likely" } : rand() < 0.15 ? { kind: "boot-failed" } : { kind: "crash", signal: pick([11, 11, 11, 10, 6]), pc: "main+0x" + pick(["1a2b3c", "4f00a8", "1a2b3c", "2c9e14"]), lr: "main+0x" + pick(["1a2b00", "4f0010", "1a2b00"]) };
+                    else if (rand() < 0.12) end = { kind: "unknown" };
+                    const heat = rand() < profile.heat * 2.2 ? profile.heat * between(0.6, 1.4) : 0;
+                    const serious = round(minutes * heat * 0.6);
+                    const critical = round(minutes * heat * heat * 0.12);
+                    const fair = round(Math.max(0, minutes * between(0.15, 0.45) - serious * 0.3));
+                    const nominal = round(Math.max(0, minutes - fair - serious - critical));
+                    const frameP50 = round(1000 / Math.max(fps, 1), 2);
+                    const stutters = Math.round(minutes * between(0.5, 4) * (1.4 - profile.quality));
+                    const shaders = Math.round(stutters * between(0.45, 0.75));
+                    const textures = Math.round((stutters - shaders) * between(0.4, 0.8));
+                    const item = {
+                        kind: "session",
+                        game: profile.id,
+                        session: hex(8),
+                        gameVersion: profile.version,
+                        nxnative: build,
+                        nxnativeChanged: rand() < 0.08,
+                        settings: rand() < 0.3 ? { DM_RENDER_SCALE: pick(["1.0", "0.75", "1.25"]), DM_OPMODE: "0" } : { DM_OPMODE: "0" },
+                        minutes,
+                        reader: 1,
+                        frames: Math.round(minutes * 60 * fps),
+                        targetFps: profile.target,
+                        "fps.median": fps,
+                        "fps.low5": round(fps * between(0.72, 0.93), 1),
+                        "frameMs.p50": frameP50,
+                        "frameMs.p95": round(frameP50 * between(1.08, 1.35), 2),
+                        "frameMs.p99": round(frameP50 * between(1.5, 2.4), 2),
+                        "gpuMs.p50": round(frameP50 * between(0.45, 0.7), 2),
+                        "gpuMs.p95": round(frameP50 * between(0.7, 0.95), 2),
+                        "gpuMs.p99": round(frameP50 * between(0.95, 1.4), 2),
+                        overTargetPercent: round(between(0.5, 9) * (1.3 - ratio) * 4, 1),
+                        droppedPercent: round(between(0.2, 4) * (1.25 - ratio) * 3, 1),
+                        "stutters.count": stutters,
+                        "stutters.perMinute": round(stutters / Math.max(minutes, 1), 1),
+                        "stutters.shaders": shaders,
+                        "stutters.textures": textures,
+                        "stutters.other": Math.max(0, stutters - shaders - textures),
+                        shaderStallMsPerMinute: Math.round(between(20, 320) * (1.3 - profile.quality)),
+                        "prepare.seconds": round(between(4, 28), 2),
+                        "prepare.lines": Math.round(between(2000, 16000)),
+                        "cpu.watts": round(between(2.4, 5.2) * (0.7 + heat * 0.5), 1),
+                        "cpu.percent": Math.round(between(120, 280)),
+                        "cpu.performanceCoresPercent": Math.round(between(55, 92)),
+                        gpuBusyMsPerSecond: Math.round(between(380, 760)),
+                        "thermal.nominal": nominal,
+                        "thermal.fair": fair,
+                        "thermal.serious": serious,
+                        "thermal.critical": critical,
+                        "thermal.seriousAfterMinutes": serious > 0 ? round(between(8, Math.max(9, minutes * 0.8))) : null,
+                        lowPowerMinutes: rand() < 0.12 ? round(minutes * between(0.2, 1)) : 0,
+                        "memory.peakMiB": peak,
+                        "memory.exactPeak": rand() < 0.2,
+                        "memory.gpuPeakMiB": Math.round(peak * between(0.45, 0.62)),
+                        "memory.lowestHeadroomMiB": Math.max(40, Math.round(limit - peak - between(0, 120))),
+                        guestFile: profile.peak > 5000,
+                        "upscaler.kind": profile.target === 30 ? "bilinear" : "metalfx",
+                        "upscaler.gpuMs": round(profile.target === 30 ? between(0.2, 0.5) : between(0.9, 1.6), 2),
+                        audioUnderrunsPerMinute: round(rand() < 0.7 ? 0 : between(0.05, 1.2), 2),
+                        "display.tv": rand() < 0.04,
+                        "display.foldSplit": phone.device === "iPhone19,2" && rand() < 0.7,
+                        dlc: profile.id === titles[2] && rand() < 0.6,
+                    };
+                    if (end) {
+                        item["end.kind"] = end.kind;
+                        item["end.signal"] = end.signal ?? null;
+                        item["end.pc"] = end.pc ?? null;
+                        item["end.lr"] = end.lr ?? null;
+                    }
+                    add(phone, day, item);
+                }
+            }
+        });
+
+        // Two Macs with Cartouche Builder.
+        const macs = [
+            { install: hex(8), device: "Mac16,12", ios: "26.6", seq: 1, memoryGB: 16, cores: 10 },
+            { install: hex(8), device: "Mac15,9", ios: "26.5", seq: 1, memoryGB: 24, cores: 12 },
+        ];
+        const addMac = (macItem, day, name, fields, game = null) => {
+            reports.push({ kind: "event", install: macItem.install, seq: macItem.seq++, device: macItem.device, ios: macItem.ios, cartouche: "0.2.1", language: "fr", memoryLimitMiB: null, increasedMemoryLimit: null, day, game, name, fields });
+        };
+        dayIndex.forEach((day, d) => {
+            macs.forEach((macItem, m) => {
+                if (d === 0) addMac(macItem, day, "builder.setup", { item: "metal", result: "ready", seconds: 312 + m * 40 });
+                if (rand() < 0.8) addMac(macItem, day, "builder.opened", { games: 10 + m * 4, followed: 9 + m * 3, xcode: "27.2", memoryGB: macItem.memoryGB, cores: macItem.cores, policy: m ? "nightly" : "weekly", bridge: true, remote: m === 0, menuBar: true, atLogin: true, automaticUpdates: true, schedule: true, ready: true });
+                if (d % 3 === m) {
+                    const built = rand() < 0.85;
+                    const game = profiles[Math.floor(rand() * profiles.length)].id;
+                    if (built) addMac(macItem, day, "builder.built", { seconds: Math.round(between(1800, 6200)), ipaMB: Math.round(between(900, 4200)), source: pick(["dump", "packages"]), reasons: pick(["named", "shared", "named,shared", "engine"]), nxnative: builds[0] }, game);
+                    else addMac(macItem, day, "builder.failed", { seconds: Math.round(between(300, 2400)), stage: pick(["shaders", "link", "package"]), reasons: pick(["profile", "engine"]), source: "dump", nxnative: builds[0] }, game);
+                    addMac(macItem, day, "builder.batch", { games: 3, built: built ? 1 : 0, failed: built ? 0 : 1, skipped: 2, stopped: 0, minutes: round(between(30, 140)), scheduled: true, state: "done", jobs: 1 });
+                }
+                if (d % 9 === 4) addMac(macItem, day, "builder.cleaned", { freedMB: Math.round(between(1500, 6000)), items: 3, what: "extracted" });
+                if (rand() < 0.03) addMac(macItem, day, "builder.error", { origin: "check", kind: "engine", background: true });
+            });
+        });
+        addMac(macs[0], dayIndex[Math.min(2, dayIndex.length - 1)], "builder.paired", { allowed: true });
+
+        const rows = reports
+            .map((report, order) => ({ report, order }))
+            .sort((a, b) => (a.report.day < b.report.day ? 1 : a.report.day > b.report.day ? -1 : b.order - a.order))
+            .map(({ report }) => compact(DEMO_COLUMNS, report));
+        return {
+            schema: 1,
+            demo: true,
+            generated: new Date(now).toISOString(),
+            today,
+            from,
+            days,
+            viewer: null,
+            columns: DEMO_COLUMNS,
+            count: rows.length,
+            truncated: false,
+            received: { today: Math.round(rows.length / dayIndex.length), yesterday: Math.round(rows.length / dayIndex.length * 1.1), installsToday: 9 },
+            problems: {
+                waiting: 0,
+                today: 1,
+                github: {
+                    repository: "exemple/cartouche-reports",
+                    open: 2,
+                    closed: 5,
+                    issues: [
+                        { number: 7, title: "The game does not install from the NAS.", state: "OPEN", created: new Date(now - 3 * 3600000).toISOString(), closed: null, url: null, comments: 0, labels: ["bug"] },
+                        { number: 6, title: "Le jeu se ferme au bout de 20 minutes", state: "OPEN", created: new Date(now - 2 * DAY).toISOString(), closed: null, url: null, comments: 1, labels: ["bug"] },
+                        { number: 5, title: "Signature renouvelée mais Cartouche dit 0 jour", state: "CLOSED", created: new Date(now - 6 * DAY).toISOString(), closed: new Date(now - 5 * DAY).toISOString(), url: null, comments: 2, labels: [] },
+                        { number: 4, title: "Écran noir au lancement après la mise à jour", state: "CLOSED", created: new Date(now - 9 * DAY).toISOString(), closed: new Date(now - 7 * DAY).toISOString(), url: null, comments: 3, labels: ["bug"] },
+                    ],
+                },
+            },
+            database: { bytes: 3.2 * 1024 * 1024 + rows.length * 900, rowsRead: rows.length + 3 },
+            reports: rows,
+        };
+    }
+
+    root.CartoucheModel = { ENDS, THERMAL, SHOWN, expand, compact, build, demo, median, dayList, gameOf, newestFirst };
+})(typeof window !== "undefined" ? window : globalThis);
+</script>
+
+<script nonce="{{nonce}}" id="view">
+// The page: the controls, then each section drawn from the model.
+(function () {
+    "use strict";
+    const M = window.CartoucheModel;
+    const SVG = "http://www.w3.org/2000/svg";
+    const IGDB = "https://images.igdb.com/igdb/image/upload/t_cover_small/";
+    const root = document.documentElement;
+    const isDemo = root.dataset.demo === "1" || new URLSearchParams(location.search).has("demo");
+    let catalog = {};
+    try {
+        catalog = JSON.parse(document.getElementById("catalog").textContent || "{}") || {};
+    } catch (error) {
+        catalog = {};
+    }
+
+    // MARK: Words and numbers
+
+    const n0 = new Intl.NumberFormat("fr-FR", { maximumFractionDigits: 0 });
+    const n1 = new Intl.NumberFormat("fr-FR", { maximumFractionDigits: 1 });
+    const n2 = new Intl.NumberFormat("fr-FR", { maximumFractionDigits: 2 });
+    const short = new Intl.DateTimeFormat("fr-FR", { day: "numeric", month: "short", timeZone: "UTC" });
+    const long = new Intl.DateTimeFormat("fr-FR", { day: "numeric", month: "long", year: "numeric", timeZone: "UTC" });
+    const clock = new Intl.DateTimeFormat("fr-FR", { hour: "2-digit", minute: "2-digit" });
+    let languageNames = null;
+    try {
+        languageNames = new Intl.DisplayNames(["fr"], { type: "language" });
+    } catch (error) {
+        languageNames = null;
+    }
+    const DASH = "—";
+    const has = (value) => value !== null && value !== undefined && !(typeof value === "number" && !Number.isFinite(value));
+    const count = (value) => (has(value) ? n0.format(value) : DASH);
+    const one = (value) => (has(value) ? n1.format(value) : DASH);
+    const two = (value) => (has(value) ? n2.format(value) : DASH);
+    const percent = (value, digits = 0) => (has(value) ? new Intl.NumberFormat("fr-FR", { style: "percent", maximumFractionDigits: digits }).format(value) : DASH);
+    const shareText = (found, digits = 0) => (found ? percent(found.share, digits) : DASH);
+    const ms = (value) => (has(value) ? (value >= 100 ? n0 : value >= 10 ? n1 : n2).format(value) + " ms" : DASH);
+    function duration(minutes) {
+        if (!has(minutes)) return DASH;
+        if (minutes < 90) return n0.format(minutes) + " min";
+        const hours = minutes / 60;
+        return (hours < 100 ? n1 : n0).format(hours) + " h";
+    }
+    function mib(value) {
+        if (!has(value)) return DASH;
+        return value >= 1024 ? n1.format(value / 1024) + " Gio" : n0.format(value) + " Mio";
+    }
+    function bytesText(value) {
+        if (!has(value)) return DASH;
+        if (value < 1024 * 1024) return n0.format(value / 1024) + " Kio";
+        return n1.format(value / 1024 / 1024) + " Mio";
+    }
+    const dayText = (day) => (day ? short.format(new Date(day + "T00:00:00Z")) : DASH);
+    const plural = (value, singular, several) => count(value) + " " + (value === 1 ? singular : several);
+
+    const ENDS = { ok: "Sans incident", unknown: "Fin inconnue", boot: "N'a pas démarré", memory: "Mémoire (probable)", crash: "Plantage" };
+    const END_TONES = { ok: "var(--good)", unknown: "var(--other)", boot: "var(--warning)", memory: "var(--serious)", crash: "var(--critical)" };
+    const THERMAL = { nominal: "Normale", fair: "Tiède", serious: "Chaude", critical: "Critique" };
+    const THERMAL_TONES = { nominal: "var(--good)", fair: "var(--warning)", serious: "var(--serious)", critical: "var(--critical)" };
+    const TONES = { good: "var(--good)", warning: "var(--warning)", serious: "var(--serious)", critical: "var(--critical)" };
+    const DARK_INK = new Set(["var(--warning)"]);
+    const STORAGE = { smb: "Partage SMB", sftp: "SFTP", ftp: "FTP", s3: "S3", webdav: "WebDAV", folder: "Dossier (Fichiers)", bridge: "Cartouche Builder", none: "Aucun" };
+    const ORIGINS = {
+        install: "Installer un jeu", export: "Envoyer un jeu", start: "Lancer un jeu", uninstall: "Supprimer un jeu",
+        update: "Mettre à jour Cartouche", renewal: "Renouveler la signature", pairing: "Fichier de jumelage",
+        signIn: "Connexion Apple", storage: "Stockage", saves: "Sauvegardes", cloud: "Sauvegardes sur le stockage",
+    };
+    const CAUSES = { shaders: "Shaders", textures: "Textures", other: "Autre" };
+    const CAUSE_TONES = { shaders: "var(--s1)", textures: "var(--s2)", other: "var(--s3)" };
+    const SIGNALS = { 4: "SIGILL", 5: "SIGTRAP", 6: "SIGABRT", 8: "SIGFPE", 9: "SIGKILL", 10: "SIGBUS", 11: "SIGSEGV", 13: "SIGPIPE", 15: "SIGTERM" };
+    const SWITCHES = { bridge: "Pont vers Cartouche", remote: "Accès à distance", menuBar: "Barre des menus", atLogin: "Ouvert à la connexion", automaticUpdates: "Mises à jour auto", schedule: "Constructions planifiées" };
+    const SETUP = { metal: "Metal Toolchain", xcode: "Xcode", homebrew: "Homebrew", tools: "Outils" };
+    const UPSCALERS = { metalfx: "MetalFX", bilinear: "Bilinéaire" };
+    const EVENTS = { "app.opened": "Ouverture de l'app", "app.updated": "Mise à jour de Cartouche", "signature.renewed": "Signature renouvelée", "game.installed": "Jeu installé ou mis à jour", error: "Erreur" };
+
+    const gameName = (id, name) => name || id || "?";
+    function language(code) {
+        if (!code) return DASH;
+        try {
+            const found = languageNames && languageNames.of(code);
+            return found ? found.charAt(0).toUpperCase() + found.slice(1) : code;
+        } catch (error) {
+            return code;
+        }
+    }
+    function deviceLabel(identifier) {
+        const known = catalog.devices && catalog.devices[identifier];
+        if (!known) return { name: identifier || "?", sub: "" };
+        const parts = [known[0], has(known[1]) ? known[1] + " Go" : null].filter(Boolean);
+        return { name: identifier, sub: parts.join(" · ") };
+    }
+
+    // MARK: Building blocks
+
+    function h(tag, props, ...children) {
+        const node = document.createElement(tag);
+        for (const [key, value] of Object.entries(props || {})) {
+            if (value === null || value === undefined || value === false) continue;
+            if (key === "class") node.className = value;
+            else if (key === "text") node.textContent = value;
+            else if (key.startsWith("--")) node.style.setProperty(key, value);
+            else if (key.startsWith("on")) node.addEventListener(key.slice(2), value);
+            else node.setAttribute(key, value === true ? "" : value);
+        }
+        append(node, children);
+        return node;
+    }
+    function s(tag, attrs, ...children) {
+        const node = document.createElementNS(SVG, tag);
+        for (const [key, value] of Object.entries(attrs || {})) {
+            if (value === null || value === undefined) continue;
+            if (key === "text") node.textContent = value;
+            else if (key.startsWith("on")) node.addEventListener(key.slice(2), value);
+            else node.setAttribute(key, value);
+        }
+        append(node, children);
+        return node;
+    }
+    function append(node, children) {
+        for (const child of children.flat(Infinity)) {
+            if (child === null || child === undefined || child === false) continue;
+            node.append(child instanceof Node ? child : document.createTextNode(String(child)));
+        }
+    }
+
+    // One tooltip for the page: values lead, labels follow.
+    const tip = document.getElementById("tip");
+    function showTip(target, value, lines, event) {
+        tip.replaceChildren(h("strong", { text: value }), ...lines.map((line) => (typeof line === "string" ? h("span", { text: line }) : h("span", {}, h("i", { "--fill": line.tone }), line.text))));
+        tip.classList.add("on");
+        const box = target.getBoundingClientRect();
+        const x = event && event.clientX ? event.clientX : box.left + box.width / 2;
+        const y = event && event.clientY ? event.clientY : box.top;
+        const width = tip.offsetWidth;
+        const height = tip.offsetHeight;
+        tip.style.left = Math.max(8, Math.min(window.innerWidth - width - 8, x - width / 2)) + "px";
+        tip.style.top = (y - height - 12 < 8 ? y + 18 : y - height - 12) + "px";
+    }
+    function hideTip() {
+        tip.classList.remove("on");
+    }
+    function tipOn(node, value, lines) {
+        node.setAttribute("tabindex", "0");
+        node.setAttribute("aria-label", [value, ...lines.map((line) => (typeof line === "string" ? line : line.text))].join(", "));
+        node.addEventListener("pointermove", (event) => showTip(node, value, lines, event));
+        node.addEventListener("pointerleave", hideTip);
+        node.addEventListener("focus", () => showTip(node, value, lines));
+        node.addEventListener("blur", hideTip);
+        return node;
+    }
+
+    function card(title, sub, ...content) {
+        return h("article", { class: "card" }, h("h3", { text: title }), sub ? h("p", { class: "sub", text: sub }) : null, ...content);
+    }
+    function empty(textValue) {
+        return h("p", { class: "empty", text: textValue || "Rien sur cette période." });
+    }
+    function facts(items) {
+        return h("dl", { class: "facts" }, items.filter(Boolean).map(([label, value, unit]) => h("div", {}, h("dt", { text: label }), h("dd", {}, value, unit ? h("small", { text: unit }) : null))));
+    }
+    function section(id, title, sub, ...content) {
+        return h("section", { class: "block", id }, h("header", {}, h("h2", { text: title }), sub ? h("p", { text: sub }) : null), ...content);
+    }
+
+    // Ranked bars: one hue, the most first, the figure printed.
+    function bars(items, options = {}) {
+        const rows = items.filter((item) => has(item.value) && item.value > 0);
+        if (!rows.length) return empty(options.empty);
+        const max = options.max || Math.max(...rows.map((item) => item.value));
+        return h("ol", { class: "bars" }, rows.map((item) => {
+            const width = Math.max(0, Math.min(1, item.value / max));
+            const row = h("li", {},
+                h("span", { class: "name", title: item.label }, item.label, item.sub ? h("small", { text: item.sub }) : null),
+                h("span", { class: "track" + (options.meter ? " meter" : "") },
+                    h("span", { class: "fill", "--w": (width * 100).toFixed(2) + "%", "--fill": item.tone || "var(--s1)" }),
+                    has(item.mark) ? h("span", { class: "mark", "--at": (Math.min(1, item.mark / max) * 100).toFixed(2) + "%" }) : null),
+                h("span", { class: "figure" }, item.figure ?? count(item.value), item.note ? h("small", { text: item.note }) : null));
+            return tipOn(row, item.figure ?? count(item.value), [item.label, ...(item.tip || [])]);
+        }));
+    }
+
+    // One whole, split into parts: tall with its shares, or thin.
+    function segmented(parts, options = {}) {
+        const shown = parts.filter((part) => has(part.value) && part.value > 0);
+        const total = shown.reduce((all, part) => all + part.value, 0);
+        if (!total) return options.thin ? h("span", { class: "pill", text: DASH }) : empty(options.empty);
+        const bar = h("div", { class: "seg" + (options.thin ? " thin" : ""), role: "img", "aria-label": shown.map((part) => part.label + " " + percent(part.value / total)).join(", ") },
+            shown.map((part) => {
+                const fraction = part.value / total;
+                const block = h("span", { "--part": String(part.value), "--fill": part.tone, class: DARK_INK.has(part.tone) ? "dark-ink" : null },
+                    !options.thin && fraction >= 0.09 ? percent(fraction) : null);
+                return tipOn(block, part.figure ?? percent(fraction), [{ tone: part.tone, text: part.label + (part.figure ? " · " + percent(fraction) : "") }]);
+            }));
+        if (options.thin) return bar;
+        const legend = h("ul", { class: "legend" }, shown.map((part) => h("li", {}, h("i", { "--fill": part.tone }), part.label, " ", h("b", { text: part.figure ?? percent(part.value / total) }))));
+        return h("div", {}, bar, legend);
+    }
+
+    // Columns over the days, or over bins: hairline grid, 4px rounded tops,
+    // a crosshair that snaps to the nearest column, and its table.
+    function columns(points, options = {}) {
+        const holder = h("div", { class: "chart" });
+        const height = options.height || 190;
+        const axis = 26;
+        const draw = () => {
+            const width = Math.max(260, holder.clientWidth || 600);
+            const left = 40;
+            const right = 6;
+            const plot = width - left - right;
+            const max = Math.max(1, ...points.map((point) => point.value || 0));
+            const ticks = niceTicks(max, !options.decimal);
+            const top = ticks[ticks.length - 1];
+            const slot = plot / Math.max(points.length, 1);
+            const barWidth = Math.max(2, Math.min(24, slot - 2));
+            const y = (value) => height - (value / top) * (height - 8);
+            const svg = s("svg", { viewBox: `0 0 ${width} ${height + axis}`, height: height + axis, role: "img", "aria-label": options.label || "", tabindex: "0" });
+            for (const tick of ticks) {
+                svg.append(s("line", { x1: left, x2: width - right, y1: y(tick), y2: y(tick), stroke: tick === 0 ? "var(--axis)" : "var(--grid)", "stroke-width": 1, "shape-rendering": "crispEdges" }));
+                svg.append(s("text", { x: left - 8, y: y(tick) + 4, "text-anchor": "end", "font-size": 11, fill: "var(--ink-3)", "font-variant-numeric": "tabular-nums", text: options.tick ? options.tick(tick) : compactNumber(tick) }));
+            }
+            const marks = points.map((point, index) => {
+                const value = point.value || 0;
+                const x = left + index * slot + (slot - barWidth) / 2;
+                const barHeight = height - y(value);
+                const tone = point.tone || options.tone || "var(--s1)";
+                const path = value > 0 ? s("path", { d: roundedTop(x, y(value), barWidth, barHeight, Math.min(4, barWidth / 2, barHeight)), fill: tone }) : null;
+                if (path) svg.append(path);
+                return { x: x + barWidth / 2, path, point };
+            });
+            const every = Math.max(1, Math.ceil(points.length / Math.max(2, Math.floor(plot / 64))));
+            points.forEach((point, index) => {
+                if (options.allLabels || index % every === 0 || index === points.length - 1) {
+                    if (!options.allLabels && index !== points.length - 1 && points.length - 1 - index < every * 0.6) return;
+                    svg.append(s("text", { x: marks[index].x, y: height + 17, "text-anchor": "middle", "font-size": 11, fill: "var(--ink-3)", text: point.label }));
+                }
+            });
+            const cross = s("line", { y1: 0, y2: height, stroke: "var(--ink-3)", "stroke-width": 1, opacity: 0, "pointer-events": "none" });
+            svg.append(cross);
+            let focused = -1;
+            const show = (index, event) => {
+                focused = index;
+                const mark = marks[index];
+                cross.setAttribute("x1", mark.x);
+                cross.setAttribute("x2", mark.x);
+                cross.setAttribute("opacity", options.bins ? 0 : 0.6);
+                marks.forEach((other) => other.path && other.path.setAttribute("opacity", other === mark ? 1 : 0.55));
+                const point = mark.point;
+                const box = svg.getBoundingClientRect();
+                const scale = box.width / width;
+                showTip(svg, point.figure ?? count(point.value), [{ tone: point.tone || options.tone || "var(--s1)", text: point.title || point.label }], {
+                    clientX: box.left + mark.x * scale,
+                    clientY: box.top + y(point.value || 0) * scale,
+                });
+            };
+            const clear = () => {
+                focused = -1;
+                cross.setAttribute("opacity", 0);
+                marks.forEach((mark) => mark.path && mark.path.setAttribute("opacity", 1));
+                hideTip();
+            };
+            svg.addEventListener("pointermove", (event) => {
+                const box = svg.getBoundingClientRect();
+                const x = ((event.clientX - box.left) / box.width) * width;
+                const index = Math.max(0, Math.min(points.length - 1, Math.floor((x - left) / slot)));
+                show(index, event);
+            });
+            svg.addEventListener("pointerleave", clear);
+            svg.addEventListener("blur", clear);
+            svg.addEventListener("keydown", (event) => {
+                if (event.key === "ArrowRight" || event.key === "ArrowLeft") {
+                    event.preventDefault();
+                    const next = focused < 0 ? points.length - 1 : Math.max(0, Math.min(points.length - 1, focused + (event.key === "ArrowRight" ? 1 : -1)));
+                    show(next);
+                }
+            });
+            holder.replaceChildren(svg);
+        };
+        holder.draw = draw;
+        charts.push(holder);
+        requestAnimationFrame(draw);
+        return holder;
+    }
+    function roundedTop(x, y, width, height, radius) {
+        if (height <= 0) return "";
+        const r = Math.max(0, Math.min(radius, height));
+        return `M${x},${y + height}V${y + r}Q${x},${y} ${x + r},${y}H${x + width - r}Q${x + width},${y} ${x + width},${y + r}V${y + height}Z`;
+    }
+    function niceTicks(max, whole) {
+        let step = niceStep(max / 3);
+        // Counts go up by whole numbers.
+        if (whole) step = step < 1 ? 1 : step === 2.5 ? 2 : step;
+        const ticks = [];
+        for (let value = 0; value <= max + step * 0.999; value += step) ticks.push(Math.round(value * 1000) / 1000);
+        return ticks.length > 1 ? ticks : [0, step];
+    }
+    function niceStep(raw) {
+        const power = Math.pow(10, Math.floor(Math.log10(Math.max(raw, 1e-9))));
+        const unit = raw / power;
+        return (unit <= 1 ? 1 : unit <= 2 ? 2 : unit <= 2.5 ? 2.5 : unit <= 5 ? 5 : 10) * power;
+    }
+    function compactNumber(value) {
+        if (Math.abs(value) >= 10000) return new Intl.NumberFormat("fr-FR", { notation: "compact", maximumFractionDigits: 1 }).format(value);
+        return n1.format(value);
+    }
+
+    // Three percentiles on one scale, with the frame the game asks for.
+    function percentiles(values, target, label) {
+        const known = values.filter((item) => has(item.value));
+        if (!known.length) return empty();
+        const holder = h("div", { class: "chart" });
+        const tones = { p50: "var(--p50)", p95: "var(--p95)", p99: "var(--p99)" };
+        const draw = () => {
+            const width = Math.max(260, holder.clientWidth || 500);
+            const max = Math.max(...known.map((item) => item.value), target || 0) * 1.12;
+            const left = 8;
+            const right = 8;
+            const x = (value) => left + (value / max) * (width - left - right);
+            const svg = s("svg", { viewBox: `0 0 ${width} 56`, height: 56, role: "img", "aria-label": label + " : " + known.map((item) => item.key + " " + ms(item.value)).join(", ") });
+            svg.append(s("line", { x1: left, x2: width - right, y1: 30, y2: 30, stroke: "var(--axis)", "stroke-width": 1 }));
+            for (const tick of niceTicks(max, false).filter((value) => value <= max)) {
+                svg.append(s("line", { x1: x(tick), x2: x(tick), y1: 26, y2: 34, stroke: "var(--grid)", "stroke-width": 1 }));
+                svg.append(s("text", { x: x(tick), y: 50, "text-anchor": "middle", "font-size": 10.5, fill: "var(--ink-3)", text: n0.format(tick) }));
+            }
+            if (target) {
+                const at = x(target);
+                svg.append(s("line", { x1: at, x2: at, y1: 12, y2: 40, stroke: "var(--ink-2)", "stroke-width": 1.5 }));
+                svg.append(s("text", { x: at, y: 9, "text-anchor": at > width * 0.7 ? "end" : at < width * 0.3 ? "start" : "middle", "font-size": 10.5, fill: "var(--ink-2)", text: "image visée " + ms(target) }));
+            }
+            known.forEach((item) => {
+                const dot = s("circle", { cx: x(item.value), cy: 30, r: 6, fill: item.tone || tones[item.key] || "var(--s1)", stroke: "var(--surface)", "stroke-width": 2 });
+                const hit = s("circle", { cx: x(item.value), cy: 30, r: 12, fill: "transparent" });
+                const group = s("g", {}, dot, hit);
+                svg.append(group);
+                tipOn(group, ms(item.value), [{ tone: item.tone || tones[item.key], text: item.key + ", médiane des parties" }]);
+            });
+            holder.replaceChildren(svg);
+        };
+        holder.draw = draw;
+        charts.push(holder);
+        requestAnimationFrame(draw);
+        const legend = h("ul", { class: "legend dots" }, known.map((item) => h("li", {}, h("i", { "--fill": item.tone || tones[item.key] }), item.key, " ", h("b", { text: ms(item.value) }))));
+        return h("div", {}, holder, legend);
+    }
+
+    // A sparkline of the period's days, broken where a day has no value: a
+    // count from zero, with its area; a ratio (zoom) between its lowest and
+    // highest days, a line alone.
+    function sparkline(values, options = {}) {
+        const width = 180;
+        const height = 34;
+        const known = values.filter(has);
+        const low = options.zoom && known.length ? Math.min(...known) : 0;
+        const high = Math.max(low + (options.zoom ? 0.01 : 1), ...known);
+        const step = values.length > 1 ? width / (values.length - 1) : width;
+        const y = (value) => height - 3 - ((value - low) / (high - low)) * (height - 6);
+        const svg = s("svg", { viewBox: `0 0 ${width} ${height}`, preserveAspectRatio: "none", "aria-hidden": "true" });
+        const line = { fill: "none", stroke: "var(--s1)", "stroke-width": 2, "stroke-linejoin": "round", "stroke-linecap": "round", "vector-effect": "non-scaling-stroke" };
+        let run = [];
+        const flush = () => {
+            if (run.length > 1) {
+                const points = run.map(([x, value]) => x.toFixed(1) + "," + y(value).toFixed(1)).join(" ");
+                if (!options.zoom) svg.append(s("polygon", { points: run[0][0].toFixed(1) + "," + height + " " + points + " " + run[run.length - 1][0].toFixed(1) + "," + height, fill: "var(--wash)" }));
+                svg.append(s("polyline", { points, ...line }));
+            } else if (run.length === 1) {
+                svg.append(s("line", { x1: run[0][0], x2: run[0][0], y1: y(run[0][1]), y2: y(run[0][1]), ...line, "stroke-width": 4 }));
+            }
+            run = [];
+        };
+        values.forEach((value, index) => (has(value) ? run.push([index * step, value]) : flush()));
+        flush();
+        return svg;
+    }
+
+    function table(head, rows, options = {}) {
+        if (!rows.length) return empty(options.empty);
+        let sorted = rows.slice();
+        let by = null;
+        let descending = true;
+        const body = h("tbody");
+        const headCells = head.map((column, index) => {
+            const cell = h("th", { class: column.numeric ? "n" : null, scope: "col" });
+            if (column.sort) {
+                cell.append(h("button", { type: "button", text: column.label, onclick: () => sortBy(index) }));
+            } else {
+                cell.textContent = column.label;
+            }
+            return cell;
+        });
+        const fill = () => {
+            body.replaceChildren(...sorted.map((row) => {
+                const line = h("tr", { class: options.pick ? "pick" : null }, head.map((column) => {
+                    const value = column.cell(row);
+                    return h("td", { class: [column.numeric ? "n" : "", column.mono ? "mono" : "", column.wide ? "wide" : ""].join(" ").trim() || null }, value);
+                }));
+                if (options.pick) {
+                    line.addEventListener("click", () => options.pick(row));
+                    line.setAttribute("tabindex", "0");
+                    line.addEventListener("keydown", (event) => {
+                        if (event.key === "Enter" || event.key === " ") {
+                            event.preventDefault();
+                            options.pick(row);
+                        }
+                    });
+                }
+                return line;
+            }));
+        };
+        const sortBy = (index) => {
+            const column = head[index];
+            descending = by === index ? !descending : column.numeric !== false;
+            by = index;
+            sorted = rows.slice().sort((a, b) => {
+                const first = column.sort(a);
+                const second = column.sort(b);
+                const order = typeof first === "number" && typeof second === "number" ? first - second : String(first ?? "").localeCompare(String(second ?? ""));
+                return descending ? -order : order;
+            });
+            headCells.forEach((cell, other) => (other === index ? cell.setAttribute("aria-sort", descending ? "descending" : "ascending") : cell.removeAttribute("aria-sort")));
+            fill();
+        };
+        fill();
+        return h("div", { class: "scroll" }, h("table", {}, h("thead", {}, h("tr", {}, headCells)), body));
+    }
+
+    function cover(id, coverId, name) {
+        const initials = String(name || id || "?").replace(/[^A-Za-z0-9À-ÿ ]/g, "").split(/\s+/).filter(Boolean).slice(0, 2).map((word) => word[0]).join("").toUpperCase() || "?";
+        const fallback = () => h("span", { class: "cover", "aria-hidden": "true", text: initials });
+        if (!coverId) return fallback();
+        const image = h("img", { class: "cover", alt: "", loading: "lazy", decoding: "async", referrerpolicy: "no-referrer", src: IGDB + encodeURIComponent(coverId) + ".jpg" });
+        image.addEventListener("error", () => image.replaceWith(fallback()), { once: true });
+        return image;
+    }
+    function gameCell(game) {
+        return h("div", { class: "game" }, cover(game.id, game.cover, game.name), h("div", {}, h("b", { text: gameName(game.id, game.name) }), h("small", { text: game.id || "" })));
+    }
+    function endBar(ends) {
+        return segmented(M.ENDS.map((kind) => ({ label: ENDS[kind], value: ends[kind], tone: END_TONES[kind], figure: count(ends[kind]) })), { thin: true });
+    }
+    function statusDot(tone, label) {
+        return h("span", { class: "status" }, h("i", { "--fill": tone }), label);
+    }
+
+    // MARK: Sections
+
+    let charts = [];
+
+    function overview(model) {
+        const t = model.totals;
+        const spark = (key) => sparkline(model.daily.map((day) => day[key] || 0));
+        const tiles = [
+            ["iPhones actifs", count(t.iphones), null, plural(model.devices.models.length, "modèle", "modèles"), spark("iphones")],
+            ["Parties", count(t.sessions), null, t.sessions ? one(t.sessions / Math.max(1, t.iphones)) + " par iPhone" : "", spark("sessions")],
+            ["Temps de jeu", duration(t.minutes).split(" ")[0], duration(t.minutes).split(" ")[1] || "", t.sessions ? duration(t.minutes / t.sessions) + " par partie" : "", spark("hours")],
+            ["Cadence tenue", has(t.cadence) ? n0.format(t.cadence * 100) : DASH, has(t.cadence) ? "%" : "", "de la fréquence visée, médiane", sparkline(model.daily.map((day) => day.cadence), { zoom: true })],
+            ["Parties qui finissent mal", has(t.bad) ? n1.format(t.bad * 100) : DASH, has(t.bad) ? "%" : "", has(t.bad) ? statusDot(t.bad >= 0.1 ? "var(--critical)" : t.bad >= 0.03 ? "var(--warning)" : "var(--good)", plural(model.endings.ends.bad, "partie", "parties")) : "", spark("bad")],
+            ["Erreurs de l'app", count(t.errors), null, t.errors ? "sur " + plural(t.errorIphones, "iPhone", "iPhones") : "", spark("errors")],
+        ];
+        return h("div", { class: "tiles" }, tiles.map(([label, value, unit, note, chart]) =>
+            h("div", { class: "tile" }, h("span", { class: "label", text: label }), h("span", { class: "value" }, value, unit ? h("small", { text: unit }) : null), h("span", { class: "note" }, note || ""), chart)));
+    }
+
+    const ACTIVITY = [
+        { key: "iphones", label: "iPhones actifs", figure: (value) => plural(value, "iPhone", "iPhones") },
+        { key: "sessions", label: "Parties", figure: (value) => plural(value, "partie", "parties") },
+        { key: "hours", label: "Heures de jeu", figure: (value) => duration(value * 60) },
+        { key: "opens", label: "Ouvertures de l'app", figure: (value) => plural(value, "ouverture", "ouvertures") },
+        { key: "bad", label: "Parties qui finissent mal", figure: (value) => plural(value, "partie", "parties"), tone: "var(--critical)" },
+        { key: "errors", label: "Erreurs", figure: (value) => plural(value, "erreur", "erreurs"), tone: "var(--serious)" },
+    ];
+    let activityKey = "iphones";
+    function activity(model) {
+        const holder = h("div");
+        const tabs = h("div", { class: "tabs", role: "tablist" });
+        let asTable = false;
+        const toggle = h("button", { type: "button", class: "linkish", text: "Voir en tableau" });
+        const draw = () => {
+            const metric = ACTIVITY.find((item) => item.key === activityKey);
+            tabs.replaceChildren(...ACTIVITY.map((item) => h("button", { type: "button", role: "tab", "aria-selected": String(item.key === activityKey), text: item.label, onclick: () => { activityKey = item.key; draw(); } })),
+                h("span", { class: "spacer" }), toggle);
+            const points = model.daily.map((day) => ({ label: dayText(day.day), title: long.format(new Date(day.day + "T00:00:00Z")), value: day[metric.key], figure: metric.figure(day[metric.key]), tone: metric.tone }));
+            toggle.textContent = asTable ? "Voir le graphique" : "Voir en tableau";
+            const body = asTable
+                ? table([{ label: "Jour", cell: (point) => point.title }, { label: metric.label, numeric: true, cell: (point) => point.figure }], points.slice().reverse())
+                : columns(points, { label: metric.label + " par jour", tone: metric.tone, decimal: metric.key === "hours" });
+            holder.replaceChildren(tabs, body);
+        };
+        toggle.addEventListener("click", () => { asTable = !asTable; draw(); });
+        draw();
+        const shown = card("Par jour", "Chaque jour de la période, en UTC.", holder);
+        shown.classList.add("span");
+        return shown;
+    }
+
+    const weekday = new Intl.DateTimeFormat("fr-FR", { weekday: "long", timeZone: "UTC" });
+    function weekdays(model) {
+        // Monday first; each day of the week by its mean over the period.
+        const days = Array.from({ length: 7 }, (_, index) => ({ index, days: 0, hours: 0, sessions: 0 }));
+        for (const day of model.daily) {
+            const index = (new Date(day.day + "T00:00:00Z").getUTCDay() + 6) % 7;
+            days[index].days += 1;
+            days[index].hours += day.hours;
+            days[index].sessions += day.sessions;
+        }
+        const name = (index) => {
+            const text = weekday.format(new Date(Date.UTC(2026, 10, 9 + index)));
+            return text.charAt(0).toUpperCase() + text.slice(1);
+        };
+        return card("Par jour de la semaine", "Temps de jeu d'un jour, en moyenne sur la période.",
+            bars(days.filter((day) => day.days).map((day) => ({ label: name(day.index), value: day.hours / day.days, figure: duration((day.hours / day.days) * 60), note: one(day.sessions / day.days) + " parties", tip: ["moyenne de " + plural(day.days, "jour", "jours")] })), { empty: "Aucune partie sur cette période." }));
+    }
+
+    function eventsCard(model) {
+        return card("Événements de l'app", "Tout ce que Cartouche a signalé, même ce que cette page ne détaille pas encore.",
+            bars(model.eventNames.map((row) => ({ label: EVENTS[row.key] || row.key, sub: EVENTS[row.key] ? row.key : null, value: row.count, figure: count(row.count), note: plural(row.installs, "iPhone", "iPhones") })), { empty: "Aucun événement sur cette période." }));
+    }
+
+    function gamesTable(model, pickGame) {
+        if (!model.games.length) return card("Jeux joués", null, empty("Aucune partie sur cette période."));
+        return h("article", { class: "card span" },
+            h("h3", { text: "Jeux joués" }),
+            h("p", { class: "sub", text: "Médianes des parties, sauf le pic mémoire : le plus haut, et la part de la limite d'iOS que le jeu a le plus approchée. Un clic sur un jeu filtre toute la page." }),
+            table([
+                { label: "Jeu", cell: gameCell, sort: (game) => gameName(game.id, game.name), numeric: false },
+                { label: "iPhones", numeric: true, cell: (game) => count(game.iphones), sort: (game) => game.iphones },
+                { label: "Parties", numeric: true, cell: (game) => count(game.sessions), sort: (game) => game.sessions },
+                { label: "Temps", numeric: true, cell: (game) => duration(game.minutes), sort: (game) => game.minutes },
+                { label: "Images/s", numeric: true, cell: (game) => [one(game.fps), game.target ? h("small", { text: " / " + game.target }) : null], sort: (game) => game.cadence ?? -1 },
+                { label: "5 % lents", numeric: true, cell: (game) => one(game.low5), sort: (game) => game.low5 ?? -1 },
+                { label: "Saccades/min", numeric: true, cell: (game) => one(game.stutters), sort: (game) => game.stutters ?? -1 },
+                { label: "Pic mémoire", numeric: true, cell: (game) => [mib(game.peak), game.tightest ? h("small", { text: " · " + percent(game.tightest.ratio) }) : null], sort: (game) => (game.tightest ? game.tightest.ratio : -1) },
+                { label: "Fins", cell: (game) => h("div", { class: "endcell" }, endBar(game.ends)), sort: (game) => game.badShare ?? -1, numeric: true },
+                { label: "nxnative", mono: true, cell: (game) => [game.build ? game.build.slice(0, 8) : DASH, game.builds > 1 ? h("small", { text: " +" + (game.builds - 1) }) : null], sort: (game) => game.build || "", numeric: false },
+                { label: "Dernière", numeric: true, cell: (game) => dayText(game.last), sort: (game) => game.last, },
+            ], model.games, { pick: (game) => pickGame(game.id) }));
+    }
+
+    function fluidity(model) {
+        const f = model.fluidity;
+        if (!f.sessions) return [card("Fluidité", null, empty("Aucune partie sur cette période."))];
+        const target = f.target ? 1000 / f.target : null;
+        return [
+            card("Cadence tenue", "Images par seconde de chaque partie, rapportées à celles que le jeu vise.",
+                facts([["Médiane", has(f.cadence) ? percent(f.cadence) : DASH], ["Images/s médianes", one(f.fps), f.target ? "/ " + f.target : ""], ["5 % les plus lents", one(f.low5), "im./s"]]),
+                columns(f.bins.map((bin) => ({ label: bin.label, title: bin.label + " de la fréquence visée", value: bin.count, figure: plural(bin.count, "partie", "parties"), tone: TONES[bin.tone] })), { height: 120, bins: true, allLabels: true, label: "Parties par cadence tenue" })),
+            card("Temps d'une image", "p50, p95 et p99 : médianes des parties.",
+                percentiles(f.frameMs.map((item) => ({ key: item.key, value: item.value })), target, "Temps d'une image"),
+                facts([["Images en retard", has(f.overTarget) ? one(f.overTarget) : DASH, "%"], ["Non affichées", has(f.dropped) ? one(f.dropped) : DASH, "%"]])),
+            card("Travail du GPU", "Temps de GPU d'une image.",
+                percentiles(f.gpuMs.map((item) => ({ key: item.key, value: item.value })), target, "Travail du GPU"),
+                facts([["Upscaler", f.upscaler.length ? f.upscaler.map((item) => (UPSCALERS[item.key] || item.key) + " " + percent(item.count / f.sessions)).join(" · ") : DASH], ["Coût de l'upscaler", f.upscaler.length ? f.upscaler.map((item) => ms(item.gpuMs)).join(" · ") : DASH]])),
+            card("Saccades", "Images nettement plus longues que les précédentes, et ce qu'elles attendaient.",
+                facts([["Par minute", one(f.stutters.perMinute)], ["Au total", count(f.stutters.count)], ["Attente des shaders", has(f.shaderStall) ? n0.format(f.shaderStall) : DASH, "ms/min"]]),
+                segmented(f.stutters.causes.map((cause) => ({ label: CAUSES[cause.key], value: cause.count, tone: CAUSE_TONES[cause.key] })))),
+            card("Démarrage d'une partie", "Préparation des pipelines avant la première image.",
+                facts([["Médiane", has(f.prepare.seconds) ? one(f.prepare.seconds) : DASH, "s"], ["La plus longue", has(f.prepare.longest) ? one(f.prepare.longest) : DASH, "s"], ["Pipelines préparés", count(f.prepare.lines)]])),
+            card("Son, écran et contenu", null,
+                facts([
+                    ["Coupures du son", has(f.audio) ? two(f.audio) : DASH, "/min"],
+                    ["Parties avec coupures", shareText(f.audioAny)],
+                    ["Sur une télé", shareText(f.tv)],
+                    ["Pli du Duo entre image et commandes", shareText(f.fold)],
+                    ["Avec contenu additionnel", shareText(f.dlc)],
+                    ["Build nxnative modifié", shareText(f.changed)],
+                ])),
+            card("Réglages nxnative", "Les réglages DM_ des parties, les plus fréquents.",
+                bars(f.settings.map((item) => ({ label: item.key, value: item.count, figure: plural(item.count, "partie", "parties"), tip: ["sur " + plural(item.installs, "iPhone", "iPhones")] })), { empty: "Aucun réglage sur cette période." }),
+                h("p", { class: "foot", text: "Lecture du journal : " + (f.readers.map((item) => "version " + item.key + " (" + count(item.count) + ")").join(", ") || DASH) + " · " + plural(f.frames, "image comptée", "images comptées") })),
+            card("Versions des jeux", null,
+                bars(f.gameVersions.map((item) => ({ label: item.key, value: item.count, figure: plural(item.count, "partie", "parties") })))),
+        ];
+    }
+
+    function heat(model) {
+        const t = model.heat;
+        const total = t.minutes.reduce((all, item) => all + item.minutes, 0);
+        if (!model.fluidity.sessions) return [card("Chaleur", null, empty("Aucune partie sur cette période."))];
+        return [
+            card("États thermiques", "Le temps passé dans chaque état qu'iOS signale.",
+                segmented(t.minutes.map((item) => ({ label: THERMAL[item.key], value: item.minutes, tone: THERMAL_TONES[item.key], figure: duration(item.minutes) })), { empty: "Pas d'état thermique dans ces parties." }),
+                facts([["Parties qui chauffent", shareText(t.hot)], ["Chaude au bout de", has(t.seriousAfter) ? one(t.seriousAfter) : DASH, "min"]])),
+            card("Énergie", "Médianes des parties.",
+                facts([["CPU", has(t.watts) ? one(t.watts) : DASH, "W"], ["Charge CPU (100 % = un cœur)", has(t.cpu) ? n0.format(t.cpu) : DASH, "%"], ["Cœurs performance", has(t.performanceCores) ? n0.format(t.performanceCores) : DASH, "%"], ["GPU occupé", has(t.gpuBusy) ? n0.format(t.gpuBusy) : DASH, "ms/s"], ["Économie d'énergie", total ? percent(t.lowPowerMinutes / Math.max(t.playMinutes, total)) : DASH, "du temps"], ["Parties en économie", shareText(t.lowPower)]])),
+            card("Jeux qui chauffent le plus", "Part du temps en état chaud ou critique.",
+                bars(t.byGame.map((game) => ({ label: gameName(game.id, game.name), value: game.hotShare, figure: percent(game.hotShare), tone: game.hotShare >= 0.4 ? "var(--critical)" : game.hotShare >= 0.2 ? "var(--serious)" : "var(--s1)", tip: [duration(game.minutes) + " mesurées"] })), { max: 1, meter: true, empty: "Aucun jeu n'a chauffé." })),
+        ];
+    }
+
+    function memory(model) {
+        const m = model.memory;
+        return [
+            card("Au plus près de la limite", "La partie de chaque jeu qui a le plus approché la limite d'iOS de son iPhone : son pic, face à la limite (le trait).",
+                bars(m.byGame.map((game) => ({
+                    label: gameName(game.id, game.name),
+                    value: game.peak,
+                    mark: game.limit,
+                    figure: mib(game.peak),
+                    note: percent(game.ratio),
+                    tone: game.ratio >= 0.9 ? "var(--critical)" : game.ratio >= 0.75 ? "var(--warning)" : "var(--s1)",
+                    tip: ["limite de l'iPhone " + mib(game.limit), "pic le plus haut " + mib(game.highest), "pic médian " + mib(game.median)],
+                })), { max: Math.max(1, ...m.byGame.map((game) => Math.max(game.peak, game.limit))), meter: true, empty: "Pas de mesure de mémoire sur cette période." })),
+            card("Mémoire des parties", "Médianes des parties.",
+                facts([["Pic", mib(m.peak)], ["Pic le plus haut", mib(m.highest)], ["Mémoire du GPU", mib(m.gpuPeak)], ["Marge la plus basse", mib(m.headroom)], ["Marge minimale vue", mib(m.lowestHeadroom)], ["Pic exact du système", shareText(m.exactPeak)], ["Mémoire dans un fichier", shareText(m.guestFile)]])),
+            card("Limite d'iOS", "La limite qu'iOS donne à Cartouche et à ses jeux, par iPhone.",
+                bars(m.limits.map((item) => ({ label: has(item.key) ? mib(item.key) : "Inconnue", value: item.count, figure: plural(item.count, "iPhone", "iPhones"), tone: item.key && item.key < 4096 ? "var(--warning)" : "var(--s1)" }))),
+                facts([["Mémoire augmentée", shareText(m.increased)]])),
+        ];
+    }
+
+    function endings(model) {
+        const e = model.endings;
+        const signal = (value) => (has(value) ? (SIGNALS[value] || "signal " + value) : DASH);
+        return [
+            card("Fin des parties", "Comment chaque partie s'est terminée, d'après son journal.",
+                segmented(M.ENDS.map((kind) => ({ label: ENDS[kind], value: e.ends[kind], tone: END_TONES[kind], figure: count(e.ends[kind]) })), { empty: "Aucune partie sur cette période." })),
+            card("Par build de nxnative", "Les builds les plus récents d'abord.",
+                bars(e.byBuild.map((build) => ({ label: build.build ? build.build.slice(0, 12) : "inconnu", sub: dayText(build.last), value: build.sessions, figure: plural(build.sessions, "partie", "parties"), note: build.sessions ? percent(build.bad / build.sessions) + " mal finies" : null, tone: build.sessions && build.bad / build.sessions >= 0.1 ? "var(--critical)" : "var(--s1)" })))),
+            h("article", { class: "card span" }, h("h3", { text: "Plantages" }), h("p", { class: "sub", text: "Groupés par signal et par adresse dans le code du jeu (module + décalage)." }),
+                table([
+                    { label: "Signal", cell: (crash) => signal(crash.signal), sort: (crash) => crash.signal ?? 0 },
+                    { label: "pc", mono: true, cell: (crash) => crash.pc || DASH },
+                    { label: "lr", mono: true, cell: (crash) => crash.lr || DASH },
+                    { label: "Fois", numeric: true, cell: (crash) => count(crash.count), sort: (crash) => crash.count },
+                    { label: "iPhones", numeric: true, cell: (crash) => count(crash.iphones), sort: (crash) => crash.iphones },
+                    { label: "Jeux", wide: true, cell: (crash) => crash.games.join(", ") },
+                    { label: "nxnative", mono: true, cell: (crash) => crash.builds.map((build) => build.slice(0, 8)).join(", ") || DASH },
+                    { label: "Dernier", numeric: true, cell: (crash) => dayText(crash.last), sort: (crash) => crash.last },
+                ], e.crashes, { empty: "Aucun plantage sur cette période." })),
+        ];
+    }
+
+    function devices(model) {
+        const d = model.devices;
+        const ranked = (items, label = (key) => key, sub) => bars(items.map((item) => ({ label: has(item.key) ? label(item.key) : "Inconnu", sub: sub ? sub(item.key) : null, value: item.count, figure: count(item.count) })));
+        return [
+            card("Modèles", "Chaque iPhone une fois, tel qu'il s'est présenté en dernier.", ranked(d.models, (key) => deviceLabel(key).name, (key) => deviceLabel(key).sub)),
+            card("iOS", null, ranked(d.ios, (key) => "iOS " + key)),
+            card("Versions de Cartouche", null, ranked(d.versions),
+                d.updates.length ? h("p", { class: "foot", text: "Mises à jour : " + d.updates.map((item) => item.key + " (" + count(item.count) + ")").join(", ") }) : null),
+            card("Langue de Cartouche", null, ranked(d.languages, language)),
+            card("Stockage des jeux", "Au dernier lancement de chaque iPhone.", ranked(d.storage, (key) => STORAGE[key] || key)),
+            card("Stockage des sauvegardes", null, ranked(d.saves, (key) => STORAGE[key] || key)),
+            card("Jeux installés par iPhone", null,
+                columns(d.games.map((bin) => ({ label: bin.label, title: bin.label, value: bin.count, figure: plural(bin.count, "iPhone", "iPhones") })), { height: 110, bins: true, allLabels: true, label: "iPhones par nombre de jeux" }),
+                facts([["Configuration terminée", shareText(d.setUp)], ["Ouvertures de l'app", count(d.opens)]])),
+            card("Signature", "Jours qu'il reste à la signature, au dernier lancement.",
+                segmented(d.signature.map((bin) => ({ label: bin.label, value: bin.count, tone: TONES[bin.tone], figure: plural(bin.count, "iPhone", "iPhones") })), { empty: "Pas encore de lancement." }),
+                facts([["Renouvellements", count(d.renewals)], ["Jours après un renouvellement", has(d.renewalDays) ? n0.format(d.renewalDays) : DASH]])),
+        ];
+    }
+
+    function installs(model) {
+        const i = model.installs;
+        if (!i.count) return [card("Jeux installés ou mis à jour", null, empty("Aucun jeu installé ni mis à jour sur cette période."))];
+        return [
+            card("Jeux installés ou mis à jour", plural(i.count, "installation", "installations") + " sur " + plural(i.iphones, "iPhone", "iPhones") + ".",
+                bars(i.byGame.map((row) => ({ label: gameName(row.key, row.name), value: row.count, figure: count(row.count), note: plural(row.installs, "iPhone", "iPhones") }))),
+                facts([["Depuis le stockage", shareText(i.fromStorage)], ["Taille médiane", mib(i.size)]])),
+            card("Versions installées", null, bars(i.versions.map((row) => ({ label: row.key, value: row.count, figure: count(row.count) })))),
+            card("Builds nxnative installés", null, bars(i.builds.map((row) => ({ label: row.key, value: row.count, figure: count(row.count) })))),
+        ];
+    }
+
+    function errors(model) {
+        const e = model.errors;
+        return [
+            card("Où l'app a échoué", plural(e.count, "erreur", "erreurs") + " sur " + plural(e.iphones, "iPhone", "iPhones") + (e.background ? ", " + percent(e.background.share) + " en arrière-plan." : "."),
+                bars(e.byOrigin.map((row) => ({ label: ORIGINS[row.key] || row.key, value: row.count, figure: count(row.count), note: plural(row.installs, "iPhone", "iPhones") })), { empty: "Aucune erreur sur cette période." })),
+            card("Par version de Cartouche", "Erreurs pour 100 ouvertures de l'app, les versions récentes d'abord.",
+                bars(e.byVersion.filter((row) => row.opens).map((row) => ({ label: "Cartouche " + row.version, value: (row.errors / row.opens) * 100, figure: one((row.errors / row.opens) * 100) + " / 100", note: plural(row.errors, "erreur", "erreurs"), tip: [plural(row.opens, "ouverture", "ouvertures")] })), { empty: "Aucune erreur sur cette période." })),
+            h("article", { class: "card span" }, h("h3", { text: "Codes d'erreur" }), h("p", { class: "sub", text: "Domaines et codes de l'erreur et de celles qu'elle contient, jamais son texte." }),
+                table([
+                    { label: "Où", cell: (row) => ORIGINS[row.origin] || row.origin || DASH, sort: (row) => row.origin || "", numeric: false },
+                    { label: "Erreur", mono: true, cell: (row) => row.error || DASH },
+                    { label: "Fois", numeric: true, cell: (row) => count(row.count), sort: (row) => row.count },
+                    { label: "iPhones", numeric: true, cell: (row) => count(row.iphones), sort: (row) => row.iphones },
+                    { label: "Arrière-plan", numeric: true, cell: (row) => shareText(row.background) },
+                    { label: "Versions", cell: (row) => row.versions.join(", ") || DASH },
+                    { label: "Dernière", numeric: true, cell: (row) => dayText(row.last), sort: (row) => row.last },
+                ], e.byCode, { empty: "Aucune erreur sur cette période." })),
+        ];
+    }
+
+    function problems(model) {
+        const p = model.problems;
+        const github = p && p.github;
+        const list = github && github.issues ? github.issues : [];
+        const lines = list.length
+            ? h("ul", { class: "issues" }, list.map((issue) => h("li", {},
+                statusDot(issue.state === "OPEN" ? "var(--warning)" : "var(--good)", ""),
+                h("span", {}, issue.url ? h("a", { href: issue.url, target: "_blank", rel: "noopener noreferrer", text: issue.title || "#" + issue.number }) : h("b", { text: issue.title || "#" + issue.number }),
+                    " ", h("small", { text: "#" + issue.number + " · " + (issue.created ? dayText(issue.created.slice(0, 10)) : "") + (issue.comments ? " · " + plural(issue.comments, "réponse", "réponses") : "") + (issue.labels && issue.labels.length ? " · " + issue.labels.join(", ") : "") })))))
+            : empty(github && github.error ? "GitHub : " + github.error + "." : github ? "Aucun problème signalé." : "Le serveur n'a pas le jeton des problèmes : ils l'attendent dans la base.");
+        return [
+            card("Problèmes signalés", "Envoyés depuis Système › Signaler un problème, déposés dans le dépôt privé" + (github && github.repository ? " " + github.repository : "") + ".",
+                facts([["Ouverts", github ? count(github.open) : DASH], ["Fermés", github ? count(github.closed) : DASH], ["Aujourd'hui", count(p ? p.today : null)], ["En attente de GitHub", count(p ? p.waiting : null)]]),
+                lines),
+        ];
+    }
+
+    function builder(model) {
+        const b = model.builder;
+        if (!b.events) return [card("Cartouche Builder", null, empty("Aucun Mac n'a envoyé de mesure sur cette période."))];
+        const ranked = (items, label = (key) => key) => bars(items.map((item) => ({ label: has(item.key) ? label(item.key) : "Inconnu", value: item.count, figure: count(item.count) })));
+        return [
+            card("Macs", plural(b.macs, "Mac", "Macs") + " avec Cartouche Builder.",
+                facts([["Builder", b.versions.map((item) => item.key).join(", ") || DASH], ["macOS", b.macos.map((item) => item.key).join(", ") || DASH], ["Xcode", b.xcode.map((item) => item.key).join(", ") || DASH], ["Jeux suivis", has(b.followed) ? n0.format(b.followed) : DASH, has(b.games) ? "sur " + n0.format(b.games) : ""]]),
+                ranked(b.hardware),
+                h("p", { class: "foot", text: b.switches.filter((item) => item.value).map((item) => SWITCHES[item.key] + " " + percent(item.value.share)).join(" · ") })),
+            card("Constructions par jour", plural(b.built.count, "jeu construit", "jeux construits") + ", " + plural(b.failed.count, "échec", "échecs") + ".",
+                columns(b.daily.map((day) => ({ label: dayText(day.day), title: long.format(new Date(day.day + "T00:00:00Z")) + (day.failed ? " · " + plural(day.failed, "échec", "échecs") : ""), value: day.built + day.failed, figure: plural(day.built, "construit", "construits") + (day.failed ? ", " + plural(day.failed, "échec", "échecs") : ""), tone: day.failed && !day.built ? "var(--critical)" : "var(--s1)" })), { height: 120, label: "Constructions par jour" }),
+                facts([["Durée médiane", duration(has(b.built.seconds) ? b.built.seconds / 60 : null)], ["IPA médiane", has(b.built.ipaMB) ? n0.format(b.built.ipaMB) : DASH, "Mo"], ["Lots", count(b.batches.count)], ["Lot médian", duration(b.batches.minutes)]])),
+            card("Pourquoi reconstruire", "Ce que nxnative a changé pour chaque jeu reconstruit.", ranked(b.built.reasons),
+                h("p", { class: "foot", text: "Sources : " + (b.built.sources.map((item) => item.key + " (" + count(item.count) + ")").join(", ") || DASH) })),
+            card("Échecs", plural(b.failed.count, "échec", "échecs") + " de construction.",
+                ranked(b.failed.stages, (key) => "Étape " + key),
+                h("p", { class: "foot", text: "Raisons : " + (b.failed.reasons.map((item) => item.key + " (" + count(item.count) + ")").join(", ") || DASH) + " · Jeux : " + (b.failed.games.map((item) => gameName(item.key, item.name)).join(", ") || DASH) })),
+            card("Installation des outils et entretien", null,
+                bars(b.setup.map((item) => ({ label: SETUP[item.item] || item.item, value: item.count, figure: count(item.ready) + " prêt" + (item.ready > 1 ? "s" : ""), note: duration(has(item.seconds) ? item.seconds / 60 : null) })), { empty: "Aucun outil installé sur cette période." }),
+                facts([["Place libérée", has(b.cleaned.freedMB) ? n1.format(b.cleaned.freedMB / 1024) : DASH, "Go"], ["Jumelages", count(b.paired.count)], ["Erreurs", b.errors.reduce((all, item) => all + item.count, 0) ? count(b.errors.reduce((all, item) => all + item.count, 0)) : "0"]]),
+                b.errors.length ? h("p", { class: "foot", text: "Erreurs : " + b.errors.map((item) => item.key + " (" + count(item.count) + ")").join(", ") }) : null,
+                b.updates.length ? h("p", { class: "foot", text: "Mises à jour : " + b.updates.map((item) => item.key + " (" + count(item.count) + ")").join(", ") }) : null),
+        ];
+    }
+
+    function server(model) {
+        const sv = model.server;
+        const limit = 500 * 1024 * 1024;
+        return [
+            card("Serveur de télémétrie", "Cloudflare Worker et base D1 dans l'Union européenne ; les rapports sont gardés 25 mois.",
+                facts([["Reçus aujourd'hui", count(sv.received && sv.received.today)], ["Hier", count(sv.received && sv.received.yesterday)], ["iPhones aujourd'hui", count(sv.received && sv.received.installsToday)], ["Rapports lus ici", count(sv.count)]]),
+                bars([
+                    { label: "Taille de la base", value: has(sv.bytes) ? sv.bytes / limit : null, figure: bytesText(sv.bytes), note: has(sv.bytes) ? percent(sv.bytes / limit, 1) + " des 500 Mo" : null },
+                    { label: "Lignes lues pour cette page", value: has(sv.rowsRead) ? sv.rowsRead / 5e6 : null, figure: count(sv.rowsRead), note: has(sv.rowsRead) ? percent(sv.rowsRead / 5e6, 2) + " des 5 M du jour" : null },
+                ], { max: 1, meter: true, empty: "Pas de mesure de la base." }),
+                h("p", { class: "foot", text: "Limites de l'offre gratuite de Cloudflare : 500 Mo par base, 5 millions de lignes lues par jour." }),
+                sv.truncated ? h("p", { class: "foot", text: "La période est coupée : seuls les rapports les plus récents sont lus." }) : null,
+                sv.generated ? h("p", { class: "foot", text: "Lu à " + clock.format(new Date(sv.generated)) + "." }) : null),
+        ];
+    }
+
+    // MARK: The page
+
+    const state = { days: 28, game: "", device: "", version: "" };
+    let data = null;
+    let loading = false;
+    const main = document.getElementById("main");
+
+    function readHash() {
+        const params = new URLSearchParams(location.hash.slice(1));
+        const days = Number(params.get("days"));
+        if ([7, 28, 90, 365].includes(days)) state.days = days;
+        state.game = params.get("game") || "";
+        state.device = params.get("device") || "";
+        state.version = params.get("version") || "";
+    }
+    function writeHash() {
+        const params = new URLSearchParams();
+        if (state.days !== 28) params.set("days", state.days);
+        for (const key of ["game", "device", "version"]) if (state[key]) params.set(key, state[key]);
+        const wanted = params.toString();
+        if (location.hash.slice(1) !== wanted) history.replaceState(null, "", wanted ? "#" + wanted : location.pathname + location.search);
+    }
+
+    function fillSelect(select, items, current, label) {
+        const first = select.options[0];
+        select.replaceChildren(first, ...items.map((item) => h("option", { value: item.value, text: label(item) + " (" + count(item.count) + ")" })));
+        if (current && !items.some((item) => String(item.value) === current)) select.append(h("option", { value: current, text: current }));
+        select.value = current;
+    }
+
+    function render() {
+        if (!data) return;
+        const model = M.build(data, catalog, { game: state.game, device: state.device, version: state.version });
+        charts = [];
+        fillSelect(document.getElementById("f-game"), model.options.games, state.game, (item) => item.label);
+        fillSelect(document.getElementById("f-device"), model.options.devices, state.device, (item) => item.value);
+        fillSelect(document.getElementById("f-version"), model.options.versions, state.version, (item) => item.value);
+        document.getElementById("reset").hidden = !(state.game || state.device || state.version);
+        document.querySelectorAll(".range button").forEach((button) => button.setAttribute("aria-checked", String(Number(button.dataset.days) === state.days)));
+        const span = document.getElementById("span");
+        span.textContent = "Du " + long.format(new Date(data.from + "T00:00:00Z")) + " au " + long.format(new Date(data.today + "T00:00:00Z")) + " · " + plural(model.totals.reports, "rapport", "rapports");
+        document.getElementById("viewer").textContent = data.viewer ? "Connecté : " + data.viewer : isDemo ? "Aperçu" : "";
+        document.getElementById("logout").hidden = isDemo;
+        document.getElementById("demo").hidden = !data.demo;
+        const pickGame = (id) => {
+            state.game = state.game === id ? "" : id;
+            writeHash();
+            render();
+            window.scrollTo({ top: 0, behavior: "smooth" });
+        };
+        const picked = state.game ? model.options.games.find((game) => game.value === state.game) : null;
+        const nothing = !model.totals.reports;
+        main.replaceChildren(...[
+            nothing ? h("p", { class: "notice" }, h("b", { text: "Aucune mesure sur cette période. " }), "Les iPhones envoient leurs mesures après chaque partie, avec Système › Mesures de jeu activé.") : null,
+            picked ? h("p", { class: "notice" }, "Filtré sur ", h("b", { text: picked.label }), " : ses parties, et les iPhones qui y ont joué. ", h("button", { type: "button", class: "linkish", text: "Retirer", onclick: () => pickGame(state.game) })) : null,
+            section("apercu", "En bref", null, overview(model)),
+            section("jeux", "Jeux", "Ce qui a été joué, et comment ça a tourné.", h("div", { class: "grid wide" }, gamesTable(model, pickGame))),
+            section("activite", "Activité", null, h("div", { class: "grid wide" }, activity(model), eventsCard(model), weekdays(model))),
+            section("fluidite", "Fluidité", "Ce que nxnative a mesuré pendant les parties.", h("div", { class: "grid" }, fluidity(model))),
+            section("chaleur", "Chaleur et énergie", null, h("div", { class: "grid" }, heat(model))),
+            section("memoire", "Mémoire", null, h("div", { class: "grid" }, memory(model))),
+            section("fins", "Fins de partie et plantages", null, h("div", { class: "grid wide" }, endings(model))),
+            section("appareils", "Appareils et versions", plural(model.devices.iphones, "iPhone", "iPhones") + " sur la période.", h("div", { class: "grid" }, devices(model))),
+            section("installations", "Installations de jeux", null, h("div", { class: "grid" }, installs(model))),
+            section("erreurs", "Erreurs de Cartouche", null, h("div", { class: "grid wide" }, errors(model))),
+            section("problemes", "Problèmes signalés", null, h("div", { class: "grid" }, problems(model))),
+            section("builder", "Cartouche Builder", "Les Macs qui construisent les jeux.", h("div", { class: "grid" }, builder(model))),
+            section("serveur", "Serveur", null, h("div", { class: "grid" }, server(model))),
+        ].filter(Boolean));
+        main.setAttribute("aria-busy", "false");
+    }
+
+    async function load() {
+        if (loading) return;
+        loading = true;
+        main.classList.add("loading");
+        const stateLine = document.getElementById("state");
+        stateLine.textContent = "Lecture…";
+        const problem = document.getElementById("problem");
+        try {
+            if (isDemo) {
+                data = M.demo(state.days, catalog, Date.now());
+            } else {
+                const response = await fetch("/data?days=" + state.days, { credentials: "same-origin", cache: "no-store", headers: { accept: "application/json" } });
+                if (response.status === 403) throw new Error("La session Cloudflare Access a expiré : recharge la page pour te reconnecter.");
+                if (!response.ok) throw new Error("Le serveur n'a pas pu lire la base (" + response.status + "). Réessaie dans un moment.");
+                data = await response.json();
+            }
+            problem.hidden = true;
+            render();
+            stateLine.textContent = "À jour à " + clock.format(new Date());
+        } catch (error) {
+            problem.hidden = false;
+            problem.textContent = error && error.message && !(error instanceof TypeError) ? error.message : "Impossible de lire les données : recharge la page pour te reconnecter.";
+            stateLine.textContent = "";
+        } finally {
+            loading = false;
+            main.classList.remove("loading");
+        }
+    }
+
+    document.querySelectorAll(".range button").forEach((button) => button.addEventListener("click", () => {
+        const days = Number(button.dataset.days);
+        if (days === state.days) return;
+        state.days = days;
+        writeHash();
+        load();
+    }));
+    for (const key of ["game", "device", "version"]) {
+        document.getElementById("f-" + key).addEventListener("change", (event) => {
+            state[key] = event.target.value;
+            writeHash();
+            render();
+        });
+    }
+    document.getElementById("reset").addEventListener("click", () => {
+        state.game = state.device = state.version = "";
+        writeHash();
+        render();
+    });
+    document.getElementById("refresh").addEventListener("click", load);
+    let resizing = 0;
+    window.addEventListener("resize", () => {
+        cancelAnimationFrame(resizing);
+        resizing = requestAnimationFrame(() => charts.forEach((chart) => chart.isConnected && chart.draw()));
+    });
+    window.addEventListener("scroll", hideTip, { passive: true });
+    readHash();
+    load();
+})();
+</script>
+</body>
+</html>
