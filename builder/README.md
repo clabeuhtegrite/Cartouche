@@ -8,9 +8,19 @@ It runs nxnative's own build script, as nxnative's [front-end page](https://gith
 
 A Mac that builds nxnative games: macOS 26.6 or later on Apple silicon, Xcode 27.2 with its iOS platform and Metal toolchain, `xcodegen`, `zstd` and `glslang` from Homebrew, and Python 3.12 or later with Tk (`brew install python@3.13 python-tk@3.13`). Since its commit 641636e2 (10 November 2026) nxnative needs no .NET: only an older copy of nxnative asks for the .NET 10 SDK. **Mac tools…** in the window checks each one and opens the command that installs a missing one in Terminal. The builder downloads nxnative and makes the Python environment nxnative's scripts need by itself, in its own folder.
 
+## Install
+
+In Terminal, on the Mac:
+
+```
+/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/clabeuhtegrite/Cartouche/main/builder/install.sh)"
+```
+
+[`install.sh`](install.sh) installs Homebrew when the Mac has none, then with it Python 3.13 and its Tk, `xcodegen`, `zstd` and `glslang`, with no .NET, which nxnative no longer needs; puts Cartouche Builder in `~/Applications`, as an app that opens its window; readies Xcode's iOS platform and Metal toolchain; downloads nxnative and makes its Python environment (`cartouche-builder setup`); and opens Cartouche Builder. Xcode itself comes from Apple, with its licence: when it is missing or was never opened, the script opens it or its App Store page and asks for the command again afterwards. The same command updates Cartouche Builder, and leaves its settings, its copy of nxnative and the games alone. `CARTOUCHE_REF=<branch>` before it installs another branch's builder. The step by step guide, from the iPhone to the first game: [docs/getting-started.md](../docs/getting-started.md#2-build-your-game-on-your-mac).
+
 ## Start
 
-Double-click **Cartouche Builder.command** in this folder. Or, in Terminal, from this folder:
+Open **Cartouche Builder** from Applications, once installed. From the repository, double-click **Cartouche Builder.command** in this folder instead. Or, in Terminal, from this folder:
 
 ```
 python3 -m cartouche_builder                 # the window

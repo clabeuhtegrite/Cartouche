@@ -17,7 +17,7 @@ body:
     id: device
     attributes:
       label: iPhone or iPad model
-      description: Settings › General › About › Model Name.
+      description: Settings › General › About › Model Name, or the model identifier Cartouche fills in, such as iPhone18,1.
     validations:
       required: true
   - type: input
@@ -36,7 +36,7 @@ body:
     id: logs
     attributes:
       label: Logs
-      description: Cartouche's diagnostic report, if any. Check that it holds no personal data.
+      description: Cartouche's report, which System › Report a problem fills in. Check that it holds no personal data.
       render: text
   - type: checkboxes
     id: rules

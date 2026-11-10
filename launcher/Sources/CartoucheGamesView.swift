@@ -28,6 +28,16 @@
 //  (CartoucheSaveBackups). A step that fails says why, with the report the
 //  player can copy (CartoucheReporting.swift).
 //
+//  A player new to Cartouche follows its guide to their first game
+//  (CartoucheGuideView): it opens by itself on the first launch, then from
+//  the home's card, until their first game is installed.
+//
+//  A game can run behind the console, paused while the console shows
+//  (CartoucheGameHost): Play on it brings it back, and Play on another
+//  asks first whether to quit it, over the sheet if one is open
+//  (CartoucheRunningGameQuestions). Cartouche's own update waits until it
+//  has ended, since the update closes Cartouche.
+//
 
 import SwiftUI
 import UniformTypeIdentifiers
@@ -41,6 +51,7 @@ struct CartoucheGamesView: View {
     @ObservedObject private var storedGames = CartoucheStoredGames.shared
     @ObservedObject private var updates = CartoucheUpdates.shared
     @ObservedObject private var account = CartoucheAccount.shared
+    @ObservedObject private var guide = CartoucheGuide.shared
     @State private var path: [Route] = []
     /// The game whose sheet is open over the console, in a compact width.
     @State private var sheetID: String?
@@ -51,6 +62,7 @@ struct CartoucheGamesView: View {
     @State private var choosingIPAInSheet = false
     @State private var memory = CartoucheMemoryReading.now()
     @State private var showingSetup = false
+    @State private var showingGuide = false
     /// The game whose uninstall the player is asked about, from the home or
     /// from the sheet, over the console or beside it.
     @State private var uninstalling: LCAppModel?
@@ -78,16 +90,18 @@ struct CartoucheGamesView: View {
     /// Nothing over the console, but maybe a game's settings page open
     /// beside it.
     private var nothingOverConsole: Bool {
-        sheetID == nil && !showingSetup && !choosingIPA && uninstalling == nil
+        sheetID == nil && !showingSetup && !showingGuide && !choosingIPA && uninstalling == nil
             && actions.work == nil && actions.notice == nil && !showsUpdate
+            && actions.switching == nil && actions.quitQuestion == nil
     }
     /// Nothing over the console or beside it that takes the controller.
     private var nothingOver: Bool { nothingOverConsole && gameSettings == nil }
     /// Cartouche's own update shows over the console alone, once nothing
     /// else is over it.
     private var showsUpdate: Bool {
-        updates.isShowing && onGames && sheetID == nil && !showingSetup && !choosingIPA
+        updates.isShowing && onGames && sheetID == nil && !showingSetup && !showingGuide && !choosingIPA
             && uninstalling == nil && actions.work == nil && actions.notice == nil
+            && actions.running == nil && actions.switching == nil && actions.quitQuestion == nil
     }
 
     var body: some View {
@@ -124,8 +138,11 @@ struct CartoucheGamesView: View {
                         }
                     }
                     .modifier(CartoucheUninstallQuestion(app: $uninstallingInSheet, onAnswer: uninstall, onCopyFirst: copyThenUninstall))
+                    // Over the sheet, which the other game's start closes.
+                    .modifier(CartoucheRunningGameQuestions(shown: true, onSwitch: { sheetID = nil }))
                     .onReceive(CartoucheGamepad.shared.inputs) { input in
-                        guard uninstallingInSheet == nil, !handleSettings(input) else { return }
+                        guard uninstallingInSheet == nil, actions.switching == nil, actions.quitQuestion == nil,
+                              !handleSettings(input) else { return }
                         switch input {
                         case .b:
                             sheetID = nil
@@ -150,7 +167,39 @@ struct CartoucheGamesView: View {
                 if input == .b { showingSetup = false }
             }
         }
+        // The guide's steps act on the console: it closes for a game to
+        // install, to import or to play.
+        .sheet(isPresented: $showingGuide) {
+            NavigationStack {
+                CartoucheGuideView(
+                    entries: entries,
+                    onInstall: { game in
+                        showingGuide = false
+                        installStored(game)
+                    },
+                    onImport: { url in
+                        showingGuide = false
+                        importCopy(url)
+                    },
+                    onPlay: { app in
+                        showingGuide = false
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) { play(app) }
+                    })
+                    .toolbar {
+                        ToolbarItem(placement: .confirmationAction) {
+                            doneButton { showingGuide = false }
+                        }
+                    }
+            }
+            .preferredColorScheme(.dark)
+            .onReceive(CartoucheGamepad.shared.inputs) { input in
+                if input == .b { showingGuide = false }
+            }
+        }
         .modifier(CartoucheUninstallQuestion(app: $uninstalling, onAnswer: uninstall, onCopyFirst: copyThenUninstall))
+        // Over the console, or the sheet beside it; the sheet over the
+        // console asks itself.
+        .modifier(CartoucheRunningGameQuestions(shown: sheetID == nil))
         .overlay {
             if let work = actions.work {
                 CartoucheGameWorkView(work: work)
@@ -232,9 +281,11 @@ struct CartoucheGamesView: View {
         .onChange(of: actions.installed) { _, app in
             guard let app else { return }
             actions.installed = nil
+            let entries = catalog.entries(for: sharedModel.apps, stored: storedGames.games)
+            // The player's first game: the guide has done its job.
+            guide.note(guide.progress(entries))
             guard actions.notice == nil,
-                  let entry = catalog.entries(for: sharedModel.apps, stored: storedGames.games).owned
-                    .first(where: { $0.app === app }) else { return }
+                  let entry = entries.owned.first(where: { $0.app === app }) else { return }
             path.removeAll()
             showSheet(entry)
         }
@@ -245,12 +296,15 @@ struct CartoucheGamesView: View {
         .onChange(of: setup.openedPairingFile) { _, opened in
             guard opened else { return }
             setup.openedPairingFile = false
-            showingSetup = true
+            let guideWasOpen = showingGuide
+            showingGuide = false
+            DispatchQueue.main.asyncAfter(deadline: .now() + (guideWasOpen ? 0.6 : 0)) { showingSetup = true }
         }
         // Apple asks for a code while Cartouche signs in again by itself, for
-        // a new certificate: the setup opens on the sign-in.
+        // a new certificate: the setup opens on the sign-in, unless the
+        // guide, which shows the sign-in too, is open.
         .onChange(of: account.needsCode) { _, needsCode in
-            guard needsCode, account.isAutomatic, !showingSetup else { return }
+            guard needsCode, account.isAutomatic, !showingSetup, !showingGuide else { return }
             sheetID = nil
             showingSetup = true
         }
@@ -261,6 +315,7 @@ struct CartoucheGamesView: View {
             actions.copySaves(of: sharedModel.apps)
             updates.checkIfDue()
             catalog.refreshCoversIfDue()
+            openGuideIfNew()
         }
         // A renewal in the background moves the expiry date: warn for the
         // new one each time the player comes back. A game may have saved
@@ -289,6 +344,7 @@ struct CartoucheGamesView: View {
                 onSheet: { showSheet($0) },
                 onLibrary: { path.append(.library) },
                 onSetup: { showingSetup = true },
+                onGuide: { showingGuide = true },
                 onTab: { sharedModel.selectedTab = $0 },
                 // One cartridge per game to grow from: the library's, once
                 // it is over the home.
@@ -408,6 +464,19 @@ struct CartoucheGamesView: View {
         if !splits { sheetID = entry.id }
     }
 
+    /// A new install: the guide opens by itself, once, over the console.
+    /// A player who already has a game never sees it.
+    private func openGuideIfNew() {
+        let progress = guide.progress(catalog.entries(for: sharedModel.apps, stored: storedGames.games))
+        guide.note(progress)
+        #if !CARTOUCHE_GALLERY
+        guard guide.opensByItself(progress) else { return }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
+            if nothingOver { showingGuide = true }
+        }
+        #endif
+    }
+
     private var sheetPresented: Binding<Bool> {
         Binding(
             get: { sheetID != nil },
@@ -424,9 +493,16 @@ struct CartoucheGamesView: View {
             })
     }
 
-    /// Starts the game from Cartouche, which opens again as the game. With
+    /// Starts the game, behind the console or in Cartouche's place. With
     /// showingSettings, nxnative's settings screen comes first.
     private func play(_ app: LCAppModel, showingSettings: Bool = false) {
+        // A game runs behind the console: it comes back on screen, or the
+        // player is asked whether to quit it for another, where they are.
+        if actions.running != nil {
+            if actions.isRunning(app) && !showingSettings { sheetID = nil }
+            actions.play(app, showingSettings: showingSettings)
+            return
+        }
         // Without the certificate, LiveContainer could only refuse to start
         // the game: show what is missing instead, once the game's sheet,
         // which may hold the Play button, has gone.

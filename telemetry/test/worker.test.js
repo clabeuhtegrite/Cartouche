@@ -7,12 +7,13 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { beforeEach, test } from "node:test";
 
-import worker, { LIMITS, SQL, clean, expire, resetThrottle } from "../worker.js";
+import worker, { LIMITS, SQL, clean, cleanProblem, expire, fileWaiting, issueBody, resetThrottle } from "../worker.js";
 
 class FakeD1 {
   constructor() {
     this.reports = new Map();
     this.daily = new Map();
+    this.problems = new Map();
     this.down = false;
   }
 
@@ -20,7 +21,13 @@ class FakeD1 {
     const db = this;
     return {
       bind(...args) {
-        return { sql, args, first: () => db.run(sql, args, true), run: () => db.run(sql, args) };
+        return {
+          sql,
+          args,
+          first: () => db.run(sql, args, true),
+          run: () => db.run(sql, args),
+          all: async () => ({ results: await db.run(sql, args) }),
+        };
       },
     };
   }
@@ -57,6 +64,33 @@ class FakeD1 {
         return {};
       case SQL.expireDaily:
         for (const key of this.daily.keys()) if (key.split("|")[1] < args[0]) this.daily.delete(key);
+        return {};
+      case SQL.problem: {
+        const row = this.problems.get(args[0]);
+        return row ? { issue: row.issue } : null;
+      }
+      case SQL.problemsOfDay:
+        return { count: [...this.problems.values()].filter((row) => row.day === args[0]).length };
+      case SQL.keepProblem: {
+        const [id, day, title, body] = args;
+        if (!this.problems.has(id)) this.problems.set(id, { id, day, title, body, issue: null });
+        return {};
+      }
+      case SQL.problemFiled: {
+        const row = this.problems.get(args[0]);
+        if (row) Object.assign(row, { issue: args[1], title: "", body: "" });
+        return {};
+      }
+      case SQL.waitingProblems:
+        return [...this.problems.values()]
+          .filter((row) => row.issue === null)
+          .sort((a, b) => (a.day + a.id < b.day + b.id ? -1 : 1))
+          .slice(0, args[0])
+          .map(({ id, title, body }) => ({ id, title, body }));
+      case SQL.expireProblems:
+        for (const [id, row] of this.problems) {
+          if ((row.issue !== null && row.day < args[0]) || row.day < args[1]) this.problems.delete(id);
+        }
         return {};
       default:
         throw new Error(`a statement the Worker does not make: ${sql}`);
@@ -301,4 +335,190 @@ test("reports older than 25 months go", async () => {
   await expire(env, NOW);
   assert.deepEqual([...db.reports.keys()], ["kept"]);
   assert.deepEqual([...db.daily.keys()], [`${INSTALL}|2026-11-09`]);
+});
+
+// MARK: Problems
+
+// GitHub's API as the Worker calls it: each issue it is asked for, and an
+// answer that a test may change.
+class FakeGitHub {
+  constructor() {
+    this.issues = [];
+    this.status = 201;
+    this.down = false;
+  }
+
+  async fetch(url, init) {
+    if (this.down) throw new TypeError("network connection lost");
+    const issue = { url, headers: init.headers, ...JSON.parse(init.body) };
+    if (this.status !== 201) return new Response(JSON.stringify({ message: "Bad credentials" }), { status: this.status });
+    this.issues.push(issue);
+    return new Response(JSON.stringify({ number: this.issues.length }), { status: 201 });
+  }
+}
+
+const REPOSITORY = "clabeuhtegrite/cartouche-reports";
+const TOKEN = "github_pat_for_the_tests";
+
+// The problem as Cartouche sends it: the launcher's tests check that
+// Cartouche makes it so (CartoucheProblemReportTests.swift).
+const appProblem = JSON.parse(readFileSync(new URL("./app-problem.json", import.meta.url), "utf8"));
+
+function problem(extra = {}) {
+  return { ...appProblem, id: uuid(), ...extra };
+}
+
+let github;
+let realFetch;
+function withGitHub() {
+  github = new FakeGitHub();
+  realFetch = globalThis.fetch;
+  globalThis.fetch = (url, init) => github.fetch(url, init);
+  env.PROBLEMS_REPOSITORY = REPOSITORY;
+  env.PROBLEMS_TOKEN = TOKEN;
+}
+function withoutGitHub() {
+  if (realFetch) globalThis.fetch = realFetch;
+  realFetch = undefined;
+}
+
+test("files a problem as an issue of the private repository", async () => {
+  withGitHub();
+  try {
+    const sent = problem();
+    const response = await worker.fetch(post("/v1/problems", sent), env, {}, NOW);
+    assert.equal(response.status, 201);
+    assert.deepEqual(await response.json(), { filed: true });
+    assert.equal(github.issues.length, 1);
+    const [issue] = github.issues;
+    assert.equal(issue.url, `https://api.github.com/repos/${REPOSITORY}/issues`);
+    assert.equal(issue.headers.authorization, `Bearer ${TOKEN}`);
+    assert.equal(issue.headers["user-agent"], "cartouche-telemetry");
+    assert.equal(issue.title, sent.title);
+    assert.equal(issue.body, issueBody(cleanProblem(sent)));
+    // The bug report form's sections, and the measurement add_device.py reads.
+    for (const heading of ["### What happened", "### iPhone or iPad model", "### iOS version", "### Cartouche version", "### Logs"]) {
+      assert.ok(issue.body.includes(`${heading}\n\n`), heading);
+    }
+    assert.ok(issue.body.includes("For catalog/devices.json:\n{"));
+    // Filed: the database keeps its day and its number only.
+    assert.deepEqual(db.problems.get(sent.id), { id: sent.id, day: "2026-11-10", title: "", body: "", issue: 1 });
+  } finally {
+    withoutGitHub();
+  }
+});
+
+test("a problem sent again is filed once", async () => {
+  withGitHub();
+  try {
+    const sent = problem();
+    await worker.fetch(post("/v1/problems", sent), env, {}, NOW);
+    const again = await worker.fetch(post("/v1/problems", sent), env, {}, NOW);
+    assert.equal(again.status, 200);
+    assert.deepEqual(await again.json(), { filed: true });
+    assert.equal(github.issues.length, 1);
+  } finally {
+    withoutGitHub();
+  }
+});
+
+test("a problem GitHub does not take is kept, and the daily run files it", async () => {
+  withGitHub();
+  try {
+    github.status = 401;
+    const first = problem();
+    const response = await worker.fetch(post("/v1/problems", first), env, {}, NOW);
+    assert.equal(response.status, 202);
+    assert.deepEqual(await response.json(), { kept: true });
+    github.status = 201;
+    github.down = true;
+    const second = problem();
+    assert.equal((await worker.fetch(post("/v1/problems", second), env, {}, NOW)).status, 202);
+    assert.equal(db.problems.get(first.id).issue, null);
+    assert.ok(db.problems.get(first.id).body.includes("### Logs"));
+
+    github.down = false;
+    assert.equal(await fileWaiting(env), 2);
+    assert.equal(github.issues.length, 2);
+    assert.ok(github.issues[0].body.includes("### Logs"));
+    assert.equal(db.problems.get(first.id).issue, 1);
+    assert.equal(db.problems.get(second.id).issue, 2);
+    assert.equal(await fileWaiting(env), 0);
+  } finally {
+    withoutGitHub();
+  }
+});
+
+test("without a token, problems wait on the server", async () => {
+  const sent = problem();
+  const response = await worker.fetch(post("/v1/problems", sent), env, {}, NOW);
+  assert.equal(response.status, 202);
+  assert.equal(db.problems.get(sent.id).issue, null);
+  assert.equal(await fileWaiting(env), 0);
+});
+
+test("a problem that is not of the form the server expects is refused", async () => {
+  const bad = [
+    problem({ schema: 2 }),
+    problem({ id: "not-a-number" }),
+    // As Swift writes a UUID: the app sends it in lowercase.
+    problem({ id: "6F1C2A3B-4D5E-4F60-8A7B-9C0D1E2F3A4B" }),
+    problem({ title: " " }),
+    problem({ title: "\u0007\n" }),
+    problem({ title: "x".repeat(LIMITS.problemTitle + 1) }),
+    problem({ device: undefined }),
+    problem({ ios: 27 }),
+    problem({ logs: "x".repeat(LIMITS.problemLogs + 1) }),
+    "a string",
+  ];
+  for (const sent of bad) {
+    const response = await worker.fetch(post("/v1/problems", sent), env, {}, NOW);
+    assert.equal(response.status, 400, JSON.stringify(sent).slice(0, 80));
+  }
+  assert.equal(db.problems.size, 0);
+  // A field it does not know is left out; what the player wrote may be empty.
+  const kept = cleanProblem(problem({ email: "someone@example.com", what: "" }));
+  assert.equal(kept.email, undefined);
+  assert.ok(issueBody(kept).startsWith("### What happened\n\n_No response_\n\n"));
+});
+
+test("control characters go: a line's become spaces, and lines keep their line feeds", () => {
+  const kept = cleanProblem(problem({ title: "Two\nlines\tand a bell\u0007", what: "A bell\u0007\r\nthen\rlines\twith tabs", logs: "550 Not found\r\n\u001b[0m" }));
+  assert.equal(kept.title, "Two lines and a bell ");
+  assert.equal(kept.what, "A bell\nthen\nlines\twith tabs");
+  assert.equal(kept.logs, "550 Not found\n[0m");
+});
+
+test("the logs' fence holds logs with backticks", () => {
+  const body = issueBody(cleanProblem(problem({ logs: "Error: ```quoted``` and ````more````" })));
+  assert.ok(body.includes("\n`````text\nError: ```quoted``` and ````more````\n`````\n"));
+});
+
+test("an address sends at most ten problems an hour, and the server takes fifty a day", async () => {
+  let last;
+  for (let index = 0; index <= LIMITS.problemsPerAddressPerHour; index += 1) {
+    last = await worker.fetch(post("/v1/problems", problem()), env, {}, NOW);
+  }
+  assert.equal(last.status, 429);
+  assert.equal(last.headers.get("retry-after"), "3600");
+  assert.equal(db.problems.size, LIMITS.problemsPerAddressPerHour);
+
+  for (let index = db.problems.size; index < LIMITS.problemsPerDay; index += 1) {
+    const id = uuid();
+    db.problems.set(id, { id, day: "2026-11-10", title: "", body: "", issue: index });
+  }
+  const other = await worker.fetch(post("/v1/problems", problem(), { "cf-connecting-ip": "198.51.100.4" }), env, {}, NOW);
+  assert.equal(other.status, 429);
+  assert.deepEqual(await other.json(), { error: "too many problems today" });
+  const tomorrow = await worker.fetch(post("/v1/problems", problem(), { "cf-connecting-ip": "198.51.100.4" }), env, {}, NOW + 86400000);
+  assert.equal(tomorrow.status, 202);
+});
+
+test("problems filed before yesterday go, those waiting stay up to 25 months", async () => {
+  db.problems.set("filed-old", { id: "filed-old", day: "2026-11-07", title: "", body: "", issue: 1 });
+  db.problems.set("filed-yesterday", { id: "filed-yesterday", day: "2026-11-09", title: "", body: "", issue: 2 });
+  db.problems.set("waiting", { id: "waiting", day: "2026-01-02", title: "t", body: "b", issue: null });
+  db.problems.set("waiting-too-long", { id: "waiting-too-long", day: "2024-10-09", title: "t", body: "b", issue: null });
+  await expire(env, NOW);
+  assert.deepEqual([...db.problems.keys()], ["filed-yesterday", "waiting"]);
 });
