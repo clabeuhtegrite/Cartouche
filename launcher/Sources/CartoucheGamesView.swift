@@ -330,6 +330,7 @@ struct CartoucheGamesView: View {
         .onAppear {
             memory = CartoucheMemoryReading.now()
             CartoucheRenewal.scheduleWarnings()
+            CartoucheStorageReach.shared.start()
             storedGames.refresh()
             actions.copySaves(of: sharedModel.apps)
             CartoucheGameStats.shared.cameBack(sharedModel.apps)
@@ -343,11 +344,22 @@ struct CartoucheGamesView: View {
         // Cartouche's source may list a new version, newer covers may be out.
         .onReceive(NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification)) { _ in
             CartoucheRenewal.scheduleWarnings()
+            CartoucheStorageReach.shared.setInFront(true)
             storedGames.refresh()
             actions.copySaves(of: sharedModel.apps)
             CartoucheGameStats.shared.cameBack(sharedModel.apps)
             updates.checkIfDue()
             catalog.refreshCoversIfDue()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: UIApplication.didEnterBackgroundNotification)) { _ in
+            CartoucheStorageReach.shared.setInFront(false)
+        }
+        // A server of the player's that was offline answers again, as when
+        // the iPhone is back home or on the VPN: the games folder is read
+        // again, and the saves waiting for it are copied.
+        .onReceive(CartoucheStorageReach.shared.cameBack) { _ in
+            storedGames.refresh()
+            actions.copySaves(of: sharedModel.apps)
         }
     }
 

@@ -51,6 +51,10 @@ final class CartoucheSFTPServer: CartoucheRemote {
             return CartoucheSFTPServer(connection: connection, hostKey: key)
         } catch let error as CartoucheStorageError {
             throw error
+        } catch let notOpened as SFTPConnection.NotOpened {
+            // Out of reach from here, as a NAS at home is from elsewhere.
+            NSLog("[Cartouche] no connection to the SFTP server: %@", String(describing: notOpened.reason))
+            throw CartoucheStorageOffline(server)
         } catch {
             // The key refused closes the connection, whatever error comes.
             if check.changed {
@@ -464,10 +468,15 @@ private final class SFTPConnection: @unchecked Sendable {
         close()
     }
 
+    /// The server took no connection, within the reach patience or at all.
+    struct NotOpened: Error {
+        let reason: Error
+    }
+
     static func open(host: String, port: Int, user: String, password: String, check: HostKeyCheck) async throws -> SFTPConnection {
         let offer = PasswordOffer(user: user, password: password)
         let bootstrap = ClientBootstrap(group: MultiThreadedEventLoopGroup.singleton)
-            .connectTimeout(.seconds(20))
+            .connectTimeout(.nanoseconds(Int64(CartoucheStorageReach.patience)))
             .channelInitializer { channel in
                 channel.eventLoop.makeCompletedFuture {
                     let ssh = NIOSSHHandler(
@@ -479,7 +488,12 @@ private final class SFTPConnection: @unchecked Sendable {
                     try channel.pipeline.syncOperations.addHandler(CloseOnError())
                 }
             }
-        let parent = try await bootstrap.connect(host: host, port: port).get()
+        let parent: Channel
+        do {
+            parent = try await bootstrap.connect(host: host, port: port).get()
+        } catch {
+            throw NotOpened(reason: error)
+        }
         let handler = SFTPChannelHandler()
         do {
             let channel = try await parent.eventLoop.flatSubmit { () -> EventLoopFuture<Channel> in

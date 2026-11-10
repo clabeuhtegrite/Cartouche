@@ -35,6 +35,7 @@ final class CartoucheSMB: CartoucheRemote {
     static func connect(_ server: CartoucheStorageServer, password: String) async throws -> CartoucheSMB {
         let client = SMBClient(host: server.host, port: server.port ?? 445)
         let session = client.session
+        try await open(client, of: server)
         do {
             _ = try await CartoucheDeadline.within(patience, cut: { session.disconnect() }) {
                 try await client.login(username: server.username.isEmpty ? nil : server.username,
@@ -50,6 +51,23 @@ final class CartoucheSMB: CartoucheRemote {
             }
         }
         return CartoucheSMB(client: client, shareAccess: shareAccess)
+    }
+
+    /// Opens the connection to SERVER, before a word is said on it. A server
+    /// that does not take it within the reach patience is out of reach from
+    /// here, as a NAS at home is from elsewhere: it is offline, rather than
+    /// refusing to sign in a minute later.
+    private static func open(_ client: SMBClient, of server: CartoucheStorageServer) async throws {
+        let session = client.session
+        do {
+            try await CartoucheDeadline.within(CartoucheStorageReach.patience, cut: { session.disconnect() }) {
+                try await session.connect()
+            }
+        } catch {
+            session.disconnect()
+            NSLog("[Cartouche] no connection to the shared folder's server: %@", error.localizedDescription)
+            throw CartoucheStorageOffline(server)
+        }
     }
 
     /// FILE_WRITE_DATA, which is FILE_ADD_FILE for a folder,
@@ -94,6 +112,7 @@ final class CartoucheSMB: CartoucheRemote {
     /// The server's shared folders, for the player to pick one.
     static func shares(_ server: CartoucheStorageServer, password: String) async throws -> [String] {
         let client = SMBClient(host: server.host, port: server.port ?? 445)
+        try await open(client, of: server)
         do {
             try await client.login(username: server.username.isEmpty ? nil : server.username,
                                    password: password.isEmpty ? nil : password)

@@ -19,6 +19,7 @@ struct CartoucheStorageView: View {
     @ObservedObject private var settings = CartoucheStorageSettings.shared
     @ObservedObject private var stored = CartoucheStoredGames.shared
     @ObservedObject private var backups = CartoucheSaveBackups.shared
+    @ObservedObject private var reach = CartoucheStorageReach.shared
     @State private var editing: CartoucheStorageServer?
     @State private var browsing: Browsing?
     @State private var choosingFolder = false
@@ -95,6 +96,10 @@ struct CartoucheStorageView: View {
                 } label: {
                     Label(Self.title(role), systemImage: Self.symbol(role))
                 }
+                // A server that does not answer from here, as a NAS away
+                // from home: the games folder keeps its last list and the
+                // saves wait, until it answers again.
+                let offline = reach.isOffline(server.id)
                 if role == .games {
                     LabeledContent(CartoucheText.storageGamesFound) {
                         if stored.isScanning {
@@ -103,7 +108,11 @@ struct CartoucheStorageView: View {
                             Text(verbatim: "\(stored.games.count)")
                         }
                     }
-                    if let problem = stored.problemReport {
+                    if offline {
+                        Label(CartoucheText.storageOffline(server.name), systemImage: "wifi.slash")
+                            .font(.footnote)
+                            .foregroundStyle(Color.orange)
+                    } else if let problem = stored.problemReport {
                         Text(problem.message)
                             .font(.footnote)
                             .foregroundStyle(Color.orange)
@@ -113,8 +122,17 @@ struct CartoucheStorageView: View {
                             .font(.footnote)
                             .foregroundStyle(Color.orange)
                     }
-                    Button(CartoucheText.storageReadAgain, systemImage: "arrow.clockwise") { stored.refresh() }
+                    Button(CartoucheText.storageReadAgain, systemImage: "arrow.clockwise") { stored.refresh(evenIfOffline: true) }
                         .disabled(stored.isScanning)
+                } else if offline {
+                    CartoucheOfflineRows(message: CartoucheText.storageOffline(server.name), isTrying: reach.trying.contains(server.id)) {
+                        Task { await reach.tryAgain(server) }
+                    }
+                    if !backups.waiting.isEmpty {
+                        Text(CartoucheText.savesWaiting(backups.waiting.count))
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                    }
                 } else if settings.isReadOnly(.saves) {
                     Text(CartoucheText.storageReadOnlySaves)
                         .font(.footnote)
@@ -796,6 +814,8 @@ struct CartoucheStorageFolderBrowser: View {
     let onChoose: (String) -> Void
     @State private var folders: [String]?
     @State private var problem: CartoucheReport?
+    /// Why the server did not answer, when it is offline from here.
+    @State private var offline: String?
     /// Whether the account can add a file here: nil until the server
     /// answers, and when it did not.
     @State private var writable: Bool?
@@ -844,6 +864,11 @@ struct CartoucheStorageFolderBrowser: View {
                         Text(CartoucheText.storageNoFolders)
                             .foregroundStyle(.secondary)
                     }
+                } else if let offline {
+                    CartoucheOfflineRows(message: offline) {
+                        self.offline = nil
+                        Task { await load() }
+                    }
                 } else if let problem {
                     Text(problem.message)
                         .foregroundStyle(Color.orange)
@@ -889,6 +914,9 @@ struct CartoucheStorageFolderBrowser: View {
             await remote.disconnect()
             folders = items.filter(\.isFolder).map(\.name).sorted { $0.localizedStandardCompare($1) == .orderedAscending }
             problem = nil
+        } catch let away as CartoucheStorageOffline {
+            // No problem to report: the player is away from the server.
+            offline = away.localizedDescription
         } catch {
             problem = CartoucheReports.make(.storage, CartoucheText.storageBrowseFailed, message: error.localizedDescription,
                                             error: error, step: "Listing a folder on " + CartoucheReports.kindName(server.kind),
@@ -908,6 +936,9 @@ struct CartoucheStorageFolderBrowser: View {
             }
             await remote.disconnect()
             folders = ((folders ?? []) + [name]).sorted { $0.localizedStandardCompare($1) == .orderedAscending }
+        } catch let away as CartoucheStorageOffline {
+            folders = nil
+            offline = away.localizedDescription
         } catch {
             // The name the player just typed is theirs too.
             CartoucheReports.redactTyped(names: [name])
@@ -924,6 +955,7 @@ struct CartoucheSavesSection: View {
     let target: CartoucheSaveTarget
     @ObservedObject var backups = CartoucheSaveBackups.shared
     @ObservedObject private var settings = CartoucheStorageSettings.shared
+    @ObservedObject private var reach = CartoucheStorageReach.shared
     @State private var copying = false
 
     init(target: CartoucheSaveTarget) {
@@ -967,7 +999,16 @@ struct CartoucheSavesSection: View {
                 } label: {
                     Label(CartoucheText.savesPutBack, systemImage: "clock.arrow.circlepath")
                 }
-                if let problem = backups.problemReport {
+                if reach.isOffline(location.server.id) {
+                    Label(CartoucheText.storageOffline(location.server.name), systemImage: "wifi.slash")
+                        .font(.footnote)
+                        .foregroundStyle(Color.orange)
+                    if backups.waiting.contains(target.key) {
+                        Text(CartoucheText.savesWaitingHere)
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                    }
+                } else if let problem = backups.problemReport {
                     Text(problem.message)
                         .font(.footnote)
                         .foregroundStyle(Color.orange)
@@ -997,6 +1038,10 @@ struct CartoucheSaveCopiesView: View {
     @State private var restored: Date?
     /// Why the last copy was not put back, and the report on it.
     @State private var failure: CartoucheReport?
+    /// Why the server did not answer, when it is offline from here: for
+    /// the list, and for the last copy put back.
+    @State private var offline: String?
+    @State private var restoreOffline: String?
 
     init(target: CartoucheSaveTarget) {
         self.target = target
@@ -1017,6 +1062,11 @@ struct CartoucheSaveCopiesView: View {
                         .foregroundStyle(Color.orange)
                     CartoucheReportButton(report: failure)
                 }
+            } else if let restoreOffline {
+                Section {
+                    Label(restoreOffline, systemImage: "wifi.slash")
+                        .foregroundStyle(Color.orange)
+                }
             }
             Section {
                 if let copies {
@@ -1036,6 +1086,11 @@ struct CartoucheSaveCopiesView: View {
                     if copies.isEmpty {
                         Text(CartoucheText.savesNoCopy)
                             .foregroundStyle(.secondary)
+                    }
+                } else if let offline {
+                    CartoucheOfflineRows(message: offline) {
+                        self.offline = nil
+                        Task { await load() }
                     }
                 } else if let problem {
                     Text(problem.message)
@@ -1071,6 +1126,12 @@ struct CartoucheSaveCopiesView: View {
             Text(CartoucheText.savesPutBackMessage)
         }
         .task { await load() }
+        // The server answers again: the list it could not give comes.
+        .onReceive(CartoucheStorageReach.shared.cameBack) { _ in
+            guard offline != nil else { return }
+            offline = nil
+            Task { await load() }
+        }
     }
 
     private var askingShown: Binding<Bool> {
@@ -1081,6 +1142,11 @@ struct CartoucheSaveCopiesView: View {
         do {
             copies = try await CartoucheSaveBackups.shared.copies(of: target)
             problem = nil
+            offline = nil
+        } catch let away as CartoucheStorageOffline {
+            // No problem to report: the player is away from the server.
+            copies = nil
+            offline = away.localizedDescription
         } catch {
             problem = CartoucheReports.make(.saves, CartoucheText.savesListFailed, message: error.localizedDescription,
                                             error: error, step: "Listing the copies of " + target.name + "'s saves, in "
@@ -1092,10 +1158,13 @@ struct CartoucheSaveCopiesView: View {
         restoring = true
         restored = nil
         failure = nil
+        restoreOffline = nil
         do {
             try await CartoucheSaveBackups.shared.restore(copy, of: target)
             restored = copy.date
             CartoucheReports.note("Saves of " + target.name + " put back from " + CartoucheReport.timestamp(copy.date))
+        } catch let away as CartoucheStorageOffline {
+            restoreOffline = away.localizedDescription
         } catch {
             failure = CartoucheReports.make(.saves, CartoucheText.savesPutBackFailed, message: error.localizedDescription,
                                             error: error, step: "Putting back a copy of " + target.name + "'s saves",
@@ -1105,5 +1174,29 @@ struct CartoucheSaveCopiesView: View {
         restoring = false
         // Putting a copy back first copies the saves it replaces.
         await load()
+    }
+}
+
+/// A server that does not answer from here, where what it holds would
+/// show, with a button that tries it again.
+@available(iOS 17.0, *)
+struct CartoucheOfflineRows: View {
+    let message: String
+    var isTrying = false
+    let tryAgain: () -> Void
+
+    var body: some View {
+        Label(message, systemImage: "wifi.slash")
+            .foregroundStyle(Color.orange)
+        Button(action: tryAgain) {
+            HStack {
+                Label(CartoucheText.storageTryAgain, systemImage: "arrow.clockwise")
+                if isTrying {
+                    Spacer()
+                    ProgressView()
+                }
+            }
+        }
+        .disabled(isTrying)
     }
 }

@@ -90,6 +90,7 @@ struct CartoucheHomeView: View {
     @ObservedObject private var guide = CartoucheGuide.shared
     @ObservedObject private var gamepad = CartoucheGamepad.shared
     @ObservedObject private var actions = CartoucheGameActions.shared
+    @ObservedObject private var reach = CartoucheStorageReach.shared
     @State private var row = CartoucheHomeView.shelfRow
     @State private var columns = [0, 0]
     @State private var signature = CartoucheSignature.current()
@@ -242,6 +243,25 @@ struct CartoucheHomeView: View {
                     .frame(height: 34)
                     .cartoucheGlass(in: Capsule())
                     .accessibilityLabel(Text(CartoucheText.controllerConnected))
+            }
+            // A server of the player's that does not answer from here, as
+            // their NAS away from home: the System page says which, and its
+            // Storage page tries it again.
+            if let offline = reach.offlineInUse.first {
+                Button {
+                    onTab(.system)
+                } label: {
+                    Label(CartoucheText.storageOfflineShort(offline.name), systemImage: "wifi.slash")
+                        .font(.subheadline.weight(.semibold))
+                        .labelStyle(CartoucheTightLabelStyle())
+                        .lineLimit(1)
+                        .foregroundStyle(Color.orange)
+                        .padding(.horizontal, 12)
+                        .frame(height: 34)
+                        .cartoucheGlass(in: Capsule(), interactive: true)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(Text(CartoucheText.storageOfflineTitle(offline.name)))
             }
             // Renewals keep Cartouche signed: its expiry shows here only
             // when it comes close, and leads to the System page.
@@ -462,10 +482,24 @@ struct CartoucheHomeView: View {
             if !setup.canPlay {
                 return setup.bannerDetail(signingInAgain: CartoucheAccount.shared.isAutomatic)
             }
-            return status == .update ? status.long : nil
+            guard status == .update else { return nil }
+            return isGamesFolderOffline ? CartoucheText.statusUpdateOffline(serverName) : status.long
+        case .stored where isGamesFolderOffline:
+            return CartoucheText.statusStoredOffline(serverName)
         default:
             return status.long
         }
+    }
+
+    /// Whether the games folder's server does not answer from here: its
+    /// games install once it does.
+    private var isGamesFolderOffline: Bool {
+        guard let server = CartoucheStorageSettings.shared.location(.games)?.server else { return false }
+        return reach.isOffline(server.id)
+    }
+
+    private var serverName: String {
+        CartoucheStoredGames.shared.serverName ?? ""
     }
 
     /// The buttons of the game in focus; with COMPACT, its last ones show
