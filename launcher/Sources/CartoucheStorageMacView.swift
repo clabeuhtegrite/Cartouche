@@ -29,6 +29,19 @@ final class CartoucheMacPairing: ObservableObject {
 
     var isPairing: Bool { mac != nil }
 
+    #if CARTOUCHE_GALLERY
+    /// The pairing the launcher's gallery (launcher/Gallery) shows: the Mac
+    /// being paired with, and the six digits both screens show.
+    static var gallery: (mac: CartoucheNearbyMac, code: String)?
+
+    init() {
+        if let gallery = Self.gallery {
+            mac = gallery.mac
+            code = gallery.code
+        }
+    }
+    #endif
+
     /// Pairs SERVER with MAC, then hands DONE the server to save and its
     /// paired key, base64.
     func start(_ server: CartoucheStorageServer, with mac: CartoucheNearbyMac,
@@ -108,6 +121,7 @@ struct CartoucheStorageMacForm: View {
                     Text(verbatim: CartoucheBridge.spaced(code))
                         .font(.system(size: 44, weight: .bold, design: .rounded).monospacedDigit())
                         .frame(maxWidth: .infinity)
+                        .listRowSeparator(.hidden)
                         .accessibilityLabel(code.map(String.init).joined(separator: " "))
                     Text(CartoucheText.storageMacCheckCode)
                         .font(.subheadline)
@@ -176,7 +190,8 @@ struct CartoucheStorageMacForm: View {
 
     private var nearbySection: some View {
         Section {
-            if nearby.found.isEmpty {
+            // No search to wait for while iOS refuses the local network.
+            if nearby.found.isEmpty && !nearby.refused {
                 HStack {
                     ProgressView()
                     Text(CartoucheText.storageMacLooking)
