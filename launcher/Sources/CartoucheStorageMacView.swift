@@ -29,6 +29,19 @@ final class CartoucheMacPairing: ObservableObject {
 
     var isPairing: Bool { mac != nil }
 
+    #if CARTOUCHE_GALLERY
+    /// The pairing the launcher's gallery (launcher/Gallery) shows: the Mac
+    /// being paired with, and the six digits both screens show.
+    static var gallery: (mac: CartoucheNearbyMac, code: String)?
+
+    init() {
+        if let gallery = Self.gallery {
+            mac = gallery.mac
+            code = gallery.code
+        }
+    }
+    #endif
+
     /// Pairs SERVER with MAC, then hands DONE the server to save and its
     /// paired key, base64.
     func start(_ server: CartoucheStorageServer, with mac: CartoucheNearbyMac,

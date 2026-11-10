@@ -111,7 +111,7 @@ struct CartoucheStorageView: View {
                         }
                     }
                     if offline {
-                        Label(CartoucheText.storageOffline(server.name), systemImage: "wifi.slash")
+                        Label(CartoucheStorageOffline(server).localizedDescription, systemImage: "wifi.slash")
                             .font(.footnote)
                             .foregroundStyle(Color.orange)
                     } else if let problem = stored.problemReport {
@@ -129,7 +129,7 @@ struct CartoucheStorageView: View {
                 } else if offline {
                     // As the games folder's lines: what waits, and a way to
                     // try the server again.
-                    Label(CartoucheText.storageOffline(server.name), systemImage: "wifi.slash")
+                    Label(CartoucheStorageOffline(server).localizedDescription, systemImage: "wifi.slash")
                         .font(.footnote)
                         .foregroundStyle(Color.orange)
                     if !backups.waiting.isEmpty {
@@ -1015,7 +1015,7 @@ struct CartoucheSavesSection: View {
                     Label(CartoucheText.savesPutBack, systemImage: "clock.arrow.circlepath")
                 }
                 if reach.isOffline(location.server.id) {
-                    Label(CartoucheText.storageOffline(location.server.name), systemImage: "wifi.slash")
+                    Label(CartoucheStorageOffline(location.server).localizedDescription, systemImage: "wifi.slash")
                         .font(.footnote)
                         .foregroundStyle(Color.orange)
                     if backups.waiting.contains(target.key) {

@@ -45,7 +45,21 @@ final class CartoucheMacBrowser: ObservableObject {
     private var browser: NWBrowser?
     private let queue = DispatchQueue(label: "Cartouche Mac browser")
 
+    #if CARTOUCHE_GALLERY
+    /// What the launcher's gallery (launcher/Gallery) shows in place of
+    /// Bonjour's answers: the Macs nearby, and whether iOS refuses Cartouche
+    /// the local network.
+    static var gallery: (found: [CartoucheNearbyMac], refused: Bool)?
+    #endif
+
     func start() {
+        #if CARTOUCHE_GALLERY
+        if let gallery = Self.gallery {
+            found = gallery.found
+            refused = gallery.refused
+            return
+        }
+        #endif
         guard browser == nil else { return }
         let browser = NWBrowser(for: Self.descriptor, using: .tcp)
         browser.browseResultsChangedHandler = { [weak self] results, _ in

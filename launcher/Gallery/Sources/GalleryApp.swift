@@ -8,7 +8,10 @@
 //  the whole screen of the simulator it runs on, such as the iPhone Duo's,
 //  with its own safe area, size classes and system bars.
 //
-//      -GalleryScreen games|library|sheet|settings|setup|signin|guide|system|storage|telemetry|report
+//      -GalleryScreen games|library|sheet|settings|setup|signin|guide|system|storage|storage-mac|telemetry|report
+//                                        storage-mac: Add your Mac, the
+//                                        form that pairs this iPhone with a
+//                                        Mac nearby
 //      -GalleryWidth 402 -GalleryHeight 874     (none: the whole screen)
 //      -GalleryInsets 62,0,34,0          top, leading, bottom, trailing
 //      -GalleryWidthClass compact        the width class at a scenario's
@@ -29,7 +32,19 @@
 //                                        offline: the player's NAS, out of
 //                                        reach, with a newer build of that
 //                                        game in its games folder and two
-//                                        games' saves waiting for it
+//                                        games' saves waiting for it;
+//                                        mac-nearby: two Macs nearby whose
+//                                        Cartouche Builder shares with
+//                                        Cartouche; mac-code: the same,
+//                                        pairing with the first, with the
+//                                        six digits on both screens;
+//                                        mac-refused: none, iOS refusing
+//                                        Cartouche the local network; mac:
+//                                        the player's Mac, paired, as the
+//                                        games folder and the saves folder;
+//                                        mac-offline: that Mac out of reach,
+//                                        away from home, with two games'
+//                                        saves waiting for it
 //      -GalleryOrientation landscape     the gallery turns itself sideways,
 //                                        as a game does; the simulator
 //                                        stays upright
@@ -41,6 +56,7 @@
 //                                        of nxnative's sections
 //
 
+import Network
 import SwiftUI
 import UIKit
 
@@ -150,6 +166,42 @@ struct GalleryScenario {
                 CartoucheStorageReach.shared.showOfflineForGallery([nas.id])
                 CartoucheSaveBackups.shared.showWaitingForGallery(2)
             }
+            if ["mac-nearby", "mac-code", "mac-refused"].contains(work) {
+                let refused = work == "mac-refused"
+                CartoucheMacBrowser.gallery = (found: refused ? [] : GalleryMac.nearby, refused: refused)
+                if work == "mac-code" {
+                    CartoucheMacPairing.gallery = (mac: GalleryMac.nearby[0], code: "482915")
+                }
+            }
+            if work == "mac" || work == "mac-offline" {
+                // The player's Mac, paired, with the games Cartouche Builder
+                // built in its Games folder; offline, away from home, the
+                // saves of two games wait for it.
+                let mac = GalleryMac.paired()
+                CartoucheStorageSettings.shared.showForGallery(mac, games: CartoucheBridge.gamesFolder,
+                                                               saves: CartoucheBridge.savesFolder)
+                CartoucheStoredGames.shared.showForGallery(storedGames(in: CartoucheBridge.gamesFolder), server: mac.name)
+                if work == "mac-offline" {
+                    CartoucheStorageReach.shared.showOfflineForGallery([mac.id])
+                    CartoucheSaveBackups.shared.showWaitingForGallery(2)
+                }
+            }
+        }
+    }
+
+    /// The player's games as IPAs in FOLDER, as Cartouche Builder leaves
+    /// them there: built last night.
+    @MainActor
+    private func storedGames(in folder: String) -> [CartoucheStoredGame] {
+        owned.compactMap { titleId in
+            guard let game = CartoucheCatalog.shared.game(titleId: titleId) else { return nil }
+            let built = Date().addingTimeInterval(-9 * 3_600)
+            return CartoucheStoredGame(
+                path: "/\(folder)/\(game.name) [\(titleId)].ipa", size: 21_474_836_480, modified: built,
+                bundleId: "org.nxnative." + titleId.lowercased(), displayName: game.name, version: "1.0.0",
+                build: CartoucheGameBuild(version: "1.0.0", commit: "7bddb8c1e2f3", chain: "adec7d81d970",
+                                          builtAt: built.addingTimeInterval(-120)),
+                titleId: titleId, isGame: true)
         }
     }
 
@@ -361,6 +413,11 @@ struct CartoucheGalleryApp: App {
             NavigationStack {
                 CartoucheStorageView()
             }
+        case "storage-mac":
+            // As the Storage page opens it, for a Mac not paired yet.
+            NavigationStack {
+                CartoucheStorageMacForm(server: CartoucheStorageServer(kind: .mac, name: ""))
+            }
         case "telemetry":
             NavigationStack {
                 CartoucheTelemetryView()
@@ -380,5 +437,27 @@ struct CartoucheGalleryApp: App {
         let settings = CartoucheGameActions.shared.settings(for: app, tileKey: entry.tileKey)
         settings.category = scenario.category
         return settings
+    }
+}
+
+/// The player's Mac with Cartouche Builder, as the gallery shows it: found
+/// by Bonjour beside another Mac of the house, then paired. Made-up names,
+/// ID and address.
+enum GalleryMac {
+    static let id = "6f1c2b9e-4d3a-4c8e-9b71-2a5d8e0f3c47"
+
+    static let nearby = [
+        CartoucheNearbyMac(name: "MacBook Air", macID: id, endpoint: service("MacBook Air")),
+        CartoucheNearbyMac(name: "Mac mini", macID: "c2e7a4d1-8b5f-4e3a-a6d9-1f4b7c0e9a28", endpoint: service("Mac mini")),
+    ]
+
+    /// The Mac as Cartouche keeps it once paired, at the address it last
+    /// reached it at.
+    static func paired() -> CartoucheStorageServer {
+        CartoucheStorageServer(kind: .mac, name: "MacBook Air", host: "192.168.1.20", port: Int(CartoucheBridge.port), macID: id)
+    }
+
+    private static func service(_ name: String) -> NWEndpoint {
+        .service(name: name, type: CartoucheBridge.serviceType, domain: "local.", interface: nil)
     }
 }
