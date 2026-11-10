@@ -1,6 +1,6 @@
 # Roadmap
 
-Cartouche is a launcher: it installs, starts and keeps the games the player builds with nxnative, and signs, renews and updates itself. It does not build games ([decision 28](decisions.md)). Each release is checked on a real iPhone, not only in CI, and tested from a fresh install.
+Cartouche is a launcher: it installs, starts and keeps the games the player builds with nxnative, and signs, renews and updates itself. The app does not build games ([decision 28](decisions.md)); Cartouche Builder, a program of its own, builds them on the player's Mac ([decision 29](decisions.md)). Each release is checked on a real iPhone, not only in CI, and tested from a fresh install.
 
 ## Released
 
@@ -15,7 +15,7 @@ Cartouche is a launcher: it installs, starts and keeps the games the player buil
 | 0.7 | An FTP server of the player's network for their games and saves, with their own account. |
 | 0.8 | An SFTP server of the player's for their games and saves, with their own account, its key checked at each connection. 0.8.1 installs games whose IPA holds a large deflated file read in pieces, and leaves no badge on the icon. |
 
-Every release and its notes: [`app/releases`](../app/releases/).
+Every release and its notes: [`app/releases`](../app/releases/). Beside the app, Cartouche Builder 0.1 builds the player's games on their Mac and builds them again when nxnative changes for them ([builder/README.md](../builder/README.md)).
 
 ## Next
 

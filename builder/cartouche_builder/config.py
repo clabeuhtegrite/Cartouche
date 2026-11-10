@@ -1,0 +1,228 @@
+"""The builder's settings: the player's folders, what to build and when.
+
+They are kept in config.json in the builder's folder (paths.py). The first
+start takes over the settings of NxNative Batch Builder, the tool this one
+replaces, when it finds them; its file is only read.
+"""
+
+from __future__ import annotations
+
+import json
+import os
+import tempfile
+from dataclasses import asdict, dataclass, field, fields
+from pathlib import Path
+
+from . import titles
+from .i18n import t
+from .paths import Paths, legacy_root
+
+ENGINE_URL = "https://github.com/seedds/nxnative.git"
+ENGINE_BRANCH = "main"
+# What a change to nxnative's shared code (not a game's profile, and naming no
+# game) does to a game built before it.
+POLICIES = ("weekly", "always", "never")
+
+
+@dataclass
+class Config:
+    sources: str = ""  # one folder per game: its packages, .nup, dump or zipped dump
+    games: str = ""  # where the IPAs go: the games folder Cartouche reads
+    keys: str = ""  # the player's prod.keys, for games given as packages
+    workspace: str = ""  # the games' build folders ("" = the builder's own)
+    min_free_gb: int = 20  # a build does not start with less room in the workspace
+    workspace_limit_gb: int = 0  # 0 = no limit; above it the least recently built folders go
+    engine_url: str = ENGINE_URL
+    engine_branch: str = ENGINE_BRANCH
+    engine_policy: str = "weekly"
+    refresh_days: int = 7  # "weekly": a game is built again at most this often for shared changes
+    only: list[str] = field(default_factory=list)  # the games to build (title IDs); empty = all
+    skip: list[str] = field(default_factory=list)  # games never built
+    aliases: dict[str, list[str]] = field(default_factory=dict)  # more names of a game in commit messages
+    unprofiled: bool = False  # also build games nxnative has no profile for (a guess that may not start)
+    game_language: str = ""  # nxnative's -l (empty = its default, English)
+    jobs: int = 1  # games built at once
+    keep_ipa: bool = False  # keep each IPA in its build folder too (a faster next pack)
+    language: str = ""  # the builder's own language: "en", "fr" or "" for the system's
+    notifications: bool = True
+    schedule: bool = False  # build what is due every night (launchd)
+    schedule_hour: int = 3
+    schedule_minute: int = 30
+    shares: dict[str, str] = field(default_factory=dict)  # mount point -> smb:// share, to mount again
+    imported: bool = False  # NxNative Batch Builder's settings were taken over
+
+    # ---- Paths -----------------------------------------------------------
+
+    def path(self, name: str) -> Path | None:
+        value = getattr(self, name)
+        return Path(value).expanduser() if value else None
+
+    def workspace_path(self, paths: Paths) -> Path:
+        return self.path("workspace") or paths.workspace
+
+    # ---- Checks ----------------------------------------------------------
+
+    def problems(self, paths: Paths) -> list[str]:
+        """What keeps a batch from starting, in the player's words."""
+        found = []
+        sources, games = self.path("sources"), self.path("games")
+        if not sources:
+            found.append(t("config.no_sources"))
+        elif not sources.is_dir():
+            found.append(t("config.sources_missing", path=sources))
+        if not games:
+            found.append(t("config.no_games"))
+        elif not games.is_dir():
+            found.append(t("config.games_missing", path=games))
+        workspace = self.workspace_path(paths)
+        resolved = {name: _resolved(p) for name, p in (("sources", sources), ("games", games), ("workspace", workspace)) if p}
+        if sources and games and resolved["sources"] == resolved["games"]:
+            found.append(t("config.same_folders"))
+        if sources:
+            for name in ("games", "workspace"):
+                if name in resolved and resolved["sources"] in resolved[name].parents:
+                    found.append(t("config.inside_sources", what=t(f"config.field.{name}")))
+        return found
+
+    def validate(self) -> None:
+        """Raises ValueError with the player's words for a setting out of range."""
+        if self.engine_policy not in POLICIES:
+            raise ValueError(t("config.bad_policy", value=self.engine_policy))
+        for name, low, high in (
+            ("min_free_gb", 0, 10000),
+            ("workspace_limit_gb", 0, 100000),
+            ("refresh_days", 1, 365),
+            ("jobs", 1, 4),
+            ("schedule_hour", 0, 23),
+            ("schedule_minute", 0, 59),
+        ):
+            value = getattr(self, name)
+            if not isinstance(value, int) or isinstance(value, bool) or not low <= value <= high:
+                raise ValueError(t("config.bad_number", name=name, low=low, high=high))
+        for name in ("only", "skip"):
+            ids = getattr(self, name)
+            if not isinstance(ids, list) or not all(isinstance(i, str) and titles.is_title_id(i) for i in ids):
+                raise ValueError(t("config.bad_ids", name=name))
+            setattr(self, name, sorted({i.upper() for i in ids}))
+        if not isinstance(self.aliases, dict):
+            raise ValueError(t("config.bad_aliases"))
+        clean: dict[str, list[str]] = {}
+        for key, names in self.aliases.items():
+            if not titles.is_title_id(key) or not isinstance(names, list) or not all(isinstance(n, str) for n in names):
+                raise ValueError(t("config.bad_aliases"))
+            kept = [n.strip() for n in names if n.strip()]
+            if kept:
+                clean[key.upper()] = kept
+        self.aliases = clean
+        if not isinstance(self.shares, dict) or not all(isinstance(k, str) and isinstance(v, str) for k, v in self.shares.items()):
+            self.shares = {}
+        if self.language not in ("", "en", "fr"):
+            raise ValueError(t("config.bad_language", value=self.language))
+
+    def selected(self, title_id: str) -> bool:
+        if title_id in self.skip:
+            return False
+        return not self.only or title_id in self.only
+
+
+def _resolved(path: Path) -> Path:
+    try:
+        return path.expanduser().resolve()
+    except OSError:
+        return path.expanduser().absolute()
+
+
+# ---- Storage -----------------------------------------------------------------
+
+
+def load(paths: Paths) -> Config:
+    """The saved settings, or the defaults (with NxNative Batch Builder's, once)."""
+    try:
+        data = json.loads(paths.config.read_text(encoding="utf-8"))
+    except FileNotFoundError:
+        config = Config()
+        if import_legacy(config):
+            save(paths, config)
+        return config
+    except (OSError, ValueError):
+        data = {}
+    known = {f.name for f in fields(Config)}
+    config = Config(**{k: v for k, v in (data if isinstance(data, dict) else {}).items() if k in known})
+    try:
+        config.validate()
+    except ValueError:
+        # A hand-edited file with a bad value: keep the folders, reset the rest.
+        defaults = Config()
+        for name in ("sources", "games", "keys", "workspace", "imported"):
+            setattr(defaults, name, getattr(config, name) if isinstance(getattr(config, name), (str, bool)) else getattr(defaults, name))
+        config = defaults
+    return config
+
+
+def save(paths: Paths, config: Config) -> None:
+    config.validate()
+    write_json(paths.config, asdict(config))
+
+
+def write_json(path: Path, data: object, mode: int = 0o600) -> None:
+    """Writes PATH whole or not at all: a temporary file renamed over it."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    fd, name = tempfile.mkstemp(dir=path.parent, prefix=f".{path.name}.", suffix=".tmp")
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as stream:
+            json.dump(data, stream, ensure_ascii=False, indent=2, sort_keys=True)
+            stream.write("\n")
+            stream.flush()
+            os.fsync(stream.fileno())
+        os.chmod(name, mode)
+        os.replace(name, path)
+    finally:
+        if os.path.exists(name):
+            os.unlink(name)
+
+
+# ---- NxNative Batch Builder --------------------------------------------------
+
+
+def legacy_config() -> dict:
+    try:
+        data = json.loads((legacy_root() / "config.json").read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return {}
+    return data if isinstance(data, dict) else {}
+
+
+def legacy_workspace() -> Path:
+    value = legacy_config().get("workspace")
+    if isinstance(value, str) and value.strip():
+        return Path(value).expanduser()
+    return legacy_root() / "workspace"
+
+
+def import_legacy(config: Config) -> bool:
+    """Takes over NxNative Batch Builder's folders and selection. Its workspace
+    stays the workspace: its build folders (<title ID>_build) are reused as
+    they are, so the next build of a game it built starts from its caches."""
+    data = legacy_config()
+    if not data:
+        return False
+
+    def text(key: str) -> str:
+        value = data.get(key)
+        return value.strip() if isinstance(value, str) else ""
+
+    config.sources = text("source_root") or config.sources
+    config.games = text("games_output") or config.games
+    config.keys = text("keys_path") or config.keys
+    workspace = legacy_workspace()
+    if workspace.is_dir():
+        config.workspace = str(workspace)
+    if isinstance(data.get("min_free_gb"), int) and 0 <= data["min_free_gb"] <= 10000:
+        config.min_free_gb = data["min_free_gb"]
+    if isinstance(data.get("notifications"), bool):
+        config.notifications = data["notifications"]
+    ids = data.get("selected_game_ids")
+    if data.get("selection_customized") is True and isinstance(ids, list):
+        config.only = sorted({i.upper() for i in ids if isinstance(i, str) and titles.is_title_id(i)})
+    config.imported = True
+    return True

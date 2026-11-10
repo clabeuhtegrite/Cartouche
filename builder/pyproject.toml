@@ -1,0 +1,18 @@
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "cartouche-builder"
+version = "0.1.0"
+description = "Builds the player's own games into IPAs with nxnative on their Mac, and builds again those an nxnative change touches"
+readme = "README.md"
+requires-python = ">=3.12"
+license = "AGPL-3.0-only"
+dependencies = []
+
+[project.scripts]
+cartouche-builder = "cartouche_builder.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["cartouche_builder*"]

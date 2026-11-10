@@ -54,7 +54,24 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - run: shellcheck -x app/scripts/*.sh catalog/tools/*.sh launcher/Gallery/*.sh
+      - run: shellcheck -x app/scripts/*.sh catalog/tools/*.sh launcher/Gallery/*.sh "builder/Cartouche Builder.command"
+
+  builder:
+    name: Cartouche Builder
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Tk and a display, for the window's test
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -y -q --no-install-recommends python3-tk xvfb
+      # A fake nxnative (a git repository whose build script writes an IPA of
+      # a few bytes) and fake dumps of a few bytes: no game is involved.
+      - name: Tests
+        working-directory: builder
+        run: xvfb-run -a python3 -m unittest discover -s tests -t tests -v
 
   workflows:
     name: Workflow audit

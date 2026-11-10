@@ -12,6 +12,7 @@ Cartouche puts everything a player needs on the iPhone into one app. This page d
 | | Launcher | Catalogue of every supported game with the player's own first, import, compatibility sheets, memory probe, updates; the only screens the player sees, LiveContainer's and SideStore's never show |
 | Player's own storage | A shared folder of their Mac, PC or NAS (SMB), a private S3 bucket, an FTP or SFTP server of theirs, or a folder in Files | Keeps the player's games, as IPAs Cartouche installs from there, and copies of their saves, with the player's own account |
 | iPhone | LocalDevVPN (App Store) | A loopback VPN through which SideStore reaches the phone's own services, so it needs no computer |
+| Player's Mac, optional | Cartouche Builder | Builds the player's games with nxnative from their own files into their games folder, and builds a game again when a change to nxnative touches it ([builder/README.md](../builder/README.md)) |
 | Computer, once | Cartouche Installer, for macOS and Windows | Installs the latest Cartouche, under its own App ID with the memory capability, gives it its certificate and puts the pairing file in it ([installer/README.md](../installer/README.md)) |
 | Server | GitHub releases | Hold each version of the app, listed in the source the built-in SideStore reads |
 | Server | GitHub Actions | Builds, checks and releases the app, with the publish guard in [`guard/`](../guard/) on every IPA and on the catalog |
@@ -57,9 +58,9 @@ The launcher measures the real limit at start-up (footprint plus `os_proc_availa
 
 ## Games
 
-The player builds a game's IPA on a Mac with nxnative's `scripts/build_ipa_from_nsp.py` (or a Mac app built on it) from their own dump, then imports it into Cartouche from Files, iCloud Drive, a USB-C drive, a network share or their games folder. Cartouche installs it as a guest app and signs it, on its own screens, and starts it without nxnative's settings screen, with the choices the game's settings page in Cartouche saved where nxnative reads them. Big games are built with `--romfs separate`, and their RomFS goes into the guest app's Documents folder.
+The player builds a game's IPA on a Mac with nxnative's `scripts/build_ipa_from_nsp.py` (or a Mac app built on it) from their own dump, then imports it into Cartouche from Files, iCloud Drive, a USB-C drive, a network share or their games folder. Cartouche Builder does it for a whole library: it builds each game into the games folder, and builds it again when nxnative changes its profile or a fix names it, or once a week for nxnative's shared code ([builder/README.md](../builder/README.md#when-a-game-is-built-again)). Cartouche installs it as a guest app and signs it, on its own screens, and starts it without nxnative's settings screen, with the choices the game's settings page in Cartouche saved where nxnative reads them. Big games are built with `--romfs separate`, and their RomFS goes into the guest app's Documents folder.
 
-Cartouche does not build games, and carries nothing of nxnative's build tools ([decisions.md](decisions.md), 28). What it knows of nxnative's games is the list of their profiles at a pinned commit ([catalog/README.md](../catalog/README.md)).
+Cartouche does not build games, and carries nothing of nxnative's build tools ([decisions.md](decisions.md), 28); Cartouche Builder is a program of its own, on the Mac, never part of the app or its releases (29). What it knows of nxnative's games is the list of their profiles at a pinned commit ([catalog/README.md](../catalog/README.md)).
 
 ## Updates
 
