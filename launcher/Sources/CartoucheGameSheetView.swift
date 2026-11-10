@@ -147,7 +147,7 @@ struct CartoucheGameSheetView: View {
                 primaryButton(CartoucheText.resume, systemImage: "play.fill") { onPlay(app) }
                 HStack(spacing: 10) {
                     secondaryButton(CartoucheText.gameSettings, systemImage: "slider.horizontal.3") { onSettings(app) }
-                    secondaryButton(CartoucheText.quit, systemImage: "xmark.circle") { actions.askToQuit() }
+                    secondaryButton(CartoucheText.quit, systemImage: "stop.circle") { actions.askToQuit() }
                 }
                 buildLine(CartoucheText.pausedDetail, systemImage: "pause.circle")
             } else if let app = entry.app {

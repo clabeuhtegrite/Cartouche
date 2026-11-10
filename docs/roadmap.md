@@ -15,19 +15,20 @@ Cartouche is a launcher: it installs, starts and keeps the games the player buil
 | 0.7 | An FTP server of the player's network for their games and saves, with their own account. |
 | 0.8 | An SFTP server of the player's for their games and saves, with their own account, its key checked at each connection. 0.8.1 installs games whose IPA holds a large deflated file read in pieces, and leaves no badge on the icon. |
 | 0.9 | A game updated from the player's games folder when it holds a newer build of it, such as one Cartouche Builder made again after a change to nxnative: Cartouche reads which build each IPA is and offers **Update** over the game. |
+| 0.10 | A game behind the console: the Home button brings the console back and leaves the game paused behind it, to resume or quit. The player's Mac as storage, through Cartouche Builder, paired once with six digits. A guide from the install to the first game; each game's play time and size; games in the iPhone's language; Game Mode. A server out of reach shown offline within seconds, and installs that read on after a dropped connection. **Copy the report** under each error and **Report a problem** in System. Game measurements sent to the project's server unless the player turns them off. In the catalog, the 64 games nxnative plays on the iPhone, and new games' covers every day. |
 
-Every release and its notes: [`app/releases`](../app/releases/). Beside the app, Cartouche Builder 0.1 builds the player's games on their Mac and builds them again when nxnative changes for them ([builder/README.md](../builder/README.md)).
+Every release and its notes: [`app/releases`](../app/releases/). Beside the app, Cartouche Builder builds the player's games on their Mac and builds them again when nxnative changes for them; since 0.2, a Mac app from a disk image, it installs its own tools, updates itself, and serves the games and keeps the saves of the iPhones paired with it ([builder/README.md](../builder/README.md)).
 
 ## Next
 
-- **Updates on a phone:** the first version offered from inside Cartouche, after 0.5.1, checked end to end: the offer, the install and the return to the home screen.
+- **0.10 on a phone and a Mac:** installed from inside Cartouche over 0.9, then each of its changes tried on a real iPhone and a real Mac: a game behind the console, the Mac paired, a server offline, an error report, a game in the iPhone's language.
 
 ## Then
 
 - On an iPhone Duo: folding or unfolding mid-game keeps the game running under its memory limit, checked on a Duo closed, open and partly folded. The home and a game's sheet already stand on either side of the fold, in a split `ArrangementView` of iOS 27.1 ([launcher/README.md](../launcher/README.md#every-iphone-the-iphone-duo-included)).
 - A week of renewals by the built-in SideStore alone, with Increased Memory Limit kept.
 - More testers: their iPhones measured and added to [`catalog/devices.json`](../catalog/devices.json), and compatibility sheets from their reports.
-- Game measurements from every iPhone, on unless the player turns them off ([decision 35](decisions.md)): the telemetry server is deployed and its address is in the app from the next version; then the measurements of several iPhones in the game sheets, each Thursday.
+- Game measurements from every iPhone, on unless the player turns them off ([decision 35](decisions.md)), sent from 0.10 on: the measurements of several iPhones in the game sheets, each Thursday.
 
 ## Not planned
 
