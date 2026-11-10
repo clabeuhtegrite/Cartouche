@@ -865,6 +865,23 @@ final class CartoucheGameActions: ObservableObject {
         backups.copyChanged(apps.filter { $0 !== running?.app }.compactMap { saves(of: $0) })
     }
 
+    // MARK: Size and play time
+
+    /// The game's bundle and its data folders in Cartouche, for its size and
+    /// its play time (CartoucheGameStats): not the folders the player picked
+    /// elsewhere, which LiveContainer's storage page leaves out too. Nil for
+    /// an app that is not an nxnative game.
+    func folders(of app: LCAppModel) -> CartoucheGameFolders? {
+        guard let found = CartoucheCatalog.shared.gameTitle(of: app), let bundlePath = app.appInfo.bundlePath(),
+              let bundleId = CartoucheGameStats.bundleId(of: app) else { return nil }
+        var data: [String: URL] = [:]
+        for container in app.uiContainers where container.storageBookMark == nil {
+            data[container.folderName] = container.containerURL
+        }
+        return CartoucheGameFolders(bundleId: bundleId, titleId: found.isEmpty ? nil : found,
+                                    bundle: URL(fileURLWithPath: bundlePath, isDirectory: true), data: data)
+    }
+
     // MARK: Settings
 
     /// The game's settings page: the rows of its dm/launcher.json, and the

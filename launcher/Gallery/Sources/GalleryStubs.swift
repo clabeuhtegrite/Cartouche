@@ -110,6 +110,9 @@ final class CartoucheGameActions: ObservableObject {
     /// gallery has none of.
     func saves(of app: LCAppModel) -> CartoucheSaveTarget? { nil }
     func copySaves(of apps: [LCAppModel]) {}
+    /// Nor any folder to measure: the scenario gives each game its size and
+    /// play time (CartoucheGameStats.showForGallery).
+    func folders(of app: LCAppModel) -> CartoucheGameFolders? { nil }
 
     func settings(for app: LCAppModel, tileKey: String) -> CartoucheGameSettingsModel {
         CartoucheGameSettingsModel(name: app.displayName, tileKey: tileKey,

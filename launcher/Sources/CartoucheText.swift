@@ -418,6 +418,37 @@ enum CartoucheText {
     static var memoryFooterBehind: String { s("system.memory.footer.behind", "Games that start in Cartouche’s place share this limit; behind Cartouche, a game has its own. With Increased Memory Limit, an iPhone with 12 GB allows about 6 GiB.") }
     static func updateWhilePlaying(_ name: String) -> String { f("system.updates.playing", "Quit %@ first: Cartouche closes to install its update.", name) }
 
+    // MARK: Play time and size
+
+    static var statsTitle: String { s("stats.title", "Play time and size") }
+    static var statsPlayTime: String { s("stats.playTime", "Play time") }
+    static var statsNotCounted: String { s("stats.notCounted", "Not counted yet") }
+    static var statsCountedNext: String { s("stats.countedNext", "Counted from your next game") }
+    static func statsPlayTimeDetail(_ sessions: String, _ lastPlayed: String) -> String {
+        f("stats.playTime.detail", "%1$@, last played %2$@", sessions, lastPlayed)
+    }
+    static func statsSessions(_ count: Int) -> String {
+        count == 1 ? s("stats.session", "1 session") : f("stats.sessions", "%lld sessions", count)
+    }
+    static func statsSizeDetail(_ game: String, _ data: String) -> String { f("stats.size.detail", "Game %1$@, data %2$@", game, data) }
+    static func statsStored(_ server: String) -> String { f("stats.stored", "In %@", server) }
+
+    /// When a game was last played: "yesterday", "2 hours ago".
+    static func lastPlayed(_ date: Date) -> String {
+        min(date, Date()).formatted(.relative(presentation: .named))
+    }
+
+    /// A play time: "12 h 30 min", "45 min", "< 1 min".
+    static func duration(seconds: Double) -> String {
+        let minutes = Int(min(max(seconds, 0), 1e12) / 60)
+        if minutes < 1 { return s("duration.underMinute", "<\u{00A0}1\u{00A0}min") }
+        if minutes < 60 { return f("duration.minutes", "%lld\u{00A0}min", minutes) }
+        let hours = minutes / 60
+        let rest = minutes % 60
+        if rest == 0 { return f("duration.hours", "%lld\u{00A0}h", hours) }
+        return f("duration.hoursMinutes", "%1$lld\u{00A0}h %2$lld\u{00A0}min", hours, rest)
+    }
+
     // MARK: The player's storage
 
     static var storageTitle: String { s("storage.title", "Storage") }
@@ -730,6 +761,18 @@ enum CartoucheText {
         formatter.maximumFractionDigits = 1
         let gib = formatter.string(from: NSNumber(value: gibibytes)) ?? String(format: "%.1f", gibibytes)
         return mebibytes(value) + " (" + f("unit.gib", "%@\u{00A0}GiB", gib) + ")"
+    }
+
+    /// A size on the disk, in decimal units as iOS counts storage:
+    /// "23.4 GB", "312 MB", "48 KB".
+    static func size(bytes: UInt64) -> String {
+        if bytes >= 1_000_000_000 { return storageAmount(bytes: Int64(clamping: bytes)) }
+        if bytes >= 1_000_000 {
+            let megabytes = grouped(Int(bytes / 1_000_000))
+            return f("unit.mb", "%@\u{00A0}MB", megabytes)
+        }
+        let kilobytes = grouped(Int((bytes + 999) / 1_000))
+        return f("unit.kb", "%@\u{00A0}KB", kilobytes)
     }
 
     /// "23.4 GB", in decimal gigabytes as iOS counts storage.
