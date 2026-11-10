@@ -13,7 +13,8 @@
 # usage: package.sh --archive LiveContainer.xcarchive --sidestore SideStore.ipa
 #                   --dylibify PATH --resources DIR --catalog DIR --bundle-id ID
 #                   --name NAME --url-scheme SCHEME --version X.Y.Z
-#                   --source-url URL --covers-url URL --commit SHA --out OUT.ipa
+#                   --source-url URL --covers-url URL [--telemetry-url URL]
+#                   --commit SHA --out OUT.ipa
 set -euo pipefail
 
 while [ $# -gt 0 ]; do
@@ -29,6 +30,7 @@ while [ $# -gt 0 ]; do
     --version) VERSION="$2" ;;       # Cartouche's version, from app/config.env
     --source-url) SOURCE_URL="$2" ;; # the source of Cartouche's updates, from app/config.env
     --covers-url) COVERS_URL="$2" ;; # the covers it reads every day, from app/config.env
+    --telemetry-url) TELEMETRY_URL="$2" ;; # the telemetry server, from app/config.env; may be empty
     --commit) COMMIT="$2" ;;         # the commit it is built from
     --out) OUT_IPA="$2" ;;
     *) echo "unknown option $1" >&2; exit 2 ;;
@@ -42,6 +44,8 @@ APP_GROUP="group.com.SideStore.SideStore"
 [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "version must be major.minor.patch: $VERSION" >&2; exit 2; }
 [[ "$SOURCE_URL" =~ ^https://[^[:space:]]+$ ]] || { echo "the source URL must be an https address: $SOURCE_URL" >&2; exit 2; }
 [[ "$COVERS_URL" =~ ^https://[^[:space:]]+$ ]] || { echo "the covers URL must be an https address: $COVERS_URL" >&2; exit 2; }
+TELEMETRY_URL="${TELEMETRY_URL:-}"
+[[ -z "$TELEMETRY_URL" || "$TELEMETRY_URL" =~ ^https://[^[:space:]]+$ ]] || { echo "the telemetry URL must be an https address: $TELEMETRY_URL" >&2; exit 2; }
 
 STAGE="$(mktemp -d)"
 trap 'rm -rf "$STAGE"' EXIT
@@ -116,6 +120,11 @@ $PB -c "Add :CartoucheSourceURL string $SOURCE_URL" "$APP/Info.plist"
 # The covers the launcher reads every day, over those of CartoucheCatalog/
 # (launcher/Sources/CartoucheCoverList.swift).
 $PB -c "Add :CartoucheCoversURL string $COVERS_URL" "$APP/Info.plist"
+# The telemetry server the launcher sends its reports to
+# (launcher/Sources/CartoucheTelemetry.swift); without one it sends nothing.
+if [ -n "$TELEMETRY_URL" ]; then
+  $PB -c "Add :CartoucheTelemetryURL string $TELEMETRY_URL" "$APP/Info.plist"
+fi
 
 # The built-in SideStore's app group, URL schemes and intents.
 # Never the plain "sidestore" scheme: a SideStore or LiveContainer+SideStore on

@@ -1,0 +1,116 @@
+{
+  "reports": [
+    {
+      "audioUnderrunsPerMinute": 0.2,
+      "cartouche": "0.10.0",
+      "cpu": {
+        "percent": 230,
+        "performanceCoresPercent": 85,
+        "watts": 4.1
+      },
+      "device": "iPhone19,4",
+      "display": {
+        "foldSplit": true,
+        "tv": false
+      },
+      "dlc": true,
+      "droppedPercent": 1.8,
+      "end": {
+        "kind": "crash",
+        "lr": "main+0x1a2b00",
+        "pc": "main+0x1a2b3c",
+        "signal": 11
+      },
+      "fps": {
+        "low5": 52,
+        "median": 59.9
+      },
+      "frameMs": {
+        "p50": 16.67,
+        "p95": 18.9,
+        "p99": 33.4
+      },
+      "frames": 120000,
+      "game": "0400C3F00006E000",
+      "gameVersion": "1.0.0",
+      "gpuBusyMsPerSecond": 610,
+      "gpuMs": {
+        "p50": 9.8,
+        "p95": 14.2,
+        "p99": 21.5
+      },
+      "guestFile": false,
+      "id": "5f0c2a9e-4b1d-4c3e-9a77-1e2f3d4c5b6a",
+      "increasedMemoryLimit": true,
+      "install": "8c1f6c2e-7a2f-4e19-8c3d-2f6a9b0e1d7c",
+      "ios": "27.3",
+      "kind": "session",
+      "language": "fr",
+      "lowPowerMinutes": 0.5,
+      "memory": {
+        "exactPeak": false,
+        "gpuPeakMiB": 2910,
+        "lowestHeadroomMiB": 1330,
+        "peakMiB": 4813
+      },
+      "memoryLimitMiB": 6143,
+      "minutes": 35.2,
+      "nxnative": "6c3aeb3d70a1",
+      "nxnativeChanged": false,
+      "overTargetPercent": 2.4,
+      "prepare": {
+        "lines": 13394,
+        "seconds": 21.43
+      },
+      "reader": 1,
+      "schema": 1,
+      "seq": 7,
+      "session": "b8e1d0c4-7a2f-4e19-8c3d-2f6a9b0e1d7c",
+      "settings": {
+        "DM_OPMODE": "0",
+        "DM_RENDER_SCALE": "1.0"
+      },
+      "shaderStallMsPerMinute": 210,
+      "stutters": {
+        "count": 108,
+        "other": 11,
+        "perMinute": 3.1,
+        "shaders": 76,
+        "textures": 21
+      },
+      "targetFps": 60,
+      "thermal": {
+        "critical": 0,
+        "fair": 9,
+        "nominal": 18,
+        "serious": 8.2,
+        "seriousAfterMinutes": 24
+      },
+      "upscaler": {
+        "gpuMs": 1.2,
+        "kind": "metalfx"
+      }
+    },
+    {
+      "cartouche": "0.10.0",
+      "device": "iPhone19,4",
+      "fields": {
+        "fromStorage": true,
+        "nxnative": "6c3aeb3d70a1",
+        "sizeMiB": 19456,
+        "version": "1.0.0"
+      },
+      "game": "0400C3F00006E000",
+      "id": "3d9b2f5e-0000-4000-8000-000000000001",
+      "increasedMemoryLimit": true,
+      "install": "8c1f6c2e-7a2f-4e19-8c3d-2f6a9b0e1d7c",
+      "ios": "27.3",
+      "kind": "event",
+      "language": "fr",
+      "memoryLimitMiB": 6143,
+      "name": "game.installed",
+      "schema": 1,
+      "seq": 8
+    }
+  ]
+}
