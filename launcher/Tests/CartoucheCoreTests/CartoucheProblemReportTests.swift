@@ -16,12 +16,25 @@ final class CartoucheProblemReportTests: XCTestCase {
         identifier: "iPhone19,4", chip: "A20 Pro", memoryGB: 12, date: "2026-11-10", iOS: "27.3",
         increasedMemoryLimit: true, appMemoryLimitMiB: 6143)
 
+    private let environment = CartoucheReport.Environment(
+        cartouche: "0.9.0 (50e8079)", basedOn: "LiveContainer 3.8.11, SideStore 0.7.0", system: "27.3 (25B72)",
+        device: "iPhone19,4 (A20 Pro, 12 GB)", language: "fr (fr-FR)",
+        facts: [.init("Memory", "limit 6143 MiB, used 212 MiB, Increased Memory Limit on"), .init("Storage", "games on SMB")])
+    private let date = Date(timeIntervalSince1970: 1_794_294_720)
+    /// The player's settings, as CartoucheReports reads them.
+    private let player = CartoucheRedaction(servers: ["192.168.1.2"], names: ["NAS d'Ad"], accounts: ["Ad Example"])
+    private let error = """
+        Cartouche report, 2026-11-09 21:03:11 +0100
+        Problem: The game was not installed
+        Message: The network connection was lost.
+        """
+
     private func report(what: String = "The game does not install from the NAS.\nIt stops at 42 %.",
-                        errors: [String] = ["Installing Mario Kart World\nThe network connection was lost."]) -> CartoucheProblemReport {
+                        errors: [String]? = nil) -> CartoucheProblemReport {
         CartoucheProblemReport(
-            what: what,
-            report: "Problem report, 2026-11-10 07:12 UTC\nCartouche 0.9.0 (50e8079)\niPhone19,4, iOS 27.3\n",
-            errors: errors, measurement: measurement, version: "0.9.0 (50e8079)", model: "iPhone19,4", iOS: "27.3")
+            what: what, environment: environment,
+            journal: ["Cartouche 0.9.0 (50e8079) started, iOS 27.3 (25B72), iPhone19,4", "Installing Celeste: Unpacking"],
+            date: date, errors: errors ?? [error], measurement: measurement, redaction: player)
     }
 
     private func fields(_ url: URL) -> [String: String] {
@@ -75,40 +88,63 @@ final class CartoucheProblemReportTests: XCTestCase {
 
     // MARK: The report
 
-    func testTheReportHoldsWhatHappenedTheReportTheMeasurementAndTheErrors() {
+    func testTheReportIsCartouchesWithWhatThePlayerWroteTheMeasurementAndTheErrors() {
         XCTAssertEqual(report().text, """
-            What happened
-            The game does not install from the NAS.
-            It stops at 42 %.
+            Cartouche report, \(CartoucheReport.timestamp(date))
+            Problem: Reported by the player
+            Message: The game does not install from the NAS.
+                It stops at 42 %.
+            Cartouche: 0.9.0 (50e8079), LiveContainer 3.8.11, SideStore 0.7.0
+            iOS: 27.3 (25B72)
+            Device: iPhone19,4 (A20 Pro, 12 GB)
+            Language: fr (fr-FR)
+            Memory: limit 6143 MiB, used 212 MiB, Increased Memory Limit on
+            Storage: games on SMB
 
-            Problem report, 2026-11-10 07:12 UTC
-            Cartouche 0.9.0 (50e8079)
-            iPhone19,4, iOS 27.3
+            Last steps:
+            Cartouche 0.9.0 (50e8079) started, iOS 27.3 (25B72), iPhone19,4
+            Installing Celeste: Unpacking
 
             For catalog/devices.json:
             \(measurement.json)
 
             Last errors, newest first:
-            Installing Mario Kart World
-            The network connection was lost.
+
+            Cartouche report, 2026-11-09 21:03:11 +0100
+            Problem: The game was not installed
+            Message: The network connection was lost.
             """)
         XCTAssertEqual(report().title, "The game does not install from the NAS.")
-        XCTAssertTrue(report().details.hasPrefix("Problem report, 2026-11-10 07:12 UTC\n"))
-        XCTAssertFalse(report().details.contains("What happened"))
+        // The page shows it in three parts.
+        XCTAssertEqual(report().parts.count, 3)
+        XCTAssertEqual(report().parts.joined(separator: "\n\n"), report().text)
+    }
+
+    func testWhatThePlayerWritesIsRedactedAsTheRest() throws {
+        let said = report(what: "Mon NAS 192.168.1.2 ne répond plus depuis NAS d'Ad.\nÉquipe Ad Example, ad@icloud.com")
+        XCTAssertTrue(said.text.contains("Message: Mon NAS <server> ne répond plus depuis <name>.\n    Équipe <account>, <e-mail>\n"))
+        XCTAssertEqual(said.title, "Mon NAS <server> ne répond plus depuis <name>.")
+        let url = try XCTUnwrap(said.issueURL())
+        XCTAssertEqual(fields(url)["what"], "Mon NAS <server> ne répond plus depuis <name>.\nÉquipe <account>, <e-mail>")
+        for kept in ["192.168.1.2", "NAS d'Ad", "Ad Example", "icloud"] {
+            XCTAssertFalse(said.text.contains(kept), kept)
+            XCTAssertFalse(url.absoluteString.removingPercentEncoding?.contains(kept) ?? true, kept)
+        }
     }
 
     func testAReportWithNothingWrittenOrNoErrors() {
         let empty = report(what: " \n ", errors: [])
-        XCTAssertTrue(empty.text.hasPrefix("What happened\n(nothing written)\n\nProblem report"))
+        XCTAssertTrue(empty.text.contains("\nMessage: (nothing written)\n"))
         XCTAssertFalse(empty.text.contains("Last errors"))
-        XCTAssertEqual(empty.title, "Cartouche 0.9.0 (50e8079) on iPhone19,4, iOS 27.3")
+        XCTAssertEqual(empty.parts.count, 2)
+        XCTAssertEqual(empty.title, "Cartouche 0.9.0 on iPhone19,4, iOS 27.3")
         let long = report(what: String(repeating: "a", count: 100))
         XCTAssertEqual(long.title, String(repeating: "a", count: 71) + "…")
     }
 
     func testErrorsAreSeparated() {
-        let two = report(errors: ["First\nline", "Second"])
-        XCTAssertTrue(two.text.hasSuffix("Last errors, newest first:\nFirst\nline\n\nSecond"))
+        let two = report(errors: ["First\nline\n", "Second"])
+        XCTAssertTrue(two.text.hasSuffix("Last errors, newest first:\n\nFirst\nline\n\nSecond"))
     }
 
     // MARK: GitHub's bug report form
@@ -119,17 +155,19 @@ final class CartoucheProblemReportTests: XCTestCase {
         XCTAssertEqual(components.scheme, "https")
         XCTAssertEqual(components.host, "github.com")
         XCTAssertEqual(components.path, "/clabeuhtegrite/Cartouche/issues/new")
-        // The IDs of .github/ISSUE_TEMPLATE/bug_report.yml's fields.
+        // The IDs of .github/ISSUE_TEMPLATE/bug_report.yml's fields; what
+        // the player wrote has its own.
+        let logs = report().text.replacingOccurrences(
+            of: "Message: The game does not install from the NAS.\n    It stops at 42 %.", with: "Message: (see What happened)")
         XCTAssertEqual(fields(url), [
             "template": "bug_report.yml",
             "title": "The game does not install from the NAS.",
             "what": "The game does not install from the NAS.\nIt stops at 42 %.",
-            "device": "iPhone19,4",
-            "ios": "27.3",
+            "device": "iPhone19,4 (A20 Pro, 12 GB)",
+            "ios": "27.3 (25B72)",
             "version": "0.9.0 (50e8079)",
-            "logs": report().details,
+            "logs": logs,
         ])
-        XCTAssertEqual(fields(try XCTUnwrap(report().issueURL(repository: "someone/Fork")))["template"], "bug_report.yml")
         XCTAssertTrue(try XCTUnwrap(report().issueURL(repository: "someone/Fork")).absoluteString
             .hasPrefix("https://github.com/someone/Fork/issues/new?template=bug_report.yml&"))
     }
@@ -137,7 +175,7 @@ final class CartoucheProblemReportTests: XCTestCase {
     func testNothingWrittenLeavesTheFieldForGitHub() throws {
         let url = try XCTUnwrap(report(what: "", errors: []).issueURL())
         XCTAssertNil(fields(url)["what"])
-        XCTAssertEqual(fields(url)["title"], "Cartouche 0.9.0 (50e8079) on iPhone19,4, iOS 27.3")
+        XCTAssertEqual(fields(url)["title"], "Cartouche 0.9.0 on iPhone19,4, iOS 27.3")
     }
 
     func testTheQueryKeepsPlusSignsAmpersandsAndAccents() {
@@ -148,17 +186,21 @@ final class CartoucheProblemReportTests: XCTestCase {
     }
 
     func testATooLongReportLosesItsOldestErrorsFirst() throws {
-        let many = report(errors: (1...300).map { "Error \($0)\nSomething went wrong while copying the game." })
+        let errors = (1...300).map { "Cartouche report, 2026-11-09 21:03:11 +0100\nProblem: Error \($0)\nMessage: Something went wrong while copying the game." }
+        let many = report(errors: errors)
         let url = try XCTUnwrap(many.issueURL())
-        XCTAssertLessThanOrEqual(url.absoluteString.utf8.count, CartoucheProblemReport.issueURLLimit)
+        let length = url.absoluteString.utf8.count
+        XCTAssertLessThanOrEqual(length, CartoucheProblemReport.issueURLLimit)
+        // As many lines as fit: one more would not.
+        XCTAssertGreaterThan(length, CartoucheProblemReport.issueURLLimit - 300)
         let logs = try XCTUnwrap(fields(url)["logs"])
-        XCTAssertTrue(logs.hasPrefix("Problem report, 2026-11-10 07:12 UTC\n"))
+        XCTAssertTrue(logs.hasPrefix("Cartouche report, "))
         XCTAssertTrue(logs.contains(measurement.json))
-        XCTAssertTrue(logs.contains("Error 1\n"))
-        XCTAssertFalse(logs.contains("Error 300\n"))
-        XCTAssertTrue(logs.hasSuffix("\n[Shortened for GitHub: send the report from Cartouche for all of it.]"))
+        XCTAssertTrue(logs.contains("Problem: Error 1\n"))
+        XCTAssertFalse(logs.contains("Problem: Error 300\n"))
+        XCTAssertTrue(logs.hasSuffix("\n" + CartoucheProblemReport.shortenedNote))
         // The share sheet sends it all.
-        XCTAssertTrue(many.text.contains("Error 300\n"))
+        XCTAssertTrue(many.text.contains("Problem: Error 300\n"))
         // What the player wrote stays whole.
         XCTAssertEqual(fields(url)["what"], "The game does not install from the NAS.\nIt stops at 42 %.")
     }
@@ -170,6 +212,9 @@ final class CartoucheProblemReportTests: XCTestCase {
         let what = try XCTUnwrap(fields(url)["what"])
         XCTAssertTrue(what.hasSuffix("…"))
         XCTAssertTrue(what.count > 100)
+        XCTAssertEqual(fields(url)["logs"], CartoucheProblemReport.shortenedNote)
+        // Too small a limit for anything: no address.
+        XCTAssertNil(essay.issueURL(limit: 50))
     }
 
     func testTheRepositoryFollowsCartouchesSource() {

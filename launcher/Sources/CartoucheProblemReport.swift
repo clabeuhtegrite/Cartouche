@@ -2,15 +2,16 @@
 //  CartoucheProblemReport.swift
 //  Cartouche
 //
-//  What a player sends from System › Report a problem: what they say
-//  happened; the report Cartouche writes of itself and this iPhone, its
-//  last steps and its last errors, cleaned of anything personal by
-//  CartoucheRedaction (CartoucheReport.swift); and this iPhone's memory
-//  limit as an entry of catalog/devices.json, so that testers' iPhones join
-//  that list (catalog/tools/add_device.py). It leaves the iPhone only when
-//  the player sends it themselves: with the share sheet, by copying it, or
-//  as a GitHub issue on the bug report form, .github/ISSUE_TEMPLATE/
-//  bug_report.yml, which issueURL fills in for them to check and post.
+//  What a player sends from System › Report a problem: the report Cartouche
+//  writes of an error (CartoucheReport.swift), with what they say happened
+//  as its message; the last errors' reports; and this iPhone's memory limit
+//  as an entry of catalog/devices.json, so that testers' iPhones join that
+//  list (catalog/tools/add_device.py). CartoucheRedaction takes out of it
+//  all, what the player wrote included, anything personal. It leaves the
+//  iPhone only when the player sends it themselves: with the share sheet,
+//  by copying it, or as a GitHub issue on the bug report form,
+//  .github/ISSUE_TEMPLATE/bug_report.yml, which issueURL fills in for them
+//  to check and post.
 //
 //  Platform-independent: tested on its own by launcher/Package.swift.
 //
@@ -80,19 +81,34 @@ struct CartoucheDeviceMeasurement: Equatable {
 }
 
 struct CartoucheProblemReport {
-    /// What the player wrote, as they wrote it: they see it before sending.
+    /// What the player wrote, as they wrote it.
     var what: String
-    /// Cartouche's report of itself and this iPhone, with its last steps,
-    /// already cleaned.
-    var report: String
-    /// The last errors' reports, already cleaned, newest first.
+    /// Cartouche and this iPhone when the page opened
+    /// (CartoucheReports.environment()).
+    var environment: CartoucheReport.Environment
+    /// Cartouche's last steps then, oldest first.
+    var journal: [String] = []
+    var date = Date()
+    /// The last errors' reports, newest first, as their text, already
+    /// redacted (CartoucheReports.text(of:)).
     var errors: [String] = []
     var measurement: CartoucheDeviceMeasurement?
-    /// The bug report form's fields: Cartouche's version, the model
-    /// identifier and iOS's version.
-    var version: String
-    var model: String
-    var iOS: String
+    /// What takes out of the report, and out of what the player wrote, what
+    /// a report must never hold: the names their settings hold, and anything
+    /// shaped like an address (CartoucheRedaction).
+    var redaction = CartoucheRedaction.shapes
+
+    /// The report's problem, which no error names: the player's own.
+    static let problem = "Reported by the player"
+    static let nothingWritten = "(nothing written)"
+    /// The line before the measurement, which catalog/tools/add_device.py
+    /// looks for.
+    static let measurementLine = "For catalog/devices.json:"
+    static let errorsLine = "Last errors, newest first:"
+    /// The report's message in the form's Logs: the form has its own field
+    /// for what the player wrote.
+    static let seeWhatHappened = "(see What happened)"
+    static let shortenedNote = "[Shortened for GitHub: send the report from Cartouche for all of it.]"
 
     /// The repository whose bug report form a report goes to, when Cartouche
     /// does not say its own.
@@ -106,90 +122,135 @@ struct CartoucheProblemReport {
     /// that a fork's reports go to the fork; else `repository`.
     static func repository(sourceURL: String?) -> String {
         guard let sourceURL, let url = URL(string: sourceURL), url.host == "raw.githubusercontent.com" else {
-            return repository
+            return Self.repository
         }
-        let parts = url.pathComponents.filter { $0 != "/" }
-        guard parts.count >= 2 else { return repository }
-        return parts[0] + "/" + parts[1]
+        let path = url.pathComponents.filter { $0 != "/" }
+        guard path.count >= 2 else { return Self.repository }
+        return path[0] + "/" + path[1]
     }
 
-    /// The title of the share sheet's message, and of the issue: the first
-    /// line the player wrote.
-    var title: String {
-        let firstLine = what.split(whereSeparator: \.isNewline).first.map {
-            $0.trimmingCharacters(in: .whitespaces)
-        } ?? ""
-        if firstLine.isEmpty {
-            return "Cartouche \(version) on \(model), iOS \(iOS)"
-        }
-        return firstLine.count > 72 ? String(firstLine.prefix(71)) + "…" : firstLine
+    /// What the player wrote, without the blank around it.
+    private var words: String {
+        what.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
-    /// Everything but what the player wrote, for the form's Logs: the
-    /// report, the measurement, then the errors, so that the oldest go first
-    /// when issueURL has to shorten it.
-    var details: String {
-        detailLines.joined(separator: "\n")
+    /// The report Cartouche writes of itself, as of an error: what the
+    /// player wrote is its message, which its text redacts as the rest.
+    var report: CartoucheReport {
+        CartoucheReport(title: Self.problem, message: words.isEmpty ? Self.nothingWritten : words,
+                        date: date, environment: environment, journal: journal)
+    }
+
+    /// The report as the page shows it: Cartouche's report, with what the
+    /// player wrote, this iPhone's entry for devices.json, then the last
+    /// errors.
+    var parts: [String] {
+        texts(of: report)
     }
 
     /// The whole of it, for the share sheet and the pasteboard.
     var text: String {
-        let what = self.what.trimmingCharacters(in: .whitespacesAndNewlines)
-        return "What happened\n" + (what.isEmpty ? "(nothing written)" : what) + "\n\n" + details
+        parts.joined(separator: "\n\n")
     }
 
-    private var detailLines: [String] {
-        var lines = report.trimmingCharacters(in: .whitespacesAndNewlines).components(separatedBy: .newlines)
+    private func texts(of report: CartoucheReport) -> [String] {
+        var texts = [report.text(redactedBy: redaction)]
         if let measurement {
-            lines += ["", "For catalog/devices.json:", measurement.json]
+            texts.append(Self.measurementLine + "\n" + measurement.json)
         }
         if !errors.isEmpty {
-            lines += ["", "Last errors, newest first:"]
-            for (index, error) in errors.enumerated() {
-                if index > 0 { lines.append("") }
-                lines += error.trimmingCharacters(in: .whitespacesAndNewlines).components(separatedBy: .newlines)
-            }
+            let errors = self.errors.map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            texts.append(Self.errorsLine + "\n\n" + errors.joined(separator: "\n\n"))
         }
-        return lines
+        return texts
+    }
+
+    /// The title of the share sheet's message, and of the issue: the first
+    /// line the player wrote, redacted; else Cartouche, the model and iOS.
+    var title: String {
+        makeTitle(redaction.redact(words))
+    }
+
+    private func makeTitle(_ words: String) -> String {
+        let firstLine = words.split(whereSeparator: \.isNewline).first.map {
+            $0.trimmingCharacters(in: .whitespaces)
+        } ?? ""
+        if firstLine.isEmpty {
+            return "Cartouche \(Self.short(environment.cartouche)) on \(Self.short(environment.device)), "
+                + "iOS \(Self.short(environment.system))"
+        }
+        return firstLine.count > 72 ? String(firstLine.prefix(71)) + "…" : firstLine
+    }
+
+    /// "0.9.0" of "0.9.0 (50e8079)".
+    private static func short(_ text: String) -> String {
+        text.components(separatedBy: " (").first ?? text
     }
 
     /// GitHub's page for a new issue in REPOSITORY ("owner/name"), on the
     /// bug report form with its fields filled in, for the player to check
-    /// and post: nothing is sent before they do. The details lose their
+    /// and post: nothing is sent before they do. The form's Logs lose their
     /// last lines, the oldest errors first, when the address would be too
-    /// long for GitHub; the share sheet always sends them whole.
+    /// long for GitHub, then what the player wrote loses its end; the share
+    /// sheet always sends it all.
     func issueURL(repository: String = Self.repository, limit: Int = Self.issueURLLimit) -> URL? {
-        let what = self.what.trimmingCharacters(in: .whitespacesAndNewlines)
-        var lines = detailLines
-        var shortened = false
-        func address(what: String) -> String {
-            var logs = lines.joined(separator: "\n")
-            if shortened {
-                logs += "\n[Shortened for GitHub: send the report from Cartouche for all of it.]"
+        let words = redaction.redact(self.words)
+        let issueTitle = makeTitle(words)
+        var shown = report
+        shown.message = Self.seeWhatHappened
+        let lines = texts(of: shown).joined(separator: "\n\n").components(separatedBy: "\n")
+
+        func address(lines kept: Int, words: String) -> String {
+            var logs = lines.prefix(kept).joined(separator: "\n")
+            if kept < lines.count {
+                logs += (kept > 0 ? "\n" : "") + Self.shortenedNote
             }
             return CartoucheIssueForm.address(repository: repository, template: "bug_report.yml", fields: [
-                (name: "title", value: title),
-                (name: "what", value: what),
-                (name: "device", value: model),
-                (name: "ios", value: iOS),
-                (name: "version", value: version),
+                (name: "title", value: issueTitle),
+                (name: "what", value: words),
+                (name: "device", value: environment.device),
+                (name: "ios", value: environment.system),
+                (name: "version", value: environment.cartouche),
                 (name: "logs", value: logs),
             ])
         }
-        var text = address(what: what)
-        while text.utf8.count > limit, !lines.isEmpty {
-            lines.removeLast()
-            shortened = true
-            text = address(what: what)
+        func fits(_ address: String) -> Bool {
+            address.utf8.count <= limit
         }
-        // What the player wrote, if too long by itself, loses its end.
-        var kept = what.count
-        while text.utf8.count > limit, kept > 0 {
-            kept -= max(1, kept / 8)
-            text = address(what: kept > 0 ? String(what.prefix(kept)) + "…" : "")
+
+        let whole = address(lines: lines.count, words: words)
+        if fits(whole) {
+            return URL(string: whole)
         }
-        guard text.utf8.count <= limit else { return nil }
-        return URL(string: text)
+        // As many lines as fit, with the note that says some are missing.
+        if let kept = Self.largest(upTo: lines.count - 1, where: { fits(address(lines: $0, words: words)) }) {
+            return URL(string: address(lines: kept, words: words))
+        }
+        // None does: what the player wrote, too long by itself, loses its
+        // end.
+        func shortened(_ count: Int) -> String {
+            count > 0 ? String(words.prefix(count)) + "…" : ""
+        }
+        guard let kept = Self.largest(upTo: words.count - 1, where: { fits(address(lines: 0, words: shortened($0))) }) else {
+            return nil
+        }
+        return URL(string: address(lines: 0, words: shortened(kept)))
+    }
+
+    /// The largest count from 0 to MOST that FITS, found by halves: FITS
+    /// holds for the smaller counts, up to a point.
+    private static func largest(upTo most: Int, where fits: (Int) -> Bool) -> Int? {
+        guard most >= 0, fits(0) else { return nil }
+        var low = 0, high = most
+        while low < high {
+            let middle = (low + high + 1) / 2
+            if fits(middle) {
+                low = middle
+            } else {
+                high = middle - 1
+            }
+        }
+        return low
     }
 }
 

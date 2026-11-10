@@ -9,10 +9,11 @@
 //  iPhone only when the player sends it.
 //
 //  The report is the one Cartouche writes of an error (CartoucheReports),
-//  without an error: Cartouche and this iPhone, the last steps, then the
-//  last errors' reports, all cleaned of anything personal; and this
-//  iPhone's memory limit as an entry of catalog/devices.json
-//  (CartoucheProblemReport.swift), which holds nothing personal.
+//  with what the player wrote as its message: Cartouche and this iPhone,
+//  the last steps, then the last errors' reports, all redacted, what the
+//  player wrote included; and this iPhone's memory limit as an entry of
+//  catalog/devices.json, which holds nothing personal
+//  (CartoucheProblemReport.swift).
 //
 
 import SwiftUI
@@ -23,12 +24,16 @@ struct CartoucheReportView: View {
     @State private var what = ""
     @State private var copied = false
     @State private var gathered: Gathered?
+    @Environment(\.openURL) private var openURL
 
     /// What Cartouche knows when the page opens.
     private struct Gathered {
-        var report: String
+        var environment: CartoucheReport.Environment
+        var journal: [String]
+        var date: Date
         var errors: [String]
         var measurement: CartoucheDeviceMeasurement?
+        var redaction: CartoucheRedaction
     }
 
     /// The last errors that go with a report: the five newest of the week.
@@ -37,6 +42,8 @@ struct CartoucheReportView: View {
 
     var body: some View {
         let report = problemReport
+        let parts = report?.parts ?? []
+        let text = parts.joined(separator: "\n\n")
         List {
             Section {
                 TextField(CartoucheText.reportWhatPrompt, text: $what, axis: .vertical)
@@ -48,29 +55,34 @@ struct CartoucheReportView: View {
             }
 
             Section {
-                ShareLink(item: report.text, subject: Text(verbatim: report.title)) {
+                ShareLink(item: text, subject: Text(verbatim: report?.title ?? "")) {
                     Label(CartoucheText.reportSend, systemImage: "square.and.arrow.up")
                 }
                 Button(copied ? CartoucheText.reportCopied : CartoucheText.reportCopy,
                        systemImage: copied ? "checkmark" : "doc.on.doc") {
-                    UIPasteboard.general.string = report.text
+                    UIPasteboard.general.string = text
                     copied = true
                 }
-                if let url = report.issueURL(repository: Self.repository) {
-                    Link(destination: url) {
-                        Label(CartoucheText.reportGitHub, systemImage: "ladybug")
+                Button(CartoucheText.reportGitHub, systemImage: "ladybug") {
+                    // Made when asked: the form's address can take a while
+                    // to shorten.
+                    if let url = report?.issueURL(repository: Self.repository) {
+                        openURL(url)
                     }
                 }
             } footer: {
                 Text(CartoucheText.reportSendFooter)
             }
-            .disabled(gathered == nil)
+            .disabled(report == nil)
 
             Section {
-                Text(verbatim: report.details)
-                    .font(.caption.monospaced())
-                    .textSelection(.enabled)
-                    .frame(maxWidth: .infinity, alignment: .leading)
+                // One part each, so that typing lays out only the first.
+                ForEach(parts.indices, id: \.self) { index in
+                    Text(verbatim: parts[index])
+                        .font(.caption.monospaced())
+                        .textSelection(.enabled)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
             } header: {
                 Text(CartoucheText.reportContents)
             } footer: {
@@ -88,25 +100,28 @@ struct CartoucheReportView: View {
         }
     }
 
-    private var problemReport: CartoucheProblemReport {
-        CartoucheProblemReport(what: what, report: gathered?.report ?? "", errors: gathered?.errors ?? [],
-                               measurement: gathered?.measurement, version: Self.version,
-                               model: CartoucheDevice.modelIdentifier, iOS: CartoucheDevice.iOSVersion)
+    private var problemReport: CartoucheProblemReport? {
+        guard let gathered else { return nil }
+        return CartoucheProblemReport(what: what, environment: gathered.environment, journal: gathered.journal,
+                                      date: gathered.date, errors: gathered.errors, measurement: gathered.measurement,
+                                      redaction: gathered.redaction)
     }
 
     @MainActor
     private static func gather(now: Date = Date()) -> Gathered {
-        let report = CartoucheReport(title: "Problem report", message: "", environment: CartoucheReports.environment(),
-                                     journal: CartoucheReports.journal(last: 50))
         let errors = CartoucheReports.recent
             .filter { now.timeIntervalSince($0.date) < errorAge }
             .prefix(errorCount)
             .map { CartoucheReports.text(of: $0) }
-        return Gathered(report: CartoucheReports.text(of: report), errors: Array(errors), measurement: measurement(now: now))
+        return Gathered(environment: CartoucheReports.environment(),
+                        journal: CartoucheReports.journal(last: CartoucheReports.journalShown),
+                        date: now, errors: Array(errors), measurement: measurement(now: now),
+                        redaction: CartoucheReports.redaction())
     }
 
     /// This iPhone's memory limit, now, as devices.json records it; nil on a
     /// simulator, or when iOS gives no limit.
+    @MainActor
     static func measurement(now: Date) -> CartoucheDeviceMeasurement? {
         let model = CartoucheDevice.modelIdentifier
         guard CartoucheDeviceMeasurement.isModelIdentifier(model), let memory = CartoucheMemoryReading.now() else {
@@ -118,17 +133,6 @@ struct CartoucheReportView: View {
             memoryGB: known?.memoryGB ?? CartoucheDeviceMeasurement.memoryGB(physicalMemory: ProcessInfo.processInfo.physicalMemory),
             date: CartoucheDeviceMeasurement.day(now), iOS: CartoucheDevice.iOSVersion,
             increasedMemoryLimit: CartoucheDevice.hasIncreasedMemoryLimit, appMemoryLimitMiB: memory.limitMiB)
-    }
-
-    /// Cartouche's version and the commit it was built from
-    /// (app/scripts/package.sh), as the System page shows it.
-    static var version: String {
-        let info = Bundle.main.infoDictionary
-        var text = info?["CFBundleShortVersionString"] as? String ?? "?"
-        if let build = info?["LCVersionInfo"] as? String, !build.isEmpty {
-            text += " (" + build + ")"
-        }
-        return text
     }
 
     /// The repository of Cartouche's own source, whose bug report form the
