@@ -1,0 +1,95 @@
+name: Live covers
+
+# Every day, finds on IGDB (catalog/tools/igdb_covers.py) the covers of the
+# games of catalog/nxnative.json and of every game nxnative has a profile
+# for on its main branch, with the Twitch application whose credentials are
+# the repository's secrets IGDB_CLIENT_ID and IGDB_CLIENT_SECRET, and keeps
+# them on the branch live-covers, which Cartouche reads every day
+# (CARTOUCHE_COVERS_URL in app/config.env): a game nxnative adds after a
+# version of Cartouche, and a game IGDB had no cover for yet, get their
+# covers on the player's iPhone without a new version. IGDB's IDs only,
+# never an address, as the publish guard checks (catalog/README.md).
+
+on:
+  schedule:
+    # Every day at 04:41 UTC.
+    - cron: "41 4 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: live-covers
+  cancel-in-progress: false
+
+jobs:
+  covers:
+    name: Find the newest covers
+    # Only main's workflow publishes: every iPhone reads the branch.
+    if: ${{ github.ref == 'refs/heads/main' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: nxnative's games on its main branch
+        # If nxnative cannot be read, or its profiles changed shape, the
+        # covers follow catalog/nxnative.json alone.
+        run: |
+          if catalog/tools/fetch_nxnative.sh build/nxnative main \
+              && python3 catalog/tools/nxnative_games.py build/nxnative --out build/nxnative-main.json; then
+            echo "nxnative's main branch: $(git -C build/nxnative rev-parse HEAD)"
+          else
+            rm -f build/nxnative-main.json
+            echo "::warning::nxnative's main branch could not be listed: these covers follow catalog/nxnative.json alone"
+          fi
+      - name: Ask IGDB
+        env:
+          IGDB_CLIENT_ID: ${{ secrets.IGDB_CLIENT_ID }}
+          IGDB_CLIENT_SECRET: ${{ secrets.IGDB_CLIENT_SECRET }}
+        run: |
+          LISTS=(--catalog catalog/nxnative.json)
+          if [ -f build/nxnative-main.json ]; then LISTS+=(--catalog build/nxnative-main.json); fi
+          python3 catalog/tools/igdb_covers.py "${LISTS[@]}" --out build/live-covers/covers.json
+          diff -u catalog/covers.json build/live-covers/covers.json || true
+      - name: Publish guard and schema
+        run: |
+          python3 -m venv .venv
+          .venv/bin/pip install --quiet -e "guard[dev]"
+          .venv/bin/cartouche-guard --kind catalog build/live-covers/covers.json
+          .venv/bin/python -c 'import json, sys, jsonschema; jsonschema.validate(json.load(open(sys.argv[1])), json.load(open(sys.argv[2])))' \
+            build/live-covers/covers.json catalog/schema/covers.schema.json
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: live-covers
+          path: build/live-covers
+          retention-days: 14
+          if-no-files-found: error
+
+  # The only job that can write runs nothing from the repository or from a
+  # package index: it pushes the file the first job checked.
+  publish:
+    name: Keep them on the branch live-covers
+    needs: covers
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # the branch live-covers
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
+        with:
+          name: live-covers
+          path: covers
+      - name: Push them to live-covers
+        run: |
+          cd covers
+          git init -q -b live-covers
+          git add covers.json
+          git -c user.name="github-actions[bot]" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" \
+            commit -q -m "Covers of $(date -u +%Y-%m-%d)" -m "Found by the Live covers workflow on $GITHUB_SHA."
+          gh auth setup-git
+          git push -q -f "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY.git" "HEAD:refs/heads/live-covers"
+          echo "Pushed to live-covers"

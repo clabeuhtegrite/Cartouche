@@ -1,13 +1,14 @@
 #!/usr/bin/env bash
 # Fetches nxnative's game profiles (dm/games) at the commit Cartouche pins
-# (catalog/nxnative.commit), without the rest of the repository, for
+# (catalog/nxnative.commit), or at another commit or branch, such as main for
+# the Live covers workflow, without the rest of the repository, for
 # nxnative_games.py.
-# usage: fetch_nxnative.sh DIR
+# usage: fetch_nxnative.sh DIR [COMMIT]
 set -euo pipefail
 
-DEST="${1:?usage: fetch_nxnative.sh DIR}"
+DEST="${1:?usage: fetch_nxnative.sh DIR [COMMIT]}"
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-COMMIT="$(tr -d '[:space:]' < "$HERE/../nxnative.commit")"
+COMMIT="${2:-$(tr -d '[:space:]' < "$HERE/../nxnative.commit")}"
 
 git init -q "$DEST"
 git -C "$DEST" remote add origin https://github.com/seedds/nxnative.git
