@@ -11,6 +11,10 @@
 //      -GalleryScreen games|library|sheet|settings|setup|signin|system|storage
 //      -GalleryWidth 402 -GalleryHeight 874     (none: the whole screen)
 //      -GalleryInsets 62,0,34,0          top, leading, bottom, trailing
+//      -GalleryWidthClass compact        the width class at a scenario's
+//                                        size, where iOS gives another one
+//                                        than its width says: an iPhone 17
+//                                        Pro sideways is compact
 //      -GalleryOwned 0400C3F00006E000,…  the player's games
 //      -GallerySetup 1 -GalleryController 1
 //      -GallerySheet <title ID>          the game of the sheet, of its
@@ -39,6 +43,8 @@ struct GalleryScenario {
     /// nil: the whole screen of the simulator.
     var size: CGSize?
     var insets = EdgeInsets()
+    /// nil: regular from 600 points wide, as an unfolded Duo is.
+    var widthClass: UserInterfaceSizeClass?
     var owned: [String] = []
     var setupDone = false
     var controller = false
@@ -59,6 +65,11 @@ struct GalleryScenario {
         let insets = (defaults.string(forKey: "GalleryInsets") ?? "").split(separator: ",").compactMap { Double($0) }
         if insets.count == 4 {
             scenario.insets = EdgeInsets(top: insets[0], leading: insets[1], bottom: insets[2], trailing: insets[3])
+        }
+        switch defaults.string(forKey: "GalleryWidthClass") {
+        case "compact": scenario.widthClass = .compact
+        case "regular": scenario.widthClass = .regular
+        default: break
         }
         scenario.owned = (defaults.string(forKey: "GalleryOwned") ?? "").split(separator: ",").map(String.init)
         scenario.setupDone = defaults.bool(forKey: "GallerySetup")
@@ -238,7 +249,7 @@ struct CartoucheGalleryApp: App {
                     .clipped()
             }
             .ignoresSafeArea()
-            .environment(\.horizontalSizeClass, size.width >= 600 ? .regular : .compact)
+            .environment(\.horizontalSizeClass, scenario.widthClass ?? (size.width >= 600 ? .regular : .compact))
             .environment(\.verticalSizeClass, size.height >= 600 ? .regular : .compact)
             .statusBarHidden()
             .persistentSystemOverlays(.hidden)
