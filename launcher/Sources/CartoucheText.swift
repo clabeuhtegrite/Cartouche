@@ -335,6 +335,10 @@ enum CartoucheText {
     static func installFromStorageNoSpace(needed: String, free: String) -> String {
         f("work.install.stored.noSpace", "Installing this game takes about %1$@ of free space, and this iPhone has %2$@. Free some space, then install it again.", needed, free)
     }
+    static func installFromStorageRetry(_ server: String) -> String { f("work.install.stored.retry", "The connection to %@ dropped. Cartouche connects again and goes on from where it stopped.", server) }
+    static func installFromStorageLost(_ server: String, _ reason: String) -> String {
+        f("work.install.stored.lost", "The connection to %1$@ dropped and did not come back within three minutes. Install the game again once the network is back. (%2$@)", server, reason)
+    }
     static func exportTitle(_ name: String) -> String { f("work.export.title", "Copying %@", name) }
     static func exportStep(_ server: String) -> String { f("work.export.step", "Copying it to %@. Keep Cartouche open: a large game takes several minutes.", server) }
     static var exportFailed: String { s("work.export.failed", "The game was not copied") }

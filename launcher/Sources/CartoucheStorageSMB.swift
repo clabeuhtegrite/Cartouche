@@ -24,17 +24,30 @@ final class CartoucheSMB: CartoucheRemote {
         self.shareAccess = shareAccess
     }
 
+    /// How long a request waits for the server's answer before Cartouche
+    /// cuts the connection. One that stopped answering without closing,
+    /// after the Wi-Fi changed or the NAS went down, would keep the request
+    /// waiting for good; cut, it fails, and an install from the games folder
+    /// connects again (CartoucheResumingSource). A read asks for the
+    /// server's most, 8 MiB or less, about a second on a home network.
+    static let patience: UInt64 = 60_000_000_000
+
     static func connect(_ server: CartoucheStorageServer, password: String) async throws -> CartoucheSMB {
         let client = SMBClient(host: server.host, port: server.port ?? 445)
+        let session = client.session
         do {
-            try await client.login(username: server.username.isEmpty ? nil : server.username,
-                                   password: password.isEmpty ? nil : password)
+            _ = try await CartoucheDeadline.within(patience, cut: { session.disconnect() }) {
+                try await client.login(username: server.username.isEmpty ? nil : server.username,
+                                       password: password.isEmpty ? nil : password)
+            }
         } catch {
             throw CartoucheStorageError(CartoucheText.storageSignInFailed(server.host, error.localizedDescription))
         }
         var shareAccess: UInt32 = 0
         if !server.share.isEmpty {
-            shareAccess = try await client.connectShare(server.share).maximalAccess
+            shareAccess = try await CartoucheDeadline.within(patience, cut: { session.disconnect() }) {
+                try await client.connectShare(server.share).maximalAccess
+            }
         }
         return CartoucheSMB(client: client, shareAccess: shareAccess)
     }
@@ -104,7 +117,7 @@ final class CartoucheSMB: CartoucheRemote {
     func open(_ path: String) async throws -> CartoucheByteSource {
         let reader = client.fileReader(path: path)
         let size = try await reader.fileSize
-        return SMBSource(reader: reader, size: size)
+        return SMBSource(reader: reader, size: size, session: client.session)
     }
 
     func create(_ path: String, size: UInt64?) async throws -> CartoucheRemoteUpload {
@@ -140,18 +153,27 @@ final class CartoucheSMB: CartoucheRemote {
         try await client.availableSpace()
     }
 
+    /// Says goodbye to the server, then closes the connection; a server
+    /// that no longer answers gets a few seconds.
     func disconnect() async {
-        _ = try? await client.logoff()
+        let session = client.session
+        _ = try? await CartoucheDeadline.within(Self.goodbye, cut: { session.disconnect() }) {
+            try await client.logoff()
+        }
     }
+
+    private static let goodbye: UInt64 = 5_000_000_000
 }
 
 private final class SMBSource: CartoucheByteSource {
     let size: UInt64
     private let reader: FileReader
+    private let session: Session
 
-    init(reader: FileReader, size: UInt64) {
+    init(reader: FileReader, size: UInt64, session: Session) {
         self.reader = reader
         self.size = size
+        self.session = session
     }
 
     deinit {
@@ -162,10 +184,15 @@ private final class SMBSource: CartoucheByteSource {
     func read(at offset: UInt64, count: Int) async throws -> Data {
         guard offset < size, count > 0 else { return Data() }
         var data = Data()
-        // FileReader reads at most 4 GiB at once.
+        let session = session
+        let most = Int(max(session.maxReadSize, 65_536))
+        // One request at a time, as FileReader sends them.
         while data.count < count {
-            let wanted = UInt32(min(count - data.count, Int(UInt32.max)))
-            let part = try await reader.read(offset: offset + UInt64(data.count), length: wanted)
+            let wanted = UInt32(min(count - data.count, most))
+            let at = offset + UInt64(data.count)
+            let part = try await CartoucheDeadline.within(CartoucheSMB.patience, cut: { session.disconnect() }) {
+                try await reader.read(offset: at, length: wanted)
+            }
             if part.isEmpty { break }
             data.append(part)
         }
