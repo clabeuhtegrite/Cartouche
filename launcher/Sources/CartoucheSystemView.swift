@@ -18,7 +18,8 @@ struct CartoucheSystemView: View {
     @State private var memory = CartoucheMemoryReading.now()
     @State private var signature = CartoucheSignature.current()
     @State private var renewal: Progress?
-    @State private var renewalError: String?
+    /// Why the last renewal from this page failed, and the report on it.
+    @State private var renewalReport: CartoucheReport?
     @State private var alertStatus: UNAuthorizationStatus?
     @ObservedObject private var setup = CartoucheSetup.shared
     @ObservedObject private var storage = CartoucheStorageSettings.shared
@@ -202,22 +203,28 @@ struct CartoucheSystemView: View {
         } else {
             Button(CartoucheText.renewNow, systemImage: "arrow.triangle.2.circlepath", action: renew)
         }
-        if let renewalError {
-            Label(renewalError, systemImage: "exclamationmark.triangle.fill")
+        if let renewalReport {
+            Label(renewalReport.message, systemImage: "exclamationmark.triangle.fill")
                 .font(.footnote)
                 .foregroundStyle(.red)
+            CartoucheReportButton(report: renewalReport)
+                .font(.footnote)
         }
     }
 
     private func renew() {
         let progress = Progress(totalUnitCount: 100)
         renewal = progress
-        renewalError = nil
+        renewalReport = nil
+        CartoucheReports.note("Renewal started")
         Task {
             do {
                 try await CartoucheRenewal.renew(progress: progress)
+                CartoucheReports.note("Renewal done")
             } catch {
-                renewalError = error.localizedDescription
+                renewalReport = CartoucheReports.make(.renewal, CartoucheText.renewFailed, message: error.localizedDescription,
+                                                      error: error, step: CartoucheText.renewing,
+                                                      fraction: progress.fractionCompleted)
             }
             renewal = nil
             measure()
@@ -351,10 +358,12 @@ struct CartoucheSystemView: View {
             }
             .disabled(updates.isChecking)
         }
-        if updates.phase == nil, let problem = updates.problem ?? updates.checkProblem {
-            Label(problem, systemImage: "exclamationmark.triangle.fill")
+        if updates.phase == nil, let problem = updates.problemReport ?? updates.checkReport {
+            Label(problem.message, systemImage: "exclamationmark.triangle.fill")
                 .font(.footnote)
                 .foregroundStyle(.red)
+            CartoucheReportButton(report: problem)
+                .font(.footnote)
         }
     }
 
