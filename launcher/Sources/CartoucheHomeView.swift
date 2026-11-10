@@ -134,12 +134,24 @@ struct CartoucheHomeView: View {
                         CartoucheHomeSetupBanner(action: onSetup)
                     }
                     if metrics.isWide {
-                        HStack(alignment: .top, spacing: metrics.spacing * 1.5) {
+                        HStack(alignment: .top, spacing: metrics.columnGap) {
                             VStack(alignment: .leading, spacing: metrics.spacing) {
                                 shelf(0, title: CartoucheText.homeLibrary, width: metrics.bigTile)
                                 shelf(1, title: CartoucheText.homeIPhone, width: metrics.smallTile)
                             }
                             .frame(width: metrics.shelvesWidth, alignment: .leading)
+                            // The shelves end at their column, the covers past it
+                            // fading out in the gap rather than running under the
+                            // game in focus; above, below and on the left, the
+                            // focused cover's ring and glow still show.
+                            .mask {
+                                LinearGradient(stops: [.init(color: .black, location: metrics.shelvesFadeStart),
+                                                       .init(color: .clear, location: 1)],
+                                               startPoint: .leading, endPoint: .trailing)
+                                    .padding(.vertical, -metrics.bigTile * 0.5)
+                                    .padding(.leading, -metrics.margin)
+                                    .padding(.trailing, -metrics.columnGap)
+                            }
                             heroView(metrics)
                                 .frame(maxWidth: .infinity, alignment: .leading)
                         }
@@ -652,6 +664,13 @@ struct CartoucheHomeView: View {
         var spacing: CGFloat { isShort ? 12 : 20 }
         var verticalPadding: CGFloat { isShort ? 8 : 12 }
         var shelvesWidth: CGFloat { (size.width - 2 * margin) * 0.6 }
+        /// Beside the game in focus, the space between it and the shelves.
+        var columnGap: CGFloat { spacing * 1.5 }
+        /// Where the shelves start to fade, from the screen's margin to the
+        /// end of the gap: at the end of their column.
+        var shelvesFadeStart: CGFloat {
+            (margin + shelvesWidth) / (margin + shelvesWidth + columnGap)
+        }
         var titleSize: CGFloat { isWide || isShort ? 26 : (size.width >= 600 ? 34 : 30) }
 
         /// The height of the game in focus, upright: its name, its badges,

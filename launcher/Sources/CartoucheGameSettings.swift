@@ -590,12 +590,15 @@ struct CartoucheSettingsCategoryBar: View {
             VStack(spacing: 6) {
                 Image(systemName: Self.symbol(category))
                     .font(.system(size: 17, weight: selected ? .semibold : .regular))
+                // Sharing the width, the buttons are as wide as each other:
+                // a long name shrinks a little rather than being cut.
                 Text(Self.title(category))
                     .font(.system(size: 12, weight: selected ? .semibold : .regular))
                     .lineLimit(1)
+                    .minimumScaleFactor(fills ? 0.8 : 1)
             }
             .foregroundStyle(selected ? Color.white : CartoucheTheme.secondaryText)
-            .padding(.horizontal, 8)
+            .padding(.horizontal, fills ? 4 : 8)
             .frame(minWidth: 64, maxWidth: fills ? CGFloat.infinity : nil, minHeight: 58)
             .background(
                 RoundedRectangle(cornerRadius: 14, style: .continuous)
