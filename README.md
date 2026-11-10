@@ -6,14 +6,16 @@ Cartouche is an iOS app that turns an iPhone into a console for the games [nxnat
 
 ## What it does
 
-- **A console's home.** Your games, with their official covers, on one shelf, every game of nxnative's list one step away, a sheet for each game that says how it runs on your iPhone, and touch or a game controller throughout.
+- **A console's home.** Your games, with their official covers, on one shelf, every game of nxnative's list one step away, a sheet for each game that says how it runs on your iPhone, with your play time and the room it takes, and touch or a game controller throughout.
 - **Your games, installed and started in Cartouche.** Import an IPA you built with nxnative, play it, change its nxnative settings on a page of Cartouche's own, uninstall it. Games run inside Cartouche as guest apps, so they do not count against a free Apple account's limit of three sideloaded apps.
-- **Your own storage.** Keep your games and saves on a shared folder of your Mac, PC or NAS, or a folder in Files, with your own account: the games there show in the library, ready to install, and your saves are copied after each game.
+- **Back to the console mid-game.** The Home button, on screen or on a controller, brings the console back and leaves the game paused behind it: **Resume** goes back to it, **Quit** ends it.
+- **Your own storage.** Keep your games and saves on your Mac through Cartouche Builder, a shared folder of your Mac, PC or NAS, an FTP or SFTP server, a private S3 bucket or a folder in Files, with your own account: the games there show in the library, ready to install, and your saves are copied after each game, or once the storage answers again when it is out of reach.
 - **Signed and renewed by itself.** The built-in SideStore renews Cartouche's seven-day signature from the System page or every night from a Shortcuts automation, and Cartouche warns before it expires.
 - **The memory games need.** Cartouche's App ID gets Increased Memory Limit, about 6 GiB instead of 3.3 GiB on a 12 GB iPhone, on a free account.
 - **Updates from the iPhone.** Cartouche offers its new versions over the console, and the built-in SideStore installs them.
 - **Every iPhone, the Duo included.** The interface follows the space it has, folded or unfolded, and keeps clear of the fold and the cameras.
-- **Your games, built on your Mac.** Cartouche Builder, a program of its own beside the app, builds your games with nxnative from your own files into your games folder, and builds a game again when a change to nxnative touches it ([builder/README.md](builder/README.md)).
+- **Your games, built on your Mac.** Cartouche Builder, a Mac app beside Cartouche, builds your games with nxnative from your own files into your games folder, and builds a game again when a change to nxnative touches it ([builder/README.md](builder/README.md)).
+- **Measurements that make games run better.** After each session, Cartouche sends what nxnative measured, such as the frame rate and the memory, never your files, saves or accounts; **System › Game measurements** turns it off ([docs/privacy.md](docs/privacy.md)). Under each error, **Copy the report** gives what it takes to understand it, and **System › Report a problem** shows a report in full before anything leaves the iPhone.
 
 You never see LiveContainer or SideStore, which Cartouche is built on: it drives them out of sight.
 
@@ -43,6 +45,7 @@ Cartouche ships no games, no keys and no firmware, and never downloads them: it 
 | [`builder/`](builder/) | Cartouche Builder, the Mac program that builds the player's own games with nxnative and builds them again when nxnative changes for them |
 | [`catalog/`](catalog/) | What the app knows about games and devices: nxnative's list of games, covers' IDs, compatibility sheets, device memory limits |
 | [`guard/`](guard/) | The publish guard, which refuses to publish anything that looks like game content |
+| [`telemetry/`](telemetry/) | The server Cartouche and Cartouche Builder send their measurements and problem reports to, a Cloudflare Worker, and the project's dashboard beside it |
 | [`site/`](site/) | The showcase page, on [GitHub Pages](https://clabeuhtegrite.github.io/Cartouche/): Cartouche's screens rebuilt in HTML around games of nxnative's list, their covers loaded from IGDB, in French and English |
 | [`docs/`](docs/) | Getting started, architecture, roadmap, decisions |
 
