@@ -64,7 +64,7 @@ enum CartoucheText {
     static var statusStoredShort: String { s("status.stored.short", "In storage") }
     static var statusStoredLong: String { s("status.stored.long", "Its IPA is in your games folder: install it to play it on this iPhone.") }
     static var statusUpdateShort: String { s("status.update.short", "Update") }
-    static var statusUpdateLong: String { s("status.update.long", "A newer IPA of it is in your games folder: update it, and its settings and saves stay.") }
+    static var statusUpdateLong: String { s("status.update.long", "A newer IPA of it is in your games folder: updating keeps your saves.") }
 
     /// A genre of nxnative.json, or nil for "other".
     static func genre(_ genre: String) -> String? {

@@ -4070,13 +4070,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "A newer IPA of it is in your games folder: update it, and its settings and saves stay."
+            "value" : "A newer IPA of it is in your games folder: updating keeps your saves."
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Une IPA plus récente du jeu est dans votre dossier des jeux : mettez-le à jour, ses réglages et ses sauvegardes restent."
+            "value" : "Une IPA plus récente est dans votre dossier des jeux : la mise à jour garde vos sauvegardes."
           }
         }
       }
