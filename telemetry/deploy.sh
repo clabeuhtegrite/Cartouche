@@ -16,12 +16,21 @@
 #    them;
 # 4. its workers.dev address, on the account's workers.dev subdomain,
 #    which is created when the account has none;
-# 5. its daily run, which deletes the reports older than 25 months.
+# 5. its daily run, which deletes the reports older than 25 months;
+# 6. the dashboard cartouche-dashboard, which shows the project what the
+#    database holds (README.md#dashboard): dashboard/worker.js and its
+#    page, with the catalog's names and covers of the games and chips of
+#    the iPhones, bound to the database and to the problems' repository as
+#    the server is, on its workers.dev address. It opens only behind
+#    Cloudflare Access; with CLOUDFLARE_ACCESS_TEAM and
+#    CLOUDFLARE_ACCESS_AUD, the team and the audience of a hostname's
+#    Access application, it also reads that application's tokens.
 #
 # It ends with the Worker's address, which goes in app/config.env as
-# CARTOUCHE_TELEMETRY_URL. Without the two variables it says so and does
-# nothing: they are secrets of the repository's environment cloudflare,
-# which .github/workflows/telemetry.yml deploys from.
+# CARTOUCHE_TELEMETRY_URL, and the dashboard's, with whether Access
+# protects it. Without the two variables it says so and does nothing: they
+# are secrets of the repository's environment cloudflare, which
+# .github/workflows/telemetry.yml deploys from.
 #
 #     CLOUDFLARE_API_TOKEN=… CLOUDFLARE_ACCOUNT_ID=… telemetry/deploy.sh
 #
@@ -30,7 +39,9 @@
 set -euo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+CATALOG="$HERE/../catalog"
 NAME=cartouche-telemetry
+DASHBOARD=cartouche-dashboard
 # The Workers runtime worker.js is written for.
 COMPATIBILITY_DATE=2026-09-01
 # Every day at 03:17 UTC.
@@ -148,6 +159,49 @@ call POST "/workers/scripts/$NAME/subdomain" -H "Content-Type: application/json"
 call PUT "/workers/scripts/$NAME/schedules" -H "Content-Type: application/json" \
   --data-binary "$(json "$(jq -n --arg cron "$SCHEDULE" '[{cron: $cron}]')")" >/dev/null
 
+# 6. The dashboard. Its page carries the catalog as JSON in a script
+# element, its < > & written \u003c \u003e \u0026 so that nothing in it
+# closes the element: for each title ID its name and IGDB cover, the other
+# regions' title IDs, and for each model its chip and memory.
+jq -nj --slurpfile games "$CATALOG/nxnative.json" --slurpfile covers "$CATALOG/covers.json" \
+  --slurpfile devices "$CATALOG/devices.json" '
+  ($covers[0].covers | map({key: .titleId, value: .cover}) | from_entries) as $cover
+  | {
+      games: (($covers[0].covers | map({key: .titleId, value: [.name, .cover]}) | from_entries)
+        + ($games[0].games | map({key: .titleId, value: [.name, ($cover[.titleId] // null)]}) | from_entries)),
+      aliases: ([$games[0].games[] | .titleId as $game | (.variants // [])[] | {key: .titleId, value: $game}] | from_entries),
+      devices: ($devices[0].devices | map({key: .identifier, value: [.chip, .memoryGB]}) | from_entries)
+    }
+  | tojson | gsub("<"; "\\u003c") | gsub(">"; "\\u003e") | gsub("&"; "\\u0026")' >"$WORK/catalog.json"
+PLACEHOLDER='<script type="application/json" id="catalog">{}</script>'
+jq -Rsj --arg placeholder "$PLACEHOLDER" --rawfile catalog "$WORK/catalog.json" '
+  split($placeholder)
+  | if length == 2 then .[0] + "<script type=\"application/json\" id=\"catalog\">" + $catalog + "</script>" + .[1]
+    else error("dashboard/index.html has no single place for the catalog") end' \
+  "$HERE/dashboard/index.html" >"$WORK/index.html"
+
+echo '[]' >"$WORK/access.json"
+if [ -n "${CLOUDFLARE_ACCESS_TEAM:-}" ] && [ -n "${CLOUDFLARE_ACCESS_AUD:-}" ]; then
+  jq -n --arg team "$CLOUDFLARE_ACCESS_TEAM" --arg aud "$CLOUDFLARE_ACCESS_AUD" '[
+    {type: "plain_text", name: "ACCESS_TEAM_DOMAIN", text: $team},
+    {type: "plain_text", name: "ACCESS_AUD", text: $aud}
+  ]' >"$WORK/access.json"
+fi
+echo "Uploading the dashboard $DASHBOARD"
+jq -n --arg date "$COMPATIBILITY_DATE" --arg database "$database" --slurpfile problems "$WORK/problems.json" \
+  --slurpfile access "$WORK/access.json" '{
+  main_module: "worker.js",
+  compatibility_date: $date,
+  bindings: ([{type: "d1", name: "DB", id: $database}] + $problems[0] + $access[0]),
+  observability: {enabled: false}
+}' >"$WORK/dashboard.json"
+call PUT "/workers/scripts/$DASHBOARD" \
+  -F "metadata=@$WORK/dashboard.json;type=application/json" \
+  -F "worker.js=@$HERE/dashboard/worker.js;type=application/javascript+module" \
+  -F "index.html=@$WORK/index.html;type=text/plain" >/dev/null
+call POST "/workers/scripts/$DASHBOARD/subdomain" -H "Content-Type: application/json" \
+  --data-binary "$(json '{"enabled": true, "previews_enabled": false}')" >/dev/null
+
 URL="https://$NAME.$subdomain.workers.dev"
 # A new workers.dev address can take a minute or two to answer.
 answered=""
@@ -163,7 +217,34 @@ if [ -n "$answered" ]; then
 else
   echo "::warning::$URL does not answer yet: a new workers.dev address can take a few minutes."
 fi
+
+# Behind Access, the dashboard's address sends to the team's sign-in; without
+# it, the Worker answers its closed page.
+DASHBOARD_URL="https://$DASHBOARD.$subdomain.workers.dev"
+protection=""
+for ((try = 0; try < ${TELEMETRY_CHECK_TRIES:-12}; try++)); do
+  if [ "$try" -gt 0 ]; then sleep 10; fi
+  case "$(curl -sS -o /dev/null --max-time 10 -w '%{http_code} %{redirect_url}' "$DASHBOARD_URL/" 2>/dev/null || true)" in
+    30[0-9]\ *cloudflareaccess.com/* | 30[0-9]\ */cdn-cgi/access/*) protection=access && break ;;
+    403\ *) protection=closed && break ;;
+  esac
+done
+case "$protection" in
+  access)
+    dashboard="the dashboard is at $DASHBOARD_URL, behind Cloudflare Access"
+    echo "Dashboard: $dashboard" ;;
+  closed)
+    dashboard="the dashboard is at $DASHBOARD_URL, closed until Cloudflare Access protects it: Workers & Pages › $DASHBOARD › Access (telemetry/README.md#dashboard)"
+    echo "::warning::Dashboard: $dashboard." ;;
+  *)
+    dashboard="the dashboard is at $DASHBOARD_URL, and opens behind Cloudflare Access only (telemetry/README.md#dashboard)"
+    echo "::notice::Dashboard: $dashboard." ;;
+esac
+
 if [ -n "${GITHUB_STEP_SUMMARY:-}" ]; then
-  echo "The telemetry server is at $URL: \`CARTOUCHE_TELEMETRY_URL=$URL\` in app/config.env." >>"$GITHUB_STEP_SUMMARY"
-  echo "Problems: $problems." >>"$GITHUB_STEP_SUMMARY"
+  {
+    echo "The telemetry server is at $URL: \`CARTOUCHE_TELEMETRY_URL=$URL\` in app/config.env."
+    echo "Problems: $problems."
+    echo "Dashboard: $dashboard."
+  } >>"$GITHUB_STEP_SUMMARY"
 fi

@@ -1,8 +1,8 @@
 {
   "private": true,
-  "description": "Cartouche's telemetry server (README.md). No dependency: worker.js runs as it is.",
+  "description": "Cartouche's telemetry server and its dashboard (README.md). No dependency: worker.js and dashboard/ run as they are.",
   "type": "module",
   "scripts": {
-    "test": "node --test test/worker.test.js"
+    "test": "node --disable-warning=ExperimentalWarning --import ./test/text-modules.mjs --test test/worker.test.js test/dashboard.test.js"
   }
 }
