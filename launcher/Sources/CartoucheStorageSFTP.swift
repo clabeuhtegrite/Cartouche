@@ -61,7 +61,7 @@ final class CartoucheSFTPServer: CartoucheRemote {
     }
 
     private static func reason(_ error: Error) -> String {
-        if error is NIOSSHError {
+        if error is NIOSSHError || error is PasswordOffer.Refused {
             return CartoucheText.storageSFTPRefused
         }
         return error.localizedDescription
@@ -270,14 +270,25 @@ private final class HostKeyCheck: NIOSSHClientServerAuthenticationDelegate, @unc
 
 /// The player's password, offered once.
 private final class PasswordOffer: NIOSSHClientUserAuthenticationDelegate, @unchecked Sendable {
+    /// The server refused the password, or wants another way to sign in.
+    struct Refused: Error {}
+
     private let user: String
     private let password: String
     private let lock = NSLock()
     private var offered = false
+    private var gaveUp = false
 
     init(user: String, password: String) {
         self.user = user
         self.password = password
+    }
+
+    /// Whether the server refused what Cartouche had to offer.
+    var refused: Bool {
+        lock.lock()
+        defer { lock.unlock() }
+        return gaveUp
     }
 
     func nextAuthenticationType(availableMethods: NIOSSHAvailableUserAuthenticationMethods,
@@ -285,10 +296,15 @@ private final class PasswordOffer: NIOSSHClientUserAuthenticationDelegate, @unch
         lock.lock()
         let first = !offered
         offered = true
+        let offering = first && availableMethods.contains(.password)
+        if !offering { gaveUp = true }
         lock.unlock()
-        guard first, availableMethods.contains(.password) else {
-            // Nothing else to offer: the server refuses the account.
-            nextChallengePromise.succeed(nil)
+        guard offering else {
+            // Nothing else to offer: the server refuses the account. Failing
+            // closes the connection at once (CloseOnError); offering nothing
+            // would leave NIOSSH waiting until the server gives up, two
+            // minutes on OpenSSH (LoginGraceTime).
+            nextChallengePromise.fail(Refused())
             return
         }
         nextChallengePromise.succeed(NIOSSHUserAuthenticationOffer(
@@ -485,6 +501,9 @@ private final class SFTPConnection: @unchecked Sendable {
             return connection
         } catch {
             parent.close(promise: nil)
+            // The connection closed because the password was refused: say
+            // that, not how the channel ended.
+            if offer.refused { throw PasswordOffer.Refused() }
             throw error
         }
     }

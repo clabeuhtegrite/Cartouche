@@ -51,7 +51,7 @@
         },
         "status": {
           "enum": ["iphone", "mac", "bringup", "unknown"],
-          "description": "Where the profile's opening comment says nxnative plays the game: on the iPhone (and the Mac), on the Mac, still in bring-up, or unknown when the comment does not say."
+          "description": "Where nxnative says it plays the game: on the iPhone (and the Mac), on the Mac, still in bring-up, or unknown when nothing says. Read from the opening paragraphs of the game's notes (README.md), which are kept up to date, else from the profile's opening comment."
         },
         "engine": {
           "type": "string"

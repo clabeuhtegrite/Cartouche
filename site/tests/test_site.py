@@ -7,7 +7,7 @@ artworks loaded from IGDB by the IDs of catalog/covers.json, as the app loads
 them; it carries no image of a game. Besides those images it loads nothing
 from another site, and it links only to Cartouche's repository, nxnative's
 and IGDB: never to a game, a dump, an IPA, a catalog of games, keys or
-firmware, nor to a server of the project (docs/decisions.md, 37).
+firmware, nor to a server of the project (docs/decisions.md, 40).
 
 A catalog change that touches a game of the page (its name, its covers, where
 nxnative plays it) fails here: update the list at the top of the page's
