@@ -4,7 +4,8 @@
 //
 //  The games' official covers and artworks, from IGDB (igdb.com). The
 //  catalogue has IGDB's image IDs only (covers.json, written by
-//  catalog/tools/igdb_covers.py); Cartouche builds the images' addresses on
+//  catalog/tools/igdb_covers.py, and the newer list Cartouche reads every
+//  day: CartoucheCoverList); Cartouche builds the images' addresses on
 //  images.igdb.com, loads each image once and keeps it in its caches
 //  folder, which iOS may empty: the image is loaded again then. Until an
 //  image has loaded, and for a game IGDB has none for, the views show
@@ -13,17 +14,6 @@
 
 import SwiftUI
 import UIKit
-
-/// A game's official cover and artwork on IGDB (covers.json).
-struct CartoucheCover: Decodable, Hashable {
-    let titleId: String
-    /// IGDB's ID of the game.
-    let igdb: Int
-    /// The image ID of its cover, upright.
-    let cover: String
-    /// The image ID of an artwork, wide.
-    let artwork: String?
-}
 
 /// Loads IGDB's images, once each while Cartouche runs, and keeps them on
 /// disk.
@@ -54,9 +44,7 @@ actor CartoucheCoverStore {
     func image(_ id: String, kind: Kind) async -> UIImage? {
         // An IGDB image ID is letters and digits: nothing else goes into a
         // file name or an address.
-        guard !id.isEmpty, id.count <= 40, id.allSatisfy({ $0.isASCII && ($0.isLetter || $0.isNumber) }) else {
-            return nil
-        }
+        guard CartoucheCoverList.isImageId(id) else { return nil }
         let key = "\(kind.rawValue)-\(id)"
         if let image = memory.object(forKey: key as NSString) { return image }
         if let task = loading[key] { return await task.value }
