@@ -485,6 +485,7 @@ export const CLOSED = `<!doctype html>
   <h1>Ce tableau de bord est fermé</h1>
   <p>Il ne s'ouvre que derrière Cloudflare Access, une fois connecté avec un compte que sa règle autorise.</p>
   <p>Pour l'ouvrir : <b>Workers &amp; Pages › cartouche-dashboard › Access › Protect this Worker behind Access</b>, <b>All traffic</b>, puis la règle <b>Cloudflare account</b>.</p>
+  <p>Sur ce Worker seulement : le serveur, cartouche-telemetry, reste ouvert aux iPhones, qui n'ont pas de compte pour s'y connecter.</p>
 </main>
 </body>
 </html>
