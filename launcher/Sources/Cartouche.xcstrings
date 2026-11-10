@@ -1633,6 +1633,57 @@
         }
       }
     },
+    "setting.language.iPhone" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "iPhone language"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Langue de l’iPhone"
+          }
+        }
+      }
+    },
+    "setting.language.iPhone.missing" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "None of the iPhone’s languages is in this game: it starts in %@."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aucune des langues de l’iPhone n’est dans ce jeu : il démarre en %@."
+          }
+        }
+      }
+    },
+    "setting.language.iPhone.starts" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Starts in %@, the iPhone’s language."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Démarre en %@, la langue de l’iPhone."
+          }
+        }
+      }
+    },
     "setting.metal4" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -2404,13 +2455,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Brings back all the settings this game was tested with."
+            "value" : "Brings back all the settings this game was tested with, and the iPhone’s language."
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Remet tous les réglages avec lesquels ce jeu a été testé."
+            "value" : "Remet tous les réglages avec lesquels ce jeu a été testé, et la langue de l’iPhone."
           }
         }
       }

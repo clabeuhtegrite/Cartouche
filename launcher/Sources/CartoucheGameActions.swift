@@ -615,7 +615,7 @@ final class CartoucheGameActions: ObservableObject {
     }
 
     /// nxnative's switch for its settings screen, in the data folder the
-    /// game starts with.
+    /// game starts with, and the game's language.
     private static func prepareStart(of app: LCAppModel, showingSettings: Bool) throws {
         let container = dataFolder(of: app)
         // Only an nxnative game reads it.
@@ -623,6 +623,34 @@ final class CartoucheGameActions: ObservableObject {
               FileManager.default.fileExists(atPath: (bundle as NSString).appendingPathComponent("dm")),
               let container else { return }
         try CartoucheStartSwitch.write(showingSettings: showingSettings, home: container.containerURL)
+        chooseLanguage(of: app, bundle: URL(fileURLWithPath: bundle, isDirectory: true), container: container)
+    }
+
+    /// The language the game starts in: the first of the iPhone's that the
+    /// game has, unless the player chose one (CartoucheGameLanguage), saved
+    /// where nxnative keeps the player's choice, so that its screen shows
+    /// it too. A game of one language has nothing to choose.
+    private static func chooseLanguage(of app: LCAppModel, bundle: URL, container: LCContainer) {
+        guard let row = CartoucheGameSetting.rows(inBundle: bundle)?.first(where: { $0.env == CartoucheGameLanguage.variable }),
+              row.kind == "choice",
+              CartoucheGameSetting.fixedValues(home: container.containerURL, bundle: bundle)[row.env] == nil,
+              let domain = app.appInfo.bundleIdentifier(),
+              let choices = CartoucheGamePreferences(domain: domain, home: guestHome(of: container)) else { return }
+        let preferred = Locale.preferredLanguages
+        let offered = row.optionValues
+        let record = CartoucheGameLanguage.beforeStart(choices.languageRecord, preferred: preferred, offered: offered,
+                                                      gameDefault: row.def)
+        choices.keepLanguage(record)
+        let language = CartoucheGameLanguage.language(of: record, offered: offered, gameDefault: row.def)
+        let source: String
+        if record.source == .player {
+            source = "the player's choice"
+        } else if CartoucheGameLanguage.best(for: preferred, among: offered) == nil {
+            source = "its own, as it has none of the iPhone's"
+        } else {
+            source = "the iPhone's"
+        }
+        CartoucheReports.note(app.displayName + ": starts in " + language + ", " + source)
     }
 
     /// The data folder runApp starts the game with, made as runApp makes it
