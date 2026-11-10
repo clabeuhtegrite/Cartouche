@@ -52,7 +52,7 @@ struct CartoucheDeviceMeasurement: Equatable {
     /// Whether IDENTIFIER names an iPhone or an iPad as devices.json does:
     /// a simulator, or a Mac running the app, names none.
     static func isModelIdentifier(_ identifier: String) -> Bool {
-        identifier.range(of: #"^(iPhone|iPad)[0-9]+,[0-9]+$"#, options: .regularExpression) != nil
+        identifier.range(of: #"\A(iPhone|iPad)[0-9]+,[0-9]+\z"#, options: .regularExpression) != nil
     }
 
     /// The memory of the iPhone in GB, as Apple counts it, from what iOS
