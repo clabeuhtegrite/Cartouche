@@ -8,12 +8,14 @@
 //  Nothing runs: no engine, no check of the Mac, no server, and nothing of
 //  the player's is read or kept. The games are real ones nxnative builds,
 //  with their covers from IGDB as the app shows them; their folders, sizes
-//  and builds are made up.
+//  and builds are made up, as are the Mac's name and its iPhones. Each page
+//  is a window of its own, taken as the window server shows it.
 //
 
 import AppKit
 import BuilderKit
 import CartoucheCore
+import ScreenCaptureKit
 import SwiftUI
 
 @MainActor
@@ -23,7 +25,7 @@ enum Gallery {
 
         var size: CGSize {
             switch self {
-            case .settings: return CGSize(width: 600, height: 520)
+            case .settings: return SettingsTab.size
             case .onboarding: return CGSize(width: 680, height: 600)
             case .menubar, .menubarBuilding: return CGSize(width: 330, height: 0)
             default: return CGSize(width: 1220, height: 780)
@@ -31,7 +33,20 @@ enum Gallery {
         }
 
         var inEnglish: Bool { [.library, .game, .setup, .menubar].contains(self) }
+
+        /// The window as the app opens it: the settings as the Settings
+        /// scene does, the menu bar's panel without a frame.
+        var styleMask: NSWindow.StyleMask {
+            switch self {
+            case .settings: return [.titled, .closable]
+            case .menubar, .menubarBuilding: return [.borderless]
+            default: return [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView]
+            }
+        }
     }
+
+    /// Pictures AppKit drew itself, as ScreenCaptureKit could not take them.
+    private static var drawnByAppKit = 0
 
     static func run(into folder: URL) {
         let app = NSApplication.shared
@@ -58,7 +73,8 @@ enum Gallery {
                 }
             }
         }
-        print("gallery: \(saved) pictures in \(folder.path)")
+        print("gallery: \(saved) pictures in \(folder.path)"
+              + (drawnByAppKit > 0 ? ", \(drawnByAppKit) drawn by AppKit without the window server's effects" : ""))
         exit(saved > 0 ? 0 : 1)
     }
 
@@ -82,38 +98,27 @@ enum Gallery {
     private static func render(_ page: Page, samples: Samples, dark: Bool, to file: URL) -> Bool {
         let model = samples.model(for: page)
         var size = page.size
-        let content: AnyView
+        let controller: NSViewController
         switch page {
         case .settings:
-            content = AnyView(SettingsView())
+            controller = settings(model)
         case .onboarding:
-            content = AnyView(OnboardingView())
+            controller = hosted(OnboardingView(), model)
         case .menubar, .menubarBuilding:
-            content = AnyView(MenuBarView().background(Color(nsColor: .windowBackgroundColor)))
+            let panel = hosted(MenuBarView().background(Color(nsColor: .windowBackgroundColor)), model)
+            size.height = ceil(panel.sizeThatFits(in: CGSize(width: size.width, height: 2000)).height)
+            controller = panel
         default:
-            content = AnyView(ContentView())
+            controller = hosted(ContentView(), model)
         }
-        let view = content
-            .environmentObject(model)
-            .environmentObject(model.setup)
-            .environmentObject(model.bridge)
-            .environmentObject(model.covers)
-            .environmentObject(model.updater)
-            .environmentObject(model.telemetry)
-            .environment(\.locale, L10n.locale)
-        let controller = NSHostingController(rootView: AnyView(view))
-        controller.sceneBridgingOptions = [.toolbars, .title]
-        if size.height == 0 {
-            let fitting = controller.sizeThatFits(in: CGSize(width: size.width, height: 2000))
-            size.height = ceil(fitting.height)
-        }
-        let isWindow = page != .menubar && page != .menubarBuilding
         let window = NSWindow(contentRect: CGRect(origin: CGPoint(x: 80, y: 80), size: size),
-                              styleMask: isWindow ? [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView] : [.borderless],
-                              backing: .buffered, defer: false)
+                              styleMask: page.styleMask, backing: .buffered, defer: false)
         window.isReleasedWhenClosed = false
         window.appearance = NSAppearance(named: dark ? .darkAqua : .aqua)
-        window.title = page == .settings ? tr("General", "Général") : "Cartouche Builder"
+        window.title = page == .settings ? SettingsTab.general.title : "Cartouche Builder"
+        if page == .settings {
+            window.toolbarStyle = .preference
+        }
         window.contentViewController = controller
         window.setContentSize(size)
         window.orderFrontRegardless()
@@ -122,18 +127,102 @@ enum Gallery {
             window.orderOut(nil)
             window.close()
         }
-        guard let drawn = window.contentView?.superview ?? window.contentView else { return false }
-        drawn.layoutSubtreeIfNeeded()
-        guard let picture = drawn.bitmapImageRepForCachingDisplay(in: drawn.bounds) else { return false }
-        drawn.cacheDisplay(in: drawn.bounds, to: picture)
-        guard let data = picture.representation(using: .png, properties: [:]) else { return false }
+        var picture = captured(window, for: file)
+        if picture == nil {
+            drawnByAppKit += 1
+            picture = drawn(window)
+        }
+        guard let data = picture?.representation(using: .png, properties: [:]) else { return false }
         do {
             try data.write(to: file)
             return true
         } catch {
-            FileHandle.standardError.write(Data("gallery: \(file.lastPathComponent): \(error)\n".utf8))
+            complain(file, "\(error)")
             return false
         }
+    }
+
+    /// A page with the app's models; its toolbar and its title become the
+    /// window's, as in the app's window, unless the page is one of a tab
+    /// view controller's.
+    private static func hosted<Content: View>(_ content: Content, _ model: AppModel, bridged: Bool = true) -> NSHostingController<AnyView> {
+        let controller = NSHostingController(rootView: AnyView(content
+            .environmentObject(model)
+            .environmentObject(model.setup)
+            .environmentObject(model.bridge)
+            .environmentObject(model.covers)
+            .environmentObject(model.updater)
+            .environmentObject(model.telemetry)
+            .environment(\.locale, L10n.locale)))
+        controller.sceneBridgingOptions = bridged ? [.toolbars, .title] : []
+        return controller
+    }
+
+    /// The settings as the Settings scene shows them, which a TabView in a
+    /// window of its own does not: a tab in the middle of the toolbar for
+    /// each, the first one open, its name as the window's title.
+    private static func settings(_ model: AppModel) -> NSViewController {
+        let tabs = NSTabViewController()
+        tabs.tabStyle = .toolbar
+        for tab in SettingsTab.allCases {
+            let page = hosted(tab.content.frame(width: SettingsTab.size.width, height: SettingsTab.size.height), model, bridged: false)
+            page.title = tab.title
+            let item = NSTabViewItem(viewController: page)
+            item.label = tab.title
+            item.image = NSImage(systemSymbolName: tab.symbol, accessibilityDescription: tab.title)
+            tabs.addTabViewItem(item)
+        }
+        return tabs
+    }
+
+    /// The window as the window server shows it, with what only the window
+    /// server draws: the sidebar's selection, the labels over the sidebar,
+    /// the glass of the toolbar's buttons. Nil, said on standard error,
+    /// when ScreenCaptureKit cannot take it.
+    private static func captured(_ window: NSWindow, for file: URL) -> NSBitmapImageRep? {
+        final class Capture { var image: CGImage?; var done = false }
+        let capture = Capture()
+        let number = CGWindowID(window.windowNumber)
+        Task { @MainActor in
+            defer { capture.done = true }
+            do {
+                // The app's own windows, which need no permission to record
+                // the screen.
+                let content = try await SCShareableContent.currentProcess
+                guard let shown = content.windows.first(where: { $0.windowID == number }) else {
+                    Gallery.complain(file, "ScreenCaptureKit does not list the window")
+                    return
+                }
+                let filter = SCContentFilter(desktopIndependentWindow: shown)
+                let configuration = SCStreamConfiguration()
+                let scale = CGFloat(filter.pointPixelScale)
+                configuration.width = Int((filter.contentRect.width * scale).rounded())
+                configuration.height = Int((filter.contentRect.height * scale).rounded())
+                configuration.showsCursor = false
+                configuration.ignoreShadowsSingleWindow = true
+                // All of a window wider than the screen.
+                configuration.ignoreGlobalClipSingleWindow = true
+                capture.image = try await SCScreenshotManager.captureImage(contentFilter: filter, configuration: configuration)
+            } catch {
+                Gallery.complain(file, "ScreenCaptureKit: \(error.localizedDescription)")
+            }
+        }
+        wait(until: Date().addingTimeInterval(20)) { capture.done }
+        return capture.image.map { NSBitmapImageRep(cgImage: $0) }
+    }
+
+    /// The window as AppKit draws it, without what the window server adds:
+    /// the selection comes out black, and the labels over the sidebar faint.
+    private static func drawn(_ window: NSWindow) -> NSBitmapImageRep? {
+        guard let drawn = window.contentView?.superview ?? window.contentView else { return nil }
+        drawn.layoutSubtreeIfNeeded()
+        guard let picture = drawn.bitmapImageRepForCachingDisplay(in: drawn.bounds) else { return nil }
+        drawn.cacheDisplay(in: drawn.bounds, to: picture)
+        return picture
+    }
+
+    private static func complain(_ file: URL, _ message: String) {
+        FileHandle.standardError.write(Data("gallery: \(file.lastPathComponent): \(message)\n".utf8))
     }
 
     // MARK: The samples
@@ -196,7 +285,8 @@ enum Gallery {
                 PairedDevice(id: "A0F4E2B6-81C3-4D9E-B7A5-6C2D1E3F4A5B", name: "iPhone Duo", key: Data(repeating: 9, count: 32),
                              paired: now.addingTimeInterval(-2 * 86_400), seen: now.addingTimeInterval(-26 * 3600)),
             ]
-            model.bridge.preview(devices: iphones, connected: [iphones[0].id], games: config.games)
+            model.bridge.preview(devices: iphones, connected: [iphones[0].id], games: config.games,
+                                 name: "MacBook Air", saves: URL(fileURLWithPath: info.home).appendingPathComponent("Saves", isDirectory: true))
             if page == .menubar {
                 let release = BuilderRelease(version: "0.3.0", tag: "builder-v0.3.0", notes: "",
                                              page: URL(string: "https://github.com/clabeuhtegrite/Cartouche/releases/tag/builder-v0.3.0")!,

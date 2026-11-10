@@ -1,0 +1,110 @@
+name: Branches
+
+# Keeps the repository's branches to the ones in use, after every merge into
+# main, every night, and from the Actions tab: deletes the head branch of
+# each closed pull request that is still at the commit the pull request ended
+# on, the release branches main's SideStore source has passed, and the
+# screenshots and covers kept for a branch that is gone. It keeps main, the
+# branches something reads, the heads of open pull requests, and every branch
+# with commits that no pull request ended on. Which ones and why:
+# .github/branches/README.md.
+
+on:
+  push:
+    branches: [main]
+  schedule:
+    # Every day at 03:17 UTC.
+    - cron: "17 3 * * *"
+  workflow_dispatch:
+    inputs:
+      dry-run:
+        description: "Only list the branches to delete, in the run's summary"
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: branches
+  cancel-in-progress: false
+
+jobs:
+  plan:
+    name: List the branches to delete
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      branches: ${{ steps.plan.outputs.branches }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: List the branches and pull requests
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p build
+          gh api "repos/$GITHUB_REPOSITORY" --jq .default_branch > build/default.txt
+          gh api --paginate "repos/$GITHUB_REPOSITORY/branches?per_page=100" \
+            --jq '.[] | {name, sha: .commit.sha} | @json' > build/branches.jsonl
+          gh api --paginate "repos/$GITHUB_REPOSITORY/pulls?state=all&per_page=100" \
+            --jq '.[] | {number, state, merged: (.merged_at != null), ref: .head.ref, sha: .head.sha, repository: (.head.repo.full_name // "")} | @json' \
+            > build/pulls.jsonl
+          echo "$(wc -l < build/branches.jsonl) branches, $(wc -l < build/pulls.jsonl) pull requests"
+      - name: Plan
+        id: plan
+        run: |
+          python3 .github/branches/clean_branches.py build/branches.jsonl build/pulls.jsonl app/sidestore-source.json \
+            --default "$(cat build/default.txt)" --repository "$GITHUB_REPOSITORY" \
+            --summary "$GITHUB_STEP_SUMMARY" > build/delete.txt
+          {
+            echo "branches<<END_OF_PLAN"
+            cat build/delete.txt
+            echo "END_OF_PLAN"
+          } >> "$GITHUB_OUTPUT"
+
+  # The only job that can write runs nothing from the repository: it deletes
+  # each branch the plan lists, only if the branch is still at the commit
+  # listed (--force-with-lease), so that a push made since keeps it.
+  delete:
+    name: Delete them
+    needs: plan
+    if: ${{ needs.plan.outputs.branches != '' && github.ref == 'refs/heads/main' && !inputs.dry-run }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write # deletes the branches the plan lists
+    env:
+      GH_TOKEN: ${{ github.token }}
+      PLAN: ${{ needs.plan.outputs.branches }}
+    steps:
+      - name: Delete each branch still at its commit
+        run: |
+          git init -q branches
+          cd branches
+          gh auth setup-git
+          REMOTE="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY.git"
+          deleted=0 moved=0 failed=0
+          echo "## Deleted" >> "$GITHUB_STEP_SUMMARY"
+          echo >> "$GITHUB_STEP_SUMMARY"
+          while read -r sha branch; do
+            [ -n "$branch" ] || continue
+            if out=$(git push --force-with-lease="refs/heads/$branch:$sha" "$REMOTE" ":refs/heads/$branch" 2>&1); then
+              echo "- $branch" >> "$GITHUB_STEP_SUMMARY"
+              deleted=$((deleted + 1))
+            elif grep -q "stale info" <<< "$out"; then
+              echo "::notice::$branch is no longer at ${sha:0:7}: it stays"
+              moved=$((moved + 1))
+            else
+              echo "$out"
+              echo "::error::$branch could not be deleted"
+              failed=$((failed + 1))
+            fi
+          done <<< "$PLAN"
+          echo >> "$GITHUB_STEP_SUMMARY"
+          echo "Deleted $deleted, kept $moved that moved since the plan, $failed failed." | tee -a "$GITHUB_STEP_SUMMARY"
+          [ "$failed" -eq 0 ]

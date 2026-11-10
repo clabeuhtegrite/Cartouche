@@ -66,7 +66,7 @@ struct BridgeView: View {
         switch bridge.state {
         case .stopped, .starting: return tr("Starting…", "Démarrage…")
         case .running:
-            return tr("Visible on your network as “\(BridgeController.macName)”.", "Visible sur votre réseau sous « \(BridgeController.macName) ».")
+            return tr("Visible on your network as “\(bridge.name)”.", "Visible sur votre réseau sous « \(bridge.name) ».")
                 + (bridge.connected.isEmpty ? "" : tr(" An iPhone is connected: the Mac stays awake.", " Un iPhone est connecté : le Mac reste éveillé."))
         case let .failed(error):
             return tr("Could not start: ", "Démarrage impossible : ") + error
@@ -79,7 +79,7 @@ struct BridgeView: View {
                 Text(tr("On the iPhone", "Sur l’iPhone"))
                     .font(.headline)
                 Step(number: 1, text: tr("Open Cartouche, then System › Storage › Add your Mac.", "Ouvrez Cartouche, puis Système › Stockage › Ajouter votre Mac."))
-                Step(number: 2, text: tr("Choose “\(BridgeController.macName)” under Macs nearby.", "Choisissez « \(BridgeController.macName) » sous Macs à proximité."))
+                Step(number: 2, text: tr("Choose “\(bridge.name)” under Macs nearby.", "Choisissez « \(bridge.name) » sous Macs à proximité."))
                 Step(number: 3, text: tr("A code shows on both screens: allow the iPhone here if they are the same.",
                                          "Un code s’affiche sur les deux écrans : autorisez l’iPhone ici s’ils sont identiques."))
             }
