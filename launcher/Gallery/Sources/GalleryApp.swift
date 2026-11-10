@@ -25,7 +25,11 @@
 //                                        asks for a verification code, on
 //                                        the sign-in; paused: the sheet's
 //                                        game, or the first of the
-//                                        player's, paused behind the console
+//                                        player's, paused behind the console;
+//                                        offline: the player's NAS, out of
+//                                        reach, with a newer build of that
+//                                        game in its games folder and two
+//                                        games' saves waiting for it
 //      -GalleryOrientation landscape     the gallery turns itself sideways,
 //                                        as a game does; the simulator
 //                                        stays upright
@@ -128,7 +132,7 @@ struct GalleryScenario {
                 CartoucheAccount.shared.requestCodeForGallery(.init(
                     id: "gallery", mode: .sms, phone: "+33 •• •• •• •• 78", canTextMessage: false, error: nil))
             }
-            if work == "newer-build", let titleId = updatedTitle, let game = CartoucheCatalog.shared.game(titleId: titleId) {
+            if let titleId = updatedTitle, let game = CartoucheCatalog.shared.game(titleId: titleId) {
                 // Cartouche Builder built the game again last night.
                 let stored = CartoucheStoredGame(
                     path: "/Jeux/\(game.name) [\(titleId)].ipa", size: 21_474_836_480, modified: Date().addingTimeInterval(-5 * 3_600),
@@ -137,6 +141,14 @@ struct GalleryScenario {
                                               builtAt: Date().addingTimeInterval(-5 * 3_600 - 120)),
                     titleId: titleId, isGame: true)
                 CartoucheStoredGames.shared.showForGallery([stored], server: "NAS")
+            }
+            if work == "offline" {
+                // Away from home: the NAS does not answer, and the saves of
+                // two games wait for it.
+                let nas = CartoucheStorageServer(kind: .smb, name: "NAS", host: "nas.local", username: "joueur", share: "Partage")
+                CartoucheStorageSettings.shared.showForGallery(nas, games: "Jeux", saves: "Sauvegardes")
+                CartoucheStorageReach.shared.showOfflineForGallery([nas.id])
+                CartoucheSaveBackups.shared.showWaitingForGallery(2)
             }
         }
     }
@@ -165,9 +177,10 @@ struct GalleryScenario {
         CartoucheGameStats.shared.showForGallery(sizes: shownSizes, playTimes: shownTimes)
     }
 
-    /// The game a newer build is in the games folder of (work: newer-build):
-    /// the sheet's, or the first of the player's.
-    private var updatedTitle: String? { work == "newer-build" ? sheet ?? owned.first : nil }
+    /// The game a newer build is in the games folder of (work: newer-build,
+    /// and offline, away from the games folder): the sheet's, or the first
+    /// of the player's.
+    private var updatedTitle: String? { work == "newer-build" || work == "offline" ? sheet ?? owned.first : nil }
 
     /// The sheet's game, or the first of the player's, paused behind the
     /// console (work: paused).

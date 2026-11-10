@@ -2772,6 +2772,57 @@
         }
       }
     },
+    "saves.waiting.game" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "These saves are waiting for the server: Cartouche copies them as soon as it answers."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ces sauvegardes attendent le serveur : Cartouche les copie dès qu’il répond."
+          }
+        }
+      }
+    },
+    "saves.waiting.many" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld games’ saves are waiting: Cartouche copies them as soon as the server answers."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Les sauvegardes de %lld jeux attendent : Cartouche les copie dès que le serveur répond."
+          }
+        }
+      }
+    },
+    "saves.waiting.one" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "One game’s saves are waiting: Cartouche copies them as soon as the server answers."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Les sauvegardes d’un jeu attendent : Cartouche les copie dès que le serveur répond."
+          }
+        }
+      }
+    },
     "setting.consoleMode" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -5730,6 +5781,23 @@
         }
       }
     },
+    "status.stored.offline" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ is offline: install this game once the iPhone is back on its network or on your VPN."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ est hors ligne : installez ce jeu quand l’iPhone retrouve son réseau ou votre VPN."
+          }
+        }
+      }
+    },
     "status.stored.short" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -5828,6 +5896,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Une IPA plus récente est dans votre dossier des jeux : la mise à jour garde vos sauvegardes."
+          }
+        }
+      }
+    },
+    "status.update.offline" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ is offline: update this game once the iPhone is back on its network or on your VPN."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ est hors ligne : mettez ce jeu à jour quand l’iPhone retrouve son réseau ou votre VPN."
           }
         }
       }
@@ -6491,6 +6576,74 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Non configuré"
+          }
+        }
+      }
+    },
+    "storage.offline" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ does not answer on this network. Cartouche tries again as soon as the iPhone is back on its network or on your VPN."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ ne répond pas sur ce réseau. Cartouche réessaie dès que l’iPhone retrouve son réseau ou votre VPN."
+          }
+        }
+      }
+    },
+    "storage.offline.check" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ does not answer on this network: check its address, and that the iPhone is on its network or on your VPN."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ ne répond pas sur ce réseau : vérifiez son adresse, et que l’iPhone est sur son réseau ou sur votre VPN."
+          }
+        }
+      }
+    },
+    "storage.offline.short" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ offline"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ hors ligne"
+          }
+        }
+      }
+    },
+    "storage.offline.title" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ is offline"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ est hors ligne"
           }
         }
       }
@@ -7222,6 +7375,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "%@ est plus gros que ce que Cartouche attend."
+          }
+        }
+      }
+    },
+    "storage.tryAgain" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Try again"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Réessayer"
           }
         }
       }

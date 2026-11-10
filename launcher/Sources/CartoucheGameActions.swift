@@ -205,6 +205,8 @@ final class CartoucheGameActions: ObservableObject {
                                        + "the file opened again \(file?.reopened ?? 0) times before"))
                 fail(.install, CartoucheText.installFailed,
                      message: CartoucheText.installFromStorageLost(server.name, lost.localizedDescription), error: lost.last)
+            } catch let offline as CartoucheStorageOffline {
+                tellOffline(offline)
             } catch {
                 if let reopened = file?.reopened, reopened > 0 {
                     facts.append(.init("Connection", "the file opened again \(reopened) times"))
@@ -489,6 +491,8 @@ final class CartoucheGameActions: ObservableObject {
                     throw error
                 }
                 copied = true
+            } catch let offline as CartoucheStorageOffline {
+                tellOffline(offline)
             } catch {
                 fail(.export, CartoucheText.exportFailed, error: error)
             }
@@ -942,6 +946,15 @@ final class CartoucheGameActions: ObservableObject {
     }
 
     // MARK: Reports
+
+    /// Tells the player that the step could not start, since the server it
+    /// needs is offline from here: without a report, since nothing went
+    /// wrong in Cartouche (CartoucheStorageReach).
+    private func tellOffline(_ offline: CartoucheStorageOffline) {
+        CartoucheReports.note((work.map { $0.title + ": " } ?? "") + "not started, the server is offline from this network")
+        workFailed = true
+        notice = CartoucheGameNotice(title: CartoucheText.storageOfflineTitle(offline.name), message: offline.localizedDescription)
+    }
 
     /// Tells the player that the step failed, with the report they can copy:
     /// TITLE, and MESSAGE, or else ERROR's, as they read it.

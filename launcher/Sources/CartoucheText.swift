@@ -64,6 +64,8 @@ enum CartoucheText {
     static var statusStoredLong: String { s("status.stored.long", "Its IPA is in your games folder: install it to play it on this iPhone.") }
     static var statusUpdateShort: String { s("status.update.short", "Update") }
     static var statusUpdateLong: String { s("status.update.long", "A newer IPA of it is in your games folder: updating keeps your saves.") }
+    static func statusStoredOffline(_ server: String) -> String { f("status.stored.offline", "%@ is offline: install this game once the iPhone is back on its network or on your VPN.", server) }
+    static func statusUpdateOffline(_ server: String) -> String { f("status.update.offline", "%@ is offline: update this game once the iPhone is back on its network or on your VPN.", server) }
 
     /// A genre of nxnative.json, or nil for "other".
     static func genre(_ genre: String) -> String? {
@@ -535,6 +537,13 @@ enum CartoucheText {
     static var storageBrowseFailed: String { s("storage.failed.browse", "The folder did not open") }
     static var storageNewFolderFailed: String { s("storage.failed.newFolder", "The folder was not created") }
     static var storageGamesFailed: String { s("storage.failed.games", "The games folder was not read") }
+    static func storageOffline(_ name: String) -> String { f("storage.offline", "%@ does not answer on this network. Cartouche tries again as soon as the iPhone is back on its network or on your VPN.", name) }
+    static func storageOfflineTitle(_ name: String) -> String { f("storage.offline.title", "%@ is offline", name) }
+    /// In a server's form, which Cartouche does not try again by itself.
+    static func storageOfflineCheck(_ name: String) -> String { f("storage.offline.check", "%@ does not answer on this network: check its address, and that the iPhone is on its network or on your VPN.", name) }
+    /// A few words, beside the server's name.
+    static func storageOfflineShort(_ name: String) -> String { f("storage.offline.short", "%@ offline", name) }
+    static var storageTryAgain: String { s("storage.tryAgain", "Try again") }
 
     // MARK: A game's saves
 
@@ -555,6 +564,11 @@ enum CartoucheText {
     static var savesCopyFailed: String { s("saves.failed.copy", "The saves were not copied") }
     static var savesListFailed: String { s("saves.failed.list", "The copies of the saves were not read") }
     static var savesPutBackFailed: String { s("saves.failed.putBack", "The copy was not put back") }
+    static func savesWaiting(_ count: Int) -> String {
+        count == 1 ? s("saves.waiting.one", "One game’s saves are waiting: Cartouche copies them as soon as the server answers.")
+            : f("saves.waiting.many", "%lld games’ saves are waiting: Cartouche copies them as soon as the server answers.", count)
+    }
+    static var savesWaitingHere: String { s("saves.waiting.game", "These saves are waiting for the server: Cartouche copies them as soon as it answers.") }
 
     // MARK: A game's settings
 

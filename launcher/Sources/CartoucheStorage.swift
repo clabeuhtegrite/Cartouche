@@ -249,6 +249,16 @@ final class CartoucheStorageSettings: ObservableObject {
         persist()
     }
 
+    #if CARTOUCHE_GALLERY
+    /// SERVER, with the games folder and the saves folder on it, for the
+    /// launcher's gallery (launcher/Gallery): kept in memory only.
+    func showForGallery(_ server: CartoucheStorageServer, games: String, saves: String) {
+        servers = [server]
+        places = [.games: CartoucheStoragePlace(server: server.id, path: games),
+                  .saves: CartoucheStoragePlace(server: server.id, path: saves)]
+    }
+    #endif
+
     private func persist() {
         let encoder = JSONEncoder()
         defaults.set(try? encoder.encode(servers), forKey: Self.serversKey)
@@ -410,9 +420,23 @@ enum CartoucheStorage {
         #endif
     }
 
-    /// Signs in to SERVER.
+    /// Signs in to SERVER, and keeps whether it answers from here
+    /// (CartoucheStorageReach): a server that takes no connection within
+    /// the patience throws CartoucheStorageOffline.
     static func connect(_ server: CartoucheStorageServer,
                         settings: CartoucheStorageSettings = .shared) async throws -> CartoucheRemote {
+        do {
+            let remote = try await signIn(server, settings: settings)
+            await MainActor.run { CartoucheStorageReach.shared.noteAnswered(server) }
+            return remote
+        } catch let offline as CartoucheStorageOffline {
+            await MainActor.run { CartoucheStorageReach.shared.noteOffline(server) }
+            throw offline
+        }
+    }
+
+    private static func signIn(_ server: CartoucheStorageServer,
+                               settings: CartoucheStorageSettings) async throws -> CartoucheRemote {
         let secret = settings.secret(of: server) ?? ""
         switch server.kind {
         case .smb:
