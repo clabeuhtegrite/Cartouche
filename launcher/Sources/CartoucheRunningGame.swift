@@ -96,7 +96,7 @@ struct CartoucheGameMemoryReading {
     /// Close to the limit, now or at its peak, as the last reading of a game
     /// iOS stopped for its memory is: the game writes every two seconds.
     var wasNearLimit: Bool {
-        let margin: UInt64 = max(512 << 20, limitBytes / 8)
+        let margin = UInt64(CartoucheGamePlace.roomMiB(under: limitMiB)) << 20
         return availableBytes < margin || peakBytes + margin > limitBytes
     }
 
@@ -145,12 +145,14 @@ struct CartoucheGameMemoryReading {
 /// start in Cartouche's place anyway.
 ///
 /// Behind the console, a game runs in a process of its own, with the
-/// memory iOS gives that process. A game that needs Increased Memory Limit
-/// starts in Cartouche's place when that process has less than Cartouche
-/// itself, and so does a game iOS stopped there for its memory: in
-/// Cartouche's place, it has all of Cartouche's. When iOS gives that
-/// process as much as Cartouche or more, every game goes behind the console,
-/// where it has the most.
+/// memory iOS gives that process: 6,144 MiB on an iPhone where Game Mode
+/// gives Cartouche itself 8,192. While Cartouche has more, a game that
+/// needs more than that process has starts in Cartouche's place, with all
+/// of Cartouche's memory: one whose peak leaves it too little room there,
+/// one that needs Increased Memory Limit when its sheet has no peak, and
+/// one iOS stopped there near its limit. When that process has as much as
+/// Cartouche or more, every game goes behind the console
+/// (CartoucheGamePlace.swift).
 @MainActor
 final class CartoucheGameKeeping: ObservableObject {
     static let shared = CartoucheGameKeeping()

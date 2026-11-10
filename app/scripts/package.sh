@@ -168,6 +168,24 @@ for KEY in GCSupportsGameMode LSSupportsGameMode; do
   $PB -c "Delete :$KEY" "$APP/Info.plist" 2>/dev/null || true
   $PB -c "Add :$KEY bool true" "$APP/Info.plist"
 done
+# The same keys for the process a game runs in behind the console,
+# LiveContainer's LiveProcess extension, which has none of its own. With Game
+# Mode, iOS gave Cartouche 8,192 MiB on an iPhone where it gave it 6,143
+# without, and still 6,144 to a game's process (docs/decisions.md, 46).
+# Whether these keys raise that one too is measured on the iPhone: Cartouche
+# compares the two limits as it finds them, and starts a game where it has
+# the most (launcher/Sources/CartoucheGamePlace.swift).
+LIVE_PROCESS="$APP/PlugIns/LiveProcess.appex/Info.plist"
+if [ -f "$LIVE_PROCESS" ]; then
+  $PB -c "Delete :LSApplicationCategoryType" "$LIVE_PROCESS" 2>/dev/null || true
+  $PB -c "Add :LSApplicationCategoryType string public.app-category.games" "$LIVE_PROCESS"
+  for KEY in GCSupportsGameMode LSSupportsGameMode; do
+    $PB -c "Delete :$KEY" "$LIVE_PROCESS" 2>/dev/null || true
+    $PB -c "Add :$KEY bool true" "$LIVE_PROCESS"
+  done
+else
+  echo "no LiveProcess extension: games start in Cartouche's place only" >&2
+fi
 # No page in the Settings app: LiveContainer's (Wait For Debugger, the
 # selected bundle) and the Open SideStore switch LiveContainer+SideStore adds
 # there would lead into the apps Cartouche is built from, which it drives

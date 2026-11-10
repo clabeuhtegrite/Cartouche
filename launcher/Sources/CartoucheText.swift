@@ -242,7 +242,7 @@ enum CartoucheText {
     static var imlOff: String { s("system.memory.iml.off", "Not active") }
     static var measureAgain: String { s("system.memory.measure", "Measure again") }
     static var memoryUnavailable: String { s("system.memory.unavailable", "iOS gives no memory limit here.") }
-    static var memoryFooter: String { s("system.memory.footer", "Your games share this limit. With Increased Memory Limit, an iPhone with 12 GB allows about 6 GiB.") }
+    static var memoryFooter: String { s("system.memory.footer", "Your games share this limit. With Increased Memory Limit, an iPhone with 12 GB allows Cartouche about 8 GiB.") }
     static func memoryKnown(_ limit: String) -> String { f("system.memory.known", "Testers measured %@ on this model with Increased Memory Limit.", limit) }
     static var signature: String { s("system.signature", "Signature") }
     static var expires: String { s("system.signature.expires", "Expires") }
@@ -420,7 +420,7 @@ enum CartoucheText {
     static var behindLimit: String { s("system.playing.limit", "Memory for a game behind Cartouche") }
     static var behindLimitUnknown: String { s("system.playing.limit.unknown", "Measured at the next game") }
     static var playingFooter: String { s("system.playing.footer", "The Home button over the game, or the controller’s, brings back the console and pauses the game. A game that needs more memory than it has here starts in Cartouche’s place, when Cartouche has more.") }
-    static var memoryFooterBehind: String { s("system.memory.footer.behind", "Games that start in Cartouche’s place share this limit; behind Cartouche, a game has its own. With Increased Memory Limit, an iPhone with 12 GB allows about 6 GiB.") }
+    static var memoryFooterBehind: String { s("system.memory.footer.behind", "Games that start in Cartouche’s place share this limit; behind Cartouche, a game has its own, below. With Increased Memory Limit, an iPhone with 12 GB allows Cartouche about 8 GiB.") }
     static func updateWhilePlaying(_ name: String) -> String { f("system.updates.playing", "Quit %@ first: Cartouche closes to install its update.", name) }
 
     // MARK: Play time and size

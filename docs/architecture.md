@@ -42,12 +42,14 @@ A free Apple account signs apps for seven days, allows three sideloaded apps at 
 
 ## Memory
 
-iOS ends an app that goes over its memory limit. On a 12 GB iPhone (A20 Pro, iOS 27.3, measured on 4 November 2026):
+iOS ends an app that goes over its memory limit. On a 12 GB iPhone (A20 Pro, iOS 27.3):
 
-| App ID | Limit |
-| --- | --- |
-| without Increased Memory Limit | 3,376 MiB |
-| with Increased Memory Limit | 6,143 MiB |
+| Process | Measured | Limit |
+| --- | --- | --- |
+| an app without Increased Memory Limit | 4 November 2026 | 3,376 MiB |
+| an app with Increased Memory Limit | 4 November 2026 | 6,143 MiB |
+| Cartouche 0.10.0, with Increased Memory Limit and Game Mode | 10 November 2026 | 8,192 MiB |
+| a game behind the console, in LiveContainer's LiveProcess extension, with Increased Memory Limit | 10 November 2026 | 6,144 MiB |
 
 Mario Kart World peaked at 5,404 to 6,074 MiB in our trials on that iPhone, so the bigger games need the capability. It belongs to the App ID, and Cartouche's App ID is new, so Cartouche must turn it on itself:
 
@@ -57,7 +59,9 @@ Mario Kart World peaked at 5,404 to 6,074 MiB in our trials on that iPhone, so t
 
 The launcher measures the real limit at start-up (footprint plus `os_proc_available_memory()`) and compares it with each game's measured peak. The debugging memory entitlement is out of reach of a free account through SideStore and is not pursued.
 
-Behind the console ([decisions.md](decisions.md), 38), a game runs in LiveContainer's LiveProcess extension, a process of its own with a limit of its own. The extension's entitlements ask for Increased Memory Limit, as Cartouche's do, and SideStore makes the same request for each App ID it signs an app with, extensions included; what the process gets is iOS's to say. The game's process writes its footprint, its peak and its limit every two seconds, with the sizes of its screen ([`CartoucheGuest.m`](../launcher/LiveProcessSupport/CartoucheGuest.m), in `Cartouche/GameMemory.plist` of the app group), and the System page shows the limit. A game that needs more than it has there, by its sheet, starts again in Cartouche's place at once, with all of Cartouche's memory, and so does from then on a game iOS stopped there close to its limit, as long as Cartouche's place has more. iOS may give the game's process more than Cartouche itself: then every game stays behind the console, where it has the most, and a game's sheet compares its peak with that limit ([decisions.md](decisions.md), 46).
+Game Mode, which Cartouche turns on from 0.10.0 ([decisions.md](decisions.md), 38), came with 2 GiB more: the player found 8,192 MiB on the System page, where the same iPhone, on the same iOS, gave Cartouche 6,143 before. The game's process behind the console kept 6,144 MiB: LiveContainer's extension has no Game Mode keys of its own. [`app/scripts/package.sh`](../app/scripts/package.sh) gives it Cartouche's, and whether its limit rises too is measured on the iPhone with the next version.
+
+Behind the console ([decisions.md](decisions.md), 38), a game runs in LiveContainer's LiveProcess extension, a process of its own with a limit of its own. The extension's entitlements ask for Increased Memory Limit, as Cartouche's do, and SideStore makes the same request for each App ID it signs an app with, extensions included; what the process gets is iOS's to say. The game's process writes its footprint, its peak and its limit every two seconds, with the sizes of its screen ([`CartoucheGuest.m`](../launcher/LiveProcessSupport/CartoucheGuest.m), in `Cartouche/GameMemory.plist` of the app group), and the System page shows the limit. Cartouche compares that limit with its own instead of assuming which is higher ([`CartoucheGamePlace.swift`](../launcher/Sources/CartoucheGamePlace.swift), [decisions.md](decisions.md), 46). While its own is higher, as with Game Mode, a game that needs more than it has behind the console starts in Cartouche's place, with all of Cartouche's memory: one whose peak, by its sheet, leaves it less room under the limit there than Cartouche counts as near it (an eighth of the limit, and at least 512 MiB); one that needs Increased Memory Limit and has no peak on its sheet, as Mario Kart World; and from then on one iOS stopped there close to its limit. One that needs more and started behind the console starts again in Cartouche's place at once. When the game's process has as much as Cartouche, or more, every game stays behind the console, a game iOS stopped there for its memory is told that it would have no more in Cartouche's place, and a game's sheet compares its peak with the higher of the two limits.
 
 ## Games
 

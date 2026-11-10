@@ -8184,13 +8184,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Your games share this limit. With Increased Memory Limit, an iPhone with 12 GB allows about 6 GiB."
+            "value" : "Your games share this limit. With Increased Memory Limit, an iPhone with 12 GB allows Cartouche about 8 GiB."
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Vos jeux partagent cette limite. Avec la mémoire augmentée, un iPhone de 12 Go accorde environ 6 Gio."
+            "value" : "Vos jeux partagent cette limite. Avec la mémoire augmentée, un iPhone de 12 Go accorde environ 8 Gio à Cartouche."
           }
         }
       }
@@ -8201,13 +8201,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Games that start in Cartouche’s place share this limit; behind Cartouche, a game has its own. With Increased Memory Limit, an iPhone with 12 GB allows about 6 GiB."
+            "value" : "Games that start in Cartouche’s place share this limit; behind Cartouche, a game has its own, below. With Increased Memory Limit, an iPhone with 12 GB allows Cartouche about 8 GiB."
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Les jeux lancés à la place de Cartouche partagent cette limite ; derrière Cartouche, un jeu a la sienne. Avec la mémoire augmentée, un iPhone de 12 Go accorde environ 6 Gio."
+            "value" : "Les jeux lancés à la place de Cartouche partagent cette limite ; derrière Cartouche, un jeu a la sienne, ci-dessous. Avec la mémoire augmentée, un iPhone de 12 Go accorde environ 8 Gio à Cartouche."
           }
         }
       }

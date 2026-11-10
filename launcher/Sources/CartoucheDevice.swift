@@ -86,8 +86,9 @@ struct CartoucheMemoryReading {
 
     static func now() -> CartoucheMemoryReading? {
         #if CARTOUCHE_GALLERY
-        // That iPhone with Increased Memory Limit, as Cartouche's home finds it.
-        return CartoucheMemoryReading(footprintBytes: 96 << 20, availableBytes: (6_143 - 96) << 20)
+        // That iPhone with Increased Memory Limit and Game Mode, as
+        // Cartouche's home finds it.
+        return CartoucheMemoryReading(footprintBytes: 96 << 20, availableBytes: (8_192 - 96) << 20)
         #else
         let available = os_proc_available_memory()
         guard available > 0 else { return nil }
