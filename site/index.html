@@ -9,6 +9,13 @@
 <meta name="color-scheme" content="dark">
 <meta name="theme-color" content="#090A11">
 <meta name="referrer" content="no-referrer">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Cartouche for iPhone">
+<meta property="og:description" content="Cartouche turns an iPhone into a console for the games nxnative runs natively, from your own copies.">
+<meta property="og:locale" content="en_US">
+<meta property="og:locale:alternate" content="fr_FR">
+<!-- The games' covers, from IGDB as in the app. -->
+<link rel="preconnect" href="https://images.igdb.com">
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
 <script>
     // The page's language before it is drawn: the visitor's choice, else the browser's.
@@ -39,19 +46,17 @@
         --ready: #34D37E;
         --stored: #64D2FF;
         --mac: #62A3FF;
-        --bringup: #FFB03F;
         --link: #0A84FF;
         --danger: #FF7373;
         --panel: rgba(28, 28, 33, .74);
         --display: ui-rounded, "SF Pro Rounded", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
         --text: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-        --mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, monospace;
         /* The game in focus, as the console lights its stage with it. */
-        --light: #3BE3C3;
-        --dark: #3A1C7A;
+        --light: #E6BB57;
+        --dark: #5C6614;
     }
-    @property --light { syntax: "<color>"; inherits: true; initial-value: #3BE3C3; }
-    @property --dark { syntax: "<color>"; inherits: true; initial-value: #3A1C7A; }
+    @property --light { syntax: "<color>"; inherits: true; initial-value: #E6BB57; }
+    @property --dark { syntax: "<color>"; inherits: true; initial-value: #5C6614; }
 
     *, *::before, *::after { box-sizing: border-box; }
     html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; background: var(--stage); }
@@ -232,6 +237,7 @@
         .hero .device { --w: 402 !important; --h: 874 !important; max-width: 290px !important; }
     }
     .hint { margin-top: 18px; text-align: center; color: var(--ink-3); font-size: .9rem; }
+    @media (hover: none) { .hint__keys { display: none; } }
     .hint kbd {
         display: inline-block;
         min-width: 1.7em;
@@ -527,6 +533,7 @@
     }
     .shelf {
         --tw: calc(182 * var(--pt));
+        --view: calc(466 * var(--pt));
         grid-column: 1;
         grid-row: 2;
         align-self: center;
@@ -534,14 +541,23 @@
         overflow: clip;
         /* Room above and below the covers for the focused one's ring. */
         padding: calc(18 * var(--pt)) 0 calc(18 * var(--pt)) calc(54 * var(--pt));
-        -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - 64 * var(--pt)), transparent);
-        mask-image: linear-gradient(90deg, #000 calc(100% - 64 * var(--pt)), transparent);
+        /* The covers fade out at both ends, clear of the camera on the left. */
+        --fade: linear-gradient(90deg, transparent calc(30 * var(--pt)), #000 calc(50 * var(--pt)), #000 calc(100% - 64 * var(--pt)), transparent);
+        -webkit-mask-image: var(--fade);
+        mask-image: var(--fade);
     }
+    .home--paused .shelf { --view: calc(366 * var(--pt)); }
+    /* The cover in focus in the middle of the shelf, as far as the shelf
+       goes, as the app scrolls to it (anchor .center): --i is its place,
+       --n the shelf's covers, --view the room they are seen in. */
     .track {
         --gap: calc(18 * var(--pt));
+        --step: calc(var(--tw) + var(--gap));
+        --to: calc(var(--i, 0) * var(--step) + var(--tw) / 2 - var(--view) / 2);
+        --end: calc(var(--n, 1) * var(--step) - var(--gap) - var(--view));
         display: flex;
         gap: var(--gap);
-        transform: translateX(calc(var(--i, 0) * -1 * (var(--tw) + var(--gap))));
+        transform: translateX(calc(-1 * clamp(0px, var(--to), max(0px, var(--end)))));
         transition: transform .6s cubic-bezier(.22, .8, .24, 1);
     }
 
@@ -560,7 +576,18 @@
         transition: transform .4s cubic-bezier(.34, 1.45, .5, 1);
     }
     button.tile { cursor: pointer; }
-    .tile > img { width: 100%; height: 100%; object-fit: cover; border-radius: inherit; }
+    .tile > img {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        border-radius: inherit;
+        opacity: 0;
+        transition: opacity .35s ease;
+    }
+    .tile > img.is-in { opacity: 1; }
+    img.is-missing { display: none !important; }
     .tile::after {
         content: "";
         position: absolute;
@@ -605,10 +632,12 @@
     .tile--outline > .dash { position: absolute; inset: 0; width: 100%; height: 100%; }
     .tile__out { position: relative; display: grid; justify-items: center; gap: calc(8 * var(--pt)); padding: 0 calc(12 * var(--pt)); text-align: center; color: rgba(255, 255, 255, .72); font: 600 calc(15 * var(--pt))/1.2 var(--text); }
     .tile__out .ic { font-size: calc(30 * var(--pt)); }
-    .tile--drawn { overflow: hidden; background: linear-gradient(135deg, var(--a), var(--b)); }
-    .drawn__band { position: absolute; inset: 0; background: linear-gradient(118deg, transparent 22%, rgba(255, 255, 255, .13) 46%, transparent 66%); }
-    .drawn__sym { position: absolute; top: -4%; right: -10%; width: 62% !important; height: auto !important; aspect-ratio: 1; color: rgba(255, 255, 255, .17); transform: rotate(-12deg); }
-    .drawn__plat {
+    /* The label Cartouche draws for a game (CartoucheLabelArt): its colours,
+       its platform, its genre's symbol and its name, under the cover. */
+    .art { position: absolute; inset: 0; overflow: hidden; border-radius: inherit; background: linear-gradient(135deg, var(--a), var(--b)); }
+    .art__band { position: absolute; inset: 0; background: linear-gradient(118deg, transparent 22%, rgba(255, 255, 255, .13) 46%, transparent 66%); }
+    .art__sym { position: absolute; top: -4%; right: -10%; width: 62% !important; height: auto !important; aspect-ratio: 1; color: rgba(255, 255, 255, .17); transform: rotate(-12deg); }
+    .art__plat {
         position: absolute;
         top: 7.5%;
         left: 7.5%;
@@ -619,17 +648,32 @@
         letter-spacing: calc(var(--tw) * .008);
         text-transform: uppercase;
     }
-    .drawn__name { position: absolute; left: 7.5%; right: 7.5%; bottom: 5.5%; font: 700 calc(var(--tw) * .135)/1.08 var(--display); text-align: left; text-shadow: 0 1px 2px rgba(0, 0, 0, .35); }
+    .art__name { position: absolute; left: 7.5%; right: 7.5%; bottom: 5.5%; font: 700 calc(var(--tw) * .135)/1.08 var(--display); text-align: left; text-shadow: 0 1px 2px rgba(0, 0, 0, .35); }
 
-    .focus { grid-column: 2; grid-row: 1 / span 2; align-self: center; min-width: 0; }
+    .focus {
+        /* The room beside the shelf: the screen, less the shelf, the gap and the margin. */
+        --room: calc(100cqw - 596 * var(--pt));
+        grid-column: 2;
+        grid-row: 1 / span 2;
+        align-self: center;
+        min-width: 0;
+    }
+    .home--paused .focus { --room: calc(100cqw - 496 * var(--pt)); }
     .focus > * { animation: rise .45s ease both; }
     @keyframes rise { from { opacity: 0; transform: translateY(calc(8 * var(--pt))); } }
-    .focus__title { font: 800 calc(30 * var(--pt))/1.08 var(--display); letter-spacing: -.01em; }
+    .focus__title {
+        overflow: hidden;
+        font: 800 calc(30 * var(--pt))/1.08 var(--display);
+        font-size: clamp(calc(16.5 * var(--pt)), var(--room) / (var(--len, 12) * .6), calc(30 * var(--pt)));
+        letter-spacing: -.01em;
+        white-space: nowrap;
+        text-overflow: ellipsis;
+    }
     .focus__chips { display: flex; flex-wrap: wrap; align-items: center; gap: calc(6 * var(--pt)) calc(12 * var(--pt)); margin-top: calc(10 * var(--pt)); color: rgba(255, 255, 255, .68); font-size: calc(15 * var(--pt)); }
     .focus__stats { display: flex; gap: calc(16 * var(--pt)); margin-top: calc(9 * var(--pt)); color: rgba(255, 255, 255, .68); font-size: calc(15 * var(--pt)); }
     .focus__stats span { display: inline-flex; align-items: center; gap: calc(5 * var(--pt)); }
     .focus__note { margin-top: calc(8 * var(--pt)); color: rgba(255, 255, 255, .7); font-size: calc(15 * var(--pt)); }
-    .focus__actions { display: flex; gap: calc(12 * var(--pt)); margin-top: calc(18 * var(--pt)); }
+    .focus__actions { display: flex; flex-wrap: wrap; gap: calc(12 * var(--pt)); margin-top: calc(18 * var(--pt)); }
     .ubtn .uglyph { font-size: calc(20 * var(--pt)); }
 
     @container (orientation: portrait) {
@@ -637,8 +681,8 @@
         .dock--top { display: none; }
         .home__main { display: flex; flex-direction: column; justify-content: center; padding: 0 0 calc(10 * var(--pt)); }
         .home__label { padding: 0 0 0 calc(18 * var(--pt)); }
-        .shelf { --tw: 36cqw; align-self: stretch; padding: calc(16 * var(--pt)) 0 calc(24 * var(--pt)) calc(18 * var(--pt)); }
-        .focus { padding: 0 calc(18 * var(--pt)); }
+        .shelf { --tw: 36cqw; --view: calc(100cqw - 18 * var(--pt)); --fade: linear-gradient(90deg, transparent, #000 calc(14 * var(--pt)), #000 calc(100% - 64 * var(--pt)), transparent); align-self: stretch; padding: calc(16 * var(--pt)) 0 calc(24 * var(--pt)) calc(18 * var(--pt)); }
+        .focus { --room: calc(100cqw - 36 * var(--pt)); padding: 0 calc(18 * var(--pt)); }
         .dock--bottom { display: flex; }
     }
     .home--shelf .focus { display: none; }
@@ -648,7 +692,7 @@
     .okbtn { position: absolute; z-index: 3; top: calc(54 * var(--pt)); right: calc(16 * var(--pt)); display: grid; place-items: center; height: calc(44 * var(--pt)); padding: 0 calc(16 * var(--pt)); border-radius: 999px; font: 600 calc(17 * var(--pt))/1 var(--text); }
     .sheet__body { position: relative; z-index: 1; display: flex; flex-direction: column; gap: calc(12 * var(--pt)); padding: calc(118 * var(--pt)) calc(18 * var(--pt)) 0; }
     .sheet__head { display: flex; align-items: center; gap: calc(18 * var(--pt)); margin-bottom: calc(8 * var(--pt)); }
-    .sheet__cover { flex: none; width: calc(104 * var(--pt)); aspect-ratio: .68; object-fit: cover; border-radius: calc(8 * var(--pt)); box-shadow: 0 calc(6 * var(--pt)) calc(16 * var(--pt)) rgba(0, 0, 0, .45); }
+    .sheet__tile { --tw: calc(104 * var(--pt)); }
     .sheet__title { font: 800 calc(27 * var(--pt))/1.1 var(--display); }
     .sheet__chips { display: flex; flex-wrap: wrap; align-items: center; gap: calc(8 * var(--pt)) calc(12 * var(--pt)); margin-top: calc(10 * var(--pt)); color: rgba(255, 255, 255, .68); font-size: calc(15 * var(--pt)); }
     .sheet__status { margin-top: calc(10 * var(--pt)); }
@@ -723,58 +767,21 @@
     .hints span + .uglyph, .hints span + .ushoulder { margin-left: calc(8 * var(--pt)); }
 
     /* ---------- The game behind the console ---------- */
-    .play .game { position: absolute; inset: 0; overflow: hidden; background: linear-gradient(#05081F, #121648 34%, #33195E 52%, #6A2A74 59%, #1B1036 60%, #0B0A1E); }
-    .game__aurora {
+    .play .game { position: absolute; inset: 0; overflow: hidden; display: grid; place-items: center; background: linear-gradient(135deg, var(--a), var(--b)); }
+    .game__name { padding: 0 14%; font: 800 calc(40 * var(--pt))/1.05 var(--display); text-align: center; text-wrap: balance; color: rgba(255, 255, 255, .92); }
+    .game__art {
         position: absolute;
-        inset: 4% -12% auto;
-        height: 42%;
-        background:
-            radial-gradient(52% 46% at 28% 62%, rgba(46, 242, 184, .78), transparent 72%),
-            radial-gradient(46% 42% at 70% 44%, rgba(164, 123, 255, .66), transparent 72%);
-        filter: blur(calc(16 * var(--pt)));
-        transform: skewY(-5deg);
-        animation: aurora 9s ease-in-out infinite alternate;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        opacity: 0;
+        transition: opacity .5s ease;
+        animation: drift 24s ease-in-out infinite alternate;
     }
-    @keyframes aurora { to { transform: skewY(-2deg) translateX(4%); opacity: .85; } }
-    .game__stars, .game__hills { position: absolute; inset: 0; width: 100%; height: 100%; }
-    .game__road {
-        position: absolute;
-        left: 50%;
-        bottom: -2%;
-        width: 48%;
-        height: 1200%;
-        transform-origin: 50% 100%;
-        transform: translateX(-50%) perspective(calc(550 * var(--pt))) rotateX(72deg);
-        background: linear-gradient(90deg, #4A3C8C, #2E2768 9%, #2E2768 91%, #4A3C8C);
-        -webkit-mask-image: linear-gradient(to top, #000 55%, transparent 96%);
-        mask-image: linear-gradient(to top, #000 55%, transparent 96%);
-    }
-    .game__road::before, .game__road::after { content: ""; position: absolute; top: 0; bottom: 0; width: 1.4%; background: rgba(200, 192, 255, .85); }
-    .game__road::before { left: 5%; }
-    .game__road::after { right: 5%; }
-    .game__dash, .game__rumble { position: absolute; top: 0; bottom: 0; animation: rush var(--speed, .42s) linear infinite; }
-    .game__dash {
-        --period: calc(150 * var(--pt));
-        left: 50%;
-        width: 2.4%;
-        transform: translateX(-50%);
-        background: repeating-linear-gradient(to top, #FFE9A8 0 calc(64 * var(--pt)), transparent calc(64 * var(--pt)) var(--period));
-    }
-    .game__rumble { --period: calc(80 * var(--pt)); width: 4%; background: repeating-linear-gradient(to top, #E8485F 0 calc(40 * var(--pt)), #F4F0FF calc(40 * var(--pt)) var(--period)); }
-    .game__rumble--l { left: 0; }
-    .game__rumble--r { right: 0; }
-    @keyframes rush { from { background-position: 0 0; } to { background-position: 0 var(--period); } }
-    .game__car { position: absolute; left: 50%; bottom: 7%; width: 19%; transform: translateX(-50%); animation: bob 1.4s ease-in-out infinite; }
-    @keyframes bob { 50% { transform: translateX(-50%) translateY(calc(2 * var(--pt))); } }
-    .hud { position: absolute; z-index: 2; color: #fff; text-shadow: 0 1px 4px rgba(0, 0, 0, .6); }
-    .hud small { display: block; font: 800 calc(11 * var(--pt))/1 var(--display); letter-spacing: calc(1.6 * var(--pt)); opacity: .82; }
-    .hud--lap { top: calc(20 * var(--pt)); left: calc(64 * var(--pt)); }
-    .hud--lap b { display: block; margin-top: calc(5 * var(--pt)); font: 700 calc(26 * var(--pt))/1 var(--mono); font-variant-numeric: tabular-nums; }
-    .hud--pos { top: calc(14 * var(--pt)); right: calc(64 * var(--pt)); display: flex; align-items: baseline; gap: calc(6 * var(--pt)); }
-    .hud--pos b { font: 900 calc(44 * var(--pt))/1 var(--display); font-style: italic; }
-    .hud--pos sup { font-size: .45em; }
-    .hud--speed { right: calc(64 * var(--pt)); bottom: calc(20 * var(--pt)); display: flex; align-items: baseline; gap: calc(6 * var(--pt)); }
-    .hud--speed b { font: 900 calc(36 * var(--pt))/1 var(--display); font-style: italic; font-variant-numeric: tabular-nums; }
+    .game__art.is-in { opacity: 1; }
+    @keyframes drift { from { transform: scale(1.03); } to { transform: scale(1.1) translate(-2%, -1.5%); } }
+    .play .game::after { content: ""; position: absolute; inset: 0; background: radial-gradient(130% 100% at 50% 40%, transparent 58%, rgba(0, 0, 0, .4)); }
     .homebtn {
         position: absolute;
         z-index: 4;
@@ -953,14 +960,9 @@
         <symbol id="i-pause" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="currentColor"/><path fill="#fff" d="M8.8 7.6h2.2v8.8H8.8zm4.2 0h2.2v8.8H13z"/></symbol>
         <symbol id="i-pausebars" viewBox="0 0 24 24"><path fill="currentColor" d="M6.5 4.5H10v15H6.5zm7.5 0h3.5v15H14z"/></symbol>
         <symbol id="i-laptop" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.9" stroke-linejoin="round"><rect x="4.5" y="5" width="15" height="10.5" rx="1.6"/><path stroke-linecap="round" d="M2.5 19h19"/></g></symbol>
-        <symbol id="i-hammer" viewBox="0 0 24 24"><path fill="currentColor" d="M13.5 3.2 20.8 8l-1.6 2.4-2.6-1.7-9.9 11.6a1.9 1.9 0 0 1-2.9-2.4l9-11.1-1.6-1.1z"/></symbol>
         <symbol id="i-flag" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" d="M5 21V4.5M5 4.5h13.5v9H5"/><path fill="currentColor" d="M5 4.5h4.5V9H5zM14 4.5h4.5V9H14zM9.5 9H14v4.5H9.5z"/></symbol>
-        <symbol id="i-map" viewBox="0 0 24 24"><path fill="currentColor" d="M2.5 6.2 8.6 4v15.8l-6.1 2.2zM9.9 4l5.3 2.2V22l-5.3-2.2zM16.5 6.2 21.5 4v15.8l-5 2.2z"/></symbol>
+        <symbol id="i-building" viewBox="0 0 24 24"><path fill="currentColor" fill-rule="evenodd" d="M4.5 3h8A1.5 1.5 0 0 1 14 4.5V21H3V4.5A1.5 1.5 0 0 1 4.5 3Zm1 3v2h2V6h-2Zm4 0v2h2V6h-2Zm-4 4v2h2v-2h-2Zm4 0v2h2v-2h-2Zm-4 4v2h2v-2h-2Zm4 0v2h2v-2h-2ZM15 9h4.5A1.5 1.5 0 0 1 21 10.5V21h-6V9Zm1.5 3v2h2v-2h-2Zm0 4v2h2v-2h-2Z"/></symbol>
         <symbol id="i-bolt" viewBox="0 0 24 24"><path fill="currentColor" d="M13.6 2 4.8 13.4h6.1L9.8 22l9.4-12h-6.3z"/></symbol>
-        <symbol id="i-shield" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" d="M12 2.8 19.5 5.6v6c0 4.9-3.2 8.3-7.5 9.6-4.3-1.3-7.5-4.7-7.5-9.6v-6z"/><path fill="currentColor" d="M12 2.8v18.4c-4.3-1.3-7.5-4.7-7.5-9.6v-6z"/></symbol>
-        <symbol id="i-puzzle" viewBox="0 0 24 24"><path fill="currentColor" d="M9.6 4.5a2.4 2.4 0 1 1 4.6 0H17a1.5 1.5 0 0 1 1.5 1.5v3a2.4 2.4 0 1 1 0 4.6V18a1.5 1.5 0 0 1-1.5 1.5h-3a2.4 2.4 0 1 0-4.5 0H6A1.5 1.5 0 0 1 4.5 18v-3.4a2.4 2.4 0 1 0 0-4.4V6A1.5 1.5 0 0 1 6 4.5z"/></symbol>
-        <symbol id="i-family" viewBox="0 0 24 24"><g fill="currentColor"><circle cx="8" cy="5.6" r="2.6"/><circle cx="16.6" cy="8.6" r="2.2"/><path d="M4.4 21v-7.2a3.6 3.6 0 0 1 7.2 0V21zM13.1 21v-5.4a3.5 3.5 0 0 1 7 0V21z"/></g></symbol>
-        <symbol id="i-crown" viewBox="0 0 24 24"><path fill="currentColor" d="M3 7.5 7.8 11 12 4.5l4.2 6.5L21 7.5 19.2 18H4.8z"/></symbol>
         <symbol id="i-play" viewBox="0 0 24 24"><path fill="currentColor" d="M7 4.7v14.6c0 .8.9 1.3 1.6.9l12-7.3a1 1 0 0 0 0-1.8l-12-7.3c-.7-.4-1.6.1-1.6.9Z"/></symbol>
         <symbol id="i-sliders" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M3.5 6.5h2.2M10.3 6.5h10.2M3.5 12h9.7M17.8 12h2.7M3.5 17.5h4.2M12.3 17.5h8.2"/><circle cx="8" cy="6.5" r="2.3"/><circle cx="15.5" cy="12" r="2.3"/><circle cx="10" cy="17.5" r="2.3"/></g></symbol>
         <symbol id="i-chevron" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round" d="m9 4.5 7.5 7.5L9 19.5"/></symbol>
@@ -1030,7 +1032,7 @@
                     <div class="device" data-hero tabindex="0" role="group" style="--w:874;--h:402;--r:55;--b:13;max-width:1060px" data-label-fr="L’accueil de Cartouche, en paysage sur un iPhone 17 Pro" data-label-en="Cartouche’s home, in landscape on an iPhone 17 Pro" aria-label="Cartouche’s home, in landscape on an iPhone 17 Pro">
                         <div class="device__body"><div class="screen" data-screen="hero"></div></div>
                     </div>
-                    <p class="hint"><span lang="fr">Touchez une jaquette, ou <kbd>←</kbd> <kbd>→</kbd> au clavier. Jouer, Fiche et le dock mènent à la suite.</span><span lang="en">Tap a cover, or press <kbd>←</kbd> <kbd>→</kbd>. Play, Details and the dock lead to the rest of the page.</span></p>
+                    <p class="hint"><span lang="fr">Touchez une jaquette<span class="hint__keys">, ou <kbd>←</kbd> <kbd>→</kbd> au clavier</span>. Jouer, Fiche et le dock mènent à la suite.</span><span lang="en">Tap a cover<span class="hint__keys">, or press <kbd>←</kbd> <kbd>→</kbd></span>. Play, Details and the dock lead to the rest of the page.</span></p>
                 </div>
                 <ul class="facts">
                     <li><span lang="fr"><b>≈ 6 Gio de mémoire</b> pour vos jeux, sur un iPhone de 12 Go</span><span lang="en"><b>≈ 6 GiB of memory</b> for your games, on a 12 GB iPhone</span></li>
@@ -1041,7 +1043,7 @@
             </div>
         </section>
 
-        <section class="section" id="console" style="--light:#3BE3C3;--dark:#3A1C7A">
+        <section class="section" id="console" style="--light:#57E68E;--dark:#146656">
             <div class="wrap split">
                 <div>
                     <p class="label"><span lang="fr">La console</span><span lang="en">The console</span></p>
@@ -1059,7 +1061,7 @@
                     </ul>
                 </div>
                 <figure>
-                    <div class="device" style="--w:402;--h:874;--r:55;--b:12;max-width:340px;--light:#3BE3C3;--dark:#3A1C7A">
+                    <div class="device" style="--w:402;--h:874;--r:55;--b:12;max-width:340px;--light:#57E68E;--dark:#146656">
                         <div class="device__body"><div class="screen" data-screen="library" role="img" data-label-fr="Tous les jeux, avec une manette connectée" data-label-en="All games, with a controller connected" aria-label="All games, with a controller connected"></div></div>
                     </div>
                     <figcaption><span lang="fr">Tous les jeux, manette connectée</span><span lang="en">All games, controller connected</span></figcaption>
@@ -1067,31 +1069,31 @@
             </div>
         </section>
 
-        <section class="section" id="sheet" style="--light:#FF9C5B;--dark:#5B2468;--gx:88%;--gx2:12%">
+        <section class="section" id="sheet" style="--light:#C457E6;--dark:#661457;--gx:88%;--gx2:12%">
             <div class="wrap split split--flip">
                 <div>
                     <p class="label"><span lang="fr">La fiche du jeu</span><span lang="en">A game’s sheet</span></p>
                     <h2><span lang="fr">Chaque jeu dit comment il tourne ici.</span><span lang="en">Every game says how it runs here.</span></h2>
                     <div class="prose">
-                        <p lang="fr">La fiche vérifie que votre iPhone a ce qu’il faut : la mémoire, iOS, la puce. Elle montre les résultats des testeurs sur votre modèle, votre temps de jeu et la place que prend le jeu.</p>
-                        <p lang="en">The sheet checks that your iPhone has what it takes: memory, iOS, chip. It shows testers’ results on your model, your play time and the space the game takes.</p>
+                        <p lang="fr">La fiche vérifie que votre iPhone a ce qu’il faut : la mémoire, iOS, la puce. Elle montre votre temps de jeu, la place que prend le jeu et, quand des testeurs l’ont essayé, leurs résultats sur votre modèle.</p>
+                        <p lang="en">The sheet checks that your iPhone has what it takes: memory, iOS, chip. It shows your play time, the space the game takes and, when testers have tried it, their results on your model.</p>
                         <p lang="fr">Les réglages de nxnative se changent sur une page de Cartouche : images par seconde, échelle de rendu, mode portable ou TV, langue du jeu. « Revenir aux réglages testés » remet ceux avec lesquels le jeu a été essayé.</p>
                         <p lang="en">nxnative’s settings change on a page of Cartouche’s own: frame rate, render scale, handheld or docked, game language. Reset to tested defaults brings back the ones the game was tried with.</p>
                     </div>
                     <p class="small" style="margin-top:22px"><span lang="fr">Faites glisser l’échelle de rendu, sur la page des réglages.</span><span lang="en">Drag the render scale, on the settings page.</span></p>
                 </div>
                 <div class="pair" style="display:flex;align-items:flex-start;justify-content:center">
-                    <div class="device" style="--w:402;--h:874;--r:55;--b:12;width:48%;max-width:300px;margin:0;--light:#FF9C5B;--dark:#5B2468">
-                        <div class="device__body"><div class="screen" data-screen="sheet" role="img" data-label-fr="La fiche de Lanterne" data-label-en="Lanterne’s sheet" aria-label="Lanterne’s sheet"></div></div>
+                    <div class="device" style="--w:402;--h:874;--r:55;--b:12;width:48%;max-width:300px;margin:0;--light:#C457E6;--dark:#661457">
+                        <div class="device__body"><div class="screen" data-screen="sheet" role="img" data-label-fr="La fiche de Stardew Valley" data-label-en="Stardew Valley’s sheet" aria-label="Stardew Valley’s sheet"></div></div>
                     </div>
-                    <div class="device" style="--w:402;--h:874;--r:55;--b:12;width:48%;max-width:300px;margin:12% 0 0 4%;--light:#FF9C5B;--dark:#5B2468">
+                    <div class="device" style="--w:402;--h:874;--r:55;--b:12;width:48%;max-width:300px;margin:12% 0 0 4%;--light:#C457E6;--dark:#661457">
                         <div class="device__body"><div class="screen" data-screen="settings"></div></div>
                     </div>
                 </div>
             </div>
         </section>
 
-        <section class="section" id="pause" style="--light:#3BE3C3;--dark:#3A1C7A">
+        <section class="section" id="pause" style="--light:#E6BB57;--dark:#5C6614">
             <div class="wrap">
                 <div class="intro intro--wide">
                     <div>
@@ -1104,7 +1106,7 @@
                         <p class="small"><span lang="fr">Un jeu qui a besoin de plus de mémoire démarre à la place de Cartouche.</span><span lang="en">A game that needs more memory starts in Cartouche’s place.</span></p>
                     </div>
                 </div>
-                <div class="device" data-pause style="--w:874;--h:402;--r:55;--b:13;max-width:940px;margin-top:clamp(40px,5vw,64px);--light:#3BE3C3;--dark:#3A1C7A">
+                <div class="device" data-pause style="--w:874;--h:402;--r:55;--b:13;max-width:940px;margin-top:clamp(40px,5vw,64px);--light:#E6BB57;--dark:#5C6614">
                     <div class="device__body"><div class="screen" data-screen="pause"></div></div>
                 </div>
                 <div class="demo-bar">
@@ -1113,7 +1115,7 @@
             </div>
         </section>
 
-        <section class="section" id="duo" style="--light:#8BE86D;--dark:#0D5C47;--gx:86%;--gx2:14%">
+        <section class="section" id="duo" style="--light:#57E6BB;--dark:#145C66;--gx:86%;--gx2:14%">
             <div class="wrap">
                 <div class="intro intro--wide">
                     <div>
@@ -1129,13 +1131,13 @@
                 </div>
                 <div class="duo-stage">
                     <figure>
-                        <div class="device" style="--w:466;--h:678;--r:42;--b:13;max-width:250px;--light:#3BE3C3;--dark:#3A1C7A">
+                        <div class="device" style="--w:466;--h:678;--r:42;--b:13;max-width:250px;--light:#E6BB57;--dark:#5C6614">
                             <div class="device__body"><div class="screen" data-screen="duo-closed" role="img" data-label-fr="L’accueil sur l’iPhone Duo plié" data-label-en="The home on the folded iPhone Duo" aria-label="The home on the folded iPhone Duo"></div></div>
                         </div>
                         <figcaption><span lang="fr">Plié</span><span lang="en">Folded</span></figcaption>
                     </figure>
                     <figure>
-                        <div class="device" data-duo style="--w:890;--h:626;--r:30;--b:14;max-width:760px;--light:#3BE3C3;--dark:#3A1C7A">
+                        <div class="device" data-duo style="--w:890;--h:626;--r:30;--b:14;max-width:760px;--light:#E6BB57;--dark:#5C6614">
                             <div class="device__body"><div class="screen" data-screen="duo-open"></div></div>
                         </div>
                         <figcaption><span lang="fr">Déplié · touchez une jaquette, la fiche suit</span><span lang="en">Unfolded · tap a cover, the sheet follows</span></figcaption>
@@ -1291,8 +1293,8 @@
                         <p><span lang="fr">Ceux que nxnative fait tourner nativement. Dans Cartouche, Tous les jeux montre chaque jeu qui a un profil dans nxnative, et sa fiche dit s’il tourne sur votre iPhone.</span><span lang="en">The ones nxnative runs natively. In Cartouche, All games lists every game that has a profile in nxnative, and its sheet says whether it runs on your iPhone.</span></p>
                     </details>
                     <details>
-                        <summary><span lang="fr">Je ne connais aucun de ces jeux.</span><span lang="en">I don’t know any of these games.</span></summary>
-                        <p><span lang="fr">C’est normal : ils sont inventés pour cette page, jaquettes comprises. Dans Cartouche, vos jeux ont leurs jaquettes officielles.</span><span lang="en">That’s expected: they are made up for this page, covers included. In Cartouche, your games show their official covers.</span></p>
+                        <summary><span lang="fr">Cartouche fournit-il ces jeux ?</span><span lang="en">Does Cartouche come with these games?</span></summary>
+                        <p><span lang="fr">Non. Les jeux de cette page sont des exemples de la liste de nxnative, et Cartouche n’en fournit aucun : vous construisez les vôtres à partir de vos propres copies. Cartouche montre leurs jaquettes officielles, qui viennent d’<a href="https://www.igdb.com">IGDB</a>.</span><span lang="en">No. The games on this page are examples from nxnative’s list, and Cartouche provides none of them: you build your own from your own copies. Cartouche shows their official covers, which come from <a href="https://www.igdb.com">IGDB</a>.</span></p>
                     </details>
                     <details>
                         <summary><span lang="fr">Cartouche envoie-t-il des données ?</span><span lang="en">Does Cartouche send any data?</span></summary>
@@ -1315,11 +1317,46 @@
                 </nav>
             </div>
             <p><span lang="fr">Cartouche est un logiciel libre sous licence AGPL-3.0, construit sur LiveContainer et SideStore.</span><span lang="en">Cartouche is free software under the AGPL-3.0, built on LiveContainer and SideStore.</span></p>
-            <p><span lang="fr">Cartouche n’est affilié ni à Nintendo, ni à Apple, ni aux projets LiveContainer, SideStore, iloader et nxnative. Les jeux et les jaquettes de cette page sont inventés.</span><span lang="en">Cartouche is not affiliated with Nintendo, Apple, or the LiveContainer, SideStore, iloader and nxnative projects. The games and covers on this page are made up.</span></p>
+            <p><span lang="fr">Cartouche n’est affilié ni à Nintendo, ni à Apple, ni aux projets LiveContainer, SideStore, iloader et nxnative. Les noms, les jaquettes et les illustrations des jeux appartiennent à leurs éditeurs ; ils viennent d’<a href="https://www.igdb.com">IGDB</a>, comme dans l’app. Les temps de jeu et les tailles sont des exemples.</span><span lang="en">Cartouche is not affiliated with Nintendo, Apple, or the LiveContainer, SideStore, iloader and nxnative projects. Games’ names, covers and artworks belong to their publishers; they come from <a href="https://www.igdb.com">IGDB</a>, as in the app. Play times and sizes are examples.</span></p>
         </div>
     </footer>
 </div>
 
+<!-- The games on the page: nine of nxnative's list (catalog/nxnative.json),
+     each with the IGDB images Cartouche shows for it (catalog/covers.json)
+     and the colours Cartouche gives it (CartoucheTheme.colors(for:), from
+     its title ID). Play times and sizes are examples. -->
+<script type="application/json" id="games">
+[
+    { "id": "celeste", "titleId": "01002B30028F6000", "name": "Celeste", "platform": "switch", "genre": "action",
+      "catalog": "iphone", "status": "stored", "cover": "cob9dh", "artwork": "ar6pwd", "light": "#57E68E", "dark": "#146656",
+      "stored": ["1,2 Go", "1.2 GB"] },
+    { "id": "silksong", "titleId": "010013C00E930000", "name": "Hollow Knight: Silksong", "platform": "switch", "genre": "other",
+      "catalog": "iphone", "status": "ready", "cover": "cobebu", "artwork": "ar4prh", "light": "#57E6BB", "dark": "#145C66",
+      "time": ["3 h 5 min", "3 h 5 min"], "sessions": ["9 sessions, dernière partie il y a 3 heures", "9 sessions, last played 3 hours ago"],
+      "size": ["6,8 Go", "6.8 GB"], "detail": ["Jeu 6,6 Go, données 214 Mo", "Game 6.6 GB, data 214 MB"] },
+    { "id": "mk8d", "titleId": "0100152000022000", "name": "Mario Kart 8 Deluxe", "platform": "switch", "genre": "racing",
+      "catalog": "iphone", "status": "ready", "cover": "co213p", "artwork": "ar4kb", "light": "#E6BB57", "dark": "#5C6614",
+      "time": ["12 h 34 min", "12 h 34 min"], "sessions": ["23 sessions, dernière partie hier", "23 sessions, last played yesterday"],
+      "size": ["11,9 Go", "11.9 GB"], "detail": ["Jeu 11,7 Go, données 196 Mo", "Game 11.7 GB, data 196 MB"] },
+    { "id": "stardew", "titleId": "0100E65002BB8000", "name": "Stardew Valley", "platform": "switch", "genre": "simulation",
+      "catalog": "iphone", "status": "ready", "cover": "coa93h", "artwork": "ar4yuh", "light": "#C457E6", "dark": "#661457",
+      "time": ["31 h 12 min", "31 h 12 min"], "sessions": ["41 sessions, dernière partie il y a 4 jours", "41 sessions, last played 4 days ago"],
+      "size": ["1,1 Go", "1.1 GB"], "detail": ["Jeu 1,0 Go, données 92 Mo", "Game 1.0 GB, data 92 MB"] },
+    { "id": "smash", "titleId": "01006A800016E000", "name": "Super Smash Bros. Ultimate", "platform": "switch", "genre": "other",
+      "catalog": "iphone", "status": "ready", "cover": "co2255", "artwork": "ar3p89", "light": "#E6B857", "dark": "#5E6614",
+      "time": ["47 min", "47 min"], "sessions": ["2 sessions, dernière partie la semaine dernière", "2 sessions, last played last week"],
+      "size": ["16,9 Go", "16.9 GB"], "detail": ["Jeu 16,7 Go, données 188 Mo", "Game 16.7 GB, data 188 MB"] },
+    { "id": "cuphead", "titleId": "0100A5C00D162000", "name": "Cuphead", "platform": "switch", "genre": "action",
+      "catalog": "iphone", "status": "iphone", "cover": "co62ao", "artwork": "ar4kfw", "light": "#57E695", "dark": "#14665A" },
+    { "id": "sword", "titleId": "0100ABF008968000", "name": "Pokémon Sword", "platform": "switch", "genre": "other",
+      "catalog": "iphone", "status": "iphone", "cover": "co1zk2", "artwork": "ar3vlt", "light": "#5761E6", "dark": "#311466" },
+    { "id": "kirby", "titleId": "01004D300C5AE000", "name": "Kirby and the Forgotten Land", "platform": "switch", "genre": "other",
+      "catalog": "mac", "status": "mac", "cover": "co3vlw", "artwork": "ar1cbl", "light": "#C757E6", "dark": "#661455" },
+    { "id": "metroid", "titleId": "010012101468C000", "name": "Metroid Prime Remastered", "platform": "switch", "genre": "other",
+      "catalog": "mac", "status": "mac", "cover": "cobbn9", "artwork": "ar2605", "light": "#A357E6", "dark": "#621466" }
+]
+</script>
 <script>
 (function () {
     "use strict";
@@ -1328,6 +1365,15 @@
     var $ = function (selector, scope) { return (scope || document).querySelector(selector); };
     var $$ = function (selector, scope) { return Array.prototype.slice.call((scope || document).querySelectorAll(selector)); };
     var reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+    // An image IGDB does not give, offline or blocked: the label Cartouche
+    // draws under it stays, as in the app. Covers fade in once they arrive.
+    document.addEventListener("error", function (e) {
+        if (e.target.tagName === "IMG") e.target.classList.add("is-missing");
+    }, true);
+    document.addEventListener("load", function (e) {
+        if (e.target.tagName === "IMG") e.target.classList.add("is-in");
+    }, true);
 
     // Text in both languages: the page shows the one of <html data-lang>.
     function t(fr, en) {
@@ -1341,41 +1387,37 @@
     function glyph(inner) { return '<i class="uglyph" aria-hidden="true"><b>' + inner + "</b></i>"; }
     var MENU = '<i class="uglyph" aria-hidden="true">' + ic("menu") + "</i>";
 
-    // The made-up games: covers drawn by covers/make_covers.py, colours of
-    // their stage taken from their covers.
-    var GAMES = [
-        { id: "aurora", file: "aurora-rally", name: "Aurora Rally", platform: "Switch 2", genre: ["Course", "Racing"], icon: "flag", status: "ready",
-          time: ["12 h 34 min", "12 hr 34 min"], sessions: ["23 sessions, dernière partie hier", "23 sessions, last played yesterday"],
-          size: ["21,8 Go", "21.8 GB"], detail: ["Jeu 21,5 Go, données 327 Mo", "Game 21.5 GB, data 327 MB"], peak: ["4,6 Gio", "4.6 GiB"], light: "#3BE3C3", dark: "#3A1C7A" },
-        { id: "lanterne", file: "lanterne", name: "Lanterne", platform: "Switch", genre: ["Aventure", "Adventure"], icon: "map", status: "ready",
-          time: ["47 min", "47 min"], sessions: ["2 sessions, dernière partie il y a 3 heures", "2 sessions, last played 3 hours ago"],
-          size: ["14,2 Go", "14.2 GB"], detail: ["Jeu 14,2 Go, données 48 Mo", "Game 14.2 GB, data 48 MB"], peak: ["3,1 Gio", "3.1 GiB"], light: "#FF9C5B", dark: "#5B2468" },
-        { id: "mosslight", file: "mosslight", name: "Mosslight", platform: "Switch", genre: ["Action", "Action"], icon: "bolt", status: "ready",
-          time: ["3 h 05 min", "3 hr 5 min"], sessions: ["9 sessions, dernière partie samedi", "9 sessions, last played Saturday"],
-          size: ["6,4 Go", "6.4 GB"], detail: ["Jeu 6,3 Go, données 112 Mo", "Game 6.3 GB, data 112 MB"], peak: ["2,4 Gio", "2.4 GiB"], light: "#8BE86D", dark: "#0D5C47" },
-        { id: "ironveil", file: "ironveil", name: "Ironveil", platform: "Switch 2", genre: ["Jeu de rôle", "Role-playing"], icon: "shield", status: "ready",
-          time: ["31 h 12 min", "31 hr 12 min"], sessions: ["41 sessions, dernière partie ce matin", "41 sessions, last played this morning"],
-          size: ["18,9 Go", "18.9 GB"], detail: ["Jeu 18,1 Go, données 802 Mo", "Game 18.1 GB, data 802 MB"], peak: ["5,2 Gio", "5.2 GiB"], light: "#FF6A57", dark: "#5C0F2E" },
-        { id: "orbit", file: "orbit-garden", name: "Orbit Garden", platform: "Switch", genre: ["Réflexion", "Puzzle"], icon: "puzzle", status: "stored", light: "#F49CC4", dark: "#3D2B96" },
-        { id: "paper", file: "paper-peaks", name: "Paper Peaks", platform: "Switch 2", genre: ["Famille", "Family"], icon: "family", status: "iphone", light: "#7CC6FF", dark: "#2A5AA6" }
-    ];
-    var OWNED = GAMES.slice(0, 4);
-    // Games with no cover: Cartouche draws their label (CartoucheLabelArt).
-    var DRAWN = [
-        { name: "Signal Fjord", platform: "Switch", icon: "map", status: "iphone", a: "#5AC8E8", b: "#0E4C66" },
-        { name: "Tiny Tactics", platform: "Switch", icon: "crown", status: "mac", a: "#F2B24C", b: "#6B3A0B" },
-        { name: "Moonbake", platform: "Switch 2", icon: "family", status: "bringup", a: "#B58CF0", b: "#3F1E73" }
-    ];
+    var GAMES = JSON.parse($("#games").textContent);
+    var BY_ID = {};
+    GAMES.forEach(function (g) { BY_ID[g.id] = g; });
+    // The player's games, by name as the home has them: installed, or in
+    // the games folder (Celeste).
+    var OWNED = GAMES.filter(function (g) { return g.status === "ready" || g.status === "stored"; });
+    var FIRST = OWNED.indexOf(BY_ID.mk8d);
+    var SERVER = "NAS";
+    var PLATFORM = { "switch": "Switch", "switch2": "Switch 2" };
+    // CartoucheText.genre and CartoucheTheme.symbol(genre:): "other" has a
+    // symbol and no name.
+    var GENRE = {
+        racing: { icon: "flag", name: ["Course", "Racing"] },
+        simulation: { icon: "building", name: ["Simulation", "Simulation"] },
+        action: { icon: "bolt", name: ["Action", "Action"] },
+        other: { icon: "gamepad" }
+    };
     var STATUS = {
         ready: { icon: "check", color: "var(--ready)", label: ["Prêt", "Ready"] },
         stored: { icon: "drive", color: "var(--stored)", label: ["En stockage", "In storage"] },
         iphone: { icon: "iphone", color: "var(--ready)", label: ["Sur iPhone", "On iPhone"] },
         mac: { icon: "laptop", color: "var(--mac)", label: ["Sur Mac", "On Mac"] },
-        bringup: { icon: "hammer", color: "var(--bringup)", label: ["En portage", "In bring-up"] },
         paused: { icon: "pause", color: "var(--pink)", label: ["En pause", "Paused"] },
         done: { icon: "check", color: "var(--ready)", label: ["Faite", "Done"] },
         active: { icon: "check", color: "var(--ready)", label: ["Active", "Active"] }
     };
+
+    // IGDB's images, by the IDs of catalog/covers.json, as Cartouche loads
+    // them (CartoucheCoverStore): nothing of them is kept in this repository.
+    var IGDB = "https://images.igdb.com/igdb/image/upload/";
+    function igdb(size, id) { return IGDB + size + "/" + id + ".jpg"; }
 
     function status(kind) {
         var s = STATUS[kind];
@@ -1385,26 +1427,40 @@
         return '<div class="statusbar" aria-hidden="true"><span>9:41</span><span class="statusbar__icons">' +
             ic("signal", "ic--signal") + ic("wifi", "ic--wifi") + ic("battery", "ic--battery") + "</span></div>";
     }
+    function chips(g, kind) {
+        var genre = GENRE[g.genre];
+        return '<span class="uchip">' + PLATFORM[g.platform] + "</span>" +
+            (genre.name ? '<span class="umeta">' + ic(genre.icon) + tt(genre.name) + "</span>" : "") + (kind ? status(kind) : "");
+    }
+
+    // The stage of a screen: the artwork of the game in focus, blurred at
+    // the top. The others' load when the focus comes to them.
     function stage(games, focusId) {
         return '<div class="stage" aria-hidden="true">' + games.map(function (g) {
-            return '<img src="covers/' + g.file + '.svg" alt="" data-art="' + g.id + '"' + (g.id === focusId ? ' class="is-on"' : "") + ">";
+            var on = g.id === focusId;
+            return "<img " + (on ? "src" : "data-src") + '="' + igdb("t_screenshot_med", g.artwork) + '" alt="" decoding="async" loading="lazy" data-art="' + g.id + '"' + (on ? ' class="is-on"' : "") + ">";
         }).join("") + "</div>";
     }
     var DASH = '<svg class="dash" viewBox="0 0 100 147" preserveAspectRatio="none" aria-hidden="true"><rect x=".8" y=".8" width="98.4" height="145.4" rx="8" fill="none" stroke="rgba(255,255,255,.38)" stroke-width="1.6" stroke-dasharray="6 4.5"/></svg>';
 
+    // A game's cartridge: the label Cartouche draws for it (CartoucheLabelArt),
+    // and over it the game's cover from IGDB once it has loaded.
+    function cartridge(g, o) {
+        var sizes = o.sizes || "auto, 120px";
+        return '<span class="art" aria-hidden="true"><i class="art__band"></i>' + ic(GENRE[g.genre].icon, "art__sym") +
+            '<b class="art__plat">' + PLATFORM[g.platform] + '</b><b class="art__name">' + g.name + "</b></span>" +
+            '<img src="' + igdb("t_cover_big", g.cover) + '" srcset="' + igdb("t_cover_small", g.cover) + " 90w, " + igdb("t_cover_big", g.cover) + " 264w, " +
+            igdb("t_cover_big_2x", g.cover) + ' 528w" sizes="' + sizes + '" alt="" decoding="async"' +
+            (o.eager ? (o.priority ? ' fetchpriority="high"' : "") : ' loading="lazy"') + ">";
+    }
     function tile(g, o) {
         var focused = o.focused, tag = o.interactive ? "button" : "span";
         var attrs = o.interactive ? ' type="button" aria-label="' + g.name + '"' + (focused ? ' aria-current="true"' : "") : ' aria-hidden="true"';
-        return "<" + tag + ' class="tile' + (focused ? " is-focused" : "") + '" data-game="' + g.id + '" style="--glow:' + g.light + '"' + attrs + ">" +
-            '<img src="covers/' + g.file + '.svg" alt="">' +
-            (o.paused ? '<i class="tile__badge" aria-hidden="true">' + ic("pausebars") + "</i>" : "") + "</" + tag + ">";
+        return "<" + tag + ' class="tile' + (focused ? " is-focused" : "") + '" data-game="' + g.id + '" style="--glow:' + g.light + ";--a:" + g.light + ";--b:" + g.dark + '"' + attrs + ">" +
+            cartridge(g, o) + (o.paused ? '<i class="tile__badge" aria-hidden="true">' + ic("pausebars") + "</i>" : "") + "</" + tag + ">";
     }
     function outline(icon, label) {
         return '<span class="tile tile--outline" aria-hidden="true">' + DASH + '<span class="tile__out">' + ic(icon) + "<span>" + label + "</span></span></span>";
-    }
-    function drawn(d) {
-        return '<span class="tile tile--drawn" style="--a:' + d.a + ";--b:" + d.b + '" aria-hidden="true"><i class="drawn__band"></i>' +
-            ic(d.icon, "drawn__sym") + '<b class="drawn__plat">' + d.platform + '</b><b class="drawn__name">' + d.name + "</b></span>";
     }
 
     var DOCK = [
@@ -1421,57 +1477,75 @@
         }).join("") + "</span>";
     }
 
+    // The game in focus on the home: its name on one line, as the app
+    // shrinks it to fit, its badges, play time and size, and its actions.
     function focusInfo(g, o) {
-        var middle, actions;
-        if (o.paused) {
-            middle = '<p class="focus__note">' + t("En pause derrière Cartouche, là où vous l’avez laissé.", "Paused behind Cartouche, where you left it.") + "</p>";
+        var paused = o.pausedId === g.id, stored = g.status === "stored";
+        var stats = stored
+            ? "<span>" + ic("drive") + tt(g.stored) + "</span>"
+            : "<span>" + ic("clock") + tt(g.time) + "</span><span>" + ic("iphone") + tt(g.size) + "</span>";
+        var note = paused ? t("En pause derrière Cartouche, là où vous l’avez laissé.", "Paused behind Cartouche, where you left it.")
+            : stored ? t("Son IPA est dans votre dossier des jeux : installez le jeu pour y jouer sur cet iPhone.", "Its IPA is in your games folder: install it to play it on this iPhone.") : "";
+        var open = function (href, cls) { return o.links ? '<a class="ubtn ' + cls + '" href="' + href + '">' : '<span class="ubtn ' + cls + '">'; };
+        var close = o.links ? "</a>" : "</span>";
+        var actions;
+        if (paused) {
             actions = '<button type="button" class="ubtn ubtn--primary" data-resume>' + glyph("A") + t("Reprendre", "Resume") + "</button>" +
-                '<span class="ubtn glass ubtn--round" aria-hidden="true">' + glyph("X") + "</span>" +
-                '<span class="ubtn glass">' + ic("xmark") + t("Quitter", "Quit") + "</span>";
+                '<span class="ubtn glass">' + ic("xmark") + t("Quitter", "Quit") + "</span>" +
+                '<span class="ubtn glass ubtn--round" aria-hidden="true">' + glyph("X") + "</span>";
+        } else if (stored) {
+            actions = open("#storage", "ubtn--primary") + glyph("A") + t("Installer depuis " + SERVER, "Install from " + SERVER) + close +
+                '<span class="ubtn glass ubtn--round" aria-hidden="true">' + glyph("X") + "</span>";
         } else {
-            middle = '<div class="focus__stats"><span>' + ic("clock") + tt(g.time) + "</span><span>" + ic("iphone") + tt(g.size) + "</span></div>";
-            var open = function (href, cls) { return o.links ? '<a class="ubtn ' + cls + '" href="' + href + '">' : '<span class="ubtn ' + cls + '">'; };
-            var close = o.links ? "</a>" : "</span>";
             actions = open("#pause", "ubtn--primary") + glyph("A") + t("Jouer", "Play") + close +
                 open("#sheet", "glass") + glyph("X") + t("Fiche", "Details") + close;
         }
-        return '<h3 class="focus__title">' + g.name + "</h3>" +
-            '<div class="focus__chips"><span class="uchip">' + g.platform + '</span><span class="umeta">' + ic(g.icon) + tt(g.genre) + "</span>" +
-            status(o.paused ? "paused" : g.status) + "</div>" + middle + '<div class="focus__actions">' + actions + "</div>";
+        return '<h3 class="focus__title" style="--len:' + g.name.length + '">' + g.name + "</h3>" +
+            '<div class="focus__chips">' + chips(g, paused ? "paused" : g.status) + "</div>" +
+            '<div class="focus__stats">' + stats + "</div>" + (note ? '<p class="focus__note">' + note + "</p>" : "") +
+            '<div class="focus__actions">' + actions + "</div>";
     }
 
     function home(o) {
         var games = o.games, g = games[o.index];
-        return '<div class="ui home' + (o.shelfOnly ? " home--shelf" : "") + (o.paused ? " home--paused" : "") + '">' +
+        return '<div class="ui home' + (o.shelfOnly ? " home--shelf" : "") + (o.pausedId ? " home--paused" : "") + '">' +
             stage(games, g.id) +
             (o.statusbar === false ? "" : statusbar()) +
             '<div class="home__bar"><span class="mark" aria-hidden="true"><i></i><b>Cartouche</b></span>' +
             '<span class="upill glass" aria-hidden="true">' + ic("gamepad") + "</span>" + dock("top", o.links) + "</div>" +
             '<div class="home__main"><p class="home__label">' + t("Ma bibliothèque", "My library") + "</p>" +
-            '<div class="shelf"><div class="track" style="--i:' + o.index + '">' +
-            games.map(function (x, i) { return tile(x, { focused: i === o.index, interactive: o.interactive, paused: o.paused && i === o.index }); }).join("") +
+            '<div class="shelf"><div class="track" style="--i:' + o.index + ";--n:" + (games.length + 2) + '">' +
+            games.map(function (x, i) {
+                return tile(x, { focused: i === o.index, interactive: o.interactive, paused: o.pausedId === x.id, eager: o.eager, priority: o.eager && i === o.index, sizes: o.sizes });
+            }).join("") +
             outline("import", t("Importer un jeu", "Import a game")) + outline("grid", t("Tous les jeux", "All games")) + "</div></div>" +
             (o.shelfOnly ? "" : '<div class="focus" data-focus>' + focusInfo(g, o) + "</div>") + "</div>" +
             dock("bottom", o.links) +
             (o.punch ? '<i class="punch"></i>' : "") + (o.island ? '<i class="island"></i>' : "") + '<i class="indicator"></i></div>';
     }
 
+    // A game's sheet: Play and its settings for an installed game, Install
+    // for one in the games folder; its play time and size; what it needs.
     function sheet(g, o) {
         o = o || {};
+        var stored = g.status === "stored";
+        var actions = stored
+            ? '<span class="ubtn ubtn--primary ubtn--wide">' + ic("download") + t("Installer depuis " + SERVER, "Install from " + SERVER) + "</span>" +
+              '<span class="ubtn glass ubtn--wide ubtn--slim">' + ic("import") + t("Importer une autre copie", "Import another copy") + "</span>"
+            : '<span class="ubtn ubtn--primary ubtn--wide">' + ic("play") + t("Jouer", "Play") + "</span>" +
+              '<span class="ubtn glass ubtn--wide ubtn--slim">' + ic("sliders") + t("Réglages du jeu", "Game settings") + "</span>";
+        var stats = stored
+            ? '<div class="urow"><span class="urow__main">' + t("Dans " + SERVER, "In " + SERVER) + '</span><span class="urow__val">' + tt(g.stored) + "</span></div>"
+            : '<div class="urow"><span class="urow__main">' + t("Temps de jeu", "Play time") + "<small>" + tt(g.sessions) + '</small></span><span class="urow__val">' + tt(g.time) + "</span></div>" +
+              '<div class="urow"><span class="urow__main">' + t("Sur cet iPhone", "On this iPhone") + "<small>" + tt(g.detail) + '</small></span><span class="urow__val">' + tt(g.size) + "</span></div>";
         return '<div class="ui sheet">' + stage([g], g.id) + (o.statusbar === false ? "" : statusbar()) +
             '<span class="okbtn glass" aria-hidden="true">OK</span>' +
-            '<div class="sheet__body"><div class="sheet__head"><img class="sheet__cover" src="covers/' + g.file + '.svg" alt="">' +
-            '<div><h3 class="sheet__title">' + g.name + '</h3><div class="sheet__chips"><span class="uchip">' + g.platform + '</span><span class="umeta">' + ic(g.icon) + tt(g.genre) + "</span></div>" +
-            '<div class="sheet__status">' + status(g.status) + "</div></div></div>" +
-            '<span class="ubtn ubtn--primary ubtn--wide">' + ic("play") + t("Jouer", "Play") + "</span>" +
-            '<span class="ubtn glass ubtn--wide ubtn--slim">' + ic("sliders") + t("Réglages du jeu", "Game settings") + "</span>" +
-            '<p class="ugroup">' + t("Temps de jeu et taille", "Play time and size") + "</p>" +
-            '<div class="ucard"><div class="urow"><span class="urow__main">' + t("Temps de jeu", "Play time") + "<small>" + tt(g.sessions) + '</small></span><span class="urow__val">' + tt(g.time) + "</span></div>" +
-            '<div class="urow"><span class="urow__main">' + t("Sur cet iPhone", "On this iPhone") + "<small>" + tt(g.detail) + '</small></span><span class="urow__val">' + tt(g.size) + "</span></div></div>" +
+            '<div class="sheet__body"><div class="sheet__head"><span class="tile sheet__tile" style="--a:' + g.light + ";--b:" + g.dark + '" aria-hidden="true">' + cartridge(g, { sizes: "auto, 80px" }) + "</span>" +
+            '<div><h3 class="sheet__title">' + g.name + '</h3><div class="sheet__chips">' + chips(g) + "</div>" +
+            '<div class="sheet__status">' + status(g.status) + "</div></div></div>" + actions +
+            '<p class="ugroup">' + t("Temps de jeu et taille", "Play time and size") + '</p><div class="ucard">' + stats + "</div>" +
             '<div class="ucard"><div class="urow"><span class="ustat" style="--c:var(--ready)">' + ic("check") + '</span><span class="urow__main">' + t("Cet iPhone a tout ce qu’il faut", "This iPhone has what it needs") + "</span>" + ic("chevron", "urow__chev") + "</div></div>" +
-            '<div class="ucard"><div class="urow urow--danger">' + ic("trash") + '<span class="urow__main">' + t("Désinstaller", "Uninstall") + "</span></div></div>" +
-            '<p class="ugroup">' + t("Résultats des testeurs", "Testers’ results") + "</p>" +
-            '<div class="ucard"><div class="urow"><span class="urow__main">' + t("Jouable", "Playable") + "<small>" + t("iPhone 17 Pro · pic mémoire : " + g.peak[0], "iPhone 17 Pro · memory peak: " + g.peak[1]) + '</small></span><span class="urow__val">' + t("8 nov.", "Nov 8") + "</span></div></div>" +
+            (stored ? "" : '<div class="ucard"><div class="urow urow--danger">' + ic("trash") + '<span class="urow__main">' + t("Désinstaller", "Uninstall") + "</span></div></div>") +
             "</div>" + (o.island === false ? "" : '<i class="island"></i>') + '<i class="indicator"></i></div>';
     }
 
@@ -1505,13 +1579,11 @@
         return '<div class="ui sheet">' + stage([], null) + statusbar() + '<span class="okbtn glass" aria-hidden="true">OK</span>' +
             '<div class="sheet__body"><h3 class="bigtitle">' + t("Système", "System") + "</h3>" +
             '<div class="ucard"><div class="urow">' + ic("checklist", "ublue") + '<span class="urow__main">' + t("Mise en route", "Setup") + "</span>" + status("done") + ic("chevron", "urow__chev") + "</div></div>" +
-            '<div class="ucard"><div class="urow">' + ic("drive", "ublue") + '<span class="urow__main">' + t("Stockage", "Storage") + '</span><span class="urow__val">NAS</span>' + ic("chevron", "urow__chev") + "</div></div>" +
+            '<div class="ucard"><div class="urow">' + ic("drive", "ublue") + '<span class="urow__main">' + t("Stockage", "Storage") + '</span><span class="urow__val">' + SERVER + "</span>" + ic("chevron", "urow__chev") + "</div></div>" +
             '<p class="ugroup">' + t("Mémoire", "Memory") + "</p>" +
             '<div class="ucard"><div class="urow urow--stack"><span class="urow__main"><b>' + t("Limite pour Cartouche", "Limit for Cartouche") + "</b><small>" + t("6&nbsp;143 Mio (6,0 Gio)", "6,143 MiB (6.0 GiB)") + '</small></span><div class="membar"><i></i></div></div>' +
             '<div class="urow"><span class="urow__main">' + t("Utilisée", "Used now") + '</span><span class="urow__val">' + t("96 Mio (0,1 Gio)", "96 MiB (0.1 GiB)") + "</span></div>" +
-            '<div class="urow"><span class="urow__main">' + t("Disponible", "Available now") + '</span><span class="urow__val">' + t("6&nbsp;047 Mio (5,9 Gio)", "6,047 MiB (5.9 GiB)") + "</span></div>" +
-            '<div class="urow"><span class="urow__main">' + t("Mémoire augmentée", "Increased Memory Limit") + "</span>" + status("active") + "</div>" +
-            '<div class="urow">' + ic("refresh", "ublue") + '<span class="urow__main ulink">' + t("Mesurer à nouveau", "Measure again") + "</span></div></div>" +
+            '<div class="urow"><span class="urow__main">' + t("Mémoire augmentée", "Increased Memory Limit") + "</span>" + status("active") + "</div></div>" +
             '<p class="ufoot">' + t("Vos jeux partagent cette limite. Avec la mémoire augmentée, un iPhone de 12 Go accorde environ 6 Gio.", "Your games share this limit. With Increased Memory Limit, an iPhone with 12 GB allows about 6 GiB.") + "</p>" +
             '<p class="ugroup">' + t("Signature", "Signature") + "</p>" +
             '<div class="ucard"><div class="urow"><span class="urow__main">' + t("Expire le", "Expires") + '</span><span class="urow__val">' + t("16 nov. à 12:29", "Nov 16 at 12:29 PM") + "</span></div>" +
@@ -1520,62 +1592,45 @@
             '</div><i class="island"></i><i class="indicator"></i></div>';
     }
 
+    // All games: the player's first, then those nxnative plays on the
+    // iPhone, then the others, each by name, as the app sorts them.
     function library() {
-        var mine = GAMES.map(function (g, i) {
-            return '<div class="gtile">' + tile(g, { focused: i === 0 }) + '<p class="gtile__name">' + g.name + "</p>" + status(g.status) + "</div>";
+        var rank = function (g) { return g.status === "ready" || g.status === "stored" ? 0 : g.catalog === "iphone" ? 1 : 2; };
+        var games = GAMES.slice().sort(function (a, b) { return rank(a) - rank(b) || a.name.localeCompare(b.name); });
+        var mine = OWNED.length, iphone = GAMES.filter(function (g) { return g.catalog === "iphone"; }).length;
+        var tiles = games.map(function (g, i) {
+            return '<div class="gtile">' + tile(g, { focused: i === 0, sizes: "auto, 100px" }) + '<p class="gtile__name">' + g.name + "</p>" + status(g.status) + "</div>";
         }).join("");
-        var others = DRAWN.map(function (d) {
-            return '<div class="gtile">' + drawn(d) + '<p class="gtile__name">' + d.name + "</p>" + status(d.status) + "</div>";
-        }).join("");
-        return '<div class="ui lib">' + stage([GAMES[0]], GAMES[0].id) + statusbar() +
+        return '<div class="ui lib">' + stage([games[0]], games[0].id) + statusbar() +
             '<p class="navtitle">' + t("Tous les jeux", "All games") + "</p>" +
             '<div class="lib__body"><div class="usearch glass">' + ic("search") + "<span>" + t("Nom ou ID du titre", "Name or title ID") + "</span></div>" +
+            // The counts of the catalog, as the filters count them: On iPhone has
+            // the games a testers' sheet says play there (catalog/games).
             '<div class="filters"><span class="filter is-on">' + ic("grid") + t("Tous", "All") + " <b>146</b></span>" +
-            '<span class="filter">' + ic("check") + t("Ma bibliothèque", "My library") + " <b>5</b></span>" +
-            '<span class="filter">' + ic("iphone") + t("Sur iPhone", "On iPhone") + " <b>64</b></span></div>" +
-            '<div class="ggrid">' + mine + others + "</div></div>" +
+            '<span class="filter">' + ic("check") + t("Ma bibliothèque", "My library") + " <b>" + mine + "</b></span>" +
+            '<span class="filter">' + ic("iphone") + t("Sur iPhone", "On iPhone") + " <b>32</b></span>" +
+            '<span class="filter">' + ic("laptop") + t("Sur Mac", "On Mac") + " <b>95</b></span></div>" +
+            '<div class="ggrid">' + tiles + "</div></div>" +
             '<div class="hints glass" aria-hidden="true">' + glyph("A") + t("Jouer", "Play") + glyph("X") + t("Fiche", "Details") +
             '<i class="ushoulder">L1</i><i class="ushoulder">R1</i>' + t("Filtre", "Filter") + glyph("B") + t("Retour", "Back") + "</div>" +
             '<i class="island"></i><i class="indicator"></i></div>';
     }
 
-    // A night race of Aurora Rally, drawn here: sky, road and car.
-    function stars(count, seed) {
-        var s = seed, out = "";
-        var rnd = function () { s = (s * 16807) % 2147483647; return s / 2147483647; };
-        for (var i = 0; i < count; i++) {
-            out += '<circle cx="' + (rnd() * 100).toFixed(1) + '" cy="' + (rnd() * 25).toFixed(1) + '" r="' + (0.08 + rnd() * 0.16).toFixed(2) + '" opacity="' + (0.35 + rnd() * 0.65).toFixed(2) + '"/>';
-        }
-        return '<svg class="game__stars" viewBox="0 0 100 46" preserveAspectRatio="none" aria-hidden="true"><g fill="#fff">' + out + "</g></svg>";
-    }
-    var HILLS = '<svg class="game__hills" viewBox="0 0 100 46" preserveAspectRatio="none" aria-hidden="true">' +
-        '<path d="M0 26.2 L6 24.6 L11 25.8 L17 23.4 L23 25.2 L29 24 L35 25.6 L41 23.9 L47 25.4 L53 24.4 L59 25.9 L65 23.6 L71 25.3 L77 24.2 L83 25.7 L89 23.8 L95 25.1 L100 24.5 L100 27.7 L0 27.7 Z" fill="#16133D"/>' +
-        '<path d="M0 27 L8 26.1 L15 26.9 L24 25.9 L33 26.8 L42 26.2 L51 27 L60 26 L69 26.9 L78 26.1 L87 26.8 L94 26.2 L100 26.7 L100 27.7 L0 27.7 Z" fill="#0B0A24"/></svg>';
-    var CAR = '<svg class="game__car" viewBox="0 0 120 70" aria-hidden="true"><defs><linearGradient id="g-tail" x1="0" x2="1"><stop offset="0" stop-color="#FF3D6E"/><stop offset="1" stop-color="#FF9A3D"/></linearGradient>' +
-        '<filter id="f-glow" x="-50%" y="-80%" width="200%" height="260%"><feGaussianBlur stdDeviation="3"/></filter></defs>' +
-        '<ellipse cx="60" cy="64" rx="56" ry="6" fill="#000" opacity=".5"/>' +
-        '<path d="M22 24 L32 6 Q35 1 42 1 L78 1 Q85 1 88 6 L98 24 Z" fill="#241C4D"/><path d="M33 22 L40 8 L80 8 L87 22 Z" fill="#6E6BD8" opacity=".55"/>' +
-        '<rect x="4" y="22" width="112" height="36" rx="12" fill="#3A2F7A"/><rect x="4" y="22" width="112" height="11" rx="5.5" fill="#4E43A0"/>' +
-        '<g filter="url(#f-glow)"><rect x="11" y="36" width="28" height="10" rx="5" fill="url(#g-tail)"/><rect x="81" y="36" width="28" height="10" rx="5" fill="url(#g-tail)"/></g>' +
-        '<rect x="11" y="36" width="28" height="10" rx="5" fill="#FFC1D2"/><rect x="81" y="36" width="28" height="10" rx="5" fill="#FFC1D2"/>' +
-        '<rect x="45" y="39" width="30" height="11" rx="2.5" fill="#E9E6FF"/><text x="60" y="47.6" text-anchor="middle" font-family="ui-monospace, monospace" font-weight="700" font-size="8" fill="#241C4D">AR·26</text>' +
-        '<rect x="8" y="56" width="22" height="9" rx="3" fill="#120E26"/><rect x="90" y="56" width="22" height="9" rx="3" fill="#120E26"/></svg>';
-
-    function playScreen() {
+    // The game behind the console: its artwork stands for the game, over
+    // its colours and name until it has loaded.
+    function playScreen(g) {
         return '<div class="ui play" data-state="console">' +
-            '<div class="game" aria-hidden="true"><div class="game__aurora"></div>' + stars(70, 4021) + HILLS +
-            '<div class="game__road"><i class="game__rumble game__rumble--l"></i><i class="game__dash"></i><i class="game__rumble game__rumble--r"></i></div>' + CAR +
-            '<div class="hud hud--lap"><small>' + t("TOUR 2/3", "LAP 2/3") + '</small><b data-laptime>1:12.48</b></div>' +
-            '<div class="hud hud--pos"><b>' + t("3<sup>e</sup>", "3<sup>rd</sup>") + "</b><small>/ 8</small></div>" +
-            '<div class="hud hud--speed"><b data-speed>184</b><small>km/h</small></div></div>' +
+            '<div class="game" aria-hidden="true" style="--a:' + g.light + ";--b:" + g.dark + '"><b class="game__name">' + g.name + "</b>" +
+            '<img class="game__art" src="' + igdb("t_screenshot_big", g.artwork) + '" srcset="' + igdb("t_screenshot_big", g.artwork) + " 889w, " +
+            igdb("t_720p", g.artwork) + " 1280w, " + igdb("t_1080p", g.artwork) + ' 1920w" sizes="auto, 940px" alt="" decoding="async" loading="lazy"></div>' +
             '<button type="button" class="homebtn glass" data-home data-label-fr="Home : revenir à la console" data-label-en="Home: back to the console" aria-label="Home: back to the console">' + ic("house") + "</button>" +
-            '<div class="console">' + home({ games: OWNED, index: 0, paused: true, island: false }) + "</div>" +
+            '<div class="console">' + home({ games: OWNED, index: OWNED.indexOf(g), pausedId: g.id, island: false }) + "</div>" +
             '<i class="island"></i><i class="indicator"></i></div>';
     }
 
     function duoOpen(index) {
         return '<div class="ui duo">' +
-            '<div class="half half--left" style="--w:445;--h:626">' + home({ games: OWNED, index: index, shelfOnly: true, interactive: true, statusbar: false }) + "</div>" +
+            '<div class="half half--left" style="--w:445;--h:626">' + home({ games: OWNED, index: index, shelfOnly: true, interactive: true, statusbar: false, sizes: "auto, 140px" }) + "</div>" +
             '<div class="half half--right" style="--w:445;--h:626" data-duo-sheet>' + sheet(OWNED[index], { statusbar: false, island: false }) + "</div>" +
             '<i class="fold" aria-hidden="true"></i></div>';
     }
@@ -1590,12 +1645,19 @@
         });
         var track = $(".track", scope);
         if (track) track.style.setProperty("--i", index);
-        $$("[data-art]", scope).forEach(function (img) { img.classList.toggle("is-on", img.getAttribute("data-art") === g.id); });
+        $$("[data-art]", scope).forEach(function (img) {
+            var on = img.getAttribute("data-art") === g.id;
+            if (on && img.hasAttribute("data-src")) { img.src = img.getAttribute("data-src"); img.removeAttribute("data-src"); }
+            img.classList.toggle("is-on", on);
+        });
         var focus = $("[data-focus]", scope);
         if (focus) focus.innerHTML = focusInfo(g, o || {});
         var target = (o && o.light) || scope;
         target.style.setProperty("--light", g.light);
         target.style.setProperty("--dark", g.dark);
+    }
+    function indexOfTile(button) {
+        return OWNED.indexOf(BY_ID[button.getAttribute("data-game")]);
     }
 
     // ---------- Language ----------
@@ -1622,18 +1684,20 @@
     var heroSection = $("#top");
     var heroDevice = $("[data-hero]");
     var heroScreen = $('[data-screen="hero"]');
-    var heroIndex = 0;
-    heroScreen.innerHTML = home({ games: OWNED, index: 0, links: true, interactive: true, island: true });
+    var heroIndex = FIRST;
+    // The hero's covers load at once, at the size the hero shows them.
+    heroScreen.innerHTML = home({ games: OWNED, index: FIRST, links: true, interactive: true, island: true, eager: true,
+        sizes: "(max-width: 699px) 104px, (max-width: 1140px) 20vw, 216px" });
     $('[data-screen="library"]').innerHTML = library();
-    $('[data-screen="sheet"]').innerHTML = sheet(GAMES[1]);
-    $('[data-screen="settings"]').innerHTML = settings(GAMES[1]);
+    $('[data-screen="sheet"]').innerHTML = sheet(BY_ID.stardew);
+    $('[data-screen="settings"]').innerHTML = settings(BY_ID.stardew);
     $('[data-screen="system"]').innerHTML = system();
-    $('[data-screen="duo-closed"]').innerHTML = home({ games: OWNED, index: 0, punch: true });
+    $('[data-screen="duo-closed"]').innerHTML = home({ games: OWNED, index: FIRST, punch: true });
     var pauseScreen = $('[data-screen="pause"]');
-    pauseScreen.innerHTML = playScreen();
+    pauseScreen.innerHTML = playScreen(BY_ID.mk8d);
     var duoDevice = $("[data-duo]");
     var duoScreen = $('[data-screen="duo-open"]');
-    duoScreen.innerHTML = duoOpen(0);
+    duoScreen.innerHTML = duoOpen(FIRST);
 
     // The hero's home: the focus moves on by itself until the visitor takes over.
     function heroFocus(i) {
@@ -1644,22 +1708,18 @@
     }
     var heldUntil = 0, heroVisible = true;
     function hold(ms) { heldUntil = Date.now() + ms; }
-    heroScreen.addEventListener("click", function (e) {
+    function heroTile(e) {
         var b = e.target.closest("button.tile");
         if (!b) return;
-        heroFocus(OWNED.map(function (g) { return g.id; }).indexOf(b.getAttribute("data-game")));
+        heroFocus(indexOfTile(b));
         hold(14000);
-    });
+    }
+    heroScreen.addEventListener("click", heroTile);
+    heroScreen.addEventListener("focusin", heroTile);
     heroDevice.addEventListener("keydown", function (e) {
         if (e.key !== "ArrowRight" && e.key !== "ArrowLeft") return;
         e.preventDefault();
         heroFocus(heroIndex + (e.key === "ArrowRight" ? 1 : -1));
-        hold(14000);
-    });
-    heroScreen.addEventListener("focusin", function (e) {
-        var b = e.target.closest("button.tile");
-        if (!b) return;
-        heroFocus(OWNED.map(function (g) { return g.id; }).indexOf(b.getAttribute("data-game")));
         hold(14000);
     });
     heroDevice.addEventListener("pointerenter", function () { hold(Infinity); });
@@ -1687,36 +1747,19 @@
     });
 
     // The game behind the console: Home brings the console back, Resume the game.
-    var pauseState = "console", lap = 72480, last = 0, speedPhase = 0;
-    var lapEl = $("[data-laptime]", pauseScreen), speedEl = $("[data-speed]", pauseScreen);
+    var pauseState = "console";
     var toggle = $("[data-pause-toggle]");
-    function fmt(ms) {
-        var m = Math.floor(ms / 60000), s = Math.floor(ms / 1000) % 60, c = Math.floor(ms / 10) % 100;
-        return m + ":" + (s < 10 ? "0" : "") + s + "." + (c < 10 ? "0" : "") + c;
-    }
-    function frame(ts) {
-        if (pauseState !== "game") { last = 0; return; }
-        if (last) {
-            lap += ts - last;
-            speedPhase += (ts - last) / 900;
-            speedEl.textContent = String(Math.round(184 + 6 * Math.sin(speedPhase)));
-        }
-        last = ts;
-        lapEl.textContent = fmt(lap);
-        requestAnimationFrame(frame);
-    }
+    var playUi = $(".play", pauseScreen);
     function updatePauseToggle() {
         if (!toggle) return;
         toggle.innerHTML = pauseState === "console"
             ? '<svg aria-hidden="true"><use href="#i-play"/></svg>' + t("Reprendre la partie", "Resume the game")
             : '<svg aria-hidden="true"><use href="#i-house"/></svg>' + t("Appuyer sur Home", "Press Home");
     }
-    var playUi = $(".play", pauseScreen);
     function setPause(state) {
         pauseState = state;
         playUi.setAttribute("data-state", state);
         updatePauseToggle();
-        if (state === "game") requestAnimationFrame(frame);
     }
     pauseScreen.addEventListener("click", function (e) {
         if (e.target.closest("[data-resume]")) setPause("game");
@@ -1725,11 +1768,11 @@
     toggle.addEventListener("click", function () { setPause(pauseState === "console" ? "game" : "console"); });
 
     // The unfolded Duo: the sheet on the right follows the focus on the left.
-    var duoIndex = 0;
+    var duoIndex = FIRST;
     function duoFocus(e) {
         var b = e.target.closest("button.tile");
         if (!b) return;
-        var index = OWNED.map(function (g) { return g.id; }).indexOf(b.getAttribute("data-game"));
+        var index = indexOfTile(b);
         if (index === duoIndex) return;
         duoIndex = index;
         setFocus($(".half--left", duoScreen), OWNED, index, { light: duoDevice });

@@ -98,7 +98,8 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      # Made-up games and covers only, nothing loaded from another site, links
-      # to this repository and nxnative's only, every text in both languages.
+      # Games of the catalog with their IGDB images by ID, nothing else loaded
+      # from another site, links to this repository, nxnative's and IGDB only,
+      # every text in both languages.
       - name: Tests
         run: python3 -m unittest discover -s site/tests -v
