@@ -4,7 +4,9 @@ the Worker makes (telemetry/worker.js), on SQLite, which D1 is.
 - schema.sql runs again without harm, as each deploy applies it;
 - the Worker's statements run on it: the daily count adds up and gives its
   total back, a report sent again is kept once, and forgetting a copy of
-  Cartouche or expiring old reports deletes what it should and nothing else.
+  Cartouche or expiring old reports deletes what it should and nothing else;
+- a problem a player sends is kept once, counted with its day, waits until
+  it is filed, and then keeps only its day and its issue, until it goes.
 
 Node reads the statements out of worker.js.
 
@@ -67,7 +69,8 @@ class SchemaTest(unittest.TestCase):
 
     def test_the_worker_makes_these_statements_only(self):
         self.assertEqual(sorted(self.sql),
-                         ["count", "expireDaily", "expireReports", "forgetDaily", "forgetReports", "insert"])
+                         ["count", "expireDaily", "expireProblems", "expireReports", "forgetDaily", "forgetReports", "insert",
+                          "keepProblem", "problem", "problemFiled", "problemsOfDay", "waitingProblems"])
 
     def test_the_schema_runs_again_without_harm(self):
         self.insert("a")
@@ -107,6 +110,35 @@ class SchemaTest(unittest.TestCase):
         self.db.execute(self.sql["expireDaily"], ("2026-11-08",))
         self.assertEqual(self.rows("reports", "id"), ["kept"])
         self.assertEqual(self.rows("daily", "day"), ["2026-11-08"])
+
+    def keep(self, id, day="2026-11-10", title="It does not install", body="### What happened"):
+        self.db.execute(self.sql["keepProblem"], (id, day, title, body))
+
+    def test_a_problem_waits_until_it_is_filed(self):
+        self.keep("p1", day="2026-11-09")
+        self.keep("p2")
+        self.keep("p2", title="Sent again")
+        self.assertEqual(self.db.execute(self.sql["problemsOfDay"], ("2026-11-10",)).fetchone()[0], 1)
+        self.assertIsNone(self.db.execute(self.sql["problem"], ("p2",)).fetchone()[0])
+        self.assertIsNone(self.db.execute(self.sql["problem"], ("p3",)).fetchone())
+        waiting = self.db.execute(self.sql["waitingProblems"], (25,)).fetchall()
+        self.assertEqual(waiting, [("p1", "It does not install", "### What happened"),
+                                   ("p2", "It does not install", "### What happened")])
+        self.db.execute(self.sql["problemFiled"], ("p1", 7))
+        self.assertEqual(self.db.execute(self.sql["problem"], ("p1",)).fetchone()[0], 7)
+        self.assertEqual(self.db.execute("SELECT title, body FROM problems WHERE id = 'p1'").fetchone(), ("", ""))
+        self.assertEqual([row[0] for row in self.db.execute(self.sql["waitingProblems"], (25,))], ["p2"])
+        self.assertEqual(len(self.db.execute(self.sql["waitingProblems"], (0,)).fetchall()), 0)
+
+    def test_filed_problems_go_after_yesterday_and_waiting_ones_after_25_months(self):
+        self.keep("filed-old", day="2026-11-07")
+        self.keep("filed-yesterday", day="2026-11-09")
+        self.keep("waiting", day="2026-01-02")
+        self.keep("waiting-too-long", day="2024-10-09")
+        self.db.execute(self.sql["problemFiled"], ("filed-old", 1))
+        self.db.execute(self.sql["problemFiled"], ("filed-yesterday", 2))
+        self.db.execute(self.sql["expireProblems"], ("2026-11-08", "2024-10-10"))
+        self.assertEqual(self.rows("problems", "id"), ["filed-yesterday", "waiting"])
 
 
 if __name__ == "__main__":

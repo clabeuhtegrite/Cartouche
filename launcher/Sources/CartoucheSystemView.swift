@@ -6,9 +6,9 @@
 //  games and saves are kept; the memory limit iOS sets for it, which its
 //  games share; when its signature expires, and how it is renewed; the
 //  device that the game sheets are compared with; Cartouche's updates;
-//  and the game measurements it sends (CartoucheTelemetryView). It opens
-//  over the console (CartoucheRootView), and OK or the controller's Menu
-//  button closes it.
+//  the game measurements it sends (CartoucheTelemetryView); and Report
+//  a problem (CartoucheReportView). It opens over the console
+//  (CartoucheRootView), and OK or the controller's Menu button closes it.
 //
 
 import SwiftUI
@@ -42,6 +42,7 @@ struct CartoucheSystemView: View {
                 updateSection
                 telemetrySection
                 cartoucheSection
+                reportSection
             }
             .cartoucheStageBackground()
             .navigationTitle(CartoucheText.systemTab)
@@ -428,6 +429,24 @@ struct CartoucheSystemView: View {
             return "\(base.name)\u{00A0}\(version)"
         }
         return parts.isEmpty ? nil : parts.joined(separator: ", ")
+    }
+
+    // MARK: Report a problem
+
+    private var reportSection: some View {
+        Section {
+            NavigationLink {
+                CartoucheReportView()
+            } label: {
+                Label(CartoucheText.reportTitle, systemImage: "exclamationmark.bubble")
+            }
+        } footer: {
+            // The model's measurement goes with the report, for testers'
+            // iPhones to join catalog/devices.json.
+            Text(catalog.device(CartoucheDevice.modelIdentifier) == nil
+                 ? CartoucheText.reportFooter + " " + CartoucheText.reportNewDevice
+                 : CartoucheText.reportFooter)
+        }
     }
 }
 

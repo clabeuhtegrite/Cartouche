@@ -627,6 +627,27 @@ enum CartoucheText {
     static var reportCopiedDetail: String { s("errorReport.copied.detail", "Paste it where you ask for help.") }
     static var reportHint: String { s("errorReport.hint", "Copies what went wrong, with the versions of Cartouche and iOS, without any password or server address.") }
 
+    // MARK: Reporting a problem
+
+    static var reportTitle: String { s("report.title", "Report a problem") }
+    static var reportFooter: String { s("report.footer", "Say what went wrong. Cartouche adds its details, and you see everything first.") }
+    static var reportNewDevice: String { s("report.newDevice", "Your report also adds this iPhone to Cartouche’s list.") }
+    static var reportWhat: String { s("report.what", "What happened") }
+    static var reportWhatPrompt: String { s("report.what.prompt", "What you did, what you expected, what happened instead") }
+    static var reportWhatFooter: String { s("report.what.footer", "Cartouche adds this iPhone’s model and memory, the versions, and its last steps and errors.") }
+    static var reportSend: String { s("report.send", "Send the report…") }
+    static var reportGitHub: String { s("report.github", "Report it on GitHub") }
+    static var reportSendToCartouche: String { s("report.sendToCartouche", "Send to Cartouche") }
+    static var reportSending: String { s("report.sending", "Sending…") }
+    static var reportSent: String { s("report.sent", "Sent to Cartouche") }
+    static var reportSendTooMany: String { s("report.send.tooMany", "Cartouche’s server takes no more reports for now: send this one another way.") }
+    static var reportSendRefused: String { s("report.send.refused", "Cartouche’s server did not take the report: send it another way.") }
+    static func reportSendUnreachable(_ reason: String) -> String { f("report.send.unreachable", "Cartouche’s server could not be reached: %@", reason) }
+    static var reportSendFooterServer: String { s("report.send.footer.server", "Send to Cartouche passes it to the project, privately. Or send it by Messages, Mail or AirDrop to whoever helps you. On GitHub, you check it and post it yourself: it is public there.") }
+    static var reportSendFooter: String { s("report.send.footer", "Send it by Messages, Mail or AirDrop to whoever helps you. On GitHub, you check it and post it yourself: it is public there.") }
+    static var reportContents: String { s("report.contents", "What the report holds") }
+    static var reportPrivacy: String { s("report.privacy", "It leaves this iPhone only when you send it, without passwords, server names or addresses, user names, Apple ID or team, even in what you write.") }
+
     // MARK: Warnings before expiry
 
     static var warning24hTitle: String { s("warning.24h.title", "Cartouche expires in 24 hours") }
