@@ -60,7 +60,7 @@ final class CartoucheInflaterTests: XCTestCase {
     func testSmallPieces() throws {
         let data = sample(1 << 20)
         let compressed = try deflate(data)
-        for size in [1, 7, 4096, 65_537] {
+        for size in [1, 7, 4096, 65_537, 100_000, 333_333] {
             let result = try inflate(compressed, pieces: [size])
             XCTAssertTrue(result.finished, "pieces of \(size) bytes")
             XCTAssertEqual(result.output, data, "pieces of \(size) bytes")
