@@ -52,6 +52,8 @@ Each root also has `Lecture seule`, a folder the player's account can only read,
 
 Samba on a Mac needs two things a NAS does not. It makes a new folder under a temporary name, then renames it over an empty one of its name, as macOS has no `renameat2(RENAME_NOREPLACE)`, and macOS refuses that rename, as OpenBSD does ([Samba's bug 15801](https://bugzilla.samba.org/show_bug.cgi?id=15801)): `servers.sh` sets `vfs mkdir use tmp name = no`. And smbd, when it stops, stops every process of its process group: `servers.sh` starts it in a group of its own, not the runner's.
 
+Samba, since 4.16, starts its RPC services (`samba-dcerpcd` and its `rpcd_*` workers) when a pipe is first opened, as the list of shared folders opens `srvsvc`, and stops them after a minute without use, so a NAS nobody used for a minute starts them again for the list. While they start, Samba 4.25 on the Mac once hung up the pipe (`STATUS_PIPE_DISCONNECTED`, in one run of six; Samba 4.19 on Linux never did in 46 tries): Cartouche asks for the list again, twice at most.
+
 ## Not here
 
 What needs an iPhone: Bonjour, the keychain, folders picked in Files, and the views. Nor the servers of NAS makers as they are configured out of the box; a NAS that behaves differently is worth a case here.

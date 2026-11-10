@@ -38,6 +38,9 @@ final class SMBTests: StorageServerTests {
     override var rootPath: String? { smb.sharePath }
 
     /// The shared folders the player picks from when they add the server.
+    /// The only test here that opens a pipe on the server: Samba starts its
+    /// RPC services for it, as a NAS nobody used for a minute does, and
+    /// Cartouche asks again if Samba hangs up the pipe meanwhile.
     func testListsTheSharedFolders() async throws {
         let shares = try await CartoucheSMB.shares(server(share: ""), password: smb.account.password)
         XCTAssertEqual(Set(shares), [smb.share, smb.readOnlyShare, smb.guestShare])
