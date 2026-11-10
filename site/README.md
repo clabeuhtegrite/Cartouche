@@ -30,4 +30,4 @@ The page has no build step: its styles, icons and script are inside it, and it u
 
 ## Publishing
 
-Nothing publishes the site yet. It is meant for GitHub Pages, deployed from `site/` by a workflow when main changes; that workflow, and turning on Pages in the repository's settings, wait for the owner's go-ahead.
+The page is on GitHub Pages, at <https://clabeuhtegrite.github.io/Cartouche/>, since the owner said so (2026-11-10). When `site/` changes on main, the [Showcase site](../.github/workflows/site.yml) workflow runs these tests, then keeps `index.html` and `favicon.svg` alone on the branch `gh-pages`, in one commit made again at each publication, with a `.nojekyll` so that Pages serves them as they are. Pages serves that branch: **Settings › Pages › Build and deployment**, *Deploy from a branch*, `gh-pages`, `/ (root)`. Nothing else of the repository is published. To publish main's page again, run the workflow from the Actions tab.

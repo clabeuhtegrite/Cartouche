@@ -1,0 +1,75 @@
+name: Showcase site
+
+# Publishes the showcase page, site/, on GitHub Pages
+# (https://clabeuhtegrite.github.io/Cartouche/). When the page changes on
+# main, it runs the page's tests, then keeps index.html and favicon.svg alone
+# on the branch gh-pages, which Pages serves: Settings › Pages › Build and
+# deployment, Deploy from a branch, gh-pages, / (root). Nothing else of the
+# repository is published (site/README.md).
+
+on:
+  push:
+    branches: [main]
+    paths: ["site/**", ".github/workflows/site.yml"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# One publication at a time, the last one wins.
+concurrency:
+  group: showcase-site
+  cancel-in-progress: false
+
+jobs:
+  page:
+    name: Check the page
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      # Games of the catalog with their IGDB images by ID, nothing else loaded
+      # from another site, no server address, every text in both languages.
+      - name: Tests
+        run: python3 -m unittest discover -s site/tests -v
+      - name: The files Pages serves
+        run: |
+          mkdir -p build/site
+          cp site/index.html site/favicon.svg build/site/
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: showcase-site
+          path: build/site
+          retention-days: 1
+          if-no-files-found: error
+
+  # The only job that can write runs nothing from the repository: it commits
+  # the files the first job uploaded.
+  publish:
+    name: Publish it on gh-pages
+    needs: page
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write # the branch gh-pages
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
+        with:
+          name: showcase-site
+          path: site
+      - name: Push them to gh-pages
+        run: |
+          cd site
+          # Served as they are, without Jekyll.
+          touch .nojekyll
+          git init -q -b gh-pages
+          git add -A
+          git -c user.name="github-actions[bot]" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" \
+            commit -q -m "Showcase site of $GITHUB_SHA"
+          gh auth setup-git
+          git push -q -f "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY.git" "HEAD:refs/heads/gh-pages"
+          echo "Published on gh-pages: https://$GITHUB_REPOSITORY_OWNER.github.io/${GITHUB_REPOSITORY#*/}/" >> "$GITHUB_STEP_SUMMARY"
