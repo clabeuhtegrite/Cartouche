@@ -562,7 +562,7 @@ enum CartoucheText {
     static var settingsNone: String { s("settings.none", "This game has no settings to choose.") }
     static var settingsUnreachable: String { s("settings.unreachable", "Cartouche cannot open this game’s settings. Start it on nxnative’s screen to choose them.") }
     static var settingsReset: String { s("settings.reset", "Reset to tested defaults") }
-    static var settingsResetFooter: String { s("settings.reset.footer", "Brings back all the settings this game was tested with.") }
+    static var settingsResetFooter: String { s("settings.reset.footer", "Brings back all the settings this game was tested with, and the iPhone’s language.") }
     static var settingsNxnativeScreen: String { s("settings.nxnativeScreen", "Start on nxnative’s screen") }
     static var settingsNxnativeScreenFooter: String { s("settings.nxnativeScreen.footer", "Starts the game on nxnative’s own settings screen, in English, with these choices: its Play button starts the game.") }
     static var settingFixed: String { s("settings.fixed", "Set by an env.txt file") }
@@ -653,6 +653,25 @@ enum CartoucheText {
         let locale = Locale.current
         guard let name = locale.localizedString(forIdentifier: code), !name.isEmpty else { return gameSettingText(english) }
         return name.prefix(1).uppercased(with: locale) + name.dropFirst()
+    }
+
+    /// A language's name inside a sentence, in the reader's language
+    /// ("French", "français"); nxnative's English name when iOS has none.
+    static func languageNameInText(_ code: String, english: String) -> String {
+        guard let name = Locale.current.localizedString(forIdentifier: code), !name.isEmpty else { return gameSettingText(english) }
+        return name
+    }
+
+    /// The game language's first option: the first of the iPhone's
+    /// languages that the game has (CartoucheGameLanguage.swift).
+    static var languageIPhone: String { s("setting.language.iPhone", "iPhone language") }
+
+    static func languageIPhoneStarts(_ language: String) -> String {
+        f("setting.language.iPhone.starts", "Starts in %@, the iPhone’s language.", language)
+    }
+
+    static func languageIPhoneMissing(_ language: String) -> String {
+        f("setting.language.iPhone.missing", "None of the iPhone’s languages is in this game: it starts in %@.", language)
     }
 
     private static func percent(_ value: Double) -> String {
