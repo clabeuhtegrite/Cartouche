@@ -276,6 +276,9 @@ struct CartoucheHomeView: View {
     private func gameMenu(_ entry: CartoucheEntry) -> some View {
         if let app = entry.app {
             Button { onPlay(app) } label: { Label(CartoucheText.play, systemImage: "play.fill") }
+            if let update = entry.update {
+                Button { onInstall(update) } label: { Label(updateTitle, systemImage: "arrow.down.circle.fill") }
+            }
         } else if let stored = entry.stored {
             Button { onInstall(stored) } label: { Label(installTitle, systemImage: "arrow.down.circle.fill") }
         } else {
@@ -334,21 +337,37 @@ struct CartoucheHomeView: View {
                     .lineLimit(2)
                     .minimumScaleFactor(0.7)
                 CartoucheMetaLine(entry: entry)
-                Text(status == .ready && !setup.canPlay ? CartoucheText.setupBannerDetail : status.long)
+                Text((status == .ready || status == .update) && !setup.canPlay ? CartoucheText.setupBannerDetail : status.long)
                     .font(.subheadline)
                     .foregroundStyle(CartoucheTheme.secondaryText)
                     .lineLimit(2)
             }
-            HStack(spacing: 10) {
-                if let app = entry.app {
-                    actionButton(CartoucheText.play, systemImage: "play.fill", primary: true) { onPlay(app) }
-                } else if let stored = entry.stored {
-                    actionButton(installTitle, systemImage: "arrow.down.circle.fill", primary: true) { onInstall(stored) }
-                } else {
-                    actionButton(CartoucheText.importCopy, systemImage: "square.and.arrow.down", primary: true, action: onImport)
-                }
-                actionButton(CartoucheText.details, systemImage: "info.circle", primary: false) { onSheet(entry) }
+            // With an update besides, the other buttons show only their
+            // symbols when their names do not fit.
+            ViewThatFits(in: .horizontal) {
+                gameActions(entry, compact: 0)
+                gameActions(entry, compact: 1)
+                gameActions(entry, compact: 2)
             }
+        }
+    }
+
+    /// The buttons of the game in focus; with COMPACT, its last ones show
+    /// only their symbols: Details at 1, Update and Details at 2.
+    private func gameActions(_ entry: CartoucheEntry, compact: Int) -> some View {
+        HStack(spacing: 10) {
+            if let app = entry.app {
+                actionButton(CartoucheText.play, systemImage: "play.fill", primary: true) { onPlay(app) }
+                if let update = entry.update {
+                    actionButton(CartoucheText.updateGame, systemImage: "arrow.down.circle.fill", primary: false,
+                                 iconOnly: compact >= 2) { onInstall(update) }
+                }
+            } else if let stored = entry.stored {
+                actionButton(installTitle, systemImage: "arrow.down.circle.fill", primary: true) { onInstall(stored) }
+            } else {
+                actionButton(CartoucheText.importCopy, systemImage: "square.and.arrow.down", primary: true, action: onImport)
+            }
+            actionButton(CartoucheText.details, systemImage: "info.circle", primary: false, iconOnly: compact >= 1) { onSheet(entry) }
         }
     }
 
@@ -357,13 +376,27 @@ struct CartoucheHomeView: View {
         CartoucheText.installFrom(CartoucheStoredGames.shared.serverName ?? "")
     }
 
+    /// Update from the player's games folder, naming its server.
+    private var updateTitle: String {
+        CartoucheText.updateFrom(CartoucheStoredGames.shared.serverName ?? "")
+    }
+
     @ViewBuilder
-    private func actionButton(_ title: String, systemImage: String, primary: Bool, action: @escaping () -> Void) -> some View {
+    private func actionButton(_ title: String, systemImage: String, primary: Bool, iconOnly: Bool = false,
+                              action: @escaping () -> Void) -> some View {
         let button = Button(action: action) {
-            Label(title, systemImage: systemImage)
-                .font(.headline)
-                .padding(.horizontal, 6)
-                .frame(minHeight: 30)
+            if iconOnly {
+                Label(title, systemImage: systemImage)
+                    .labelStyle(.iconOnly)
+                    .font(.headline)
+                    .padding(.horizontal, 6)
+                    .frame(minHeight: 30)
+            } else {
+                Label(title, systemImage: systemImage)
+                    .font(.headline)
+                    .padding(.horizontal, 6)
+                    .frame(minHeight: 30)
+            }
         }
         .controlSize(.large)
         if primary {

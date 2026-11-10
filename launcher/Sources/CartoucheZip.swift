@@ -13,7 +13,9 @@
 //    its size and CRC-32. Only what an IPA holds is taken: folders, files,
 //    stored or deflated, and links that stay inside the archive, with their
 //    Unix modes; Zip64 for archives and files past 4 GiB, as nxnative's
-//    pack_ipa.py makes them.
+//    pack_ipa.py makes them. Each entry's time comes with it: the MS-DOS
+//    time zip archives keep, in local time, or the exact time of an
+//    extended timestamp field when the archive has one.
 //  - Writing goes in order too, without going back: a file's CRC-32 is read
 //    first, so that its local header is right at once, as pack_ipa.py's are.
 //    Small files are deflated when that makes them smaller, large ones are
@@ -59,6 +61,8 @@ struct CartoucheZipEntry: Hashable {
     let localHeaderOffset: UInt64
     /// Its Unix mode and type, when the archive was made on a Unix system.
     let mode: UInt32?
+    /// When the file was last changed, as the archive keeps it.
+    var modified: Date? = nil
 
     var isDirectory: Bool {
         if let mode, mode & 0o170000 != 0 { return mode & 0o170000 == 0o040000 }
@@ -137,6 +141,8 @@ enum CartoucheZip {
             let madeBy = directory.uint16(at: at + 4)
             let flags = directory.uint16(at: at + 8)
             let method = directory.uint16(at: at + 10)
+            let time = directory.uint16(at: at + 12)
+            let day = directory.uint16(at: at + 14)
             let crc = directory.uint32(at: at + 16)
             var compressedSize = UInt64(directory.uint32(at: at + 20))
             var size = UInt64(directory.uint32(at: at + 24))
@@ -155,11 +161,18 @@ enum CartoucheZip {
 
             // Zip64: the fields that did not fit, in this order.
             var extra = extraAt
+            var stamp: Date?
             while extra + 4 <= extraAt + extraLength {
                 let id = directory.uint16(at: extra)
                 let length = Int(directory.uint16(at: extra + 2))
                 let body = extra + 4
                 guard body + length <= extraAt + extraLength else { break }
+                // An extended timestamp: flags, then the time of the last
+                // change in seconds since 1970, which the central directory
+                // keeps alone.
+                if id == 0x5455, length >= 5, directory[directory.startIndex + body] & 0x01 != 0 {
+                    stamp = Date(timeIntervalSince1970: TimeInterval(Int32(bitPattern: directory.uint32(at: body + 1))))
+                }
                 if id == 0x0001 {
                     var field = body
                     if size == 0xFFFF_FFFF, field + 8 <= body + length {
@@ -186,10 +199,28 @@ enum CartoucheZip {
             }
             let unix = madeBy >> 8 == 3 && external >> 16 != 0
             entries.append(CartoucheZipEntry(name: name, method: method, crc: crc, compressedSize: compressedSize,
-                                             size: size, localHeaderOffset: offset, mode: unix ? external >> 16 : nil))
+                                             size: size, localHeaderOffset: offset, mode: unix ? external >> 16 : nil,
+                                             modified: stamp ?? date(dosTime: time, day: day)))
             at = next
         }
         return entries
+    }
+
+    /// The date of an MS-DOS time and date, read as local time, or nil when
+    /// they hold none, as an archive that kept no time has 0 there.
+    static func date(dosTime time: UInt16, day: UInt16) -> Date? {
+        var parts = DateComponents()
+        parts.year = 1980 + Int(day >> 9)
+        parts.month = Int(day >> 5 & 0x0F)
+        parts.day = Int(day & 0x1F)
+        parts.hour = Int(time >> 11)
+        parts.minute = Int(time >> 5 & 0x3F)
+        parts.second = Int(time & 0x1F) * 2
+        guard (1 ... 12).contains(parts.month!), (1 ... 31).contains(parts.day!), parts.hour! < 24,
+              parts.minute! < 60, parts.second! < 60 else { return nil }
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = .current
+        return calendar.date(from: parts)
     }
 
     /// The path an entry takes in FOLDER, or nil for one that would leave

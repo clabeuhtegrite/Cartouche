@@ -97,8 +97,12 @@ struct CartoucheEntry: Identifiable, Hashable {
     let game: CartoucheNxGame?
     let sheet: CartoucheGameSheet?
     let app: LCAppModel?
-    /// The game's IPA in the player's games folder.
+    /// The game's IPA in the player's games folder, the newest when there
+    /// are several.
     var stored: CartoucheStoredGame? = nil
+    /// That IPA, when it is a newer build than the installed game: the
+    /// console offers to update the game with it.
+    var update: CartoucheStoredGame? = nil
 
     var name: String {
         if let sheet { return sheet.name }
@@ -129,7 +133,7 @@ struct CartoucheEntry: Identifiable, Hashable {
     var tileKey: String { titleId ?? id }
 
     static func == (lhs: CartoucheEntry, rhs: CartoucheEntry) -> Bool {
-        lhs.id == rhs.id && lhs.app === rhs.app && lhs.stored == rhs.stored
+        lhs.id == rhs.id && lhs.app === rhs.app && lhs.stored == rhs.stored && lhs.update == rhs.update
     }
 
     func hash(into hasher: inout Hasher) {
@@ -238,7 +242,8 @@ final class CartoucheCatalog {
     /// The catalogue for these apps and the IPAs of the player's games
     /// folder: each of the player's nxnative games, installed or stored, then
     /// every other game nxnative has a profile for, with the sheet testers
-    /// wrote when there is one.
+    /// wrote when there is one. An installed game whose newest IPA in the
+    /// games folder is a newer build of it has that IPA as its update.
     func entries(for apps: [LCAppModel], stored: [CartoucheStoredGame] = []) -> Entries {
         var result = Entries()
         var ownedTitles = Set<String>()
@@ -253,15 +258,23 @@ final class CartoucheCatalog {
             // Its IPA in the games folder, if there is one.
             let titles = Set(game?.titleIds ?? titleId.map { [$0] } ?? [])
             let bundleId = app.appInfo.bundleIdentifier()
-            let copy = storedLeft.firstIndex { stored in
-                (stored.titleId.map { titles.contains($0) } ?? false) || (bundleId != nil && stored.bundleId == bundleId)
+            let copies = storedLeft.indices.filter { index in
+                let stored = storedLeft[index]
+                return (stored.titleId.map { titles.contains($0) } ?? false) || (bundleId != nil && stored.bundleId == bundleId)
             }
-            let storedCopy = copy.map { storedLeft.remove(at: $0) }
-            result.owned.append(CartoucheEntry(id: "app:" + folder, game: game, sheet: sheet, app: app, stored: storedCopy))
+            let newest = copies.max { storedLeft[$1].isNewerCopy(than: storedLeft[$0]) }
+            let storedCopy = newest.map { storedLeft[$0] }
+            for index in copies.reversed() { storedLeft.remove(at: index) }
+            var update: CartoucheStoredGame?
+            if let storedCopy, let build = storedCopy.build, build.isNewer(than: CartoucheInstalledBuilds.shared.build(of: app)) {
+                update = storedCopy
+            }
+            result.owned.append(CartoucheEntry(id: "app:" + folder, game: game, sheet: sheet, app: app, stored: storedCopy,
+                                               update: update))
         }
         // The games of the games folder that are not installed, one entry
         // each: the newest IPA of a game that has several.
-        for copy in storedLeft.sorted(by: { ($0.modified ?? .distantPast) > ($1.modified ?? .distantPast) }) {
+        for copy in storedLeft.sorted(by: { $0.isNewerCopy(than: $1) }) {
             let game = copy.titleId.flatMap { self.game(titleId: $0) }
             let titleId = game?.titleId ?? copy.titleId
             if let titleId, ownedTitles.contains(titleId) { continue }

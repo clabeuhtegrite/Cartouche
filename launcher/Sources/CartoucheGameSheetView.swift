@@ -164,16 +164,33 @@ struct CartoucheGameSheetView: View {
         .padding(.vertical, 8)
     }
 
-    /// The installed game's IPA in the player's games folder: where it is,
-    /// or the button that copies it there.
+    /// The installed game's IPA in the player's games folder: the newer
+    /// build there, to update the game with, or where its copy is, or the
+    /// button that copies it there; and which build is on this iPhone.
     @ViewBuilder
     private func storedCopy(of app: LCAppModel) -> some View {
+        let serverName = CartoucheStoredGames.shared.serverName ?? ""
+        if let update = entry.update {
+            Button {
+                onInstallStored(update)
+            } label: {
+                Label(CartoucheText.updateFrom(serverName), systemImage: "arrow.down.circle.fill")
+                    .font(.subheadline.weight(.semibold))
+                    .frame(maxWidth: .infinity, minHeight: 26)
+            }
+            .controlSize(.regular)
+            .cartoucheSecondaryButton()
+            if let build = update.build {
+                buildLine(CartoucheText.buildNewer(serverName, CartoucheText.build(build)), systemImage: "arrow.down.circle")
+            }
+        }
+        if let installed = installedBuild(of: app) {
+            buildLine(CartoucheText.buildHere(installed), systemImage: "iphone")
+        }
         if let stored = entry.stored {
-            Label(CartoucheText.storedIn(CartoucheStoredGames.shared.serverName ?? "", stored.fileName),
-                  systemImage: "externaldrive.fill")
-                .font(.footnote)
-                .foregroundStyle(CartoucheTheme.secondaryText)
-                .lineLimit(2)
+            if entry.update == nil {
+                buildLine(CartoucheText.storedIn(serverName, stored.fileName), systemImage: "externaldrive.fill")
+            }
         } else if let server = CartoucheStorageSettings.shared.location(.games)?.server,
                   // A folder the player's account only reads takes no copy.
                   !CartoucheStorageSettings.shared.isReadOnly(.games) {
@@ -189,11 +206,31 @@ struct CartoucheGameSheetView: View {
         }
     }
 
+    private func buildLine(_ text: String, systemImage: String) -> some View {
+        Label(text, systemImage: systemImage)
+            .font(.footnote)
+            .foregroundStyle(CartoucheTheme.secondaryText)
+            .lineLimit(3)
+    }
+
+    /// Which build of the game is installed, in a few words: as the IPA
+    /// Cartouche installed it from said, or, for a game installed before
+    /// Cartouche kept that, its version, commit and install date.
+    private func installedBuild(of app: LCAppModel) -> String? {
+        if let recorded = CartoucheInstalledBuilds.shared.record(of: app) {
+            return CartoucheText.build(recorded)
+        }
+        let build = CartoucheInstalledBuilds.installedBuild(of: app)
+        let installedAt: Date? = app.appInfo.installationDate
+        guard build.version != nil || build.commit != nil || installedAt != nil else { return nil }
+        return CartoucheText.build(build, installedOn: installedAt)
+    }
+
     /// What nxnative's profile says about the game.
     private func nxnative(_ game: CartoucheNxGame) -> some View {
         // The player's copy says nothing of where nxnative plays the game.
         var status = CartouchePlayStatus.of(entry)
-        if status == .ready || status == .stored { status = .iphone }
+        if status == .ready || status == .update || status == .stored { status = .iphone }
         return Section(CartoucheText.sheetNxnative) {
             Label {
                 Text(status.long)

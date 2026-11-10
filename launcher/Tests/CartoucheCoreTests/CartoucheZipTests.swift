@@ -159,6 +159,48 @@ final class CartoucheZipTests: XCTestCase {
         try checkExtracted(into, big: big)
     }
 
+    /// Each entry's time comes back as the writer gave it: an IPA's
+    /// Info.plist says when the IPA was built (CartoucheGameBuild).
+    func testEntriesKeepTheirTime() async throws {
+        // Even seconds: MS-DOS times keep two at a time.
+        let built = Date(timeIntervalSince1970: 1_794_281_224)
+        let sink = MemorySink()
+        let writer = CartoucheZipWriter(sink: sink)
+        try await writer.addFolder("Payload/Game.app/", date: built)
+        try await writer.addData("Payload/Game.app/Info.plist", Data("plist".utf8), date: built.addingTimeInterval(1))
+        try await writer.finish()
+        let entries = try await CartoucheZip.entries(of: MemorySource(sink.data))
+        XCTAssertEqual(entries.map(\.modified), [built, built])
+    }
+
+    /// The times Python's zipfile writes, as nxnative's pack_ipa.py does: an
+    /// MS-DOS time, in local time, and the exact time of an extended
+    /// timestamp field when there is one.
+    func testReadsTheTimesPythonWrites() async throws {
+        let path = folder.appendingPathComponent("times.zip")
+        _ = try python("""
+            import struct, sys, zipfile
+            with zipfile.ZipFile(sys.argv[1], "w") as z:
+                z.writestr(zipfile.ZipInfo("Payload/Game.app/Info.plist", date_time=(2026, 11, 10, 3, 30, 12)), b"plist")
+                stamped = zipfile.ZipInfo("Payload/Game.app/Game", date_time=(2026, 11, 10, 3, 30, 12))
+                stamped.extra = struct.pack("<HHBl", 0x5455, 5, 1, 1794281225)
+                z.writestr(stamped, b"game")
+            """, [path.path])
+        let entries = try await CartoucheZip.entries(of: CartoucheFileSource(path))
+        let plist = try XCTUnwrap(entries.first { $0.name.hasSuffix("Info.plist") }?.modified)
+        let parts = Calendar(identifier: .gregorian).dateComponents([.year, .month, .day, .hour, .minute, .second], from: plist)
+        XCTAssertEqual([parts.year, parts.month, parts.day, parts.hour, parts.minute, parts.second], [2026, 11, 10, 3, 30, 12])
+        XCTAssertEqual(entries.first { $0.name.hasSuffix("/Game") }?.modified, Date(timeIntervalSince1970: 1_794_281_225))
+    }
+
+    func testMSDOSTimes() {
+        let night = Date(timeIntervalSince1970: 1_794_281_224)
+        let (time, day) = CartoucheZipWriter.dosTime(night)
+        XCTAssertEqual(CartoucheZip.date(dosTime: time, day: day), night)
+        // An archive that kept no time.
+        XCTAssertNil(CartoucheZip.date(dosTime: 0, day: 0))
+    }
+
     /// The archive is read from start to end once, in long reads, besides
     /// the central directory at its end.
     func testReadsInOrder() async throws {

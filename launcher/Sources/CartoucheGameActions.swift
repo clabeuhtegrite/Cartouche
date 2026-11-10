@@ -86,7 +86,8 @@ final class CartoucheGameActions: ObservableObject {
         UIApplication.shared.isIdleTimerDisabled = true
         Task {
             do {
-                let (app, warning) = try await installUnpacked(into: model) { folder, progress in
+                let builtAt = await Self.builtAt(ofIPA: url)
+                let (app, warning) = try await installUnpacked(into: model, builtAt: builtAt) { folder, progress in
                     guard await Self.unpack(url.path, into: folder.path, progress) == 0 else {
                         throw "lc.appList.urlFileIsNotIpaError".loc
                     }
@@ -129,7 +130,8 @@ final class CartoucheGameActions: ObservableObject {
                         needed: CartoucheText.storageAmount(bytes: needed), free: CartoucheText.storageAmount(bytes: free)))
                 }
                 work?.fraction = 0
-                let (app, warning) = try await installUnpacked(into: model) { folder, progress in
+                let builtAt = CartoucheStoredGames.infoPlistEntry(in: entries)?.modified
+                let (app, warning) = try await installUnpacked(into: model, builtAt: builtAt) { folder, progress in
                     try await CartoucheZip.extract(source, entries: entries, into: folder, progress: progress)
                 }
                 finishInstall(app, warning: warning)
@@ -153,8 +155,9 @@ final class CartoucheGameActions: ObservableObject {
     }
 
     /// Unpacks an IPA with UNPACK into a folder of Cartouche's, then installs
-    /// the app it holds.
-    private func installUnpacked(into model: SharedModel,
+    /// the app it holds, and notes which build of the game it is, BUILTAT
+    /// being when the IPA was built (CartoucheInstalledBuilds).
+    private func installUnpacked(into model: SharedModel, builtAt: Date?,
                                  unpack: (URL, Progress) async throws -> Void) async throws -> (LCAppModel, String?) {
         let fileManager = FileManager.default
         let progress = Progress.discreteProgress(totalUnitCount: 100)
@@ -247,6 +250,9 @@ final class CartoucheGameActions: ObservableObject {
 
         // No delegate: Play gives runApp Cartouche's own while the game starts.
         let app = LCAppModel(appInfo: info)
+        var build = CartoucheInstalledBuilds.installedBuild(of: app)
+        build.builtAt = builtAt
+        CartoucheInstalledBuilds.shared.record(build, bundleId: bundleId)
         if let previous {
             model.apps.removeAll { $0 == previous }
         } else if let schemes = info.urlSchemes(), schemes.count > 0 {
@@ -309,6 +315,12 @@ final class CartoucheGameActions: ObservableObject {
         extract(path, destination, progress)
     }
 
+    /// When the IPA at URL was built: the time of its Info.plist in it.
+    nonisolated private static func builtAt(ofIPA url: URL) async -> Date? {
+        guard let source = try? CartoucheFileSource(url), let entries = try? await CartoucheZip.entries(of: source) else { return nil }
+        return CartoucheStoredGames.infoPlistEntry(in: entries)?.modified
+    }
+
     nonisolated private static func freeSpace() -> Int64? {
         let values = try? LCPath.docPath.resourceValues(forKeys: [.volumeAvailableCapacityForImportantUsageKey])
         return values?.volumeAvailableCapacityForImportantUsage
@@ -337,6 +349,9 @@ final class CartoucheGameActions: ObservableObject {
         let bundle = URL(fileURLWithPath: bundlePath, isDirectory: true)
         let name = CartoucheStoredGame.fileName(game: app.displayName, titleId: titleId)
         let path = CartoucheStoragePath.join(location.path, name)
+        // The copy's Info.plist keeps the time the game's IPA gave it, which
+        // says when the game was built (CartoucheGameBuild).
+        let builtAt = CartoucheInstalledBuilds.shared.build(of: app).builtAt
         work = CartoucheGameWork(kind: .exporting, name: app.displayName,
                                  step: CartoucheText.exportStep(location.server.name), fraction: 0)
         UIApplication.shared.isIdleTimerDisabled = true
@@ -350,7 +365,13 @@ final class CartoucheGameActions: ObservableObject {
                                                                      path: location.path) == false {
                     throw CartoucheStorageError(CartoucheText.exportReadOnly(location.server.name))
                 }
-                let items = try await Self.exportedItems(of: bundle)
+                var items = try await Self.exportedItems(of: bundle)
+                let infoPlist = "Payload/\(bundle.lastPathComponent)/Info.plist"
+                if let builtAt, let index = items.firstIndex(where: { $0.name == infoPlist }) {
+                    let item = items[index]
+                    items[index] = CartoucheExportedItem(name: item.name, url: item.url, kind: item.kind, size: item.size,
+                                                         mode: item.mode, date: builtAt)
+                }
                 let total = items.reduce(UInt64(0)) { $0 + $1.size }
                 if let free = try? await connected.freeSpace(), free < total + 64 << 20 {
                     throw CartoucheStorageError(CartoucheText.exportNoSpace(

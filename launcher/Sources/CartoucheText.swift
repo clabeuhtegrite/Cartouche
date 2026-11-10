@@ -63,6 +63,8 @@ enum CartoucheText {
     static var statusUnknownLong: String { s("status.unknown.long", "nxnative’s profile does not say where it plays yet.") }
     static var statusStoredShort: String { s("status.stored.short", "In storage") }
     static var statusStoredLong: String { s("status.stored.long", "Its IPA is in your games folder: install it to play it on this iPhone.") }
+    static var statusUpdateShort: String { s("status.update.short", "Update") }
+    static var statusUpdateLong: String { s("status.update.long", "A newer IPA of it is in your games folder: updating keeps your saves.") }
 
     /// A genre of nxnative.json, or nil for "other".
     static func genre(_ genre: String) -> String? {
@@ -350,9 +352,31 @@ enum CartoucheText {
     static func uninstallCopyFirst(_ server: String) -> String { f("uninstall.copyFirst", "Copy to %@, then uninstall", server) }
     static func uninstallMessageStored(_ server: String) -> String { f("uninstall.message.stored", "The game stays in %@, ready to install again. Your saves can stay on this iPhone: the game finds them again.", server) }
     static func installFrom(_ server: String) -> String { f("action.installFrom", "Install from %@", server) }
+    static func updateFrom(_ server: String) -> String { f("action.updateFrom", "Update from %@", server) }
+    static var updateGame: String { s("action.updateGame", "Update") }
     static var importOtherCopy: String { s("action.importOther", "Import another copy") }
     static func exportTo(_ server: String) -> String { f("action.exportTo", "Copy to %@", server) }
     static func storedIn(_ server: String, _ file: String) -> String { f("sheet.storedIn", "A copy is in %1$@: %2$@", server, file) }
+    static func buildHere(_ build: String) -> String { f("sheet.build.here", "On this iPhone: %@", build) }
+    static func buildNewer(_ server: String, _ build: String) -> String { f("sheet.build.newer", "Newer, in %1$@: %2$@", server, build) }
+    static func buildVersion(_ version: String) -> String { f("build.version", "version %@", version) }
+    static func buildBuilt(_ date: String) -> String { f("build.built", "built %@", date) }
+    static func buildInstalled(_ date: String) -> String { f("build.installed", "installed %@", date) }
+    static func buildCommit(_ commit: String) -> String { f("build.commit", "nxnative %@", commit) }
+
+    /// A game's build in a few words: its version, when it was built, or
+    /// else installed, and its nxnative commit.
+    static func build(_ build: CartoucheGameBuild, installedOn: Date? = nil) -> String {
+        var parts: [String] = []
+        if let version = build.version { parts.append(buildVersion(version)) }
+        if let installedOn {
+            parts.append(buildInstalled(installedOn.formatted(date: .abbreviated, time: .shortened)))
+        } else if let builtAt = build.builtAt {
+            parts.append(buildBuilt(builtAt.formatted(date: .abbreviated, time: .shortened)))
+        }
+        if let commit = build.shortCommit { parts.append(buildCommit(build.isDirty ? commit + "+dirty" : commit)) }
+        return parts.joined(separator: ", ")
+    }
 
     // MARK: The player's storage
 

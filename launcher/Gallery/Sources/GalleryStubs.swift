@@ -37,6 +37,9 @@ final class LCAppInfo {
     private let identifier: String
     private let folder: String
     private let icon: UIImage?
+    /// The app's Info.plist, when the scenario gives it one.
+    var infoPlist: NSMutableDictionary?
+    var installationDate: Date?
 
     init(name: String, identifier: String, folder: String, icon: UIImage?) {
         self.name = name
@@ -48,7 +51,7 @@ final class LCAppInfo {
     var relativeBundlePath: String? { folder }
     func displayName() -> String? { name }
     func bundleIdentifier() -> String? { identifier }
-    func info() -> NSMutableDictionary? { nil }
+    func info() -> NSMutableDictionary? { infoPlist }
     func bundlePath() -> String? { nil }
     func iconIsDarkIcon(_ isDark: Bool) -> UIImage? { icon }
 }

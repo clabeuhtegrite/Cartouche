@@ -104,8 +104,22 @@ struct GalleryScenario {
                 CartoucheAccount.shared.requestCodeForGallery(.init(
                     id: "gallery", mode: .sms, phone: "+33 •• •• •• •• 78", canTextMessage: false, error: nil))
             }
+            if work == "newer-build", let titleId = updatedTitle, let game = CartoucheCatalog.shared.game(titleId: titleId) {
+                // Cartouche Builder built the game again last night.
+                let stored = CartoucheStoredGame(
+                    path: "/Jeux/\(game.name) [\(titleId)].ipa", size: 21_474_836_480, modified: Date().addingTimeInterval(-5 * 3_600),
+                    bundleId: "org.nxnative." + titleId.lowercased(), displayName: game.name, version: "1.0.0",
+                    build: CartoucheGameBuild(version: "1.0.0", commit: "7bddb8c1e2f3", chain: "adec7d81d970",
+                                              builtAt: Date().addingTimeInterval(-5 * 3_600 - 120)),
+                    titleId: titleId, isGame: true)
+                CartoucheStoredGames.shared.showForGallery([stored], server: "NAS")
+            }
         }
     }
+
+    /// The game a newer build is in the games folder of (work: newer-build):
+    /// the sheet's, or the first of the player's.
+    private var updatedTitle: String? { work == "newer-build" ? sheet ?? owned.first : nil }
 
     /// What capture.sh needs to cut the screen out of the simulator's
     /// screenshot, or to turn it the right way up (screenshot.swift).
@@ -171,6 +185,12 @@ struct GalleryScenario {
             guard let game = CartoucheCatalog.shared.game(titleId: titleId) else { return nil }
             let info = LCAppInfo(name: game.name, identifier: "org.nxnative." + titleId.lowercased(),
                                  folder: titleId + ".app", icon: GalleryIcon.make(name: game.name, key: titleId))
+            if titleId == updatedTitle {
+                // Installed four days ago, from an older commit of nxnative.
+                info.infoPlist = NSMutableDictionary(dictionary: ["CFBundleShortVersionString": "1.0.0", "DMCommit": "52124866a1b2",
+                                                                  "DMChain": "844bf1a5ea8f"])
+                info.installationDate = Date().addingTimeInterval(-4 * 86_400)
+            }
             return LCAppModel(appInfo: info)
         }
     }
@@ -220,7 +240,7 @@ struct CartoucheGalleryApp: App {
 
     @ViewBuilder
     private var screen: some View {
-        let entries = CartoucheCatalog.shared.entries(for: model.apps)
+        let entries = CartoucheCatalog.shared.entries(for: model.apps, stored: CartoucheStoredGames.shared.games)
         switch scenario.screen {
         case "library":
             NavigationStack {

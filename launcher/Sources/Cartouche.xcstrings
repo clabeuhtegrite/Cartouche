@@ -171,6 +171,40 @@
         }
       }
     },
+    "action.updateFrom" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Update from %@"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mettre à jour depuis %@"
+          }
+        }
+      }
+    },
+    "action.updateGame" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Update"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mettre à jour"
+          }
+        }
+      }
+    },
     "app.needsIOS17" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -184,6 +218,74 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Cartouche nécessite iOS 17 ou une version ultérieure."
+          }
+        }
+      }
+    },
+    "build.built" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "built %@"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "construite le %@"
+          }
+        }
+      }
+    },
+    "build.commit" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "nxnative %@"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "nxnative %@"
+          }
+        }
+      }
+    },
+    "build.installed" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "installed %@"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "installée le %@"
+          }
+        }
+      }
+    },
+    "build.version" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "version %@"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "version %@"
           }
         }
       }
@@ -2823,6 +2925,40 @@
         }
       }
     },
+    "sheet.build.here" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "On this iPhone: %@"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sur cet iPhone : %@"
+          }
+        }
+      }
+    },
+    "sheet.build.newer" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Newer, in %1$@: %2$@"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Plus récente, dans %1$@ : %2$@"
+          }
+        }
+      }
+    },
     "sheet.engine" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -3924,6 +4060,40 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Pas encore essayé sur cet iPhone"
+          }
+        }
+      }
+    },
+    "status.update.long" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A newer IPA of it is in your games folder: updating keeps your saves."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Une IPA plus récente est dans votre dossier des jeux : la mise à jour garde vos sauvegardes."
+          }
+        }
+      }
+    },
+    "status.update.short" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Update"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mise à jour"
           }
         }
       }
