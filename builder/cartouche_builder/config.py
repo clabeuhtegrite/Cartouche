@@ -42,7 +42,7 @@ class Config:
     unprofiled: bool = False  # also build games nxnative has no profile for (a guess that may not start)
     game_language: str = ""  # nxnative's -l (empty = its default, English)
     jobs: int = 1  # games built at once
-    keep_ipa: bool = False  # keep each IPA in its build folder too (a faster next pack)
+    keep_ipa: bool = False  # keep each IPA in the workspace too: nxnative's packer reuses it (a faster next pack)
     language: str = ""  # the builder's own language: "en", "fr" or "" for the system's
     notifications: bool = True
     schedule: bool = False  # build what is due every night (launchd)

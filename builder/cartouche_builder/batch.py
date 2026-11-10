@@ -219,7 +219,12 @@ class Runner:
             workspace.use(work)
             out = workspace.root / NOTES / "out" / f"{title_id}.ipa"
             out.parent.mkdir(parents=True, exist_ok=True)
-            out.unlink(missing_ok=True)  # what is delivered is this build's IPA
+            if not ctx.config.keep_ipa:
+                out.unlink(missing_ok=True)
+            # A kept IPA stays where nxnative writes the new one: its packer
+            # reuses the entries that did not change (out.ipa.idx), and always
+            # writes a new file, renamed over the old one once whole.
+            before = _identity(out)
             args = builds.command(self.python, ctx.engine.build_script, source, work, out, keys, ctx.config.game_language)
             result = builds.run(
                 args,
@@ -234,7 +239,9 @@ class Runner:
                 if result.stopped:
                     raise _Stopped(result.error)
                 raise _Failed(result.error)
-            info = ipas.read_info(out)
+            # What is delivered is this build's IPA, never one an earlier build left.
+            after = _identity(out)
+            info = ipas.read_info(out) if after is not None and after != before else None
             if info is None:
                 raise _Failed(t("batch.no_ipa", path=out))
             games_folder = ctx.config.path("games")
@@ -286,6 +293,16 @@ class Runner:
             if limit:
                 with self._lock:
                     workspace.trim(limit * 2**30, keep={workspace.build_folder(e.title_id) for e in self.entries}, log=lambda folder, size: self.log(t("batch.trimmed", folder=folder.name, gb=f"{size / 2**30:.1f}")))
+
+
+def _identity(path: Path) -> tuple[int, int, int] | None:
+    """PATH's file as (inode, modification time, size), None when there is
+    none: a file written again, or renamed over it, is another one."""
+    try:
+        info = path.stat()
+    except OSError:
+        return None
+    return info.st_ino, info.st_mtime_ns, info.st_size
 
 
 class _Failed(Exception):

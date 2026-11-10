@@ -107,6 +107,7 @@ if tsv.is_file():
 name = name or source.name
 work = Path(a.work_dir)
 work.mkdir(parents=True, exist_ok=True)
+(work / "had_ipa.txt").write_text("yes" if Path(a.out).exists() else "no")
 runs = work / "runs.txt"
 runs.write_text(runs.read_text() + "run\n" if runs.exists() else "run\n")
 (work / "args.json").write_text(json.dumps(sys.argv[1:]))
@@ -125,6 +126,9 @@ if os.environ.get("FAKE_SLEEP"):
     for _ in range(int(os.environ["FAKE_SLEEP"]) * 10):
         time.sleep(0.1)
 ev(ev="stage", k=2, n=2, name="pack", step="")
+if os.environ.get("FAKE_NO_IPA") == title_id:
+    ev(ev="stage_end", k=2, n=2, name="pack", ok=True, summary="", elapsed=0.1)
+    sys.exit(0)
 out = Path(a.out)
 out.parent.mkdir(parents=True, exist_ok=True)
 with zipfile.ZipFile(out, "w") as archive:
@@ -176,7 +180,7 @@ class Home(unittest.TestCase):
     def setUp(self) -> None:
         self._tmp = tempfile.TemporaryDirectory()
         self.tmp = Path(self._tmp.name)
-        self._env = {k: os.environ.get(k) for k in ("CARTOUCHE_BUILDER_HOME", "CARTOUCHE_BUILDER_LEGACY_HOME", "CARTOUCHE_BUILDER_AGENTS", "CARTOUCHE_BUILDER_LANG", "CARTOUCHE_BUILDER_QUIET", "FAKE_FAIL", "FAKE_SLEEP")}
+        self._env = {k: os.environ.get(k) for k in ("CARTOUCHE_BUILDER_HOME", "CARTOUCHE_BUILDER_LEGACY_HOME", "CARTOUCHE_BUILDER_AGENTS", "CARTOUCHE_BUILDER_LANG", "CARTOUCHE_BUILDER_QUIET", "FAKE_FAIL", "FAKE_SLEEP", "FAKE_NO_IPA")}
         os.environ["CARTOUCHE_BUILDER_HOME"] = str(self.tmp / "home")
         os.environ["CARTOUCHE_BUILDER_LEGACY_HOME"] = str(self.tmp / "legacy")
         os.environ["CARTOUCHE_BUILDER_AGENTS"] = str(self.tmp / "agents")
@@ -184,6 +188,7 @@ class Home(unittest.TestCase):
         os.environ["CARTOUCHE_BUILDER_QUIET"] = "1"
         os.environ.pop("FAKE_FAIL", None)
         os.environ.pop("FAKE_SLEEP", None)
+        os.environ.pop("FAKE_NO_IPA", None)
         from cartouche_builder import i18n
 
         i18n.set_language("en")

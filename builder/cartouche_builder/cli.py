@@ -152,7 +152,7 @@ def _doctor(ctx: batch.Context) -> int:
     checks = toolchain.doctor(ctx.paths, ctx.engine.root if ctx.engine.present else None)
     for check in checks:
         mark = "✓" if check.ok else ("✗" if check.blocking else "·")
-        print(f"{mark} {t(f'check.{check.key}')}: {check.found or t('cli.not_found')}")
+        print(f"{mark} {t(f'check.{check.key}')}: {check.found or t('cli.ok' if check.ok else 'cli.not_found')}")
         if not check.ok:
             print(f"    {check.fix}")
             if check.command:

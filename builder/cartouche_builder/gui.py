@@ -540,7 +540,7 @@ class Doctor:
         for row, check in enumerate(checks):
             mark = "✓" if check.ok else ("✗" if check.blocking else "·")
             ttk.Label(self.frame, text=mark, foreground="#1e8449" if check.ok else "#c0392b").grid(row=row, column=0, sticky="nw", padx=(0, 6))
-            text = f"{t(f'check.{check.key}')}: {check.found or t('cli.not_found')}"
+            text = f"{t(f'check.{check.key}')}: {check.found or t('cli.ok' if check.ok else 'cli.not_found')}"
             if not check.ok:
                 text += f"\n{check.fix}"
             ttk.Label(self.frame, text=text, wraplength=560, justify="left").grid(row=row, column=1, sticky="w", pady=3)

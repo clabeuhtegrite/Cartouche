@@ -6,7 +6,7 @@ It runs nxnative's own build script, as nxnative's [front-end page](https://gith
 
 ## What you need
 
-A Mac that builds nxnative games: macOS 26.6 or later on Apple silicon, Xcode 27.2 with its iOS platform and Metal toolchain, `xcodegen`, `zstd` and `glslang` from Homebrew, the .NET 10 SDK, and Python 3.12 or later with Tk (`brew install python@3.13 python-tk@3.13`). **Mac tools…** in the window checks each one and opens the command that installs a missing one in Terminal. The builder downloads nxnative and makes the Python environment nxnative's scripts need by itself, in its own folder.
+A Mac that builds nxnative games: macOS 26.6 or later on Apple silicon, Xcode 27.2 with its iOS platform and Metal toolchain, `xcodegen`, `zstd` and `glslang` from Homebrew, and Python 3.12 or later with Tk (`brew install python@3.13 python-tk@3.13`). Since its commit 641636e2 (10 November 2026) nxnative needs no .NET: only an older copy of nxnative asks for the .NET 10 SDK. **Mac tools…** in the window checks each one and opens the command that installs a missing one in Terminal. The builder downloads nxnative and makes the Python environment nxnative's scripts need by itself, in its own folder.
 
 ## Start
 
@@ -28,7 +28,7 @@ Then choose your folders:
 - **Game sources**: one folder per game, which the builder only reads. A game's folder holds its packages (`.nsp`, `.xci`, `.nsz`, `.xcz`: the game, its update and DLC, which need `prod.keys`), a Switch 2 game's `.nup`, a dump as nxnative's `scripts/pack_dump.py` lays it out (`base/exefs`, `base/romfs`, `updates/<version>/`, `dlc/`), or a `.zip` of such a dump, which the builder unpacks for the build and removes after. A `.nup` or `.zip` can also sit in the sources folder itself. A game is known by its title ID: in its folder's or files' names (`[0100000000010000]`), or in a dump's `main.npdm`.
 - **Games folder**: where the IPAs go, the folder Cartouche reads on your Mac, PC or NAS. A new IPA takes the place of the game's IPA there, under the same name, so Cartouche keeps finding it; a game's first IPA is named as Cartouche names them, `<game> [<title ID>].ipa`. It is copied as a hidden file first and renamed once whole, so Cartouche never sees half an IPA.
 - **prod.keys**: your console's keys, for packages only.
-- **Build folders** (optional): nxnative's build folder of each game, `<title ID>_build`, which keeps what the next build reuses, so a build after a small change takes minutes instead of hours. A size limit in **Settings…** removes the folders of the games built longest ago.
+- **Build folders** (optional): nxnative's build folder of each game, `<title ID>_build`, which keeps what the next build reuses, so a build after a small change takes minutes instead of hours. A size limit in **Settings…** removes the folders of the games built longest ago. **Keep each IPA in the build folders too** keeps a copy of each IPA there, which nxnative's packer updates in place at the next build (only what changed is written again), at the cost of as much space again as the IPAs.
 
 ## When a game is built again
 
@@ -52,7 +52,7 @@ Documentation, tests and nxnative's own tooling never make a game due. A game wh
 
 ## Coming from NxNative Batch Builder
 
-At its first start, Cartouche Builder takes over NxNative Batch Builder's settings (its sources, IPA and build folders, `prod.keys` and the games you ticked) and the games it built, with the nxnative commit of each, from `~/Library/Application Support/NxNative Batch Builder`; it only reads them. Its build folders stay where they are and are reused as they are. Two of its features are not taken over:
+At its first start, Cartouche Builder takes over NxNative Batch Builder's settings (its sources, IPA and build folders, `prod.keys` and the games you ticked) and the games it built, with the nxnative commit of each, from `~/Library/Application Support/NxNative Batch Builder`; it only reads them. Only the games ticked there are followed: the plan shows the others as not ticked, with the nxnative commit of their last build, until you tick them in the list. Its build folders stay where they are and are reused as they are. Two of its features are not taken over:
 
 - The ZIP archives of build folders on the NAS: a build folder stays on the Mac, under the size limit you set, instead of going to the NAS and back for each build.
 - Three builds at once: one by default, since nxnative uses every core for one game and a large game needs most of a 16 GB Mac's memory. **Settings…** allows up to four.

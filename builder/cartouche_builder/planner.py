@@ -87,7 +87,9 @@ def plan(
         entries.append(entry)
         _locate(entry, games_folder, profiles)
         if not entry.selected and game.title_id not in force:
-            entry.reasons, entry.detail = ["not_selected"], t("plan.not_selected")
+            built = record.build
+            entry.reasons = ["not_selected"]
+            entry.detail = t("plan.not_selected_built", commit=built.commit[:12]) if built else t("plan.not_selected")
             continue
         if game.title_id not in profiles and not config.unprofiled and game.title_id not in force:
             entry.reasons, entry.detail = ["no_profile"], t("plan.no_profile")
