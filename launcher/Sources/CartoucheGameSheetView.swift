@@ -122,10 +122,12 @@ struct CartoucheGameSheetView: View {
                         .minimumScaleFactor(0.7)
                         .accessibilityAddTraits(.isHeader)
                     // For the player's own copy, the badge says whether it
-                    // is ready, or what stops it.
-                    CartoucheMetaLine(entry: entry, showsStatus: entry.app == nil || entry.sheet == nil || actions.isRunning(entry.app),
-                                      isPaused: actions.isRunning(entry.app))
-                    if entry.sheet != nil {
+                    // is ready, or what stops it; while the game runs
+                    // behind the console, the line says it is paused.
+                    let isRunning = actions.isRunning(entry.app)
+                    CartoucheMetaLine(entry: entry, showsStatus: entry.app == nil || entry.sheet == nil || isRunning,
+                                      isPaused: isRunning)
+                    if entry.sheet != nil, !isRunning {
                         CartoucheFitBadge(fit: fit, owned: entry.app != nil)
                     }
                 }

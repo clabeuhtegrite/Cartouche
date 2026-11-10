@@ -95,8 +95,14 @@ final class CartoucheGameActions: ObservableObject {
 
     /// APP runs behind the console, paused there, since a quarter of an hour.
     func showRunningForGallery(_ app: LCAppModel) {
+        // On screen first, then paused as the player comes back to the
+        // console, which puts the game in focus on the home.
         running = CartoucheRunningGame(app: app, dataFolder: "gallery", started: Date().addingTimeInterval(-15 * 60),
-                                       isInFront: false)
+                                       isInFront: true)
+        Task { @MainActor in
+            try? await Task.sleep(for: .milliseconds(600))
+            self.running?.isInFront = false
+        }
     }
     func uninstall(_ app: LCAppModel, erasingData: Bool) {}
     func export(_ app: LCAppModel, titleId: String?, then next: (() -> Void)? = nil) {}
