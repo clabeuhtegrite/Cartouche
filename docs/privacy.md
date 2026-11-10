@@ -37,6 +37,14 @@ Reports are deleted after 25 months. They are read by the project, to fix and im
 
 **System › Game measurements › Erase what this iPhone sent** has the server delete every report of this copy of Cartouche, which then takes a new random number.
 
+## Reporting a problem
+
+**System › Report a problem** shows all a report holds before anything leaves the iPhone, and sends nothing until you choose how: share it, copy it, open GitHub's bug report form with it, or **Send to Cartouche**. Cartouche takes out of it, and out of what you write, the names and addresses of your servers and folders, your user names, your Apple ID and your team, and never puts a password in it.
+
+It holds what you write; Cartouche's and iOS's versions and the iPhone's model, language, memory, free space and how far the setup is; Cartouche's last steps; the reports of its last errors of the week; and the iPhone's memory limit, for the catalog's list of iPhones.
+
+**Send to Cartouche** gives it to the project's server, which files it as an issue of the project's private repository on GitHub, read only by the project, and kept there until the project deletes it. GitHub stores it in the United States. The server keeps it only until GitHub has it, then only the day it came, until the day after; as with game measurements, it never keeps the address it came from. Through GitHub's form, a report is public, under your GitHub account.
+
 ## Other connections
 
 Cartouche also reads the list of its own versions on GitHub, to offer its updates, and loads the games' covers from IGDB's image server. Both see the iPhone's address, as any website does, and nothing else of you.

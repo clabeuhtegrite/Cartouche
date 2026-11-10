@@ -9,7 +9,11 @@
 # 2. schema.sql applied to it, each statement of which runs again without
 #    harm;
 # 3. the Worker cartouche-telemetry, worker.js as it is, with the database
-#    as DB and no logs kept;
+#    as DB and no logs kept, and what it files the problems players send
+#    with: the private repository CARTOUCHE_REPORTS_REPOSITORY and the token
+#    CARTOUCHE_REPORTS_TOKEN, when they are set; without them, or with a
+#    public repository, the Worker keeps the problems until a deploy with
+#    them;
 # 4. its workers.dev address, on the account's workers.dev subdomain,
 #    which is created when the account has none;
 # 5. its daily run, which deletes the reports older than 25 months.
@@ -88,12 +92,40 @@ echo "Applying schema.sql"
 call POST "/d1/database/$database/query" -H "Content-Type: application/json" \
   --data-binary "$(json "$(sed -e '/^[[:space:]]*--/d' "$HERE/schema.sql" | jq -Rs '{sql: .}')")" >/dev/null
 
-# 3. The Worker.
+# 3. The Worker, and the repository it files problems in. Its token goes
+# to curl and jq in files too.
+echo '[]' >"$WORK/problems.json"
+problems="the server keeps the problems players send: there is no CARTOUCHE_REPORTS_TOKEN"
+if [ -n "${CARTOUCHE_REPORTS_TOKEN:-}" ] && [ -n "${CARTOUCHE_REPORTS_REPOSITORY:-}" ]; then
+  repository="$CARTOUCHE_REPORTS_REPOSITORY"
+  printf 'Authorization: Bearer %s\n' "$CARTOUCHE_REPORTS_TOKEN" >"$WORK/github-authorization"
+  printf '%s' "$CARTOUCHE_REPORTS_TOKEN" >"$WORK/problems-token"
+  visibility="$(curl -sS --max-time 20 -H @"$WORK/github-authorization" -H "Accept: application/vnd.github+json" \
+    "${GITHUB_API_URL:-https://api.github.com}/repos/$repository" 2>/dev/null |
+    jq -r 'if (type == "object" and has("private")) then (if .private then "private" else "public" end) else empty end' 2>/dev/null || true)"
+  case "$visibility" in
+    private) problems="players' problems go to $repository, a private repository" ;;
+    public) problems="$repository is public: the server files no problem there, and keeps them" ;;
+    *) problems="the token cannot read $repository: the server keeps the problems until GitHub takes them" ;;
+  esac
+  if [ "$visibility" != public ]; then
+    jq -n --arg repository "$repository" --rawfile token "$WORK/problems-token" '[
+      {type: "plain_text", name: "PROBLEMS_REPOSITORY", text: $repository},
+      {type: "secret_text", name: "PROBLEMS_TOKEN", text: $token}
+    ]' >"$WORK/problems.json"
+  fi
+fi
+case "$problems" in
+  players*) echo "Problems: $problems" ;;
+  *public*) echo "::error::Problems: $problems." ;;
+  *) echo "::warning::Problems: $problems." ;;
+esac
+
 echo "Uploading the Worker $NAME"
-jq -n --arg date "$COMPATIBILITY_DATE" --arg database "$database" '{
+jq -n --arg date "$COMPATIBILITY_DATE" --arg database "$database" --slurpfile problems "$WORK/problems.json" '{
   main_module: "worker.js",
   compatibility_date: $date,
-  bindings: [{type: "d1", name: "DB", id: $database}],
+  bindings: ([{type: "d1", name: "DB", id: $database}] + $problems[0]),
   observability: {enabled: false}
 }' >"$WORK/metadata.json"
 call PUT "/workers/scripts/$NAME" \
@@ -133,4 +165,5 @@ else
 fi
 if [ -n "${GITHUB_STEP_SUMMARY:-}" ]; then
   echo "The telemetry server is at $URL: \`CARTOUCHE_TELEMETRY_URL=$URL\` in app/config.env." >>"$GITHUB_STEP_SUMMARY"
+  echo "Problems: $problems." >>"$GITHUB_STEP_SUMMARY"
 fi
