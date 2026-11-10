@@ -256,6 +256,10 @@ struct CartoucheHomeView: View {
                 }
                 .scrollIndicators(.hidden)
                 .scrollClipDisabled()
+                // The height Metrics counts for the shelf: its covers and the
+                // room for the focused one's ring, which a horizontal scroll
+                // view did not always keep beside the game in focus.
+                .frame(height: width * Metrics.tileHeight)
                 .onChange(of: columns[index]) { _, column in
                     guard row == index, column < items.count else { return }
                     withAnimation(.easeOut(duration: 0.25)) {
@@ -676,7 +680,7 @@ struct CartoucheHomeView: View {
 
         var bigTile: CGFloat {
             let byHeight = shelvesHeight / (Self.tileHeight * (1 + Self.smallRatio))
-            let byWidth = isWide ? shelvesWidth * 0.24 : size.width * 0.3
+            let byWidth = isWide ? shelvesWidth * 0.3 : size.width * 0.3
             let smallest: CGFloat = isWide ? 60 : 78
             return min(max(min(byHeight, byWidth), smallest), 170)
         }
