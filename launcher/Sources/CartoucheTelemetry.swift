@@ -14,7 +14,11 @@
 //  it opens, and when a game it runs beside itself ends: nxnative renames
 //  log.txt to log.prev.txt at the game's next start, so both are read,
 //  each once, by when it was created. A log still being written, by a game
-//  that runs, waits.
+//  that runs, waits. A game that ran behind the console also wrote its
+//  memory in the app group (CartoucheGameMemoryReading): the session it
+//  matches, by its data folder and when it started, reports its process's
+//  limit and exact peak, the sizes its screen took, and whether the player
+//  quit it or iOS ended it.
 //
 //  The server's address is a build setting (CARTOUCHE_TELEMETRY_URL in
 //  app/config.env, CartoucheTelemetryURL in the Info.plist): a build
@@ -45,7 +49,8 @@ final class CartoucheTelemetry: ObservableObject {
     /// A copy of Cartouche takes a new random number after 13 months.
     static let installLifetime: TimeInterval = 395 * 86_400
 
-    /// Posted by the game's end when Cartouche runs it beside itself.
+    /// Posted by the game's end when Cartouche runs it beside itself, with
+    /// userInfo["quit"] and userInfo["dataFolder"] (CartoucheRunningGame.swift).
     static let gameDidEnd = Notification.Name("CartoucheGameDidEnd")
     /// Posted with each error report Cartouche makes (CartoucheReporting.swift):
     /// userInfo["origin"] says what Cartouche was doing, userInfo["error"]
@@ -103,6 +108,9 @@ final class CartoucheTelemetry: ObservableObject {
     private var collectAgain = false
     private var sending = false
     private var observers: Set<AnyCancellable> = []
+    /// How the games that ran behind the console ended, by their data
+    /// folder, since Cartouche opened: whether the player quit them.
+    private var gameEnds: [String: (quit: Bool, at: Date)] = [:]
 
     private init() {
         let support = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
@@ -135,7 +143,10 @@ final class CartoucheTelemetry: ObservableObject {
             .store(in: &observers)
         center.publisher(for: Self.gameDidEnd)
             .receive(on: DispatchQueue.main)
-            .sink { [weak self] _ in self?.collect() }
+            .sink { [weak self] note in
+                self?.noteGameEnd(note)
+                self?.collect()
+            }
             .store(in: &observers)
         center.publisher(for: Self.errorReported)
             .receive(on: DispatchQueue.main)
@@ -219,6 +230,10 @@ final class CartoucheTelemetry: ObservableObject {
         let nxnative: String?
         let nxnativeChanged: Bool?
         let settings: [String: String]
+        /// What its process wrote, when the game ran behind the console, and
+        /// whether its last reading was close to its limit.
+        let process: CartoucheGameProcess?
+        let nearLimit: Bool
     }
 
     /// Reads the sessions of the games' logs not read yet, then sends.
@@ -244,7 +259,10 @@ final class CartoucheTelemetry: ObservableObject {
         Task {
             let measured = await Task.detached(priority: .utility) {
                 jobs.map { job in
-                    (job, CartoucheGameLogReader.read(contentsOf: job.url)?.measures(seconds: job.seconds, limitMiB: limit))
+                    // A game behind the console had its process's own limit.
+                    let measures = CartoucheGameLogReader.read(contentsOf: job.url)?
+                        .measures(seconds: job.seconds, limitMiB: job.process?.limitMiB ?? limit)
+                    return (job, job.process.flatMap { process in measures?.with(process, nearLimit: job.nearLimit) } ?? measures)
                 }
             }.value
             for (job, measures) in measured {
@@ -253,7 +271,8 @@ final class CartoucheTelemetry: ObservableObject {
                 let report = CartoucheSessionReport(
                     id: Self.newNumber(), session: job.session, seq: nextSeq(), context: context(limitMiB: limit),
                     game: job.game, gameVersion: job.gameVersion, nxnative: job.nxnative, nxnativeChanged: job.nxnativeChanged,
-                    settings: job.settings, minutes: CartoucheGameLogReader.rounded(job.seconds / 60, 1), measures: measures)
+                    settings: job.settings, minutes: CartoucheGameLogReader.rounded(job.seconds / 60, 1), measures: measures,
+                    process: job.process)
                 enqueue(report, id: report.id)
             }
             save()
@@ -271,6 +290,8 @@ final class CartoucheTelemetry: ObservableObject {
     private func findLogs() -> [Job] {
         let model = DataManager.shared.model
         let catalog = CartoucheCatalog.shared
+        let running = CartoucheGameActions.shared.running
+        let reading = CartoucheGameMemoryReading.last()
         var jobs: [Job] = []
         for app in model.apps + model.hiddenApps {
             guard let found = catalog.gameTitle(of: app) else { continue }
@@ -278,8 +299,9 @@ final class CartoucheTelemetry: ObservableObject {
             var details: (build: CartoucheGameBuild, settings: [String: String])?
             for container in app.uiContainers {
                 let documents = container.containerURL.appendingPathComponent("Documents", isDirectory: true)
-                // A running game is still writing log.txt.
-                let names = app.isAppRunning ? ["log.prev.txt"] : ["log.prev.txt", "log.txt"]
+                // A running game is still writing log.txt, behind the console too.
+                let isRunning = app.isAppRunning || (running?.app === app && running?.dataFolder == container.folderName)
+                let names = isRunning ? ["log.prev.txt"] : ["log.prev.txt", "log.txt"]
                 for name in names {
                     let url = documents.appendingPathComponent(name)
                     guard let attributes = try? FileManager.default.attributesOfItem(atPath: url.path),
@@ -293,15 +315,46 @@ final class CartoucheTelemetry: ObservableObject {
                                    settings: CartoucheGameActions.shared.settings(for: app, tileKey: "").values)
                     }
                     let build = details?.build
+                    let process = processReport(of: reading, folder: container.folderName, created: created)
                     jobs.append(Job(url: url, key: key, session: state.logs.session(of: key) ?? Self.newNumber(), bytes: bytes,
                                     seconds: max(modified.timeIntervalSince(created), 0), game: titleId,
                                     gameVersion: build?.version, nxnative: build?.shortCommit,
                                     nxnativeChanged: build?.commit == nil ? nil : build?.isDirty,
-                                    settings: details?.settings ?? [:]))
+                                    settings: details?.settings ?? [:], process: process?.process,
+                                    nearLimit: process?.nearLimit ?? false))
                 }
             }
         }
         return jobs
+    }
+
+    /// What READING says of the session whose log, in the data folder
+    /// FOLDER, was created at CREATED, when the game ran behind the console.
+    /// Its process started just before nxnative created the log, and still
+    /// ran then: the file holds only the last game that ran behind the
+    /// console, so an older session has none, and neither has one that
+    /// started after it ended, such as the same game in Cartouche's place
+    /// right after iOS stopped it for its memory.
+    private func processReport(of reading: CartoucheGameMemoryReading?, folder: String,
+                               created: Date) -> (process: CartoucheGameProcess, nearLimit: Bool)? {
+        guard let reading, reading.container == folder, let started = reading.started, let updated = reading.updated,
+              started >= created.addingTimeInterval(-120), started <= created.addingTimeInterval(5),
+              updated >= created.addingTimeInterval(-2) else { return nil }
+        let end: Bool? = gameEnds[folder].flatMap { $0.at >= started ? $0.quit : nil }
+        let screens = reading.sizes.map { size in
+            CartoucheGameProcess.Screen(minute: CartoucheGameLogReader.rounded(max(size.time.timeIntervalSince(started), 0) / 60, 1),
+                                        width: Int(size.width.rounded()), height: Int(size.height.rounded()),
+                                        footprintMiB: size.footprintBytes > 0 ? Int(size.footprintBytes / 1_048_576) : nil)
+        }
+        let process = CartoucheGameProcess(limitMiB: reading.limitMiB, peakMiB: reading.peakMiB,
+                                           lastAvailableMiB: Int(reading.availableBytes / 1_048_576), quit: end, screens: screens)
+        return (process, reading.wasNearLimit)
+    }
+
+    /// Whether the player quit the game that ran behind the console.
+    private func noteGameEnd(_ note: Notification) {
+        guard let folder = note.userInfo?["dataFolder"] as? String, let quit = note.userInfo?["quit"] as? Bool else { return }
+        gameEnds[folder] = (quit, Date())
     }
 
     // MARK: Events

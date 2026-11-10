@@ -51,8 +51,8 @@ PAGE = 2000
 
 # How a session ended badly (CartoucheGameLog.swift): it crashed, it never
 # drew a frame, or iOS stopped it for its memory. "unknown" is a game the
-# player closed as much as one iOS stopped without a word, so it does not
-# count.
+# player closed as much as one iOS stopped without a word, and "quit" one
+# the player quit behind the console, so neither counts.
 ENDED_BADLY = {"crash": "crash", "memory-likely": "out of memory", "boot-failed": "did not start"}
 
 # The status of a model's result:

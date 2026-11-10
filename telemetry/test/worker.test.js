@@ -251,6 +251,29 @@ test("fields it does not know, or with values it does not expect, are left out",
   assert.equal({}.polluted, undefined);
 });
 
+test("what a game's own process wrote behind the console keeps its valid sizes, ten at most", () => {
+  const screen = (minute) => ({ minute, width: 874, height: 402, footprintMiB: 1830 });
+  const kept = clean(
+    sessionReport({
+      process: {
+        limitMiB: 6143,
+        peakMiB: 4813,
+        lastAvailableMiB: -1,
+        quit: "yes",
+        screens: [screen(0), { minute: 1, width: 0, height: 402 }, { width: 874, height: 402 }, "874x402", screen(2.5)],
+        pid: 412,
+      },
+      end: { kind: "quit", signal: 9 },
+    }),
+  );
+  assert.deepEqual(kept.process, { limitMiB: 6143, peakMiB: 4813, screens: [screen(0), screen(2.5)] });
+  assert.deepEqual(kept.end, { kind: "quit", signal: 9 });
+  const many = clean(sessionReport({ process: { limitMiB: 6143, peakMiB: 4813, screens: Array.from({ length: 12 }, (_, index) => screen(index)) } }));
+  assert.deepEqual(many.process.screens, Array.from({ length: 10 }, (_, index) => screen(index)));
+  assert.equal(clean(sessionReport({ process: { peakMiB: 4813, quit: true } })).process, undefined);
+  assert.equal(clean(sessionReport({ process: { limitMiB: 6143, peakMiB: 4813, screens: [] } })).process.screens, undefined);
+});
+
 test("a report without what every report has is refused", async () => {
   const reports = [
     sessionReport({ install: "not-a-number" }),

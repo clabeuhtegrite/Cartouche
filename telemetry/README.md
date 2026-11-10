@@ -60,7 +60,8 @@ Every report carries `schema` (1), `kind`, a random `id` of its own, `seq`, the 
 | `memory`, `guestFile` | `peakMiB` (and `exactPeak`, the system's own peak), `gpuPeakMiB`, `lowestHeadroomMiB`; whether nxnative kept the game's memory in a file. |
 | `upscaler` | `metalfx` or `bilinear`, and its `gpuMs`. |
 | `audioUnderrunsPerMinute`, `display`, `dlc` | Audio underruns; `tv` and `foldSplit`, the iPhone Duo's fold between picture and controls; whether the game loaded downloadable content. |
-| `end` | How the session ended: `kind` (`crash`, `boot-failed`, `memory-likely`, `unknown`), and for a crash its `signal` and where, as module and offset: `pc`, `lr`. |
+| `end` | How the session ended: `kind` (`crash`, `boot-failed`, `memory-likely`, `quit`, `unknown`), and for a crash its `signal` and where, as module and offset: `pc`, `lr`. Only a game that ran behind the console says the player quit it. |
+| `process` | What the game's own process wrote of its memory every two seconds, when it ran behind the console ([`CartoucheGuest.m`](../launcher/LiveProcessSupport/CartoucheGuest.m)): `limitMiB`, the limit iOS set for that process; `peakMiB`, its peak as iOS counts it, which `memory.peakMiB` takes too; `lastAvailableMiB`, what iOS still let it use at its last reading; `quit`, whether the player quit it rather than iOS ending it; and `screens`, the last 10 sizes its screen took, in points, each with the `minute` it took it and the `footprintMiB` then. |
 
 A value the log does not have is left out.
 

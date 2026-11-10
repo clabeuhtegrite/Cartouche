@@ -62,6 +62,26 @@
         "lines": 13394,
         "seconds": 21.43
       },
+      "process": {
+        "lastAvailableMiB": 1402,
+        "limitMiB": 6143,
+        "peakMiB": 4813,
+        "quit": false,
+        "screens": [
+          {
+            "footprintMiB": 1830,
+            "height": 402,
+            "minute": 0,
+            "width": 874
+          },
+          {
+            "footprintMiB": 4120,
+            "height": 905,
+            "minute": 12.4,
+            "width": 1172
+          }
+        ]
+      },
       "reader": 1,
       "schema": 1,
       "seq": 7,

@@ -80,7 +80,8 @@ struct CartoucheGameMeasures: Codable, Equatable {
 
     struct Memory: Codable, Equatable {
         /// The highest footprint read, every 300 frames, or the system's
-        /// own peak when nxnative ran with its guest file.
+        /// own peak when nxnative ran with its guest file, or when the game
+        /// ran behind the console (CartoucheGameProcess).
         var peakMiB: Int?
         var exactPeak: Bool?
         var gpuPeakMiB: Int?
@@ -103,9 +104,10 @@ struct CartoucheGameMeasures: Codable, Equatable {
 
     /// How the session ended, as far as the log tells.
     struct End: Codable, Equatable {
-        /// crash, boot-failed, memory-likely or unknown: an iPhone stops a
-        /// game it runs out of memory for, and a player closes one, without
-        /// a line in its log.
+        /// crash, boot-failed, memory-likely, quit or unknown: an iPhone
+        /// stops a game it runs out of memory for, and a player closes one,
+        /// without a line in its log. Only a game that ran behind the
+        /// console says the player quit it (CartoucheGameProcess).
         var kind: String
         var signal: Int?
         /// Where it crashed, as module+offset: "main+0x1a2b3c".

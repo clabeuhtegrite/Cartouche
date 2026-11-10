@@ -243,7 +243,9 @@ class SheetsTest(unittest.TestCase):
             "iPhone17,3": ([{"end": crash}] + [{}] * 8, "playable-with-issues"),
             "iPhone17,4": ([{"fps": {"median": 50.0, "low5": 45.0}}] * 3, "playable-with-issues"),
             "iPhone17,5": ([{"fps": {"median": 59.0, "low5": 40.0}}] * 3, "playable-with-issues"),
-            "iPhone18,1": ([{"fps": {"median": 55.0, "low5": 46.0}}] * 3, "playable"),
+            # A game the player quit behind the console ended well.
+            "iPhone18,1": ([{"fps": {"median": 55.0, "low5": 46.0}}] * 2
+                           + [{"fps": {"median": 55.0, "low5": 46.0}, "end": {"kind": "quit"}}], "playable"),
         }
         for device, (sessions, _) in cases.items():
             for i, fields in enumerate(sessions):

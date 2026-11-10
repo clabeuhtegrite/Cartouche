@@ -539,12 +539,23 @@ test("the filters scope everything to a game, a model or a version", () => {
 test("a game's memory is read against the limit of the iPhone it ran on", () => {
   const [session] = APP_REPORTS;
   const roomy = { ...session, memory: { ...session.memory, peakMiB: 5000 } };
-  const tight = { ...session, session: "0f0f0f0f-0000-4000-8000-000000000000", install: "11111111-2222-4333-8444-555555555555", memoryLimitMiB: 3376, increasedMemoryLimit: false, memory: { ...session.memory, peakMiB: 3000 } };
+  // In Cartouche's place: its limit is the iPhone's.
+  const tight = { ...session, session: "0f0f0f0f-0000-4000-8000-000000000000", install: "11111111-2222-4333-8444-555555555555", memoryLimitMiB: 3376, increasedMemoryLimit: false, memory: { ...session.memory, peakMiB: 3000 }, process: undefined };
   const model = M.build(answer([asRow(roomy), asRow(tight)]), CATALOG);
   const [game] = model.games;
   assert.equal(game.peak, 5000);
   assert.deepEqual(game.tightest, { peak: 3000, limit: 3376, ratio: 3000 / 3376 });
   assert.deepEqual(model.memory.limits.map((item) => [item.key, item.count]), [[3376, 1], [6143, 1]]);
+});
+
+test("a game that ran behind the console is read against its process's limit, and one the player quit ended well", () => {
+  const [session] = APP_REPORTS;
+  const behind = { ...session, process: { ...session.process, limitMiB: 5120, quit: true }, end: { kind: "quit" } };
+  const model = M.build(answer([asRow(behind)]), CATALOG);
+  const [game] = model.games;
+  assert.deepEqual(game.tightest, { peak: session.memory.peakMiB, limit: 5120, ratio: session.memory.peakMiB / 5120 });
+  assert.equal(game.ends.ok, 1);
+  assert.equal(game.ends.bad, 0);
 });
 
 test("errors by version of Cartouche, against its openings, the newest version first", () => {

@@ -752,11 +752,12 @@ final class CartoucheGameActions: ObservableObject {
     /// and then the console says so. A game iOS stopped close to its memory
     /// limit starts in Cartouche's place from then on.
     func gameDidEnd(_ app: LCAppModel, quit: Bool, wasInFront: Bool, reading: CartoucheGameMemoryReading?) {
-        guard running?.app === app else { return }
+        guard let ended = running, ended.app === app else { return }
         running = nil
         quitQuestion = nil
         switching = nil
-        NotificationCenter.default.post(name: .cartoucheGameDidEnd, object: app)
+        NotificationCenter.default.post(name: .cartoucheGameDidEnd, object: app,
+                                        userInfo: ["quit": quit, "dataFolder": ended.dataFolder])
         if !quit {
             let title = CartoucheText.gameStoppedTitle(app.displayName)
             if wasInFront, let reading, reading.wasNearLimit, let bundleId = app.appInfo.bundleIdentifier() {
