@@ -546,13 +546,46 @@ struct CartoucheGameSettingRow: View {
     /// The language option's own value: the iPhone's languages.
     static let iPhoneOption = "cartouche.iPhone"
 
-    /// What the language says under its name while it follows the
+    /// What the language says under its row while it follows the
     /// iPhone's: the one the game starts in.
     private var languageLine: String? {
         guard isLanguage, !isLocked, let language = model.iPhoneLanguage else { return nil }
         let english = setting.choices.first(where: { $0[0] == language })?[1] ?? language
         let name = CartoucheText.languageNameInText(language, english: english)
         return model.iPhoneLanguageFound ? CartoucheText.languageIPhoneStarts(name) : CartoucheText.languageIPhoneMissing(name)
+    }
+
+    /// A choice's options; the game's language starts with the iPhone's.
+    @ViewBuilder private var options: some View {
+        if isLanguage {
+            Text(CartoucheText.languageIPhone).tag(Self.iPhoneOption)
+        }
+        ForEach(setting.choices, id: \.self) { option in
+            Text(optionName(option)).tag(option[0])
+        }
+    }
+
+    /// The game's language: its menu beside its name, as the other
+    /// settings' are, and the language the game starts in under both. Under
+    /// the name, that line would push the menu onto a line of its own.
+    private var languageMenu: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            HStack(alignment: .firstTextBaseline) {
+                label
+                Spacer(minLength: 8)
+                Picker(title, selection: choice) {
+                    options
+                }
+                .labelsHidden()
+                .pickerStyle(.menu)
+            }
+            if let languageLine {
+                Text(languageLine)
+                    .font(.footnote)
+                    .foregroundStyle(CartoucheTheme.secondaryText)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
     }
 
     private var label: some View {
@@ -565,12 +598,6 @@ struct CartoucheGameSettingRow: View {
             }
             if isLocked && !lockedNote.isEmpty {
                 Text(lockedNote)
-                    .font(.footnote)
-                    .foregroundStyle(CartoucheTheme.secondaryText)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-            if let languageLine {
-                Text(languageLine)
                     .font(.footnote)
                     .foregroundStyle(CartoucheTheme.secondaryText)
                     .fixedSize(horizontal: false, vertical: true)
@@ -621,17 +648,16 @@ struct CartoucheGameSettingRow: View {
         Group {
             switch setting.kind {
             case "choice":
-                Picker(selection: choice) {
-                    if isLanguage {
-                        Text(CartoucheText.languageIPhone).tag(Self.iPhoneOption)
+                if isLanguage {
+                    languageMenu
+                } else {
+                    Picker(selection: choice) {
+                        options
+                    } label: {
+                        label
                     }
-                    ForEach(setting.choices, id: \.self) { option in
-                        Text(optionName(option)).tag(option[0])
-                    }
-                } label: {
-                    label
+                    .pickerStyle(.menu)
                 }
-                .pickerStyle(.menu)
             case "range":
                 let low = setting.min ?? 0
                 let high = Swift.max(setting.max ?? 1, low)
