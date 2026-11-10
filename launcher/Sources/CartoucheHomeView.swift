@@ -457,7 +457,7 @@ struct CartoucheHomeView: View {
             Text(detail)
                 .font(.subheadline)
                 .foregroundStyle(CartoucheTheme.secondaryText)
-                .lineLimit(metrics.isShort ? 1 : 2)
+                .lineLimit(metrics.detailLines)
         }
     }
 
@@ -472,7 +472,7 @@ struct CartoucheHomeView: View {
                     Text(detail)
                         .font(.subheadline)
                         .foregroundStyle(CartoucheTheme.secondaryText)
-                        .lineLimit(metrics.isShort ? 1 : 2)
+                        .lineLimit(metrics.detailLines)
                 }
             }
             // With an update besides, the other buttons show only their
@@ -804,6 +804,11 @@ struct CartoucheHomeView: View {
             (margin + shelfWidth) / (margin + shelfWidth + columnGap)
         }
         var titleSize: CGFloat { isWide || isShort ? 26 : (size.width >= 600 ? 34 : 30) }
+        /// The lines of what the game in focus says: one on a short screen
+        /// where it stands under the shelf, whose room counts it
+        /// (heroHeight); two beside the shelf, which is taller, as on an
+        /// iPhone Duo unfolded sideways before the player's first game.
+        var detailLines: Int { isShort && !isWide ? 1 : 2 }
 
         /// The height of the game in focus, upright: its name, its badges,
         /// its play time and size (CartoucheGameStatsLine), two lines about
