@@ -15,18 +15,53 @@ import UniformTypeIdentifiers
 struct SettingsView: View {
     var body: some View {
         TabView {
-            GeneralSettings()
-                .tabItem { Label(tr("General", "Général"), systemImage: "gearshape") }
-            FolderSettings()
-                .tabItem { Label(tr("Folders", "Dossiers"), systemImage: "folder") }
-            BuildSettings()
-                .tabItem { Label(tr("Builds", "Constructions"), systemImage: "hammer") }
-            StorageSettings()
-                .tabItem { Label(tr("Storage", "Stockage"), systemImage: "internaldrive") }
-            AdvancedSettings()
-                .tabItem { Label(tr("Advanced", "Avancé"), systemImage: "slider.horizontal.3") }
+            ForEach(SettingsTab.allCases) { tab in
+                tab.content
+                    .tabItem { Label(tab.title, systemImage: tab.symbol) }
+            }
         }
-        .frame(width: 600, height: 520)
+        .frame(width: SettingsTab.size.width, height: SettingsTab.size.height)
+    }
+}
+
+/// The settings' tabs, in order: the Settings scene's toolbar, and the
+/// gallery's picture of it (Gallery.swift).
+enum SettingsTab: CaseIterable, Identifiable {
+    case general, folders, builds, storage, advanced
+
+    static let size = CGSize(width: 600, height: 520)
+
+    var id: Self { self }
+
+    var title: String {
+        switch self {
+        case .general: return tr("General", "Général")
+        case .folders: return tr("Folders", "Dossiers")
+        case .builds: return tr("Builds", "Constructions")
+        case .storage: return tr("Storage", "Stockage")
+        case .advanced: return tr("Advanced", "Avancé")
+        }
+    }
+
+    var symbol: String {
+        switch self {
+        case .general: return "gearshape"
+        case .folders: return "folder"
+        case .builds: return "hammer"
+        case .storage: return "internaldrive"
+        case .advanced: return "slider.horizontal.3"
+        }
+    }
+
+    @MainActor @ViewBuilder
+    var content: some View {
+        switch self {
+        case .general: GeneralSettings()
+        case .folders: FolderSettings()
+        case .builds: BuildSettings()
+        case .storage: StorageSettings()
+        case .advanced: AdvancedSettings()
+        }
     }
 }
 
