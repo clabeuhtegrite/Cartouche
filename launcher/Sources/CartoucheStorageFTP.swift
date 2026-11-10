@@ -321,9 +321,15 @@ private final class FTPSession {
             throw CartoucheStorageError(CartoucheText.storageFTPAccountNeeded)
         }
         let control = FTPSocket(host: host, port: server.port ?? 21)
+        do {
+            try await control.open(within: Double(CartoucheStorageReach.patience) / 1_000_000_000)
+        } catch {
+            // Out of reach from here, as a NAS at home is from elsewhere.
+            NSLog("[Cartouche] no connection to the FTP server: %@", error.localizedDescription)
+            throw CartoucheStorageOffline(server)
+        }
         let session = FTPSession(host: host, control: control)
         do {
-            try await control.open()
             var welcome = try await session.reply()
             while welcome.isPreliminary { welcome = try await session.reply() }
             guard welcome.isDone else { throw FTPFailure(reply: welcome) }
@@ -528,7 +534,9 @@ private final class FTPSocket {
         connection.cancel()
     }
 
-    func open() async throws {
+    /// Connects, unless the server does not take the connection within
+    /// SECONDS.
+    func open(within seconds: TimeInterval = 20) async throws {
         let connection = connection
         let queue = queue
         let once = FTPOnce()
@@ -551,7 +559,7 @@ private final class FTPSocket {
                 }
             }
             connection.start(queue: queue)
-            queue.asyncAfter(deadline: .now() + 20) {
+            queue.asyncAfter(deadline: .now() + seconds) {
                 guard once.claim() else { return }
                 connection.cancel()
                 continuation.resume(throwing: Closed())

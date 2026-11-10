@@ -57,14 +57,29 @@ final class CartoucheS3: CartoucheRemote {
         guard !accessKey.isEmpty, !secretKey.isEmpty else {
             throw CartoucheStorageError(CartoucheText.storageS3KeysNeeded)
         }
+        // A server that takes no connection is out of reach from here, as a
+        // NAS at home is from elsewhere: said within the reach patience,
+        // rather than once a request has waited a minute.
+        guard await CartoucheStorageReach.answers(server) else {
+            throw CartoucheStorageOffline(server)
+        }
         let remote = CartoucheS3(bucket: bucket, accessKey: accessKey, secretKey: secretKey)
         do {
             _ = try await remote.listPage(prefix: "", delimiter: "/", token: nil, most: 1)
+        } catch let failure as URLError where offlineCodes.contains(failure.code) {
+            throw CartoucheStorageOffline(server)
         } catch {
             throw CartoucheStorageError(CartoucheText.storageSignInFailed(bucket.endpoint.host, error.localizedDescription))
         }
         return remote
     }
+
+    /// What URLSession says when it finds no way to the server: no network,
+    /// no address for its name, no connection.
+    private static let offlineCodes: Set<URLError.Code> = [
+        .notConnectedToInternet, .cannotFindHost, .dnsLookupFailed, .cannotConnectToHost,
+        .internationalRoamingOff, .dataNotAllowed,
+    ]
 
     // MARK: Requests
 

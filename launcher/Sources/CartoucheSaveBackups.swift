@@ -15,6 +15,12 @@
 //  copied first, and nxnative's working copy (save.work) goes, for the
 //  game to make it again from the saves put back.
 //
+//  Away from the saves folder's server, as from a NAS at home, the copies
+//  wait: Cartouche finds the server offline within a few seconds
+//  (CartoucheStorageReach), leaves it alone while it stays so, and copies
+//  the saves waiting as soon as it answers again. Being offline is not a
+//  problem: no report is made of it.
+//
 
 import Combine
 import Foundation
@@ -55,7 +61,9 @@ final class CartoucheSaveBackups: ObservableObject {
     @Published private(set) var lastCopy: [String: Date]
     /// Why the last copies failed, if they did, and the report on it.
     @Published private(set) var problemReport: CartoucheReport?
-    var problem: String? { problemReport?.message }
+    /// The games whose saves wait for the saves folder's server, offline
+    /// from here, by target key: they are copied once it answers again.
+    @Published private(set) var waiting: Set<String> = []
 
     private let settings: CartoucheStorageSettings
     private let defaults: UserDefaults
@@ -86,8 +94,16 @@ final class CartoucheSaveBackups: ObservableObject {
     /// Copies TARGET's saves now, changed or not.
     func copyNow(_ target: CartoucheSaveTarget) async -> Bool {
         await finish()
-        return await makeCopies([target], always: true)
+        return await makeCopies([target], always: true) == nil
     }
+
+    #if CARTOUCHE_GALLERY
+    /// COUNT games whose saves wait for the server, for the launcher's
+    /// gallery (launcher/Gallery).
+    func showWaitingForGallery(_ count: Int) {
+        waiting = Set((0 ..< count).map { "gallery-\($0)" })
+    }
+    #endif
 
     /// Waits for the copies under way: before a game starts, which closes
     /// Cartouche.
@@ -100,20 +116,34 @@ final class CartoucheSaveBackups: ObservableObject {
 
     // MARK: Copying
 
-    private func makeCopies(_ targets: [CartoucheSaveTarget], always: Bool) async -> Bool {
-        guard let location = settings.location(.saves) else { return false }
+    /// Copies the saves of the TARGETS that changed since their last copy,
+    /// or of them all, ALWAYS: nil once they are copied, else why not.
+    private func makeCopies(_ targets: [CartoucheSaveTarget], always: Bool) async -> Error? {
+        guard let location = settings.location(.saves) else { return CartoucheStorageError(CartoucheText.savesNoFolder) }
         let place = location.server.id.uuidString + "|" + location.path
         var fingerprints = (defaults.dictionary(forKey: Self.fingerprintsKey) as? [String: String]) ?? [:]
         var due: [(target: CartoucheSaveTarget, stamp: String)] = []
         for target in targets {
             // A game that never saved has nothing to copy.
-            guard let fingerprint = await Self.fingerprint(of: target.documents) else { continue }
+            guard let fingerprint = await Self.fingerprint(of: target.documents) else {
+                waiting.remove(target.key)
+                continue
+            }
             let stamp = place + "|" + fingerprint
             if always || fingerprints[target.key] != stamp {
                 due.append((target, stamp))
+            } else {
+                waiting.remove(target.key)
             }
         }
-        guard !due.isEmpty else { return true }
+        guard !due.isEmpty else { return nil }
+        // The server was found offline a moment ago, from this network: the
+        // copies Cartouche makes by itself wait for it to answer again,
+        // rather than for the patience each time Cartouche comes back.
+        if !always && CartoucheStorageReach.shared.isSettledOffline(location.server.id) {
+            wait(for: due.map { $0.target })
+            return CartoucheStorageOffline(location.server)
+        }
 
         isCopying = true
         beginBackground()
@@ -122,7 +152,7 @@ final class CartoucheSaveBackups: ObservableObject {
             endBackground()
         }
         var remote: CartoucheRemote?
-        var done = true
+        var failure: Error?
         do {
             let connected = try await CartoucheStorage.connect(location.server, settings: settings)
             remote = connected
@@ -145,6 +175,7 @@ final class CartoucheSaveBackups: ObservableObject {
                 defaults.set(fingerprints, forKey: Self.fingerprintsKey)
                 lastCopy[target.key] = date
                 defaults.set(lastCopy, forKey: Self.lastKey)
+                waiting.remove(target.key)
                 do {
                     try await Self.prune(folder, in: connected)
                 } catch {
@@ -153,17 +184,31 @@ final class CartoucheSaveBackups: ObservableObject {
             }
             problemReport = nil
             CartoucheReports.note("Saves copied: \(due.count) " + (due.count == 1 ? "game" : "games"))
+        } catch let offline as CartoucheStorageOffline {
+            // No problem: the saves wait for the server to answer again.
+            wait(for: due.map { $0.target })
+            failure = offline
         } catch {
             // The copies Cartouche makes by itself, each time it comes
-            // back, fail away from home too: their report is not kept.
+            // back, can fail on the way too: their report is not kept.
             problemReport = CartoucheReports.make(.saves, CartoucheText.savesCopyFailed, message: error.localizedDescription,
                                                   error: error, step: "Copying the saves to " + CartoucheReports.place(.saves),
                                                   facts: [.init("Games", String(due.count))], inBackground: !always)
             NSLog("[Cartouche] saves not copied: %@", error.localizedDescription)
-            done = false
+            failure = error
         }
         await remote?.disconnect()
-        return done
+        return failure
+    }
+
+    /// The saves of TARGETS wait for the saves folder's server, offline
+    /// from here.
+    private func wait(for targets: [CartoucheSaveTarget]) {
+        problemReport = nil
+        let added = Set(targets.map { $0.key }).subtracting(waiting)
+        guard !added.isEmpty else { return }
+        waiting.formUnion(added)
+        CartoucheReports.note("Saves waiting for the saves folder: \(waiting.count) " + (waiting.count == 1 ? "game" : "games"))
     }
 
     /// A few seconds more to finish, if the player leaves Cartouche.
@@ -348,8 +393,8 @@ final class CartoucheSaveBackups: ObservableObject {
         }
         try await CartoucheZip.extract(source, entries: entries, into: unpacked, progress: nil)
 
-        guard await makeCopies([target], always: true) || !Self.hasSaves(target.documents) else {
-            throw CartoucheStorageError(problem ?? CartoucheText.savesCopyUnreadable)
+        if let failure = await makeCopies([target], always: true), Self.hasSaves(target.documents) {
+            throw failure
         }
         try fileManager.createDirectory(at: target.documents, withIntermediateDirectories: true)
         for folder in Self.folders + ["save.work"] {

@@ -316,17 +316,21 @@ for device in sorted({s.get("device", "") for s in document["scenarios"]}):
         failures.append(f"{device}: {error}")
         continue
     print(f"== {device or 'sized scenarios'}: {name}, {runtime} ({udid})", flush=True)
+    # How long each part takes, for the run's log.
+    since = time.monotonic()
     maybe("xcrun", "simctl", "boot", udid)
     if built is None:
         # Built once, for the simulators of this Mac.
         built = subprocess.run(["xcodebuild", "build", "-quiet", "-project", str(HERE / "CartoucheGallery.xcodeproj"),
                                 "-scheme", "CartoucheGallery", "-destination", f"platform=iOS Simulator,id={udid}",
                                 "-derivedDataPath", str(BUILD / "DerivedData")]).returncode == 0
+        print(f"   gallery built in {time.monotonic() - since:.0f} s", flush=True)
     if not built:
         failures.append("the gallery does not build")
         break
     try:
         run("xcrun", "simctl", "bootstatus", udid, "-b", timeout=900)
+        print(f"   booted {time.monotonic() - since:.0f} s after asked", flush=True)
         run("xcrun", "simctl", "install", udid, str(APP))
     except Failure as error:
         failures.append(f"{name}: {error}")
@@ -353,6 +357,7 @@ for device in sorted({s.get("device", "") for s in document["scenarios"]}):
         keep_failed_screen(udid, "warm-up", screens)
 
     notes = [f"{name}, {runtime}", "", *seen, ""]
+    shooting = time.monotonic()
     for scenario in scenarios:
         started = time.time()
         try:
@@ -364,6 +369,8 @@ for device in sorted({s.get("device", "") for s in document["scenarios"]}):
             print(f"::error::{scenario['name']} on {name}: {error}", flush=True)
             keep_failed_screen(udid, scenario["name"], screens)
             crash_reports(started)
+    print(f"   {len(scenarios)} scenarios in {time.monotonic() - shooting:.0f} s, "
+          f"{time.monotonic() - since:.0f} s on {name} in all", flush=True)
     if device:
         slug = device.lower().replace(" ", "-")
         (OUT / f"{slug}-notes.txt").write_text("\n".join(notes) + "\n")

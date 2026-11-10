@@ -26,6 +26,7 @@ struct CartoucheSystemView: View {
     @State private var alertStatus: UNAuthorizationStatus?
     @ObservedObject private var setup = CartoucheSetup.shared
     @ObservedObject private var storage = CartoucheStorageSettings.shared
+    @ObservedObject private var reach = CartoucheStorageReach.shared
     @ObservedObject private var updates = CartoucheUpdates.shared
     @ObservedObject private var keeping = CartoucheGameKeeping.shared
     @ObservedObject private var actions = CartoucheGameActions.shared
@@ -108,8 +109,14 @@ struct CartoucheSystemView: View {
                 CartoucheStorageView()
             } label: {
                 LabeledContent {
-                    Text(storage.location(.games)?.server.name ?? CartoucheText.storageNotSet)
-                        .lineLimit(1)
+                    if let offline = reach.offlineInUse.first {
+                        Label(CartoucheText.storageOfflineShort(offline.name), systemImage: "wifi.slash")
+                            .lineLimit(1)
+                            .foregroundStyle(Color.orange)
+                    } else {
+                        Text(storage.location(.games)?.server.name ?? CartoucheText.storageNotSet)
+                            .lineLimit(1)
+                    }
                 } label: {
                     Label(CartoucheText.storageTitle, systemImage: "externaldrive.fill")
                 }

@@ -6,8 +6,10 @@
 #
 #     launcher/Gallery/capture.sh OUT     # XcodeGen and Xcode, on a Mac
 #
-# The Launcher screens workflow runs it on every pull request that touches
-# the launcher or the catalog.
+# The Launcher screens workflow runs it on every pull request that changes
+# the gallery, the launcher's sources or the catalog it shows, once for each
+# version of those changes: a rebase that leaves them as they were keeps the
+# screenshots taken before.
 
 name: CartoucheGallery
 options:

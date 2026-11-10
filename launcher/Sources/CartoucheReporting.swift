@@ -146,7 +146,11 @@ enum CartoucheReports {
                 facts.append(.init("Region", region))
             }
         }
-        return make(.storage, CartoucheText.storageConnectFailed, message: error.localizedDescription, error: error,
+        // A server that does not answer from here: its address may be wrong,
+        // or the iPhone away from its network.
+        let message = (error as? CartoucheStorageOffline).map { CartoucheText.storageOfflineCheck($0.name) }
+            ?? error.localizedDescription
+        return make(.storage, CartoucheText.storageConnectFailed, message: message, error: error,
                     step: "Connecting to " + kindName(server.kind), facts: facts)
     }
 

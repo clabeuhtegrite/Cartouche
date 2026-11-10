@@ -12,6 +12,10 @@
 //  over the installed game. What Cartouche found is kept on the iPhone,
 //  so that each IPA is read once.
 //
+//  Away from the games folder's server, as from a NAS at home, the last
+//  list stays: Cartouche finds the server offline within a few seconds
+//  (CartoucheStorageReach), and reads the folder again once it answers.
+//
 
 import Combine
 import Foundation
@@ -185,11 +189,13 @@ final class CartoucheStoredGames: ObservableObject {
         }
     }
 
-    /// Reads the games folder again, unless it is being read.
-    func refresh() {
+    /// Reads the games folder again, unless it is being read. As Cartouche
+    /// does by itself, it leaves a server it found offline a moment ago
+    /// alone; EVEN IF OFFLINE, as the player asks, it tries it again.
+    func refresh(evenIfOffline: Bool = false) {
         guard scan == nil else { return }
         scan = Task {
-            await read()
+            await read(evenIfOffline: evenIfOffline)
             scan = nil
         }
     }
@@ -197,7 +203,7 @@ final class CartoucheStoredGames: ObservableObject {
     /// Reads the games folder again and waits for the list.
     func reload() async {
         if let scan { await scan.value }
-        await read()
+        await read(evenIfOffline: true)
     }
 
     #if CARTOUCHE_GALLERY
@@ -210,7 +216,7 @@ final class CartoucheStoredGames: ObservableObject {
     }
     #endif
 
-    private func read() async {
+    private func read(evenIfOffline: Bool) async {
         #if CARTOUCHE_GALLERY
         if shownForGallery { return }
         #endif
@@ -221,11 +227,19 @@ final class CartoucheStoredGames: ObservableObject {
             return
         }
         serverName = location.server.name
+        if !evenIfOffline && CartoucheStorageReach.shared.isSettledOffline(location.server.id) {
+            problemReport = nil
+            return
+        }
         isScanning = true
         defer { isScanning = false }
         let remote: CartoucheRemote
         do {
             remote = try await CartoucheStorage.connect(location.server, settings: settings)
+        } catch is CartoucheStorageOffline {
+            // No problem: the last list stays until the server answers again.
+            problemReport = nil
+            return
         } catch {
             problemReport = Self.readFailed(error, step: "Connecting to " + CartoucheReports.place(.games))
             return

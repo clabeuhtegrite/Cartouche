@@ -35,6 +35,7 @@ struct CartoucheGameSheetView: View {
     var onExport: (LCAppModel) -> Void = { _ in }
     @ObservedObject private var actions = CartoucheGameActions.shared
     @ObservedObject private var keeping = CartoucheGameKeeping.shared
+    @ObservedObject private var reach = CartoucheStorageReach.shared
 
     // Written out: the private state above would make the synthesized
     // initializer private.
@@ -59,6 +60,12 @@ struct CartoucheGameSheetView: View {
 
     private var serverName: String {
         CartoucheStoredGames.shared.serverName ?? ""
+    }
+
+    /// Whether the games folder's server does not answer from here.
+    private var isGamesFolderOffline: Bool {
+        guard let server = CartoucheStorageSettings.shared.location(.games)?.server else { return false }
+        return reach.isOffline(server.id)
     }
 
     var body: some View {
@@ -151,6 +158,9 @@ struct CartoucheGameSheetView: View {
                         secondaryButton(CartoucheText.updateGame, systemImage: "arrow.down.circle.fill") { onInstallStored(update) }
                     }
                 }
+                if entry.update != nil, isGamesFolderOffline {
+                    buildLine(CartoucheText.statusUpdateOffline(serverName), systemImage: "wifi.slash")
+                }
                 if let update = entry.update, let build = update.build {
                     buildLine(CartoucheText.buildNewer(serverName, CartoucheText.build(build, showsCommit: false)),
                               systemImage: "arrow.down.circle")
@@ -161,6 +171,9 @@ struct CartoucheGameSheetView: View {
             } else if let stored = entry.stored {
                 primaryButton(CartoucheText.installFrom(serverName), systemImage: "arrow.down.circle.fill") { onInstallStored(stored) }
                 secondaryButton(CartoucheText.importOtherCopy, systemImage: "square.and.arrow.down", action: onImport)
+                if isGamesFolderOffline {
+                    buildLine(CartoucheText.statusStoredOffline(serverName), systemImage: "wifi.slash")
+                }
             } else {
                 primaryButton(CartoucheText.importCopy, systemImage: "square.and.arrow.down", action: onImport)
             }
