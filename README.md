@@ -24,11 +24,8 @@ Step by step, from nothing to your first game: [docs/getting-started.md](docs/ge
 1. On the iPhone, install **LocalDevVPN** from the App Store: the built-in SideStore needs it to sign in and to renew Cartouche without a computer.
 2. On a Mac or a Windows PC, download the **Cartouche Installer** from its latest [`installer-v…` release](https://github.com/clabeuhtegrite/Cartouche/releases), plug in the iPhone, sign in with your Apple account (a free one is enough) and install. It puts the latest Cartouche on the iPhone with its certificate, the memory capability and the pairing file ([installer/README.md](installer/README.md)).
 3. Open Cartouche: its guide, **Your first game**, takes you from there, and ticks each step by itself.
-4. On a Mac with Apple silicon, install Cartouche Builder and the tools nxnative builds with, in one command in Terminal, then build your game into your games folder ([builder/README.md](builder/README.md#install)):
-
-   ```
-   /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/clabeuhtegrite/Cartouche/main/builder/install.sh)"
-   ```
+4. On a Mac with Apple silicon, download **Cartouche Builder** from its latest [`builder-v…` release](https://github.com/clabeuhtegrite/Cartouche/releases) and drag it onto Applications: it installs the tools nxnative builds with, then builds your game into your games folder ([builder/README.md](builder/README.md#install)).
+5. In Cartouche, **System › Storage › Add your Mac (Cartouche Builder)**, with the code both screens show: Cartouche installs your games from the Mac and keeps your saves there. A NAS or another storage of yours works too.
 
 Supported: iOS 26 or later on an iPhone 15 Pro or newer, or an iPad with an M1 or newer, as nxnative. The bigger games need a 12 GB iPhone.
 

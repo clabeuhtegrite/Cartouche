@@ -454,7 +454,7 @@ enum CartoucheText {
     // MARK: The player's storage
 
     static var storageTitle: String { s("storage.title", "Storage") }
-    static var storageIntro: String { s("storage.intro", "Your games and saves on your own storage: a shared folder of your Mac, PC or NAS, an S3 bucket, an FTP or SFTP server, or a folder in Files. Its games show in your library.") }
+    static var storageIntro: String { s("storage.intro", "Your games and saves on your own storage: your Mac with Cartouche Builder, a shared folder of your Mac, PC or NAS, an S3 bucket, an FTP or SFTP server, or a folder in Files. Its games show in your library.") }
     static var storageNotSet: String { s("storage.notSet", "Not set up") }
     static var storageGamesFolder: String { s("storage.games", "Games folder") }
     static var storageSavesFolder: String { s("storage.saves", "Saves folder") }
@@ -462,7 +462,7 @@ enum CartoucheText {
     static var storageReadAgain: String { s("storage.readAgain", "Read the folder again") }
     static var storageChangeFolder: String { s("storage.changeFolder", "Change folder") }
     static var storageStopUsing: String { s("storage.stopUsing", "Stop using this folder") }
-    static var storageAddFirst: String { s("storage.addFirst", "First add a shared folder, an S3 bucket, an FTP or SFTP server, or a folder in Files, below.") }
+    static var storageAddFirst: String { s("storage.addFirst", "First add your Mac, a shared folder, an S3 bucket, an FTP or SFTP server, or a folder in Files, below.") }
     static var storageChooseFolder: String { s("storage.chooseFolder", "Choose a folder") }
     static var storageGamesFooter: String { s("storage.games.footer", "Your library shows the IPAs of this folder, ready to install. Copy a game here before you uninstall it.") }
     static var storageServers: String { s("storage.servers", "Places") }

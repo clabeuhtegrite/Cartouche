@@ -117,8 +117,10 @@ public protocol CartoucheBridgeTransport: AnyObject {
     func close()
 }
 
-/// Frames over a TCP connection of Network.framework.
-public final class CartoucheBridgeConnection: CartoucheBridgeTransport {
+/// Frames over a TCP connection of Network.framework. Its connection and
+/// queue never change, and Network.framework's connection can be used from
+/// any thread.
+public final class CartoucheBridgeConnection: CartoucheBridgeTransport, @unchecked Sendable {
     public let connection: NWConnection
     private let queue: DispatchQueue
 
@@ -156,7 +158,10 @@ public final class CartoucheBridgeConnection: CartoucheBridgeTransport {
                 switch state {
                 case .ready:
                     if once.claim() { continuation.resume() }
-                case let .failed(error):
+                case let .failed(error), let .waiting(error):
+                    // Waiting: nothing listens at that address, or no route
+                    // goes there. The iPhone looks for the Mac elsewhere
+                    // rather than wait for the network to change.
                     if once.claim() { continuation.resume(throwing: CartoucheBridgeError(.closed, error.localizedDescription)) }
                     connection.cancel()
                 case .cancelled:
@@ -187,6 +192,12 @@ public final class CartoucheBridgeConnection: CartoucheBridgeTransport {
         }
         if let cut = text.firstIndex(of: "%") { text = String(text[..<cut]) }
         return text
+    }
+
+    /// The port the connection reached.
+    public var remotePort: Int? {
+        guard case let .hostPort(_, port)? = connection.currentPath?.remoteEndpoint else { return nil }
+        return Int(port.rawValue)
     }
 
     public func sendFrame(_ data: Data) async throws {
@@ -231,7 +242,7 @@ public final class CartoucheBridgeConnection: CartoucheBridgeTransport {
 }
 
 /// Resumes a continuation once, whichever of its callers comes first.
-final class CartoucheBridgeOnce {
+final class CartoucheBridgeOnce: @unchecked Sendable {
     private let lock = NSLock()
     private var claimed = false
 
@@ -540,8 +551,10 @@ public enum CartoucheBridgeHandshake {
         let clientKey = ephemeral.publicKey.rawRepresentation
         try await sendPlain(CartoucheBridgeHello(v: CartoucheBridge.version, purpose: .session, device: device, key: clientKey, nonce: nonce), on: transport)
         let welcome = try await receivePlain(CartoucheBridgeWelcome.self, on: transport)
-        if let error = welcome.error { throw CartoucheBridgeError(error, welcome.message ?? "") }
+        // Another Mac at the address this one had says so before anything
+        // else, even one that does not know this iPhone.
         if let expected, !expected.isEmpty, welcome.mac != expected { throw CartoucheBridgeError(.notMac, welcome.name) }
+        if let error = welcome.error { throw CartoucheBridgeError(error, welcome.message ?? "") }
         guard let serverKey = welcome.key, let serverNonce = welcome.nonce, serverNonce.count == 32,
               let serverPublic = try? Curve25519.KeyAgreement.PublicKey(rawRepresentation: serverKey) else {
             throw CartoucheBridgeError(.protocolError, "incomplete welcome")
@@ -664,12 +677,14 @@ public enum CartoucheBridgeHandshake {
 public final class CartoucheBridgeClient {
     public let channel: CartoucheBridgeSecureChannel
     private let gate = CartoucheBridgeGate()
-    /// The address the connection reached, for the next time Bonjour is slow.
+    /// The address and the port the connection reached, for the next time.
     public let address: String?
+    public let port: Int?
 
-    public init(channel: CartoucheBridgeSecureChannel, address: String?) {
+    public init(channel: CartoucheBridgeSecureChannel, address: String?, port: Int? = nil) {
         self.channel = channel
         self.address = address
+        self.port = port
     }
 
     public var macID: String { channel.peer }
@@ -680,26 +695,29 @@ public final class CartoucheBridgeClient {
         let connection = try await CartoucheBridgeConnection.open(endpoint, timeout: timeout)
         do {
             let channel = try await CartoucheBridgeHandshake.client(connection, device: device, key: key, mac: mac)
-            return CartoucheBridgeClient(channel: channel, address: connection.remoteAddress)
+            return CartoucheBridgeClient(channel: channel, address: connection.remoteAddress, port: connection.remotePort)
         } catch {
             connection.close()
             throw error
         }
     }
 
-    /// Sends REQUEST with BODY and waits for the answer and its body.
+    /// Sends REQUEST with BODY and waits for the answer and its body. The
+    /// gate is left once, whatever the answer: the next request goes only
+    /// once this one is answered.
     public func call(_ request: CartoucheBridgeRequest, body: Data = Data()) async throws -> (CartoucheBridgeResponse, Data) {
         await gate.enter()
+        let answer: (CartoucheBridgeResponse, Data)
         do {
             try await channel.send(request, body: body)
-            let (response, data) = try await channel.receive(CartoucheBridgeResponse.self)
-            await gate.leave()
-            if let error = response.error { throw CartoucheBridgeError(error, response.message ?? "") }
-            return (response, data)
+            answer = try await channel.receive(CartoucheBridgeResponse.self)
         } catch {
             await gate.leave()
             throw error
         }
+        await gate.leave()
+        if let error = answer.0.error { throw CartoucheBridgeError(error, answer.0.message ?? "") }
+        return answer
     }
 
     public func info() async throws -> CartoucheBridgeResponse {

@@ -65,6 +65,13 @@ final class MemoryTransport: CartoucheBridgeTransport, @unchecked Sendable {
         }
     }
 
+    /// The frames that arrived and wait to be received.
+    var queued: Int {
+        lock.lock()
+        defer { lock.unlock() }
+        return frames.count
+    }
+
     func close() {
         lock.lock()
         closed = true
@@ -193,6 +200,20 @@ final class CartoucheBridgeTests: XCTestCase {
         _ = try? await opening
     }
 
+    func testAnotherMacThatDoesNotKnowThisIPhoneSaysItIsAnotherMac() async throws {
+        // At the address the paired Mac had: the iPhone looks for its Mac
+        // on the network instead of asking to pair again.
+        let (phoneSide, macSide) = MemoryTransport.pair()
+        async let opening = CartoucheBridgeHandshake.server(macSide, mac: "another", name: "Other Mac", keyOf: { _ in nil }, allow: nil)
+        do {
+            _ = try await CartoucheBridgeHandshake.client(phoneSide, device: device, key: Data(repeating: 3, count: 32), mac: mac)
+            XCTFail("another Mac")
+        } catch {
+            XCTAssertEqual((error as? CartoucheBridgeError)?.kind, .notMac)
+        }
+        guard case .refused = try await opening else { return XCTFail("a session on another Mac") }
+    }
+
     func testAFrameChangedOnTheWayIsRefused() async throws {
         let key = Data(repeating: 5, count: 32)
         let (phoneSide, macSide) = MemoryTransport.pair()
@@ -235,6 +256,50 @@ final class CartoucheBridgeTests: XCTestCase {
         XCTAssertNotNil(phoneCode)
         XCTAssertNotNil(macCode)
         XCTAssertNotEqual(phoneCode, macCode)
+    }
+
+    func testAnErrorLetsTheRequestsWaitingThroughOneAtATime() async throws {
+        let key = Data(repeating: 7, count: 32)
+        let (phoneSide, macSide) = MemoryTransport.pair()
+        async let opening = CartoucheBridgeHandshake.server(macSide, mac: mac, name: "Mac", keyOf: { _ in key }, allow: nil)
+        let channel = try await CartoucheBridgeHandshake.client(phoneSide, device: device, key: key, mac: mac)
+        guard case let .session(server) = try await opening else { return XCTFail("no session") }
+        let client = CartoucheBridgeClient(channel: channel, address: nil)
+        // The Mac answers each request after a while, the first one it gets
+        // with an error, and notes a request that came before it answered
+        // the one before it: two requests at once on the session.
+        let overlaps = CodeBox()
+        let serving = Task { () throws -> Void in
+            for index in 0..<3 {
+                let (request, _) = try await server.receive(CartoucheBridgeRequest.self)
+                try await Task.sleep(nanoseconds: 150_000_000)
+                let path = request.path ?? ""
+                if macSide.queued > 0 {
+                    overlaps.add(path)
+                    return
+                }
+                var response = index == 0 ? CartoucheBridgeResponse.failure(.notFound, path) : CartoucheBridgeResponse()
+                response.name = path
+                try await server.send(response)
+            }
+        }
+        let paths = ["Games/A.ipa", "Games/B.ipa", "Games/C.ipa"]
+        let calls = paths.map { path in
+            Task { () -> String? in try? await client.stat(path).name }
+        }
+        try await serving.value
+        guard overlaps.all.isEmpty else {
+            phoneSide.close()
+            return XCTFail("two requests at once after an error: \(overlaps.all)")
+        }
+        var answers: [String?] = []
+        for call in calls {
+            answers.append(await call.value)
+        }
+        XCTAssertEqual(answers.filter { $0 == nil }.count, 1, "the one the Mac refused")
+        for (path, answer) in zip(paths, answers) where answer != nil {
+            XCTAssertEqual(answer, path, "each answer to its own request")
+        }
     }
 
     func testPaths() {

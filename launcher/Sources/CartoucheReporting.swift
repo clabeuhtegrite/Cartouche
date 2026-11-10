@@ -218,6 +218,7 @@ enum CartoucheReports {
         case .s3: return "S3"
         case .ftp: return "FTP"
         case .sftp: return "SFTP"
+        case .mac: return "Cartouche Builder on a Mac"
         }
     }
 

@@ -1027,13 +1027,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "By AirDrop or Messages. On the Mac, the page gives one command that installs Cartouche Builder and its tools."
+            "value" : "By AirDrop or Messages. On the Mac, the page gives Cartouche Builder: drag it into Applications, and it installs its tools itself."
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Par AirDrop ou Messages. Sur le Mac, la page donne une commande qui installe Cartouche Builder et ses outils."
+            "value" : "Par AirDrop ou Messages. Sur le Mac, la page donne Cartouche Builder : glissez-le dans Applications, il installe ses outils lui-même."
           }
         }
       }
@@ -1214,13 +1214,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Cartouche Builder puts your games in a folder. Share it from your Mac, in System Settings › General › Sharing › File Sharing, or keep it on your NAS, then choose it here: Cartouche lists your games and offers their updates."
+            "value" : "Cartouche Builder puts your games in a folder, on the Mac or on your NAS. Add your Mac here once, with the code both screens show, or choose the folder on your NAS: Cartouche lists your games and offers their updates."
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Cartouche Builder range vos jeux dans un dossier. Partagez-le depuis votre Mac, dans Réglages Système › Général › Partage › Partage de fichiers, ou gardez-le sur votre NAS, puis choisissez-le ici : Cartouche liste vos jeux et propose leurs mises à jour."
+            "value" : "Cartouche Builder range vos jeux dans un dossier, sur le Mac ou sur votre NAS. Ajoutez votre Mac ici une fois, avec le code affiché sur les deux écrans, ou choisissez le dossier sur votre NAS : Cartouche liste vos jeux et propose leurs mises à jour."
           }
         }
       }
@@ -5991,13 +5991,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "First add a shared folder, an S3 bucket, an FTP or SFTP server, or a folder in Files, below."
+            "value" : "First add your Mac, a shared folder, an S3 bucket, an FTP or SFTP server, or a folder in Files, below."
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Ajoutez d’abord un dossier partagé, un bucket S3, un serveur FTP ou SFTP, ou un dossier de Fichiers, plus bas."
+            "value" : "Ajoutez d’abord votre Mac, un dossier partagé, un bucket S3, un serveur FTP ou SFTP, ou un dossier de Fichiers, plus bas."
           }
         }
       }
@@ -6433,13 +6433,455 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Your games and saves on your own storage: a shared folder of your Mac, PC or NAS, an S3 bucket, an FTP or SFTP server, or a folder in Files. Its games show in your library."
+            "value" : "Your games and saves on your own storage: your Mac with Cartouche Builder, a shared folder of your Mac, PC or NAS, an S3 bucket, an FTP or SFTP server, or a folder in Files. Its games show in your library."
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Vos jeux et sauvegardes sur votre propre stockage : dossier partagé de votre Mac, PC ou NAS, bucket S3, serveur FTP ou SFTP, ou dossier de Fichiers. Ses jeux apparaissent dans votre bibliothèque."
+            "value" : "Vos jeux et sauvegardes sur votre propre stockage : votre Mac avec Cartouche Builder, dossier partagé de votre Mac, PC ou NAS, bucket S3, serveur FTP ou SFTP, ou dossier de Fichiers. Ses jeux apparaissent dans votre bibliothèque."
+          }
+        }
+      }
+    },
+    "storage.mac.add" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Add your Mac (Cartouche Builder)"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ajouter votre Mac (Cartouche Builder)"
+          }
+        }
+      }
+    },
+    "storage.mac.added" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Added"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ajouté"
+          }
+        }
+      }
+    },
+    "storage.mac.busy" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ is pairing another iPhone, or was asked too often: try again in a few minutes."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ associe un autre iPhone, ou a été trop sollicité : réessayez dans quelques minutes."
+          }
+        }
+      }
+    },
+    "storage.mac.checkCode" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Check that your Mac shows the same digits, then click Allow on it."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vérifiez que votre Mac affiche les mêmes chiffres, puis cliquez sur Autoriser."
+          }
+        }
+      }
+    },
+    "storage.mac.denied" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The Mac does not let Cartouche reach %@."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Le Mac ne laisse pas Cartouche accéder à %@."
+          }
+        }
+      }
+    },
+    "storage.mac.exists" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ is already on the Mac."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ est déjà sur le Mac."
+          }
+        }
+      }
+    },
+    "storage.mac.failed" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ could not do it: %2$@"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ n’a pas pu le faire : %2$@"
+          }
+        }
+      }
+    },
+    "storage.mac.how" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "On your Mac, open Cartouche Builder and turn on Share with Cartouche on the iPhone, on its iPhone page. This iPhone and the Mac must be on the same Wi-Fi."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sur votre Mac, ouvrez Cartouche Builder et activez Partager avec Cartouche sur l’iPhone, dans sa page iPhone. Cet iPhone et le Mac doivent être sur le même Wi-Fi."
+          }
+        }
+      }
+    },
+    "storage.mac.lastAddress" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Last address"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dernière adresse"
+          }
+        }
+      }
+    },
+    "storage.mac.localNetwork" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "iOS does not let Cartouche look for your Mac: allow Cartouche in Settings › Privacy & Security › Local Network."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "iOS ne laisse pas Cartouche chercher votre Mac : autorisez Cartouche dans Réglages › Confidentialité et sécurité › Réseau local."
+          }
+        }
+      }
+    },
+    "storage.mac.looking" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Looking for Cartouche Builder on this network…"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Recherche de Cartouche Builder sur ce réseau…"
+          }
+        }
+      }
+    },
+    "storage.mac.lost" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The connection to %@ was lost."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "La connexion à %@ a été perdue."
+          }
+        }
+      }
+    },
+    "storage.mac.nearby" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Macs nearby"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Macs à proximité"
+          }
+        }
+      }
+    },
+    "storage.mac.notFound" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ is not on the Mac."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ n’est pas sur le Mac."
+          }
+        }
+      }
+    },
+    "storage.mac.notPaired" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ no longer knows this iPhone: pair it again in Storage."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ ne connaît plus cet iPhone : associez-le à nouveau dans Stockage."
+          }
+        }
+      }
+    },
+    "storage.mac.offline" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ does not answer. Open Cartouche Builder on it with Share with Cartouche on the iPhone turned on, and check that this iPhone is on the same Wi-Fi."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ ne répond pas. Ouvrez-y Cartouche Builder avec Partager avec Cartouche sur l’iPhone activé, et vérifiez que cet iPhone est sur le même Wi-Fi."
+          }
+        }
+      }
+    },
+    "storage.mac.pairAgain" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Choose your Mac again to pair once more, when it no longer knows this iPhone."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Choisissez à nouveau votre Mac pour l’associer de nouveau, s’il ne connaît plus cet iPhone."
+          }
+        }
+      }
+    },
+    "storage.mac.paired" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Paired"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Associé"
+          }
+        }
+      }
+    },
+    "storage.mac.pairing" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pairing with %@"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Association avec %@"
+          }
+        }
+      }
+    },
+    "storage.mac.reaching" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Reaching %@…"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Connexion à %@…"
+          }
+        }
+      }
+    },
+    "storage.mac.refused" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ did not allow this iPhone."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ n’a pas autorisé cet iPhone."
+          }
+        }
+      }
+    },
+    "storage.mac.title" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Your Mac"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Votre Mac"
+          }
+        }
+      }
+    },
+    "storage.mac.update" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cartouche and Cartouche Builder do not speak the same version of the bridge: update both."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cartouche et Cartouche Builder ne parlent pas la même version du pont : mettez-les à jour tous les deux."
+          }
+        }
+      }
+    },
+    "storage.mac.use.footer" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Its Games folder holds the games Cartouche Builder builds, on the Mac or on your NAS, and its Saves folder the copies of your saves. You can change both later in Storage."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Son dossier Games contient les jeux que Cartouche Builder construit, sur le Mac ou sur votre NAS, et son dossier Saves les copies de vos sauvegardes. Vous pourrez changer les deux plus tard dans Stockage."
+          }
+        }
+      }
+    },
+    "storage.mac.useGames" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Install your games from this Mac"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Installer vos jeux depuis ce Mac"
+          }
+        }
+      }
+    },
+    "storage.mac.useSaves" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Keep your saves on this Mac"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Garder vos sauvegardes sur ce Mac"
           }
         }
       }

@@ -76,11 +76,14 @@ struct GameDetailView: View {
                     }
                     .controlSize(.large)
                 } else {
+                    // A game never built, with no IPA yet, is built for the
+                    // first time; one nxnative improved, rebuilt.
+                    let first = game.build == nil && !game.hasIPA
                     Button {
                         model.build([game.titleID], force: game.state != .due)
                     } label: {
-                        Label(game.state == .due ? tr("Rebuild", "Reconstruire") : tr("Build again", "Construire à nouveau"),
-                              systemImage: game.state == .due ? "sparkles" : "arrow.clockwise")
+                        Label(first ? tr("Build", "Construire") : game.state == .due ? tr("Rebuild", "Reconstruire") : tr("Build again", "Construire à nouveau"),
+                              systemImage: first ? "hammer.fill" : game.state == .due ? "sparkles" : "arrow.clockwise")
                             .frame(maxWidth: .infinity)
                     }
                     .buttonStyle(.borderedProminent)

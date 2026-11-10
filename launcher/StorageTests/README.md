@@ -1,6 +1,6 @@
 # Storage tests
 
-The launcher's storage code, the code the app runs to reach the player's servers, run against real servers on a Mac: Samba for SMB, MinIO for S3, pyftpdlib for FTP, OpenSSH for SFTP. The unit tests of `launcher/Tests` check the protocols' messages; these check what the app does with them, from signing in to putting a game's IPA there and installing it again. The [Storage](../../.github/workflows/storage.yml) workflow runs them on GitHub's Mac (`xcode-27`) for each pull request that changes that code, its tests or the servers, and on main after one.
+The launcher's storage code, the code the app runs to reach the player's servers, run against real servers on a Mac: Samba for SMB, MinIO for S3, pyftpdlib for FTP, OpenSSH for SFTP, and a Mac of Cartouche Builder's that the tests play themselves. The unit tests of `launcher/Tests` check the protocols' messages; these check what the app does with them, from signing in to putting a game's IPA there and installing it again. The [Storage](../../.github/workflows/storage.yml) workflow runs them on GitHub's Mac (`xcode-27`) for each pull request that changes that code, its tests or the servers, and on main after one.
 
 No game is involved: the IPAs are made-up apps of a few files ([`make_ipas.py`](make_ipas.py)), packed by nxnative's own [`pack_ipa.py`](https://github.com/seedds/nxnative/blob/main/dm/ios/tools/pack_ipa.py), at the commit Cartouche pins ([`catalog/nxnative.commit`](../../catalog/nxnative.commit)), as it packs games: folders, Unix modes, a link, an empty file, names with accents, small files deflated and large ones stored. One is about 35 MB, with files larger than a read of the storage; the other is past 4 GiB, as a game's is, with a file that lies past 4 GiB in it (Zip64).
 
@@ -30,6 +30,13 @@ Each server adds what only it has:
 
 [`OfflineTests`](Tests/CartoucheStorageTests/OfflineTests.swift) needs none of these servers: it signs in to a server out of reach, as a NAS at home is from anywhere else, on every protocol, and to a port of the Mac that refuses the connection. Each must say the server is offline (CartoucheStorageReach): within the patience and four seconds for an address that never answers (`192.0.2.1`, which no network routes, RFC 5737), within four seconds for a refused connection. It also knocks on a server of the Mac without a word, and checks that a server tried again tells once that it answers again, then that it is offline once it stops.
 
+[`MacBridgeTests`](Tests/CartoucheStorageTests/MacBridgeTests.swift) needs no server: it plays Cartouche Builder's side of the bridge itself ([`CartoucheBridge.swift`](../Sources/CartoucheBridge.swift)), on the loopback, with its Games and Saves folders in memory, and goes through what a player does with their Mac:
+
+- pairing once, with the six digits both sides show, then signing in again at the address the Mac was last reached at;
+- a pairing the Mac refuses, a Mac that removed this iPhone and another Mac at the old address, each said in the player's words, the last two asking to pair again;
+- a Mac gone, said to be offline within the few seconds Cartouche gives it;
+- an IPA read ahead in several pieces and a save copied both ways, a copy given up, folders made and removed, the room left, and a file the Mac does not have.
+
 ## Running them
 
 [`servers.sh`](servers.sh) starts the servers on 127.0.0.1, puts the IPAs in each, and writes `servers.json`, which tells the tests where each server is and its accounts:
@@ -41,7 +48,7 @@ CARTOUCHE_STORAGE_SERVERS=/tmp/cartouche-servers/servers.json swift test --packa
 launcher/StorageTests/servers.sh stop /tmp/cartouche-servers
 ```
 
-It adds a user, `cartouche-test`, and runs smbd and sshd as root with sudo, so it runs only on a throwaway Mac, as GitHub's are, or with `CARTOUCHE_STORAGE_THROWAWAY=1`; `stop` removes the user. The passwords and keys are made up at each start and stay in `servers.json`. Without `CARTOUCHE_STORAGE_SERVERS`, every test but `OfflineTests` is skipped. The IPA past 4 GiB is made only when the disk has room for it four times over, else its test is skipped.
+It adds a user, `cartouche-test`, and runs smbd and sshd as root with sudo, so it runs only on a throwaway Mac, as GitHub's are, or with `CARTOUCHE_STORAGE_THROWAWAY=1`; `stop` removes the user. The passwords and keys are made up at each start and stay in `servers.json`. Without `CARTOUCHE_STORAGE_SERVERS`, every test but `OfflineTests` and `MacBridgeTests` is skipped. The IPA past 4 GiB is made only when the disk has room for it four times over, else its test is skipped.
 
 | Server | Port | Accounts | Games folder |
 | --- | --- | --- | --- |
@@ -58,4 +65,4 @@ Samba, since 4.16, starts its RPC services (`samba-dcerpcd` and its `rpcd_*` wor
 
 ## Not here
 
-What needs an iPhone: Bonjour, the keychain, folders picked in Files, and the views. Nor the servers of NAS makers as they are configured out of the box; a NAS that behaves differently is worth a case here.
+What needs an iPhone: Bonjour, the keychain, folders picked in Files, and the views; the pairing's form, too, and the Mac's side of the bridge, which Cartouche Builder's own tests check (`builder/mac/Tests`). Nor the servers of NAS makers as they are configured out of the box; a NAS that behaves differently is worth a case here.

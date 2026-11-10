@@ -78,7 +78,7 @@ struct BridgeView: View {
             VStack(alignment: .leading, spacing: 12) {
                 Text(tr("On the iPhone", "Sur l’iPhone"))
                     .font(.headline)
-                Step(number: 1, text: tr("Open Cartouche, then System › Storage › Add.", "Ouvrez Cartouche, puis Système › Stockage › Ajouter."))
+                Step(number: 1, text: tr("Open Cartouche, then System › Storage › Add your Mac.", "Ouvrez Cartouche, puis Système › Stockage › Ajouter votre Mac."))
                 Step(number: 2, text: tr("Choose “\(BridgeController.macName)” under Macs nearby.", "Choisissez « \(BridgeController.macName) » sous Macs à proximité."))
                 Step(number: 3, text: tr("A code shows on both screens: allow the iPhone here if they are the same.",
                                          "Un code s’affiche sur les deux écrans : autorisez l’iPhone ici s’ils sont identiques."))
