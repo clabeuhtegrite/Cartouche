@@ -83,7 +83,7 @@ struct CartoucheSetupView: View {
             .frame(maxWidth: 640)
             .frame(maxWidth: .infinity)
         }
-        .background(Color(uiColor: .systemGroupedBackground))
+        .background(CartoucheStage(key: nil))
         .navigationTitle(CartoucheText.setupTitle)
         .navigationBarTitleDisplayMode(.inline)
         .modifier(CartoucheSetupRefresh())
@@ -131,7 +131,7 @@ struct CartoucheSetupView: View {
         HStack(alignment: .top, spacing: 14) {
             ZStack {
                 Circle()
-                    .fill(done ? Color.green : Color.accentColor)
+                    .fill(done ? Color.green : CartoucheTheme.indigo)
                 if done {
                     Image(systemName: "checkmark")
                         .font(.headline.weight(.heavy))

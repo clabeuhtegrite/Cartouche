@@ -2,12 +2,11 @@
 //  CartoucheTiles.swift
 //  Cartouche
 //
-//  Every game shows as a cartridge, as on Cartouche's icon: a body in the
-//  game's colour, its ridges, a label shaped as a game case's cover and
-//  gold contacts. The label holds the game's official cover from IGDB
-//  (CartoucheCovers.swift), whole; until it has loaded and when there is
-//  none, the icon of the player's own copy over its name, or a label we
-//  draw from the game's name and genre.
+//  Every game shows as the front of its game case: its official cover from
+//  IGDB (CartoucheCovers.swift), whole, in a rounded rectangle of a case's
+//  proportions; until it has loaded and when there is none, the icon of
+//  the player's own copy over its name, or a label we draw from the game's
+//  name and genre. The cartridge itself stays Cartouche's icon and mark.
 //
 
 import SwiftUI
@@ -28,8 +27,10 @@ struct CartoucheCartridgeShape: InsettableShape {
     }
 }
 
-/// A cartridge of any width; its height is CartoucheTheme.cartridgeAspect
-/// times its width.
+/// A game's tile of any width, as the front of a game case: its cover fills
+/// a rounded rectangle of a case's proportions, its height
+/// CartoucheTheme.cartridgeAspect times its width. Import and every game
+/// are outlines of the same shape.
 @available(iOS 17.0, *)
 struct CartoucheCartridge<Content: View>: View {
     let width: CGFloat
@@ -40,38 +41,34 @@ struct CartoucheCartridge<Content: View>: View {
 
     var body: some View {
         let w = width
-        let bodyColors = CartoucheTheme.bodyColors(for: key)
+        let h = w * CartoucheTheme.cartridgeAspect
+        let radius = w * 0.08
+        let shape = RoundedRectangle(cornerRadius: radius, style: .continuous)
+        // The focused tile's ring, around it, its corners following the
+        // tile's.
+        let ringGap = max(4, w * 0.04)
         let glow = CartoucheTheme.colors(for: key).light
-        ZStack(alignment: .topLeading) {
+        ZStack {
             if isOutline {
-                CartoucheCartridgeShape()
-                    .fill(Color.white.opacity(0.05))
-                CartoucheCartridgeShape()
-                    .strokeBorder(Color.white.opacity(0.38), style: StrokeStyle(lineWidth: max(1.5, w * 0.016), dash: [w * 0.06, w * 0.045]))
+                shape.fill(Color.white.opacity(0.05))
+                shape.strokeBorder(Color.white.opacity(0.38), style: StrokeStyle(lineWidth: max(1.5, w * 0.016), dash: [w * 0.06, w * 0.045]))
+                label()
             } else {
-                CartoucheCartridgeShape()
-                    .fill(LinearGradient(colors: [bodyColors.top, bodyColors.bottom], startPoint: .top, endPoint: .bottom))
-                CartoucheCartridgeShape()
-                    .fill(LinearGradient(colors: [Color.white.opacity(0.16), Color.white.opacity(0)], startPoint: .top, endPoint: UnitPoint(x: 0.5, y: 0.3)))
-                CartoucheCartridgeShape()
-                    .strokeBorder(Color.white.opacity(0.12), lineWidth: 1)
-                ridges(w)
-                contacts(w)
+                label()
+                    .frame(width: w, height: h)
+                    .clipShape(shape)
+                    // A faint sheen from the top, as on a case's film.
+                    .overlay(shape.fill(LinearGradient(colors: [Color.white.opacity(0.1), Color.white.opacity(0)],
+                                                       startPoint: .top, endPoint: UnitPoint(x: 0.5, y: 0.35))))
+                    .overlay(shape.strokeBorder(Color.white.opacity(0.14), lineWidth: 1))
             }
-            label()
-                .frame(width: w * 0.84, height: w * 0.84 / CartoucheTheme.labelAspect)
-                .clipShape(RoundedRectangle(cornerRadius: w * 0.07, style: .continuous))
-                .overlay(
-                    RoundedRectangle(cornerRadius: w * 0.07, style: .continuous)
-                        .strokeBorder(Color.black.opacity(isOutline ? 0 : 0.28), lineWidth: 0.5))
-                .offset(x: w * 0.08, y: w * 0.235)
         }
-        .frame(width: w, height: w * CartoucheTheme.cartridgeAspect)
+        .frame(width: w, height: h)
         .background {
             if isFocused {
-                CartoucheCartridgeShape()
+                RoundedRectangle(cornerRadius: radius + ringGap, style: .continuous)
                     .stroke(Color.white, lineWidth: max(2.5, w * 0.025))
-                    .padding(-max(4, w * 0.04))
+                    .padding(-ringGap)
                     .shadow(color: glow.opacity(0.9), radius: w * 0.16)
             }
         }
@@ -79,42 +76,7 @@ struct CartoucheCartridge<Content: View>: View {
         .scaleEffect(isFocused ? 1.05 : 1)
         .offset(y: isFocused ? -w * 0.03 : 0)
         .animation(.spring(response: 0.32, dampingFraction: 0.72), value: isFocused)
-        .contentShape(CartoucheCartridgeShape())
-    }
-
-    private func ridges(_ w: CGFloat) -> some View {
-        VStack(spacing: w * 0.03) {
-            ForEach(0..<3, id: \.self) { _ in
-                Capsule()
-                    .fill(Color.white.opacity(0.16))
-                    .frame(width: w * 0.4, height: max(1.5, w * 0.026))
-            }
-        }
-        .frame(width: w)
-        .offset(y: w * 0.06)
-    }
-
-    private func contacts(_ w: CGFloat) -> some View {
-        let slot = w * 0.58
-        let gap = w * 0.024
-        let inset = w * 0.04
-        let contact = (slot - 2 * inset - 5 * gap) / 6
-        return ZStack(alignment: .top) {
-            UnevenRoundedRectangle(topLeadingRadius: w * 0.04, topTrailingRadius: w * 0.04, style: .continuous)
-                .fill(Color.black.opacity(0.38))
-            HStack(spacing: gap) {
-                ForEach(0..<6, id: \.self) { _ in
-                    RoundedRectangle(cornerRadius: max(0.8, w * 0.01), style: .continuous)
-                        .fill(CartoucheTheme.gold)
-                        .frame(width: contact)
-                }
-            }
-            .padding(.top, w * 0.025)
-            .padding(.horizontal, inset)
-        }
-        .frame(width: slot, height: w * 0.17)
-        .frame(width: w)
-        .offset(y: w * (CartoucheTheme.cartridgeAspect - 0.17))
+        .contentShape(shape)
     }
 }
 
@@ -201,7 +163,7 @@ struct CartoucheGameCartridge: View {
     var isFocused = false
 
     var body: some View {
-        let side = width * 0.84
+        let side = width
         CartoucheCartridge(width: width, key: entry.tileKey, isFocused: isFocused) {
             if let cover = entry.cover?.cover {
                 CartoucheCoverImage(id: cover, whole: true) {

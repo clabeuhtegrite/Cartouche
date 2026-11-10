@@ -58,7 +58,7 @@ struct CartoucheSignInView: View {
                 .frame(maxWidth: 560)
                 .frame(maxWidth: .infinity)
             }
-            .background(Color(uiColor: .systemGroupedBackground))
+            .background(CartoucheStage(key: nil))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
@@ -73,6 +73,8 @@ struct CartoucheSignInView: View {
                 }
             }
         }
+        // Dark like the console under it, whatever the iPhone's appearance.
+        .preferredColorScheme(.dark)
         .interactiveDismissDisabled(isBusy)
         .onAppear {
             focus = appleID.isEmpty ? .appleID : .password

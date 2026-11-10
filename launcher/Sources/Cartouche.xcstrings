@@ -2959,6 +2959,23 @@
         }
       }
     },
+    "sheet.details" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Technical details"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Détails techniques"
+          }
+        }
+      }
+    },
     "sheet.engine" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -3261,6 +3278,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Réglages conseillés"
+          }
+        }
+      }
+    },
+    "sheet.requirements.met" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This iPhone has what it needs"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cet iPhone a tout ce qu’il faut"
           }
         }
       }

@@ -122,6 +122,8 @@ enum CartoucheText {
     // MARK: Game sheet
 
     static var onThisIPhone: String { s("sheet.onThisIPhone", "On this iPhone") }
+    static var requirementsMet: String { s("sheet.requirements.met", "This iPhone has what it needs") }
+    static var sheetDetails: String { s("sheet.details", "Technical details") }
     static func iosRequirement(_ version: String) -> String { f("sheet.ios", "iOS %@ or later", version) }
     static func iosCurrent(_ version: String) -> String { f("sheet.ios.current", "This iPhone: iOS %@", version) }
     static var imlRequirement: String { s("sheet.memory.iml", "Increased Memory Limit") }
@@ -365,8 +367,8 @@ enum CartoucheText {
     static func buildCommit(_ commit: String) -> String { f("build.commit", "nxnative %@", commit) }
 
     /// A game's build in a few words: its version, when it was built, or
-    /// else installed, and its nxnative commit.
-    static func build(_ build: CartoucheGameBuild, installedOn: Date? = nil) -> String {
+    /// else installed, and, with SHOWSCOMMIT, its nxnative commit.
+    static func build(_ build: CartoucheGameBuild, installedOn: Date? = nil, showsCommit: Bool = true) -> String {
         var parts: [String] = []
         if let version = build.version { parts.append(buildVersion(version)) }
         if let installedOn {
@@ -374,7 +376,7 @@ enum CartoucheText {
         } else if let builtAt = build.builtAt {
             parts.append(buildBuilt(builtAt.formatted(date: .abbreviated, time: .shortened)))
         }
-        if let commit = build.shortCommit { parts.append(buildCommit(build.isDirty ? commit + "+dirty" : commit)) }
+        if showsCommit, let commit = build.shortCommit { parts.append(buildCommit(build.isDirty ? commit + "+dirty" : commit)) }
         return parts.joined(separator: ", ")
     }
 
