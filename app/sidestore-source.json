@@ -16,6 +16,15 @@
       "bundleIdentifier": "io.github.clabeuhtegrite.cartouche",
       "versions": [
         {
+          "version": "0.10.0",
+          "date": "2026-11-10T21:12:14Z",
+          "localizedDescription": "A game waits behind the console, your Mac can be your storage, and a guide takes you to your first game.\n\n- Games: the Home button, on screen or on a controller, brings the console back without ending the game, which waits behind it, paused. Resume goes back to it, Quit ends it. A game that needs more memory than it gets there starts in Cartouche's place, as before.\n- Games: a game starts in your iPhone's language when it has it. Its settings can choose another.\n- Games: Cartouche runs in iOS's Game Mode, for the most of the CPU and GPU and the lowest latency of your controllers. iOS says so when it comes on.\n- Games: a game's sheet shows your play time, your sessions and when you last played, and the room the game takes on this iPhone and in your games folder. The home shows them under the game in focus.\n- Home: your games alone, on one shelf, with larger covers. Shorter texts everywhere, and dark System pages. On an unfolded iPhone Duo, the home and the sheet of the game in focus stand on either side of the fold.\n- Storage: System › Storage › Add your Mac (Cartouche Builder) pairs Cartouche with Cartouche Builder on your Mac, once, with the same six digits on both screens. Your games then install from the Mac and your saves go to it, encrypted on the way.\n- Storage: away from home or off your VPN, a server that does not answer shows as offline within seconds, with no error, and your saves wait until it answers again. An install that the network cuts off for a moment picks up where it stopped.\n- Errors: under each error, Copy the report gives what it takes to understand it, never a password or an address. System › Report a problem shows a report in full and sends nothing until you choose how: Send to Cartouche, share it, copy it, or open it on GitHub.\n- Setup: on a new install, Your first game takes you from LocalDevVPN to your first game and ticks each step by itself. It stays at the top of the home until a game is installed.\n- Catalog: All games lists the games nxnative added since 0.9.0 and marks the 64 it plays on the iPhone. New games get their covers within a day, without a new version of Cartouche.\n- Game measurements: after each game session, Cartouche sends what nxnative measured, such as the frame rate and the memory, with its own events, and never your files, saves, accounts or the addresses of your storage. It does so unless you turn it off in System › Game measurements, which also shows the last report and erases what this iPhone sent. All that is sent: https://github.com/clabeuhtegrite/Cartouche/blob/main/docs/privacy.md",
+          "downloadURL": "https://github.com/clabeuhtegrite/Cartouche/releases/download/v0.10.0/Cartouche-0.10.0.ipa",
+          "size": 27979087,
+          "sha256": "a12247fcf85091c8f96862fc7b44cc2b784311fa3f48d1928c07d522a8bd33ae",
+          "minOSVersion": "15.0"
+        },
+        {
           "version": "0.9.0",
           "date": "2026-11-10T05:24:24Z",
           "localizedDescription": "Cartouche offers to update a game when your games folder holds a newer build of it.\n\n- Games: when your games folder holds a newer IPA of a game you installed, a later version of the game, or the same version built again from a newer nxnative, such as one Cartouche Builder made, the console shows Update for the game and a badge on its cartridge, and its sheet Update from your games folder. The game's settings and saves stay.\n- Games: a game's sheet shows which build of it is on this iPhone, and the newer one in your games folder: its version, the nxnative commit it was built from and when it was built.\n- Games: a copy Cartouche writes of a game to your games folder keeps when the game was built, so that it is never offered as an update over the same game.",
@@ -94,15 +103,6 @@
           "downloadURL": "https://github.com/clabeuhtegrite/Cartouche/releases/download/v0.3.0/Cartouche-0.3.0.ipa",
           "size": 36802806,
           "sha256": "b3a2cb6c74065298d96d36abdb1bc49f76358b8a8c2bf118e7fde9bf6af69f64",
-          "minOSVersion": "15.0"
-        },
-        {
-          "version": "0.2.0",
-          "date": "2026-11-06T14:58:29Z",
-          "localizedDescription": "A console's home, for every iPhone and the iPhone Duo.\n\n- Home: your games on the first shelf and the games nxnative plays on the iPhone on the second, as cartridges. The game in focus shows under them with Play, or Import my copy, and its details. A dock leads to All games, Import, System, Apps and Settings.\n- All games: every game of nxnative's list, 138 today, filtered by where nxnative plays it (iPhone, Mac, bring-up) or Switch 2, and searched by name or title ID.\n- A game controller drives every screen: the D-pad moves, A plays, X opens a game's details, B goes back, L and R change the filter.\n- iPhone Duo: Cartouche now uses the whole display, built with the iOS 27.2 SDK; larger cartridges unfolded, the shelves beside the game in focus when held sideways, details as a card.\n- A game's details say what nxnative says of it: where it plays it, the engine, the game version and SDK of its profile, its title ID and other regions.\n- Games install in Cartouche: Import my copy unpacks and signs the IPA over the console, with its progress, then opens the game's details with Play. The Apps tab no longer shows. An IPA of a game you have replaces it and keeps your saves.\n- Play starts the game at once, without nxnative's settings screen.\n- Game settings, in a game's details: the settings of nxnative's screen in Cartouche, in French (frame rate, render scale, console mode, language, rumble, cloud saves and the rest), saved where the game reads them. Start on nxnative's screen is still there.\n- Uninstall, from a game's details or a long press on it, keeping your saves for the next import or erasing them.",
-          "downloadURL": "https://github.com/clabeuhtegrite/Cartouche/releases/download/v0.2.0/Cartouche-0.2.0.ipa",
-          "size": 36526590,
-          "sha256": "19d4e2020e2e7dd930de8352a353230e3e669a4c454ca39dac12871a753ef471",
           "minOSVersion": "15.0"
         }
       ]
