@@ -902,23 +902,6 @@
         }
       }
     },
-    "home.iphone" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Plays on iPhone"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Jouables sur iPhone"
-          }
-        }
-      }
-    },
     "home.library" : {
       "extractionState" : "manual",
       "localizations" : {

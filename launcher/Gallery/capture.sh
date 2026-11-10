@@ -154,6 +154,8 @@ def arguments(scenario):
                  "-GalleryInsets", ",".join(str(n) for n in scenario.get("insets", [0, 0, 0, 0]))]
     if scenario.get("orientation") == "landscape":
         args += ["-GalleryOrientation", "landscape"]
+    if "widthClass" in scenario:
+        args += ["-GalleryWidthClass", scenario["widthClass"]]
     if scenario.get("sheet"):
         args += ["-GallerySheet", scenario["sheet"]]
     if scenario.get("work"):

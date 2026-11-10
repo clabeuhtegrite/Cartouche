@@ -6,7 +6,7 @@ Cartouche is an iOS app that turns an iPhone into a console for the games [nxnat
 
 ## What it does
 
-- **A console's home.** Your games and the games nxnative plays on an iPhone, as cartridges on two shelves with their official covers, every game of nxnative's list one step away, a sheet for each game that says how it runs on your iPhone, and touch or a game controller throughout.
+- **A console's home.** Your games, with their official covers, on one shelf, every game of nxnative's list one step away, a sheet for each game that says how it runs on your iPhone, and touch or a game controller throughout.
 - **Your games, installed and started in Cartouche.** Import an IPA you built with nxnative, play it, change its nxnative settings on a page of Cartouche's own, uninstall it. Games run inside Cartouche as guest apps, so they do not count against a free Apple account's limit of three sideloaded apps.
 - **Your own storage.** Keep your games and saves on a shared folder of your Mac, PC or NAS, or a folder in Files, with your own account: the games there show in the library, ready to install, and your saves are copied after each game.
 - **Signed and renewed by itself.** The built-in SideStore renews Cartouche's seven-day signature from the System page or every night from a Shortcuts automation, and Cartouche warns before it expires.
