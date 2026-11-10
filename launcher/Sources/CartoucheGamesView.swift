@@ -14,7 +14,8 @@
 //  games of the player's games folder are among theirs, installed or not
 //  (CartoucheStoredGames), and the saves of the games that changed are
 //  copied to the saves folder whenever Cartouche comes back, after a game
-//  (CartoucheSaveBackups).
+//  (CartoucheSaveBackups). A step that fails says why, with the report the
+//  player can copy (CartoucheReporting.swift).
 //
 
 import SwiftUI
@@ -40,6 +41,8 @@ struct CartoucheGamesView: View {
     @State private var uninstallingInSheet: LCAppModel?
     /// The settings page open over the game's sheet.
     @State private var gameSettings: CartoucheGameSettingsModel?
+    /// The report of a failure was just copied, from its alert.
+    @State private var reportCopied = false
     /// A game's sheet grows out of its cartridge.
     @Namespace private var zoom
 
@@ -190,10 +193,51 @@ struct CartoucheGamesView: View {
         .animation(.easeInOut(duration: 0.2), value: showsUpdate)
         // Another game's sheet, or none: its settings page goes too.
         .onChange(of: sheetID) { _, _ in gameSettings = nil }
-        .alert(actions.notice?.title ?? "", isPresented: noticeShown, presenting: actions.notice) { _ in
-            Button(CartoucheText.done) { actions.notice = nil }
+        .alert(actions.notice?.title ?? "", isPresented: noticeShown, presenting: actions.notice) { notice in
+            if let report = notice.report {
+                Button(CartoucheText.reportCopy) {
+                    CartoucheReports.copy(report)
+                    actions.notice = nil
+                    reportCopied = true
+                }
+                Button(CartoucheText.done, role: .cancel) { actions.notice = nil }
+            } else {
+                Button(CartoucheText.done) { actions.notice = nil }
+            }
         } message: { notice in
             Text(notice.message)
+        }
+        // A controller answers the alert: A or B closes it, Y copies the
+        // report.
+        .onReceive(CartoucheGamepad.shared.inputs) { input in
+            guard let notice = actions.notice else { return }
+            switch input {
+            case .a, .b:
+                actions.notice = nil
+            case .y:
+                guard let report = notice.report else { return }
+                CartoucheReports.copy(report)
+                actions.notice = nil
+                reportCopied = true
+            default:
+                break
+            }
+        }
+        .overlay(alignment: .top) {
+            if reportCopied {
+                CartoucheReportCopiedBanner()
+                    .padding(.top, 8)
+                    .padding(.horizontal, 16)
+                    .transition(.move(edge: .top).combined(with: .opacity))
+            }
+        }
+        .animation(.spring(duration: 0.35), value: reportCopied)
+        .sensoryFeedback(.success, trigger: reportCopied) { _, now in now }
+        .task(id: reportCopied) {
+            guard reportCopied else { return }
+            AccessibilityNotification.Announcement(CartoucheText.reportCopied).post()
+            try? await Task.sleep(for: .seconds(2.5))
+            reportCopied = false
         }
         // A game just imported: its sheet, with Play, unless there is
         // something to tell first.
