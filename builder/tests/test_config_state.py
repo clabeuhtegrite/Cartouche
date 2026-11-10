@@ -59,6 +59,33 @@ class Settings(Home):
         self.assertFalse(config.selected("0100A0000E2F0000"))
         self.assertTrue(configs.Config().selected(ODYSSEY))
 
+    def test_follow(self):
+        config = configs.Config()
+        config.follow(MKW.lower(), False)
+        self.assertEqual(config.skip, [MKW])
+        self.assertFalse(config.selected(MKW))
+        config.follow(MKW, True)
+        self.assertEqual(config.skip, [])
+        self.assertTrue(config.selected(MKW))
+        # A narrowed selection takes a game followed again.
+        config = configs.Config(only=[ODYSSEY])
+        config.follow(MKW, True)
+        self.assertEqual(config.only, sorted([MKW, ODYSSEY]))
+
+    def test_an_older_file_follows_every_game(self):
+        # The first builder took NxNative Batch Builder's selection over.
+        paths = Paths.default()
+        paths.root.mkdir(parents=True)
+        paths.config.write_text(json.dumps({"sources": "/s", "games": "/g", "imported": True, "only": [MKW]}))
+        config = configs.load(paths)
+        self.assertEqual(config.only, [])
+        self.assertEqual(config.version, configs.VERSION)
+        self.assertEqual(json.loads(paths.config.read_text())["version"], configs.VERSION)
+        # Once migrated, a selection made since stays.
+        config.only = [MKW]
+        configs.save(paths, config)
+        self.assertEqual(configs.load(paths).only, [MKW])
+
 
 class Legacy(Home):
     def write_legacy(self) -> Path:
@@ -88,7 +115,9 @@ class Legacy(Home):
         self.assertEqual(config.games, "/Volumes/Share/Games")
         self.assertEqual(config.keys, "/Users/player/prod.keys")
         self.assertEqual(config.workspace, str(workspace))
-        self.assertEqual(config.only, [MKW])
+        # Every game is followed, whatever the old tool had selected.
+        self.assertEqual(config.only, [])
+        self.assertEqual(config.version, configs.VERSION)
         self.assertEqual(config.min_free_gb, 40)
         self.assertEqual(config.jobs, 1)
         self.assertTrue(paths.config.exists())

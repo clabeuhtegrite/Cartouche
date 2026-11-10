@@ -1,0 +1,205 @@
+{
+  "reports": [
+    {
+      "cartouche": "0.2.1",
+      "device": "Mac16,12",
+      "fields": {
+        "atLogin": true,
+        "automaticUpdates": true,
+        "bridge": true,
+        "cores": 10,
+        "due": 2,
+        "failed": 1,
+        "followed": 9,
+        "forkOfNxnative": false,
+        "fromDiskImage": false,
+        "gameLanguage": "default",
+        "games": 10,
+        "ipaOnly": 1,
+        "jobs": 1,
+        "keepExtracted": false,
+        "memoryGB": 16,
+        "menuBar": true,
+        "missing": 0,
+        "nxnative": "6c3aeb3d70a1",
+        "paired": 2,
+        "policy": "weekly",
+        "ready": true,
+        "remote": true,
+        "schedule": true,
+        "xcode": "27.2"
+      },
+      "id": "6a1d9e3c-0000-4000-8000-000000000001",
+      "install": "8c1f6c2e-7a2f-4e19-8c3d-2f6a9b0e1d7c",
+      "ios": "26.6",
+      "kind": "event",
+      "language": "fr",
+      "name": "builder.opened",
+      "schema": 1,
+      "seq": 1
+    },
+    {
+      "cartouche": "0.2.1",
+      "device": "Mac16,12",
+      "fields": {
+        "item": "metal",
+        "result": "ready",
+        "seconds": 312
+      },
+      "id": "6a1d9e3c-0000-4000-8000-000000000002",
+      "install": "8c1f6c2e-7a2f-4e19-8c3d-2f6a9b0e1d7c",
+      "ios": "26.6",
+      "kind": "event",
+      "language": "fr",
+      "name": "builder.setup",
+      "schema": 1,
+      "seq": 2
+    },
+    {
+      "cartouche": "0.2.1",
+      "device": "Mac16,12",
+      "fields": {
+        "ipaMB": 1830,
+        "nxnative": "6c3aeb3d70a1",
+        "reasons": "named,shared",
+        "seconds": 5412,
+        "source": "packages"
+      },
+      "game": "0100152000022000",
+      "id": "6a1d9e3c-0000-4000-8000-000000000003",
+      "install": "8c1f6c2e-7a2f-4e19-8c3d-2f6a9b0e1d7c",
+      "ios": "26.6",
+      "kind": "event",
+      "language": "fr",
+      "name": "builder.built",
+      "schema": 1,
+      "seq": 3
+    },
+    {
+      "cartouche": "0.2.1",
+      "device": "Mac16,12",
+      "fields": {
+        "nxnative": "6c3aeb3d70a1",
+        "reasons": "profile",
+        "seconds": 1260,
+        "source": "dump",
+        "stage": "shaders"
+      },
+      "game": "010093801237C000",
+      "id": "6a1d9e3c-0000-4000-8000-000000000004",
+      "install": "8c1f6c2e-7a2f-4e19-8c3d-2f6a9b0e1d7c",
+      "ios": "26.6",
+      "kind": "event",
+      "language": "fr",
+      "name": "builder.failed",
+      "schema": 1,
+      "seq": 4
+    },
+    {
+      "cartouche": "0.2.1",
+      "device": "Mac16,12",
+      "fields": {
+        "built": 1,
+        "failed": 1,
+        "games": 3,
+        "jobs": 1,
+        "minutes": 112.5,
+        "nxnative": "6c3aeb3d70a1",
+        "scheduled": true,
+        "skipped": 1,
+        "state": "done",
+        "stopped": 0
+      },
+      "id": "6a1d9e3c-0000-4000-8000-000000000005",
+      "install": "8c1f6c2e-7a2f-4e19-8c3d-2f6a9b0e1d7c",
+      "ios": "26.6",
+      "kind": "event",
+      "language": "fr",
+      "name": "builder.batch",
+      "schema": 1,
+      "seq": 5
+    },
+    {
+      "cartouche": "0.2.1",
+      "device": "Mac16,12",
+      "fields": {
+        "background": true,
+        "kind": "engine",
+        "origin": "check"
+      },
+      "id": "6a1d9e3c-0000-4000-8000-000000000006",
+      "install": "8c1f6c2e-7a2f-4e19-8c3d-2f6a9b0e1d7c",
+      "ios": "26.6",
+      "kind": "event",
+      "language": "fr",
+      "name": "builder.error",
+      "schema": 1,
+      "seq": 6
+    },
+    {
+      "cartouche": "0.2.1",
+      "device": "Mac16,12",
+      "fields": {
+        "background": false,
+        "error": "NSCocoaErrorDomain 640 < NSPOSIXErrorDomain 28",
+        "origin": "clean"
+      },
+      "id": "6a1d9e3c-0000-4000-8000-000000000007",
+      "install": "8c1f6c2e-7a2f-4e19-8c3d-2f6a9b0e1d7c",
+      "ios": "26.6",
+      "kind": "event",
+      "language": "fr",
+      "name": "builder.error",
+      "schema": 1,
+      "seq": 7
+    },
+    {
+      "cartouche": "0.2.1",
+      "device": "Mac16,12",
+      "fields": {
+        "from": "0.2.0",
+        "to": "0.2.1"
+      },
+      "id": "6a1d9e3c-0000-4000-8000-000000000008",
+      "install": "8c1f6c2e-7a2f-4e19-8c3d-2f6a9b0e1d7c",
+      "ios": "26.6",
+      "kind": "event",
+      "language": "fr",
+      "name": "builder.updated",
+      "schema": 1,
+      "seq": 8
+    },
+    {
+      "cartouche": "0.2.1",
+      "device": "Mac16,12",
+      "fields": {
+        "allowed": true
+      },
+      "id": "6a1d9e3c-0000-4000-8000-000000000009",
+      "install": "8c1f6c2e-7a2f-4e19-8c3d-2f6a9b0e1d7c",
+      "ios": "26.6",
+      "kind": "event",
+      "language": "fr",
+      "name": "builder.paired",
+      "schema": 1,
+      "seq": 9
+    },
+    {
+      "cartouche": "0.2.1",
+      "device": "Mac16,12",
+      "fields": {
+        "freedMB": 4210,
+        "items": 3,
+        "what": "extracted"
+      },
+      "id": "6a1d9e3c-0000-4000-8000-000000000010",
+      "install": "8c1f6c2e-7a2f-4e19-8c3d-2f6a9b0e1d7c",
+      "ios": "26.6",
+      "kind": "event",
+      "language": "fr",
+      "name": "builder.cleaned",
+      "schema": 1,
+      "seq": 10
+    }
+  ]
+}

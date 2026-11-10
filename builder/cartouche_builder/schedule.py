@@ -2,9 +2,11 @@
 due at the hour the settings name, kept awake by caffeinate while it runs.
 
 A Mac asleep at that hour runs the job when it wakes. The agent's file is
-~/Library/LaunchAgents/<LABEL>.plist; the window writes it again at each
-start while the nightly run is on, so it follows the builder's folder if the
-player moves it.
+~/Library/LaunchAgents/<LABEL>.plist; the app writes it again at each start
+while the nightly run is on (api config), so it follows the app and its
+Python if the player moves or updates them. Run from the app, the engine is
+inside its bundle: it never writes bytecode there, which would break the
+app's signature.
 """
 
 from __future__ import annotations
@@ -28,9 +30,13 @@ def agent_path() -> Path:
 
 def agent(paths: Paths, hour: int, minute: int, python: str | None = None) -> dict:
     package = Path(__file__).resolve().parent.parent
-    environment = {"PYTHONPATH": str(package), "PYTHONUNBUFFERED": "1"}
+    environment = {"PYTHONPATH": str(package), "PYTHONUNBUFFERED": "1", "PYTHONDONTWRITEBYTECODE": "1"}
     if os.environ.get("CARTOUCHE_BUILDER_HOME"):
         environment["CARTOUCHE_BUILDER_HOME"] = str(paths.root)
+    # Set up by the app: its batches are the app's to tell of while it runs
+    # (notify.py).
+    if os.environ.get("CARTOUCHE_BUILDER_APP"):
+        environment["CARTOUCHE_BUILDER_APP"] = "1"
     return {
         "Label": LABEL,
         "ProgramArguments": ["/usr/bin/caffeinate", "-i", python or sys.executable, "-m", "cartouche_builder", "build", "--scheduled"],

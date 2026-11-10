@@ -1,7 +1,6 @@
 import contextlib
 import io
 import json
-import os
 import plistlib
 import re
 import string
@@ -31,11 +30,7 @@ class Texts(unittest.TestCase):
         dynamic = {
             "check": ("macos", "rosetta", "git", "xcode", "ios_sdk", "metal", "homebrew_tools", "dotnet", "python", "venv"),
             "config.field": ("sources", "games", "keys", "workspace"),
-            "gui.hint": ("sources", "games", "keys", "workspace"),
-            "gui.column": ("build", "name", "title_id", "kind", "size", "last", "status"),
             "origin": ("builder", "legacy", "ipa"),
-            "settings.policy": ("weekly", "always", "never"),
-            "settings": ("refresh_days", "jobs", "min_free_gb", "workspace_limit_gb", "notifications", "keep_ipa", "unprofiled"),
             "kind": ("packages", "nup", "dump", "zip"),
         }
         used |= {f"{prefix}.{name}" for prefix, names in dynamic.items() for name in names}
@@ -105,38 +100,6 @@ class Commands(Home):
         self.assertIn("02:15", out)
         self.assertEqual(self.run_cli("schedule", "off")[0], 0)
         self.assertFalse(schedule.agent_path().exists())
-
-
-class Window(Home):
-    @unittest.skipUnless(os.environ.get("DISPLAY") and __import__("importlib").util.find_spec("tkinter"), "needs Tk and a display")
-    def test_opens_and_shows_a_plan(self):
-        from cartouche_builder import batch, gui
-
-        remote = make_engine_remote(self.tmp / "remote", {MKW: "Mario Kart World"})
-        sources, games = self.tmp / "sources", self.tmp / "games"
-        make_dump(sources / "Mario Kart World", MKW)
-        games.mkdir()
-        for key, value in (("sources", sources), ("games", games), ("engine_url", remote)):
-            self.run_cli_quiet("config", key, str(value))
-        ctx = batch.context()
-        window = gui.Window(ctx)
-        try:
-            with batch.batch_lock(ctx.paths):
-                plan = batch.survey(ctx, update=True)
-            window.show_plan(plan)
-            window.root.update()
-            self.assertEqual(window.tree.get_children(), (MKW,))
-            window.tree.selection_set(MKW)
-            window.show_detail()
-            self.assertIn("Mario Kart World", window.detail.get("1.0", "end"))
-            window._handle("progress", MKW, gui.Progress(stage="extract", k=1, n=2, frac=0.5))
-            window._handle("idle", "", None)
-        finally:
-            window.root.destroy()
-
-    def run_cli_quiet(self, *args):
-        with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
-            return cli.main(list(args))
 
 
 if __name__ == "__main__":

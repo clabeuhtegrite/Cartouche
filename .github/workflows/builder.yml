@@ -1,0 +1,239 @@
+name: Builder
+
+# Tests and builds Cartouche Builder's Mac app (builder/mac): its tests, the
+# app with the builder's engine inside, its disk image, and a screenshot of
+# each page of the app on sample games (the --gallery the app takes), in
+# French and English, light and dark. The disk image stays with the run, and
+# the screenshots with it and, for a branch of this repository, on the branch
+# builder-screens/<branch>, one commit that each run replaces. The engine's
+# own tests run in CI (Cartouche Builder).
+#
+# A pull request's app is built once for what it changes in the files below:
+# a rebase or a merge of main that leaves those changes as they were keeps
+# the build of the run before, as the Launcher screens workflow does. Not on
+# main after a pull request either: that one built the same files.
+#
+# Run from the Actions tab, it builds everything; on main with Publish
+# ticked, it also publishes the disk image as the release builder-v<version>,
+# the version of builder/pyproject.toml, without GitHub's Latest mark, which
+# is meant for Cartouche: the app's updates come from there (Updater.swift).
+# How to publish: builder/README.md.
+
+on:
+  # What the app is built from and its tests read (builder/mac/Package.swift,
+  # bundle.sh, the tests' fixtures).
+  pull_request:
+    paths:
+      - "builder/**"
+      - "launcher/Package.swift"
+      - "launcher/Sources/CartoucheBridge.swift"
+      - "telemetry/test/builder-reports.json"
+      - ".github/workflows/builder.yml"
+  workflow_dispatch:
+    inputs:
+      publish:
+        description: "Publish the disk image as the release builder-v<version> (main only)"
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: builder-${{ github.head_ref || github.ref }}
+  cancel-in-progress: true
+
+env:
+  XCODE_VERSION: "27.2"
+
+jobs:
+  # The pull request's changes to the files in the paths above, as its merge
+  # into main has them, and whether a run of this pull request built them
+  # already. Its key goes to the Actions cache once they are.
+  built:
+    name: Built already?
+    if: ${{ github.event_name == 'pull_request' }}
+    runs-on: ubuntu-latest
+    outputs:
+      key: ${{ steps.changes.outputs.key }}
+      built: ${{ steps.memo.outputs.cache-hit }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 2
+          persist-credentials: false
+      - name: What the pull request changes in the app's files
+        id: changes
+        run: |
+          # HEAD^1 is main, HEAD the pull request merged into it.
+          CHANGES="$(git diff --binary HEAD^1 HEAD -- builder launcher/Package.swift launcher/Sources/CartoucheBridge.swift \
+            telemetry/test/builder-reports.json .github/workflows/builder.yml | sha256sum | cut -c1-64)"
+          echo "key=builder-xcode-$XCODE_VERSION-$CHANGES" >> "$GITHUB_OUTPUT"
+      - name: Was it built?
+        id: memo
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: build/builder-built
+          key: ${{ steps.changes.outputs.key }}
+          lookup-only: true
+      - name: Say so
+        if: ${{ steps.memo.outputs.cache-hit == 'true' }}
+        env:
+          BRANCH: builder-screens/${{ github.head_ref }}
+        run: |
+          echo "::notice::An earlier run built and tested these very changes, with their screenshots on $BRANCH: run this workflow from the Actions tab to build them again."
+          echo "An earlier run built and tested these very changes; their screenshots are on \`$BRANCH\`." >> "$GITHUB_STEP_SUMMARY"
+
+  mac:
+    name: Mac app
+    needs: built
+    # Built unless the first job found it was, so that a failure there
+    # cannot skip it.
+    if: ${{ !cancelled() && needs.built.outputs.built != 'true' }}
+    runs-on: xcode-27
+    timeout-minutes: 60
+    env:
+      # brew install takes the formula the runner knows, without updating
+      # Homebrew first.
+      HOMEBREW_NO_AUTO_UPDATE: "1"
+      HOMEBREW_NO_INSTALL_CLEANUP: "1"
+    outputs:
+      screens: ${{ steps.gallery.outputs.taken }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Select Xcode
+        run: |
+          sudo xcode-select -s "/Applications/Xcode_${XCODE_VERSION}.app"
+          xcodebuild -version
+      - name: Tests
+        run: swift test --package-path builder/mac
+      - name: Build the app
+        run: builder/mac/bundle.sh build/builder
+      # dmgbuild and the two packages it needs, at the versions and hashes
+      # of builder/mac/Resources/dmg/requirements.txt, on a Python 3.10 or
+      # later, which they need.
+      - name: Make the disk image
+        run: |
+          python=""
+          for candidate in python3 python3.14 python3.13 python3.12 python3.11 python3.10; do
+            if command -v "$candidate" >/dev/null && "$candidate" -c 'import sys; sys.exit(sys.version_info < (3, 10))'; then
+              python=$candidate
+              break
+            fi
+          done
+          if [ -z "$python" ]; then
+            brew install python@3.13
+            python=python3.13
+          fi
+          "$python" --version
+          "$python" -m venv build/dmgbuild
+          build/dmgbuild/bin/pip install --quiet --require-hashes --only-binary :all: -r builder/mac/Resources/dmg/requirements.txt
+          PATH="$PWD/build/dmgbuild/bin:$PATH" builder/mac/make_dmg.sh "build/builder/Cartouche Builder.app" build/dmg
+      - name: Keep the disk image
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: cartouche-builder
+          path: build/dmg
+          if-no-files-found: error
+          retention-days: 30
+      # The app as it is in the disk image, on sample games: it runs no
+      # engine, reads and writes none of the Mac's settings, and opens no
+      # bridge (Gallery.swift).
+      - name: Take the screenshots
+        id: gallery
+        if: ${{ !cancelled() }}
+        run: |
+          "build/builder/Cartouche Builder.app/Contents/MacOS/Cartouche Builder" --gallery build/screens
+          ls build/screens
+          echo "taken=true" >>"$GITHUB_OUTPUT"
+      - name: Upload them
+        if: ${{ !cancelled() && steps.gallery.outputs.taken == 'true' }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: builder-screens
+          path: build/screens
+          retention-days: 14
+          if-no-files-found: error
+      # Once the tests, the app, its disk image and its screenshots are.
+      - name: Note that it is built
+        if: ${{ needs.built.outputs.key != '' }}
+        env:
+          SOURCE: ${{ github.event.pull_request.head.sha }}
+        run: |
+          mkdir -p build/builder-built
+          echo "$SOURCE" > build/builder-built/source
+      - name: Keep the note in the cache
+        if: ${{ needs.built.outputs.key != '' }}
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: build/builder-built
+          key: ${{ needs.built.outputs.key }}
+
+  # The only job that can write to a branch runs nothing from the pull
+  # request: it commits the screenshots the job above uploaded.
+  keep:
+    name: Keep the screenshots on a branch
+    needs: mac
+    if: ${{ !cancelled() && needs.mac.outputs.screens == 'true' && (github.event_name == 'workflow_dispatch' || github.event.pull_request.head.repo.full_name == github.repository) }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # the branch builder-screens/<branch>
+    env:
+      BRANCH: builder-screens/${{ github.head_ref || github.ref_name }}
+      SOURCE: ${{ github.event.pull_request.head.sha || github.sha }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
+        with:
+          name: builder-screens
+          path: screens
+      - name: Push them to builder-screens/<branch>
+        run: |
+          cd screens
+          git init -q -b screens
+          git add -A
+          git -c user.name="github-actions[bot]" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" \
+            commit -q -m "Builder screens of $SOURCE"
+          gh auth setup-git
+          git push -q -f "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY.git" "HEAD:refs/heads/$BRANCH"
+          echo "Pushed to $BRANCH"
+
+  # The only job that can publish runs nothing it built: it attaches the
+  # disk image and its SHA-256 the Mac app's job uploaded.
+  publish:
+    name: Publish Cartouche Builder
+    needs: mac
+    if: ${{ !cancelled() && needs.mac.result == 'success' && github.event_name == 'workflow_dispatch' && inputs.publish && github.ref == 'refs/heads/main' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # the release builder-v<version>
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
+        with:
+          name: cartouche-builder
+          path: build/dmg
+      - name: Publish the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          VERSION=$(sed -n 's/^version = "\(.*\)"$/\1/p' builder/pyproject.toml)
+          TAG="builder-v$VERSION"
+          if gh release view "$TAG" --repo "$REPOSITORY" > /dev/null 2>&1; then
+            echo "::error::the release $TAG exists already: raise the version in builder/pyproject.toml"
+            exit 1
+          fi
+          test -f "build/dmg/Cartouche-Builder-$VERSION.dmg"
+          test -f "build/dmg/Cartouche-Builder-$VERSION.dmg.sha256"
+          ls -l build/dmg
+          gh release create "$TAG" build/dmg/* \
+            --repo "$REPOSITORY" \
+            --target "$GITHUB_SHA" \
+            --title "Cartouche Builder $VERSION" \
+            --notes-file builder/RELEASE.md \
+            --latest=false

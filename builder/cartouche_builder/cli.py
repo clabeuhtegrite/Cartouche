@@ -1,6 +1,6 @@
-"""cartouche-builder: the window, or its commands in Terminal.
+"""cartouche-builder: the builder's commands in Terminal, under its Mac app.
 
-  cartouche-builder                    the window
+  cartouche-builder                    opens the app (Cartouche Builder.app)
   cartouche-builder plan               nxnative moved forward, and what is due and why
   cartouche-builder build [ID ...]     build what is due (or those games)
   cartouche-builder status             each game's last build, without moving nxnative
@@ -8,6 +8,7 @@
   cartouche-builder setup              nxnative's checkout and Python environment
   cartouche-builder schedule on|off    the nightly run
   cartouche-builder config [KEY [VALUE]]
+  cartouche-builder api ...            the app's commands, in JSON (api.py)
 """
 
 from __future__ import annotations
@@ -15,6 +16,7 @@ from __future__ import annotations
 import argparse
 import json
 import signal
+import subprocess
 import sys
 import threading
 from dataclasses import asdict, fields
@@ -25,11 +27,20 @@ from .i18n import t
 from .paths import Paths
 
 
+APP_ID = "io.github.clabeuhtegrite.cartouche-builder"
+
+
 def main(argv: list[str] | None = None) -> int:
+    argv = sys.argv[1:] if argv is None else argv
+    if argv[:1] == ["api"]:
+        from . import api
+
+        return api.main(argv[1:])
     parser = argparse.ArgumentParser(prog="cartouche-builder", description=t("cli.description"))
     parser.add_argument("--version", action="version", version=f"Cartouche Builder {__version__}")
     commands = parser.add_subparsers(dest="command")
     commands.add_parser("gui", help=t("cli.gui"))
+    commands.add_parser("api", help=t("cli.api"))
     plan_parser = commands.add_parser("plan", help=t("cli.plan"))
     plan_parser.add_argument("--no-update", action="store_true", help=t("cli.no_update"))
     plan_parser.add_argument("--json", action="store_true", help=t("cli.json"))
@@ -53,9 +64,7 @@ def main(argv: list[str] | None = None) -> int:
         ctx = batch.context(paths)
         command = args.command or "gui"
         if command == "gui":
-            from . import gui
-
-            return gui.main(ctx)
+            return _open_app(parser)
         if command == "plan":
             return _plan(ctx, update=not args.no_update, as_json=args.json)
         if command == "build":
@@ -75,6 +84,19 @@ def main(argv: list[str] | None = None) -> int:
         return 3
     except KeyboardInterrupt:
         return 130
+    return 0
+
+
+def _open_app(parser: argparse.ArgumentParser) -> int:
+    """Opens the Mac app; its commands when there is none."""
+    if sys.platform == "darwin":
+        try:
+            if subprocess.run(["open", "-b", APP_ID], capture_output=True, timeout=30).returncode == 0:
+                return 0
+        except (OSError, subprocess.SubprocessError):
+            pass
+        print(t("cli.no_app"), file=sys.stderr)
+    parser.print_help()
     return 0
 
 
@@ -134,7 +156,7 @@ def _build(ctx: batch.Context, args) -> int:
             print(f"  {value}", flush=True)
 
     try:
-        plan, summary = batch.run_due(ctx, update=not args.no_update, force=only if args.force else None, only=only or None, on_event=follow, stop=stop, log=print)
+        plan, summary = batch.run_due(ctx, update=not args.no_update, force=only if args.force else None, only=only or None, on_event=follow, stop=stop, log=print, scheduled=args.scheduled)
     except batch.Busy as error:
         # The nightly run finds the window's batch running: nothing to do.
         print(str(error), file=sys.stderr)

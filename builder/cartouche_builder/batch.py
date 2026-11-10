@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import fcntl
 import os
+import shutil
 import sys
 import threading
 import time
@@ -26,8 +27,13 @@ from .engine import Engine
 from .i18n import set_language, t
 from .paths import Paths
 from .planner import Entry, Plan, fingerprint, plan
-from .state import Build, Store, attempt_now, now_iso
-from .workspace import NOTES, Workspace, free_gb
+from .state import Attempt, Build, Store, attempt_now, now_iso
+from .status import Status
+from .workspace import NOTES, Workspace, free_gb, same_volume
+
+# A game's icon, as nxnative's "game" event names it: kept if not larger.
+ICON_LIMIT = 4 << 20
+ICON_SUFFIXES = (".jpg", ".jpeg", ".png", ".bmp")
 
 
 class Busy(Exception):
@@ -123,6 +129,7 @@ class Runner:
     """Builds ENTRIES of PLAN. ON_EVENT(kind, title_id, value) follows it:
     "start" (entry), "progress" (build.Progress), "message" (text),
     "unpack" and "deliver" (fraction), "built" (Build), "failed" (error),
+    "attempt" (the state.Attempt recorded for a game that was not built),
     "log" (text)."""
 
     def __init__(self, ctx: Context, plan: Plan, entries: list[Entry], python: Path | None = None, on_event=None, stop: threading.Event | None = None, check_tools: bool = True):
@@ -196,8 +203,8 @@ class Runner:
         self.on_event("start", title_id, entry)
         dump: Path | None = None
         try:
-            room = free_gb(workspace.root)
             needed = ctx.config.min_free_gb + (game.size / 2**30 if game.kind == "zip" else 0)
+            room = self._make_room(workspace, needed, title_id)
             if room < needed:
                 raise _Skipped(t("batch.no_room", free=f"{room:.0f}", needed=f"{needed:.0f}"))
             keys = ctx.config.path("keys") if game.needs_keys else None
@@ -219,13 +226,22 @@ class Runner:
             workspace.use(work)
             out = workspace.root / NOTES / "out" / f"{title_id}.ipa"
             out.parent.mkdir(parents=True, exist_ok=True)
-            if not ctx.config.keep_ipa:
-                out.unlink(missing_ok=True)
+            games_folder = ctx.config.path("games")
             # A kept IPA stays where nxnative writes the new one: its packer
             # reuses the entries that did not change (out.ipa.idx), and always
-            # writes a new file, renamed over the old one once whole.
+            # writes a new file, renamed over the old one once whole. On the
+            # games folder's disk it costs nothing (the delivered IPA is an
+            # APFS clone of it); on a NAS it would take the game's size on
+            # the Mac, so it is kept there only when the settings ask.
+            keep_ipa = ctx.config.keep_ipa or (games_folder is not None and same_volume(out.parent, games_folder))
+            if not keep_ipa:
+                out.unlink(missing_ok=True)
+                out.with_name(out.name + ".idx").unlink(missing_ok=True)
             before = _identity(out)
-            args = builds.command(self.python, ctx.engine.build_script, source, work, out, keys, ctx.config.game_language)
+            # Without the extracted files the build folder keeps what is
+            # costly to make again (the shader caches), not a copy of the game.
+            keep_extracted = ctx.config.keep_extracted if ctx.engine.supports("--keep-extracted") else None
+            args = builds.command(self.python, ctx.engine.build_script, source, work, out, keys, ctx.config.game_language, keep_extracted)
             result = builds.run(
                 args,
                 ctx.engine.root,
@@ -234,6 +250,7 @@ class Runner:
                 on_progress=lambda progress: self.on_event("progress", title_id, progress),
                 on_message=lambda message: self.on_event("message", title_id, message),
                 stop=self.stop,
+                on_game=lambda event: keep_icon(ctx.paths, title_id, event.get("icon")),
             )
             if not result.ok:
                 if result.stopped:
@@ -244,7 +261,6 @@ class Runner:
             info = ipas.read_info(out) if after is not None and after != before else None
             if info is None:
                 raise _Failed(t("batch.no_ipa", path=out))
-            games_folder = ctx.config.path("games")
             name = entry.ipa_name or ipas.file_name(result.game.get("name") or game.display_name, title_id)
             self.on_event("message", title_id, t("batch.delivering", name=name))
             ipas.deliver(out, games_folder, name, stop=self.stop, progress=lambda done, total: self.on_event("deliver", title_id, done / total))
@@ -262,27 +278,27 @@ class Runner:
                 dirty=info.dirty,
             )
             ctx.store.built(title_id, build)
-            if not ctx.config.keep_ipa:
+            if not keep_ipa:
                 for leftover in (out, out.with_name(out.name + ".idx")):
                     leftover.unlink(missing_ok=True)
             with self._lock:
                 self.summary.built.append((entry, build))
             self.on_event("built", title_id, build)
         except _Stopped as stopped:
-            ctx.store.failed(title_id, attempt_now(self.plan.head[:12], "stopped", str(stopped), print_, identity, str(log_path)))
+            self._record(title_id, attempt_now(self.plan.head[:12], "stopped", str(stopped), print_, identity, str(log_path)))
             self.on_event("failed", title_id, str(stopped))
         except _Skipped as skipped:
             # Not the game's failure (no room, no keys): tried again next time.
-            ctx.store.failed(title_id, attempt_now(self.plan.head[:12], "skipped", str(skipped), print_, identity, ""))
+            self._record(title_id, attempt_now(self.plan.head[:12], "skipped", str(skipped), print_, identity, ""))
             with self._lock:
                 self.summary.failed.append((entry, str(skipped), log_path))
             self.on_event("failed", title_id, str(skipped))
         except (_Failed, OSError, ValueError, RuntimeError, InterruptedError) as error:
             message = str(error) if isinstance(error, _Failed) else f"{type(error).__name__}: {error}"
             if self.stop.is_set():
-                ctx.store.failed(title_id, attempt_now(self.plan.head[:12], "stopped", message, print_, identity, str(log_path)))
+                self._record(title_id, attempt_now(self.plan.head[:12], "stopped", message, print_, identity, str(log_path)))
             else:
-                ctx.store.failed(title_id, attempt_now(self.plan.head[:12], "failed", message, print_, identity, str(log_path)))
+                self._record(title_id, attempt_now(self.plan.head[:12], "failed", message, print_, identity, str(log_path)))
                 with self._lock:
                     self.summary.failed.append((entry, message, log_path))
             self.on_event("failed", title_id, message)
@@ -292,7 +308,53 @@ class Runner:
             limit = ctx.config.workspace_limit_gb
             if limit:
                 with self._lock:
-                    workspace.trim(limit * 2**30, keep={workspace.build_folder(e.title_id) for e in self.entries}, log=lambda folder, size: self.log(t("batch.trimmed", folder=folder.name, gb=f"{size / 2**30:.1f}")))
+                    workspace.trim(limit * 2**30, keep=self._batch_folders(workspace), log=lambda folder, size: self.log(t("batch.trimmed", folder=folder.name, gb=f"{size / 2**30:.1f}")))
+
+    def _record(self, title_id: str, attempt: Attempt) -> None:
+        self.ctx.store.failed(title_id, attempt)
+        self.on_event("attempt", title_id, attempt)
+
+    def _batch_folders(self, workspace: Workspace) -> set[Path]:
+        return {workspace.build_folder(e.title_id) for e in self.entries}
+
+    def _make_room(self, workspace: Workspace, needed_gb: float, title_id: str) -> float:
+        """The room in the workspace, after removing the build folders of the
+        games built longest ago (not this batch's) while it is under NEEDED_GB:
+        their caches make a build faster, the disk filling up stops it."""
+        room = free_gb(workspace.root)
+        if room >= needed_gb:
+            return room
+        with self._lock:
+            keep = self._batch_folders(workspace) | {workspace.build_folder(title_id)}
+            for _used, folder in workspace.noted():
+                if room >= needed_gb:
+                    break
+                if folder in keep:
+                    continue
+                size = workspace.forget_sized(folder)
+                self.log(t("batch.freed", folder=folder.name, gb=f"{size / 2**30:.1f}"))
+                room = free_gb(workspace.root)
+        return room
+
+
+def keep_icon(paths: Paths, title_id: str, icon) -> Path | None:
+    """Copies the game's icon nxnative found (its "game" event's "icon") to
+    the builder's icons, for the app: the build folder may not keep it."""
+    if not isinstance(icon, str) or not icon:
+        return None
+    source = Path(icon)
+    suffix = source.suffix.lower()
+    try:
+        if suffix not in ICON_SUFFIXES or not source.is_file() or source.stat().st_size > ICON_LIMIT:
+            return None
+        paths.icons.mkdir(parents=True, exist_ok=True)
+        for old in paths.icons.glob(f"{title_id}.*"):
+            old.unlink(missing_ok=True)
+        target = paths.icons / f"{title_id}{'.jpg' if suffix == '.jpeg' else suffix}"
+        shutil.copyfile(source, target)
+        return target
+    except OSError:
+        return None
 
 
 def _identity(path: Path) -> tuple[int, int, int] | None:
@@ -317,11 +379,33 @@ class _Skipped(Exception):
     pass
 
 
-def run_due(ctx: Context, update: bool = True, force: set[str] | None = None, only: set[str] | None = None, python: Path | None = None, on_event=None, stop=None, check_tools: bool = True, log=None) -> tuple[Plan, Summary]:
-    """Plans and builds what is due (or ONLY those games), under the batch lock."""
+def run_due(ctx: Context, update: bool = True, force: set[str] | None = None, only: set[str] | None = None, python: Path | None = None, on_event=None, stop=None, check_tools: bool = True, log=None, scheduled: bool = False) -> tuple[Plan, Summary]:
+    """Plans and builds what is due (or ONLY those games), under the batch
+    lock, and keeps status.json of it for the app."""
     with batch_lock(ctx.paths):
-        result = survey(ctx, update=update, force=force, log=log)
-        entries = [e for e in result.entries if e.build and (not only or e.title_id in only)]
-        runner = Runner(ctx, result, entries, python=python, on_event=on_event, stop=stop, check_tools=check_tools)
-        return result, runner.run()
+        status = Status(ctx.paths, scheduled=scheduled)
+        status.write(force=True)
+
+        def say(message: str) -> None:
+            status.say(message)
+            if log:
+                log(message)
+
+        def follow(kind: str, title_id: str, value) -> None:
+            status.event(kind, title_id, value)
+            if on_event:
+                on_event(kind, title_id, value)
+
+        try:
+            say(t("batch.preparing"))
+            result = survey(ctx, update=update, force=force, log=say)
+            entries = [e for e in result.entries if e.build and (not only or e.title_id in only)]
+            status.planned(result.head, entries)
+            runner = Runner(ctx, result, entries, python=python, on_event=follow, stop=stop, check_tools=check_tools)
+            summary = runner.run()
+        except BaseException as error:
+            status.failed(str(error) or type(error).__name__)
+            raise
+        status.finished(summary)
+        return result, summary
 

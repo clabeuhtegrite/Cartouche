@@ -46,7 +46,7 @@ def language() -> str:
     return _language
 
 
-def t(key: str, **params: object) -> str:
+def t(key: str, /, **params: object) -> str:
     """The text of KEY with PARAMS; "<key>.one" when it has one and count is 1."""
     if params.get("count") == 1 and f"{key}.one" in TEXTS:
         key = f"{key}.one"

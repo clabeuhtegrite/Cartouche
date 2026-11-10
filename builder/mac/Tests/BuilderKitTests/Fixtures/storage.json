@@ -1,0 +1,102 @@
+{
+  "api": 1,
+  "storage": {
+    "disks": {
+      "games": {
+        "free": 31996510208,
+        "path": "/Users/player/Builder/games",
+        "present": true,
+        "total": 270553174016
+      },
+      "sources": {
+        "free": 31996510208,
+        "path": "/Users/player/Builder/sources",
+        "present": true,
+        "total": 270553174016
+      },
+      "workspace": {
+        "free": 31996510208,
+        "path": "/Users/player/Builder/home/workspace",
+        "present": true,
+        "total": 270553174016
+      }
+    },
+    "folders": [
+      {
+        "kind": "build",
+        "name": "Super Mario Odyssey",
+        "parts": {
+          "app": 0,
+          "extracted": 908,
+          "other": 282,
+          "packages": 0,
+          "shaders": 300,
+          "temporary": 0
+        },
+        "path": "/Users/player/Builder/home/workspace/0100000000010000_build",
+        "size": 1490,
+        "title_id": "0100000000010000",
+        "used": 1794330666.5325687,
+        "workspace": "/Users/player/Builder/home/workspace"
+      },
+      {
+        "kind": "build",
+        "name": "Mario Kart World",
+        "parts": {
+          "app": 0,
+          "extracted": 0,
+          "other": 274,
+          "packages": 0,
+          "shaders": 300,
+          "temporary": 0
+        },
+        "path": "/Users/player/Builder/home/workspace/0400C3F00006E000_build",
+        "size": 574,
+        "title_id": "0400C3F00006E000",
+        "used": 1794330665.7638214,
+        "workspace": "/Users/player/Builder/home/workspace"
+      }
+    ],
+    "ipa_copies": [
+      {
+        "name": "Super Mario Odyssey",
+        "path": "/Users/player/Builder/home/workspace/.cartouche-builder/out/0100000000010000.ipa",
+        "same_disk": true,
+        "size": 849,
+        "title_id": "0100000000010000",
+        "used": 1794330666.138979,
+        "workspace": "/Users/player/Builder/home/workspace"
+      },
+      {
+        "name": "Mario Kart World",
+        "path": "/Users/player/Builder/home/workspace/.cartouche-builder/out/0400C3F00006E000.ipa",
+        "same_disk": true,
+        "size": 846,
+        "title_id": "0400C3F00006E000",
+        "used": 1794330665.797313,
+        "workspace": "/Users/player/Builder/home/workspace"
+      }
+    ],
+    "settings": {
+      "keep_extracted": false,
+      "keep_ipa": false,
+      "min_free_gb": 0,
+      "workspace_limit_gb": 0
+    },
+    "totals": {
+      "app": 0,
+      "engine": 40387,
+      "extracted": 908,
+      "icons": 16,
+      "ipa_copies": 1695,
+      "ipa_copies_freeable": 0,
+      "logs": 4229,
+      "other": 556,
+      "packages": 0,
+      "python": 0,
+      "shaders": 600,
+      "temporary": 0
+    },
+    "workspace": "/Users/player/Builder/home/workspace"
+  }
+}

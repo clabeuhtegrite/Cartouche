@@ -68,6 +68,21 @@ class Paths:
         """The default folder of the games' build folders."""
         return self.root / "workspace"
 
+    @property
+    def icons(self) -> Path:
+        """Each game's icon, as nxnative found it in the game's files at its last build."""
+        return self.root / "icons"
+
+    @property
+    def status(self) -> Path:
+        """The batch running now, or the last one (status.py)."""
+        return self.root / "status.json"
+
+    @property
+    def library(self) -> Path:
+        """The last look at the games, for the app to show at once (api.py)."""
+        return self.root / "library.json"
+
 
 def legacy_root() -> Path:
     override = os.environ.get("CARTOUCHE_BUILDER_LEGACY_HOME")
