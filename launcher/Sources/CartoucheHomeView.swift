@@ -399,7 +399,7 @@ struct CartoucheHomeView: View {
     private func gameMenu(_ entry: CartoucheEntry) -> some View {
         if let app = entry.app, actions.isRunning(app) {
             Button { onPlay(app) } label: { Label(CartoucheText.resume, systemImage: "play.fill") }
-            Button(role: .destructive) { actions.askToQuit() } label: { Label(CartoucheText.quit, systemImage: "xmark.circle") }
+            Button(role: .destructive) { actions.askToQuit() } label: { Label(CartoucheText.quit, systemImage: "stop.circle") }
         } else if let app = entry.app {
             Button { onPlay(app) } label: { Label(CartoucheText.play, systemImage: "play.fill") }
             if let update = entry.update {
@@ -515,11 +515,13 @@ struct CartoucheHomeView: View {
 
     /// The buttons of the game in focus; with COMPACT, its last ones show
     /// only their symbols: Details at 1, Update or Quit and Details at 2.
+    /// Quit's symbol is a stop sign: a cross would read as a controller's
+    /// button, the X that opens Details or a PlayStation's ✕ that resumes.
     private func gameActions(_ entry: CartoucheEntry, compact: Int) -> some View {
         HStack(spacing: 10) {
             if let app = entry.app, actions.isRunning(app) {
                 actionButton(CartoucheText.resume, systemImage: "play.fill", primary: true, input: .a) { onPlay(app) }
-                actionButton(CartoucheText.quit, systemImage: "xmark.circle", primary: false,
+                actionButton(CartoucheText.quit, systemImage: "stop.circle", primary: false,
                              iconOnly: compact >= 2) { actions.askToQuit() }
             } else if let app = entry.app {
                 actionButton(CartoucheText.play, systemImage: "play.fill", primary: true, input: .a) { onPlay(app) }

@@ -132,11 +132,13 @@ struct CartoucheSystemView: View {
                 VStack(alignment: .leading, spacing: 10) {
                     LabeledContent(CartoucheText.memoryLimit, value: CartoucheText.memoryAmount(mebibytes: memory.limitMiB))
                         .font(.headline)
+                    // No label in view: the gallery showed it over the bar
+                    // despite labelsHidden(), and the Used row below says it.
                     Gauge(value: Double(memory.footprintBytes), in: 0...Double(max(memory.limitBytes, 1))) {
-                        Text(CartoucheText.memoryUsed)
+                        EmptyView()
                     }
                     .gaugeStyle(.linearCapacity)
-                    .labelsHidden()
+                    .accessibilityLabel(Text(CartoucheText.memoryUsed))
                 }
                 .padding(.vertical, 4)
                 LabeledContent(CartoucheText.memoryUsed, value: CartoucheText.memoryAmount(mebibytes: memory.footprintMiB))
