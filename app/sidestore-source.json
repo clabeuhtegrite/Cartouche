@@ -16,6 +16,15 @@
       "bundleIdentifier": "io.github.clabeuhtegrite.cartouche",
       "versions": [
         {
+          "version": "0.8.1",
+          "date": "2026-11-10T03:49:31Z",
+          "localizedDescription": "Games install from your storage again, and the icon keeps no badge.\n\n- Install: a game whose IPA holds a large deflated file, such as a RomFS image of several GB, installs from your shared folder, S3 bucket or server. Cartouche stopped with \"romfs.img is damaged (its deflated data ends early)\": the end of the file was never decoded.\n- Icon: Cartouche's icon no longer shows a badge with nothing behind it. The built-in SideStore counted the available updates there and never took the count away; Cartouche clears it when it opens.",
+          "downloadURL": "https://github.com/clabeuhtegrite/Cartouche/releases/download/v0.8.1/Cartouche-0.8.1.ipa",
+          "size": 27158452,
+          "sha256": "1c802be9daad732f72925c5d9b860f6ede9182a8f6718469d6938151b56b8506",
+          "minOSVersion": "15.0"
+        },
+        {
           "version": "0.8.0",
           "date": "2026-11-07T11:35:03Z",
           "localizedDescription": "Your games and saves on an SFTP server of yours.\n\n- Storage: System › Storage › Add an SFTP server reaches a server of yours, such as your NAS's or your Mac's, with your account on it. Your games folder and saves folder can be there, as on a shared folder.\n- Storage: Cartouche keeps the server's key when you save it and shows its fingerprint. Should the server show another key later, Cartouche stops before sending your password; if you reinstalled the server, remove it in Cartouche and add it again. Your password stays in this iPhone's keychain.",
@@ -94,15 +103,6 @@
           "downloadURL": "https://github.com/clabeuhtegrite/Cartouche/releases/download/v0.1.3/Cartouche-0.1.3.ipa",
           "size": 36703714,
           "sha256": "82ba4238816c386461a2d38c8a608693ef72f3de7e2c5e73a82bad8a3b1b0335",
-          "minOSVersion": "15.0"
-        },
-        {
-          "version": "0.1.2",
-          "date": "2026-11-06T09:48:10Z",
-          "localizedDescription": "Install it with iloader, from scratch or over 0.1.1: nothing to set in SideStore or anywhere else.\n\n- iloader: in Manage Pairing File, Place In All Apps now puts the pairing file into Cartouche, listed there as LiveContainer. No export, no AirDrop. Cartouche keeps its name on the home screen.\n- Setup: the pairing file step ticks itself, even while you are still at the computer. Sign in with SideStore opens LocalDevVPN, then the Apple ID sign-in, and brings you back to Cartouche once you are signed in.\n- The built-in SideStore signs in through the SideStore (New) anisette server, as iloader does, no longer asks for a pairing file it already has, and accepts the one iloader exports.\n- A pairing file exported from iloader can also be opened with Cartouche, from AirDrop or Files.",
-          "downloadURL": "https://github.com/clabeuhtegrite/Cartouche/releases/download/v0.1.2/Cartouche-0.1.2.ipa",
-          "size": 36699317,
-          "sha256": "14f73eb7ff2b381d812ca51ede0109349e1f711acdb63b92e44d9a0218a9828c",
           "minOSVersion": "15.0"
         }
       ]
