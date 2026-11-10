@@ -57,6 +57,7 @@ class Plan:
     entries: list[Entry]
     notes: list[tuple[str, str, str]] = field(default_factory=list)
     issues: list[str] = field(default_factory=list)
+    profiles: dict[str, Profile] = field(default_factory=dict)  # nxnative's games, by title ID
 
     @property
     def to_build(self) -> list[Entry]:
@@ -151,7 +152,7 @@ def plan(
                         else t("plan.shared_waiting", count=len(impact.shared), date=due.strftime("%Y-%m-%d"))
                     )
         _finish(entry, reasons, details, head, prints)
-    return Plan(head=head, entries=entries, notes=list(notes))
+    return Plan(head=head, entries=entries, notes=list(notes), profiles=profiles)
 
 
 def _finish(entry: Entry, reasons: list[str], details: list[str], head: str, prints: dict[str, str]) -> None:

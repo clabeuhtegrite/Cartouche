@@ -1,0 +1,49 @@
+{
+  "api": 1,
+  "status": {
+    "ended": "2026-11-10T17:11:06+00:00",
+    "error": "",
+    "games": [
+      {
+        "detail": "An nxnative commit names it: Super Mario Odyssey: the cap (PR #4)",
+        "duration": 0.0,
+        "ended": "2026-11-10T17:11:06+00:00",
+        "error": "the fake build failed on purpose",
+        "eta": 3,
+        "frac": 1.0,
+        "ipa": "",
+        "k": 1,
+        "log": "/Users/player/Builder/home/logs/0100000000010000/2026-11-10_17-11-06.log",
+        "message": "the fake build failed on purpose",
+        "n": 2,
+        "name": "Super Mario Odyssey",
+        "note": "",
+        "overall": 0.5,
+        "reasons": [
+          "named"
+        ],
+        "stage": "extract",
+        "started": "2026-11-10T17:11:06+00:00",
+        "state": "failed",
+        "step": "",
+        "title_id": "0100000000010000"
+      }
+    ],
+    "head": "16142e670c8f8517642e3f1bc29dbf947e9aa56d",
+    "lines": [
+      "Looking at nxnative and the games…",
+      "Bringing nxnative up to date…",
+      "Super Mario Odyssey: the fake build failed on purpose",
+      "Super Mario Odyssey: the fake build failed on purpose"
+    ],
+    "message": "Bringing nxnative up to date…",
+    "pid": 27851,
+    "report": "/Users/player/Builder/home/reports/2026-11-10_17-11-06.md",
+    "running": false,
+    "scheduled": false,
+    "started": "2026-11-10T17:11:06+00:00",
+    "state": "done",
+    "updated": "2026-11-10T17:11:06+00:00",
+    "version": 1
+  }
+}

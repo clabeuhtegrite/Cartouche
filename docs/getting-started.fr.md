@@ -24,30 +24,22 @@ De rien à votre premier jeu sur votre iPhone, en quatre étapes. Cartouche ne t
 
 **Envoyer les étapes à mon Mac**, dans le guide, envoie cette page au Mac, par AirDrop ou Messages.
 
-1. Installez **Xcode 27.2**, gratuit chez Apple : depuis l’App Store s’il propose la 27.2, sinon depuis les [téléchargements pour développeurs d’Apple](https://developer.apple.com/download/all/) (cherchez Xcode 27.2, connectez-vous avec votre compte Apple, puis placez Xcode dans Applications). Ouvrez Xcode une fois, acceptez sa licence et cochez **iOS** parmi les plateformes qu’il propose.
-2. Ouvrez **Terminal** (dans Applications › Utilitaires), collez cette commande et appuyez sur Entrée :
-
-   ```
-   /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/clabeuhtegrite/Cartouche/main/builder/install.sh)"
-   ```
-
-   Elle installe [Homebrew](https://brew.sh) si le Mac ne l’a pas, puis Python avec Tk, `xcodegen`, `zstd` et `glslang`, prépare la plateforme iOS et la Metal toolchain de Xcode, met **Cartouche Builder** dans le dossier Applications de votre dossier personnel, télécharge nxnative, et ouvre Cartouche Builder. Homebrew demande le mot de passe de votre Mac. Si Xcode manque, ou n’a jamais été ouvert, la commande le dit : relancez-la ensuite, elle reprend là. La même commande met Cartouche Builder à jour plus tard ([builder/install.sh](../builder/install.sh)).
-3. Dans Cartouche Builder, choisissez vos dossiers ([builder/README.md](../builder/README.md#start)) :
-   - **Sources des jeux :** un dossier par jeu, avec ses paquets (`.nsp`, `.xci`, `.nsz`, `.xcz`, le `.nup` d’un jeu Switch 2) ou son extraction. Le compilateur ne fait que les lire.
-   - **Dossier des jeux :** là où vont les IPA de vos jeux, le dossier que lit votre iPhone, comme un dossier nommé Jeux dans votre dossier personnel, ou un dossier de votre NAS.
-   - **prod.keys :** les clés de votre console, pour les paquets.
-
-   **Outils du Mac…** vérifie le Mac, et ouvre la commande qui installe ce qui manque encore.
-4. Sélectionnez votre jeu dans la liste et choisissez **Construire la sélection**. La première construction d’un gros jeu prend des heures ; les suivantes réutilisent son dossier de construction. Avec **Construire ce qui est dû chaque nuit à**, Cartouche Builder reconstruit vos jeux quand nxnative les améliore, et Cartouche vous propose la mise à jour.
+1. Sur un Mac à puce Apple sous macOS 26.6 ou ultérieur, téléchargez `Cartouche-Builder-<version>.dmg` depuis la dernière [version `builder-v<version>`](https://github.com/clabeuhtegrite/Cartouche/releases), ouvrez-le et glissez **Cartouche Builder** sur **Applications**.
+2. Ouvrez Cartouche Builder. La première fois, macOS dit qu’il ne peut pas le vérifier, car il n’est pas signé par Apple : dans **Réglages Système › Confidentialité et sécurité**, cliquez sur **Ouvrir quand même** à côté de Cartouche Builder, une fois.
+3. Cartouche Builder prépare le Mac avec vous, une page après l’autre ([builder/README.md](../builder/README.md#install)) :
+   - **Les outils du Mac :** **Tout préparer** installe ce avec quoi nxnative construit. Xcode 27.2, gratuit chez Apple, vient de l’App Store, que l’app vous ouvre, ou des [téléchargements pour développeurs d’Apple](https://developer.apple.com/download/all/) tant que l’App Store propose une autre version ; Homebrew demande le mot de passe de votre Mac ; le reste s’installe en arrière-plan.
+   - **Vos jeux :** les **Sources des jeux**, un dossier par jeu avec ses paquets (`.nsp`, `.xci`, `.nsz`, `.xcz`, le `.nup` d’un jeu Switch 2) ou son dump, que le builder ne fait que lire ; le **Dossier des jeux**, où vont les IPA de vos jeux, sur le Mac ou sur votre NAS ; et `prod.keys`, les clés de votre console, pour les paquets.
+   - **Cartouche sur l’iPhone :** laissez **Partager avec Cartouche sur l’iPhone** activé, pour que Cartouche installe vos jeux depuis le Mac.
+4. Dans **Bibliothèque**, ouvrez votre jeu et choisissez **Construire**. La première construction d’un gros jeu prend des heures ; les suivantes réutilisent son dossier de construction. Un jeu que vous suivez est reconstruit quand nxnative l’améliore : **Reconstruire ce qui est dû** les construit, et avec **Construire ce qui est dû chaque nuit**, dans les réglages, le Mac s’en charge la nuit. Cartouche vous propose ensuite la mise à jour.
 
 ## 3. Choisissez votre dossier des jeux dans Cartouche
 
-Votre iPhone lit le dossier des jeux là où il est, sur votre réseau :
+Dans Cartouche, **Choisir le dossier des jeux**, dans le guide, ouvre la page du stockage. Votre iPhone lit le dossier des jeux là où il est, sur votre réseau :
 
-- **Sur votre Mac :** dans **Réglages Système › Général › Partage**, activez **Partage de fichiers**, puis cliquez sur ⓘ à côté, ajoutez votre dossier des jeux sous **Dossiers partagés**, et dans **Options…**, laissez **Partager des fichiers et dossiers via SMB** activé et cochez votre compte sous **Partage de fichiers Windows**, pour que l’iPhone se connecte avec le nom d’utilisateur et le mot de passe de votre Mac. Le Mac y affiche son adresse, comme `smb://MacBook-Air.local`.
-- **Sur votre NAS :** un dossier partagé à vous, avec votre compte.
+- **Sur votre Mac :** choisissez **Ajouter votre Mac (Cartouche Builder)**, puis votre Mac sous **Macs à proximité** ; la première fois, autorisez Cartouche à trouver les appareils de votre réseau local. Les deux écrans affichent six chiffres : s’ils sont les mêmes, cliquez sur **Autoriser** sur le Mac. Cartouche installe alors vos jeux depuis le Mac et y garde vos sauvegardes, chiffrées en chemin. L’iPhone trouve le Mac sur votre Wi-Fi, ou par votre VPN à l’adresse où il l’a joint la dernière fois.
+- **Sur votre NAS :** ajoutez-le avec son adresse, votre nom d’utilisateur et votre mot de passe, puis choisissez le dossier des jeux. Un serveur SFTP ou FTP, un bucket S3 à vous ou un dossier de Fichiers conviennent aussi, tout comme le Partage de fichiers (SMB) de votre Mac.
 
-Dans Cartouche, **Choisir le dossier des jeux**, dans le guide, ouvre la page du stockage : ajoutez votre Mac ou votre NAS avec son adresse, votre nom d’utilisateur et votre mot de passe, puis choisissez le dossier des jeux. Cartouche y liste vos jeux et propose leurs mises à jour. Un serveur SFTP ou FTP, un bucket S3 à vous ou un dossier de Fichiers conviennent aussi.
+Cartouche y liste vos jeux et propose leurs mises à jour.
 
 Pas de dossier des jeux ? Mettez l’IPA dans Fichiers sur l’iPhone, par AirDrop par exemple, et choisissez **Importer plutôt une IPA**.
 
@@ -58,7 +50,7 @@ Votre jeu apparaît dans la dernière étape du guide et dans votre bibliothèqu
 ## Ensuite
 
 - **Laissez LocalDevVPN allumé** quand vous le pouvez : Cartouche renouvelle sa signature de sept jours par lui, depuis la page Système ou chaque nuit avec l’automatisation Raccourcis que cette page explique.
-- **Mises à jour :** Cartouche propose lui-même ses nouvelles versions, et la mise à jour d’un jeu quand votre dossier des jeux en a une construction plus récente.
+- **Mises à jour :** Cartouche propose lui-même ses nouvelles versions, et la mise à jour d’un jeu quand votre dossier des jeux en a une construction plus récente. Cartouche Builder se met à jour tout seul, quand il ne construit rien.
 - **Le certificat ne marche plus :** l’accueil le dit ; reconnectez-vous. **Le fichier de jumelage manque :** l’installeur le remet dans Cartouche, ou réinstalle Cartouche par-dessus cette copie, ce qui garde vos jeux et leurs sauvegardes.
 
 Cartouche ne fournit ni jeux, ni clés, ni firmware, et ne les télécharge jamais ; Cartouche Builder construit les vôtres à partir de vos propres fichiers, sur votre Mac, dans votre propre dossier des jeux ([LEGAL.md](../LEGAL.md)).

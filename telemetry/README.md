@@ -1,6 +1,6 @@
 # Telemetry server
 
-Cartouche sends what its players' games measured to a server of the project's own: a Cloudflare Worker, [`worker.js`](worker.js), and its D1 database, [`schema.sql`](schema.sql), created in the EU jurisdiction, where it is stored and run. Telemetry is on unless the player turns off **Game measurements** on the System page ([decision 35](../docs/decisions.md)); what it sends, and what it never sends, is in [docs/privacy.md](../docs/privacy.md). The app's side is [`CartoucheTelemetry.swift`](../launcher/Sources/CartoucheTelemetry.swift), the report format [`CartoucheTelemetryReport.swift`](../launcher/Sources/CartoucheTelemetryReport.swift) and the reading of a game's log [`CartoucheGameLog.swift`](../launcher/Sources/CartoucheGameLog.swift).
+Cartouche sends what its players' games measured to a server of the project's own: a Cloudflare Worker, [`worker.js`](worker.js), and its D1 database, [`schema.sql`](schema.sql), created in the EU jurisdiction, where it is stored and run. Telemetry is on unless the player turns off **Game measurements** on the System page ([decision 35](../docs/decisions.md)); what it sends, and what it never sends, is in [docs/privacy.md](../docs/privacy.md). The app's side is [`CartoucheTelemetry.swift`](../launcher/Sources/CartoucheTelemetry.swift), the report format [`CartoucheTelemetryReport.swift`](../launcher/Sources/CartoucheTelemetryReport.swift) and the reading of a game's log [`CartoucheGameLog.swift`](../launcher/Sources/CartoucheGameLog.swift). Cartouche Builder, on the Mac, sends its own events to the same server, unless the player turns off **Send usage measures** in its settings ([Cartouche Builder](#cartouche-builder), [`BuilderTelemetry.swift`](../builder/mac/Sources/BuilderKit/BuilderTelemetry.swift)).
 
 The Worker has no dependency and no build: the file is deployed as it is. The project reads what it holds on a [dashboard](#dashboard) of its own.
 
@@ -73,6 +73,22 @@ A value the log does not have is left out.
 | `signature.renewed` | The signature lasts longer than it did. | `daysLeft` |
 | `game.installed` | A game installed or updated. | `version`, `nxnative` |
 | `error` | An error Cartouche reported. | `origin`, what Cartouche was doing; `error`, the domains and codes of the error and those under it, never its words; `background` |
+
+## Cartouche Builder
+
+Cartouche Builder sends events in the same form, to the same routes, with its own queue, its own random `install` and its own **Erase what this Mac sent**. In its reports, `cartouche` is Cartouche Builder's version, `device` the Mac's model identifier, such as `Mac16,12`, and `ios` the macOS version; there is no `memoryLimitMiB` nor `increasedMemoryLimit`. `game` is a title ID, as in Cartouche's. It never sends a path, a file or folder name, a game's name, a log line, an error's words, the Mac's name or the names of the paired iPhones. [`test/builder-reports.json`](test/builder-reports.json) holds one report of each, which the server's tests check it keeps whole, and which the app's tests check it makes ([`TelemetryTests.swift`](../builder/mac/Tests/BuilderKitTests/TelemetryTests.swift)).
+
+| Name | When | Fields |
+| --- | --- | --- |
+| `builder.opened` | Each start of the app. | `memoryGB`, `cores`; `ready` and `missing`, the Mac's tools; `games`, `followed`, `due`, `failed` and `ipaOnly`, how many games of each; `remote`, folders on a share; `bridge` and `paired`, the bridge and how many iPhones; `menuBar`, `atLogin`, `automaticUpdates`, `fromDiskImage`; `schedule`, `jobs`, `keepExtracted`, `policy` (when shared changes rebuild), `forkOfNxnative`, `gameLanguage`; `xcode`, `nxnative` |
+| `builder.setup` | A tool of the Mac installed, or not. | `item`, the tool; `result`; `seconds` |
+| `builder.built` | A game built. | `reasons`, why it was due; `seconds`; `source`, the kind of its files; `nxnative`; `ipaMB` |
+| `builder.failed` | A game's build failed. | as `builder.built`, with `stage`, the step that failed, and no `ipaMB` |
+| `builder.batch` | A batch ended. | `state`; `games`, `built`, `failed`, `skipped`, `stopped`; `scheduled`, at night; `jobs`; `minutes`; `nxnative` |
+| `builder.cleaned` | Room freed on the Storage page. | `what`, `items`, `freedMB` |
+| `builder.paired` | An iPhone asked to pair. | `allowed` |
+| `builder.updated` | The first start of a new version. | `from`, `to` |
+| `builder.error` | An error the app met. | `origin`, what it was doing; `kind`, the engine's kind of error, or `error`, the domains and codes of the error and those under it, never its words; `background` |
 
 ## Dashboard
 

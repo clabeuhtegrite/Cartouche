@@ -1,0 +1,6 @@
+{
+  "error": {
+    "kind": "bad_request",
+    "message": "Not a value jobs takes."
+  }
+}

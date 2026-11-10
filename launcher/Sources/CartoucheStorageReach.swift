@@ -26,13 +26,17 @@ import Network
 struct CartoucheStorageOffline: LocalizedError {
     /// The server's name in Cartouche, or its address before it has one.
     let name: String
+    /// Whether it is the player's Mac, which answers only while Cartouche
+    /// Builder shares with Cartouche.
+    let isMac: Bool
 
     init(_ server: CartoucheStorageServer) {
         let name = server.name.trimmingCharacters(in: .whitespaces)
         self.name = name.isEmpty ? server.host.trimmingCharacters(in: .whitespaces) : name
+        isMac = server.kind == .mac
     }
 
-    var errorDescription: String? { CartoucheText.storageOffline(name) }
+    var errorDescription: String? { isMac ? CartoucheText.storageMacOffline(name) : CartoucheText.storageOffline(name) }
 }
 
 @MainActor
@@ -230,6 +234,9 @@ final class CartoucheStorageReach: ObservableObject {
     /// there, and only the request itself tells for a server reached
     /// through a proxy.
     nonisolated static func answers(_ server: CartoucheStorageServer) async -> Bool {
+        // The player's Mac takes the addresses the router gives it: Bonjour
+        // finds it where the last one no longer answers.
+        if server.kind == .mac { return await CartoucheMacStorage.answers(server) }
         guard let address = address(of: server) else { return true }
         if server.kind == .s3 && usesProxy { return true }
         return await knock(host: address.host, port: address.port)
@@ -248,6 +255,9 @@ final class CartoucheStorageReach: ObservableObject {
             return (host, server.port ?? 21)
         case .sftp:
             return (host, server.port ?? 22)
+        case .mac:
+            // Where it was last reached, if anywhere yet.
+            return host.isEmpty ? nil : (host, server.port ?? Int(CartoucheBridge.port))
         case .s3:
             guard let bucket = try? CartoucheS3.target(of: server) else { return nil }
             let endpoint = bucket.endpoint

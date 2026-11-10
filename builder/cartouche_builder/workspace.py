@@ -108,6 +108,27 @@ class Workspace:
         except OSError:
             pass
 
+    def forget_sized(self, folder: Path) -> int:
+        """Removes FOLDER as forget() does; the bytes it took."""
+        size = walk_size(folder)
+        self.forget(folder)
+        return size
+
+    def own_folders(self) -> list[Path]:
+        """The build and dump folders here, as the builder names them, noted or not."""
+        try:
+            entries = sorted(self.root.iterdir())
+        except OSError:
+            return []
+        return [p for p in entries if OWN_FOLDER.fullmatch(p.name) and p.is_dir() and not p.is_symlink()]
+
+    def used(self, folder: Path) -> float | None:
+        """When the builder last used FOLDER, from its note."""
+        try:
+            return float(json.loads(self._note(folder).read_text())["used"])
+        except (OSError, ValueError, KeyError, TypeError):
+            return None
+
 
 def remove_tree(path: Path) -> None:
     """Removes PATH; a file that went meanwhile (an AppleDouble "._" file a

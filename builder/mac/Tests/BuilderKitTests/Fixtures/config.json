@@ -1,0 +1,40 @@
+{
+  "api": 1,
+  "builder": {
+    "default_workspace": "/Users/player/Builder/home/workspace",
+    "home": "/Users/player/Builder/home",
+    "problems": [],
+    "python": "/usr/local/bin/python3",
+    "scheduled": false,
+    "version": "0.2.0",
+    "workspace": "/Users/player/Builder/home/workspace"
+  },
+  "config": {
+    "aliases": {},
+    "engine_branch": "main",
+    "engine_policy": "weekly",
+    "engine_url": "/Users/player/Builder/remote",
+    "game_language": "",
+    "games": "/Users/player/Builder/games",
+    "imported": false,
+    "jobs": 1,
+    "keep_extracted": false,
+    "keep_ipa": false,
+    "keys": "",
+    "language": "",
+    "min_free_gb": 0,
+    "notifications": true,
+    "only": [],
+    "refresh_days": 7,
+    "schedule": false,
+    "schedule_hour": 3,
+    "schedule_minute": 30,
+    "shares": {},
+    "skip": [],
+    "sources": "/Users/player/Builder/sources",
+    "unprofiled": false,
+    "version": 1,
+    "workspace": "",
+    "workspace_limit_gb": 0
+  }
+}

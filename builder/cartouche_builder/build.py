@@ -61,11 +61,15 @@ class Result:
     stopped: bool = False
 
 
-def command(python: Path, script: Path, source: Path, work: Path, out: Path, keys: Path | None, language: str = "") -> list[str]:
+def command(python: Path, script: Path, source: Path, work: Path, out: Path, keys: Path | None, language: str = "", keep_extracted: bool | None = None) -> list[str]:
+    """nxnative's command line. KEEP_EXTRACTED None leaves nxnative's own
+    choice (a checkout without --keep-extracted keeps the files)."""
     args = [str(python), "-u", str(script), str(source)]
     if keys is not None:
         args += ["-k", str(keys)]
     args += ["--work-dir", str(work), "-o", str(out), "--platform", "ios", "--progress", "json"]
+    if keep_extracted is not None:
+        args.append("--keep-extracted" if keep_extracted else "--no-keep-extracted")
     if language:
         args += ["-l", language]
     return args
@@ -79,8 +83,11 @@ def run(
     on_progress=None,
     on_message=None,
     stop: threading.Event | None = None,
+    on_game=None,
 ) -> Result:
-    """Runs one build to its end. STOP asks nxnative to stop (as Ctrl-C does)."""
+    """Runs one build to its end. STOP asks nxnative to stop (as Ctrl-C does).
+    ON_GAME has the "game" event as it comes, while the files it names (the
+    game's icon) are still there."""
     log_path.parent.mkdir(parents=True, exist_ok=True)
     started = time.monotonic()
     result = Result(code=-1, ok=False)
@@ -156,6 +163,11 @@ def run(
                     result.warnings.append(f"{event.get('name')}: {event.get('summary', '')}".strip())
             elif kind == "game":
                 result.game = {k: v for k, v in event.items() if k not in ("ev", "t")}
+                if on_game:
+                    try:
+                        on_game(result.game)
+                    except Exception as error:  # the build goes on whatever its follower does
+                        write(f"! on_game: {error}")
             elif kind == "shaders_stale":
                 result.stale_shaders = {k: v for k, v in event.items() if k not in ("ev", "t")}
             elif kind == "say":

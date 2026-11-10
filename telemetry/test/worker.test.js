@@ -211,6 +211,17 @@ test("keeps every field of the reports Cartouche makes", async () => {
   for (const report of appReports) assert.deepEqual(JSON.parse(db.reports.get(report.id).body), report);
 });
 
+// One report of each kind Cartouche Builder makes on the Mac, events named
+// builder.*: its tests check that it makes them so (TelemetryTests.swift).
+const builderReports = JSON.parse(readFileSync(new URL("./builder-reports.json", import.meta.url), "utf8")).reports;
+
+test("keeps every field of the reports Cartouche Builder makes", async () => {
+  for (const report of builderReports) assert.deepEqual(JSON.parse(JSON.stringify(clean(report))), report);
+  const response = await worker.fetch(post("/v1/reports", { reports: builderReports }), env, {}, NOW);
+  assert.deepEqual(await response.json(), { accepted: builderReports.length, refused: 0 });
+  for (const report of builderReports) assert.deepEqual(JSON.parse(db.reports.get(report.id).body), report);
+});
+
 test("a report sent again is kept once", async () => {
   const session = sessionReport();
   await worker.fetch(post("/v1/reports", { reports: [session] }), env, {}, NOW);

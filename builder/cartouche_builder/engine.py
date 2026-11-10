@@ -178,6 +178,14 @@ class Engine:
     def build_script(self) -> Path:
         return self.root / "scripts" / "build_ipa_from_nsp.py"
 
+    def supports(self, option: str) -> bool:
+        """Whether this checkout's build script takes OPTION ("--keep-extracted")."""
+        try:
+            text = self.build_script.read_text(encoding="utf-8", errors="replace")
+        except OSError:
+            return False
+        return f"'{option}'" in text or f'"{option}"' in text
+
     @property
     def requirements(self) -> Path:
         return self.root / ".github" / "requirements" / "tools.txt"

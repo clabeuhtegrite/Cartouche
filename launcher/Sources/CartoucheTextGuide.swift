@@ -39,7 +39,7 @@ extension CartoucheText {
     static var guideBuildXcode: String { s("guide.build.xcode", "Xcode 27.2, free from Apple") }
     static var guideBuildGame: String { s("guide.build.game", "Your game, copied from your own console, with your console’s keys (prod.keys) for a Switch game") }
     static var guideBuildSend: String { s("guide.build.send", "Send the steps to my Mac") }
-    static var guideBuildSendNote: String { s("guide.build.sendNote", "By AirDrop or Messages. On the Mac, the page gives one command that installs Cartouche Builder and its tools.") }
+    static var guideBuildSendNote: String { s("guide.build.sendNote", "By AirDrop or Messages. On the Mac, the page gives Cartouche Builder: drag it into Applications, and it installs its tools itself.") }
     /// The page of the guide for the Mac, in the player's language.
     static var guideBuildLink: String { s("guide.build.link", "https://github.com/clabeuhtegrite/Cartouche/blob/main/docs/getting-started.md#2-build-your-game-on-your-mac") }
     static var guideBuildShareSubject: String { s("guide.build.share.subject", "Cartouche on your Mac") }
@@ -47,7 +47,7 @@ extension CartoucheText {
     static var guideBuildDone: String { s("guide.build.done", "A game of yours is ready.") }
 
     static var guideFolderTitle: String { s("guide.folder.title", "Choose your games folder") }
-    static var guideFolderHow: String { s("guide.folder.how", "Cartouche Builder puts your games in a folder. Share it from your Mac, in System Settings › General › Sharing › File Sharing, or keep it on your NAS, then choose it here: Cartouche lists your games and offers their updates.") }
+    static var guideFolderHow: String { s("guide.folder.how", "Cartouche Builder puts your games in a folder, on the Mac or on your NAS. Add your Mac here once, with the code both screens show, or choose the folder on your NAS: Cartouche lists your games and offers their updates.") }
     static var guideFolderChoose: String { s("guide.folder.choose", "Choose the games folder") }
     static var guideFolderImport: String { s("guide.folder.import", "Import an IPA instead") }
     static func guideFolderDone(_ server: String) -> String { f("guide.folder.done", "Your games folder is on %@.", server) }
