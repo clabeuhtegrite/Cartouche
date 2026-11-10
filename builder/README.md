@@ -6,7 +6,7 @@ It runs nxnative's own build script, as nxnative's [front-end page](https://gith
 
 ## Install
 
-[Download Cartouche Builder](https://clabeuhtegrite.github.io/Cartouche/download/#builder): the link downloads the newest disk image at once, `Cartouche-Builder-<version>.dmg` of the release `builder-v<version>`, as the button on [Cartouche's site](https://clabeuhtegrite.github.io/Cartouche/#builder) does. Open it, and drag **Cartouche Builder** onto **Applications**. The app is signed ad hoc, not by Apple: the first time, macOS says it cannot check it. Open **System Settings › Privacy & Security** and click **Open Anyway** beside Cartouche Builder, once. Its updates open without asking again.
+[Download Cartouche Builder](https://clabeuhtegrite.github.io/Cartouche/download/#builder), or use the button on [Cartouche's site](https://clabeuhtegrite.github.io/Cartouche/#builder): the disk image downloads at once. Open it, and drag **Cartouche Builder** onto **Applications**. The app is signed ad hoc, not by Apple: the first time, macOS says it cannot check it. Open **System Settings › Privacy & Security** and click **Open Anyway** beside Cartouche Builder, once. Its updates open without asking again.
 
 At its first start the app shows what it does and sets up the Mac, with no Terminal:
 

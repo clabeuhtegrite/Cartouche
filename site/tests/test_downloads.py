@@ -27,13 +27,13 @@ PAGES = [SITE / "index.html", SITE / "download" / "index.html"]
 
 
 def release(tag: str, *names: str, draft: bool = False, prerelease: bool = False, host: str = BASE,
-            size: int = 3_390_144, sizes: dict[str, int] | None = None, state: str = "uploaded") -> dict:
+            size: int = 3_390_144, state: str = "uploaded") -> dict:
     return {
         "tag_name": tag,
         "draft": draft,
         "prerelease": prerelease,
         "assets": [
-            {"name": name, "size": (sizes or {}).get(name, size), "state": state, "browser_download_url": host + tag + "/" + name}
+            {"name": name, "size": size, "state": state, "browser_download_url": host + tag + "/" + name}
             for name in names
         ],
     }
@@ -58,7 +58,6 @@ class NewestTests(unittest.TestCase):
         found = downloads.newest([builder("0.9.0"), builder("0.10.0"), builder("0.2.0")], "builder")
         self.assertEqual(found.version, "0.10.0")
         self.assertEqual(found.url, BASE + "builder-v0.10.0/Cartouche-Builder-0.10.0.dmg")
-        self.assertEqual(found.size, 3_390_144)
 
     def test_neither_drafts_nor_pre_releases_nor_other_programs(self) -> None:
         releases = [
@@ -109,8 +108,7 @@ class RewriteTests(unittest.TestCase):
     PAGE = (
         '<a class="btn" data-download="builder" href="' + BASE + 'builder-v0.1.0/Cartouche-Builder-0.1.0.dmg">Download</a>'
         ' <a href="https://github.com/clabeuhtegrite/Cartouche">GitHub</a>'
-        ' <p>Version <span data-download-version="builder">0.1.0</span> ·'
-        ' <span lang="fr" data-download-size="builder">1,0 Mo</span><span lang="en" data-download-size="builder">1.0 MB</span></p>'
+        ' <a data-download="installer-windows" class="btn"\n   href="#">For Windows</a>'
     )
 
     def setUp(self) -> None:
@@ -119,11 +117,9 @@ class RewriteTests(unittest.TestCase):
     def test_each_mark_gets_its_file(self) -> None:
         html, used = downloads.rewrite(self.PAGE, self.offered)
         self.assertIn('data-download="builder" href="' + BASE + 'builder-v0.3.0/Cartouche-Builder-0.3.0.dmg"', html)
-        self.assertIn('<span data-download-version="builder">0.3.0</span>', html)
-        self.assertIn('<span lang="fr" data-download-size="builder">3,4 Mo</span>', html)
-        self.assertIn('<span lang="en" data-download-size="builder">3.4 MB</span>', html)
+        self.assertIn('class="btn"\n   href="' + BASE + 'installer-v0.2.0/Cartouche-Installer-0.2.0-Windows.exe">For Windows</a>', html)
         self.assertIn('<a href="https://github.com/clabeuhtegrite/Cartouche">GitHub</a>', html)
-        self.assertEqual(used, ["builder"] * 4)
+        self.assertEqual(used, ["builder", "installer-windows"])
 
     def test_a_file_no_release_has(self) -> None:
         with self.assertRaisesRegex(downloads.DownloadError, r"builder-v<version>"):
@@ -133,19 +129,17 @@ class RewriteTests(unittest.TestCase):
         with self.assertRaisesRegex(downloads.DownloadError, "no file is called"):
             downloads.rewrite('<a data-download="cartouche" href="#">x</a>', self.offered)
 
-    def test_a_size_without_its_language(self) -> None:
-        with self.assertRaisesRegex(downloads.DownloadError, "language"):
-            downloads.rewrite('<span data-download-size="builder">1 MB</span>', self.offered)
-
-    def test_a_mark_it_cannot_fill(self) -> None:
-        for html in ('<p data-download-version="builder"><b>0.1.0</b></p>', '<button data-download="builder">x</button>', '<a data-download="builder">x</a>'):
+    def test_a_mark_on_something_else_than_a_link(self) -> None:
+        # Nor a version or a size to fill in: the pages show neither.
+        for html in (
+            '<button data-download="builder">x</button>',
+            '<a data-download="builder">x</a>',
+            "<a data-download='builder' href=\"#\">x</a>",
+            '<span data-download-version="builder">0.1.0</span>',
+            '<span lang="en" data-download-size="builder">1.0 MB</span>',
+        ):
             with self.subTest(html=html), self.assertRaises(downloads.DownloadError):
                 downloads.rewrite(html, self.offered)
-
-    def test_sizes_as_the_finder_shows_them(self) -> None:
-        self.assertEqual(downloads.size_text(3_390_144, "fr"), "3,4 Mo")
-        self.assertEqual(downloads.size_text(19_565_087, "en"), "19.6 MB")
-        self.assertEqual(downloads.size_text(123_456_789, "fr"), "123 Mo")
 
 
 class MainTests(unittest.TestCase):
@@ -164,7 +158,7 @@ class MainTests(unittest.TestCase):
             return code, [copy.read_text(encoding="utf-8") for copy in copies], out.getvalue(), err.getvalue()
 
     def test_the_site_s_pages_get_the_newest_files(self) -> None:
-        code, pages, out, _ = self.run_on_the_pages([[builder("0.2.0"), installer("0.1.0")], [builder("0.3.0"), installer("0.2.0", size=19_565_087)]])
+        code, pages, out, _ = self.run_on_the_pages([[builder("0.2.0"), installer("0.1.0")], [builder("0.3.0"), installer("0.2.0")]])
         self.assertEqual(code, 0)
         for html in pages:
             self.assertNotIn("builder-v0.2.0", html)
@@ -172,27 +166,21 @@ class MainTests(unittest.TestCase):
             self.assertIn(BASE + "builder-v0.3.0/Cartouche-Builder-0.3.0.dmg", html)
             self.assertIn(BASE + "installer-v0.2.0/Cartouche-Installer-0.2.0-Mac.dmg", html)
             self.assertIn(BASE + "installer-v0.2.0/Cartouche-Installer-0.2.0-Windows.exe", html)
-            self.assertIn('<span lang="fr" data-download-size="installer-mac">19,6 Mo</span>', html)
-        self.assertIn("Cartouche Builder 0.3.0, 3.4 MB: " + BASE + "builder-v0.3.0/Cartouche-Builder-0.3.0.dmg", out)
+        self.assertIn("- Cartouche Builder 0.3.0: " + BASE + "builder-v0.3.0/Cartouche-Builder-0.3.0.dmg", out)
 
     def test_the_pages_as_they_are_for_the_releases_they_name(self) -> None:
-        # Published from the releases and the sizes the pages show, they keep
-        # every byte: what they say is what the publication writes.
-        files: dict[str, tuple[str, str, int]] = {}
+        # Published from the releases their links name, they keep every
+        # byte: the links are what the publication writes, and nothing else
+        # changes.
+        tags: dict[str, set[str]] = {}
         for page in PAGES:
-            text = page.read_text(encoding="utf-8")
-            for key, url in re.findall(r'data-download="([\w-]+)" href="([^"]+)"', text):
+            for key, url in re.findall(r'data-download="([\w-]+)" href="([^"]+)"', page.read_text(encoding="utf-8")):
                 tag, name = url.removeprefix(BASE).split("/")
-                files[key] = (tag, name, files.get(key, ("", "", 0))[2])
-            for key, size in re.findall(r'lang="en" data-download-size="([\w-]+)">([\d.]+) MB<', text):
-                files[key] = files[key][:2] + (round(float(size) * 1_000_000),)
-        self.assertEqual(sorted(files), sorted(downloads.FILES))
-        tags: dict[str, dict[str, int]] = {}
-        for tag, name, size in files.values():
-            tags.setdefault(tag, {})[name] = size
-            if name.startswith("Cartouche-Builder-"):
-                tags[tag][name + ".sha256"] = 94
-        code, pages, _, err = self.run_on_the_pages([release(tag, *sizes, sizes=sizes) for tag, sizes in tags.items()])
+                tags.setdefault(tag, set()).add(name)
+                if key == "builder":
+                    tags[tag].add(name + ".sha256")
+        self.assertEqual(sorted(tags), ["builder-v0.2.0", "installer-v0.1.0"])
+        code, pages, _, err = self.run_on_the_pages([release(tag, *sorted(names)) for tag, names in tags.items()])
         self.assertEqual(code, 0, err)
         self.assertEqual(pages, [page.read_text(encoding="utf-8") for page in PAGES])
 

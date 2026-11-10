@@ -47,7 +47,7 @@ jobs:
           mkdir -p build
           gh api --paginate --slurp "repos/$GITHUB_REPOSITORY/releases?per_page=100" > build/releases.json
       # Each download link marked data-download gets the newest file of its
-      # releases, with its version and size (site/tools/downloads.py).
+      # releases (site/tools/downloads.py).
       - name: The files Pages serves
         run: |
           mkdir -p build/site/download

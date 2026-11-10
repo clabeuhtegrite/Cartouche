@@ -74,7 +74,8 @@ STATUSES = {"ready": "iphone", "stored": "iphone", "iphone": "iphone", "mac": "m
 
 
 class Page(HTMLParser):
-    """The page's tags, with their attributes, and its scripts and styles."""
+    """The page's tags, with their attributes, its scripts and styles, and
+    the rest of its text."""
 
     def __init__(self) -> None:
         super().__init__(convert_charrefs=True)
@@ -82,6 +83,7 @@ class Page(HTMLParser):
         self.ids: set[str] = set()
         self.scripts: list[tuple[dict[str, str], str]] = []
         self.styles: list[str] = []
+        self.words: list[str] = []
         self._in: str | None = None
 
     def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
@@ -109,6 +111,8 @@ class Page(HTMLParser):
             self.scripts[-1] = (attrs, text + data)
         elif self._in == "style":
             self.styles[-1] += data
+        else:
+            self.words.append(data)
 
 
 def read_page(path: Path = PAGE) -> tuple[str, Page]:
@@ -124,29 +128,34 @@ def download_of(href: str) -> str | None:
     return next((key for key, pattern in DOWNLOADS.items() if pattern.fullmatch(href)), None)
 
 
+# What a page says to its visitor besides its elements' text.
+SAID = ("content", "data-fr", "data-en", "aria-label", "data-label-fr", "data-label-en", "title", "alt")
+
+
 def check_downloads(test: unittest.TestCase, text: str, page: Page) -> dict[str, str]:
     """Each download of a page: a file of its releases, marked as that file,
-    with one version wherever the page names it, and its size as the
-    publication writes it. The version of each file."""
+    one release for each file wherever the page links to it, and no version
+    said: a button says what it downloads, not which version (the owner,
+    2026-11-10). The version of each file."""
     versions: dict[str, set[str]] = {}
     for tag, attrs in page.tags:
         key = download_of(attrs.get("href", "")) if tag == "a" else None
         if key or "data-download" in attrs:
             test.assertEqual(attrs.get("data-download"), key, f"<{tag} href={attrs.get('href')!r}> is marked data-download={attrs.get('data-download')!r}")
             versions.setdefault(key, set()).add(DOWNLOADS[key].fullmatch(attrs["href"]).group(1))
-    for key, version in re.findall(r'\sdata-download-version="([^"]*)">([^<]*)<', text):
-        test.assertIn(key, DOWNLOADS)
-        versions.setdefault(key, set()).add(version)
-    for start, key, size in re.findall(r'(<\w+\b[^>]*)\sdata-download-size="([^"]*)"[^>]*>([^<]*)<', text):
-        test.assertIn(key, DOWNLOADS)
-        lang = re.search(r'\slang="(fr|en)"', start)
-        test.assertIsNotNone(lang, f"the size of {key} says no language")
-        test.assertRegex(size, r"^\d+(?:,\d)? Mo$" if lang.group(1) == "fr" else r"^\d+(?:\.\d)? MB$")
     for key, found in versions.items():
-        test.assertEqual(len(found), 1, f"{key}: the page names {sorted(found)}")
+        test.assertEqual(len(found), 1, f"{key}: the page links to {sorted(found)}")
     # The Installer's two files are one release.
     if "installer-mac" in versions and "installer-windows" in versions:
         test.assertEqual(versions["installer-mac"], versions["installer-windows"])
+    # Only links are marked, and nothing the visitor reads names a version.
+    test.assertNotRegex(text, r"\sdata-download-")
+    said = page.words + [value for tag, attrs in page.tags for name, value in attrs.items() if name in SAID]
+    for words in said:
+        test.assertNotRegex(words, r"(?i)\bversion\s+\d")
+        for found in versions.values():
+            for version in found:
+                test.assertNotRegex(words, r"(?<![\d.])" + re.escape(version) + r"(?![\d.])", f"the page says the version {version}")
     return {key: found.pop() for key, found in versions.items()}
 
 
@@ -257,7 +266,7 @@ class SiteTests(unittest.TestCase):
 
     def test_downloads_are_the_installer_and_the_builder(self) -> None:
         # Each button gives the file itself, Mac and Windows for the
-        # Installer, in the version and size the page says beside it.
+        # Installer, with no version beside it.
         versions = check_downloads(self, self.text, self.page)
         self.assertEqual(sorted(versions), sorted(DOWNLOADS))
         buttons = [attrs["data-download"] for tag, attrs in self.page.tags if tag == "a" and "data-download" in attrs]
@@ -414,7 +423,6 @@ class DownloadPageTests(unittest.TestCase):
             card = card[:card.index("</li>")]
             self.assertEqual(re.findall(r'\sdata-download="([^"]*)"', card), [key])
             self.assertEqual(card.count("data-started hidden"), 1, f"{key} says when its download starts")
-            self.assertEqual(re.findall(r'data-download-version="([^"]*)"', card), [key])
         versions = check_downloads(self, self.text, self.page)
         self.assertEqual(sorted(versions), sorted(DOWNLOADS))
 

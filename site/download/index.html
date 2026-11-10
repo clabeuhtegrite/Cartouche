@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Download Cartouche</title>
-<meta name="description" content="The newest Cartouche Installer, for Mac and Windows, and Cartouche Builder, straight from the project's releases." data-en="The newest Cartouche Installer, for Mac and Windows, and Cartouche Builder, straight from the project's releases." data-fr="Le dernier Installeur Cartouche, pour Mac et Windows, et Cartouche Builder, directement depuis les versions du projet.">
+<meta name="description" content="Download Cartouche: the Cartouche Installer for Mac and Windows, and Cartouche Builder for Mac." data-en="Download Cartouche: the Cartouche Installer for Mac and Windows, and Cartouche Builder for Mac." data-fr="Téléchargez Cartouche : l’Installeur Cartouche pour Mac et Windows, et Cartouche Builder pour Mac.">
 <meta name="color-scheme" content="dark">
 <meta name="theme-color" content="#090A11">
 <meta name="referrer" content="no-referrer">
@@ -171,12 +171,10 @@
     .btn:hover { transform: translateY(-1px); }
     .btn:active { transform: translateY(1px); }
     .btn svg { width: 20px; height: 20px; flex: none; }
-    .file__version { margin-top: 12px; color: var(--ink-3); font-size: .9rem; }
     .file__started { display: flex; gap: 8px; align-items: flex-start; margin: -4px 0 18px; padding: 10px 14px; border-radius: 16px; background: rgba(52, 211, 126, .12); color: var(--ink); font-size: .95rem; }
     .file__started[hidden] { display: none; }
     .file__started svg { width: 20px; height: 20px; flex: none; margin-top: 1px; color: var(--ready); }
     .file__first { margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--line); color: var(--ink-3); font-size: .9rem; }
-    .file__version { text-align: center; }
 
     .after { margin-top: 30px; max-width: 46em; color: var(--ink-3); font-size: .95rem; }
     .after a, .foot a { color: var(--ink-2); }
@@ -214,8 +212,8 @@
 
 <main class="wrap">
     <p class="label"><span lang="fr">Téléchargements</span><span lang="en">Downloads</span></p>
-    <h1><span lang="fr">La dernière version, directement.</span><span lang="en">The newest version, straight away.</span></h1>
-    <p class="lede"><span lang="fr">Chaque bouton télécharge la dernière version publiée, depuis les versions du projet sur GitHub. Cartouche lui-même s’installe sur l’iPhone avec l’Installeur, puis se met à jour tout seul.</span><span lang="en">Each button downloads the newest version published, from the project’s releases on GitHub. Cartouche itself goes onto the iPhone with the Installer, then updates itself.</span></p>
+    <h1><span lang="fr">Téléchargez Cartouche.</span><span lang="en">Download Cartouche.</span></h1>
+    <p class="lede"><span lang="fr">L’Installeur pose Cartouche sur votre iPhone depuis un Mac ou un PC, puis Cartouche se met à jour tout seul. Cartouche Builder construit vos jeux sur votre Mac.</span><span lang="en">The Installer puts Cartouche on your iPhone from a Mac or a PC, then Cartouche updates itself. Cartouche Builder builds your games on your Mac.</span></p>
 
     <ul class="files">
         <li class="file" id="installer-mac">
@@ -226,7 +224,6 @@
             <p class="file__first"><span lang="fr">La première fois, macOS ne peut pas le vérifier : Réglages Système › Confidentialité et sécurité › Ouvrir quand même.</span><span lang="en">The first time, macOS cannot check it: System Settings › Privacy &amp; Security › Open Anyway.</span></p>
             <div class="file__get">
                 <a class="btn" data-download="installer-mac" data-label-fr="Télécharger l’Installeur Cartouche pour Mac" data-label-en="Download the Cartouche Installer for Mac" aria-label="Download the Cartouche Installer for Mac" href="https://github.com/clabeuhtegrite/Cartouche/releases/download/installer-v0.1.0/Cartouche-Installer-0.1.0-Mac.dmg"><svg aria-hidden="true"><use href="#i-download"/></svg><span lang="fr">Télécharger</span><span lang="en">Download</span></a>
-                <p class="file__version">Version <span data-download-version="installer-mac">0.1.0</span> · <span lang="fr" data-download-size="installer-mac">19,6 Mo</span><span lang="en" data-download-size="installer-mac">19.6 MB</span></p>
             </div>
         </li>
         <li class="file" id="installer-windows">
@@ -237,7 +234,6 @@
             <p class="file__first"><span lang="fr">Si SmartScreen arrête l’installation, qui n’est pas signée : Informations complémentaires › Exécuter quand même.</span><span lang="en">If SmartScreen stops the setup, which is not signed: More info › Run anyway.</span></p>
             <div class="file__get">
                 <a class="btn" data-download="installer-windows" data-label-fr="Télécharger l’Installeur Cartouche pour Windows" data-label-en="Download the Cartouche Installer for Windows" aria-label="Download the Cartouche Installer for Windows" href="https://github.com/clabeuhtegrite/Cartouche/releases/download/installer-v0.1.0/Cartouche-Installer-0.1.0-Windows.exe"><svg aria-hidden="true"><use href="#i-download"/></svg><span lang="fr">Télécharger</span><span lang="en">Download</span></a>
-                <p class="file__version">Version <span data-download-version="installer-windows">0.1.0</span> · <span lang="fr" data-download-size="installer-windows">5,9 Mo</span><span lang="en" data-download-size="installer-windows">5.9 MB</span></p>
             </div>
         </li>
         <li class="file" id="builder">
@@ -248,7 +244,6 @@
             <p class="file__first"><span lang="fr">La première fois, macOS ne peut pas le vérifier : Réglages Système › Confidentialité et sécurité › Ouvrir quand même. Ensuite, il se met à jour tout seul.</span><span lang="en">The first time, macOS cannot check it: System Settings › Privacy &amp; Security › Open Anyway. Then it updates itself.</span></p>
             <div class="file__get">
                 <a class="btn" data-download="builder" data-label-fr="Télécharger Cartouche Builder" data-label-en="Download Cartouche Builder" aria-label="Download Cartouche Builder" href="https://github.com/clabeuhtegrite/Cartouche/releases/download/builder-v0.2.0/Cartouche-Builder-0.2.0.dmg"><svg aria-hidden="true"><use href="#i-download"/></svg><span lang="fr">Télécharger</span><span lang="en">Download</span></a>
-                <p class="file__version">Version <span data-download-version="builder">0.2.0</span> · <span lang="fr" data-download-size="builder">3,4 Mo</span><span lang="en" data-download-size="builder">3.4 MB</span></p>
             </div>
         </li>
     </ul>

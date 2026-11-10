@@ -9,17 +9,16 @@ GitHub's stays the newest Builder or Installer. The site's buttons and its
 download page (site/download/) link to the files themselves, and the
 Showcase site workflow (.github/workflows/site.yml) runs this script on the
 copies it publishes: each link marked data-download="<file>" gets that file
-in its newest release, each element marked data-download-version="<file>"
-its version, and each one marked data-download-size="<file>" its size, in
-the element's language. The Builder and Installer workflows publish the site
-again once they have published a release.
+in its newest release. The pages say no version: a button says what it
+downloads, and the file is the newest. The Builder and Installer workflows
+publish the site again once they have published a release.
 
 The newest is the highest version among the releases that are neither
 drafts nor pre-releases and have the file, named as their workflow names it
 and served from this repository's releases, as Cartouche Builder picks its
 own updates (builder/mac/Sources/BuilderKit/Updater.swift). The script fails
 rather than publish a link to nothing: a file a page asks for that no release
-has, a mark it cannot fill, a page without a download link.
+has, a mark on something else than a link, a page without a download link.
 
 usage: downloads.py RELEASES PAGE [PAGE ...]
 
@@ -60,8 +59,8 @@ class File:
 FILES = {
     # The disk image and its SHA-256, which the app's updates need too.
     "builder": File("builder-v", "Cartouche-Builder-{version}.dmg", ("Cartouche-Builder-{version}.dmg.sha256",), "Cartouche Builder"),
-    # Both files of one release, so that the Mac's and Windows' are the
-    # same version, as the site says.
+    # Both files of one release, so that the Mac's button and Windows' give
+    # the same version.
     "installer-mac": File("installer-v", "Cartouche-Installer-{version}-Mac.dmg", ("Cartouche-Installer-{version}-Windows.exe",), "Cartouche Installer for Mac"),
     "installer-windows": File("installer-v", "Cartouche-Installer-{version}-Windows.exe", ("Cartouche-Installer-{version}-Mac.dmg",), "Cartouche Installer for Windows"),
 }
@@ -72,7 +71,6 @@ class Download:
     key: str
     version: str
     url: str
-    size: int
 
 
 class DownloadError(Exception):
@@ -115,73 +113,49 @@ def newest(releases: list[dict], key: str) -> Download | None:
         # The file itself, from this repository's releases, and not empty.
         if not asset or str(asset.get("browser_download_url") or "").lower() != url.lower():
             continue
-        size = asset.get("size")
-        if not isinstance(size, int) or size <= 0:
+        if not isinstance(asset.get("size"), int) or asset["size"] <= 0:
             continue
         if any(other.format(version=version) not in assets for other in file.also):
             continue
         order = tuple(int(part) for part in parts.groups())
         if best is None or order > best[0]:
-            best = (order, Download(key, version, url, size))
+            best = (order, Download(key, version, url))
     return best[1] if best else None
-
-
-def size_text(size: int, lang: str) -> str:
-    """A size as the Finder and Windows' download show it, in megabytes of
-    a million bytes: 3,4 Mo in French, 3.4 MB in English."""
-    megabytes = size / 1_000_000
-    text = f"{megabytes:.1f}" if megabytes < 100 else f"{megabytes:.0f}"
-    return text.replace(".", ",") + " Mo" if lang == "fr" else text + " MB"
 
 
 LINK = re.compile(r"<a\b[^>]*>")
 MARK = re.compile(r'\sdata-download="([^"]*)"')
 HREF = re.compile(r'(\shref=")[^"]*(")')
-TEXT = re.compile(r'(<(\w+)\b[^>]*\sdata-download-(version|size)="([^"]*)"[^>]*>)([^<]*)(</\2>)')
-LANG = re.compile(r'\slang="(fr|en)"')
-MARKS = re.compile(r'\sdata-download(?:-version|-size)?="')
+MARKS = re.compile(r"\sdata-download[\w-]*=")
 
 
 def rewrite(html: str, downloads: dict[str, Download]) -> tuple[str, list[str]]:
-    """HTML with each marked link and text given its download, and the
-    files it offers, once per mark."""
+    """HTML with each marked link given its download, and the files it
+    offers, once per link."""
     used: list[str] = []
-
-    def find(key: str) -> Download:
-        if key not in FILES:
-            raise DownloadError(f"no file is called {key!r}: one of {', '.join(FILES)}")
-        if key not in downloads:
-            file = FILES[key]
-            raise DownloadError(f"no release {file.prefix}<version> has {file.named('<version>')}")
-        used.append(key)
-        return downloads[key]
 
     def link(match: re.Match[str]) -> str:
         tag = match.group(0)
         mark = MARK.search(tag)
         if not mark:
             return tag
-        download = find(mark.group(1))
-        tag, count = HREF.subn(lambda m: m.group(1) + download.url + m.group(2), tag)
+        key = mark.group(1)
+        if key not in FILES:
+            raise DownloadError(f"no file is called {key!r}: one of {', '.join(FILES)}")
+        if key not in downloads:
+            file = FILES[key]
+            raise DownloadError(f"no release {file.prefix}<version> has {file.named('<version>')}")
+        tag, count = HREF.subn(lambda m: m.group(1) + downloads[key].url + m.group(2), tag)
         if count != 1:
             raise DownloadError(f"the link {match.group(0)!r} has no single href")
+        used.append(key)
         return tag
 
-    def text(match: re.Match[str]) -> str:
-        start, _, kind, key, _, end = match.groups()
-        download = find(key)
-        if kind == "version":
-            return start + download.version + end
-        lang = LANG.search(start)
-        if not lang:
-            raise DownloadError(f"{start!r} says a size without its language")
-        return start + size_text(download.size, lang.group(1)) + end
-
     html = LINK.sub(link, html)
-    html = TEXT.sub(text, html)
-    # Every mark was one of the above: on a link, or on an element of text alone.
+    # Every mark was on a link: nothing else of a page is filled in, not
+    # even a version, which the pages do not show.
     if len(MARKS.findall(html)) != len(used):
-        raise DownloadError("a data-download mark is on something else than a link or an element of text alone")
+        raise DownloadError("a data-download mark is on something else than a link")
     return html, used
 
 
@@ -211,7 +185,7 @@ def main(argv: list[str] | None = None) -> int:
     for key in FILES:
         if key in offered:
             download = downloads[key]
-            print(f"- {FILES[key].title} {download.version}, {size_text(download.size, 'en')}: {download.url}")
+            print(f"- {FILES[key].title} {download.version}: {download.url}")
     return 0
 
 

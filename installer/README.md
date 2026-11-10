@@ -14,7 +14,7 @@ It installs nothing but Cartouche: an IPA whose bundle identifier is not Cartouc
 
 ## Download and first open
 
-Download the newest version: [for Mac](https://clabeuhtegrite.github.io/Cartouche/download/#installer-mac), [for Windows](https://clabeuhtegrite.github.io/Cartouche/download/#installer-windows). These links, and the buttons of [Cartouche's site](https://clabeuhtegrite.github.io/Cartouche/#install), give the file itself, at once.
+Download it [for Mac](https://clabeuhtegrite.github.io/Cartouche/download/#installer-mac) or [for Windows](https://clabeuhtegrite.github.io/Cartouche/download/#installer-windows): these links, like the buttons of [Cartouche's site](https://clabeuhtegrite.github.io/Cartouche/#install), give the file itself, at once.
 
 Each version is the GitHub release `installer-v<version>`, published without GitHub's *Latest* mark, which is meant for Cartouche. While Cartouche's versions are 0.x pre-releases, GitHub still gives that mark to the newest release that is not one, the Installer's or Cartouche Builder's. Nothing reads it: the installer and Cartouche take Cartouche's newest version from its source, and the site takes the Installer's and the Builder's from their releases each time it is published ([site/README.md](../site/README.md#publishing)).
 
