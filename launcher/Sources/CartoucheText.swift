@@ -36,7 +36,6 @@ enum CartoucheText {
     // MARK: Console
 
     static var homeLibrary: String { s("home.library", "My library") }
-    static var homeIPhone: String { s("home.iphone", "Plays on iPhone") }
     static var importTile: String { s("home.import", "Import a game") }
     static var allGames: String { s("home.all", "All games") }
     static func allGamesDetail(_ count: Int) -> String { f("home.all.detail", "%lld games have a profile in nxnative. Cartouche plays each one from your own copy.", count) }
