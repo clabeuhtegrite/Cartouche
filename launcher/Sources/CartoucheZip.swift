@@ -420,10 +420,12 @@ final class CartoucheInflater {
     }
 
     /// Feeds INPUT and hands each chunk of output to SINK. LAST: no more
-    /// input follows; an encoder finishes its stream then, a decoder has
-    /// found its end by itself (finished).
+    /// input follows; the stream is finished then. A decoder must be told
+    /// too: it may keep the last bytes it read, and what they decode to,
+    /// until more input comes, so that a stream fed in pieces never
+    /// reached its end (a game's RomFS image, read 8 MiB at a time).
     func feed(_ input: Data, last: Bool, sink: (Data) throws -> Void) throws {
-        let finalizing = encoding && last
+        let finalizing = last
         let flags = finalizing ? Int32(COMPRESSION_STREAM_FINALIZE.rawValue) : 0
         try input.withUnsafeBytes { (raw: UnsafeRawBufferPointer) in
             let bytes = raw.bindMemory(to: UInt8.self)
@@ -450,7 +452,13 @@ final class CartoucheInflater {
                         // unless it is finishing its stream.
                         if stream.pointee.src_size == 0, produced < Self.outputSize {
                             guard finalizing else { return }
-                            if produced == 0 { throw CartoucheZipError("the deflate stream did not end") }
+                            // A decoder at the end of what it was given
+                            // without the end of its stream: the caller
+                            // finds it unfinished.
+                            if produced == 0 {
+                                if encoding { throw CartoucheZipError("the deflate stream did not end") }
+                                return
+                            }
                         }
                     default:
                         throw CartoucheZipError("the deflated data is damaged")

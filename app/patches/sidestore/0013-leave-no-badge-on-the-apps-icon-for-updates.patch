@@ -1,0 +1,33 @@
+From 911c7fd9e5d7b77ff9f0ca84cbf1e68fd52ec937 Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Tue, 10 Nov 2026 03:05:21 +0000
+Subject: [PATCH] Leave no badge on the app's icon for updates
+
+Cartouche offers its own updates on its console, and the player never
+opens SideStore's My Apps, which set the badge back. The count of
+updates that a fetch of the sources left on the icon stayed there after
+the update was installed, a notification badge with nothing behind it.
+A fetch now clears the badge instead.
+---
+ AltStore/AppDelegate.swift | 5 ++++-
+ 1 file changed, 4 insertions(+), 1 deletion(-)
+
+diff --git a/AltStore/AppDelegate.swift b/AltStore/AppDelegate.swift
+index eb41f3e..8025b41 100644
+--- a/AltStore/AppDelegate.swift
++++ b/AltStore/AppDelegate.swift
+@@ -573,7 +573,10 @@ private extension AppDelegate
+                 #endif
+ 
+                 DispatchQueue.main.async {
+-                    UIApplication.shared.applicationIconBadgeNumber = updates.count
++                    // Cartouche offers its updates on its own screen, and the
++                    // player never sees SideStore's My Apps that cleared this
++                    // count: an icon badge would stay on Cartouche for good.
++                    UIApplication.shared.applicationIconBadgeNumber = 0
+                 }
+                 
+                 completionHandler(.success(sources))
+-- 
+2.43.0
+
