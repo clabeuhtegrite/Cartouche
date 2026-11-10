@@ -28,7 +28,7 @@ extension CartoucheText {
     static var storageMacUseSaves: String { s("storage.mac.useSaves", "Keep your saves on this Mac") }
     static var storageMacUseFooter: String { s("storage.mac.use.footer", "Its Games folder holds the games Cartouche Builder builds, on the Mac or on your NAS, and its Saves folder the copies of your saves. You can change both later in Storage.") }
     static var storageMacLastAddress: String { s("storage.mac.lastAddress", "Last address") }
-    static func storageMacOffline(_ mac: String) -> String { f("storage.mac.offline", "%@ does not answer. Open Cartouche Builder on it with Share with Cartouche on the iPhone turned on, and check that this iPhone is on the same Wi-Fi.", mac) }
+    static func storageMacOffline(_ mac: String) -> String { f("storage.mac.offline", "%@ does not answer on this network. Open Cartouche Builder on it with Share with Cartouche on the iPhone turned on: Cartouche tries again as soon as the iPhone is back on its Wi-Fi or on your VPN.", mac) }
     static func storageMacNotFound(_ item: String) -> String { f("storage.mac.notFound", "%@ is not on the Mac.", item) }
     static func storageMacDenied(_ item: String) -> String { f("storage.mac.denied", "The Mac does not let Cartouche reach %@.", item) }
     static func storageMacExists(_ item: String) -> String { f("storage.mac.exists", "%@ is already on the Mac.", item) }

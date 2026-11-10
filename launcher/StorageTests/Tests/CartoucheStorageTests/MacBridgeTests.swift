@@ -296,6 +296,8 @@ final class MacBridgeTests: XCTestCase {
         XCTAssertTrue(top.allSatisfy(\.isFolder))
         XCTAssertFalse(remote.isReadOnly)
         await remote.disconnect()
+        let answers = await CartoucheStorageReach.answers(server)
+        XCTAssertTrue(answers, "it takes a connection at its last address")
     }
 
     func testAPairingTheMacRefusesSaysSo() async throws {
@@ -337,6 +339,7 @@ final class MacBridgeTests: XCTestCase {
             _ = try await CartoucheMacStorage.connect(moved, secret: secret, settings: settings())
             XCTFail("signed in to another Mac")
         } catch {
+            XCTAssertTrue(error is CartoucheStorageOffline, String(describing: error))
             XCTAssertEqual(error.localizedDescription, CartoucheText.storageMacOffline(server.name))
         }
         XCTAssertEqual(other.paired, [])
@@ -350,11 +353,33 @@ final class MacBridgeTests: XCTestCase {
             _ = try await CartoucheMacStorage.connect(server, secret: secret, settings: settings())
             XCTFail("signed in to a Mac that is gone")
         } catch {
+            // Offline, as a NAS away from home: no report, tried again.
+            XCTAssertTrue(error is CartoucheStorageOffline, String(describing: error))
             XCTAssertEqual(error.localizedDescription, CartoucheText.storageMacOffline(server.name))
         }
         // Nothing listens there: the last address fails at once, then
         // Bonjour has its few seconds.
         XCTAssertLessThan(Date().timeIntervalSince(started), CartoucheMacStorage.lookupPatience + 2)
+        let answers = await CartoucheStorageReach.answers(server)
+        XCTAssertFalse(answers)
+    }
+
+    func testAMacAwayFromHomeIsOfflineWithinItsPatience() async throws {
+        // Its last address never answers (TEST-NET-1, RFC 5737), as the
+        // player's home seen from anywhere else.
+        var server = CartoucheStorageServer(kind: .mac, name: "Mac de test", host: "192.0.2.1", port: Int(CartoucheBridge.port))
+        server.macID = UUID().uuidString
+        let secret = Data(repeating: 9, count: 32).base64EncodedString()
+        let started = Date()
+        do {
+            _ = try await CartoucheMacStorage.connect(server, secret: secret, settings: settings())
+            XCTFail("signed in to an address that never answers")
+        } catch {
+            XCTAssertTrue(error is CartoucheStorageOffline, String(describing: error))
+            XCTAssertEqual(error.localizedDescription, CartoucheText.storageMacOffline("Mac de test"))
+        }
+        XCTAssertLessThan(Date().timeIntervalSince(started),
+                          CartoucheMacStorage.lastAddressPatience + CartoucheMacStorage.lookupPatience + 2)
     }
 
     func testAnIPAAndSavesGoBothWays() async throws {

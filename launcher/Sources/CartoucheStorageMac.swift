@@ -174,7 +174,9 @@ enum CartoucheMacStorage {
             }
         }
         guard let endpoint = await CartoucheMacBrowser.find(macID, timeout: lookupPatience) else {
-            throw CartoucheStorageError(CartoucheText.storageMacOffline(server.name))
+            // Away from home, or Cartouche Builder closed: offline, which
+            // makes no report (CartoucheStorageReach).
+            throw CartoucheStorageOffline(server)
         }
         do {
             let client = try await CartoucheBridgeClient.connect(endpoint, device: device, key: key, mac: macID)
@@ -182,6 +184,19 @@ enum CartoucheMacStorage {
         } catch let error as CartoucheBridgeError {
             throw explained(error, mac: server.name, path: "")
         }
+    }
+
+    /// Whether the Mac of SERVER answers from here, at its last address or
+    /// found by Bonjour, without signing in: how Cartouche tries it again
+    /// once it was offline.
+    static func answers(_ server: CartoucheStorageServer) async -> Bool {
+        if let address = CartoucheStorageReach.address(of: server),
+           await CartoucheStorageReach.knock(host: address.host, port: address.port,
+                                             patience: UInt64(lastAddressPatience * 1_000_000_000)) {
+            return true
+        }
+        guard let macID = server.macID, !macID.isEmpty else { return false }
+        return await CartoucheMacBrowser.find(macID, timeout: lookupPatience) != nil
     }
 
     /// CLIENT as SERVER's remote, keeping the address it reached the Mac at

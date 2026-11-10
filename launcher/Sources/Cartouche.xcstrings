@@ -6705,13 +6705,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "%@ does not answer. Open Cartouche Builder on it with Share with Cartouche on the iPhone turned on, and check that this iPhone is on the same Wi-Fi."
+            "value" : "%@ does not answer on this network. Open Cartouche Builder on it with Share with Cartouche on the iPhone turned on: Cartouche tries again as soon as the iPhone is back on its Wi-Fi or on your VPN."
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "%@ ne répond pas. Ouvrez-y Cartouche Builder avec Partager avec Cartouche sur l’iPhone activé, et vérifiez que cet iPhone est sur le même Wi-Fi."
+            "value" : "%@ ne répond pas sur ce réseau. Ouvrez-y Cartouche Builder avec Partager avec Cartouche sur l’iPhone activé : Cartouche réessaie dès que l’iPhone retrouve son Wi-Fi ou votre VPN."
           }
         }
       }
