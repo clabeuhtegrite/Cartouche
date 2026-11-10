@@ -327,6 +327,36 @@
       ]
     },
     {
+      "name": "iphone-guide-first-launch",
+      "screen": "guide",
+      "owned": [],
+      "setup": false,
+      "controller": false,
+      "width": 402,
+      "height": 874,
+      "insets": [
+        62,
+        0,
+        34,
+        0
+      ]
+    },
+    {
+      "name": "iphone-guide-build",
+      "screen": "guide",
+      "owned": [],
+      "setup": true,
+      "controller": false,
+      "width": 402,
+      "height": 874,
+      "insets": [
+        62,
+        0,
+        34,
+        0
+      ]
+    },
+    {
       "name": "iphone-system",
       "screen": "system",
       "owned": [
@@ -370,6 +400,21 @@
       "work": "code",
       "owned": [],
       "setup": false,
+      "controller": false,
+      "width": 466,
+      "height": 678,
+      "insets": [
+        32,
+        0,
+        20,
+        0
+      ]
+    },
+    {
+      "name": "duo-folded-guide-build",
+      "screen": "guide",
+      "owned": [],
+      "setup": true,
       "controller": false,
       "width": 466,
       "height": 678,

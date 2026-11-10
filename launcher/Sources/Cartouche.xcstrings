@@ -664,6 +664,686 @@
         }
       }
     },
+    "guide.account.certificate" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Signed in. Cartouche is fetching its certificate…"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Compte connecté. Cartouche récupère son certificat…"
+          }
+        }
+      }
+    },
+    "guide.account.done" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Signed in as %@."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Connecté en tant que %@."
+          }
+        }
+      }
+    },
+    "guide.account.how" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Use the Apple ID you gave the Cartouche Installer; a free one will do. Cartouche signs your games with it and renews itself every week."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Celui que vous avez donné à l’Installeur Cartouche ; un identifiant gratuit suffit. Cartouche signe vos jeux avec et se renouvelle chaque semaine."
+          }
+        }
+      }
+    },
+    "guide.account.noPairing" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The pairing file is missing. Install Cartouche again with the Cartouche Installer, from your computer: it puts the file in place. You can also choose it in the setup."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Le fichier de jumelage manque. Réinstallez Cartouche avec l’Installeur Cartouche, depuis votre ordinateur : il met le fichier en place. Vous pouvez aussi le choisir dans la mise en route."
+          }
+        }
+      }
+    },
+    "guide.account.title" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sign in with your Apple ID"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Connectez-vous avec votre identifiant Apple"
+          }
+        }
+      }
+    },
+    "guide.build.done" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A game of yours is ready."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Un de vos jeux est prêt."
+          }
+        }
+      }
+    },
+    "guide.build.game" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Your game, copied from your own console, with your console’s keys (prod.keys) for a Switch game"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Votre jeu, copié depuis votre propre console, avec les clés de votre console (prod.keys) pour un jeu Switch"
+          }
+        }
+      }
+    },
+    "guide.build.how" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "nxnative turns your own copy of a game into an app for the iPhone, and only a Mac can do it. Cartouche Builder does it for you, and builds your games again when nxnative improves them."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "nxnative transforme votre propre copie d’un jeu en app pour l’iPhone, et seul un Mac sait le faire. Cartouche Builder s’en charge pour vous, et reconstruit vos jeux quand nxnative les améliore."
+          }
+        }
+      }
+    },
+    "guide.build.link" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "https://github.com/clabeuhtegrite/Cartouche/blob/main/docs/getting-started.md#2-build-your-game-on-your-mac"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "https://github.com/clabeuhtegrite/Cartouche/blob/main/docs/getting-started.fr.md#2-construisez-votre-jeu-sur-votre-mac"
+          }
+        }
+      }
+    },
+    "guide.build.mac" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A Mac with Apple silicon (M1 or later), on macOS 26.6 or later"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Un Mac à puce Apple (M1 ou plus récent), sous macOS 26.6 ou ultérieur"
+          }
+        }
+      }
+    },
+    "guide.build.send" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Send the steps to my Mac"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Envoyer les étapes à mon Mac"
+          }
+        }
+      }
+    },
+    "guide.build.sendNote" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "By AirDrop or Messages. On the Mac, the page gives one command that installs Cartouche Builder and its tools."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Par AirDrop ou Messages. Sur le Mac, la page donne une commande qui installe Cartouche Builder et ses outils."
+          }
+        }
+      }
+    },
+    "guide.build.share.message" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Install Cartouche Builder, then build your game with it."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Installez Cartouche Builder, puis construisez votre jeu avec."
+          }
+        }
+      }
+    },
+    "guide.build.share.subject" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cartouche on your Mac"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cartouche sur votre Mac"
+          }
+        }
+      }
+    },
+    "guide.build.title" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Build your game on a Mac"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Construisez votre jeu sur un Mac"
+          }
+        }
+      }
+    },
+    "guide.build.xcode" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Xcode 27.2, free from Apple"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Xcode 27.2, gratuit chez Apple"
+          }
+        }
+      }
+    },
+    "guide.card.detail" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Step %1$lld of %2$lld: %3$@"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Étape %1$lld sur %2$lld : %3$@"
+          }
+        }
+      }
+    },
+    "guide.done" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Done."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "C’est fait."
+          }
+        }
+      }
+    },
+    "guide.finished.intro" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Your first game is on this iPhone. The next ones go the same way: build, then install."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Votre premier jeu est sur cet iPhone. Les suivants prennent le même chemin : construire, puis installer."
+          }
+        }
+      }
+    },
+    "guide.finished.title" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "You’re all set"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tout est prêt"
+          }
+        }
+      }
+    },
+    "guide.folder.choose" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Choose the games folder"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Choisir le dossier des jeux"
+          }
+        }
+      }
+    },
+    "guide.folder.done" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Your games folder is on %@."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Votre dossier des jeux est sur %@."
+          }
+        }
+      }
+    },
+    "guide.folder.how" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cartouche Builder puts your games in a folder. Share it from your Mac, in System Settings › General › Sharing › File Sharing, or keep it on your NAS, then choose it here: Cartouche lists your games and offers their updates."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cartouche Builder range vos jeux dans un dossier. Partagez-le depuis votre Mac, dans Réglages Système › Général › Partage › Partage de fichiers, ou gardez-le sur votre NAS, puis choisissez-le ici : Cartouche liste vos jeux et propose leurs mises à jour."
+          }
+        }
+      }
+    },
+    "guide.folder.import" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Import an IPA instead"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Importer plutôt une IPA"
+          }
+        }
+      }
+    },
+    "guide.folder.title" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Choose your games folder"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Choisissez le dossier des jeux"
+          }
+        }
+      }
+    },
+    "guide.intro" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Five steps from here to your first game. Each one ticks itself once it is done."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cinq étapes jusqu’à votre premier jeu. Chacune se coche toute seule une fois faite."
+          }
+        }
+      }
+    },
+    "guide.noDownloads" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cartouche never downloads a game: you build yours from your own console."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cartouche ne télécharge jamais de jeu : vous construisez les vôtres depuis votre propre console."
+          }
+        }
+      }
+    },
+    "guide.openSetup" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Open the setup"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ouvrir la mise en route"
+          }
+        }
+      }
+    },
+    "guide.play.done" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ is on this iPhone."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ est sur cet iPhone."
+          }
+        }
+      }
+    },
+    "guide.play.install" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Install %@"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Installer %@"
+          }
+        }
+      }
+    },
+    "guide.play.ready" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Your game is in your games folder. Cartouche installs it on this iPhone, then shows Play."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Votre jeu est dans le dossier des jeux. Cartouche l’installe sur cet iPhone, puis affiche Jouer."
+          }
+        }
+      }
+    },
+    "guide.play.title" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Install your game and play"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Installez votre jeu et jouez"
+          }
+        }
+      }
+    },
+    "guide.play.waiting" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No game in your games folder yet. Yours shows here as soon as Cartouche Builder has built it. You can also import an IPA."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pas encore de jeu dans le dossier des jeux. Le vôtre apparaît ici dès que Cartouche Builder l’a construit. Vous pouvez aussi importer une IPA."
+          }
+        }
+      }
+    },
+    "guide.step.done" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@, done"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@, fait"
+          }
+        }
+      }
+    },
+    "guide.title" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Your first game"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Votre premier jeu"
+          }
+        }
+      }
+    },
+    "guide.vpn.connect" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Connect LocalDevVPN"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Connecter LocalDevVPN"
+          }
+        }
+      }
+    },
+    "guide.vpn.done" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "LocalDevVPN is connected."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "LocalDevVPN est connecté."
+          }
+        }
+      }
+    },
+    "guide.vpn.get" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Get LocalDevVPN"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Obtenir LocalDevVPN"
+          }
+        }
+      }
+    },
+    "guide.vpn.how" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cartouche signs in and renews itself through LocalDevVPN, a free app from the App Store. Its traffic never leaves this iPhone, so you can leave it on."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cartouche se connecte et se renouvelle par LocalDevVPN, une app gratuite de l’App Store. Son trafic ne sort jamais de cet iPhone : vous pouvez le laisser allumé."
+          }
+        }
+      }
+    },
+    "guide.vpn.title" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Connect LocalDevVPN"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Connectez LocalDevVPN"
+          }
+        }
+      }
+    },
     "hint.back" : {
       "extractionState" : "manual",
       "localizations" : {

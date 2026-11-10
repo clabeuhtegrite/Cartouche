@@ -42,6 +42,8 @@ struct CartoucheHomeView: View {
     let onSheet: (CartoucheEntry) -> Void
     let onLibrary: () -> Void
     let onSetup: () -> Void
+    /// Opens the first game's guide (CartoucheGuideView).
+    let onGuide: () -> Void
     let onTab: (LCTabIdentifier) -> Void
     /// Where a game's sheet grows out of its cartridge.
     let zoom: Namespace.ID?
@@ -57,7 +59,7 @@ struct CartoucheHomeView: View {
          onPlay: @escaping (LCAppModel) -> Void, onImport: @escaping () -> Void,
          onInstall: @escaping (CartoucheStoredGame) -> Void = { _ in },
          onUninstall: @escaping (LCAppModel) -> Void, onSheet: @escaping (CartoucheEntry) -> Void,
-         onLibrary: @escaping () -> Void, onSetup: @escaping () -> Void,
+         onLibrary: @escaping () -> Void, onSetup: @escaping () -> Void, onGuide: @escaping () -> Void = {},
          onTab: @escaping (LCTabIdentifier) -> Void, zoom: Namespace.ID? = nil,
          showsHero: Bool = true, onFocus: @escaping (CartoucheEntry) -> Void = { _ in }) {
         self.entries = entries
@@ -70,6 +72,7 @@ struct CartoucheHomeView: View {
         self.onSheet = onSheet
         self.onLibrary = onLibrary
         self.onSetup = onSetup
+        self.onGuide = onGuide
         self.onTab = onTab
         self.zoom = zoom
         self.showsHero = showsHero
@@ -77,6 +80,7 @@ struct CartoucheHomeView: View {
     }
 
     @ObservedObject private var setup = CartoucheSetup.shared
+    @ObservedObject private var guide = CartoucheGuide.shared
     @ObservedObject private var gamepad = CartoucheGamepad.shared
     @State private var row = 0
     @State private var columns = [0, 0, 0]
@@ -138,11 +142,17 @@ struct CartoucheHomeView: View {
 
     var body: some View {
         GeometryReader { proxy in
-            let metrics = Metrics(size: proxy.size, hasBanner: setup.needsSetup, hasHero: showsHero)
+            // Until the first game is installed, the guide's card stands in
+            // the setup banner's place, whose steps it begins with.
+            let guideProgress = guide.progress(entries)
+            let showsGuide = guide.showsCard(guideProgress)
+            let metrics = Metrics(size: proxy.size, hasBanner: showsGuide || setup.needsSetup, hasHero: showsHero)
             ScrollView(.vertical) {
                 VStack(alignment: .leading, spacing: metrics.spacing) {
                     topBar(metrics)
-                    if setup.needsSetup {
+                    if showsGuide {
+                        CartoucheGuideCard(progress: guideProgress, action: onGuide)
+                    } else if setup.needsSetup {
                         CartoucheHomeSetupBanner(action: onSetup)
                     }
                     if !showsHero {
