@@ -1055,6 +1055,227 @@
         }
       }
     },
+    "report.contents" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "What the report holds"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ce que contient le rapport"
+          }
+        }
+      }
+    },
+    "report.copied" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Copied"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Copié"
+          }
+        }
+      }
+    },
+    "report.copy" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Copy the report"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Copier le rapport"
+          }
+        }
+      }
+    },
+    "report.footer" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Write what happened, and send it with what Cartouche knows of itself and this iPhone: you see all of it first."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Décrivez ce qui s’est passé, et envoyez-le avec ce que Cartouche sait de lui-même et de cet iPhone : vous voyez tout avant."
+          }
+        }
+      }
+    },
+    "report.github" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Report it on GitHub"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Le signaler sur GitHub"
+          }
+        }
+      }
+    },
+    "report.newDevice" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cartouche’s list of devices does not have this model yet: a report adds it."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "La liste des appareils de Cartouche n’a pas encore ce modèle : un rapport l’y ajoute."
+          }
+        }
+      }
+    },
+    "report.privacy" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nothing leaves this iPhone until you send it. The report holds no password, no server’s name or address, no Apple ID, no account’s team and no file path."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Rien ne quitte cet iPhone avant que vous l’envoyiez. Le rapport ne contient ni mot de passe, ni nom ou adresse de serveur, ni identifiant Apple, ni équipe de compte, ni chemin de fichier."
+          }
+        }
+      }
+    },
+    "report.send" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Send the report…"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Envoyer le rapport…"
+          }
+        }
+      }
+    },
+    "report.send.footer" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Send it to whoever helps you with Cartouche, by Messages, Mail or AirDrop. GitHub opens Cartouche’s bug report form, filled in, for you to check and post with your GitHub account: reports there are public."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Envoyez-le à qui vous aide avec Cartouche, par Messages, Mail ou AirDrop. GitHub ouvre le formulaire de bug de Cartouche, déjà rempli, à vérifier puis publier avec votre compte GitHub : les rapports y sont publics."
+          }
+        }
+      }
+    },
+    "report.title" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Report a problem"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Signaler un problème"
+          }
+        }
+      }
+    },
+    "report.what" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "What happened"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ce qui s’est passé"
+          }
+        }
+      }
+    },
+    "report.what.footer" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The report adds the rest: this iPhone’s model and memory, the versions of iOS and Cartouche, Cartouche’s last steps and errors."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Le rapport ajoute le reste : le modèle et la mémoire de cet iPhone, les versions d’iOS et de Cartouche, les derniers pas et les dernières erreurs de Cartouche."
+          }
+        }
+      }
+    },
+    "report.what.prompt" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "What you did, what you expected, what happened instead"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ce que vous avez fait, ce que vous attendiez, ce qui s’est passé à la place"
+          }
+        }
+      }
+    },
     "result.boots" : {
       "extractionState" : "manual",
       "localizations" : {

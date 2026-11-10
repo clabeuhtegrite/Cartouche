@@ -579,6 +579,22 @@ enum CartoucheText {
         value.formatted(.percent.precision(.fractionLength(0)))
     }
 
+    // MARK: Reporting a problem
+
+    static var reportTitle: String { s("report.title", "Report a problem") }
+    static var reportFooter: String { s("report.footer", "Write what happened, and send it with what Cartouche knows of itself and this iPhone: you see all of it first.") }
+    static var reportNewDevice: String { s("report.newDevice", "Cartouche’s list of devices does not have this model yet: a report adds it.") }
+    static var reportWhat: String { s("report.what", "What happened") }
+    static var reportWhatPrompt: String { s("report.what.prompt", "What you did, what you expected, what happened instead") }
+    static var reportWhatFooter: String { s("report.what.footer", "The report adds the rest: this iPhone’s model and memory, the versions of iOS and Cartouche, Cartouche’s last steps and errors.") }
+    static var reportSend: String { s("report.send", "Send the report…") }
+    static var reportCopy: String { s("report.copy", "Copy the report") }
+    static var reportCopied: String { s("report.copied", "Copied") }
+    static var reportGitHub: String { s("report.github", "Report it on GitHub") }
+    static var reportSendFooter: String { s("report.send.footer", "Send it to whoever helps you with Cartouche, by Messages, Mail or AirDrop. GitHub opens Cartouche’s bug report form, filled in, for you to check and post with your GitHub account: reports there are public.") }
+    static var reportContents: String { s("report.contents", "What the report holds") }
+    static var reportPrivacy: String { s("report.privacy", "Nothing leaves this iPhone until you send it. The report holds no password, no server’s name or address, no Apple ID, no account’s team and no file path.") }
+
     // MARK: Warnings before expiry
 
     static var warning24hTitle: String { s("warning.24h.title", "Cartouche expires in 24 hours") }
