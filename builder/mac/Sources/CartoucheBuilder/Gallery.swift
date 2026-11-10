@@ -25,7 +25,7 @@ enum Gallery {
 
         var size: CGSize {
             switch self {
-            case .settings: return CGSize(width: 600, height: 520)
+            case .settings: return SettingsTab.size
             case .onboarding: return CGSize(width: 680, height: 600)
             case .menubar, .menubarBuilding: return CGSize(width: 330, height: 0)
             default: return CGSize(width: 1220, height: 780)
@@ -98,47 +98,29 @@ enum Gallery {
     private static func render(_ page: Page, samples: Samples, dark: Bool, to file: URL) -> Bool {
         let model = samples.model(for: page)
         var size = page.size
-        let content: AnyView
+        let controller: NSViewController
         switch page {
         case .settings:
-            content = AnyView(SettingsView())
+            controller = settings(model)
         case .onboarding:
-            content = AnyView(OnboardingView())
+            controller = hosted(OnboardingView(), model)
         case .menubar, .menubarBuilding:
-            content = AnyView(MenuBarView().background(Color(nsColor: .windowBackgroundColor)))
+            let panel = hosted(MenuBarView().background(Color(nsColor: .windowBackgroundColor)), model)
+            size.height = ceil(panel.sizeThatFits(in: CGSize(width: size.width, height: 2000)).height)
+            controller = panel
         default:
-            content = AnyView(ContentView())
-        }
-        let view = content
-            .environmentObject(model)
-            .environmentObject(model.setup)
-            .environmentObject(model.bridge)
-            .environmentObject(model.covers)
-            .environmentObject(model.updater)
-            .environmentObject(model.telemetry)
-            .environment(\.locale, L10n.locale)
-        let controller = NSHostingController(rootView: AnyView(view))
-        controller.sceneBridgingOptions = [.toolbars, .title]
-        if size.height == 0 {
-            let fitting = controller.sizeThatFits(in: CGSize(width: size.width, height: 2000))
-            size.height = ceil(fitting.height)
+            controller = hosted(ContentView(), model)
         }
         let window = NSWindow(contentRect: CGRect(origin: CGPoint(x: 80, y: 80), size: size),
                               styleMask: page.styleMask, backing: .buffered, defer: false)
         window.isReleasedWhenClosed = false
         window.appearance = NSAppearance(named: dark ? .darkAqua : .aqua)
-        window.title = page == .settings ? tr("General", "Général") : "Cartouche Builder"
+        window.title = page == .settings ? SettingsTab.general.title : "Cartouche Builder"
         if page == .settings {
-            // Its tabs in the middle of the toolbar, under the title, as the
-            // Settings scene shows them.
             window.toolbarStyle = .preference
         }
         window.contentViewController = controller
         window.setContentSize(size)
-        // In front and active, as the player sees it: the sidebar's
-        // selection and the window's buttons in their colors.
-        NSApp.activate()
-        window.makeKeyAndOrderFront(nil)
         window.orderFrontRegardless()
         wait(until: Date().addingTimeInterval(2.5))
         defer {
@@ -158,6 +140,39 @@ enum Gallery {
             complain(file, "\(error)")
             return false
         }
+    }
+
+    /// A page with the app's models; its toolbar and its title become the
+    /// window's, as in the app's window, unless the page is one of a tab
+    /// view controller's.
+    private static func hosted<Content: View>(_ content: Content, _ model: AppModel, bridged: Bool = true) -> NSHostingController<AnyView> {
+        let controller = NSHostingController(rootView: AnyView(content
+            .environmentObject(model)
+            .environmentObject(model.setup)
+            .environmentObject(model.bridge)
+            .environmentObject(model.covers)
+            .environmentObject(model.updater)
+            .environmentObject(model.telemetry)
+            .environment(\.locale, L10n.locale)))
+        controller.sceneBridgingOptions = bridged ? [.toolbars, .title] : []
+        return controller
+    }
+
+    /// The settings as the Settings scene shows them, which a TabView in a
+    /// window of its own does not: a tab in the middle of the toolbar for
+    /// each, the first one open, its name as the window's title.
+    private static func settings(_ model: AppModel) -> NSViewController {
+        let tabs = NSTabViewController()
+        tabs.tabStyle = .toolbar
+        for tab in SettingsTab.allCases {
+            let page = hosted(tab.content.frame(width: SettingsTab.size.width, height: SettingsTab.size.height), model, bridged: false)
+            page.title = tab.title
+            let item = NSTabViewItem(viewController: page)
+            item.label = tab.title
+            item.image = NSImage(systemSymbolName: tab.symbol, accessibilityDescription: tab.title)
+            tabs.addTabViewItem(item)
+        }
+        return tabs
     }
 
     /// The window as the window server shows it, with what only the window
