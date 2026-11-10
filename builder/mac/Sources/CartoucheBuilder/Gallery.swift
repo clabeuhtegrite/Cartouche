@@ -54,9 +54,10 @@ enum Gallery {
 
         /// The window as the app opens it: the settings as the Settings
         /// scene does, the menu bar's panel without a frame, the setup
-        /// assistant as the sheet it is, without a title bar.
+        /// assistant as the sheet it is, without a title bar, which would
+        /// add its height above it.
         var styleMask: NSWindow.StyleMask {
-            if step != nil { return [.titled, .fullSizeContentView] }
+            if step != nil { return [.borderless] }
             switch self {
             case .settings: return [.titled, .closable]
             case .menubar, .menubarBuilding: return [.borderless]
@@ -128,8 +129,12 @@ enum Gallery {
             controller = panel
         default:
             if let step = page.step {
-                // The sheet it is, under no title bar.
-                controller = hosted(SetupAssistant(start: step).ignoresSafeArea(), model, bridged: false)
+                // The sheet it is: on the window's background, its corners
+                // rounded.
+                controller = hosted(SetupAssistant(start: step)
+                                        .background(Color(nsColor: .windowBackgroundColor))
+                                        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous)),
+                                    model, bridged: false)
             } else {
                 controller = hosted(ContentView(), model)
             }
@@ -143,19 +148,11 @@ enum Gallery {
             window.toolbarStyle = .preference
         }
         if page.step != nil {
-            window.titlebarAppearsTransparent = true
-            window.titleVisibility = .hidden
-            for button in [NSWindow.ButtonType.closeButton, .miniaturizeButton, .zoomButton] {
-                window.standardWindowButton(button)?.isHidden = true
-            }
+            window.isOpaque = false
+            window.backgroundColor = .clear
         }
         window.contentViewController = controller
-        if page.step != nil {
-            // All of the window, the title bar's height too, as a sheet.
-            window.setFrame(CGRect(origin: window.frame.origin, size: size), display: false)
-        } else {
-            window.setContentSize(size)
-        }
+        window.setContentSize(size)
         window.orderFrontRegardless()
         wait(until: Date().addingTimeInterval(2.5))
         defer {

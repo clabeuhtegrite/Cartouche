@@ -84,7 +84,7 @@ struct SetupAssistant: View {
     @State private var sourcesCount: Int?
     @State private var problem: String?
 
-    static let size = CGSize(width: 820, height: 580)
+    nonisolated static let size = CGSize(width: 820, height: 580)
 
     init(start: SetupStep = .welcome) {
         _step = State(initialValue: start)
