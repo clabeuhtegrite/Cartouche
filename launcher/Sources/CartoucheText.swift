@@ -596,12 +596,57 @@ enum CartoucheText {
         value.formatted(.percent.precision(.fractionLength(0)))
     }
 
+    // MARK: Game measurements
+
+    static var telemetryTitle: String { s("telemetry.title", "Game measurements") }
+    static var telemetryOn: String { s("telemetry.on", "On") }
+    static var telemetryOff: String { s("telemetry.off", "Off") }
+    static var telemetrySend: String { s("telemetry.send", "Send game measurements") }
+    static var telemetryFooter: String { s("telemetry.footer", "After each game, Cartouche sends what nxnative measured while it ran, with Cartouche’s own events. They show which games run well on which iPhone, and what to fix.") }
+    static var telemetryWhat: String { s("telemetry.what", "What is sent") }
+    static var telemetryWhatGames: String { s("telemetry.what.games", "For each game session: frame rate, frame and GPU times, stutters and what caused them, shader preparation, memory, heat and power, sound, how the game ended, and the game’s version and settings.") }
+    static var telemetryWhatDevice: String { s("telemetry.what.device", "This iPhone’s model, iOS version and memory limit, Cartouche’s version and language, and a random number of this copy of Cartouche.") }
+    static var telemetryWhatEvents: String { s("telemetry.what.events", "Each start of Cartouche, game installs, updates, renewals and errors, by their codes.") }
+    static var telemetryWhatNever: String { s("telemetry.what.never", "Never your Apple ID, your iPhone’s name, your files, the addresses of your storage or the game’s log itself.") }
+    static var telemetryLastSent: String { s("telemetry.lastSent", "Last sent") }
+    static var telemetryNever: String { s("telemetry.never", "Never") }
+    static var telemetrySentCount: String { s("telemetry.sentCount", "Reports sent") }
+    static var telemetryWaiting: String { s("telemetry.waiting", "Waiting to be sent") }
+    static var telemetryLastReport: String { s("telemetry.lastReport", "Last report") }
+    static var telemetryNoServer: String { s("telemetry.noServer", "This build of Cartouche has no server to send to: its reports stay on this iPhone.") }
+    static var telemetryErase: String { s("telemetry.erase", "Erase what this iPhone sent") }
+    static var telemetryEraseConfirm: String { s("telemetry.erase.confirm", "Erase") }
+    static var telemetryEraseMessage: String { s("telemetry.erase.message", "The server deletes every report of this copy of Cartouche, which then sends under a new number.") }
+    static var telemetryEraseFailed: String { s("telemetry.erase.failed", "The server could not be reached. Try again when this iPhone is online.") }
+    static var telemetryPrivacy: String { s("telemetry.privacy", "Privacy") }
+
     // MARK: Error reports
 
     static var reportCopy: String { s("errorReport.copy", "Copy the report") }
     static var reportCopied: String { s("errorReport.copied", "Report copied") }
     static var reportCopiedDetail: String { s("errorReport.copied.detail", "Paste it where you ask for help.") }
     static var reportHint: String { s("errorReport.hint", "Copies what went wrong, with the versions of Cartouche and iOS, without any password or server address.") }
+
+    // MARK: Reporting a problem
+
+    static var reportTitle: String { s("report.title", "Report a problem") }
+    static var reportFooter: String { s("report.footer", "Say what went wrong. Cartouche adds its details, and you see everything first.") }
+    static var reportNewDevice: String { s("report.newDevice", "Your report also adds this iPhone to Cartouche’s list.") }
+    static var reportWhat: String { s("report.what", "What happened") }
+    static var reportWhatPrompt: String { s("report.what.prompt", "What you did, what you expected, what happened instead") }
+    static var reportWhatFooter: String { s("report.what.footer", "Cartouche adds this iPhone’s model and memory, the versions, and its last steps and errors.") }
+    static var reportSend: String { s("report.send", "Send the report…") }
+    static var reportGitHub: String { s("report.github", "Report it on GitHub") }
+    static var reportSendToCartouche: String { s("report.sendToCartouche", "Send to Cartouche") }
+    static var reportSending: String { s("report.sending", "Sending…") }
+    static var reportSent: String { s("report.sent", "Sent to Cartouche") }
+    static var reportSendTooMany: String { s("report.send.tooMany", "Cartouche’s server takes no more reports for now: send this one another way.") }
+    static var reportSendRefused: String { s("report.send.refused", "Cartouche’s server did not take the report: send it another way.") }
+    static func reportSendUnreachable(_ reason: String) -> String { f("report.send.unreachable", "Cartouche’s server could not be reached: %@", reason) }
+    static var reportSendFooterServer: String { s("report.send.footer.server", "Send to Cartouche passes it to the project, privately. Or send it by Messages, Mail or AirDrop to whoever helps you. On GitHub, you check it and post it yourself: it is public there.") }
+    static var reportSendFooter: String { s("report.send.footer", "Send it by Messages, Mail or AirDrop to whoever helps you. On GitHub, you check it and post it yourself: it is public there.") }
+    static var reportContents: String { s("report.contents", "What the report holds") }
+    static var reportPrivacy: String { s("report.privacy", "It leaves this iPhone only when you send it, without passwords, server names or addresses, user names, Apple ID or team, even in what you write.") }
 
     // MARK: Warnings before expiry
 

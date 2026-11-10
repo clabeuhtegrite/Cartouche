@@ -26,6 +26,7 @@ struct CartoucheRootView: View {
             .onAppear {
                 CartoucheReports.noteStart()
                 Self.clearBadge()
+                CartoucheTelemetry.shared.start()
             }
             .onReceive(NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification)) { _ in
                 Self.clearBadge()
