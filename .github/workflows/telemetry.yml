@@ -9,13 +9,28 @@ name: Telemetry
 # first deploy, once they are. Its secret CARTOUCHE_REPORTS_TOKEN lets the
 # Worker file the problems players send in the private repository
 # <owner>/cartouche-reports, or the variable CARTOUCHE_REPORTS_REPOSITORY.
+# The dashboard, which shows the project what the database holds, goes
+# with the server, with the catalog's names and covers: the variables
+# CLOUDFLARE_ACCESS_TEAM and CLOUDFLARE_ACCESS_AUD are only for a
+# hostname's Access application (telemetry/README.md#dashboard).
 
 on:
   pull_request:
-    paths: ["telemetry/**", "catalog/schema/game.schema.json", ".github/workflows/telemetry.yml"]
+    paths:
+      - "telemetry/**"
+      - "catalog/schema/game.schema.json"
+      - "catalog/nxnative.json"
+      - "catalog/covers.json"
+      - "catalog/devices.json"
+      - ".github/workflows/telemetry.yml"
   push:
     branches: [main]
-    paths: ["telemetry/**", ".github/workflows/telemetry.yml"]
+    paths:
+      - "telemetry/**"
+      - "catalog/nxnative.json"
+      - "catalog/covers.json"
+      - "catalog/devices.json"
+      - ".github/workflows/telemetry.yml"
   workflow_dispatch:
 
 permissions:
@@ -34,8 +49,10 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - name: The Worker
-        run: node --test telemetry/test/worker.test.js
+      # The dashboard's Worker imports its page as Workers import a text
+      # module: text-modules.mjs lets Node do the same.
+      - name: The server's Worker and the dashboard's
+        run: node --disable-warning=ExperimentalWarning --import ./telemetry/test/text-modules.mjs --test telemetry/test/worker.test.js telemetry/test/dashboard.test.js
       # The publish guard's dev extra brings jsonschema, for the sheets the
       # weekly sum writes.
       - name: The database on SQLite, the deploy and the weekly sum against a stand-in for Cloudflare
@@ -61,4 +78,6 @@ jobs:
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           CARTOUCHE_REPORTS_TOKEN: ${{ secrets.CARTOUCHE_REPORTS_TOKEN }}
           CARTOUCHE_REPORTS_REPOSITORY: ${{ vars.CARTOUCHE_REPORTS_REPOSITORY || format('{0}/cartouche-reports', github.repository_owner) }}
+          CLOUDFLARE_ACCESS_TEAM: ${{ vars.CLOUDFLARE_ACCESS_TEAM }}
+          CLOUDFLARE_ACCESS_AUD: ${{ vars.CLOUDFLARE_ACCESS_AUD }}
         run: telemetry/deploy.sh

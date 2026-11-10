@@ -2,7 +2,7 @@
 
 Cartouche sends what its players' games measured to a server of the project's own: a Cloudflare Worker, [`worker.js`](worker.js), and its D1 database, [`schema.sql`](schema.sql), created in the EU jurisdiction, where it is stored and run. Telemetry is on unless the player turns off **Game measurements** on the System page ([decision 35](../docs/decisions.md)); what it sends, and what it never sends, is in [docs/privacy.md](../docs/privacy.md). The app's side is [`CartoucheTelemetry.swift`](../launcher/Sources/CartoucheTelemetry.swift), the report format [`CartoucheTelemetryReport.swift`](../launcher/Sources/CartoucheTelemetryReport.swift) and the reading of a game's log [`CartoucheGameLog.swift`](../launcher/Sources/CartoucheGameLog.swift). Cartouche Builder, on the Mac, sends its own events to the same server, unless the player turns off **Send usage measures** in its settings ([Cartouche Builder](#cartouche-builder), [`BuilderTelemetry.swift`](../builder/mac/Sources/BuilderKit/BuilderTelemetry.swift)).
 
-The Worker has no dependency and no build: the file is deployed as it is.
+The Worker has no dependency and no build: the file is deployed as it is. The project reads what it holds on a [dashboard](#dashboard) of its own.
 
 ## Routes
 
@@ -90,6 +90,22 @@ Cartouche Builder sends events in the same form, to the same routes, with its ow
 | `builder.updated` | The first start of a new version. | `from`, `to` |
 | `builder.error` | An error the app met. | `origin`, what it was doing; `kind`, the engine's kind of error, or `error`, the domains and codes of the error and those under it, never its words; `background` |
 
+## Dashboard
+
+[`dashboard/`](dashboard/) is a second Worker, `cartouche-dashboard`, which reads the same database and shows what it holds on one page, for the project alone: [`dashboard/worker.js`](dashboard/worker.js) and its page, [`dashboard/index.html`](dashboard/index.html), deployed with the server, the page with the catalog's names and covers of the games and the chips of the iPhones ([decision 43](../docs/decisions.md)).
+
+It opens only behind **Cloudflare Access**: without it, every request gets a page that says the dashboard is closed, and nothing of the database. Who may sign in, with their Cloudflare account or with GitHub, is the Access policy's to say. Once, by hand:
+
+1. Zero Trust, on its Free plan, for the account: [one.dash.cloudflare.com](https://one.dash.cloudflare.com/), with a team name. It asks for a payment method, even for the Free plan.
+2. **Workers & Pages › cartouche-dashboard › Access › Protect this Worker behind Access**, for **All traffic**, with the policy **Cloudflare account**: the account's members sign in with their Cloudflare account.
+3. To sign in with GitHub as well: a GitHub OAuth app ([github.com/settings/applications/new](https://github.com/settings/applications/new)) whose homepage is `https://<team>.cloudflareaccess.com` and callback `https://<team>.cloudflareaccess.com/cdn-cgi/access/callback`; its client ID and a client secret in **Zero Trust › Integrations › Identity providers › Add new › GitHub**; and in the dashboard's policy, an **Emails** rule with the GitHub account's address.
+
+The runtime hands the Worker who Access signed in (`ctx.access`). Behind a hostname's Access application instead, the deploy's variables `CLOUDFLARE_ACCESS_TEAM`, the team's name, and `CLOUDFLARE_ACCESS_AUD`, the application's audience tag, let the Worker check the token Access adds to each request against the team's keys. The deploy's summary says whether Access protects the dashboard.
+
+- `GET /` is the page; `GET /data?days=N` the reports of the last N days, 28 unless asked, 400 at most, as compact rows, which the page sums up itself. D1 writes them as JSON, 2,000 at a time, newest first, and the Worker passes them on without reading them, within the free plan's 10 ms of CPU and its 50 queries a request: past them, the oldest reports of the window are left out, and the page says so. A copy's random number, and a session's, leave cut to their first 8 digits. With them go what the server took today and yesterday, the problems GitHub does not have yet, and the issues of the problems' repository, without their bodies.
+- The page shows the period at a glance, then each game, with its cover loaded from IGDB by its ID as the app does; the days; the frame rate, frame and GPU times, stutters and settings; heat and power; memory against iOS's limit; how sessions ended, and crashes by signal and address; devices, versions and storage; installs; errors by origin and code; every event by name, those it does not detail yet as well; the problems players sent; Cartouche Builder's Macs; and the server's use of its free plan. A game, a model or a version picked filters the whole page; `?demo` shows it with made-up data.
+- It sets no cookie of its own and loads nothing but its data and IGDB's images, without the page's address; its scripts run under a nonce of each answer, and no other site may frame it.
+
 ## Game sheets
 
 Each Thursday, the Game measurements workflow ([`.github/workflows/measurements.yml`](../.github/workflows/measurements.yml)) sums up the sessions of the 28 days before into the results of the game sheets in [`catalog/games/`](../catalog/README.md), with [`sheets.py`](sheets.py), in time for Friday's version:
@@ -114,11 +130,16 @@ A third, `CARTOUCHE_REPORTS_TOKEN`, lets the Worker file problems: a fine-graine
 
 Run the workflow by hand for a first deploy once they are set. The free plan is enough: 100,000 requests and 100,000 rows written a day.
 
+The deploy also uploads the [dashboard](#dashboard), with the same database and problems' repository, on its own `workers.dev` address, and does it again when the catalog's names, covers or devices change on `main`.
+
 ## Tests
 
 ```sh
-node --test telemetry/test/worker.test.js            # the Worker, with a stand-in for D1
+node --import ./telemetry/test/text-modules.mjs --test telemetry/test/worker.test.js telemetry/test/dashboard.test.js
+                                                     # the Workers, with stand-ins for D1, Access and GitHub
 python3 -m unittest discover -s telemetry/test -v    # the database on SQLite; the deploy and the weekly sum against a stand-in for Cloudflare's API
 ```
+
+The dashboard's page is imported as Workers import a text module, which [`test/text-modules.mjs`](test/text-modules.mjs) lets Node do. Its tests run the page's sums on the reports of `app-reports.json`, sent through the server into SQLite when Node has `node:sqlite`, and [`test/test_dashboard.py`](test/test_dashboard.py) checks that every field of them reaches the page: a field the app starts to send goes in `SESSION` in `dashboard/worker.js` and in the page's `SHOWN`.
 
 [`test/app-problem.json`](test/app-problem.json) holds a problem as Cartouche sends it, which the launcher's tests check too ([`CartoucheProblemReportTests.swift`](../launcher/Tests/CartoucheCoreTests/CartoucheProblemReportTests.swift)). [`test/app-reports.json`](test/app-reports.json) holds a report of each kind as Cartouche makes it, with every field: the launcher's tests check that Cartouche makes them so ([`CartoucheTelemetryReportTests.swift`](../launcher/Tests/CartoucheCoreTests/CartoucheTelemetryReportTests.swift)), and the Worker's that it keeps every field of them. [`app/tests/test_telemetry.py`](../app/tests/test_telemetry.py) checks that the server's address goes from `app/config.env` into the app, and that the app posts to the routes the Worker serves.

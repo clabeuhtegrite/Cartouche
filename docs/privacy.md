@@ -33,7 +33,7 @@ The full list is in [telemetry/README.md](../telemetry/README.md#reports). **Sys
 
 The reports go to the project's own server, a Cloudflare Worker, which keeps them in a database in the European Union, Cloudflare's EU jurisdiction. Cloudflare, which runs it, sees the address a report comes from, as any website's host does; the server does not keep it, nor the time: only the day it received the report. It leaves out anything the app is not meant to send.
 
-Reports are deleted after 25 months. They are read by the project, to fix and improve the games and Cartouche, and published only as figures of at least three iPhones, such as in the game sheets of [`catalog/`](../catalog/README.md), each week; never one report, and never sold or shared.
+Reports are deleted after 25 months. They are read by the project, to fix and improve the games and Cartouche, and published only as figures of at least three iPhones, such as in the game sheets of [`catalog/`](../catalog/README.md), each week; never one report, and never sold or shared. The project reads them on a dashboard of its own, another Worker beside the server, which only the project's accounts can open, through Cloudflare Access ([telemetry/README.md](../telemetry/README.md#dashboard)).
 
 ### Erasing it
 
