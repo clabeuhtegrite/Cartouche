@@ -2,7 +2,8 @@
 
 They are kept in config.json in the builder's folder (paths.py). The first
 start takes over the settings of NxNative Batch Builder, the tool this one
-replaces, when it finds them; its file is only read.
+replaces, when it finds them; its file is only read. A settings file of an
+older builder is brought up to date once (migrate()).
 """
 
 from __future__ import annotations
@@ -22,6 +23,8 @@ ENGINE_BRANCH = "main"
 # What a change to nxnative's shared code (not a game's profile, and naming no
 # game) does to a game built before it.
 POLICIES = ("weekly", "always", "never")
+# The settings' version: migrate() brings an older file up to it.
+VERSION = 1
 
 
 @dataclass
@@ -30,7 +33,7 @@ class Config:
     games: str = ""  # where the IPAs go: the games folder Cartouche reads
     keys: str = ""  # the player's prod.keys, for games given as packages
     workspace: str = ""  # the games' build folders ("" = the builder's own)
-    min_free_gb: int = 20  # a build does not start with less room in the workspace
+    min_free_gb: int = 20  # kept free on the workspace's disk: older build folders go first, then a build waits
     workspace_limit_gb: int = 0  # 0 = no limit; above it the least recently built folders go
     engine_url: str = ENGINE_URL
     engine_branch: str = ENGINE_BRANCH
@@ -42,7 +45,8 @@ class Config:
     unprofiled: bool = False  # also build games nxnative has no profile for (a guess that may not start)
     game_language: str = ""  # nxnative's -l (empty = its default, English)
     jobs: int = 1  # games built at once
-    keep_ipa: bool = False  # keep each IPA in the workspace too: nxnative's packer reuses it (a faster next pack)
+    keep_ipa: bool = False  # keep each IPA in the workspace even on another disk than the games folder (on the same one it is kept anyway: an APFS clone, free)
+    keep_extracted: bool = False  # keep the extracted game files after a build (as big as the game, for a faster next build)
     language: str = ""  # the builder's own language: "en", "fr" or "" for the system's
     notifications: bool = True
     schedule: bool = False  # build what is due every night (launchd)
@@ -50,6 +54,7 @@ class Config:
     schedule_minute: int = 30
     shares: dict[str, str] = field(default_factory=dict)  # mount point -> smb:// share, to mount again
     imported: bool = False  # NxNative Batch Builder's settings were taken over
+    version: int = 0  # the settings' version (VERSION once migrated)
 
     # ---- Paths -----------------------------------------------------------
 
@@ -124,6 +129,16 @@ class Config:
             return False
         return not self.only or title_id in self.only
 
+    def follow(self, title_id: str, followed: bool) -> None:
+        """Follows the game (it is built when nxnative improves it) or leaves it out."""
+        title_id = title_id.upper()
+        if followed:
+            self.skip = [i for i in self.skip if i != title_id]
+            if self.only and title_id not in self.only:
+                self.only = sorted(set(self.only) | {title_id})
+        elif title_id not in self.skip:
+            self.skip = sorted(set(self.skip) | {title_id})
+
 
 def _resolved(path: Path) -> Path:
     try:
@@ -140,7 +155,7 @@ def load(paths: Paths) -> Config:
     try:
         data = json.loads(paths.config.read_text(encoding="utf-8"))
     except FileNotFoundError:
-        config = Config()
+        config = Config(version=VERSION)
         if import_legacy(config):
             save(paths, config)
         return config
@@ -153,10 +168,30 @@ def load(paths: Paths) -> Config:
     except ValueError:
         # A hand-edited file with a bad value: keep the folders, reset the rest.
         defaults = Config()
-        for name in ("sources", "games", "keys", "workspace", "imported"):
-            setattr(defaults, name, getattr(config, name) if isinstance(getattr(config, name), (str, bool)) else getattr(defaults, name))
+        for name in ("sources", "games", "keys", "workspace", "imported", "version"):
+            value = getattr(config, name)
+            setattr(defaults, name, value if isinstance(value, type(getattr(defaults, name))) else getattr(defaults, name))
         config = defaults
+    if migrate(config):
+        save(paths, config)
     return config
+
+
+def migrate(config: Config) -> bool:
+    """Brings settings of an older builder up to VERSION; whether it changed them.
+
+    1: the builder follows every game of the sources by default. The
+    selection NxNative Batch Builder had (often one game, the one it was
+    last asked for) no longer narrows it: a game is left out with skip.
+    """
+    if not isinstance(config.version, int) or isinstance(config.version, bool) or config.version < 0:
+        config.version = 0
+    if config.version >= VERSION:
+        return False
+    if config.version < 1 and config.imported:
+        config.only = []
+    config.version = VERSION
+    return True
 
 
 def save(paths: Paths, config: Config) -> None:
@@ -200,9 +235,10 @@ def legacy_workspace() -> Path:
 
 
 def import_legacy(config: Config) -> bool:
-    """Takes over NxNative Batch Builder's folders and selection. Its workspace
-    stays the workspace: its build folders (<title ID>_build) are reused as
-    they are, so the next build of a game it built starts from its caches."""
+    """Takes over NxNative Batch Builder's folders. Its workspace stays the
+    workspace: its build folders (<title ID>_build) are reused as they are,
+    so the next build of a game it built starts from its caches. Its
+    selection is not taken over: the builder follows every game."""
     data = legacy_config()
     if not data:
         return False
@@ -221,8 +257,5 @@ def import_legacy(config: Config) -> bool:
         config.min_free_gb = data["min_free_gb"]
     if isinstance(data.get("notifications"), bool):
         config.notifications = data["notifications"]
-    ids = data.get("selected_game_ids")
-    if data.get("selection_customized") is True and isinstance(ids, list):
-        config.only = sorted({i.upper() for i in ids if isinstance(i, str) and titles.is_title_id(i)})
     config.imported = True
     return True

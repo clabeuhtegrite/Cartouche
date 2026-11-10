@@ -1,4 +1,4 @@
-"""python -m cartouche_builder: the window, or a command (cli.py)."""
+"""python -m cartouche_builder: the app, or a command (cli.py)."""
 
 import sys
 

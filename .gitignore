@@ -1,5 +1,8 @@
 # Builds
 /build/
+.build/
+.swiftpm/
+builder/mac/build/
 DerivedData/
 launcher/Gallery/Build/
 launcher/Gallery/*.xcodeproj/

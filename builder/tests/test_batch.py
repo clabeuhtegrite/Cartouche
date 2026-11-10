@@ -5,6 +5,7 @@ import threading
 import time
 import unittest
 from pathlib import Path
+from unittest import mock
 
 from cartouche_builder import batch, config as configs, ipa
 from cartouche_builder.paths import Paths
@@ -59,7 +60,19 @@ class Batches(Home):
         self.assertIn("-k", args)
         self.assertNotIn("-k", json.loads((workspace.build_folder(MKW) / "args.json").read_text()))
         self.assertFalse(workspace.dump_folder(HOLLOW).exists())
-        self.assertEqual(list((workspace.root / ".cartouche-builder" / "out").iterdir()), [])
+        # On the games folder's disk each IPA stays for the next pack (an
+        # APFS clone of the delivered one costs nothing).
+        out = workspace.root / ".cartouche-builder" / "out"
+        self.assertEqual(sorted(p.name for p in out.iterdir() if p.suffix == ".ipa"), sorted(f"{i}.ipa" for i in NAMES))
+        # The extracted files went, the shader cache stayed, and the icon was kept.
+        self.assertIn("--no-keep-extracted", args)
+        self.assertFalse((workspace.build_folder(MKW) / "extract").exists())
+        self.assertTrue((workspace.build_folder(MKW) / "shader" / "cache.bin").is_file())
+        self.assertEqual((ctx.paths.icons / f"{MKW}.jpg").read_bytes(), b"\xff\xd8\xff icon")
+        # The app's view of the batch.
+        status = json.loads(ctx.paths.status.read_text())
+        self.assertEqual(status["state"], "done")
+        self.assertEqual({g["title_id"]: g["state"] for g in status["games"]}, {i: "built" for i in NAMES})
         self.assertTrue(summary.report.is_file())
         kinds = {kind for kind, _, _ in self.events}
         self.assertTrue({"start", "progress", "built", "unpack", "deliver"} <= kinds)
@@ -71,6 +84,36 @@ class Batches(Home):
         self.assertEqual([e.title_id for e in plan.to_build], [MKW])
         self.assertEqual((workspace.build_folder(MKW) / "runs.txt").read_text().count("run"), 2)
 
+    def test_ipa_not_kept_on_another_disk_and_extracted_files_kept_when_asked(self):
+        paths = Paths.default()
+        config = configs.load(paths)
+        config.keep_extracted = True
+        configs.save(paths, config)
+        with mock.patch.object(batch, "same_volume", return_value=False):
+            plan, summary = self.run_due(only={MKW})
+        self.assertEqual(summary.failed, [])
+        workspace = batch.context().workspace
+        self.assertEqual(list((workspace.root / ".cartouche-builder" / "out").iterdir()), [])
+        self.assertTrue((workspace.build_folder(MKW) / "extract" / "game.bin").is_file())
+        self.assertIn("--keep-extracted", json.loads((workspace.build_folder(MKW) / "args.json").read_text()))
+
+    def test_old_build_folders_go_when_the_disk_is_full(self):
+        ctx = batch.context()
+        old = ctx.workspace.build_folder(ODYSSEY)
+        old.mkdir(parents=True)
+        (old / "cache").write_bytes(b"x" * 100)
+        ctx.workspace.use(old)
+        rooms = iter([1.0, 50.0])
+        with mock.patch.object(batch, "free_gb", side_effect=lambda path: next(rooms, 50.0)):
+            paths = Paths.default()
+            config = configs.load(paths)
+            config.min_free_gb = 20
+            configs.save(paths, config)
+            plan, summary = self.run_due(only={MKW})
+        self.assertEqual(summary.failed, [])
+        self.assertFalse(old.exists())
+        self.assertTrue(any(kind == "log" and "built longest ago" in value for kind, _, value in self.events))
+
     def test_failure_is_recorded_and_not_retried(self):
         os.environ["FAKE_FAIL"] = MKW
         plan, summary = self.run_due(only={MKW})
@@ -79,6 +122,9 @@ class Batches(Home):
         self.assertFalse(any(MKW in p.name for p in self.games.iterdir()))
         ctx = batch.context()
         self.assertEqual(ctx.store.get(MKW).attempt.result, "failed")
+        status = json.loads(ctx.paths.status.read_text())
+        game = next(g for g in status["games"] if g["title_id"] == MKW)
+        self.assertEqual((game["state"], game["log"]), ("failed", ctx.store.get(MKW).attempt.log))
         plan, summary = self.run_due(only={MKW})
         self.assertEqual(plan.to_build[0].title_id if plan.to_build else None, ODYSSEY)  # MKW waits
         self.assertEqual([e.reasons for e in plan.entries if e.title_id == MKW], [["failed_here"]])

@@ -78,12 +78,20 @@ $PB -c "Print :CFBundleDevelopmentRegion" "$APP/Info.plist" >/dev/null 2>&1 \
   || $PB -c "Add :CFBundleDevelopmentRegion string en" "$APP/Info.plist"
 [ -d "$APP/en.lproj" ] || { echo "the app has no English localization, where every other language falls back" >&2; exit 1; }
 # The question iOS asks before Cartouche first reaches the local network, for
-# the player's shared folders (launcher/Sources/CartoucheStorageSMB.swift), in
-# place of LiveContainer's, which speaks of a guest app. French in French, in
-# English everywhere else.
-LOCAL_NETWORK_EN="Cartouche connects to the shared folders of your Mac, PC or NAS on this network to keep your games and saves there."
-LOCAL_NETWORK_FR="Cartouche se connecte aux dossiers partagés de votre Mac, PC ou NAS sur ce réseau pour y garder vos jeux et vos sauvegardes."
+# the player's shared folders (launcher/Sources/CartoucheStorageSMB.swift)
+# and their Mac's Cartouche Builder (CartoucheStorageMac.swift), in place of
+# LiveContainer's, which speaks of a guest app. French in French, in English
+# everywhere else.
+LOCAL_NETWORK_EN="Cartouche connects to Cartouche Builder on your Mac and to the shared folders of your Mac, PC or NAS on this network to keep your games and saves there."
+LOCAL_NETWORK_FR="Cartouche se connecte à Cartouche Builder sur votre Mac et aux dossiers partagés de votre Mac, PC ou NAS sur ce réseau pour y garder vos jeux et vos sauvegardes."
 plutil -replace NSLocalNetworkUsageDescription -string "$LOCAL_NETWORK_EN" "$APP/Info.plist"
+# iOS lets an app look only for the Bonjour types it names: LiveContainer's
+# list has _smb._tcp, not the bridge's to Cartouche Builder.
+BONJOUR="$($PB -c "Print :NSBonjourServices" "$APP/Info.plist" 2>/dev/null)" \
+  || $PB -c "Add :NSBonjourServices array" "$APP/Info.plist"
+if ! printf '%s\n' "$BONJOUR" | grep -qx '[[:space:]]*_cartouche\._tcp'; then
+  $PB -c "Add :NSBonjourServices: string _cartouche._tcp" "$APP/Info.plist"
+fi
 LOCALIZATIONS=0
 for LPROJ in "$APP"/*.lproj; do
   STRINGS="$LPROJ/InfoPlist.strings"

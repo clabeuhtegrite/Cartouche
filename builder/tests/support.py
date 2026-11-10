@@ -80,6 +80,7 @@ ap.add_argument("-o", "--out")
 ap.add_argument("--platform")
 ap.add_argument("--progress")
 ap.add_argument("-l", "--language")
+ap.add_argument("--keep-extracted", action=argparse.BooleanOptionalAction)
 a = ap.parse_args()
 repo = Path(__file__).resolve().parents[1]
 
@@ -111,13 +112,19 @@ work.mkdir(parents=True, exist_ok=True)
 runs = work / "runs.txt"
 runs.write_text(runs.read_text() + "run\n" if runs.exists() else "run\n")
 (work / "args.json").write_text(json.dumps(sys.argv[1:]))
+# As nxnative: the extracted files, the game's icon among them, and a shader cache.
+(work / "extract").mkdir(exist_ok=True)
+(work / "extract" / "game.bin").write_bytes(b"extracted" * 100)
+(work / "extract" / "icon_AmericanEnglish.jpg").write_bytes(b"\xff\xd8\xff icon")
+(work / "shader").mkdir(exist_ok=True)
+(work / "shader" / "cache.bin").write_bytes(b"shader" * 50)
 ev(ev="stage", k=1, n=2, name="extract", step="")
 ev(ev="progress", k=1, name="extract", step="", done=1, total=2, unit="", est=False, note="", frac=0.5, eta=3, elapsed=0.1)
 ev(ev="stage_end", k=1, name="extract", ok=True, summary="", elapsed=0.1)
 print("not json: a tool's own line", flush=True)
 print("a warning on stderr", file=sys.stderr, flush=True)
 commit = subprocess.run(["git", "-C", str(repo), "rev-parse", "--short=12", "HEAD"], capture_output=True, text=True).stdout.strip()
-ev(ev="game", title_id=title_id, name=name, version="1.0.0", bundle_id="org.nxnative." + title_id.lower(), out=a.out, icon=None)
+ev(ev="game", title_id=title_id, name=name, version="1.0.0", bundle_id="org.nxnative." + title_id.lower(), out=a.out, icon=str(work / "extract" / "icon_AmericanEnglish.jpg"))
 if os.environ.get("FAKE_FAIL") == title_id:
     ev(ev="say", msg="[RED] the fake build failed on purpose")
     sys.exit(1)
@@ -138,6 +145,12 @@ with zipfile.ZipFile(out, "w") as archive:
         "CFBundleDisplayName": name}))
     archive.writestr("Payload/Game.app/Game", b"binary " + commit.encode())
 ev(ev="stage_end", k=2, n=2, name="pack", ok=True, summary="", elapsed=0.1)
+if a.keep_extracted is False:
+    # Minutes after the game event in a real build: time for the builder to
+    # read it, and keep the icon it names.
+    import shutil
+    time.sleep(0.3)
+    shutil.rmtree(work / "extract")
 sys.exit(0)
 '''
 

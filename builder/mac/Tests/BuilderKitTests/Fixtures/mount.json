@@ -1,0 +1,30 @@
+{
+  "api": 1,
+  "folders": {
+    "games": {
+      "mounted": false,
+      "path": "/Users/player/Builder/games",
+      "present": true,
+      "share": ""
+    },
+    "keys": {
+      "mounted": false,
+      "path": "",
+      "present": false,
+      "share": ""
+    },
+    "remote": false,
+    "sources": {
+      "mounted": false,
+      "path": "/Users/player/Builder/sources",
+      "present": true,
+      "share": ""
+    },
+    "workspace": {
+      "mounted": false,
+      "path": "/Users/player/Builder/home/workspace",
+      "present": true,
+      "share": ""
+    }
+  }
+}

@@ -1,6 +1,6 @@
 # Telemetry server
 
-Cartouche sends what its players' games measured to a server of the project's own: a Cloudflare Worker, [`worker.js`](worker.js), and its D1 database, [`schema.sql`](schema.sql), created in the EU jurisdiction, where it is stored and run. Telemetry is on unless the player turns off **Game measurements** on the System page ([decision 35](../docs/decisions.md)); what it sends, and what it never sends, is in [docs/privacy.md](../docs/privacy.md). The app's side is [`CartoucheTelemetry.swift`](../launcher/Sources/CartoucheTelemetry.swift), the report format [`CartoucheTelemetryReport.swift`](../launcher/Sources/CartoucheTelemetryReport.swift) and the reading of a game's log [`CartoucheGameLog.swift`](../launcher/Sources/CartoucheGameLog.swift).
+Cartouche sends what its players' games measured to a server of the project's own: a Cloudflare Worker, [`worker.js`](worker.js), and its D1 database, [`schema.sql`](schema.sql), created in the EU jurisdiction, where it is stored and run. Telemetry is on unless the player turns off **Game measurements** on the System page ([decision 35](../docs/decisions.md)); what it sends, and what it never sends, is in [docs/privacy.md](../docs/privacy.md). The app's side is [`CartoucheTelemetry.swift`](../launcher/Sources/CartoucheTelemetry.swift), the report format [`CartoucheTelemetryReport.swift`](../launcher/Sources/CartoucheTelemetryReport.swift) and the reading of a game's log [`CartoucheGameLog.swift`](../launcher/Sources/CartoucheGameLog.swift). Cartouche Builder, on the Mac, sends its own events to the same server, unless the player turns off **Send usage measures** in its settings ([Cartouche Builder](#cartouche-builder), [`BuilderTelemetry.swift`](../builder/mac/Sources/BuilderKit/BuilderTelemetry.swift)).
 
 The Worker has no dependency and no build: the file is deployed as it is. The project reads what it holds on a [dashboard](#dashboard) of its own.
 
@@ -74,6 +74,22 @@ A value the log does not have is left out.
 | `game.installed` | A game installed or updated. | `version`, `nxnative` |
 | `error` | An error Cartouche reported. | `origin`, what Cartouche was doing; `error`, the domains and codes of the error and those under it, never its words; `background` |
 
+## Cartouche Builder
+
+Cartouche Builder sends events in the same form, to the same routes, with its own queue, its own random `install` and its own **Erase what this Mac sent**. In its reports, `cartouche` is Cartouche Builder's version, `device` the Mac's model identifier, such as `Mac16,12`, and `ios` the macOS version; there is no `memoryLimitMiB` nor `increasedMemoryLimit`. `game` is a title ID, as in Cartouche's. It never sends a path, a file or folder name, a game's name, a log line, an error's words, the Mac's name or the names of the paired iPhones. [`test/builder-reports.json`](test/builder-reports.json) holds one report of each, which the server's tests check it keeps whole, and which the app's tests check it makes ([`TelemetryTests.swift`](../builder/mac/Tests/BuilderKitTests/TelemetryTests.swift)).
+
+| Name | When | Fields |
+| --- | --- | --- |
+| `builder.opened` | Each start of the app. | `memoryGB`, `cores`; `ready` and `missing`, the Mac's tools; `games`, `followed`, `due`, `failed` and `ipaOnly`, how many games of each; `remote`, folders on a share; `bridge` and `paired`, the bridge and how many iPhones; `menuBar`, `atLogin`, `automaticUpdates`, `fromDiskImage`; `schedule`, `jobs`, `keepExtracted`, `policy` (when shared changes rebuild), `forkOfNxnative`, `gameLanguage`; `xcode`, `nxnative` |
+| `builder.setup` | A tool of the Mac installed, or not. | `item`, the tool; `result`; `seconds` |
+| `builder.built` | A game built. | `reasons`, why it was due; `seconds`; `source`, the kind of its files; `nxnative`; `ipaMB` |
+| `builder.failed` | A game's build failed. | as `builder.built`, with `stage`, the step that failed, and no `ipaMB` |
+| `builder.batch` | A batch ended. | `state`; `games`, `built`, `failed`, `skipped`, `stopped`; `scheduled`, at night; `jobs`; `minutes`; `nxnative` |
+| `builder.cleaned` | Room freed on the Storage page. | `what`, `items`, `freedMB` |
+| `builder.paired` | An iPhone asked to pair. | `allowed` |
+| `builder.updated` | The first start of a new version. | `from`, `to` |
+| `builder.error` | An error the app met. | `origin`, what it was doing; `kind`, the engine's kind of error, or `error`, the domains and codes of the error and those under it, never its words; `background` |
+
 ## Dashboard
 
 [`dashboard/`](dashboard/) is a second Worker, `cartouche-dashboard`, which reads the same database and shows what it holds on one page, for the project alone: [`dashboard/worker.js`](dashboard/worker.js) and its page, [`dashboard/index.html`](dashboard/index.html), deployed with the server, the page with the catalog's names and covers of the games and the chips of the iPhones ([decision 43](../docs/decisions.md)).
@@ -81,7 +97,7 @@ A value the log does not have is left out.
 It opens only behind **Cloudflare Access**: without it, every request gets a page that says the dashboard is closed, and nothing of the database. Who may sign in, with their Cloudflare account or with GitHub, is the Access policy's to say. Once, by hand:
 
 1. Zero Trust, on its Free plan, for the account: [one.dash.cloudflare.com](https://one.dash.cloudflare.com/), with a team name. It asks for a payment method, even for the Free plan.
-2. **Workers & Pages › cartouche-dashboard › Access › Protect this Worker behind Access**, for **All traffic**, with the policy **Cloudflare account**: the account's members sign in with their Cloudflare account.
+2. **Workers & Pages › cartouche-dashboard › Access › Protect this Worker behind Access**, for **All traffic**, with the policy **Cloudflare account**: the account's members sign in with their Cloudflare account. This Worker only: the server, `cartouche-telemetry`, stays open to the iPhones, which have no account to sign in with, and the deploy fails when Access protects it.
 3. To sign in with GitHub as well: a GitHub OAuth app ([github.com/settings/applications/new](https://github.com/settings/applications/new)) whose homepage is `https://<team>.cloudflareaccess.com` and callback `https://<team>.cloudflareaccess.com/cdn-cgi/access/callback`; its client ID and a client secret in **Zero Trust › Integrations › Identity providers › Add new › GitHub**; and in the dashboard's policy, an **Emails** rule with the GitHub account's address.
 
 The runtime hands the Worker who Access signed in (`ctx.access`). Behind a hostname's Access application instead, the deploy's variables `CLOUDFLARE_ACCESS_TEAM`, the team's name, and `CLOUDFLARE_ACCESS_AUD`, the application's audience tag, let the Worker check the token Access adds to each request against the team's keys. The deploy's summary says whether Access protects the dashboard.
@@ -103,7 +119,7 @@ The results testers wrote stay as they are. A measured result is replaced by its
 
 ## Deploy
 
-[`.github/workflows/telemetry.yml`](../.github/workflows/telemetry.yml) tests the server on each pull request that changes it, and deploys it from `main` with [`deploy.sh`](deploy.sh), which calls Cloudflare's API with curl and jq: the database, created in the EU jurisdiction if it is not there yet; `schema.sql`, whose every statement runs again without harm; the Worker, with the database bound as `DB` and no logs kept; its `workers.dev` address; and its daily run. The job summary gives the address, which goes in [`app/config.env`](../app/config.env) as `CARTOUCHE_TELEMETRY_URL`: a build with none sends nothing.
+[`.github/workflows/telemetry.yml`](../.github/workflows/telemetry.yml) tests the server on each pull request that changes it, and deploys it from `main` with [`deploy.sh`](deploy.sh), which calls Cloudflare's API with curl and jq: the database, created in the EU jurisdiction if it is not there yet; `schema.sql`, whose every statement runs again without harm; the Worker, with the database bound as `DB` and no logs kept; its `workers.dev` address; and its daily run. The job summary gives the address, which goes in [`app/config.env`](../app/config.env) as `CARTOUCHE_TELEMETRY_URL`: a build with none sends nothing. The deploy then asks both addresses what they answer: the server its name, and the dashboard Access's sign-in or its closed page. A server that sends to Access's sign-in instead could take nothing from the iPhones: the run fails, and says where to take it out of Access.
 
 The deploy takes two secrets of the repository's environment `cloudflare`, and does nothing while they are not set:
 

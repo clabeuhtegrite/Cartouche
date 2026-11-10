@@ -1,0 +1,234 @@
+{
+  "api": 1,
+  "checked": "2026-11-10T17:11:09+00:00",
+  "engine": {
+    "branch": "main",
+    "commit_url": "",
+    "head": "16142e670c8f8517642e3f1bc29dbf947e9aa56d",
+    "short": "16142e670c8f",
+    "subject": "Super Mario Odyssey: the cap (PR #4)",
+    "time": 1794330666,
+    "url": "/Users/player/Builder/remote"
+  },
+  "folders": {
+    "games": {
+      "mounted": false,
+      "path": "/Users/player/Builder/games",
+      "present": true,
+      "share": ""
+    },
+    "keys": {
+      "mounted": false,
+      "path": "",
+      "present": false,
+      "share": ""
+    },
+    "remote": false,
+    "sources": {
+      "mounted": false,
+      "path": "/Users/player/Builder/sources",
+      "present": true,
+      "share": ""
+    },
+    "workspace": {
+      "mounted": false,
+      "path": "/Users/player/Builder/home/workspace",
+      "present": true,
+      "share": ""
+    }
+  },
+  "games": [
+    {
+      "aliases": [],
+      "attempt": null,
+      "build": {
+        "built_at": "2026-11-09T21:15:52+00:00",
+        "chain": "",
+        "commit": "000000000000",
+        "dirty": false,
+        "duration": 0,
+        "origin": "ipa",
+        "size": 698,
+        "toolchain": "",
+        "version": "1.5"
+      },
+      "change_counts": {
+        "named": 0,
+        "profile": 0,
+        "shared": 0
+      },
+      "changes": [],
+      "detail": "Its sources are not in the sources folder: its IPA is shown, and built again once they are back.",
+      "due": false,
+      "followed": true,
+      "icon": "",
+      "ipa": {
+        "name": "Hollow Knight [0100A0000E2F0000].ipa",
+        "path": "/Users/player/Builder/games/Hollow Knight [0100A0000E2F0000].ipa",
+        "present": true,
+        "size": 698
+      },
+      "kind": "ipa",
+      "name": "Hollow Knight",
+      "profile": true,
+      "progress": null,
+      "reasons": [
+        "no_source"
+      ],
+      "source": "",
+      "source_size": 0,
+      "state": "no_source",
+      "title_id": "0100A0000E2F0000"
+    },
+    {
+      "aliases": [],
+      "attempt": null,
+      "build": {
+        "built_at": "2026-11-10T17:11:06+00:00",
+        "chain": "abcdef012345",
+        "commit": "224b2cffcf14",
+        "dirty": false,
+        "duration": 0.339671959000043,
+        "origin": "builder",
+        "size": 846,
+        "toolchain": "",
+        "version": "1.0.0"
+      },
+      "change_counts": {
+        "named": 1,
+        "profile": 0,
+        "shared": 1
+      },
+      "changes": [
+        {
+          "kind": "named",
+          "sha": "24aa0403c46bcde1ca66d2bf1dae8761d18e93f0",
+          "short": "24aa0403c46b",
+          "subject": "Mario Kart World: the menus (PR #3)",
+          "time": 1794330666
+        },
+        {
+          "kind": "shared",
+          "sha": "16142e670c8f8517642e3f1bc29dbf947e9aa56d",
+          "short": "16142e670c8f",
+          "subject": "Super Mario Odyssey: the cap (PR #4)",
+          "time": 1794330666
+        }
+      ],
+      "detail": "An nxnative commit names it: Mario Kart World: the menus (PR #3)",
+      "due": true,
+      "followed": true,
+      "icon": "/Users/player/Builder/home/icons/0400C3F00006E000.jpg",
+      "ipa": {
+        "name": "Mario Kart World [0400C3F00006E000].ipa",
+        "path": "/Users/player/Builder/games/Mario Kart World [0400C3F00006E000].ipa",
+        "present": true,
+        "size": 846
+      },
+      "kind": "dump",
+      "name": "Mario Kart World",
+      "profile": true,
+      "progress": {
+        "detail": "An nxnative commit names it: Mario Kart World: the menus (PR #3)",
+        "duration": 0.0,
+        "ended": "",
+        "error": "",
+        "eta": null,
+        "frac": null,
+        "ipa": "",
+        "k": 2,
+        "log": "",
+        "message": "",
+        "n": 2,
+        "name": "Mario Kart World",
+        "note": "",
+        "overall": 0.5,
+        "reasons": [
+          "named"
+        ],
+        "stage": "pack",
+        "started": "2026-11-10T17:11:06+00:00",
+        "state": "building",
+        "step": "",
+        "title_id": "0400C3F00006E000"
+      },
+      "reasons": [
+        "named"
+      ],
+      "source": "/Users/player/Builder/sources/Mario Kart World",
+      "source_size": 521,
+      "state": "building",
+      "title_id": "0400C3F00006E000"
+    },
+    {
+      "aliases": [],
+      "attempt": {
+        "at": "2026-11-10T17:11:06+00:00",
+        "commit": "16142e670c8f",
+        "error": "the fake build failed on purpose",
+        "fingerprint": "eb60d0133c309132edad2051",
+        "log": "/Users/player/Builder/home/logs/0100000000010000/2026-11-10_17-11-06.log",
+        "result": "failed",
+        "toolchain": ""
+      },
+      "build": {
+        "built_at": "2026-11-10T17:11:06+00:00",
+        "chain": "abcdef012345",
+        "commit": "224b2cffcf14",
+        "dirty": false,
+        "duration": 0.3369916599995122,
+        "origin": "builder",
+        "size": 849,
+        "toolchain": "",
+        "version": "1.0.0"
+      },
+      "change_counts": {
+        "named": 1,
+        "profile": 0,
+        "shared": 1
+      },
+      "changes": [
+        {
+          "kind": "named",
+          "sha": "16142e670c8f8517642e3f1bc29dbf947e9aa56d",
+          "short": "16142e670c8f",
+          "subject": "Super Mario Odyssey: the cap (PR #4)",
+          "time": 1794330666
+        },
+        {
+          "kind": "shared",
+          "sha": "24aa0403c46bcde1ca66d2bf1dae8761d18e93f0",
+          "short": "24aa0403c46b",
+          "subject": "Mario Kart World: the menus (PR #3)",
+          "time": 1794330666
+        }
+      ],
+      "detail": "Failed at this nxnative commit (the fake build failed on purpose); tried again when nxnative or its files change",
+      "due": false,
+      "followed": true,
+      "icon": "/Users/player/Builder/home/icons/0100000000010000.jpg",
+      "ipa": {
+        "name": "Super Mario Odyssey [0100000000010000].ipa",
+        "path": "/Users/player/Builder/games/Super Mario Odyssey [0100000000010000].ipa",
+        "present": true,
+        "size": 849
+      },
+      "kind": "dump",
+      "name": "Super Mario Odyssey",
+      "profile": true,
+      "progress": null,
+      "reasons": [
+        "failed_here"
+      ],
+      "source": "/Users/player/Builder/sources/Super Mario Odyssey",
+      "source_size": 521,
+      "state": "failed",
+      "title_id": "0100000000010000"
+    }
+  ],
+  "issues": [],
+  "language": "en",
+  "notes": [],
+  "problems": [],
+  "updated": false
+}

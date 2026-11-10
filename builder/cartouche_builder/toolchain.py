@@ -5,9 +5,11 @@ nxnative needs Xcode 27.2 (its Metal compiler: the one its shader chain was
 locked with), Xcode's iOS platform and Metal toolchain, xcodegen, zstd and
 glslang from Homebrew, git, and a native (arm64) Python 3.12 or later with the
 packages of its .github/requirements/tools.txt. A checkout older than its
-641636e2 (10 November 2026) also needs the .NET 10 SDK. The builder
-installs none of the Apple or Homebrew tools: it says which command does, and
-can open it in Terminal. It makes the Python environment in its own folder.
+641636e2 (10 November 2026) also needs the .NET 10 SDK. The engine installs
+none of the Apple or Homebrew tools: its checks say what is missing and the
+command that fixes it, and the Mac app (mac/Sources/BuilderKit/MacSetup.swift)
+installs them without a Terminal. It makes the Python environment in its own
+folder.
 """
 
 from __future__ import annotations
@@ -334,9 +336,3 @@ def needs_dotnet(engine_root: Path | None) -> bool:
 
 def blocking(checks: list[Check]) -> list[Check]:
     return [c for c in checks if not c.ok and c.blocking]
-
-
-def open_in_terminal(command: str) -> None:
-    """Opens Terminal with COMMAND typed and run, for a fix that may ask for a password."""
-    script = command.replace("\\", "\\\\").replace('"', '\\"')
-    subprocess.Popen(["osascript", "-e", f'tell application "Terminal" to do script "{script}"', "-e", 'tell application "Terminal" to activate'])

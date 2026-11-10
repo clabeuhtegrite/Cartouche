@@ -50,7 +50,9 @@ struct CartoucheStorageView: View {
         .navigationTitle(CartoucheText.storageTitle)
         .sheet(item: $editing) { server in
             NavigationStack {
-                if server.kind == .s3 {
+                if server.kind == .mac {
+                    CartoucheStorageMacForm(server: server)
+                } else if server.kind == .s3 {
                     CartoucheStorageS3Form(server: server)
                 } else if server.kind == .ftp || server.kind == .sftp {
                     CartoucheStorageFTPForm(server: server)
@@ -223,6 +225,11 @@ struct CartoucheStorageView: View {
                     }
                 }
             }
+            Button {
+                editing = CartoucheStorageServer(kind: .mac, name: "")
+            } label: {
+                Label(CartoucheText.storageAddMac, systemImage: "laptopcomputer")
+            }
             if CartoucheStorage.hasSMB {
                 Button {
                     editing = CartoucheStorageServer(kind: .smb, name: "")
@@ -290,6 +297,7 @@ struct CartoucheStorageView: View {
         case .s3: return "cloud.fill"
         case .ftp: return "externaldrive.fill.badge.wifi"
         case .sftp: return "lock.shield.fill"
+        case .mac: return "laptopcomputer"
         }
     }
 
@@ -311,6 +319,8 @@ struct CartoucheStorageView: View {
         case .ftp, .sftp:
             let port = server.port.map { ":\($0)" } ?? ""
             return "\(server.username)@\(server.host)\(port)"
+        case .mac:
+            return server.host.isEmpty ? "Cartouche Builder" : "Cartouche Builder · " + server.host
         }
     }
 }

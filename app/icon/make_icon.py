@@ -14,7 +14,10 @@ over LiveContainer's.
 - tinted: grey levels only, which iOS turns into the tint the player picked;
 - grey and grey-dark: the light and dark icons in grey, for an extra copy of
   Cartouche installed from its settings, as LiveContainer does with its own
-  grey icon.
+  grey icon;
+- mac: the light icon on macOS's grid, a rounded square of 824 in the 1024
+  canvas with its shadow, for Cartouche Builder (builder/mac/bundle.sh makes
+  its .icns from the PNG, builder/mac/Resources/AppIcon1024.png).
 """
 
 from pathlib import Path
@@ -26,6 +29,7 @@ SX, SW, SH = BX + 72, BW - 144, 104                         # contacts, open at 
 SY = BY + BH - SH
 
 BRAND = ("#4F46E5", "#EC4899")
+MAC_SIDE, MAC_RADIUS = 824, 185  # macOS's icon grid, in the 1024 canvas
 GREY = ("#8E8E93", "#48484A")
 
 
@@ -95,7 +99,30 @@ def opaque(colors: tuple[str, str]) -> tuple[str, list[str]]:
     return defs, parts
 
 
+def mac() -> str:
+    """The light icon in macOS's rounded square: the cartridge scaled into it."""
+    o = (W - MAC_SIDE) / 2
+    scale = MAC_SIDE / W
+    more, parts = opaque(BRAND)
+    defs = (f'<clipPath id="body"><path d="{body_path()}"/></clipPath>'
+            '<linearGradient id="gold" x1="0" y1="0" x2="0" y2="1">'
+            '<stop offset="0" stop-color="#FFDB7E"/><stop offset="1" stop-color="#E8A535"/></linearGradient>'
+            + more +
+            f'<clipPath id="square"><rect x="{o}" y="{o}" width="{MAC_SIDE}" height="{MAC_SIDE}" rx="{MAC_RADIUS}"/></clipPath>'
+            '<filter id="drop" x="-20%" y="-20%" width="140%" height="140%">'
+            '<feDropShadow dx="0" dy="10" stdDeviation="12" flood-color="#000000" flood-opacity="0.28"/></filter>')
+    background, shine, *cartridge = parts
+    body = "\n    ".join(cartridge)
+    return (f'<svg xmlns="http://www.w3.org/2000/svg" width="{W}" height="{W}" viewBox="0 0 {W} {W}">\n'
+            f'  <defs>{defs}</defs>\n'
+            f'  <rect x="{o}" y="{o}" width="{MAC_SIDE}" height="{MAC_SIDE}" rx="{MAC_RADIUS}" fill="url(#background)" filter="url(#drop)"/>\n'
+            f'  <g clip-path="url(#square)">\n    {shine}\n'
+            f'    <g transform="translate({o} {o}) scale({scale})">\n    {body}\n    </g>\n  </g>\n</svg>\n')
+
+
 def svg(variant: str) -> str:
+    if variant == "mac":
+        return mac()
     defs = (f'<clipPath id="body"><path d="{body_path()}"/></clipPath>'
             '<linearGradient id="gold" x1="0" y1="0" x2="0" y2="1">'
             '<stop offset="0" stop-color="#FFDB7E"/><stop offset="1" stop-color="#E8A535"/></linearGradient>')
@@ -128,7 +155,7 @@ def svg(variant: str) -> str:
 def main() -> None:
     out = Path(__file__).resolve().parent / "svg"
     out.mkdir(exist_ok=True)
-    for variant in ("light", "dark", "tinted", "grey", "grey-dark"):
+    for variant in ("light", "dark", "tinted", "grey", "grey-dark", "mac"):
         (out / f"{variant}.svg").write_text(svg(variant))
         print(f"wrote {out / variant}.svg")
 
