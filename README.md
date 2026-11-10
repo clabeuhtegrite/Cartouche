@@ -46,6 +46,7 @@ Cartouche ships no games, no keys and no firmware, and never downloads them: it 
 | [`builder/`](builder/) | Cartouche Builder, the Mac program that builds the player's own games with nxnative and builds them again when nxnative changes for them |
 | [`catalog/`](catalog/) | What the app knows about games and devices: nxnative's list of games, covers' IDs, compatibility sheets, device memory limits |
 | [`guard/`](guard/) | The publish guard, which refuses to publish anything that looks like game content |
+| [`site/`](site/) | The showcase page, on [GitHub Pages](https://clabeuhtegrite.github.io/Cartouche/): Cartouche's screens rebuilt in HTML around games of nxnative's list, their covers loaded from IGDB, in French and English |
 | [`docs/`](docs/) | Getting started, architecture, roadmap, decisions |
 
 ## Building
