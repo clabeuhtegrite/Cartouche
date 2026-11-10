@@ -23,7 +23,10 @@ struct CartoucheRootView: View {
                 CartoucheSystemView()
                     .environmentObject(sharedModel)
             }
-            .onAppear { Self.clearBadge() }
+            .onAppear {
+                Self.clearBadge()
+                CartoucheTelemetry.shared.start()
+            }
             .onReceive(NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification)) { _ in
                 Self.clearBadge()
             }

@@ -8,7 +8,7 @@
 //  the whole screen of the simulator it runs on, such as the iPhone Duo's,
 //  with its own safe area, size classes and system bars.
 //
-//      -GalleryScreen games|library|sheet|settings|setup|signin|system|storage
+//      -GalleryScreen games|library|sheet|settings|setup|signin|system|storage|telemetry
 //      -GalleryWidth 402 -GalleryHeight 874     (none: the whole screen)
 //      -GalleryInsets 62,0,34,0          top, leading, bottom, trailing
 //      -GalleryOwned 0400C3F00006E000,…  the player's games
@@ -281,6 +281,11 @@ struct CartoucheGalleryApp: App {
             NavigationStack {
                 CartoucheStorageView()
             }
+        case "telemetry":
+            NavigationStack {
+                CartoucheTelemetryView()
+            }
+            .preferredColorScheme(.dark)
         default:
             CartoucheGamesView()
         }
