@@ -47,7 +47,8 @@ struct CartoucheGamesView: View {
         case library
     }
 
-    private let catalog = CartoucheCatalog.shared
+    /// Newer covers show as soon as they arrive.
+    @ObservedObject private var catalog = CartoucheCatalog.shared
 
     private var onGames: Bool { sharedModel.selectedTab == .games }
     private var nothingOver: Bool {
@@ -227,16 +228,18 @@ struct CartoucheGamesView: View {
             storedGames.refresh()
             actions.copySaves(of: sharedModel.apps)
             updates.checkIfDue()
+            catalog.refreshCoversIfDue()
         }
         // A renewal in the background moves the expiry date: warn for the
         // new one each time the player comes back. A game may have saved
         // meanwhile, and the games folder changed. Cartouche's source may
-        // list a new version.
+        // list a new version, and newer covers may be out.
         .onReceive(NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification)) { _ in
             CartoucheRenewal.scheduleWarnings()
             storedGames.refresh()
             actions.copySaves(of: sharedModel.apps)
             updates.checkIfDue()
+            catalog.refreshCoversIfDue()
         }
     }
 

@@ -12,10 +12,15 @@ differently, is left out and keeps the label the launcher draws; MATCHES
 pins a game to its IGDB entry by hand.
 
 The search needs a Twitch application's credentials (dev.twitch.tv/console)
-in IGDB_CLIENT_ID and IGDB_CLIENT_SECRET; the Covers workflow passes the
-repository's secrets of these names.
+in IGDB_CLIENT_ID and IGDB_CLIENT_SECRET; the Covers and Live covers
+workflows pass the repository's secrets of these names.
 
-usage: igdb_covers.py [--catalog FILE] --out FILE
+With several --catalog files, the games of all of them are searched, a title
+ID once: the Live covers workflow passes catalog/nxnative.json and the list
+of nxnative's main branch, so that the covers Cartouche reads every day have
+the games nxnative added since the commit Cartouche pins.
+
+usage: igdb_covers.py [--catalog FILE]... --out FILE
 """
 
 from __future__ import annotations
@@ -117,6 +122,16 @@ def entry_of(game: dict, ids: dict[str, int], ask: Ask) -> dict | None:
     return None
 
 
+def merged(catalogs: list[dict]) -> dict:
+    """The games of CATALOGS, a title ID once, as the first catalog that
+    lists it has it."""
+    games: dict[str, dict] = {}
+    for catalog in catalogs:
+        for game in catalog["games"]:
+            games.setdefault(game["titleId"], game)
+    return {"games": list(games.values())}
+
+
 def covers(catalog: dict, ask: Ask, log=sys.stderr) -> list[dict]:
     """One record per game of CATALOG that IGDB has a cover for."""
     ids = platform_ids(ask)
@@ -162,15 +177,16 @@ def igdb(client: str, secret: str) -> Ask:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
-    parser.add_argument("--catalog", type=Path, default=ROOT / "catalog/nxnative.json",
-                        help="nxnative's games (catalog/nxnative.json)")
+    parser.add_argument("--catalog", type=Path, action="append",
+                        help="nxnative's games (catalog/nxnative.json, the default); several are merged")
     parser.add_argument("--out", type=Path, required=True, help="write the covers there")
     args = parser.parse_args()
     client, secret = os.environ.get("IGDB_CLIENT_ID"), os.environ.get("IGDB_CLIENT_SECRET")
     if not client or not secret:
         print("IGDB_CLIENT_ID and IGDB_CLIENT_SECRET are needed (a Twitch application's)", file=sys.stderr)
         return 2
-    catalog = json.loads(args.catalog.read_text(encoding="utf-8"))
+    paths = args.catalog or [ROOT / "catalog/nxnative.json"]
+    catalog = merged([json.loads(path.read_text(encoding="utf-8")) for path in paths])
     records = covers(catalog, igdb(client, secret))
     args.out.parent.mkdir(parents=True, exist_ok=True)
     args.out.write_text(document(records), encoding="utf-8")
