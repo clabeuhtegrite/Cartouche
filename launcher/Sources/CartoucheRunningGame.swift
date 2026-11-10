@@ -55,7 +55,8 @@ extension Notification.Name {
     static let cartoucheGameDidPause = Notification.Name("CartoucheGameDidPause")
     /// Posted on the main thread, with the game's LCAppModel as its object,
     /// when the game running behind the console has ended: the player quit
-    /// it, or iOS stopped it.
+    /// it, or iOS stopped it. Its user info holds, under "quit", whether the
+    /// player quit it, and under "dataFolder" the data folder it ran with.
     static let cartoucheGameDidEnd = Notification.Name("CartoucheGameDidEnd")
 }
 
@@ -63,6 +64,15 @@ extension Notification.Name {
 /// in Cartouche/GameMemory.plist of the app group (CartoucheGuest.m lists
 /// the keys). A game that iOS stops for its memory leaves its last reading.
 struct CartoucheGameMemoryReading {
+    /// A size the game's screen took, and the memory it used then.
+    struct Size {
+        let time: Date
+        /// In points.
+        let width: Double
+        let height: Double
+        let footprintBytes: UInt64
+    }
+
     /// The game's data folder.
     let container: String
     /// The game's bundle folder, as LiveContainer names it.
@@ -76,6 +86,8 @@ struct CartoucheGameMemoryReading {
     let availableBytes: UInt64
     /// The limit iOS set for the game's process.
     let limitBytes: UInt64
+    /// Each size its screen took, the first one included: the last 100.
+    let sizes: [Size]
 
     var footprintMiB: Int { Int(footprintBytes / 1_048_576) }
     var peakMiB: Int { Int(peakBytes / 1_048_576) }
@@ -120,6 +132,12 @@ struct CartoucheGameMemoryReading {
         availableBytes = available
         peakBytes = max(bytes("peak") ?? footprint, footprint)
         limitBytes = bytes("limit") ?? footprint + available
+        sizes = (plist["sizes"] as? [[String: Any]] ?? []).compactMap { size in
+            guard let time = size["time"] as? Date, let width = (size["width"] as? NSNumber)?.doubleValue,
+                  let height = (size["height"] as? NSNumber)?.doubleValue else { return nil }
+            return Size(time: time, width: width, height: height,
+                        footprintBytes: (size["footprint"] as? NSNumber)?.uint64Value ?? 0)
+        }
     }
 }
 

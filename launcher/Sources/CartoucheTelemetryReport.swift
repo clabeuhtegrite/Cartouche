@@ -76,9 +76,12 @@ struct CartoucheSessionReport: Codable, Equatable {
     /// The reading of nxnative's log that made the measures.
     var reader = CartoucheGameLogReader.version
     var measures: CartoucheGameMeasures
+    /// What the game's own process wrote, when it ran behind the console.
+    var process: CartoucheGameProcess?
 
     init(id: String, session: String, seq: Int, context: CartoucheTelemetryContext, game: String?, gameVersion: String?,
-         nxnative: String?, nxnativeChanged: Bool?, settings: [String: String]?, minutes: Double, measures: CartoucheGameMeasures) {
+         nxnative: String?, nxnativeChanged: Bool?, settings: [String: String]?, minutes: Double, measures: CartoucheGameMeasures,
+         process: CartoucheGameProcess? = nil) {
         self.id = id
         self.session = session
         self.seq = seq
@@ -90,11 +93,12 @@ struct CartoucheSessionReport: Codable, Equatable {
         self.settings = settings.flatMap { CartoucheTelemetrySettings.cleaned($0) }
         self.minutes = minutes
         self.measures = measures
+        self.process = process
     }
 
     // The context and the measures sit beside the report's own keys.
     private enum CodingKeys: String, CodingKey {
-        case schema, kind, id, session, seq, game, gameVersion, nxnative, nxnativeChanged, settings, minutes, reader
+        case schema, kind, id, session, seq, game, gameVersion, nxnative, nxnativeChanged, settings, minutes, reader, process
     }
 
     init(from decoder: Decoder) throws {
@@ -111,6 +115,7 @@ struct CartoucheSessionReport: Codable, Equatable {
         settings = try container.decodeIfPresent([String: String].self, forKey: .settings)
         minutes = try container.decode(Double.self, forKey: .minutes)
         reader = try container.decode(Int.self, forKey: .reader)
+        process = try container.decodeIfPresent(CartoucheGameProcess.self, forKey: .process)
         context = try CartoucheTelemetryContext(from: decoder)
         measures = try CartoucheGameMeasures(from: decoder)
     }
@@ -129,8 +134,71 @@ struct CartoucheSessionReport: Codable, Equatable {
         try container.encodeIfPresent(settings, forKey: .settings)
         try container.encode(minutes, forKey: .minutes)
         try container.encode(reader, forKey: .reader)
+        try container.encodeIfPresent(process, forKey: .process)
         try context.encode(to: encoder)
         try measures.encode(to: encoder)
+    }
+}
+
+/// What a game's own process wrote of its memory, every two seconds, when
+/// it ran behind the console (launcher/LiveProcessSupport/CartoucheGuest.m),
+/// and how it ended. iOS sets that process a limit of its own, which can
+/// differ from Cartouche's.
+struct CartoucheGameProcess: Codable, Equatable {
+    /// A size the game's screen took, such as an iPhone Duo's unfolded.
+    struct Screen: Codable, Equatable {
+        /// Minutes after the game started.
+        var minute: Double
+        /// In points.
+        var width: Int
+        var height: Int
+        /// The memory the game used as it took that size.
+        var footprintMiB: Int?
+    }
+
+    /// The sizes a report carries: the last ones, up to how the game ended.
+    static let screensKept = 10
+
+    /// The limit iOS set for the game's process.
+    var limitMiB: Int
+    /// The most the game's process used, as iOS counts it.
+    var peakMiB: Int
+    /// What iOS still let it use at its last reading, two seconds or less
+    /// before it ended.
+    var lastAvailableMiB: Int?
+    /// The player quit the game; false when iOS ended it.
+    var quit: Bool?
+    var screens: [Screen]?
+
+    init(limitMiB: Int, peakMiB: Int, lastAvailableMiB: Int?, quit: Bool?, screens: [Screen]) {
+        self.limitMiB = limitMiB
+        self.peakMiB = peakMiB
+        self.lastAvailableMiB = lastAvailableMiB
+        self.quit = quit
+        self.screens = screens.isEmpty ? nil : Array(screens.suffix(Self.screensKept))
+    }
+}
+
+extension CartoucheGameMeasures {
+    /// The measures of a session that ran behind the console, with what its
+    /// own process wrote: the system's own peak, and how it ended when its
+    /// log does not say, as a crash does. NEAR LIMIT: its last reading was
+    /// close to the limit iOS set for it, as that of a game iOS stops for
+    /// its memory is.
+    func with(_ process: CartoucheGameProcess, nearLimit: Bool) -> CartoucheGameMeasures {
+        var measures = self
+        var memory = measures.memory ?? Memory()
+        memory.peakMiB = max(process.peakMiB, memory.peakMiB ?? 0)
+        memory.exactPeak = true
+        measures.memory = memory
+        let logged = measures.end?.kind
+        guard logged != "crash", logged != "boot-failed" else { return measures }
+        if process.quit == true {
+            measures.end = End(kind: "quit")
+        } else if nearLimit {
+            measures.end = End(kind: "memory-likely")
+        }
+        return measures
     }
 }
 

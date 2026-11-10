@@ -74,23 +74,33 @@ final class CartoucheTelemetryReportTests: XCTestCase {
         measures.display = .init(tv: false, foldSplit: true)
         measures.dlc = true
         measures.end = .init(kind: "crash", signal: 11, pc: "main+0x1a2b3c", lr: "main+0x1a2b00")
+        let process = CartoucheGameProcess(limitMiB: 6143, peakMiB: 4813, lastAvailableMiB: 1402, quit: false, screens: [
+            .init(minute: 0, width: 874, height: 402, footprintMiB: 1830),
+            .init(minute: 12.4, width: 1172, height: 905, footprintMiB: 4120),
+        ])
         let session = CartoucheSessionReport(
             id: "5f0c2a9e-4b1d-4c3e-9a77-1e2f3d4c5b6a", session: "b8e1d0c4-7a2f-4e19-8c3d-2f6a9b0e1d7c", seq: 7,
             context: context, game: "0400C3F00006E000", gameVersion: "1.0.0", nxnative: "6c3aeb3d70a1", nxnativeChanged: false,
-            settings: ["DM_OPMODE": "0", "DM_RENDER_SCALE": "1.0"], minutes: 35.2, measures: measures)
+            settings: ["DM_OPMODE": "0", "DM_RENDER_SCALE": "1.0"], minutes: 35.2, measures: measures, process: process)
         let event = try XCTUnwrap(CartoucheEventReport(
             id: "3d9b2f5e-0000-4000-8000-000000000001", seq: 8, context: context, name: "game.installed", game: "0400C3F00006E000",
             fields: ["version": .text("1.0.0"), "nxnative": .text("6c3aeb3d70a1"), "fromStorage": .flag(true), "sizeMiB": .number(19_456)]))
         return (session, event)
     }
 
-    /// Every key of a JSON object, and those of the objects in it as "fps.median".
+    /// Every key of a JSON object, and those of the objects in it as
+    /// "fps.median", and of the objects of a list in it as
+    /// "process.screens[].width".
     private func paths(of object: [String: Any], under prefix: String = "") -> Set<String> {
         var paths: Set<String> = []
         for (key, value) in object {
             paths.insert(prefix + key)
             if let inner = value as? [String: Any] {
                 paths.formUnion(self.paths(of: inner, under: prefix + key + "."))
+            } else if let list = value as? [[String: Any]] {
+                for inner in list {
+                    paths.formUnion(self.paths(of: inner, under: prefix + key + "[]."))
+                }
             }
         }
         return paths
@@ -114,6 +124,45 @@ final class CartoucheTelemetryReportTests: XCTestCase {
         guard kept.count == 2 else { return }
         XCTAssertEqual(try JSONDecoder().decode(CartoucheSessionReport.self, from: JSONSerialization.data(withJSONObject: kept[0])), session)
         XCTAssertEqual(try JSONDecoder().decode(CartoucheEventReport.self, from: JSONSerialization.data(withJSONObject: kept[1])), event)
+    }
+
+    /// A game that ran behind the console: the system's own peak, and the
+    /// end its own process tells when its log does not.
+    func testAGameBehindTheConsoleTellsItsPeakAndHowItEnded() {
+        var logged = CartoucheGameMeasures()
+        logged.memory = .init(peakMiB: 3900, exactPeak: nil, gpuPeakMiB: 2100, lowestHeadroomMiB: nil)
+        logged.end = .init(kind: "unknown")
+        let quit = CartoucheGameProcess(limitMiB: 5120, peakMiB: 4300, lastAvailableMiB: 820, quit: true, screens: [])
+        let measures = logged.with(quit, nearLimit: true)
+        XCTAssertEqual(measures.memory, .init(peakMiB: 4300, exactPeak: true, gpuPeakMiB: 2100, lowestHeadroomMiB: nil))
+        XCTAssertEqual(measures.end, .init(kind: "quit"))
+        var stopped = quit
+        stopped.quit = false
+        XCTAssertEqual(logged.with(stopped, nearLimit: true).end, .init(kind: "memory-likely"))
+        XCTAssertEqual(logged.with(stopped, nearLimit: false).end, .init(kind: "unknown"))
+        var unknown = quit
+        unknown.quit = nil
+        XCTAssertEqual(logged.with(unknown, nearLimit: false).end, .init(kind: "unknown"))
+        // What the log saw stays: a crash, or a game that never started.
+        var crashed = logged
+        crashed.end = .init(kind: "crash", signal: 11, pc: "main+0x1a2b3c")
+        XCTAssertEqual(crashed.with(quit, nearLimit: true).end, crashed.end)
+        var notStarted = logged
+        notStarted.end = .init(kind: "boot-failed")
+        XCTAssertEqual(notStarted.with(stopped, nearLimit: true).end, notStarted.end)
+        // A log without a reading of the memory takes the process's peak.
+        XCTAssertEqual(CartoucheGameMeasures().with(quit, nearLimit: false).memory, .init(peakMiB: 4300, exactPeak: true))
+        // The system's peak is the highest, but a log that read higher keeps its own.
+        var higher = logged
+        higher.memory?.peakMiB = 4500
+        XCTAssertEqual(higher.with(quit, nearLimit: false).memory?.peakMiB, 4500)
+    }
+
+    func testAProcessKeepsTheLastSizesOfTheGamesScreen() {
+        let sizes = (0..<12).map { CartoucheGameProcess.Screen(minute: Double($0), width: 874, height: 402, footprintMiB: nil) }
+        let process = CartoucheGameProcess(limitMiB: 6143, peakMiB: 4813, lastAvailableMiB: nil, quit: nil, screens: sizes)
+        XCTAssertEqual(process.screens?.map(\.minute), (2..<12).map(Double.init))
+        XCTAssertNil(CartoucheGameProcess(limitMiB: 6143, peakMiB: 4813, lastAvailableMiB: nil, quit: nil, screens: []).screens)
     }
 
     func testAnEventKeepsOnlyWordsAndShortText() throws {
