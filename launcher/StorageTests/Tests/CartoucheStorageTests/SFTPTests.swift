@@ -36,6 +36,17 @@ final class SFTPTests: StorageServerTests {
 
     override var rootPath: String? { sftp.home }
 
+    /// A wrong password: Cartouche says the server refused it, not how the
+    /// connection ended.
+    func testSaysTheServerRefusedAWrongPassword() async {
+        let error = await thrownError {
+            let remote = try await self.connectWithAWrongPassword()
+            await remote.disconnect()
+        }
+        XCTAssertEqual(error?.localizedDescription,
+                       CartoucheText.storageSignInFailed(sftp.account.host, CartoucheText.storageSFTPRefused))
+    }
+
     /// When the player adds the server: Cartouche takes the key it shows,
     /// and keeps it.
     func testTakesTheServersKeyTheFirstTime() async throws {

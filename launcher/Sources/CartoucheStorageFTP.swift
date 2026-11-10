@@ -514,6 +514,9 @@ private final class FTPSocket {
     private let connection: NWConnection
     private let queue = DispatchQueue(label: "Cartouche FTP")
     private var buffer = Data()
+    /// Whether the server closed its side: Network.framework answers a read
+    /// after that with ENODATA, not with the end of the stream.
+    private var ended = false
     private static let timeout: TimeInterval = 60
 
     init(host: String, port: Int) {
@@ -585,21 +588,27 @@ private final class FTPSocket {
 
     /// What came next, up to MOST bytes; empty once the server closed.
     private func receiveChunk(most: Int) async throws -> Data {
+        guard !ended else { return Data() }
         let connection = connection
         let watchdog = DispatchWorkItem { connection.cancel() }
         queue.asyncAfter(deadline: .now() + Self.timeout, execute: watchdog)
         defer { watchdog.cancel() }
-        return try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Data, Error>) in
-            connection.receive(minimumIncompleteLength: 1, maximumLength: most) { data, _, _, error in
+        let (data, complete) = try await withCheckedThrowingContinuation {
+            (continuation: CheckedContinuation<(Data, Bool), Error>) in
+            connection.receive(minimumIncompleteLength: 1, maximumLength: most) { data, _, isComplete, error in
                 if let data, !data.isEmpty {
-                    continuation.resume(returning: data)
+                    // The last bytes can come with the end of the stream,
+                    // as a listing or a file's end often does.
+                    continuation.resume(returning: (data, isComplete))
                 } else if let error {
                     continuation.resume(throwing: error)
                 } else {
-                    continuation.resume(returning: Data())
+                    continuation.resume(returning: (Data(), true))
                 }
             }
         }
+        if complete { ended = true }
+        return data
     }
 
     /// The next line of the control connection, without its line break.

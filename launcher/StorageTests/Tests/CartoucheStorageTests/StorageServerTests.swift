@@ -233,14 +233,19 @@ class StorageServerTests: XCTestCase {
     }
 
     func testRefusesAWrongPassword() async {
+        let started = Date()
         let error = await thrownError {
             let remote = try await self.connectWithAWrongPassword()
             await remote.disconnect()
         }
+        let waited = Date().timeIntervalSince(started)
         XCTAssertNotNil(error, "signed in with a wrong password")
         if let error {
-            print("\(label), a wrong password: \(error.localizedDescription)")
+            print("\(label), a wrong password: \(error.localizedDescription), in \(String(format: "%.1f", waited)) s")
         }
+        // The player waits on it: as soon as the server says no, not when
+        // it gives up on the connection.
+        XCTAssertLessThan(waited, 20, "a wrong password took \(Int(waited)) s to fail")
     }
 
     // MARK: The games folder, as the library reads it

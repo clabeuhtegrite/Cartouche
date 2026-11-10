@@ -60,6 +60,19 @@ as_root() {
   if [ "$(id -u)" -eq 0 ]; then "$@"; else sudo "$@"; fi
 }
 
+# Runs a command as root, in a process group of its own. smbd, when it
+# stops, stops every process of its group (killkids): in this script's,
+# that would be the runner's, with the job's other steps. Its own setsid
+# fails when sudo has made it a group's leader, as sudo does in a terminal
+# (use_pty), so smbd starts with --no-process-group, in the group this
+# makes.
+as_root_alone() {
+  as_root "$(command -v python3)" -c 'import os, sys
+if os.getpgrp() != os.getpid():
+    os.setsid()
+os.execv(sys.argv[1], sys.argv[1:])' "$@"
+}
+
 is_mac() { [ "$(uname -s)" = Darwin ]; }
 
 secret() { python3 -c 'import secrets; print(secrets.token_hex(16))'; }
@@ -157,7 +170,7 @@ make_user() {
       as_root dscl . -passwd "/Users/$TEST_USER" "$ACCOUNT_PASSWORD"
     else
       as_root sysadminctl -addUser "$TEST_USER" -fullName "Cartouche storage tests" \
-        -password "$ACCOUNT_PASSWORD" -home "/Users/$TEST_USER" -shell /bin/zsh 2>/dev/null
+        -password "$ACCOUNT_PASSWORD" -home "/Users/$TEST_USER" -shell /bin/zsh
     fi
     as_root createhomedir -c -u "$TEST_USER" >/dev/null 2>&1 || true
     # When Remote Login lets only some users in, cartouche-test is one.
@@ -225,6 +238,11 @@ start_smb() {
 	printcap name = /dev/null
 	disable spoolss = yes
 	usershare max shares = 0
+	# Each new folder made under its own name. Made under a temporary one,
+	# it is renamed over an empty, locked folder of its name, as macOS has
+	# no renameat2(RENAME_NOREPLACE), and macOS, as OpenBSD, refuses that
+	# (Samba's bug 15801). A NAS, on Linux, has renameat2.
+	vfs mkdir use tmp name = no
 	map to guest = Bad User
 	guest account = nobody
 
@@ -258,7 +276,7 @@ EOF
 
   printf '%s\n%s\n' "$ACCOUNT_PASSWORD" "$ACCOUNT_PASSWORD" |
     as_root "$smbpasswd" -c "$smb/smb.conf" -a -s "$TEST_USER" >/dev/null
-  as_root "$smbd" --foreground --no-process-group --debug-stdout --configfile="$smb/smb.conf" < /dev/null > "$smb/smbd.log" 2>&1 &
+  as_root_alone "$smbd" --foreground --no-process-group --debug-stdout --configfile="$smb/smb.conf" < /dev/null > "$smb/smbd.log" 2>&1 &
   echo $! > "$smb/smbd.pid"
   wait_port "$SMB_PORT" smbd "$smb/smbd.log"
   say "SMB: Samba, $("$smbd" --version), on port $SMB_PORT"

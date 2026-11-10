@@ -10,7 +10,7 @@ The package builds the launcher's own files, linked from [`Sources/CartoucheStor
 
 [`StorageServerTests`](Tests/CartoucheStorageTests/StorageServerTests.swift) holds what every server goes through, each step as the app takes it:
 
-- signing in, and refusing a wrong password or wrong keys;
+- signing in, and refusing a wrong password or wrong keys as soon as the server says no, within 20 seconds;
 - the games folder as the library lists it, with sizes and times, the folder one level down, no hidden file, and each IPA's `Info.plist` read where it sits, with the build it names;
 - Install from: the IPA unpacked in one pass from the server, every file as it was, links and executables too, and, on SMB and SFTP, the connection cut on the way and the install reading on from where it stopped on a new one (CartoucheResumingSource);
 - Copy to: the installed app written back as an IPA, then installed again from there; a file replaced only once the new one is finished, while another connection still reads the old one; nothing left of a copy given up;
@@ -26,7 +26,7 @@ Each server adds what only it has:
 | `S3Tests` | MinIO, in the region `eu-west-3` | keys that can only list and read; no keys, unknown keys; no region given, which MinIO names on the first request |
 | `FTPTests` | pyftpdlib, with MLSD | an account that can only read; a folder it can only read; no user name; MLSD used for listing |
 | `FTPListTests` | pyftpdlib, without MLSD or MLST | as `FTPTests`, listed with LIST, as vsftpd and others do |
-| `SFTPTests` | OpenSSH | the server's key taken the first time; another key refused before the password is sent, as sshd's log shows |
+| `SFTPTests` | OpenSSH | the server's key taken the first time; another key refused before the password is sent, as sshd's log shows; a wrong password said to be one |
 
 ## Running them
 
@@ -49,6 +49,8 @@ It adds a user, `cartouche-test`, and runs smbd and sshd as root with sudo, so i
 | OpenSSH | 2222 | `cartouche-test`, by password | `Jeux` in its home |
 
 Each root also has `Lecture seule`, a folder the player's account can only read, with the small IPA.
+
+Samba on a Mac needs two things a NAS does not. It makes a new folder under a temporary name, then renames it over an empty one of its name, as macOS has no `renameat2(RENAME_NOREPLACE)`, and macOS refuses that rename, as OpenBSD does ([Samba's bug 15801](https://bugzilla.samba.org/show_bug.cgi?id=15801)): `servers.sh` sets `vfs mkdir use tmp name = no`. And smbd, when it stops, stops every process of its process group: `servers.sh` starts it in a group of its own, not the runner's.
 
 ## Not here
 
