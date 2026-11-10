@@ -9,7 +9,7 @@ name: Launcher screens
 
 on:
   pull_request:
-    paths: ["launcher/**", "catalog/**", ".github/workflows/screens.yml"]
+    paths: ["launcher/**", "!launcher/StorageTests/**", "catalog/**", ".github/workflows/screens.yml"]
   workflow_dispatch:
 
 permissions:
