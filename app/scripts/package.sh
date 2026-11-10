@@ -171,7 +171,7 @@ done
 # The same keys for the process a game runs in behind the console,
 # LiveContainer's LiveProcess extension, which has none of its own. With Game
 # Mode, iOS gave Cartouche 8,192 MiB on an iPhone where it gave it 6,143
-# without, and still 6,144 to a game's process (docs/decisions.md, 47).
+# without, and still 6,144 to a game's process (docs/decisions.md, 48).
 # Whether these keys raise that one too is measured on the iPhone: Cartouche
 # compares the two limits as it finds them, and starts a game where it has
 # the most (launcher/Sources/CartoucheGamePlace.swift).

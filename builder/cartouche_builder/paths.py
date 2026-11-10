@@ -2,7 +2,8 @@
 
 Everything lives in one folder, ~/Library/Application Support/Cartouche Builder
 (CARTOUCHE_BUILDER_HOME overrides it, for tests). The player's games, their
-sources and the IPAs in their games folder are never inside it.
+sources and the IPAs in their games folder are never inside it, and nothing
+of another app's is ever read: the builder starts from its own defaults.
 """
 
 from __future__ import annotations
@@ -12,8 +13,6 @@ from dataclasses import dataclass
 from pathlib import Path
 
 APP_NAME = "Cartouche Builder"
-# The tool this one replaces, whose settings and records are taken over once.
-LEGACY_APP_NAME = "NxNative Batch Builder"
 
 
 @dataclass(frozen=True)
@@ -82,10 +81,3 @@ class Paths:
     def library(self) -> Path:
         """The last look at the games, for the app to show at once (api.py)."""
         return self.root / "library.json"
-
-
-def legacy_root() -> Path:
-    override = os.environ.get("CARTOUCHE_BUILDER_LEGACY_HOME")
-    if override:
-        return Path(override).expanduser()
-    return Path.home() / "Library" / "Application Support" / LEGACY_APP_NAME

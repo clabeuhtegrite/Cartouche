@@ -5,10 +5,6 @@ games folder holds: the nxnative commit and shader chain it was made from,
 the source files it was made of (their fingerprint), the Apple tools that
 made it, when, and the IPA's name. An attempt that failed is kept beside it,
 so that the same failure is not tried again every night.
-
-The first start also takes over what NxNative Batch Builder recorded of the
-games it built (its "nxnative_batch_state" manifests), so a game it built is
-not built again only because the builder is new.
 """
 
 from __future__ import annotations
@@ -20,8 +16,12 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from . import titles
-from .config import legacy_workspace, write_json
+from .config import write_json
 from .paths import Paths
+
+# The mark the first builders left in the state folder once they had taken
+# over NxNative Batch Builder's records (Store.forget_taken_over).
+TAKEN_OVER = ".legacy-imported"
 
 
 def now_iso() -> str:
@@ -40,7 +40,7 @@ class Build:
     version: str = ""  # the game's version
     name: str = ""
     duration: float = 0.0
-    origin: str = "builder"  # "builder", "legacy" (NxNative Batch Builder) or "ipa" (read from the IPA)
+    origin: str = "builder"  # "builder", or "ipa" (read from the IPA)
     dirty: bool = False
 
     @property
@@ -137,42 +137,28 @@ class Store:
             record.attempt = None
             self.save(record)
 
-    # ---- NxNative Batch Builder ------------------------------------------
+    # ---- What the first builders took over --------------------------------
 
-    def import_legacy(self) -> int:
-        """Takes over NxNative Batch Builder's successful builds; returns how many."""
-        folder = legacy_workspace() / "nxnative_batch_state"
-        if not folder.is_dir():
-            return 0
+    def forget_taken_over(self) -> int:
+        """Forgets the builds the first builders took over from NxNative Batch
+        Builder's records at their first start (origin "legacy"), in each
+        game's record and its history; a record left with nothing goes.
+        Returns how many builds were forgotten."""
         count = 0
-        for path in sorted(folder.glob("*_build.json")):
-            title_id = path.name[: -len("_build.json")].upper()
-            if not titles.is_title_id(title_id) or self.get(title_id).build:
+        for title_id, record in self.all().items():
+            history = [h for h in record.history if h.get("origin") != "legacy"]
+            forgotten = len(record.history) - len(history)
+            build = record.build
+            if build is not None and build.origin == "legacy":
+                build, forgotten = None, forgotten + 1
+            if not forgotten:
                 continue
-            try:
-                data = json.loads(path.read_text(encoding="utf-8"))
-            except (OSError, ValueError):
-                continue
-            if not isinstance(data, dict) or data.get("state") != "success":
-                continue
-            commit = data.get("nxnative_commit")
-            if not isinstance(commit, str) or not commit.strip():
-                continue
-            ipa = data.get("ipa") if isinstance(data.get("ipa"), dict) else {}
-            built_at = data.get("built_at") if isinstance(data.get("built_at"), str) else ""
-            if not built_at:
-                built_at = datetime.fromtimestamp(path.stat().st_mtime, timezone.utc).replace(microsecond=0).isoformat()
-            self.built(
-                title_id,
-                Build(
-                    commit=commit.strip().removesuffix("+dirty"),
-                    built_at=built_at,
-                    ipa=Path(str(ipa.get("path", ""))).name if ipa.get("path") else "",
-                    size=int(ipa.get("size") or 0) if str(ipa.get("size", "0")).isdigit() else 0,
-                    origin="legacy",
-                ),
-            )
-            count += 1
+            count += forgotten
+            record.build, record.history = build, history
+            if record.build is None and record.attempt is None and not record.history:
+                self.path(title_id).unlink(missing_ok=True)
+            else:
+                self.save(record)
         return count
 
 

@@ -30,7 +30,7 @@ class Texts(unittest.TestCase):
         dynamic = {
             "check": ("macos", "rosetta", "git", "xcode", "ios_sdk", "metal", "homebrew_tools", "dotnet", "python", "venv"),
             "config.field": ("sources", "games", "keys", "workspace"),
-            "origin": ("builder", "legacy", "ipa"),
+            "origin": ("builder", "ipa"),
             "kind": ("packages", "nup", "dump", "zip"),
         }
         used |= {f"{prefix}.{name}" for prefix, names in dynamic.items() for name in names}

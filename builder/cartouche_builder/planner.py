@@ -39,7 +39,7 @@ class Entry:
     reasons: list[str] = field(default_factory=list)
     detail: str = ""
     base: str | None = None  # the commit the game's IPA was made from
-    origin: str = ""  # where that is known from: builder, legacy, ipa
+    origin: str = ""  # where that is known from: builder, ipa
     impact: Impact | None = None
     ipa: Path | None = None  # its IPA in the games folder
     ipa_name: str = ""  # the name its new IPA gets there
@@ -223,8 +223,8 @@ def _locate(entry: Entry, games_folder: Path | None, profiles: dict[str, Profile
 
 
 def _from_ipa(path: Path) -> Build | None:
-    """A build record from an IPA the builder did not make (NxNative Batch
-    Builder's, or one built by hand): its commit and date are in it."""
+    """A build record from an IPA the builder did not make (one built by
+    hand, or by another tool): its commit and date are in it."""
     info = ipas.read_info(path)
     if not info or not info.commit:
         return None

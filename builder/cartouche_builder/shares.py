@@ -14,7 +14,7 @@ import sys
 import time
 from pathlib import Path
 
-# "//ad@nas.local/Games on /Volumes/Games (smbfs, nodev, nosuid, mounted by ad)"
+# "//player@nas.local/Games on /Volumes/Games (smbfs, nodev, nosuid, mounted by player)"
 MOUNT_LINE = re.compile(r"^//(?:(?P<user>[^@/]+)@)?(?P<host>[^/]+)/(?P<share>.+?) on (?P<point>/.+?) \(smbfs\b")
 
 

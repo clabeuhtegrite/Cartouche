@@ -1,9 +1,9 @@
 """The builder's settings: the player's folders, what to build and when.
 
-They are kept in config.json in the builder's folder (paths.py). The first
-start takes over the settings of NxNative Batch Builder, the tool this one
-replaces, when it finds them; its file is only read. A settings file of an
-older builder is brought up to date once (migrate()).
+They are kept in config.json in the builder's folder (paths.py). They start
+from the defaults, with no folder chosen: the app's setup assistant asks
+for each, step by step. A settings file of an older builder is brought up
+to date once (migrate()).
 """
 
 from __future__ import annotations
@@ -16,7 +16,7 @@ from pathlib import Path
 
 from . import titles
 from .i18n import t
-from .paths import Paths, legacy_root
+from .paths import Paths
 
 ENGINE_URL = "https://github.com/seedds/nxnative.git"
 ENGINE_BRANCH = "main"
@@ -24,7 +24,7 @@ ENGINE_BRANCH = "main"
 # game) does to a game built before it.
 POLICIES = ("weekly", "always", "never")
 # The settings' version: migrate() brings an older file up to it.
-VERSION = 1
+VERSION = 2
 
 
 @dataclass
@@ -53,7 +53,7 @@ class Config:
     schedule_hour: int = 3
     schedule_minute: int = 30
     shares: dict[str, str] = field(default_factory=dict)  # mount point -> smb:// share, to mount again
-    imported: bool = False  # NxNative Batch Builder's settings were taken over
+    setup_done: bool = False  # the app's setup assistant was gone through to its end
     version: int = 0  # the settings' version (VERSION once migrated)
 
     # ---- Paths -----------------------------------------------------------
@@ -151,45 +151,50 @@ def _resolved(path: Path) -> Path:
 
 
 def load(paths: Paths) -> Config:
-    """The saved settings, or the defaults (with NxNative Batch Builder's, once)."""
+    """The saved settings, or the defaults: no folder chosen yet."""
     try:
         data = json.loads(paths.config.read_text(encoding="utf-8"))
     except FileNotFoundError:
-        config = Config(version=VERSION)
-        if import_legacy(config):
-            save(paths, config)
-        return config
+        return Config(version=VERSION)
     except (OSError, ValueError):
         data = {}
+    data = data if isinstance(data, dict) else {}
     known = {f.name for f in fields(Config)}
-    config = Config(**{k: v for k, v in (data if isinstance(data, dict) else {}).items() if k in known})
+    config = Config(**{k: v for k, v in data.items() if k in known})
     try:
         config.validate()
     except ValueError:
         # A hand-edited file with a bad value: keep the folders, reset the rest.
         defaults = Config()
-        for name in ("sources", "games", "keys", "workspace", "imported", "version"):
+        for name in ("sources", "games", "keys", "workspace", "setup_done", "version"):
             value = getattr(config, name)
             setattr(defaults, name, value if isinstance(value, type(getattr(defaults, name))) else getattr(defaults, name))
         config = defaults
-    if migrate(config):
+    if migrate(config, taken_over=data.get("imported") is True):
         save(paths, config)
     return config
 
 
-def migrate(config: Config) -> bool:
+def migrate(config: Config, taken_over: bool = False) -> bool:
     """Brings settings of an older builder up to VERSION; whether it changed them.
 
-    1: the builder follows every game of the sources by default. The
-    selection NxNative Batch Builder had (often one game, the one it was
-    last asked for) no longer narrows it: a game is left out with skip.
+    2: nothing is kept of another tool's. The first builders took over, at
+    their first start, the settings NxNative Batch Builder had left on the
+    Mac (TAKEN_OVER, their "imported" key): those settings go back to the
+    defaults, and the app's setup assistant opens. Settings the player
+    chose stay, the assistant counted as gone through once both folders are
+    chosen. (1, before it, only changed settings taken over.)
     """
     if not isinstance(config.version, int) or isinstance(config.version, bool) or config.version < 0:
         config.version = 0
     if config.version >= VERSION:
         return False
-    if config.version < 1 and config.imported:
-        config.only = []
+    if taken_over:
+        defaults = Config()
+        for name in (f.name for f in fields(Config)):
+            setattr(config, name, getattr(defaults, name))
+    else:
+        config.setup_done = config.setup_done or bool(config.sources and config.games)
     config.version = VERSION
     return True
 
@@ -214,48 +219,3 @@ def write_json(path: Path, data: object, mode: int = 0o600) -> None:
     finally:
         if os.path.exists(name):
             os.unlink(name)
-
-
-# ---- NxNative Batch Builder --------------------------------------------------
-
-
-def legacy_config() -> dict:
-    try:
-        data = json.loads((legacy_root() / "config.json").read_text(encoding="utf-8"))
-    except (OSError, ValueError):
-        return {}
-    return data if isinstance(data, dict) else {}
-
-
-def legacy_workspace() -> Path:
-    value = legacy_config().get("workspace")
-    if isinstance(value, str) and value.strip():
-        return Path(value).expanduser()
-    return legacy_root() / "workspace"
-
-
-def import_legacy(config: Config) -> bool:
-    """Takes over NxNative Batch Builder's folders. Its workspace stays the
-    workspace: its build folders (<title ID>_build) are reused as they are,
-    so the next build of a game it built starts from its caches. Its
-    selection is not taken over: the builder follows every game."""
-    data = legacy_config()
-    if not data:
-        return False
-
-    def text(key: str) -> str:
-        value = data.get(key)
-        return value.strip() if isinstance(value, str) else ""
-
-    config.sources = text("source_root") or config.sources
-    config.games = text("games_output") or config.games
-    config.keys = text("keys_path") or config.keys
-    workspace = legacy_workspace()
-    if workspace.is_dir():
-        config.workspace = str(workspace)
-    if isinstance(data.get("min_free_gb"), int) and 0 <= data["min_free_gb"] <= 10000:
-        config.min_free_gb = data["min_free_gb"]
-    if isinstance(data.get("notifications"), bool):
-        config.notifications = data["notifications"]
-    config.imported = True
-    return True
