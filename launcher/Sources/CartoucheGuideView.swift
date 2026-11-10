@@ -287,17 +287,19 @@ struct CartoucheGuideView: View {
             accountContent(progress)
         case .build:
             detail(CartoucheText.guideBuildHow)
-            VStack(alignment: .leading, spacing: 8) {
-                requirement(CartoucheText.guideBuildMac, systemImage: "laptopcomputer")
-                requirement(CartoucheText.guideBuildXcode, systemImage: "hammer.fill")
-                requirement(CartoucheText.guideBuildGame, systemImage: "gamecontroller.fill")
-            }
-            // Side by side where they fit, the one over the other otherwise.
+            // Side by side where they fit, the one over the other otherwise,
+            // and before what the Mac needs: No thanks shows without the
+            // player scrolling for it, on an iPhone too.
             ViewThatFits(in: .horizontal) {
                 HStack(spacing: 10) { buildActions }
                 VStack(alignment: .leading, spacing: 10) { buildActions }
             }
             note(CartoucheText.guideBuildSendNote)
+            VStack(alignment: .leading, spacing: 8) {
+                requirement(CartoucheText.guideBuildMac, systemImage: "laptopcomputer")
+                requirement(CartoucheText.guideBuildXcode, systemImage: "hammer.fill")
+                requirement(CartoucheText.guideBuildGame, systemImage: "gamecontroller.fill")
+            }
         case .folder:
             detail(progress.buildSkipped ? CartoucheText.guideFolderHowNoMac : CartoucheText.guideFolderHow)
             action(CartoucheText.guideFolderChoose, systemImage: "folder.badge.plus", primary: true) {

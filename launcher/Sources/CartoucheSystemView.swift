@@ -116,12 +116,20 @@ struct CartoucheSystemView: View {
             close()
         } label: {
             LabeledContent {
-                if let step = progress.current {
-                    Text(CartoucheText.guideStatusStep(step.number, CartoucheGuide.Step.allCases.count))
-                } else {
-                    Label(CartoucheText.guideStatusDone, systemImage: "checkmark.circle.fill")
-                        .labelStyle(CartoucheTightLabelStyle())
-                        .foregroundStyle(Color.green)
+                HStack(spacing: 8) {
+                    if let step = progress.current {
+                        Text(CartoucheText.guideStatusStep(step.number, CartoucheGuide.Step.allCases.count))
+                    } else {
+                        Label(CartoucheText.guideStatusDone, systemImage: "checkmark.circle.fill")
+                            .labelStyle(CartoucheTightLabelStyle())
+                            .foregroundStyle(Color.green)
+                    }
+                    // As the rows that open a page have it: a row with a
+                    // status alone reads as a fact, not as a button.
+                    Image(systemName: "chevron.forward")
+                        .font(.footnote.weight(.semibold))
+                        .foregroundStyle(.tertiary)
+                        .accessibilityHidden(true)
                 }
             } label: {
                 Label(CartoucheText.guideTitle, systemImage: "flag.checkered")
