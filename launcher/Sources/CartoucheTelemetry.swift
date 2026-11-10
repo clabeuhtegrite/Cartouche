@@ -25,6 +25,7 @@ import Combine
 import Foundation
 import UIKit
 
+@available(iOS 17.0, *)
 @MainActor
 final class CartoucheTelemetry: ObservableObject {
     static let shared = CartoucheTelemetry()
