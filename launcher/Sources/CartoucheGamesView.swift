@@ -14,10 +14,13 @@
 //  of the game in focus stands beside them instead, on the other side of
 //  the Duo's fold (CartoucheArrangement): moving the focus, with a tap or
 //  the controller, changes the game it shows, and the home leaves out the
-//  description of the game in focus that the sheet gives in full. Unfolding
-//  the Duo moves an open sheet beside the console; folding it puts the
-//  settings page open beside the console back in a sheet over it, and
-//  otherwise leaves the game the sheet showed in focus.
+//  description of the game in focus that the sheet gives in full. On the
+//  cover that imports a game, or the one for every game, what it does
+//  stands there instead (CartoucheFocusPanel), and the import's before the
+//  player has a game. Unfolding the Duo moves an open sheet beside the
+//  console; folding it puts the settings page open beside the console back
+//  in a sheet over it, and otherwise leaves the game the sheet showed in
+//  focus.
 //
 //  Cartouche installs, starts and uninstalls a game itself, on these
 //  screens (CartoucheGameActions): the player never lands in the Apps tab.
@@ -59,6 +62,9 @@ struct CartoucheGamesView: View {
     /// The game in focus, or the last one whose sheet opened: the game of
     /// the sheet beside the console, in a regular width.
     @State private var paneID: String?
+    /// The home's cover in focus when it is not a game's: what stands
+    /// beside the console instead of the game's sheet.
+    @State private var paneCover: CartoucheFocusPanel.Kind?
     @State private var choosingIPA = false
     @State private var choosingIPAInSheet = false
     @State private var memory = CartoucheMemoryReading.now()
@@ -110,15 +116,24 @@ struct CartoucheGamesView: View {
         CartoucheArrangement(splits: splits) {
             console(entries)
         } secondary: {
-            if splits, let entry = paneEntry(in: entries) {
-                gameSheet(entry, beside: true)
-                    .modifier(CartoucheUninstallQuestion(app: $uninstallingInSheet, onAnswer: uninstall, onCopyFirst: copyThenUninstall))
-                    // The settings page beside the console takes the
-                    // controller; the console has it otherwise.
-                    .onReceive(CartoucheGamepad.shared.inputs) { input in
-                        guard onGames, nothingOverConsole, uninstallingInSheet == nil else { return }
-                        _ = handleSettings(input)
+            if splits {
+                if let kind = paneKind(in: entries) {
+                    CartoucheFocusPanel(kind: kind, gameCount: entries.all.count) {
+                        switch kind {
+                        case .importGame: choosingIPA = true
+                        case .allGames: path.append(.library)
+                        }
                     }
+                } else if let entry = paneEntry(in: entries) {
+                    gameSheet(entry, beside: true)
+                        .modifier(CartoucheUninstallQuestion(app: $uninstallingInSheet, onAnswer: uninstall, onCopyFirst: copyThenUninstall))
+                        // The settings page beside the console takes the
+                        // controller; the console has it otherwise.
+                        .onReceive(CartoucheGamepad.shared.inputs) { input in
+                            guard onGames, nothingOverConsole, uninstallingInSheet == nil else { return }
+                            _ = handleSettings(input)
+                        }
+                }
             }
         }
         // Dark always, under the System page too, which covers it.
@@ -223,7 +238,10 @@ struct CartoucheGamesView: View {
         // sheet alone stays behind, as the game in focus.
         .onChange(of: splits) { _, splits in
             if splits {
-                if let sheetID { paneID = sheetID }
+                if let sheetID {
+                    paneID = sheetID
+                    paneCover = nil
+                }
                 sheetID = nil
             } else if gameSettings != nil {
                 sheetID = paneID
@@ -354,7 +372,7 @@ struct CartoucheGamesView: View {
                 zoom: path.isEmpty ? zoom : nil,
                 // Beside the console, the sheet describes the game in focus.
                 showsHero: !splits,
-                onFocus: { focus($0) })
+                onFocus: { focusShelf($0) })
                 .toolbar(.hidden, for: .navigationBar)
                 .toolbar(.hidden, for: .tabBar)
                 .navigationDestination(for: Route.self) { route in
@@ -431,11 +449,18 @@ struct CartoucheGamesView: View {
     }
 
     /// The game of the sheet beside the console: the game in focus, or the
-    /// last whose sheet opened; before any, the player's first game, or the
-    /// first that plays on the iPhone.
+    /// last whose sheet opened; before any, the player's first game.
     private func paneEntry(in entries: CartoucheCatalog.Entries) -> CartoucheEntry? {
-        entries.entry(id: paneID) ?? entries.owned.first ?? entries.others.first(where: \.playsOnIPhone)
-            ?? entries.all.first
+        entries.entry(id: paneID) ?? entries.owned.first
+    }
+
+    /// What stands beside the console instead of a game's sheet: the home's
+    /// cover in focus when it is not a game's, or, before the player has a
+    /// game, the one that imports a game, rather than a game they do not
+    /// have.
+    private func paneKind(in entries: CartoucheCatalog.Entries) -> CartoucheFocusPanel.Kind? {
+        if let paneCover { return paneCover }
+        return paneEntry(in: entries) == nil ? .importGame : nil
     }
 
     /// On the controller, a game's settings page open: L and R change the
@@ -455,15 +480,35 @@ struct CartoucheGamesView: View {
     /// console shows it. Another game in focus closes the settings page of
     /// the last. With a sheet over the console, the focus does not move.
     private func focus(_ entry: CartoucheEntry) {
-        guard sheetID == nil, paneID != entry.id else { return }
-        gameSettings = nil
+        guard sheetID == nil else { return }
+        if paneID != entry.id { gameSettings = nil }
         paneID = entry.id
+        paneCover = nil
+    }
+
+    /// The cover in focus on the home's shelf: a game's, or the one that
+    /// imports a game or opens every game, which stands beside the console
+    /// in the game's sheet's place, its settings page closed.
+    private func focusShelf(_ item: CartoucheHomeView.Item) {
+        let cover: CartoucheFocusPanel.Kind
+        switch item {
+        case .game(let entry):
+            focus(entry)
+            return
+        case .importGame: cover = .importGame
+        case .allGames: cover = .allGames
+        case .dock: return
+        }
+        guard sheetID == nil, paneCover != cover else { return }
+        gameSettings = nil
+        paneCover = cover
     }
 
     /// A game's sheet: beside the console in a split, over it otherwise.
     private func showSheet(_ entry: CartoucheEntry) {
         if paneID != entry.id { gameSettings = nil }
         paneID = entry.id
+        paneCover = nil
         if !splits { sheetID = entry.id }
     }
 

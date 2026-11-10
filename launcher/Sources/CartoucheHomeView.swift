@@ -56,8 +56,9 @@ struct CartoucheHomeView: View {
     /// Whether the game in focus is described with its buttons between the
     /// shelves, or beside them: not when its sheet stands beside the home.
     let showsHero: Bool
-    /// Tells which game is in focus, each time another one is.
-    let onFocus: (CartoucheEntry) -> Void
+    /// Tells which cover of the shelf is in focus, each time another one
+    /// is: a game's, the one that imports a game or the one for every game.
+    let onFocus: (Item) -> Void
 
     // Written out: before Swift 6.4 (SE-0502), the private state below made
     // the synthesized initializer private.
@@ -67,7 +68,7 @@ struct CartoucheHomeView: View {
          onUninstall: @escaping (LCAppModel) -> Void, onSheet: @escaping (CartoucheEntry) -> Void,
          onLibrary: @escaping () -> Void, onSetup: @escaping () -> Void, onGuide: @escaping () -> Void = {},
          onTab: @escaping (LCTabIdentifier) -> Void, zoom: Namespace.ID? = nil,
-         showsHero: Bool = true, onFocus: @escaping (CartoucheEntry) -> Void = { _ in }) {
+         showsHero: Bool = true, onFocus: @escaping (Item) -> Void = { _ in }) {
         self.entries = entries
         self.gameCount = gameCount
         self.isActive = isActive
@@ -198,7 +199,7 @@ struct CartoucheHomeView: View {
         }
         .background(CartoucheStage(key: heroKey, artwork: heroArtwork))
         .onChange(of: hero) { _, hero in
-            if case .game(let entry) = hero { onFocus(entry) }
+            if let hero { onFocus(hero) }
         }
         // Back from the game behind the console: the focus on it, with
         // Resume under A.
