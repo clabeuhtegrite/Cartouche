@@ -22,7 +22,7 @@ De rien à votre premier jeu sur votre iPhone, en quatre étapes. Cartouche ne t
 
 ## 2. Construisez votre jeu sur votre Mac
 
-**Envoyer les étapes à mon Mac**, dans le guide, envoie cette page au Mac, par AirDrop ou Messages.
+**Envoyer les étapes à mon Mac**, dans le guide, envoie au Mac [la page de Cartouche Builder](https://clabeuhtegrite.github.io/Cartouche/#builder) du site de Cartouche, par AirDrop ou Messages : son bouton **Télécharger Cartouche Builder** donne l’image disque, et les étapes ci-dessous prennent le relais. Vos jeux sont déjà construits, sur votre NAS par exemple, ou vous n’avez pas de Mac ? **Non merci** passe cette étape, et le guide continue avec votre dossier des jeux.
 
 1. Sur un Mac à puce Apple sous macOS 26.6 ou ultérieur, téléchargez `Cartouche-Builder-<version>.dmg` depuis la dernière [version `builder-v<version>`](https://github.com/clabeuhtegrite/Cartouche/releases), ouvrez-le et glissez **Cartouche Builder** sur **Applications**.
 2. Ouvrez Cartouche Builder. La première fois, macOS dit qu’il ne peut pas le vérifier, car il n’est pas signé par Apple : dans **Réglages Système › Confidentialité et sécurité**, cliquez sur **Ouvrir quand même** à côté de Cartouche Builder, une fois.
@@ -51,6 +51,7 @@ Votre jeu apparaît dans la dernière étape du guide et dans votre bibliothèqu
 
 - **Laissez LocalDevVPN allumé** quand vous le pouvez : Cartouche renouvelle sa signature de sept jours par lui, depuis la page Système ou chaque nuit avec l’automatisation Raccourcis que cette page explique.
 - **Mises à jour :** Cartouche propose lui-même ses nouvelles versions, et la mise à jour d’un jeu quand votre dossier des jeux en a une construction plus récente. Cartouche Builder se met à jour tout seul, quand il ne construit rien.
+- **Le guide :** la croix de sa carte la retire de l’accueil ; **Système › Votre premier jeu** le rouvre quand vous voulez.
 - **Le certificat ne marche plus :** l’accueil le dit ; reconnectez-vous. **Le fichier de jumelage manque :** l’installeur le remet dans Cartouche, ou réinstalle Cartouche par-dessus cette copie, ce qui garde vos jeux et leurs sauvegardes.
 
 Cartouche ne fournit ni jeux, ni clés, ni firmware, et ne les télécharge jamais ; Cartouche Builder construit les vôtres à partir de vos propres fichiers, sur votre Mac, dans votre propre dossier des jeux ([LEGAL.md](../LEGAL.md)).

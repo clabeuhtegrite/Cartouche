@@ -9,8 +9,13 @@
 //  Each action is one Cartouche already has: LocalDevVPN connects and
 //  brings Cartouche back by itself, the sign-in is the setup's own screen,
 //  the games folder the storage page; the Mac's steps go to the Mac as a
-//  link, by AirDrop or Messages. Installing or importing a game closes the
-//  guide, for the console to show the install, then the game's sheet.
+//  link to Cartouche Builder's page of Cartouche's site, by AirDrop or
+//  Messages. No thanks skips the Mac's step, which stays closed: a tap
+//  opens it again. Installing or importing a game closes the guide, for
+//  the console to show the install, then the game's sheet.
+//
+//  The card at the top of the home (CartoucheGuideCard) opens the guide,
+//  and its × takes it off the home; the System page opens it then.
 //
 
 import SwiftUI
@@ -127,21 +132,36 @@ struct CartoucheGuideView: View {
                 .font(.system(.largeTitle, design: .rounded, weight: .heavy))
                 .foregroundStyle(Color.white)
                 .accessibilityAddTraits(.isHeader)
-            Text(progress.isFinished ? CartoucheText.guideFinishedIntro : CartoucheText.guideIntro)
+            Text(intro(progress))
                 .font(.subheadline)
                 .foregroundStyle(CartoucheTheme.secondaryText)
                 .fixedSize(horizontal: false, vertical: true)
             HStack(spacing: 6) {
                 ForEach(Step.allCases) { step in
                     Capsule()
-                        .fill(progress.isDone(step) ? AnyShapeStyle(CartoucheTheme.brand)
-                              : AnyShapeStyle(Color.white.opacity(progress.current == step ? 0.45 : 0.14)))
+                        .fill(capsuleStyle(step, progress))
                         .frame(height: 6)
                 }
             }
             .accessibilityHidden(true)
         }
         .padding(.bottom, 4)
+    }
+
+    private func intro(_ progress: CartoucheGuide.Progress) -> String {
+        guard progress.isFinished else { return CartoucheText.guideIntro }
+        return progress.buildSkipped ? CartoucheText.guideFinishedIntroNoMac : CartoucheText.guideFinishedIntro
+    }
+
+    /// A step's mark over the steps: in Cartouche's colours once done, dim
+    /// once skipped, lit while it is the step left.
+    private func capsuleStyle(_ step: Step, _ progress: CartoucheGuide.Progress) -> AnyShapeStyle {
+        if progress.isDone(step) { return AnyShapeStyle(CartoucheTheme.brand) }
+        if progress.isSkipped(step) {
+            return AnyShapeStyle(LinearGradient(colors: [CartoucheTheme.indigo.opacity(0.35), CartoucheTheme.pink.opacity(0.35)],
+                                                startPoint: .leading, endPoint: .trailing))
+        }
+        return AnyShapeStyle(Color.white.opacity(progress.current == step ? 0.45 : 0.14))
     }
 
     // MARK: Steps
@@ -165,8 +185,9 @@ struct CartoucheGuideView: View {
     private func card(_ step: Step, progress: CartoucheGuide.Progress) -> some View {
         let done = progress.isDone(step)
         let open = isOpen(step, progress)
+        let skipped = progress.isSkipped(step)
         return HStack(alignment: .top, spacing: 14) {
-            badge(step, done: done, open: open)
+            badge(step, done: done, open: open, skipped: skipped)
             VStack(alignment: .leading, spacing: 10) {
                 Text(Self.title(step))
                     .font(.system(.title3, design: .rounded, weight: .bold))
@@ -176,6 +197,8 @@ struct CartoucheGuideView: View {
                     doneLine(step, progress)
                 } else if open {
                     content(step, progress)
+                } else if skipped {
+                    detail(CartoucheText.guideBuildSkipped)
                 }
             }
             Spacer(minLength: 0)
@@ -198,16 +221,20 @@ struct CartoucheGuideView: View {
             withAnimation(.easeInOut(duration: 0.2)) { opened = step }
         }
         .accessibilityElement(children: .contain)
-        .accessibilityLabel(done ? CartoucheText.guideStepDone(Self.title(step)) : Self.title(step))
+        .accessibilityLabel(done ? CartoucheText.guideStepDone(Self.title(step))
+                            : skipped && !open ? CartoucheText.guideStepSkipped(Self.title(step)) : Self.title(step))
     }
 
-    private func badge(_ step: Step, done: Bool, open: Bool) -> some View {
+    private func badge(_ step: Step, done: Bool, open: Bool, skipped: Bool) -> some View {
         ZStack {
             Circle()
                 .fill(done ? Color.green : open ? CartoucheTheme.indigo : Color.white.opacity(0.14))
             if done {
                 Image(systemName: "checkmark")
                     .font(.headline.weight(.heavy))
+            } else if skipped && !open {
+                Image(systemName: "forward.fill")
+                    .font(.subheadline.weight(.heavy))
             } else {
                 Text(String(step.number))
                     .font(.headline.monospacedDigit().weight(.heavy))
@@ -265,20 +292,14 @@ struct CartoucheGuideView: View {
                 requirement(CartoucheText.guideBuildXcode, systemImage: "hammer.fill")
                 requirement(CartoucheText.guideBuildGame, systemImage: "gamecontroller.fill")
             }
-            if let link = URL(string: CartoucheText.guideBuildLink) {
-                ShareLink(item: link, subject: Text(CartoucheText.guideBuildShareSubject),
-                          message: Text(CartoucheText.guideBuildShareMessage)) {
-                    Label(CartoucheText.guideBuildSend, systemImage: "laptopcomputer.and.arrow.down")
-                        .font(.headline)
-                        .padding(.horizontal, 6)
-                        .frame(minHeight: 30)
-                }
-                .controlSize(.large)
-                .cartouchePrimaryButton()
+            // Side by side where they fit, the one over the other otherwise.
+            ViewThatFits(in: .horizontal) {
+                HStack(spacing: 10) { buildActions }
+                VStack(alignment: .leading, spacing: 10) { buildActions }
             }
             note(CartoucheText.guideBuildSendNote)
         case .folder:
-            detail(CartoucheText.guideFolderHow)
+            detail(progress.buildSkipped ? CartoucheText.guideFolderHowNoMac : CartoucheText.guideFolderHow)
             action(CartoucheText.guideFolderChoose, systemImage: "folder.badge.plus", primary: true) {
                 showingStorage = true
             }
@@ -288,7 +309,7 @@ struct CartoucheGuideView: View {
         case .play:
             let stored = entries.owned.filter { $0.app == nil && $0.stored != nil }
             if stored.isEmpty {
-                detail(CartoucheText.guidePlayWaiting)
+                detail(progress.buildSkipped ? CartoucheText.guidePlayWaitingNoMac : CartoucheText.guidePlayWaiting)
                 action(CartoucheText.importCopy, systemImage: "square.and.arrow.down", primary: true) {
                     choosingIPA = true
                 }
@@ -300,6 +321,27 @@ struct CartoucheGuideView: View {
                                primary: index == 0) { onInstall(game) }
                     }
                 }
+            }
+        }
+    }
+
+    /// The Mac's step's buttons: its page sent to the Mac, and No thanks,
+    /// which skips the step, or closes it again once skipped.
+    @ViewBuilder
+    private var buildActions: some View {
+        ShareLink(item: CartoucheGuide.builderPage, subject: Text(CartoucheText.guideBuildShareSubject),
+                  message: Text(CartoucheText.guideBuildShareMessage)) {
+            Label(CartoucheText.guideBuildSend, systemImage: "laptopcomputer.and.arrow.down")
+                .font(.headline)
+                .padding(.horizontal, 6)
+                .frame(minHeight: 30)
+        }
+        .controlSize(.large)
+        .cartouchePrimaryButton()
+        action(CartoucheText.guideBuildSkip, systemImage: "forward.fill", primary: false) {
+            withAnimation(.easeInOut(duration: 0.2)) {
+                guide.skipBuild()
+                opened = nil
             }
         }
     }
@@ -387,40 +429,54 @@ struct CartoucheGuideView: View {
 
 /// The guide at the top of the home, in place of the setup banner, until
 /// the player's first game is installed: the step left, and a tap to the
-/// guide.
+/// guide. Its × takes it off the home for good, for a player who needs no
+/// guide; the System page opens the guide then.
 @available(iOS 17.0, *)
 struct CartoucheGuideCard: View {
     let progress: CartoucheGuide.Progress
     let action: () -> Void
 
     var body: some View {
-        Button(action: action) {
-            HStack(spacing: 14) {
-                Image(systemName: "flag.checkered")
-                    .font(.title3.weight(.semibold))
-                    .frame(width: 42, height: 42)
-                    .background(Color.white.opacity(0.2), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(CartoucheText.guideTitle)
-                        .font(.headline)
-                    Text(detail)
-                        .font(.subheadline)
-                        .opacity(0.85)
-                        .lineLimit(2)
+        HStack(spacing: 10) {
+            Button(action: action) {
+                HStack(spacing: 14) {
+                    Image(systemName: "flag.checkered")
+                        .font(.title3.weight(.semibold))
+                        .frame(width: 42, height: 42)
+                        .background(Color.white.opacity(0.2), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(CartoucheText.guideTitle)
+                            .font(.headline)
+                        Text(detail)
+                            .font(.subheadline)
+                            .opacity(0.85)
+                            .lineLimit(2)
+                    }
+                    Spacer(minLength: 0)
                 }
-                Spacer(minLength: 0)
-                Image(systemName: "chevron.right")
-                    .font(.headline)
-                    .opacity(0.7)
+                .contentShape(Rectangle())
             }
-            .foregroundStyle(Color.white)
-            .padding(14)
-            .background(
-                LinearGradient(colors: [CartoucheTheme.indigo, CartoucheTheme.pink.opacity(0.85)],
-                               startPoint: .topLeading, endPoint: .bottomTrailing),
-                in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+            .buttonStyle(.plain)
+            Button {
+                withAnimation(.easeInOut(duration: 0.25)) { CartoucheGuide.shared.hideCard() }
+            } label: {
+                Image(systemName: "xmark")
+                    .font(.subheadline.weight(.bold))
+                    .frame(width: 30, height: 30)
+                    .background(Color.white.opacity(0.2), in: Circle())
+                    // As tall as the flag, so that the card keeps its height.
+                    .frame(width: 42, height: 42)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel(CartoucheText.guideHide)
         }
-        .buttonStyle(.plain)
+        .foregroundStyle(Color.white)
+        .padding(14)
+        .background(
+            LinearGradient(colors: [CartoucheTheme.indigo, CartoucheTheme.pink.opacity(0.85)],
+                           startPoint: .topLeading, endPoint: .bottomTrailing),
+            in: RoundedRectangle(cornerRadius: 20, style: .continuous))
     }
 
     private var detail: String {
