@@ -28,6 +28,8 @@ Each server adds what only it has:
 | `FTPListTests` | pyftpdlib, without MLSD or MLST | as `FTPTests`, listed with LIST, as vsftpd and others do |
 | `SFTPTests` | OpenSSH | the server's key taken the first time; another key refused before the password is sent, as sshd's log shows; a wrong password said to be one |
 
+[`OfflineTests`](Tests/CartoucheStorageTests/OfflineTests.swift) needs none of these servers: it signs in to a server out of reach, as a NAS at home is from anywhere else, on every protocol, and to a port of the Mac that refuses the connection. Each must say the server is offline (CartoucheStorageReach): within the patience and four seconds for an address that never answers (`192.0.2.1`, which no network routes, RFC 5737), within four seconds for a refused connection. It also knocks on a server of the Mac without a word, and checks that a server tried again tells once that it answers again, then that it is offline once it stops.
+
 ## Running them
 
 [`servers.sh`](servers.sh) starts the servers on 127.0.0.1, puts the IPAs in each, and writes `servers.json`, which tells the tests where each server is and its accounts:
@@ -39,7 +41,7 @@ CARTOUCHE_STORAGE_SERVERS=/tmp/cartouche-servers/servers.json swift test --packa
 launcher/StorageTests/servers.sh stop /tmp/cartouche-servers
 ```
 
-It adds a user, `cartouche-test`, and runs smbd and sshd as root with sudo, so it runs only on a throwaway Mac, as GitHub's are, or with `CARTOUCHE_STORAGE_THROWAWAY=1`; `stop` removes the user. The passwords and keys are made up at each start and stay in `servers.json`. Without `CARTOUCHE_STORAGE_SERVERS`, every test is skipped. The IPA past 4 GiB is made only when the disk has room for it four times over, else its test is skipped.
+It adds a user, `cartouche-test`, and runs smbd and sshd as root with sudo, so it runs only on a throwaway Mac, as GitHub's are, or with `CARTOUCHE_STORAGE_THROWAWAY=1`; `stop` removes the user. The passwords and keys are made up at each start and stay in `servers.json`. Without `CARTOUCHE_STORAGE_SERVERS`, every test but `OfflineTests` is skipped. The IPA past 4 GiB is made only when the disk has room for it four times over, else its test is skipped.
 
 | Server | Port | Accounts | Games folder |
 | --- | --- | --- | --- |
