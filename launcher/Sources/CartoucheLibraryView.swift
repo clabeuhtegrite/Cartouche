@@ -85,6 +85,7 @@ struct CartoucheLibraryView: View {
     }
 
     @ObservedObject private var gamepad = CartoucheGamepad.shared
+    @ObservedObject private var actions = CartoucheGameActions.shared
     @State private var filter: Filter = .all
     @State private var query = ""
     @State private var focusIndex = 0
@@ -218,7 +219,8 @@ struct CartoucheLibraryView: View {
                 } label: {
                     VStack(alignment: .leading, spacing: 8) {
                         CartoucheGameCartridge(entry: entry, width: layout.tile,
-                                               isFocused: gamepad.isConnected && focusIndex == index)
+                                               isFocused: gamepad.isConnected && focusIndex == index,
+                                               isPaused: actions.isRunning(entry.app))
                             .cartoucheZoomSource(entry.id, in: zoom)
                         VStack(alignment: .leading, spacing: 3) {
                             Text(entry.name)
@@ -226,7 +228,7 @@ struct CartoucheLibraryView: View {
                                 .foregroundStyle(Color.white)
                                 .multilineTextAlignment(.leading)
                                 .lineLimit(2, reservesSpace: true)
-                            CartoucheStatusLabel(status: CartouchePlayStatus.of(entry), font: .caption2.weight(.semibold))
+                            CartoucheStatusLabel(status: CartouchePlayStatus.of(entry, in: actions), font: .caption2.weight(.semibold))
                         }
                         .padding(.horizontal, 2)
                         .frame(width: layout.tile, alignment: .leading)

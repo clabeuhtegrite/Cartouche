@@ -161,6 +161,8 @@ struct CartoucheGameCartridge: View {
     let entry: CartoucheEntry
     let width: CGFloat
     var isFocused = false
+    /// The game runs behind the console, paused there.
+    var isPaused = false
 
     var body: some View {
         let side = width
@@ -184,9 +186,19 @@ struct CartoucheGameCartridge: View {
                     .padding(width * 0.04)
             }
         }
+        .overlay(alignment: .topLeading) {
+            if isPaused {
+                Image(systemName: CartouchePlayStatus.paused.symbol)
+                    .font(.system(size: max(14, width * 0.16), weight: .bold))
+                    .symbolRenderingMode(.palette)
+                    .foregroundStyle(Color.white, CartouchePlayStatus.paused.color)
+                    .shadow(color: Color.black.opacity(0.35), radius: 2, y: 1)
+                    .padding(width * 0.04)
+            }
+        }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(Text(entry.name))
-        .accessibilityValue(Text(CartouchePlayStatus.of(entry).short))
+        .accessibilityValue(Text(isPaused ? CartouchePlayStatus.paused.short : CartouchePlayStatus.of(entry).short))
     }
 
     /// Until the cover has loaded, and for a game IGDB has no cover for: the

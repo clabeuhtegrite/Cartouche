@@ -79,11 +79,25 @@ final class CartoucheGameActions: ObservableObject {
     @Published var work: CartoucheGameWork?
     @Published var notice: CartoucheGameNotice?
     @Published var installed: LCAppModel?
+    /// The game paused behind the console (work: paused).
+    @Published var running: CartoucheRunningGame?
+    @Published var switching: CartoucheGameSwitch?
+    @Published var quitQuestion: CartoucheRunningGame?
 
     nonisolated static func takes(_ url: URL) -> Bool { false }
     func install(_ url: URL) {}
     func install(stored game: CartoucheStoredGame) {}
     func play(_ app: LCAppModel, showingSettings: Bool = false) {}
+    func resumeRunningGame() {}
+    func askToQuit() { quitQuestion = running }
+    func quitRunningGame() { quitQuestion = nil }
+    func confirmSwitch(_ change: CartoucheGameSwitch) { switching = nil }
+
+    /// APP runs behind the console, paused there, since a quarter of an hour.
+    func showRunningForGallery(_ app: LCAppModel) {
+        running = CartoucheRunningGame(app: app, dataFolder: "gallery", started: Date().addingTimeInterval(-15 * 60),
+                                       isInFront: false)
+    }
     func uninstall(_ app: LCAppModel, erasingData: Bool) {}
     func export(_ app: LCAppModel, titleId: String?, then next: (() -> Void)? = nil) {}
     /// A game's saves live in its LiveContainer data folder, which the

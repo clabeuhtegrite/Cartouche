@@ -1,0 +1,50 @@
+From f1060adc58209a169e53838d2e75393a55be31ad Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Tue, 10 Nov 2026 07:10:19 +0000
+Subject: [PATCH] Start Cartouche's part of a game's process
+
+A game Cartouche starts in LiveProcess, so that Cartouche stays open
+behind it, runs CartoucheGuestStart before LiveContainer starts the
+game. Cartouche's prepare.sh copies it in from its
+launcher/LiveProcessSupport folder to LiveProcess/Cartouche/, which the
+LiveProcess target builds with the rest of its synchronized folder.
+
+It writes the game's memory where Cartouche's System page reads it, and
+turns the Home button of a controller, which nxnative leaves without a
+use, into a way back to Cartouche's console. The built-in SideStore,
+which also runs in LiveProcess, starts as before.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01MzPJotFb6T6MeX5eX3epy2
+---
+ LiveProcess/main.m | 7 +++++++
+ 1 file changed, 7 insertions(+)
+
+diff --git a/LiveProcess/main.m b/LiveProcess/main.m
+index c376fcd..eeb5eca 100644
+--- a/LiveProcess/main.m
++++ b/LiveProcess/main.m
+@@ -34,6 +34,8 @@ static NSDictionary *retrievedAppInfo;
+ @end
+ 
+ extern int LiveContainerMain(int argc, char *argv[]);
++// Cartouche's part of a game's process (LiveProcess/Cartouche/CartoucheGuest.m).
++extern void CartoucheGuestStart(NSDictionary *appInfo);
+ static char **_envp, **_apple = NULL;
+ int LiveProcessMain(int argc, char *argv[]) {
+     // Let NSExtensionContext initialize, once it's done it will call CFRunLoopStop
+@@ -96,6 +98,11 @@ int LiveProcessMain(int argc, char *argv[]) {
+         
+     }
+ 
++    // A game Cartouche starts here: its memory goes to Cartouche's System
++    // page and its controller's Home button shows Cartouche's console.
++    if (![appInfo[@"selected"] isEqualToString:@"builtinSideStore"]) {
++        CartoucheGuestStart(appInfo);
++    }
+     
+     return LiveContainerMain(argc, argv);
+ }
+-- 
+2.43.0
+

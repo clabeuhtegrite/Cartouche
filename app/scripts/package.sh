@@ -134,6 +134,18 @@ $PB -c "Add :INIntentsSupported:1 string ViewAppIntent" "$APP/Info.plist"
 $PB -c "Add :NSUserActivityTypes array" "$APP/Info.plist"
 $PB -c "Add :NSUserActivityTypes:0 string RefreshAllIntent" "$APP/Info.plist"
 $PB -c "Add :NSUserActivityTypes:1 string ViewAppIntent" "$APP/Info.plist"
+# Game Mode, as LiveContainer's own app had it before it turned it off for
+# the banner iOS shows as it comes on: Cartouche is a console. A game that
+# runs behind the console (launcher/Sources/CartoucheGameHost.swift) gets the
+# controllers' input only with it, as one in LiveContainer's multitasking
+# windows does (LiveContainer issue 1587), and every game gets the most of
+# the CPU and GPU, and the controllers' lowest latency.
+$PB -c "Delete :LSApplicationCategoryType" "$APP/Info.plist" 2>/dev/null || true
+$PB -c "Add :LSApplicationCategoryType string public.app-category.games" "$APP/Info.plist"
+for KEY in GCSupportsGameMode LSSupportsGameMode; do
+  $PB -c "Delete :$KEY" "$APP/Info.plist" 2>/dev/null || true
+  $PB -c "Add :$KEY bool true" "$APP/Info.plist"
+done
 # No page in the Settings app: LiveContainer's (Wait For Debugger, the
 # selected bundle) and the Open SideStore switch LiveContainer+SideStore adds
 # there would lead into the apps Cartouche is built from, which it drives

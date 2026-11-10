@@ -384,6 +384,38 @@ enum CartoucheText {
         return parts.joined(separator: ", ")
     }
 
+    // MARK: A game behind the console
+
+    static var resume: String { s("action.resume", "Resume") }
+    static var quit: String { s("action.quit", "Quit") }
+    static var statusPausedShort: String { s("status.paused.short", "Paused") }
+    static var pausedDetail: String { s("running.paused", "Paused behind Cartouche, where you left it.") }
+    static var backToCartouche: String { s("running.back", "Back to Cartouche") }
+    static var homeButtonHint: String { s("running.homeHint", "Press the Home button of the controller to come back to Cartouche.") }
+    static func quitQuestion(_ name: String) -> String { f("running.quit.question", "Quit %@?", name) }
+    static var quitGame: String { s("running.quit.confirm", "Quit the game") }
+    static var quitMessage: String { s("running.quit.message", "What you did since the game last saved is lost.") }
+    static func quitAndStart(_ name: String) -> String { f("running.switch.action", "Quit and start %@", name) }
+    static func quitAndStartMessage(_ name: String) -> String {
+        f("running.switch.message", "One game runs at a time. What you did since the game last saved is lost, then %@ starts.", name)
+    }
+    static func quitFirst(_ name: String) -> String { f("running.quitFirst", "%@ is running behind Cartouche: quit it first.", name) }
+    static func gameStoppedTitle(_ name: String) -> String { f("running.stopped.title", "%@ has closed", name) }
+    static var gameStopped: String { s("running.stopped", "The game closed on its own. Start it again: your progress is there up to its last save.") }
+    static var gameStoppedPaused: String { s("running.stopped.paused", "iOS closed the game while it was paused behind Cartouche. Your progress is there up to its last save.") }
+    static func gameStoppedMemory(_ limit: String) -> String {
+        f("running.stopped.memory", "iOS closed the game: it had used nearly all of the %@ it has behind Cartouche. From now on, it starts in Cartouche’s place, with all of Cartouche’s memory: the console closes while it runs.", limit)
+    }
+    static var startsInPlaceNote: String { s("sheet.inPlace", "This game starts in Cartouche’s place: behind Cartouche, it has less memory than it needs. The console closes while it runs.") }
+    static var tryBehindAgain: String { s("sheet.inPlace.retry", "Try behind Cartouche again") }
+    static var playingTitle: String { s("system.playing", "While a game runs") }
+    static var keepConsoleOpen: String { s("system.playing.keep", "Keep Cartouche open behind the game") }
+    static var behindLimit: String { s("system.playing.limit", "Memory for a game behind Cartouche") }
+    static var behindLimitUnknown: String { s("system.playing.limit.unknown", "Measured at the next game") }
+    static var playingFooter: String { s("system.playing.footer", "The Home button over the game, or the Home button of a controller, brings back the console while the game waits, paused. A game that needs more memory than it has behind Cartouche starts in its place, as before: the console then closes while it runs.") }
+    static var memoryFooterBehind: String { s("system.memory.footer.behind", "A game that starts in Cartouche’s place has this limit. Behind Cartouche, it has its own: see While a game runs. With Increased Memory Limit, an iPhone with 12 GB of memory allows about 6 GiB.") }
+    static func updateWhilePlaying(_ name: String) -> String { f("system.updates.playing", "Quit %@ first: Cartouche closes to install its update.", name) }
+
     // MARK: The player's storage
 
     static var storageTitle: String { s("storage.title", "Storage") }

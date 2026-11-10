@@ -16,7 +16,7 @@ To move to a newer upstream commit, update the submodule, check that every patch
 
 `scripts/build.sh`, on a Mac with Xcode 27.2 and `ldid`, with the network for the Swift packages LiveContainer and SideStore resolve:
 
-1. `scripts/prepare.sh` copies LiveContainer and SideStore to `build/app/work/src`, applies `patches/livecontainer/*.patch` and `patches/sidestore/*.patch` in name order, adds the launcher ([`launcher/Sources`](../launcher/Sources/)) to LiveContainer's SwiftUI sources and its bridge to the built-in SideStore ([`launcher/SideStoreSupport`](../launcher/SideStoreSupport/)) to SideStoreSupport, puts Cartouche's icon ([`icon/`](icon/)) in place of LiveContainer's, then gives the copies Cartouche's identity with `scripts/brand.py`;
+1. `scripts/prepare.sh` copies LiveContainer and SideStore to `build/app/work/src`, applies `patches/livecontainer/*.patch` and `patches/sidestore/*.patch` in name order, adds the launcher ([`launcher/Sources`](../launcher/Sources/)) to LiveContainer's SwiftUI sources, its bridge to the built-in SideStore ([`launcher/SideStoreSupport`](../launcher/SideStoreSupport/)) to SideStoreSupport and what it adds to a game's own process ([`launcher/LiveProcessSupport`](../launcher/LiveProcessSupport/)) to LiveProcess, puts Cartouche's icon ([`icon/`](icon/)) in place of LiveContainer's, then gives the copies Cartouche's identity with `scripts/brand.py`;
 2. builds dylibify;
 3. builds SideStore with its own Makefile (`make build fakesign ipa`);
 4. builds LiveContainer with `xcodebuild archive`, with Cartouche's bundle identifier from [`config.env`](config.env);

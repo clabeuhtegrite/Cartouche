@@ -19,7 +19,9 @@
 //                                        console; update: a new version of
 //                                        Cartouche on offer; code: Apple
 //                                        asks for a verification code, on
-//                                        the sign-in
+//                                        the sign-in; paused: the sheet's
+//                                        game, or the first of the
+//                                        player's, paused behind the console
 //      -GalleryOrientation landscape     the gallery turns itself sideways,
 //                                        as a game does; the simulator
 //                                        stays upright
@@ -121,6 +123,15 @@ struct GalleryScenario {
     /// the sheet's, or the first of the player's.
     private var updatedTitle: String? { work == "newer-build" ? sheet ?? owned.first : nil }
 
+    /// The sheet's game, or the first of the player's, paused behind the
+    /// console (work: paused).
+    @MainActor
+    func pause(among apps: [LCAppModel]) {
+        guard work == "paused", let titleId = sheet ?? owned.first,
+              let app = apps.first(where: { $0.appInfo.relativeBundlePath == titleId + ".app" }) else { return }
+        CartoucheGameActions.shared.showRunningForGallery(app)
+    }
+
     /// What capture.sh needs to cut the screen out of the simulator's
     /// screenshot, or to turn it the right way up (screenshot.swift).
     struct Ready: Encodable {
@@ -213,6 +224,7 @@ struct CartoucheGalleryApp: App {
                 .preferredColorScheme(.dark)
                 .onAppear {
                     model.apps = scenario.apps()
+                    scenario.pause(among: model.apps)
                     scenario.settle()
                 }
         }

@@ -33,9 +33,11 @@ targets:
         includes:
           - "Cartouche*.swift"
         excludes:
-          # The root view and the game actions need LiveContainer: its
-          # tabs, its installer and its launcher.
+          # The root view, the game actions and the game behind the console
+          # need LiveContainer: its tabs, its installer, its launcher and its
+          # scenes of a game's own process.
           - "CartoucheGameActions.swift"
+          - "CartoucheGameHost.swift"
           - "CartoucheRootView.swift"
       - path: ../Sources/Cartouche.xcstrings
         buildPhase: resources
