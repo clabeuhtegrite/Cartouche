@@ -1,0 +1,97 @@
+name: Game measurements
+
+# Each week, sums up the game sessions the telemetry server received into the
+# results of the game sheets in catalog/games/ (telemetry/sheets.py,
+# telemetry/README.md#game-sheets): one result for each iPhone model that at
+# least three iPhones played a game on in the last 28 days. It reads the D1
+# database with the secrets CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID of
+# the environment cloudflare, and does nothing while they are not set. main
+# takes no push: the sheets that changed go on the branch
+# catalog-measurements, and the summary links the pull request to open from
+# it, on Thursday, a day before the week's version.
+
+on:
+  schedule:
+    - cron: "41 4 * * 4"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: measurements
+  cancel-in-progress: false
+
+jobs:
+  sum:
+    name: Sum up the measurements
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: cloudflare
+    outputs:
+      changed: ${{ steps.sum.outputs.changed }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Read the sessions and write the sheets
+        id: sum
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: python3 telemetry/sheets.py --catalog catalog --out build/sheets
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        if: ${{ steps.sum.outputs.changed == 'true' }}
+        with:
+          name: game-sheets
+          path: build/sheets
+          retention-days: 14
+          if-no-files-found: error
+
+  # The only job that can write holds no secret and runs git and gh only: it
+  # commits the sheets the first job wrote.
+  keep:
+    name: Keep the sheets on a branch
+    needs: sum
+    if: ${{ needs.sum.outputs.changed == 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write # the branch catalog-measurements
+    env:
+      GH_TOKEN: ${{ github.token }}
+      BRANCH: catalog-measurements
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
+        with:
+          name: game-sheets
+          path: build/sheets
+      - name: Push them to catalog-measurements
+        run: |
+          for sheet in build/sheets/*; do
+            name="$(basename "$sheet")"
+            # Only sheets main has already, by their title ID.
+            if [[ ! "$name" =~ ^[0-9A-F]{16}\.json$ ]] || [ ! -f "catalog/games/$name" ]; then
+              echo "::error::$name is not a sheet of catalog/games"
+              exit 1
+            fi
+            cp "$sheet" "catalog/games/$name"
+          done
+          git add catalog/games
+          DAY="$(date -u +%Y-%m-%d)"
+          git -c user.name="github-actions[bot]" \
+              -c user.email="41898282+github-actions[bot]@users.noreply.github.com" \
+              commit -m "Game sheets: the measurements of the 28 days before $DAY" \
+                     -m "Summed up by the Game measurements workflow (telemetry/sheets.py)."
+          gh auth setup-git
+          git push --force origin "HEAD:refs/heads/$BRANCH"
+          COMPARE="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/compare/main...$BRANCH?expand=1"
+          {
+            echo "## The game sheets changed"
+            echo
+            echo "They are on \`$BRANCH\`: open [its pull request]($COMPARE) and merge it after CI."
+          } >> "$GITHUB_STEP_SUMMARY"
+          echo "::notice::open the pull request from $BRANCH and merge it: $COMPARE"
