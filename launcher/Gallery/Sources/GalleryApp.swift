@@ -105,6 +105,7 @@ struct GalleryScenario {
             CartoucheSetup.shared.refresh()
             CartoucheGuide.shared.startOverForGallery()
             if controller { CartoucheGamepad.shared.showHints() }
+            showStats()
             if work == "installing" {
                 let name = sheet.flatMap { CartoucheCatalog.shared.game(titleId: $0)?.name } ?? "Game"
                 CartoucheGameActions.shared.work = CartoucheGameWork(kind: .installing, name: name,
@@ -138,6 +139,30 @@ struct GalleryScenario {
                 CartoucheStoredGames.shared.showForGallery([stored], server: "NAS")
             }
         }
+    }
+
+    /// The size and the play time of the player's games: the first played
+    /// for hours, until yesterday, the second for a while this morning, the
+    /// third not yet.
+    @MainActor
+    private func showStats() {
+        let sizes: [CartoucheGameSize] = [CartoucheGameSize(bundle: 21_474_836_480, data: 327_155_712),
+                                          CartoucheGameSize(bundle: 14_173_392_076, data: 48_234_496),
+                                          CartoucheGameSize(bundle: 3_113_851_290, data: 6_291_456)]
+        let times: [CartouchePlayTime] = [
+            CartouchePlayTime(seconds: 45_240, sessions: 23, firstPlayed: Date().addingTimeInterval(-9 * 86_400),
+                              lastPlayed: Date().addingTimeInterval(-86_400)),
+            CartouchePlayTime(seconds: 2_820, sessions: 2, firstPlayed: Date().addingTimeInterval(-4 * 3_600),
+                              lastPlayed: Date().addingTimeInterval(-3 * 3_600)),
+        ]
+        var shownSizes: [String: CartoucheGameSize] = [:]
+        var shownTimes: [String: CartouchePlayTime] = [:]
+        for (index, titleId) in owned.enumerated() {
+            let bundleId = "org.nxnative." + titleId.lowercased()
+            if index < sizes.count { shownSizes[bundleId] = sizes[index] }
+            if index < times.count { shownTimes[bundleId] = times[index] }
+        }
+        CartoucheGameStats.shared.showForGallery(sizes: shownSizes, playTimes: shownTimes)
     }
 
     /// The game a newer build is in the games folder of (work: newer-build):
