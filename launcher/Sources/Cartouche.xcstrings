@@ -9136,13 +9136,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "For each game session: frame rate, frame and GPU times, stutters and what caused them, shader preparation, memory, heat and power, sound, how the game ended, and the game’s version and settings."
+            "value" : "For each game session: frame rate, frame and GPU times, stutters and what caused them, shader preparation, memory, heat and power, sound, the screen’s sizes, how the game ended, and the game’s version and settings."
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Pour chaque partie : images par seconde, temps d’image et du GPU, saccades et leurs causes, préparation des shaders, mémoire, chaleur et énergie, son, la façon dont le jeu s’est arrêté, la version du jeu et ses réglages."
+            "value" : "Pour chaque partie : images par seconde, temps d’image et du GPU, saccades et leurs causes, préparation des shaders, mémoire, chaleur et énergie, son, tailles de l’écran, la façon dont le jeu s’est arrêté, la version du jeu et ses réglages."
           }
         }
       }

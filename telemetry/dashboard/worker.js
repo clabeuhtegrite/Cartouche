@@ -122,6 +122,11 @@ export const SESSION = [
   "end.signal",
   "end.pc",
   "end.lr",
+  "process.limitMiB",
+  "process.peakMiB",
+  "process.lastAvailableMiB",
+  "process.quit",
+  "process.screens",
 ];
 
 // A field of the report, as JSON: `->` keeps its type, a number a number and

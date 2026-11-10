@@ -335,10 +335,11 @@
 
     const DAY = 86400000;
     // How a session ended (CartoucheGameLog.swift): no end is a session that
-    // showed no sign of trouble; "unknown" a game closed by the player as
-    // much as one iOS stopped without a word.
+    // showed no sign of trouble, and so is a game the player quit behind the
+    // console; "unknown" a game closed by the player as much as one iOS
+    // stopped without a word.
     const ENDS = ["ok", "unknown", "boot", "memory", "crash"];
-    const END_OF = { crash: "crash", "memory-likely": "memory", "boot-failed": "boot", unknown: "unknown" };
+    const END_OF = { crash: "crash", "memory-likely": "memory", "boot-failed": "boot", quit: "ok", unknown: "unknown" };
     const BAD = new Set(["crash", "memory", "boot"]);
     const THERMAL = ["nominal", "fair", "serious", "critical"];
 
@@ -353,6 +354,7 @@
         "thermal.critical", "thermal.seriousAfterMinutes", "lowPowerMinutes", "memory.peakMiB", "memory.exactPeak",
         "memory.gpuPeakMiB", "memory.lowestHeadroomMiB", "guestFile", "upscaler.kind", "upscaler.gpuMs",
         "audioUnderrunsPerMinute", "display.tv", "display.foldSplit", "dlc", "end.kind", "end.signal", "end.pc", "end.lr",
+        "process.limitMiB", "process.peakMiB", "process.lastAvailableMiB", "process.quit", "process.screens",
     ];
 
     const num = (value) => (typeof value === "number" && Number.isFinite(value) ? value : null);
@@ -579,7 +581,8 @@
                     peakMedian: median(list.map((session) => session["memory.peakMiB"])),
                     tightest: list.reduce((found, session) => {
                         const peak = num(session["memory.peakMiB"]);
-                        const limit = num(session.memoryLimitMiB);
+                        // Behind the console, the game's process had a limit of its own.
+                        const limit = num(session["process.limitMiB"]) ?? num(session.memoryLimitMiB);
                         if (peak === null || !limit || (found && peak / limit <= found.ratio)) return found;
                         return { peak, limit, ratio: peak / limit };
                     }, null),

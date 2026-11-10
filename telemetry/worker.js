@@ -124,6 +124,17 @@ const dictionary = (key, check, maximum) => (value) => {
   return count ? kept : undefined;
 };
 
+// The first MAXIMUM entries of an array that pass CHECK.
+const list = (check, maximum) => (value) => {
+  if (!Array.isArray(value)) return undefined;
+  const kept = [];
+  for (const entry of value.slice(0, maximum)) {
+    const checked = check(entry);
+    if (checked !== undefined) kept.push(checked);
+  }
+  return kept.length ? kept : undefined;
+};
+
 const eventValue = (value) => {
   if (typeof value === "string") return value.length <= 160 ? value : undefined;
   if (typeof value === "number") return Number.isFinite(value) ? value : undefined;
@@ -133,6 +144,7 @@ const eventValue = (value) => {
 const ms = number(0, 1e6);
 const minutes = number(0, 1e6);
 const mebibytes = integer(0, 1 << 22);
+const points = integer(1, 10000);
 
 const common = {
   schema: oneOf(SCHEMA),
@@ -194,12 +206,26 @@ const session = object(
     dlc: flag,
     end: object(
       {
-        kind: oneOf("crash", "boot-failed", "memory-likely", "unknown"),
+        kind: oneOf("crash", "boot-failed", "memory-likely", "quit", "unknown"),
         signal: integer(1, 128),
         pc: text(LOCATION),
         lr: text(LOCATION),
       },
       ["kind"],
+    ),
+    // What the game's own process wrote, when it ran behind the console.
+    process: object(
+      {
+        limitMiB: mebibytes,
+        peakMiB: mebibytes,
+        lastAvailableMiB: mebibytes,
+        quit: flag,
+        screens: list(
+          object({ minute: minutes, width: points, height: points, footprintMiB: mebibytes }, ["minute", "width", "height"]),
+          10,
+        ),
+      },
+      ["limitMiB", "peakMiB"],
     ),
   },
   [...required, "session", "minutes", "reader"],
