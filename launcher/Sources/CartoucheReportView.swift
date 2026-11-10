@@ -5,8 +5,8 @@
 //  System › Report a problem: the player writes what happened, sees all
 //  the report holds, and sends it themselves: with the share sheet
 //  (Messages, Mail, AirDrop…), by copying it, or on GitHub's bug report
-//  form, filled in for them to check and post. Cartouche sends nothing by
-//  itself and has no server for reports.
+//  form, filled in for them to check and post. The report leaves the
+//  iPhone only when the player sends it.
 //
 //  The report is the one Cartouche writes of an error (CartoucheReports),
 //  without an error: Cartouche and this iPhone, the last steps, then the

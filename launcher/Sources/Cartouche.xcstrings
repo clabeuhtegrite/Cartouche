@@ -1163,13 +1163,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Nothing leaves this iPhone until you send it. The report holds no password, no server’s name or address, no Apple ID, no account’s team and no file path."
+            "value" : "The report leaves this iPhone only when you send it. It holds no password, no server’s name or address, no Apple ID, no account’s team and no file path."
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Rien ne quitte cet iPhone avant que vous l’envoyiez. Le rapport ne contient ni mot de passe, ni nom ou adresse de serveur, ni identifiant Apple, ni équipe de compte, ni chemin de fichier."
+            "value" : "Le rapport ne quitte cet iPhone que si vous l’envoyez. Il ne contient ni mot de passe, ni nom ou adresse de serveur, ni identifiant Apple, ni équipe de compte, ni chemin de fichier."
           }
         }
       }

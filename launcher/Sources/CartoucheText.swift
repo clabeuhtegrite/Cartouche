@@ -593,7 +593,7 @@ enum CartoucheText {
     static var reportGitHub: String { s("report.github", "Report it on GitHub") }
     static var reportSendFooter: String { s("report.send.footer", "Send it to whoever helps you with Cartouche, by Messages, Mail or AirDrop. GitHub opens Cartouche’s bug report form, filled in, for you to check and post with your GitHub account: reports there are public.") }
     static var reportContents: String { s("report.contents", "What the report holds") }
-    static var reportPrivacy: String { s("report.privacy", "Nothing leaves this iPhone until you send it. The report holds no password, no server’s name or address, no Apple ID, no account’s team and no file path.") }
+    static var reportPrivacy: String { s("report.privacy", "The report leaves this iPhone only when you send it. It holds no password, no server’s name or address, no Apple ID, no account’s team and no file path.") }
 
     // MARK: Warnings before expiry
 
