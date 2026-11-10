@@ -419,7 +419,9 @@ private final class FTPSession {
         // In the folder, so that LIST needs no path, which some servers
         // read as options.
         try await expect("CWD " + path)
-        let machine = features.contains("MLSD")
+        // MLSD when the server has it. FEAT names it MLST (RFC 3659, 7.8),
+        // which says the server has both MLST and MLSD; a few name MLSD too.
+        let machine = features.contains("MLST") || features.contains("MLSD")
         let data = try await transfer(machine ? "MLSD" : "LIST")
         let bytes: Data
         do {
