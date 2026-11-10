@@ -8,7 +8,7 @@
 //  the whole screen of the simulator it runs on, such as the iPhone Duo's,
 //  with its own safe area, size classes and system bars.
 //
-//      -GalleryScreen games|library|sheet|settings|setup|signin|system|storage|telemetry|report
+//      -GalleryScreen games|library|sheet|settings|setup|signin|guide|system|storage|telemetry|report
 //      -GalleryWidth 402 -GalleryHeight 874     (none: the whole screen)
 //      -GalleryInsets 62,0,34,0          top, leading, bottom, trailing
 //      -GalleryWidthClass compact        the width class at a scenario's
@@ -103,6 +103,7 @@ struct GalleryScenario {
         try? Data(renewal.utf8).write(to: GalleryState.appGroup.appendingPathComponent("widget_data.json"))
         MainActor.assumeIsolated {
             CartoucheSetup.shared.refresh()
+            CartoucheGuide.shared.startOverForGallery()
             if controller { CartoucheGamepad.shared.showHints() }
             if work == "installing" {
                 let name = sheet.flatMap { CartoucheCatalog.shared.game(titleId: $0)?.name } ?? "Game"
@@ -307,6 +308,15 @@ struct CartoucheGalleryApp: App {
             }
         case "signin":
             CartoucheSignInView()
+        case "guide":
+            NavigationStack {
+                CartoucheGuideView(entries: entries, onInstall: { _ in }, onImport: { _ in }, onPlay: { _ in })
+                    .toolbar {
+                        ToolbarItem(placement: .confirmationAction) {
+                            Button(CartoucheText.done) {}
+                        }
+                    }
+            }
         case "system":
             CartoucheSystemView()
         case "storage":
