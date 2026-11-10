@@ -68,6 +68,7 @@
       "controller": true,
       "width": 874,
       "height": 402,
+      "widthClass": "compact",
       "insets": [
         0,
         62,
