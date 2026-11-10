@@ -4,9 +4,9 @@
 //
 //  The Games tab, Cartouche's console: the home (CartoucheHomeView), every
 //  game (CartoucheLibraryView), and a game's sheet over either, with the
-//  game's settings one step further (CartoucheGameSettingsView). The tab
-//  takes the whole screen, dark, without the tab bar: the home's dock
-//  leads to the other tabs, whose bar leads back here.
+//  game's settings one step further (CartoucheGameSettingsView). The
+//  console takes the whole screen, dark: the home's dock opens the System
+//  page over it (CartoucheRootView).
 //
 //  Cartouche installs, starts and uninstalls a game itself, on these
 //  screens (CartoucheGameActions): the player never lands in the Apps tab.
@@ -95,7 +95,8 @@ struct CartoucheGamesView: View {
                     }
                 }
         }
-        .preferredColorScheme(onGames ? .dark : nil)
+        // Dark always, under the System page too, which covers it.
+        .preferredColorScheme(.dark)
         .fileImporter(isPresented: $choosingIPA, allowedContentTypes: [.ipa]) { result in
             if case .success(let url) = result {
                 importCopy(url)
