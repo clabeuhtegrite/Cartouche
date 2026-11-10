@@ -23,7 +23,10 @@ struct CartoucheRootView: View {
                 CartoucheSystemView()
                     .environmentObject(sharedModel)
             }
-            .onAppear { Self.clearBadge() }
+            .onAppear {
+                CartoucheReports.noteStart()
+                Self.clearBadge()
+            }
             .onReceive(NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification)) { _ in
                 Self.clearBadge()
             }
