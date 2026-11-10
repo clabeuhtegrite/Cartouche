@@ -637,6 +637,13 @@ enum CartoucheText {
     static var reportWhatFooter: String { s("report.what.footer", "Cartouche adds this iPhone’s model and memory, the versions, and its last steps and errors.") }
     static var reportSend: String { s("report.send", "Send the report…") }
     static var reportGitHub: String { s("report.github", "Report it on GitHub") }
+    static var reportSendToCartouche: String { s("report.sendToCartouche", "Send to Cartouche") }
+    static var reportSending: String { s("report.sending", "Sending…") }
+    static var reportSent: String { s("report.sent", "Sent to Cartouche") }
+    static var reportSendTooMany: String { s("report.send.tooMany", "Cartouche’s server takes no more reports for now: send this one another way.") }
+    static var reportSendRefused: String { s("report.send.refused", "Cartouche’s server did not take the report: send it another way.") }
+    static func reportSendUnreachable(_ reason: String) -> String { f("report.send.unreachable", "Cartouche’s server could not be reached: %@", reason) }
+    static var reportSendFooterServer: String { s("report.send.footer.server", "Send to Cartouche passes it to the project, privately. Or send it by Messages, Mail or AirDrop to whoever helps you. On GitHub, you check it and post it yourself: it is public there.") }
     static var reportSendFooter: String { s("report.send.footer", "Send it by Messages, Mail or AirDrop to whoever helps you. On GitHub, you check it and post it yourself: it is public there.") }
     static var reportContents: String { s("report.contents", "What the report holds") }
     static var reportPrivacy: String { s("report.privacy", "It leaves this iPhone only when you send it, without passwords, server names or addresses, user names, Apple ID or team, even in what you write.") }

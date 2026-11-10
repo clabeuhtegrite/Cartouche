@@ -3,8 +3,10 @@
 //  Cartouche
 //
 //  System › Report a problem: the player writes what happened, sees all
-//  the report holds, and sends it themselves: with the share sheet
-//  (Messages, Mail, AirDrop…), by copying it, or on GitHub's bug report
+//  the report holds, and sends it themselves: with Send to Cartouche, to
+//  Cartouche's server, which files it in the project's private repository
+//  (telemetry/worker.js, POST /v1/problems); with the share sheet
+//  (Messages, Mail, AirDrop…); by copying it; or on GitHub's bug report
 //  form, filled in for them to check and post. The report leaves the
 //  iPhone only when the player sends it.
 //
@@ -24,7 +26,19 @@ struct CartoucheReportView: View {
     @State private var what = ""
     @State private var copied = false
     @State private var gathered: Gathered?
+    @State private var sending = Sending.ready
+    /// The number of the report Send to Cartouche sends: the same when it
+    /// tries again, a new one once a report is sent.
+    @State private var submissionID = CartoucheProblemSubmission.newID()
     @Environment(\.openURL) private var openURL
+
+    /// Where Send to Cartouche is.
+    enum Sending: Equatable {
+        case ready
+        case sending
+        case sent
+        case failed(String)
+    }
 
     /// What Cartouche knows when the page opens.
     private struct Gathered {
@@ -55,6 +69,19 @@ struct CartoucheReportView: View {
             }
 
             Section {
+                if let endpoint = CartoucheTelemetry.endpoint {
+                    Button {
+                        send(report, to: endpoint)
+                    } label: {
+                        sendLabel
+                    }
+                    .disabled(sending == .sending || sending == .sent)
+                    if case .failed(let reason) = sending {
+                        Text(reason)
+                            .font(.footnote)
+                            .foregroundStyle(.red)
+                    }
+                }
                 ShareLink(item: text, subject: Text(verbatim: report?.title ?? "")) {
                     Label(CartoucheText.reportSend, systemImage: "square.and.arrow.up")
                 }
@@ -71,7 +98,7 @@ struct CartoucheReportView: View {
                     }
                 }
             } footer: {
-                Text(CartoucheText.reportSendFooter)
+                Text(CartoucheTelemetry.endpoint == nil ? CartoucheText.reportSendFooter : CartoucheText.reportSendFooterServer)
             }
             .disabled(report == nil)
 
@@ -97,6 +124,67 @@ struct CartoucheReportView: View {
         }
         .onChange(of: what) {
             copied = false
+            if sending != .sending {
+                sending = .ready
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var sendLabel: some View {
+        switch sending {
+        case .sending:
+            Label {
+                Text(CartoucheText.reportSending)
+            } icon: {
+                ProgressView()
+            }
+        case .sent:
+            Label(CartoucheText.reportSent, systemImage: "checkmark.circle.fill")
+        case .ready, .failed:
+            Label(CartoucheText.reportSendToCartouche, systemImage: "paperplane")
+        }
+    }
+
+    // MARK: Send to Cartouche
+
+    private func send(_ report: CartoucheProblemReport?, to endpoint: URL) {
+        guard let submission = report?.submission(id: submissionID), let body = try? submission.json() else { return }
+        sending = .sending
+        Task {
+            let sent = await Self.post(body, to: endpoint)
+            sending = sent
+            if sent == .sent {
+                CartoucheReports.note("Problem report sent to Cartouche")
+                submissionID = CartoucheProblemSubmission.newID()
+            }
+        }
+    }
+
+    private static let session = URLSession(configuration: .ephemeral)
+
+    /// Posts BODY to the server's problems route: sent once the server has
+    /// it, whether GitHub has it yet or not.
+    private static func post(_ body: Data, to endpoint: URL) async -> Sending {
+        var request = URLRequest(url: endpoint.appendingPathComponent("v1/problems"))
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = body
+        request.timeoutInterval = 30
+        do {
+            let (_, response) = try await session.data(for: request)
+            let status = (response as? HTTPURLResponse)?.statusCode ?? 0
+            switch status {
+            case 200..<300:
+                return .sent
+            case 429:
+                return .failed(CartoucheText.reportSendTooMany)
+            default:
+                CartoucheReports.note("Problem report refused by Cartouche's server: HTTP \(status)")
+                return .failed(CartoucheText.reportSendRefused)
+            }
+        } catch {
+            return .failed(CartoucheText.reportSendUnreachable(error.localizedDescription))
         }
     }
 

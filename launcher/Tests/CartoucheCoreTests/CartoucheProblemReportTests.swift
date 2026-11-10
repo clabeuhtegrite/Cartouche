@@ -217,6 +217,73 @@ final class CartoucheProblemReportTests: XCTestCase {
         XCTAssertNil(essay.issueURL(limit: 50))
     }
 
+    // MARK: Send to Cartouche
+
+    private let submissionID = "6f1c2a3b-4d5e-4f60-8a7b-9c0d1e2f3a4b"
+
+    func testTheSubmissionHoldsTheFormsFields() throws {
+        let submission = try XCTUnwrap(report().submission(id: submissionID))
+        let form = fields(try XCTUnwrap(report().issueURL()))
+        XCTAssertEqual(submission.schema, 1)
+        XCTAssertEqual(submission.id, submissionID)
+        XCTAssertEqual(submission.title, form["title"])
+        XCTAssertEqual(submission.what, form["what"])
+        XCTAssertEqual(submission.device, form["device"])
+        XCTAssertEqual(submission.ios, form["ios"])
+        XCTAssertEqual(submission.version, form["version"])
+        XCTAssertEqual(submission.logs, form["logs"])
+        let json = try XCTUnwrap(JSONSerialization.jsonObject(with: submission.json()) as? [String: Any])
+        XCTAssertEqual(Set(json.keys), ["schema", "id", "title", "what", "device", "ios", "version", "logs"])
+        // As the server reads a random number.
+        let id = CartoucheProblemSubmission.newID()
+        XCTAssertNotNil(id.range(of: #"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"#, options: .regularExpression))
+    }
+
+    /// telemetry/test/app-problem.json holds this submission, so that the
+    /// Worker's tests send what Cartouche sends (telemetry/test/worker.test.js).
+    func testTheServersTestsSendWhatCartoucheSends() throws {
+        let url = URL(fileURLWithPath: #filePath).deletingLastPathComponent()
+            .appendingPathComponent("../../../telemetry/test/app-problem.json").standardizedFileURL
+        let kept = try JSONDecoder().decode(CartoucheProblemSubmission.self, from: Data(contentsOf: url))
+        var made = try XCTUnwrap(report().submission(id: submissionID))
+        // The report's time is in the time zone the tests run in.
+        made.logs = made.logs.replacingOccurrences(of: CartoucheReport.timestamp(date), with: "2026-11-10 07:12:00 +0000")
+        let json = String(decoding: try made.json(), as: UTF8.self)
+        XCTAssertEqual(kept, made, "app-problem.json should be: \(json)")
+    }
+
+    func testATooLongSubmissionLosesItsOldestErrorsFirst() throws {
+        let errors = (1...600).map {
+            "Cartouche report, 2026-11-09 21:03:11 +0100\nProblem: Error \($0)\nMessage: Something went wrong while copying the game."
+        }
+        let submission = try XCTUnwrap(report(errors: errors).submission(id: submissionID))
+        let size = try submission.json().count
+        XCTAssertLessThanOrEqual(size, CartoucheProblemReport.submissionLimit)
+        XCTAssertGreaterThan(size, CartoucheProblemReport.submissionLimit - 300)
+        XCTAssertTrue(submission.logs.contains("Problem: Error 1\n"))
+        XCTAssertFalse(submission.logs.contains("Problem: Error 600\n"))
+        XCTAssertTrue(submission.logs.hasSuffix("\n" + CartoucheProblemReport.shortenedForServerNote))
+        XCTAssertEqual(submission.what, "The game does not install from the NAS.\nIt stops at 42 %.")
+    }
+
+    func testWhatThePlayerWroteKeepsToTheServersLimit() throws {
+        let essay = try XCTUnwrap(report(what: String(repeating: "é", count: 20_000)).submission(id: submissionID))
+        XCTAssertEqual(essay.what.utf16.count, CartoucheProblemReport.submissionWhatLimit)
+        XCTAssertTrue(essay.what.hasSuffix("…"))
+        // The report goes whole with it.
+        XCTAssertTrue(essay.logs.hasSuffix("Message: The network connection was lost."))
+        // Emoji are two code units each.
+        let emoji = try XCTUnwrap(report(what: String(repeating: "🎮", count: 9_000)).submission(id: submissionID))
+        XCTAssertLessThanOrEqual(emoji.what.utf16.count, CartoucheProblemReport.submissionWhatLimit)
+        XCTAssertLessThanOrEqual(emoji.title.utf16.count, 256)
+    }
+
+    func testCarriageReturnsBecomeLineFeeds() {
+        let pasted = report(what: "First line\r\nSecond line\rThird")
+        XCTAssertEqual(pasted.title, "First line")
+        XCTAssertTrue(pasted.text.contains("Message: First line\n    Second line\n    Third\n"))
+    }
+
     func testTheRepositoryFollowsCartouchesSource() {
         XCTAssertEqual(CartoucheProblemReport.repository(
             sourceURL: "https://raw.githubusercontent.com/clabeuhtegrite/Cartouche/main/app/sidestore-source.json"), "clabeuhtegrite/Cartouche")
