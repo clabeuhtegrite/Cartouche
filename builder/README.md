@@ -6,7 +6,7 @@ It runs nxnative's own build script, as nxnative's [front-end page](https://gith
 
 ## Install
 
-Download `Cartouche-Builder-<version>.dmg` from the latest [`builder-v<version>` release](https://github.com/clabeuhtegrite/Cartouche/releases), open it, and drag **Cartouche Builder** onto **Applications**. The app is signed ad hoc, not by Apple: the first time, macOS says it cannot check it. Open **System Settings › Privacy & Security** and click **Open Anyway** beside Cartouche Builder, once. Its updates open without asking again.
+[Download Cartouche Builder](https://clabeuhtegrite.github.io/Cartouche/download/#builder): the link downloads the newest disk image at once, `Cartouche-Builder-<version>.dmg` of the release `builder-v<version>`, as the button on [Cartouche's site](https://clabeuhtegrite.github.io/Cartouche/#builder) does. Open it, and drag **Cartouche Builder** onto **Applications**. The app is signed ad hoc, not by Apple: the first time, macOS says it cannot check it. Open **System Settings › Privacy & Security** and click **Open Anyway** beside Cartouche Builder, once. Its updates open without asking again.
 
 At its first start the app shows what it does and sets up the Mac, with no Terminal:
 
@@ -116,4 +116,4 @@ swift test --package-path mac
 
 ### Publishing a version
 
-A version is the one in `pyproject.toml`, with its notes in `RELEASE.md`. On `main`, run the **Builder** workflow from the Actions tab with **Publish** ticked: it tests and builds the app, makes its disk image and publishes both with the SHA-256 as the release `builder-v<version>`, without GitHub's Latest mark, which stays Cartouche's. Each copy of the app finds it within six hours.
+A version is the one in `pyproject.toml`, with its notes in `RELEASE.md`. On `main`, run the **Builder** workflow from the Actions tab with **Publish** ticked: it tests and builds the app, makes its disk image and publishes both with the SHA-256 as the release `builder-v<version>`, without GitHub's Latest mark, which stays Cartouche's. Each copy of the app finds it within six hours, and the workflow publishes the site again, whose buttons and download page then give this version ([site/README.md](../site/README.md#publishing)).

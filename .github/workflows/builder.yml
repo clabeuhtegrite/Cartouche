@@ -17,7 +17,8 @@ name: Builder
 # ticked, it also publishes the disk image as the release builder-v<version>,
 # the version of builder/pyproject.toml, without GitHub's Latest mark, which
 # is meant for Cartouche: the app's updates come from there (Updater.swift).
-# How to publish: builder/README.md.
+# It then publishes the showcase site again, whose download buttons give the
+# newest disk image (site/README.md). How to publish: builder/README.md.
 
 on:
   # What the app is built from and its tests read (builder/mac/Package.swift,
@@ -209,6 +210,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write # the release builder-v<version>
+      actions: write # the Showcase site's run, for its download buttons
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -237,3 +239,10 @@ jobs:
             --title "Cartouche Builder $VERSION" \
             --notes-file builder/RELEASE.md \
             --latest=false
+      # The site's buttons and its download page give the newest release:
+      # published again, they give this one (site/tools/downloads.py).
+      - name: Publish the site again
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
+        run: gh workflow run site.yml --repo "$REPOSITORY" --ref main
