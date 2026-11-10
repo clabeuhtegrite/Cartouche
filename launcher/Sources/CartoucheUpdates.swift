@@ -48,14 +48,18 @@ final class CartoucheUpdates: ObservableObject {
     @Published private(set) var isChecking = false
     /// When the source was last read.
     @Published private(set) var checked: Date?
-    /// Why the source could not be read, the last time.
-    @Published private(set) var checkProblem: String?
+    /// Why the source could not be read, the last time, and the report on
+    /// it.
+    @Published private(set) var checkReport: CartoucheReport?
+    var checkProblem: String? { checkReport?.message }
     /// The version being installed, and how far it has gone.
     @Published private(set) var target: CartoucheRelease?
     @Published private(set) var phase: Phase?
     @Published private(set) var progress: Progress?
-    /// Why the last update failed, for the System page.
-    @Published private(set) var problem: String?
+    /// Why the last update failed, for the System page, and the report on
+    /// it.
+    @Published private(set) var problemReport: CartoucheReport?
+    var problem: String? { problemReport?.message }
     /// What came of an update, over the console.
     @Published private(set) var notice: CartoucheGameNotice?
 
@@ -149,7 +153,7 @@ final class CartoucheUpdates: ObservableObject {
             do {
                 let newest = try await Self.newest(at: url, bundleIdentifier: bundleIdentifier)
                 checked = Date()
-                checkProblem = nil
+                checkReport = nil
                 if let newest, CartoucheVersion.isHigher(newest.version, than: Self.runningVersion) {
                     available = newest
                     if offering && shouldOffer(newest) { isOffered = true }
@@ -158,7 +162,11 @@ final class CartoucheUpdates: ObservableObject {
                     isOffered = false
                 }
             } catch {
-                checkProblem = CartoucheText.updateCheckFailed(error.localizedDescription)
+                // A check Cartouche makes by itself fails whenever the
+                // iPhone is offline: its report is not kept.
+                checkReport = CartoucheReports.make(.update, CartoucheText.updateCheckFailedTitle,
+                                                    message: CartoucheText.updateCheckFailed(error.localizedDescription),
+                                                    error: error, step: "Reading Cartouche's source", inBackground: offering)
             }
         }
     }
@@ -212,9 +220,10 @@ final class CartoucheUpdates: ObservableObject {
         guard phase == nil, let release = available else { return }
         isOffered = false
         notice = nil
-        problem = nil
+        problemReport = nil
+        CartoucheReports.note("Update to Cartouche " + release.version + " started")
         guard let bridge = Self.bridge else {
-            failed(CartoucheText.updateUnavailable)
+            failed(CartoucheText.updateUnavailable, version: release.version, step: nil, fraction: nil)
             return
         }
         let progress = Progress(totalUnitCount: 100)
@@ -232,21 +241,27 @@ final class CartoucheUpdates: ObservableObject {
     /// either failed or finished while Cartouche was still running.
     private func finished(_ message: String?) {
         let version = target?.version ?? ""
+        let step = phase == .installing ? CartoucheText.updateInstallingTitle(version) : CartoucheText.updatePreparingTitle(version)
+        let fraction = phase == .preparing ? progress?.fractionCompleted : nil
         phase = nil
         progress = nil
         target = nil
         endBackground()
         defaults.removeObject(forKey: Self.pendingKey)
         if let message {
-            failed(message)
+            failed(message, version: version, step: step, fraction: fraction)
         } else {
+            CartoucheReports.note("Update to Cartouche " + version + " installed")
             notice = CartoucheGameNotice(title: CartoucheText.updateInstalledTitle(version), message: CartoucheText.updateInstalledMessage)
         }
     }
 
-    private func failed(_ message: String) {
-        problem = message
-        notice = CartoucheGameNotice(title: CartoucheText.updateFailedTitle, message: CartoucheText.updateFailed(message))
+    /// The update to VERSION failed at STEP, as SideStore's MESSAGE says.
+    private func failed(_ message: String, version: String, step: String?, fraction: Double?) {
+        let report = CartoucheReports.make(.update, CartoucheText.updateFailedTitle, message: message, step: step,
+                                           fraction: fraction, facts: [.init("New version", version)])
+        problemReport = report
+        notice = CartoucheGameNotice(title: CartoucheText.updateFailedTitle, message: CartoucheText.updateFailed(message), report: report)
     }
 
     /// What came of the update that was under way when Cartouche closed.
@@ -255,8 +270,12 @@ final class CartoucheUpdates: ObservableObject {
         defaults.removeObject(forKey: Self.pendingKey)
         let running = Self.runningVersion
         if CartoucheVersion.isHigher(pending, than: running) {
-            notice = CartoucheGameNotice(title: CartoucheText.updateUnfinishedTitle, message: CartoucheText.updateUnfinished(pending))
+            let message = CartoucheText.updateUnfinished(pending)
+            let report = CartoucheReports.make(.update, CartoucheText.updateUnfinishedTitle, message: message,
+                                               facts: [.init("New version", pending)])
+            notice = CartoucheGameNotice(title: CartoucheText.updateUnfinishedTitle, message: message, report: report)
         } else {
+            CartoucheReports.note("Update to Cartouche " + pending + " installed")
             notice = CartoucheGameNotice(title: CartoucheText.updateInstalledTitle(running), message: CartoucheText.updatedMessage)
         }
     }

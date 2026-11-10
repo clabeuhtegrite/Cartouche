@@ -23,6 +23,16 @@ struct CartoucheGameWork: Equatable {
     var step: String
     /// From 0 to 1, or nil while there is nothing to measure.
     var fraction: Double?
+
+    /// "Installing Mario Kart World".
+    var title: String {
+        switch kind {
+        case .installing: return CartoucheText.installTitle(name)
+        case .starting: return CartoucheText.startTitle(name)
+        case .uninstalling: return CartoucheText.uninstallTitle(name)
+        case .exporting: return CartoucheText.exportTitle(name)
+        }
+    }
 }
 
 /// What the player should know once a step is over: why it failed, or what
@@ -30,20 +40,14 @@ struct CartoucheGameWork: Equatable {
 struct CartoucheGameNotice: Equatable {
     var title: String
     var message: String
+    /// The report on what failed, which the player can copy; nil when
+    /// nothing failed.
+    var report: CartoucheReport? = nil
 }
 
 @available(iOS 17.0, *)
 struct CartoucheGameWorkView: View {
     let work: CartoucheGameWork
-
-    private var title: String {
-        switch work.kind {
-        case .installing: return CartoucheText.installTitle(work.name)
-        case .starting: return CartoucheText.startTitle(work.name)
-        case .uninstalling: return CartoucheText.uninstallTitle(work.name)
-        case .exporting: return CartoucheText.exportTitle(work.name)
-        }
-    }
 
     private var symbol: String {
         switch work.kind {
@@ -69,7 +73,7 @@ struct CartoucheGameWorkView: View {
                         in: Circle())
                     .symbolEffect(.pulse, options: .repeating, isActive: work.fraction == nil)
                 VStack(spacing: 6) {
-                    Text(title)
+                    Text(work.title)
                         .font(.system(.title3, design: .rounded, weight: .heavy))
                         .foregroundStyle(Color.white)
                         .multilineTextAlignment(.center)

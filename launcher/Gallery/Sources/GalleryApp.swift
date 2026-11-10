@@ -107,6 +107,15 @@ struct GalleryScenario {
                 CartoucheGameActions.shared.work = CartoucheGameWork(kind: .installing, name: name,
                                                                      step: CartoucheText.installUnpacking, fraction: 0.42)
             }
+            if work == "install-failed" {
+                // An install the network dropped halfway, with its report.
+                let name = sheet.flatMap { CartoucheCatalog.shared.game(titleId: $0)?.name } ?? "Game"
+                let error = URLError(.networkConnectionLost)
+                let report = CartoucheReports.make(.install, CartoucheText.installFailed, message: error.localizedDescription,
+                                                   error: error, step: CartoucheText.installTitle(name) + ": " + CartoucheText.installUnpacking,
+                                                   fraction: 0.42, facts: [.init("IPA", name + " [" + (sheet ?? "") + "].ipa")])
+                CartoucheGameActions.shared.notice = CartoucheGameNotice(title: report.title, message: report.message, report: report)
+            }
             if work == "update" {
                 // A higher version than the gallery's own (project.yml).
                 CartoucheUpdates.shared.offerForGallery(CartoucheRelease(version: "0.4.0", notes: "", size: 36_802_806))

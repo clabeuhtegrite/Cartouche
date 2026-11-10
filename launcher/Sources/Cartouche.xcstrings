@@ -426,6 +426,74 @@
         }
       }
     },
+    "errorReport.copied" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Report copied"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Rapport copié"
+          }
+        }
+      }
+    },
+    "errorReport.copied.detail" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Paste it where you ask for help."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Collez-le là où vous demandez de l’aide."
+          }
+        }
+      }
+    },
+    "errorReport.copy" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Copy the report"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Copier le rapport"
+          }
+        }
+      }
+    },
+    "errorReport.hint" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Copies what went wrong, with the versions of Cartouche and iOS, without any password or server address."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Copie ce qui s’est passé, avec les versions de Cartouche et d’iOS, sans mot de passe ni adresse de serveur."
+          }
+        }
+      }
+    },
     "games.empty.message" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -1119,6 +1187,57 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Copier vers %@ maintenant"
+          }
+        }
+      }
+    },
+    "saves.failed.copy" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The saves were not copied"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Les sauvegardes n’ont pas été copiées"
+          }
+        }
+      }
+    },
+    "saves.failed.list" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The copies of the saves were not read"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Les copies des sauvegardes n’ont pas été lues"
+          }
+        }
+      }
+    },
+    "saves.failed.putBack" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The copy was not put back"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "La copie n’a pas été remise"
           }
         }
       }
@@ -2075,6 +2194,23 @@
         }
       }
     },
+    "settings.cloud.failed.title" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The cloud saves folder was not kept"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Le dossier des sauvegardes iCloud n’a pas été retenu"
+          }
+        }
+      }
+    },
     "settings.cloud.footer" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -2717,6 +2853,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Reçu. Le SideStore intégré s’en sert pour installer et renouveler les apps de cet iPhone."
+          }
+        }
+      }
+    },
+    "setup.pairing.failed" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The pairing file was refused"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Le fichier d’appairage a été refusé"
           }
         }
       }
@@ -4332,6 +4485,74 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Créer"
+          }
+        }
+      }
+    },
+    "storage.failed.browse" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The folder did not open"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Le dossier ne s’est pas ouvert"
+          }
+        }
+      }
+    },
+    "storage.failed.connect" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cartouche could not connect"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cartouche n’a pas pu se connecter"
+          }
+        }
+      }
+    },
+    "storage.failed.games" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The games folder was not read"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Le dossier des jeux n’a pas été lu"
+          }
+        }
+      }
+    },
+    "storage.failed.newFolder" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The folder was not created"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Le dossier n’a pas été créé"
           }
         }
       }
@@ -6002,6 +6223,23 @@
         }
       }
     },
+    "system.signature.renew.failed" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The renewal did not go through"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Le renouvellement n’a pas abouti"
+          }
+        }
+      }
+    },
     "system.signature.renew.unavailable" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -6440,6 +6678,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Cartouche n’a pas pu chercher de mise à jour : %@"
+          }
+        }
+      }
+    },
+    "updates.check.failed.title" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The update check did not go through"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "La recherche de mise à jour n’a pas abouti"
           }
         }
       }
