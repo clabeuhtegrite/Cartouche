@@ -88,6 +88,8 @@ jobs:
           .venv/bin/zizmor --offline --no-progress .github/workflows
       - name: main requires only checks that every pull request reports
         run: .venv/bin/python .github/rulesets/check_rulesets.py
+      - name: The branches the Branches workflow deletes
+        run: .venv/bin/python -m unittest discover -s .github/branches -v
 
   site:
     name: Showcase site
