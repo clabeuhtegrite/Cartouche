@@ -2,7 +2,7 @@
 
 Cartouche sends what its players' games measured to a server of the project's own: a Cloudflare Worker, [`worker.js`](worker.js), and its D1 database, [`schema.sql`](schema.sql), created in the EU jurisdiction, where it is stored and run. Telemetry is on unless the player turns off **Game measurements** on the System page ([decision 35](../docs/decisions.md)); what it sends, and what it never sends, is in [docs/privacy.md](../docs/privacy.md). The app's side is [`CartoucheTelemetry.swift`](../launcher/Sources/CartoucheTelemetry.swift), the report format [`CartoucheTelemetryReport.swift`](../launcher/Sources/CartoucheTelemetryReport.swift) and the reading of a game's log [`CartoucheGameLog.swift`](../launcher/Sources/CartoucheGameLog.swift). Cartouche Builder, on the Mac, sends its own events to the same server, unless the player turns off **Send usage measures** in its settings ([Cartouche Builder](#cartouche-builder), [`BuilderTelemetry.swift`](../builder/mac/Sources/BuilderKit/BuilderTelemetry.swift)).
 
-The Worker has no dependency and no build: the file is deployed as it is. The project reads what it holds on a [dashboard](#dashboard) of its own.
+The Worker has no dependency and no build: the file is deployed as it is. The project reads what it holds on a [dashboard](#dashboard) of its own, and its sessions in the cloud, which cannot reach Cloudflare, in an [export](#export) encrypted for each of them.
 
 ## Routes
 
@@ -120,6 +120,18 @@ Each Thursday, the Game measurements workflow ([`.github/workflows/measurements.
 
 The results testers wrote stay as they are. A measured result is replaced by its model's new one, and stays while its model has none. The sheets that changed go on the branch `catalog-measurements`, whose pull request goes through CI before it is merged; the job summary links it, with how many sessions and iPhones were summed up. The workflow reads the database with the same secrets as the deploy, and does nothing without them.
 
+## Export
+
+The project's sessions in the cloud run where the network does not reach Cloudflare, and the dashboard opens only behind Access: they read the database through the **Telemetry export** workflow ([`.github/workflows/telemetry-export.yml`](../.github/workflows/telemetry-export.yml)) and [`export.py`](export.py), which only those who can write to the repository can run.
+
+1. `python3 telemetry/export.py key --out DIR` makes a key pair: the private key in `DIR/export-key.pem`, readable by its owner only, which never leaves the session; it prints the public key.
+2. The workflow, run on `main` with that key, and `days` to keep only the last days, reads the database with the deploy's secrets into a SQLite file, and encrypts it for the key. Its second job, which holds no secret, puts the export on the branch `telemetry-export`, in place of the one before.
+3. `git fetch origin telemetry-export`, then `python3 telemetry/export.py open --key DIR/export-key.pem --ref FETCH_HEAD --out FILE`, checks that the export was made for this key and decrypts it into `FILE`, outside the repository.
+
+What leaves the database is what the dashboard reads, and no more. In `reports`, each report as the server kept it, without its own `id`, with `install` and `session` cut to their first 8 digits: `n` is the order the server received them in, and `body` the report, which SQLite's JSON functions read, such as `json_extract(body, '$.fps.median')`. In `daily`, how many reports each day brought and from how many copies; in `problems`, the day of each problem and whether GitHub has it, never its words, which the problems' private repository holds; in `export`, what the export holds.
+
+The SQLite file is gzipped, then encrypted with AES-256-CBC under a random key; that key, with the SHA-256 of what it encrypts, goes in an envelope encrypted with RSA-OAEP (SHA-256) for the public key, an RSA key of 3072 bits or more. The branch, as public as the repository, shows nothing but the manifest, `export.json`: the key's fingerprint, the run and when; and the job's log nothing of what the database holds.
+
 ## Deploy
 
 [`.github/workflows/telemetry.yml`](../.github/workflows/telemetry.yml) tests the server on each pull request that changes it, and deploys it from `main` with [`deploy.sh`](deploy.sh), which calls Cloudflare's API with curl and jq: the database, created in the EU jurisdiction if it is not there yet; `schema.sql`, whose every statement runs again without harm; the Worker, with the database bound as `DB` and no logs kept; its `workers.dev` address; and its daily run. The job summary gives the address, which goes in [`app/config.env`](../app/config.env) as `CARTOUCHE_TELEMETRY_URL`: a build with none sends nothing. The deploy then asks both addresses what they answer: the server its name, and the dashboard Access's sign-in or its closed page. A server that sends to Access's sign-in instead could take nothing from the iPhones: the run fails, and says where to take it out of Access.
@@ -140,7 +152,7 @@ The deploy also uploads the [dashboard](#dashboard), with the same database and 
 ```sh
 node --import ./telemetry/test/text-modules.mjs --test telemetry/test/worker.test.js telemetry/test/dashboard.test.js
                                                      # the Workers, with stand-ins for D1, Access and GitHub
-python3 -m unittest discover -s telemetry/test -v    # the database on SQLite; the deploy and the weekly sum against a stand-in for Cloudflare's API
+python3 -m unittest discover -s telemetry/test -v    # the database on SQLite; the deploy, the weekly sum and the export against a stand-in for Cloudflare's API
 ```
 
 The dashboard's page is imported as Workers import a text module, which [`test/text-modules.mjs`](test/text-modules.mjs) lets Node do. Its tests run the page's sums on the reports of `app-reports.json`, sent through the server into SQLite when Node has `node:sqlite`, and [`test/test_dashboard.py`](test/test_dashboard.py) checks that every field of them reaches the page: a field the app starts to send goes in `SESSION` in `dashboard/worker.js` and in the page's `SHOWN`.
