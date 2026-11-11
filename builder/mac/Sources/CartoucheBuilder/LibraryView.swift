@@ -540,9 +540,9 @@ struct GameMenu: View {
                         .disabled(model.stopping(game.titleID))
                 } else {
                     Button(tr("Remove from the queue", "Retirer de la file")) { model.takeOut(game.titleID) }
-                        .disabled(model.adding.contains(game.titleID))
+                        .disabled(!model.canTakeOut(game.titleID))
                 }
-            } else if model.status?.running == true {
+            } else if model.isBuilding {
                 Button(tr("Add to the queue", "Ajouter à la file")) {
                     model.build([game.titleID], force: game.state != .due)
                 }
