@@ -101,6 +101,8 @@ final class CartoucheFailureTests: XCTestCase {
             (["family": "network", "kind": "url", "network": -1009, "host": "apple"], .offline),
             (["family": "network", "kind": "url", "network": -1001, "host": "apple"], .network),
             (["family": "network", "kind": "url", "network": -1001, "host": "sideStore"], .anisette),
+            (["family": "network", "kind": "url", "network": -1001, "host": "anisette"], .anisette),
+            (["family": "network", "kind": "url", "network": -1009, "host": "anisette"], .offline),
             (["family": "pairing", "kind": "unreadable"], .pairing),
             (["family": "emProxy", "kind": "unnamed"], .vpn),
             (["family": "signer", "kind": "missingAppBundle"], .appBundle),
