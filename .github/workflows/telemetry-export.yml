@@ -1,0 +1,98 @@
+name: Telemetry export
+
+# Exports the telemetry database for one of the project's sessions, which
+# cannot reach Cloudflare (telemetry/README.md#export): the first job reads
+# it with the secrets CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID of the
+# environment cloudflare and encrypts it for the public key the run is given
+# (telemetry/export.py); the second, which holds no secret, puts the export
+# on the branch telemetry-export, where the session that holds the private
+# key fetches it, and alone can open it. Only those who can write to the
+# repository can run it.
+
+on:
+  workflow_dispatch:
+    inputs:
+      key:
+        description: "The public key the export is encrypted for, as `python3 telemetry/export.py key` prints it"
+        required: true
+        type: string
+      days:
+        description: "Only the reports of the last N days; all of them when empty"
+        required: false
+        type: string
+        default: ""
+
+permissions:
+  contents: read
+
+concurrency:
+  group: telemetry-export
+  cancel-in-progress: false
+
+jobs:
+  export:
+    name: Read and encrypt the database
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: cloudflare
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Export
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          KEY: ${{ inputs.key }}
+          DAYS: ${{ inputs.days }}
+        run: python3 telemetry/export.py export --key "$KEY" --days "$DAYS" --out build/export
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: telemetry-export
+          path: build/export
+          retention-days: 1
+          if-no-files-found: error
+
+  # The only job that can write holds no secret and runs git and gh only: it
+  # commits the export's three files, alone, on the branch.
+  keep:
+    name: Put it on telemetry-export
+    needs: export
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write # the branch telemetry-export
+    env:
+      GH_TOKEN: ${{ github.token }}
+      BRANCH: telemetry-export
+    steps:
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
+        with:
+          name: telemetry-export
+          path: export
+      - name: Push it to telemetry-export
+        working-directory: export
+        run: |
+          # The export's files and nothing else: its manifest, and the rest encrypted.
+          if [ "$(ls -A | sort | tr '\n' ' ')" != "export.json telemetry.key.enc telemetry.sqlite.gz.enc " ]; then
+            echo "::error::the export is not export.json, telemetry.key.enc and telemetry.sqlite.gz.enc"
+            exit 1
+          fi
+          KEY="$(jq -r '.key | select(test("^[0-9a-f]{16}$"))' export.json)"
+          if [ -z "$KEY" ]; then
+            echo "::error::export.json names no key"
+            exit 1
+          fi
+          git init -q -b "$BRANCH"
+          git add export.json telemetry.key.enc telemetry.sqlite.gz.enc
+          git -c user.name="github-actions[bot]" \
+              -c user.email="41898282+github-actions[bot]@users.noreply.github.com" \
+              commit -q -m "Telemetry export, encrypted for the key $KEY" \
+                        -m "Made by the Telemetry export workflow (telemetry/export.py), run $GITHUB_RUN_ID."
+          gh auth setup-git
+          git push --force "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY.git" "HEAD:refs/heads/$BRANCH"
+          {
+            echo "## Telemetry export"
+            echo
+            echo "On \`$BRANCH\`, encrypted for the key \`$KEY\`: only the session that holds it can open it (\`telemetry/export.py open\`)."
+          } >> "$GITHUB_STEP_SUMMARY"
