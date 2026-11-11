@@ -82,14 +82,43 @@ struct GameDetailView: View {
     @ViewBuilder private var actions: some View {
         if game.canBuild {
             HStack(spacing: 10) {
-                if model.progress(game.titleID) != nil {
-                    Button(role: .destructive) {
-                        model.stop()
+                if let progress = model.progress(game.titleID) {
+                    if progress.state == "building" {
+                        // This game alone: the batch goes on with the next.
+                        let stopping = model.stopping(game.titleID)
+                        Button(role: .destructive) {
+                            model.stopBuild(game.titleID)
+                        } label: {
+                            Label(stopping ? tr("Stopping…", "Arrêt…") : tr("Stop", "Arrêter"), systemImage: "stop.fill")
+                                .frame(maxWidth: .infinity)
+                        }
+                        .controlSize(.large)
+                        .disabled(stopping)
+                        .help(tr("Stops this game’s build; the games waiting are built after it.",
+                                 "Arrête la construction de ce jeu ; les jeux en attente se construisent ensuite."))
+                    } else {
+                        Button {
+                            model.takeOut(game.titleID)
+                        } label: {
+                            Label(tr("Remove from the queue", "Retirer de la file"), systemImage: "minus.circle")
+                                .frame(maxWidth: .infinity)
+                        }
+                        .controlSize(.large)
+                        .disabled(model.adding.contains(game.titleID))
+                    }
+                } else if model.status?.running == true {
+                    // A build is running: this one waits its turn.
+                    Button {
+                        model.build([game.titleID], force: game.state != .due)
                     } label: {
-                        Label(tr("Stop", "Arrêter"), systemImage: "stop.fill")
+                        Label(tr("Add to the queue", "Ajouter à la file"), systemImage: "text.badge.plus")
                             .frame(maxWidth: .infinity)
                     }
+                    .buttonStyle(.borderedProminent)
                     .controlSize(.large)
+                    .disabled(!model.canBuild)
+                    .help(tr("A build is running: this game is built after it, and after the games waiting.",
+                             "Une construction est en cours : ce jeu se construira après elle, et après les jeux en attente."))
                 } else {
                     // A game never built, with no IPA yet, is built for the
                     // first time; one nxnative improved, rebuilt.

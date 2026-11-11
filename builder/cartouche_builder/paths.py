@@ -78,6 +78,11 @@ class Paths:
         return self.root / "status.json"
 
     @property
+    def queue(self) -> Path:
+        """The games asked for while a batch runs (queue.py)."""
+        return self.root / "queue.json"
+
+    @property
     def library(self) -> Path:
         """The last look at the games, for the app to show at once (api.py)."""
         return self.root / "library.json"

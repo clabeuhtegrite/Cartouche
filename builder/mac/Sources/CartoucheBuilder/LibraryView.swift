@@ -4,8 +4,8 @@
 //
 //  Every game: those of the sources folder and those of the games folder
 //  that have only their IPA, by their covers, with what nxnative improved
-//  and a button that rebuilds them. A game chosen opens its sheet beside
-//  them, and chosen again closes it.
+//  and a button that rebuilds them, or adds them to the build running. A
+//  game chosen opens its sheet beside them, and chosen again closes it.
 //
 
 import BuilderKit
@@ -58,8 +58,8 @@ struct LibraryView: View {
                     if let problems = model.library?.problems, !problems.isEmpty {
                         ProblemsCard(problems: problems)
                     }
-                    if filter != .upToDate, let library = model.library, !library.due.isEmpty {
-                        DueCard(due: library.due)
+                    if filter != .upToDate, !model.dueOutsideBatch.isEmpty {
+                        DueCard(due: model.dueOutsideBatch)
                     }
                     if model.library == nil {
                         LoadingCard()
@@ -103,7 +103,7 @@ struct LibraryView: View {
                     } label: {
                         Label(tr("Rebuild what is due", "Reconstruire ce qui est dû"), systemImage: "sparkles")
                     }
-                    .disabled(!model.canBuild || (model.library?.due.isEmpty ?? true))
+                    .disabled(!model.canBuild || model.dueOutsideBatch.isEmpty)
                     .help(tr("Builds every game nxnative improved", "Construit chaque jeu que nxnative a amélioré"))
                 }
             }
@@ -113,10 +113,18 @@ struct LibraryView: View {
     private var subtitle: String {
         guard let library = model.library else { return tr("Reading your games…", "Lecture de vos jeux…") }
         let count = library.games.count
-        let due = library.due.count
         let gamesText = tr("\(count) game\(count == 1 ? "" : "s")", "\(count) jeu\(count == 1 ? "" : "x")")
-        guard due > 0 else { return gamesText + tr(", all up to date", ", tous à jour") }
-        return gamesText + " · " + tr("\(due) to rebuild", "\(due) à reconstruire")
+        var parts = [gamesText]
+        // While a batch builds: its games, and those still to rebuild.
+        let states = library.games.compactMap { model.progress($0.titleID)?.state }
+        let building = states.filter { $0 == "building" }.count
+        let waiting = states.filter { $0 == "queued" }.count
+        if building > 0 { parts.append(tr("\(building) building", "\(building) en construction")) }
+        if waiting > 0 { parts.append(tr("\(waiting) waiting", "\(waiting) en attente")) }
+        let due = model.dueOutsideBatch.count
+        if due > 0 { parts.append(tr("\(due) to rebuild", "\(due) à reconstruire")) }
+        guard parts.count > 1 else { return gamesText + tr(", all up to date", ", tous à jour") }
+        return parts.joined(separator: " · ")
     }
 }
 
@@ -238,9 +246,10 @@ struct CoverView: View {
     }
 }
 
-/// The games nxnative improved, and one button for all of them: in a row,
-/// the button under them when the page is narrower, and the covers above
-/// the words when it is narrower still.
+/// The games nxnative improved, and one button for all of them, which adds
+/// them to the build running if one is: in a row, the button under them
+/// when the page is narrower, and the covers above the words when it is
+/// narrower still.
 struct DueCard: View {
     @EnvironmentObject private var model: AppModel
     let due: [Game]
@@ -303,21 +312,25 @@ struct DueCard: View {
         }
     }
 
-    @ViewBuilder private var button: some View {
-        if model.isBuilding {
-            Button(tr("See the builds", "Voir les constructions")) { model.section = .activity }
-                .controlSize(.large)
-        } else {
-            Button {
-                model.build()
-            } label: {
-                Label(tr("Rebuild all", "Tout reconstruire"), systemImage: "sparkles")
-                    .padding(.horizontal, 6)
+    private var button: some View {
+        Button {
+            model.build()
+        } label: {
+            Group {
+                if model.isBuilding {
+                    Label(due.count == 1 ? tr("Add it to the queue", "L’ajouter à la file") : tr("Add them to the queue", "Les ajouter à la file"),
+                          systemImage: "text.badge.plus")
+                } else {
+                    Label(tr("Rebuild all", "Tout reconstruire"), systemImage: "sparkles")
+                }
             }
-            .buttonStyle(.borderedProminent)
-            .controlSize(.large)
-            .disabled(!model.canBuild)
+            .padding(.horizontal, 6)
         }
+        .buttonStyle(.borderedProminent)
+        .controlSize(.large)
+        .disabled(!model.canBuild)
+        .help(model.isBuilding ? tr("A build is running: these games are built after it, and after the games waiting.",
+                                    "Une construction est en cours : ces jeux se construiront après elle, et après les jeux en attente.") : "")
     }
 
     private var title: String {
@@ -433,10 +446,26 @@ struct GameMenu: View {
 
     var body: some View {
         if game.canBuild {
-            Button(game.state == .due ? tr("Rebuild now", "Reconstruire maintenant") : tr("Build again", "Construire à nouveau")) {
-                model.build([game.titleID], force: game.state != .due)
+            if let progress = model.progress(game.titleID) {
+                // In the build running: this game alone, the others go on.
+                if progress.state == "building" {
+                    Button(tr("Stop its build", "Arrêter sa construction")) { model.stopBuild(game.titleID) }
+                        .disabled(model.stopping(game.titleID))
+                } else {
+                    Button(tr("Remove from the queue", "Retirer de la file")) { model.takeOut(game.titleID) }
+                        .disabled(model.adding.contains(game.titleID))
+                }
+            } else if model.status?.running == true {
+                Button(tr("Add to the queue", "Ajouter à la file")) {
+                    model.build([game.titleID], force: game.state != .due)
+                }
+                .disabled(!model.canBuild)
+            } else {
+                Button(game.state == .due ? tr("Rebuild now", "Reconstruire maintenant") : tr("Build again", "Construire à nouveau")) {
+                    model.build([game.titleID], force: game.state != .due)
+                }
+                .disabled(!model.canBuild)
             }
-            .disabled(!model.canBuild)
             Button(game.followed ? tr("Stop following", "Ne plus suivre") : tr("Follow", "Suivre")) {
                 model.follow(game, !game.followed)
             }

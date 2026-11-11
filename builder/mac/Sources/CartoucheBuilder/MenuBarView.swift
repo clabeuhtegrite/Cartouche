@@ -4,9 +4,10 @@
 //
 //  The item in the menu bar, there while the window is closed: what is
 //  being built and how far it is, the games nxnative improved with the
-//  button that rebuilds them, the update that waits, and the way back to
-//  the window. Its label opens the window again when the app asks for it
-//  (a notification clicked while the window is closed).
+//  button that rebuilds them, or adds them to the build running, the
+//  update that waits, and the way back to the window. Its label opens the
+//  window again when the app asks for it (a notification clicked while the
+//  window is closed).
 //
 
 import AppKit
@@ -47,8 +48,9 @@ struct MenuBarView: View {
             header
             if model.isBuilding {
                 building
-            } else if let due = model.library?.due, !due.isEmpty {
-                improved(due)
+            }
+            if model.starting == nil, !model.dueOutsideBatch.isEmpty {
+                improved(model.dueOutsideBatch)
             }
             if case let .ready(release) = updater.state {
                 updateReady(release)
@@ -82,7 +84,7 @@ struct MenuBarView: View {
 
     private var summary: String {
         if model.isBuilding {
-            let left = (model.status?.queued.count ?? 0) + (model.status?.current.count ?? 0)
+            let left = model.waiting.count + (model.status?.current.count ?? 0)
             return left > 1 ? tr("Building: \(left) games to go", "Construction : encore \(left) jeux") : tr("Building a game", "Construction d’un jeu")
         }
         if model.engine == nil || !model.setup.ready {
@@ -124,7 +126,7 @@ struct MenuBarView: View {
                     .foregroundStyle(.secondary)
             }
             Spacer()
-            Button(tr("Stop", "Arrêter")) { model.stop() }
+            Button(model.waiting.isEmpty ? tr("Stop", "Arrêter") : tr("Stop all", "Tout arrêter")) { model.stop() }
                 .controlSize(.small)
         }
     }
@@ -161,9 +163,15 @@ struct MenuBarView: View {
             Button {
                 model.build()
             } label: {
-                Label(due.count == 1 ? tr("Rebuild it", "Le reconstruire") : tr("Rebuild them (\(due.count))", "Les reconstruire (\(due.count))"),
-                      systemImage: "sparkles")
-                    .frame(maxWidth: .infinity)
+                if model.isBuilding {
+                    Label(due.count == 1 ? tr("Add it to the queue", "L’ajouter à la file") : tr("Add them to the queue (\(due.count))", "Les ajouter à la file (\(due.count))"),
+                          systemImage: "text.badge.plus")
+                        .frame(maxWidth: .infinity)
+                } else {
+                    Label(due.count == 1 ? tr("Rebuild it", "Le reconstruire") : tr("Rebuild them (\(due.count))", "Les reconstruire (\(due.count))"),
+                          systemImage: "sparkles")
+                        .frame(maxWidth: .infinity)
+                }
             }
             .buttonStyle(.borderedProminent)
             .disabled(!model.canBuild)

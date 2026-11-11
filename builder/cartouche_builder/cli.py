@@ -2,7 +2,8 @@
 
   cartouche-builder                    opens the app (Cartouche Builder.app)
   cartouche-builder plan               nxnative moved forward, and what is due and why
-  cartouche-builder build [ID ...]     build what is due (or those games)
+  cartouche-builder build [ID ...]     build what is due (or those games: added to
+                                       the batch running, if one runs)
   cartouche-builder status             each game's last build, without moving nxnative
   cartouche-builder doctor             the Mac's tools
   cartouche-builder setup              nxnative's checkout and Python environment
@@ -22,6 +23,7 @@ import threading
 from dataclasses import asdict, fields
 
 from . import __version__, batch, config as configs, schedule, toolchain, titles
+from . import queue as queues
 from .engine import EngineError
 from .i18n import t
 from .paths import Paths
@@ -158,6 +160,10 @@ def _build(ctx: batch.Context, args) -> int:
     try:
         plan, summary = batch.run_due(ctx, update=not args.no_update, force=only if args.force else None, only=only or None, on_event=follow, stop=stop, log=print, scheduled=args.scheduled)
     except batch.Busy as error:
+        # Games named while a batch runs wait their turn in it (queue.py).
+        if only and not args.scheduled and queues.add(ctx.paths, sorted(only), force=args.force):
+            print(t("cli.queued", count=len(only)))
+            return 0
         # The nightly run finds the window's batch running: nothing to do.
         print(str(error), file=sys.stderr)
         return 0 if args.scheduled else 3

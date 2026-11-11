@@ -86,6 +86,8 @@ Cartouche Builder sends events in the same form, to the same routes, with its ow
 | `builder.built` | A game built. | `reasons`, why it was due; `seconds`; `source`, the kind of its files; `nxnative`; `ipaMB` |
 | `builder.failed` | A game's build failed. | as `builder.built`, with `stage`, the step that failed, and no `ipaMB` |
 | `builder.batch` | A batch ended. | `state`; `games`, `built`, `failed`, `skipped`, `stopped`; `scheduled`, at night; `jobs`; `minutes`; `nxnative` |
+| `builder.queued` | Games added to the batch running, to build after its own. | `games`, how many; `forced`, built again even if up to date |
+| `builder.takenOut` | A game taken out of the batch running. | `building`, whether its build was stopped, not only left out |
 | `builder.cleaned` | Room freed on the Storage page. | `what`, `items`, `freedMB` |
 | `builder.paired` | An iPhone asked to pair. | `allowed` |
 | `builder.updated` | The first start of a new version. | `from`, `to` |

@@ -16,6 +16,13 @@ follows through status.json (status.py).
   config [--set JSON]    the settings, changed by the keys of JSON
   follow ID on|off       follows a game, or leaves it out
   mount                  connects the shares of the folders again
+  queue                  the games asked for while a batch runs (queue.py)
+  queue add [--force] ID ...
+                         adds games to the batch running, after its own; it
+                         answers "queued": false when none runs, for the app
+                         to start one
+  queue remove ID ...    takes games out of the queue, or of the batch: one
+                         waiting is left out, one building stops
 """
 
 from __future__ import annotations
@@ -27,6 +34,7 @@ from dataclasses import asdict, fields
 from pathlib import Path
 
 from . import __version__, batch, config as configs, ipa as ipas, schedule, shares, storage, titles, toolchain
+from . import queue as queues
 from . import status as statuses
 from .engine import Commit, EngineError
 from .i18n import language, t
@@ -59,6 +67,13 @@ def main(argv: list[str]) -> int:
     follow_parser.add_argument("title_id")
     follow_parser.add_argument("state", choices=("on", "off"))
     commands.add_parser("mount")
+    queue_parser = commands.add_parser("queue")
+    queue_actions = queue_parser.add_subparsers(dest="action")
+    add_parser = queue_actions.add_parser("add")
+    add_parser.add_argument("--force", action="store_true")
+    add_parser.add_argument("title_ids", nargs="+")
+    remove_parser = queue_actions.add_parser("remove")
+    remove_parser.add_argument("title_ids", nargs="+")
     try:
         args = parser.parse_args(argv)
     except SystemExit as exit_:
@@ -77,6 +92,7 @@ def main(argv: list[str]) -> int:
             "config": lambda: config(ctx, args.set),
             "follow": lambda: follow(ctx, args.title_id, args.state == "on"),
             "mount": lambda: mount(ctx),
+            "queue": lambda: queue(ctx, args.action, getattr(args, "title_ids", []), getattr(args, "force", False)),
         }[args.command]
         return _answer({"api": API_VERSION, **handler()})
     except BadRequest as error:
@@ -141,8 +157,19 @@ def library(ctx: batch.Context, update: bool = False) -> dict:
     data["issues"] = plan.issues
     data["notes"] = [{"commit": c, "kind": k, "text": x} for c, k, x in plan.notes]
     building = {g["title_id"]: g for g in (status or {}).get("games", [])} if running else {}
+    waiting: set[str] = set()
+    if running:
+        # The queue: games asked for wait their turn, and those taken out no longer do.
+        asked = queues.read(ctx.paths)
+        for title_id in asked["stop"]:
+            if building.get(title_id, {}).get("state") == "queued":
+                del building[title_id]
+        waiting = {g["title_id"] for g in asked["games"] if g["batch"] == status.get("pid")} - set(building)
     for entry in plan.entries:
-        data["games"].append(game_json(ctx, entry, building.get(entry.title_id), plan.profiles))
+        progress = building.get(entry.title_id)
+        if progress is None and entry.title_id in waiting:
+            progress = {"title_id": entry.title_id, "name": entry.game.display_name, "state": "queued"}
+        data["games"].append(game_json(ctx, entry, progress, plan.profiles))
     data["games"] += ipa_only(ctx, {e.title_id for e in plan.entries}, plan.profiles, plan.head)
     data["games"].sort(key=lambda g: g["name"].casefold())
     _keep(ctx, data)
@@ -429,6 +456,21 @@ def follow(ctx: batch.Context, title_id: str, followed: bool) -> dict:
     ctx.config.follow(title_id, followed)
     configs.save(ctx.paths, ctx.config)
     return {"followed": followed, "title_id": title_id.upper()}
+
+
+def queue(ctx: batch.Context, action: str | None, title_ids: list[str], force: bool) -> dict:
+    ids = [i.upper() for i in title_ids]
+    bad = [i for i in ids if not titles.is_title_id(i)]
+    if bad:
+        raise BadRequest(t("cli.bad_ids", ids=", ".join(bad)))
+    answer: dict = {}
+    if action == "add":
+        answer["queued"] = queues.add(ctx.paths, ids, force=force)
+    elif action == "remove":
+        queues.remove(ctx.paths, ids)
+    answer["queue"] = queues.read(ctx.paths)
+    answer["running"] = bool(queues.running(ctx.paths))
+    return answer
 
 
 def mount(ctx: batch.Context) -> dict:

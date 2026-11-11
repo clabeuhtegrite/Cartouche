@@ -21,7 +21,8 @@ import SwiftUI
 @MainActor
 enum Gallery {
     enum Page: String, CaseIterable {
-        case library, game, gameNarrow = "game-narrow", activity, storage, iphone, setup, settings, menubar, menubarBuilding = "menubar-building"
+        case library, game, gameNarrow = "game-narrow", gameQueue = "game-queue", activity, storage, iphone, setup, settings, menubar
+        case menubarBuilding = "menubar-building"
         case assistantWelcome = "assistant-welcome", assistantTools = "assistant-tools", assistantSources = "assistant-sources"
         case assistantGames = "assistant-games", assistantKeys = "assistant-keys", assistantBuilds = "assistant-builds"
         case assistantIPhone = "assistant-iphone", assistantDone = "assistant-done"
@@ -53,7 +54,7 @@ enum Gallery {
             }
         }
 
-        var inEnglish: Bool { [.library, .game, .setup, .menubar, .assistantWelcome, .assistantGames].contains(self) }
+        var inEnglish: Bool { [.library, .game, .gameQueue, .setup, .menubar, .assistantWelcome, .assistantGames].contains(self) }
 
         /// The window as the app opens it: the settings as the Settings
         /// scene does, the menu bar's panel without a frame, the setup
@@ -283,19 +284,34 @@ enum Gallery {
         }
 
         func model(for page: Page) -> AppModel {
-            let building = page == .activity || page == .menubarBuilding
+            let building = page == .activity || page == .menubarBuilding || page == .gameQueue
             var library = self.library
             if page == .gameNarrow, let index = library.games.firstIndex(where: { $0.titleID == "0100152000022000" }) {
                 LayoutCheck.lengthen(&library.games[index])
             }
+            if building {
+                // The library as the engine gives it while the batch runs:
+                // Kirby built in it, Mario Kart 8 Deluxe building, Metroid
+                // Dread waiting its turn, Super Mario Odyssey asked for since.
+                let states: [String: GameState] = ["01004D300C5AE000": .upToDate, "0100152000022000": .building,
+                                                   "010093801237C000": .queued, "0100000000010000": .queued]
+                for index in library.games.indices {
+                    if let state = states[library.games[index].titleID] { library.games[index].state = state }
+                }
+            }
             let model = AppModel.sampled(library: library, status: building ? self.building : nil, storage: storage, config: config, info: info)
+            if building {
+                model.preview(queue: BuildQueue(games: [.init(titleID: "0100000000010000", force: true, batch: 4242, added: "")]))
+            }
             switch page {
             case .library, .activity, .storage, .iphone: model.section = AppSection(rawValue: page.rawValue) ?? .library
-            case .game, .gameNarrow: model.section = .library
+            case .game, .gameNarrow, .gameQueue: model.section = .library
             case .setup: model.section = .setup
             default: break
             }
             if page == .game || page == .gameNarrow { model.selection = "0100152000022000" }
+            // A game up to date, while a batch runs: added to its queue.
+            if page == .gameQueue { model.selection = "01006F8002326000" }
             if page == .setup || page == .assistantTools {
                 model.setup.preview([
                     .mac: .ready("macOS 26.1"),

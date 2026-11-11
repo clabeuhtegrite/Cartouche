@@ -3,8 +3,11 @@
 //  Cartouche Builder
 //
 //  The builds: the game building now, its step and how far it is, the
-//  games waiting their turn, and what the last batch did. A batch goes on
-//  when the window, or the app, is closed; the Mac stays awake for it.
+//  games waiting their turn, and what the last batch did. A game asked for
+//  while a batch runs waits its turn at the end of it, and each game can be
+//  taken out of it, the one building too: the batch goes on with the next.
+//  A batch goes on when the window, or the app, is closed; the Mac stays
+//  awake for it.
 //
 
 import BuilderKit
@@ -19,12 +22,26 @@ struct ActivityView: View {
             VStack(alignment: .leading, spacing: 22) {
                 PageHeader(title: tr("Builds", "Constructions"), subtitle: subtitle) {
                     if model.isBuilding {
-                        Button(role: .destructive) {
-                            model.stop()
-                        } label: {
-                            Label(tr("Stop", "Arrêter"), systemImage: "stop.fill")
+                        HStack(spacing: 10) {
+                            if model.status?.running == true, !model.dueOutsideBatch.isEmpty {
+                                Button {
+                                    model.build()
+                                } label: {
+                                    Label(tr("Add what is due", "Ajouter ce qui est dû"), systemImage: "text.badge.plus")
+                                }
+                                .controlSize(.large)
+                                .disabled(!model.canBuild)
+                                .help(tr("The games nxnative improved that this batch does not have, built after the games waiting.",
+                                         "Les jeux que nxnative a améliorés et que cette série n’a pas, construits après les jeux en attente."))
+                            }
+                            Button(role: .destructive) {
+                                model.stop()
+                            } label: {
+                                Label(model.waiting.isEmpty ? tr("Stop", "Arrêter") : tr("Stop all", "Tout arrêter"), systemImage: "stop.fill")
+                            }
+                            .controlSize(.large)
+                            .help(tr("Stops the game building and every game waiting.", "Arrête le jeu en construction et tous les jeux en attente."))
                         }
-                        .controlSize(.large)
                     } else {
                         Button {
                             model.build()
@@ -33,13 +50,13 @@ struct ActivityView: View {
                         }
                         .buttonStyle(.borderedProminent)
                         .controlSize(.large)
-                        .disabled(!model.canBuild || (model.library?.due.isEmpty ?? true))
+                        .disabled(!model.canBuild || model.dueOutsideBatch.isEmpty)
                     }
                 }
                 if let status = model.status {
                     if status.running == true {
                         ForEach(status.current, id: \.titleID) { game in
-                            CurrentCard(progress: game)
+                            CurrentCard(progress: game, alone: status.current.count == 1 && model.waiting.isEmpty)
                         }
                         if status.current.isEmpty {
                             Card {
@@ -61,7 +78,11 @@ struct ActivityView: View {
                     } else {
                         LastBatchCard(status: status)
                     }
-                    if !status.queued.isEmpty {
+                    if status.running == true {
+                        if !model.waiting.isEmpty {
+                            GameList(title: tr("Queue", "File d’attente"), games: model.waiting) { model.takeOut($0) }
+                        }
+                    } else if !status.queued.isEmpty {
                         GameList(title: tr("Waiting their turn", "En attente"), games: status.queued)
                     }
                     if !status.finished.isEmpty {
@@ -107,7 +128,7 @@ struct ActivityView: View {
     private var subtitle: String {
         guard let status = model.status else { return tr("Nothing running", "Rien en cours") }
         if status.running == true {
-            let left = status.queued.count + status.current.count
+            let left = model.waiting.count + status.current.count
             return tr("\(left) game\(left == 1 ? "" : "s") to go", "\(left) jeu\(left == 1 ? "" : "x") à faire")
                 + tr(" · the Mac stays awake", " · le Mac reste éveillé")
         }
@@ -116,10 +137,13 @@ struct ActivityView: View {
     }
 }
 
-/// The game building now.
+/// The game building now, with a button that stops it alone when other
+/// games are in the batch.
 struct CurrentCard: View {
     @EnvironmentObject private var model: AppModel
     let progress: GameProgress
+    /// The batch's only game left: the page's Stop stops it.
+    var alone = true
 
     var body: some View {
         Card(padding: 20) {
@@ -131,8 +155,23 @@ struct CurrentCard: View {
                         .shadow(color: .black.opacity(0.2), radius: 6, y: 3)
                 }
                 VStack(alignment: .leading, spacing: 10) {
-                    Text(progress.name)
-                        .font(.title2.weight(.bold))
+                    HStack(alignment: .firstTextBaseline, spacing: 10) {
+                        Text(progress.name)
+                            .font(.title2.weight(.bold))
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                        if !alone {
+                            let stopping = model.stopping(progress.titleID)
+                            Button {
+                                model.takeOut(progress.titleID)
+                            } label: {
+                                Label(stopping ? tr("Stopping…", "Arrêt…") : tr("Stop this game", "Arrêter ce jeu"), systemImage: "stop.circle")
+                            }
+                            .buttonStyle(.borderless)
+                            .disabled(stopping)
+                            .help(tr("Stops this game’s build: the games waiting are built after it.",
+                                     "Arrête la construction de ce jeu : les jeux en attente se construisent ensuite."))
+                        }
+                    }
                     Text(stageText(progress.stage) + (progress.k.flatMap { k in progress.n.map { " · \(k)/\($0)" } } ?? ""))
                         .font(.callout)
                         .foregroundStyle(.secondary)
@@ -178,13 +217,15 @@ struct LastBatchCard: View {
     var body: some View {
         let built = status.games.filter { $0.state == "built" }.count
         let failed = status.games.filter { $0.state == "failed" }.count
+        // A batch whose games were all stopped one by one stopped too.
+        let stopped = status.state == "stopped" || (built == 0 && failed == 0 && status.games.contains { $0.state == "stopped" })
         Card {
             HStack(spacing: 14) {
-                Image(systemName: failed > 0 ? "exclamationmark.triangle.fill" : status.state == "stopped" ? "stop.circle.fill" : "checkmark.circle.fill")
+                Image(systemName: failed > 0 ? "exclamationmark.triangle.fill" : stopped ? "stop.circle.fill" : "checkmark.circle.fill")
                     .font(.largeTitle)
-                    .foregroundStyle(failed > 0 ? Color.orange : status.state == "stopped" ? Color.secondary : Color.green)
+                    .foregroundStyle(failed > 0 ? Color.orange : stopped ? Color.secondary : Color.green)
                 VStack(alignment: .leading, spacing: 4) {
-                    Text(headline(built: built, failed: failed))
+                    Text(headline(built: built, failed: failed, stopped: stopped))
                         .font(.headline)
                     if let error = status.error, !error.isEmpty {
                         Text(error)
@@ -201,9 +242,9 @@ struct LastBatchCard: View {
         }
     }
 
-    private func headline(built: Int, failed: Int) -> String {
+    private func headline(built: Int, failed: Int, stopped: Bool) -> String {
         if status.state == "failed" { return tr("The batch could not run", "La série n’a pas pu tourner") }
-        if status.state == "stopped" { return tr("Stopped", "Arrêtée") + (built > 0 ? tr(" after \(built) game\(built == 1 ? "" : "s")", " après \(built) jeu\(built == 1 ? "" : "x")") : "") }
+        if stopped { return tr("Stopped", "Arrêtée") + (built > 0 ? tr(" after \(built) game\(built == 1 ? "" : "s")", " après \(built) jeu\(built == 1 ? "" : "x")") : "") }
         if built == 0 && failed == 0 { return tr("Nothing was due", "Rien n’était à faire") }
         var parts: [String] = []
         if built > 0 { parts.append(tr("\(built) built", "\(built) construit\(built == 1 ? "" : "s")")) }
@@ -212,11 +253,13 @@ struct LastBatchCard: View {
     }
 }
 
-/// Games of a batch, with how each went.
+/// Games of a batch, with how each went, and a button that takes each out
+/// of the queue when REMOVE is given.
 struct GameList: View {
     @EnvironmentObject private var model: AppModel
     let title: String
     let games: [GameProgress]
+    var remove: (@MainActor (String) -> Void)?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -265,6 +308,16 @@ struct GameList: View {
                 }
                 .buttonStyle(.borderless)
                 .help(tr("Open its log", "Ouvrir son journal"))
+            }
+            if let remove, game.state == "queued" {
+                Button {
+                    remove(game.titleID)
+                } label: {
+                    Image(systemName: "minus.circle")
+                }
+                .buttonStyle(.borderless)
+                .disabled(model.adding.contains(game.titleID))
+                .help(tr("Remove from the queue", "Retirer de la file"))
             }
         }
         .padding(.horizontal, 10)

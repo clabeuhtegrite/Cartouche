@@ -1,0 +1,19 @@
+{
+  "api": 1,
+  "queue": {
+    "games": [
+      {
+        "added": "2026-11-11T11:08:46+00:00",
+        "batch": 5271,
+        "force": true,
+        "title_id": "0100000000010000"
+      }
+    ],
+    "stop": [
+      "0100A0000E2F0000"
+    ],
+    "version": 1
+  },
+  "queued": true,
+  "running": true
+}
