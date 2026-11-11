@@ -119,9 +119,13 @@ class AppContract(Home):
             with mock.patch("cartouche_builder.status.alive", return_value=True):
                 self.call("status-building", "status")
                 self.call("library-building", "library")
+                # A game taken out of the batch, and one asked for, while it builds.
+                self.call(None, "queue", "remove", HOLLOW)
+                self.call("queue", "queue", "add", "--force", ODYSSEY)
         finally:
             running.join()
         self.assertEqual(self.answers["status-building"]["status"]["state"], "building")
+        self.assertEqual((self.answers["queue"]["queued"], self.answers["queue"]["queue"]["stop"]), (True, [HOLLOW]))
         self.call("clean", "clean", "logs")
 
         if os.environ.get("CARTOUCHE_BUILDER_FIXTURES") == "write":

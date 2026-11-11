@@ -24,13 +24,17 @@ A Mac that builds nxnative games has Apple silicon and macOS 26.6 or later. The 
 ## The app
 
 - **Library:** your games with their covers: those in the sources folder, and those whose IPA alone is in the games folder, such as games built before. Each says whether it is up to date, due for a rebuild and why, built at night, or failed and what failed. A game's sheet shows what nxnative changed for it since its build, its IPA, its build folder, **Build**, **Rebuild** or **Build again**, whether it is followed, and the other names of the game in nxnative's commits. **Rebuild what is due** builds every game nxnative improved.
-- **Builds:** the batch under way, game by game and stage by stage, and the ones before, with their logs.
+- **Builds:** the batch under way, game by game and stage by stage, its queue, and the ones before, with their logs.
 - **Storage:** what the builder keeps on the Mac, and how to free it.
 - **iPhone:** the bridge to Cartouche, its two folders and the iPhones paired.
 - **This Mac's tools:** each tool, installed or missing, and an install for what is missing.
 - **Settings** (⌘,): the folders and `prod.keys`, the rebuilds when nxnative's shared code changes, the nightly run, how many games build at once, the games' language, the disk the builds may use, notifications, the menu bar, opening at login, updates and measures.
 
 The menu bar shows a build under way, the games nxnative improved and an update ready; notifications say when a batch ends and when nxnative improves one of your games.
+
+### While a batch builds
+
+A game asked for while a batch builds, with **Add to the queue** on its sheet or its card's menu, or **Add them to the queue** for the games nxnative improved, waits its turn at the end of the batch: it is built after the batch's own games and those asked for before it, in the same batch, with one report and one notification at the end. **Builds** lists the queue in its order, with a button that takes a game out of it. **Stop this game**, there or on its sheet, stops only the game building, and the batch goes on with the next; **Stop all** stops the batch and empties its queue. In the Terminal, `cartouche-builder build ID`, while a batch builds, adds the games to it in the same way.
 
 ### Your folders
 
@@ -82,11 +86,11 @@ Documentation, tests and nxnative's own tooling never make a game due. A game wh
 
 ## The nightly run
 
-**Build what is due every night**, in the settings, installs a launchd agent of your session (`~/Library/LaunchAgents/io.github.clabeuhtegrite.cartouche-builder.plist`) that runs `cartouche-builder build` at that time, with `caffeinate` keeping the Mac awake while it builds. A Mac asleep at that time runs it when it wakes. A sources or games folder on a network share that is not mounted is mounted again, with the password saved in the keychain. One batch runs at a time: the nightly run leaves the app's batch alone. A notification says how it went, and **Builds** keeps each batch's report.
+**Build what is due every night**, in the settings, installs a launchd agent of your session (`~/Library/LaunchAgents/io.github.clabeuhtegrite.cartouche-builder.plist`) that runs `cartouche-builder build` at that time, with `caffeinate` keeping the Mac awake while it builds. A Mac asleep at that time runs it when it wakes. A sources or games folder on a network share that is not mounted is mounted again, with the password saved in the keychain. One batch runs at a time: the nightly run leaves the app's batch alone, and a game asked for while one runs waits its turn in it. A notification says how it went, and **Builds** keeps each batch's report.
 
 ## Where it keeps things
 
-Everything of its own is in `~/Library/Application Support/Cartouche Builder`: `config.json`, one record per game in `state/` (its last build: the nxnative commit and shader chain, the files it was made from, the Apple tools, the IPA's name), nxnative's copy in `nxnative/`, the Python environment in `python/`, the builds' logs in `logs/<title ID>/` and the batches' reports in `reports/`; and for the app, the batch under way in `status.json`, the library as last read in `library.json`, the iPhones paired and their keys in `bridge.json`, readable by your account only, the iPhones' saves in `Saves/` unless you chose another folder, and the measures not sent yet in `telemetry.json`. The covers and a downloaded update are in `~/Library/Caches/io.github.clabeuhtegrite.cartouche-builder`, which macOS may empty. Your sources are only read, and the builder writes in your games folder only the IPAs of the games it builds.
+Everything of its own is in `~/Library/Application Support/Cartouche Builder`: `config.json`, one record per game in `state/` (its last build: the nxnative commit and shader chain, the files it was made from, the Apple tools, the IPA's name), nxnative's copy in `nxnative/`, the Python environment in `python/`, the builds' logs in `logs/<title ID>/` and the batches' reports in `reports/`; and for the app, the batch under way in `status.json`, the games asked for while it runs and those taken out of it in `queue.json`, the library as last read in `library.json`, the iPhones paired and their keys in `bridge.json`, readable by your account only, the iPhones' saves in `Saves/` unless you chose another folder, and the measures not sent yet in `telemetry.json`. The covers and a downloaded update are in `~/Library/Caches/io.github.clabeuhtegrite.cartouche-builder`, which macOS may empty. Your sources are only read, and the builder writes in your games folder only the IPAs of the games it builds.
 
 ## What it never does
 
@@ -94,7 +98,7 @@ It never downloads, shares or uploads a game, a key or an IPA: it builds the gam
 
 ## Development
 
-The builder has two parts. Its engine, the Python package `cartouche_builder`, needs only Python's standard library: `library.py` finds the games, `engine.py` keeps nxnative's copy and reads its history, `impact.py` decides which commits touch a game, `planner.py` makes the plan, `build.py` runs and follows one build, `batch.py` runs a batch, `status.py` writes what a batch is doing, `storage.py` measures and frees what the builder keeps, `ipa.py` reads and delivers IPAs, `shares.py` connects the network folders again, `toolchain.py` checks the Mac's tools, `schedule.py` is the nightly run, `cli.py` the commands, `api.py` the app's commands (`cartouche-builder api <command>`, one JSON answer each) and `texts.py` every text in English and French.
+The builder has two parts. Its engine, the Python package `cartouche_builder`, needs only Python's standard library: `library.py` finds the games, `engine.py` keeps nxnative's copy and reads its history, `impact.py` decides which commits touch a game, `planner.py` makes the plan, `build.py` runs and follows one build, `batch.py` runs a batch, `queue.py` keeps the games asked for while one runs, `status.py` writes what a batch is doing, `storage.py` measures and frees what the builder keeps, `ipa.py` reads and delivers IPAs, `shares.py` connects the network folders again, `toolchain.py` checks the Mac's tools, `schedule.py` is the nightly run, `cli.py` the commands, `api.py` the app's commands (`cartouche-builder api <command>`, one JSON answer each) and `texts.py` every text in English and French.
 
 The Mac app, `mac/`, is a Swift package that runs the engine and shows what it answers. `mac/Sources/BuilderKit` is what the app does without its window: the engine's answers (`Engine.swift`, `Models.swift`), this Mac's tools and their installs (`MacSetup.swift`), the bridge with Cartouche (`BridgeServer.swift`, `BridgeDevices.swift`), the updates (`Updater.swift`) and the measures (`BuilderTelemetry.swift`). `mac/Sources/CartoucheBuilder` is its window, its settings and its menu bar.
 

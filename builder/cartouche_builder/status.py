@@ -2,8 +2,9 @@
 
 The batch that holds the lock writes it, whether the app or the nightly run
 started it: what it does now (nxnative brought up to date, then the games
-one after the other), each game's stage and share done, the games built or
-failed, and the last lines it said. The file is written whole each time (a
+one after the other, those asked for while it runs after the others), each
+game's stage and share done, the games built or failed, and the last lines
+it said. The file is written whole each time (a
 temporary file renamed over it), at most a few times a second, so the app
 can read it whenever it likes. The batch's own process number tells the app
 whether it still runs.
@@ -109,9 +110,12 @@ class Status:
             self.write(force=True)
 
     def planned(self, head: str, entries: list) -> None:
+        """The batch's games, planned: it builds them, or, with none, looks at
+        the queue before it ends (finished)."""
         with self.lock:
             self.data["head"] = head
-            self.data["state"] = "building" if entries else "done"
+            if entries:
+                self.data["state"] = "building"
             for entry in entries:
                 self.games[entry.title_id] = Game(entry.title_id, entry.game.display_name, list(entry.reasons), entry.detail)
             self.write(force=True)
@@ -124,7 +128,19 @@ class Status:
                 self.lines.append(str(value))
                 self.write()
                 return
+            if kind == "queued":
+                # Asked for while the batch runs: after the games waiting, even
+                # one built earlier in the batch, asked for again.
+                self.games.pop(title_id, None)
+                self.games[title_id] = Game(title_id, value.game.display_name, list(value.reasons), value.detail)
+                self.data["state"] = "building"
+                self.write(force=True)
+                return
             if game is None:
+                return
+            if kind == "removed":
+                del self.games[title_id]
+                self.write(force=True)
                 return
             if kind == "start":
                 game.state, game.started = "building", now_iso()

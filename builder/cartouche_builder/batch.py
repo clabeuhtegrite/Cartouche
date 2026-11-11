@@ -2,8 +2,11 @@
 after the other (or a few at once) and their IPAs put in the games folder.
 
 One batch runs at a time on the Mac, whether the window or the nightly run
-started it (locks/batch.lock). nxnative's checkout moves only between
-batches, so every game of a batch is built from the same commit.
+started it (locks/batch.lock). A game asked for while it runs waits its turn
+in the queue (queue.py): the batch takes it when it can start another game
+and builds it after its own, and ends once the queue is empty. nxnative's
+checkout moves only between batches, so every game of a batch is built from
+the same commit.
 """
 
 from __future__ import annotations
@@ -14,6 +17,7 @@ import shutil
 import sys
 import threading
 import time
+from collections import deque
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import contextmanager
 from dataclasses import dataclass, field
@@ -23,7 +27,8 @@ from . import build as builds
 from . import config as configs
 from . import ipa as ipas
 from . import library, notify, report, schedule, shares, toolchain
-from .engine import Engine
+from . import queue as queues
+from .engine import Engine, EngineError
 from .i18n import set_language, t
 from .paths import Paths
 from .planner import Entry, Plan, fingerprint, plan
@@ -44,6 +49,19 @@ class Blocked(Exception):
     """What keeps a batch from starting, in the player's words."""
 
 
+class Held:
+    """The batch lock, held: a batch lets it go at its very end (run_due)."""
+
+    def __init__(self, fd: int):
+        self.fd = fd
+        self.released = False
+
+    def release(self) -> None:
+        if not self.released:
+            self.released = True
+            fcntl.flock(self.fd, fcntl.LOCK_UN)
+
+
 @contextmanager
 def batch_lock(paths: Paths):
     paths.locks.mkdir(parents=True, exist_ok=True)
@@ -55,7 +73,7 @@ def batch_lock(paths: Paths):
             raise Busy(t("batch.busy")) from error
         os.ftruncate(fd, 0)
         os.write(fd, f"{os.getpid()}\n".encode())
-        yield
+        yield Held(fd)
     finally:
         os.close(fd)
 
@@ -92,8 +110,9 @@ def context(paths: Paths | None = None) -> Context:
     return Context(paths, config, engine, store)
 
 
-def survey(ctx: Context, update: bool = True, force: set[str] | None = None, log=None) -> Plan:
-    """Moves nxnative forward (UPDATE), finds the games and plans them."""
+def survey(ctx: Context, update: bool = True, force: set[str] | None = None, log=None, only: set[str] | None = None) -> Plan:
+    """Moves nxnative forward (UPDATE), finds the games and plans them (ONLY
+    those, when it names some)."""
     log = log or (lambda message: None)
     folders = [p for p in (ctx.config.path("sources"), ctx.config.path("games")) if p]
     shares.reconnect(folders, ctx.config.shares, log=lambda address: log(t("batch.mounting", share=address)))
@@ -115,7 +134,8 @@ def survey(ctx: Context, update: bool = True, force: set[str] | None = None, log
     profiles = ctx.engine.profiles()
     found = library.discover(ctx.config.path("sources"), {tid: p.name for tid, p in profiles.items()})
     identity = toolchain.identity(toolchain.environment(ctx.paths)) if sys.platform == "darwin" else ""
-    result = plan(found.games, ctx.engine, head, profiles, ctx.store, ctx.config, ctx.config.path("games"), identity, force)
+    games = [g for g in found.games if g.title_id in only] if only else found.games
+    result = plan(games, ctx.engine, head, profiles, ctx.store, ctx.config, ctx.config.path("games"), identity, force)
     result.issues = found.issues
     return result
 
@@ -131,31 +151,84 @@ class Summary:
 
 
 class Runner:
-    """Builds ENTRIES of PLAN. ON_EVENT(kind, title_id, value) follows it:
-    "start" (entry), "progress" (build.Progress), "message" (text),
-    "unpack" and "deliver" (fraction), "built" (Build), "failed" (error),
-    "attempt" (the state.Attempt recorded for a game that was not built),
-    "log" (text)."""
+    """Builds ENTRIES of PLAN, then the games asked for while it runs (the
+    queue, queue.py, unless QUEUE is False). ON_EVENT(kind, title_id, value)
+    follows it: "start" (entry), "progress" (build.Progress), "message"
+    (text), "unpack" and "deliver" (fraction), "built" (Build), "failed"
+    (error), "attempt" (the state.Attempt recorded for a game that was not
+    built), "queued" (an entry asked for, built after the others), "removed"
+    (an entry taken out of the batch before its turn), "log" (text)."""
 
-    def __init__(self, ctx: Context, plan: Plan, entries: list[Entry], python: Path | None = None, on_event=None, stop: threading.Event | None = None, check_tools: bool = True):
+    def __init__(self, ctx: Context, plan: Plan, entries: list[Entry], python: Path | None = None, on_event=None, stop: threading.Event | None = None, check_tools: bool = True, queue: bool = True):
         self.ctx = ctx
         self.plan = plan
-        self.entries = entries
+        self.entries = list(entries)
         self.python = python
         self.on_event = on_event or (lambda kind, title_id, value: None)
         self.stop = stop or threading.Event()
         self.check_tools = check_tools
+        self.queue = queue
         self.summary = Summary(plan.head)
         self._lock = threading.Lock()
+        # The games waiting their turn, and those building: under _turns.
+        self._pending: deque[Entry] = deque(self.entries)
+        self._building: set[str] = set()
+        self._turns = threading.Condition()
+        self._ready = False
+        self._started = False
+        # The queue's games asked for of this batch: its process's (queue.add).
+        self._batch = os.getpid()
 
     def log(self, message: str, title_id: str = "") -> None:
         self.on_event("log", title_id, message)
 
-    def run(self) -> Summary:
+    def run(self, close=None) -> Summary:
+        """Builds the games, the queue's too, until none is left. CLOSE(summary)
+        ends the batch under the queue's lock, once the queue is found empty
+        there: a game asked for after that finds no batch running, and one
+        asked for before is built (queue.add)."""
         started = time.monotonic()
+        paths = self.ctx.paths
+        while True:
+            self._build_all()
+            with queues.locked(paths):
+                asked = queues.take(paths, self._batch) if self.queue and not self.stop.is_set() else []
+                if not asked:
+                    # A Stop leaves nothing waiting, nor anything to take out.
+                    if self.queue:
+                        queues.clear(paths)
+                    self._finish(started)
+                    if close is not None:
+                        close(self.summary)
+                    break
+            self._add(asked)
+        self._announce()
+        return self.summary
+
+    def _finish(self, started: float) -> None:
+        self.summary.stopped = self.stop.is_set()
+        self.summary.duration = time.monotonic() - started
+        if not self._started:
+            return
+        waiting = sum(1 for e in self.plan.entries if e.reasons and e.reasons[0] in ("failed_here",))
+        self.summary.report = report.write(
+            self.ctx.paths.reports, self.plan.head, self.summary.built, self.summary.failed, self.summary.stopped, self.plan.notes, waiting, self.summary.duration
+        )
+
+    def _announce(self) -> None:
+        if not self._started:
+            return
         ctx = self.ctx
-        if not self.entries:
-            return self.summary
+        report.prune(ctx.paths.logs, 90)
+        report.prune(ctx.paths.reports, 365)
+        if ctx.config.notifications:
+            notify.notify(self.headline(), t("notify.subtitle", commit=self.plan.head[:12]))
+
+    def _prepare(self) -> None:
+        """This Mac's tools and nxnative's Python, once, before the first game."""
+        if self._ready:
+            return
+        ctx = self.ctx
         if self.check_tools and sys.platform == "darwin":
             missing = toolchain.blocking(toolchain.doctor(ctx.paths, ctx.engine.root))
             if missing:
@@ -163,27 +236,102 @@ class Runner:
         if self.python is None:
             self.python = toolchain.ensure_python(ctx.paths, ctx.engine.requirements, log=self.log)
         toolchain.write_dotnet_lock(ctx.paths)
-        jobs = max(1, min(ctx.config.jobs, len(self.entries)))
+        self._ready = True
+
+    def _build_all(self) -> None:
+        """Builds the games waiting, JOBS at a time, and those the queue gives
+        while they build, until none is left."""
+        if not self._pending:
+            return
+        self._prepare()
+        jobs = max(1, self.ctx.config.jobs)
         if jobs == 1:
-            for entry in self.entries:
-                if self.stop.is_set():
-                    break
-                self._one(entry)
+            self._work()
         else:
             with ThreadPoolExecutor(max_workers=jobs) as pool:
-                for future in [pool.submit(self._one, entry) for entry in self.entries]:
+                for future in [pool.submit(self._work) for _ in range(jobs)]:
                     future.result()
-        self.summary.stopped = self.stop.is_set()
-        self.summary.duration = time.monotonic() - started
-        waiting = sum(1 for e in self.plan.entries if e.reasons and e.reasons[0] in ("failed_here",))
-        self.summary.report = report.write(
-            ctx.paths.reports, self.plan.head, self.summary.built, self.summary.failed, self.summary.stopped, self.plan.notes, waiting, self.summary.duration
-        )
-        report.prune(ctx.paths.logs, 90)
-        report.prune(ctx.paths.reports, 365)
-        if ctx.config.notifications:
-            notify.notify(self.headline(), t("notify.subtitle", commit=self.plan.head[:12]))
-        return self.summary
+
+    def _work(self) -> None:
+        while (entry := self._next()) is not None:
+            try:
+                self._one(entry)
+            finally:
+                with self._turns:
+                    self._building.discard(entry.title_id)
+                    self._turns.notify_all()
+
+    def _next(self) -> Entry | None:
+        """The next game to build, once the queue's news are in: None when none
+        waits and none builds."""
+        with self._turns:
+            while not self.stop.is_set():
+                self._sync()
+                if self._pending:
+                    entry = self._pending.popleft()
+                    self._building.add(entry.title_id)
+                    return entry
+                if not self._building:
+                    return None
+                # Another game builds: its end, or a game asked for, gives this
+                # one something to do.
+                self._turns.wait(timeout=1.0)
+            return None
+
+    def _sync(self) -> None:
+        """The games taken out of the batch leave the games waiting; those
+        asked for are planned and wait after them."""
+        if not self.queue:
+            return
+        paths = self.ctx.paths
+        out = queues.stopping(paths)
+        if out:
+            for entry in [e for e in self._pending if e.title_id in out]:
+                self._pending.remove(entry)
+                self.log(t("batch.taken_out", name=entry.game.display_name), entry.title_id)
+                self.on_event("removed", entry.title_id, entry)
+            # A game building stops by itself (_Stop) and forgets it at its end.
+            queues.forget(paths, out - self._building)
+        with queues.locked(paths):
+            asked = queues.take(paths, self._batch)
+        if asked:
+            self._add(asked)
+
+    def _add(self, asked: list[queues.Asked]) -> None:
+        """Plans the games ASKED for at the batch's nxnative commit, and puts
+        those to build after the games waiting, once each."""
+        with self._turns:
+            have = {e.title_id for e in self._pending} | self._building
+        wanted = [a for a in asked if a.title_id not in have]
+        if not wanted:
+            return
+        try:
+            # A context of its own: the games building keep theirs.
+            found = survey(context(self.ctx.paths), update=False, force={a.title_id for a in wanted if a.force},
+                           only={a.title_id for a in wanted}, log=self.log)
+        except (Blocked, EngineError, OSError, ValueError, RuntimeError) as error:
+            self.log(t("batch.queue_failed", error=error))
+            return
+        entries = {e.title_id: e for e in found.entries}
+        for item in wanted:
+            entry = entries.get(item.title_id)
+            if entry is None:
+                self.log(t("batch.queued_missing", title_id=item.title_id))
+            elif not entry.build:
+                self.log(t("batch.queued_not_due", name=entry.game.display_name, why=entry.detail), entry.title_id)
+            else:
+                with self._turns:
+                    if entry.title_id in have:
+                        continue
+                    have.add(entry.title_id)
+                    self.entries.append(entry)
+                    self._pending.append(entry)
+                    self._turns.notify_all()
+                self.log(t("batch.queued", name=entry.game.display_name), entry.title_id)
+                self.on_event("queued", entry.title_id, entry)
+        for note in found.notes:
+            if note not in self.plan.notes:
+                self.plan.notes.append(note)
 
     def headline(self) -> str:
         built, failed = len(self.summary.built), len(self.summary.failed)
@@ -200,6 +348,14 @@ class Runner:
             return
         ctx, game = self.ctx, entry.game
         title_id = game.title_id
+        stop = _Stop(self.stop, ctx.paths if self.queue else None, title_id)
+        if stop.is_set():
+            # Taken out of the batch as its turn came.
+            queues.forget(ctx.paths, {title_id})
+            self.log(t("batch.taken_out", name=game.display_name), title_id)
+            self.on_event("removed", title_id, entry)
+            return
+        self._started = True
         workspace = ctx.workspace
         workspace.root.mkdir(parents=True, exist_ok=True)
         log_path = ctx.paths.logs / title_id / time.strftime("%Y-%m-%d_%H-%M-%S.log")
@@ -219,7 +375,7 @@ class Runner:
                 dump = workspace.dump_folder(title_id)
                 workspace.use(dump)
                 self.on_event("message", title_id, t("batch.unpacking"))
-                library.unpack_zip(game, dump, progress=lambda done, total: self.on_event("unpack", title_id, done / total), stop=self.stop)
+                library.unpack_zip(game, dump, progress=lambda done, total: self.on_event("unpack", title_id, done / total), stop=stop)
                 if library.dump_title_id(dump) != title_id:
                     raise _Failed(t("batch.zip_other_game"))
                 source = dump
@@ -254,7 +410,7 @@ class Runner:
                 log_path,
                 on_progress=lambda progress: self.on_event("progress", title_id, progress),
                 on_message=lambda message: self.on_event("message", title_id, message),
-                stop=self.stop,
+                stop=stop,
                 on_game=lambda event: keep_icon(ctx.paths, title_id, event.get("icon")),
             )
             if not result.ok:
@@ -268,7 +424,7 @@ class Runner:
                 raise _Failed(t("batch.no_ipa", path=out))
             name = entry.ipa_name or ipas.file_name(result.game.get("name") or game.display_name, title_id)
             self.on_event("message", title_id, t("batch.delivering", name=name))
-            ipas.deliver(out, games_folder, name, stop=self.stop, progress=lambda done, total: self.on_event("deliver", title_id, done / total))
+            ipas.deliver(out, games_folder, name, stop=stop, progress=lambda done, total: self.on_event("deliver", title_id, done / total))
             build = Build(
                 commit=info.commit or self.plan.head[:12],
                 built_at=now_iso(),
@@ -289,25 +445,28 @@ class Runner:
             with self._lock:
                 self.summary.built.append((entry, build))
             self.on_event("built", title_id, build)
+        # "failed" first: the attempt then says how it was recorded, and a
+        # game stopped or skipped shows so, not as failed (status.py).
         except _Stopped as stopped:
-            self._record(title_id, attempt_now(self.plan.head[:12], "stopped", str(stopped), print_, identity, str(log_path)))
             self.on_event("failed", title_id, str(stopped))
+            self._record(title_id, attempt_now(self.plan.head[:12], "stopped", str(stopped), print_, identity, str(log_path)))
         except _Skipped as skipped:
             # Not the game's failure (no room, no keys): tried again next time.
-            self._record(title_id, attempt_now(self.plan.head[:12], "skipped", str(skipped), print_, identity, ""))
             with self._lock:
                 self.summary.failed.append((entry, str(skipped), log_path))
             self.on_event("failed", title_id, str(skipped))
+            self._record(title_id, attempt_now(self.plan.head[:12], "skipped", str(skipped), print_, identity, ""))
         except (_Failed, OSError, ValueError, RuntimeError, InterruptedError) as error:
             message = str(error) if isinstance(error, _Failed) else f"{type(error).__name__}: {error}"
-            if self.stop.is_set():
-                self._record(title_id, attempt_now(self.plan.head[:12], "stopped", message, print_, identity, str(log_path)))
-            else:
-                self._record(title_id, attempt_now(self.plan.head[:12], "failed", message, print_, identity, str(log_path)))
+            stopped = stop.is_set()
+            if not stopped:
                 with self._lock:
                     self.summary.failed.append((entry, message, log_path))
             self.on_event("failed", title_id, message)
+            self._record(title_id, attempt_now(self.plan.head[:12], "stopped" if stopped else "failed", message, print_, identity, str(log_path)))
         finally:
+            if stop.taken_out:
+                queues.forget(ctx.paths, {title_id})
             if dump is not None:
                 workspace.forget(dump)
             limit = ctx.config.workspace_limit_gb
@@ -340,6 +499,38 @@ class Runner:
                 self.log(t("batch.freed", folder=folder.name, gb=f"{size / 2**30:.1f}"))
                 room = free_gb(workspace.root)
         return room
+
+
+class _Stop:
+    """One game's Stop: the batch's, or the game taken out of the batch
+    (queue.remove), which it sees within half a second; the batch then goes
+    on with the next game."""
+
+    def __init__(self, batch: threading.Event, paths: Paths | None, title_id: str):
+        self.batch = batch
+        self.paths = paths
+        self.title_id = title_id
+        self.taken_out = False
+        self._checked = 0.0
+
+    def is_set(self) -> bool:
+        if self.batch.is_set():
+            return True
+        if not self.taken_out and self.paths is not None:
+            now = time.monotonic()
+            if now - self._checked >= 0.5 or not self._checked:
+                self._checked = now
+                self.taken_out = self.title_id in queues.stopping(self.paths)
+        return self.taken_out
+
+    def wait(self, timeout: float | None = None) -> bool:
+        deadline = None if timeout is None else time.monotonic() + timeout
+        while not self.is_set():
+            left = 0.5 if deadline is None else deadline - time.monotonic()
+            if left <= 0:
+                return False
+            self.batch.wait(min(left, 0.5))
+        return True
 
 
 def keep_icon(paths: Paths, title_id: str, icon) -> Path | None:
@@ -385,9 +576,11 @@ class _Skipped(Exception):
 
 
 def run_due(ctx: Context, update: bool = True, force: set[str] | None = None, only: set[str] | None = None, python: Path | None = None, on_event=None, stop=None, check_tools: bool = True, log=None, scheduled: bool = False) -> tuple[Plan, Summary]:
-    """Plans and builds what is due (or ONLY those games), under the batch
-    lock, and keeps status.json of it for the app."""
-    with batch_lock(ctx.paths):
+    """Plans and builds what is due (or ONLY those games), then the games
+    asked for while it runs (queue.py), under the batch lock, and keeps
+    status.json of it for the app. The batch ends under the queue's lock
+    (Runner.run): status.json says so, then the batch lock goes."""
+    with batch_lock(ctx.paths) as held:
         status = Status(ctx.paths, scheduled=scheduled)
         status.write(force=True)
 
@@ -401,16 +594,25 @@ def run_due(ctx: Context, update: bool = True, force: set[str] | None = None, on
             if on_event:
                 on_event(kind, title_id, value)
 
+        def close(summary: Summary) -> None:
+            status.finished(summary)
+            held.release()
+
         try:
+            queues.begin(ctx.paths, os.getpid())
             say(t("batch.preparing"))
             result = survey(ctx, update=update, force=force, log=say)
             entries = [e for e in result.entries if e.build and (not only or e.title_id in only)]
             status.planned(result.head, entries)
             runner = Runner(ctx, result, entries, python=python, on_event=follow, stop=stop, check_tools=check_tools)
-            summary = runner.run()
+            summary = runner.run(close=close)
         except BaseException as error:
-            status.failed(str(error) or type(error).__name__)
+            if not held.released:
+                # Nothing waits for a batch that is gone.
+                with queues.locked(ctx.paths):
+                    queues.clear(ctx.paths)
+                    status.failed(str(error) or type(error).__name__)
+                    held.release()
             raise
-        status.finished(summary)
         return result, summary
 

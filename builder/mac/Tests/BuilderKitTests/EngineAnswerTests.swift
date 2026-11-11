@@ -99,6 +99,25 @@ final class EngineAnswerTests: XCTestCase {
         XCTAssertFalse(building.lines.isEmpty)
     }
 
+    func testTheQueue() throws {
+        let reply = try answer(QueueAnswer.self, "queue")
+        XCTAssertEqual(reply.queued, true)
+        XCTAssertEqual(reply.running, true)
+        let queue = reply.queue
+        XCTAssertEqual(queue.games.map(\.titleID), ["0100000000010000"])
+        XCTAssertEqual(queue.games.first?.force, true)
+        XCTAssertEqual(queue.stop, ["0100A0000E2F0000"])
+        let batch = try XCTUnwrap(queue.games.first?.batch)
+        XCTAssertEqual(queue.waiting(for: batch), ["0100000000010000"])
+        XCTAssertEqual(queue.waiting(for: batch + 1), [], "asked of a batch that ended")
+        // queue.json is the answer's queue, and no file is none.
+        let object = try XCTUnwrap(JSONSerialization.jsonObject(with: Fixture.answer("queue")) as? [String: Any])
+        let file = try JSONSerialization.data(withJSONObject: XCTUnwrap(object["queue"]))
+        XCTAssertEqual(try JSONDecoder().decode(BuildQueue.self, from: file), queue)
+        let home = BuilderHome(FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString))
+        XCTAssertEqual(Engine.readQueue(home), BuildQueue())
+    }
+
     func testStorageSettingsAndFolders() throws {
         let storage = try answer(StorageAnswer.self, "storage").storage
         XCTAssertEqual(storage.folders.count, 2)

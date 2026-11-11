@@ -128,7 +128,7 @@ ev(ev="game", title_id=title_id, name=name, version="1.0.0", bundle_id="org.nxna
 if os.environ.get("FAKE_FAIL") == title_id:
     ev(ev="say", msg="[RED] the fake build failed on purpose")
     sys.exit(1)
-if os.environ.get("FAKE_SLEEP"):
+if os.environ.get("FAKE_SLEEP") and os.environ.get("FAKE_SLEEP_ONLY", title_id) == title_id:
     ev(ev="stage", k=2, n=2, name="shaders", step="")
     for _ in range(int(os.environ["FAKE_SLEEP"]) * 10):
         time.sleep(0.1)
@@ -193,7 +193,7 @@ class Home(unittest.TestCase):
     def setUp(self) -> None:
         self._tmp = tempfile.TemporaryDirectory()
         self.tmp = Path(self._tmp.name)
-        self._env = {k: os.environ.get(k) for k in ("HOME", "CARTOUCHE_BUILDER_HOME", "CARTOUCHE_BUILDER_AGENTS", "CARTOUCHE_BUILDER_LANG", "CARTOUCHE_BUILDER_QUIET", "FAKE_FAIL", "FAKE_SLEEP", "FAKE_NO_IPA")}
+        self._env = {k: os.environ.get(k) for k in ("HOME", "CARTOUCHE_BUILDER_HOME", "CARTOUCHE_BUILDER_AGENTS", "CARTOUCHE_BUILDER_LANG", "CARTOUCHE_BUILDER_QUIET", "FAKE_FAIL", "FAKE_SLEEP", "FAKE_SLEEP_ONLY", "FAKE_NO_IPA")}
         # A home folder of the test's own: what another app left in the
         # player's Library is never read, and the tests show it.
         os.environ["HOME"] = str(self.tmp / "user")
@@ -203,6 +203,7 @@ class Home(unittest.TestCase):
         os.environ["CARTOUCHE_BUILDER_QUIET"] = "1"
         os.environ.pop("FAKE_FAIL", None)
         os.environ.pop("FAKE_SLEEP", None)
+        os.environ.pop("FAKE_SLEEP_ONLY", None)
         os.environ.pop("FAKE_NO_IPA", None)
         from cartouche_builder import i18n
 

@@ -395,6 +395,56 @@ public struct BatchStatus: Codable, Equatable {
     public var endedDate: Date? { ended.flatMap(ISODate.parse) }
 }
 
+// MARK: The queue
+
+/// The games asked for while a batch runs (queue.json, the engine's
+/// queue.py): those the batch has not taken yet, which it builds after its
+/// own, and those to take out of it, a game waiting left out, one building
+/// stopped.
+public struct BuildQueue: Codable, Equatable {
+    public struct Asked: Codable, Equatable {
+        public var titleID: String
+        public var force: Bool?
+        /// The process of the batch it was asked of.
+        public var batch: Int?
+        public var added: String?
+
+        enum CodingKeys: String, CodingKey {
+            case force, batch, added
+            case titleID = "title_id"
+        }
+
+        public init(titleID: String, force: Bool? = nil, batch: Int? = nil, added: String? = nil) {
+            self.titleID = titleID
+            self.force = force
+            self.batch = batch
+            self.added = added
+        }
+    }
+
+    public var games: [Asked]
+    public var stop: [String]
+
+    enum CodingKeys: String, CodingKey { case games, stop }
+
+    public init(games: [Asked] = [], stop: [String] = []) {
+        self.games = games
+        self.stop = stop
+    }
+
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        games = (try? c.decodeIfPresent([Asked].self, forKey: .games)) ?? []
+        stop = (try? c.decodeIfPresent([String].self, forKey: .stop)) ?? []
+    }
+
+    /// The games asked of the batch whose process is PID, in their order:
+    /// those asked of another batch wait for nothing, it ended.
+    public func waiting(for pid: Int?) -> [String] {
+        games.filter { $0.batch == nil || $0.batch == pid }.map(\.titleID)
+    }
+}
+
 // MARK: Storage
 
 public struct Disk: Codable, Equatable {

@@ -129,7 +129,7 @@ struct AppCommands: Commands {
                 model.build()
             }
             .keyboardShortcut("b")
-            .disabled(!model.canBuild || (model.library?.due.isEmpty ?? true))
+            .disabled(!model.canBuild || model.dueOutsideBatch.isEmpty)
             Button(tr("Stop the builds", "Arrêter les constructions")) {
                 model.stop()
             }

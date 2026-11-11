@@ -40,6 +40,8 @@ final class TelemetryTests: XCTestCase {
         let updated: [String: TelemetryValue] = ["from": .text("0.2.0"), "to": .text("0.2.1")]
         let paired: [String: TelemetryValue] = ["allowed": .flag(true)]
         let cleaned: [String: TelemetryValue] = ["freedMB": .number(4210), "items": .count(3), "what": .text("extracted")]
+        let queued: [String: TelemetryValue] = ["forced": .flag(true), "games": .count(2)]
+        let takenOut: [String: TelemetryValue] = ["building": .flag(false)]
         let events: [(name: String, game: String?, fields: [String: TelemetryValue])] = [
             ("builder.opened", nil, opened),
             ("builder.setup", nil, setup),
@@ -51,6 +53,8 @@ final class TelemetryTests: XCTestCase {
             ("builder.updated", nil, updated),
             ("builder.paired", nil, paired),
             ("builder.cleaned", nil, cleaned),
+            ("builder.queued", nil, queued),
+            ("builder.takenOut", nil, takenOut),
         ]
         var made: [TelemetryEvent] = []
         for (index, event) in events.enumerated() {

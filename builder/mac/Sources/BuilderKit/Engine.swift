@@ -32,6 +32,7 @@ public struct BuilderHome: Equatable, Sendable {
 
     public var config: URL { root.appendingPathComponent("config.json") }
     public var status: URL { root.appendingPathComponent("status.json") }
+    public var queue: URL { root.appendingPathComponent("queue.json") }
     public var library: URL { root.appendingPathComponent("library.json") }
     public var bridge: URL { root.appendingPathComponent("bridge.json") }
     public var logs: URL { root.appendingPathComponent("logs", isDirectory: true) }
@@ -138,6 +139,12 @@ public struct StorageAnswer: Decodable { public var storage: StorageReport }
 public struct CleanAnswer: Decodable { public var cleaned: Cleaned }
 public struct FollowAnswer: Decodable { public var followed: Bool }
 public struct MountAnswer: Decodable { public var folders: Folders }
+public struct QueueAnswer: Decodable {
+    /// For an add: false when no batch runs, and nothing was kept.
+    public var queued: Bool?
+    public var queue: BuildQueue
+    public var running: Bool?
+}
 
 private struct Envelope: Decodable {
     var error: EngineFailure?
@@ -257,6 +264,19 @@ public final class Engine: @unchecked Sendable {
         try await api(MountAnswer.self, ["mount"], timeout: 300).folders
     }
 
+    /// Adds GAMES to the batch running now, after its own, again even if up
+    /// to date with FORCE. Its `queued` is false when no batch runs: nothing
+    /// was kept, and a batch of their own builds them.
+    public func enqueue(_ games: [String], force: Bool) async throws -> QueueAnswer {
+        try await api(QueueAnswer.self, ["queue", "add"] + (force ? ["--force"] : []) + games, timeout: 120)
+    }
+
+    /// Takes GAMES out of the batch running now: one waiting is left out, the
+    /// build of one building stops, and the batch goes on with the next.
+    public func dequeue(_ games: [String]) async throws -> QueueAnswer {
+        try await api(QueueAnswer.self, ["queue", "remove"] + games, timeout: 120)
+    }
+
     // MARK: Batches
 
     /// Starts a batch that builds GAMES (all that are due when empty), again
@@ -299,6 +319,14 @@ public final class Engine: @unchecked Sendable {
             status.running = status.isRunning
         }
         return status
+    }
+
+    /// The games asked for while a batch runs, from queue.json.
+    public static func readQueue(_ home: BuilderHome = .default) -> BuildQueue {
+        guard let data = try? Data(contentsOf: home.queue), let queue = try? JSONDecoder().decode(BuildQueue.self, from: data) else {
+            return BuildQueue()
+        }
+        return queue
     }
 
     /// The library the engine last answered, shown at once while a new one comes.

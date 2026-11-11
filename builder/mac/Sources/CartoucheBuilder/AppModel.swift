@@ -4,7 +4,9 @@
 //
 //  What the window shows, and what its buttons do: the library and its
 //  games, the batch running now (status.json, read every second while one
-//  runs), the storage, the settings. The engine answers in the background;
+//  runs) and the games waiting their turn in it (queue.json: a game asked
+//  for while a batch runs is built after its own), the storage, the
+//  settings. The engine answers in the background;
 //  the app checks nxnative every few hours and says when it improved a game.
 //  It updates itself (Updater) and sends its measures (BuilderTelemetry):
 //  what it built, how long it took and what failed, never a name or a path.
@@ -86,6 +88,11 @@ final class AppModel: ObservableObject {
     @Published private(set) var engine: Engine?
     @Published private(set) var library: Library?
     @Published private(set) var status: BatchStatus?
+    /// The games asked for while a batch runs, not taken by it yet, and those
+    /// taken out of it.
+    @Published private(set) var queue = BuildQueue()
+    /// Games being asked for, shown waiting until the engine answers.
+    @Published private(set) var adding: Set<String> = []
     @Published private(set) var storage: StorageReport?
     @Published private(set) var config: BuilderConfig?
     @Published private(set) var info: BuilderInfo?
@@ -95,6 +102,9 @@ final class AppModel: ObservableObject {
     /// A batch asked for, until status.json shows it.
     @Published private(set) var starting: Date?
     private var startingProcess: Process?
+    /// The games to ask the batch running for, one request after the other.
+    private var toAsk: [(games: [String], force: Bool)] = []
+    private var enqueueing = false
 
     private var started = false
     private var poller: Task<Void, Never>?
@@ -122,6 +132,7 @@ final class AppModel: ObservableObject {
         started = true
         library = Engine.cachedLibrary(home)
         status = Engine.readStatus(home)
+        queue = Engine.readQueue(home)
         telemetry.language = L10n.code
         telemetry.start()
         setup.makeEngine = { [weak self] python in self?.makeEngine(python) }
@@ -313,19 +324,29 @@ final class AppModel: ObservableObject {
     // MARK: Builds
 
     var isBuilding: Bool { status?.running == true || starting != nil }
-    var canBuild: Bool { engine != nil && !isBuilding && setup.ready }
+    /// A game can be built, or added to the batch running: not in the few
+    /// seconds a batch takes to start.
+    var canBuild: Bool { engine != nil && starting == nil && setup.ready }
 
-    /// Builds GAMES (what is due when empty), again with FORCE.
+    /// Builds GAMES (what is due when empty), again with FORCE. While a batch
+    /// runs, they wait their turn in it, built after its own games.
     func build(_ games: [String] = [], force: Bool = false) {
         guard !sample else { return }
-        guard let engine else {
+        guard engine != nil else {
             section = .setup
             return
         }
-        guard !isBuilding else {
-            banner = Banner(kind: .info, text: tr("A build is already running.", "Une construction est déjà en cours."))
+        guard starting == nil else { return }
+        if status?.running == true || enqueueing {
+            let wanted = games.isEmpty ? dueOutsideBatch.map(\.titleID) : games.filter { progress($0) == nil }
+            if !wanted.isEmpty { enqueue(wanted, force: force && !games.isEmpty) }
             return
         }
+        start(games, force: force)
+    }
+
+    private func start(_ games: [String], force: Bool) {
+        guard let engine else { return }
         do {
             startingProcess = try engine.startBatch(games: games, force: force)
             starting = Date()
@@ -334,14 +355,115 @@ final class AppModel: ObservableObject {
         }
     }
 
+    /// GAMES at the end of the batch running now, shown waiting at once.
+    /// They are asked for one after the other: a batch that ends meanwhile
+    /// leaves them a batch of their own, and one starting takes them once it
+    /// runs.
+    private func enqueue(_ games: [String], force: Bool) {
+        adding.formUnion(games)
+        toAsk.append((games, force))
+        guard !enqueueing else { return }
+        enqueueing = true
+        Task {
+            defer { enqueueing = false }
+            while !toAsk.isEmpty {
+                while starting != nil {
+                    try? await Task.sleep(nanoseconds: 500_000_000)
+                }
+                let (games, force) = toAsk.removeFirst()
+                defer { adding.subtract(games) }
+                guard let engine else { continue }
+                do {
+                    let answer = try await engine.enqueue(games, force: force)
+                    queue = answer.queue
+                    if answer.queued == false {
+                        // No batch runs any more: one of their own, with the
+                        // games asked for since.
+                        let rest = toAsk
+                        toAsk = []
+                        rest.forEach { adding.subtract($0.games) }
+                        start(games + rest.flatMap { $0.games }, force: force || rest.contains { $0.force })
+                    } else {
+                        telemetry.event("builder.queued", fields: ["games": .count(games.count), "forced": .flag(force)])
+                    }
+                } catch {
+                    show(error, origin: "queue")
+                }
+            }
+        }
+    }
+
+    /// Takes TITLE_ID out of the batch running now: waiting its turn, it is
+    /// left out; building, its build stops and the batch goes on with the
+    /// next game.
+    func takeOut(_ titleID: String) {
+        guard !sample, let engine else { return }
+        let building = status?.current.contains(where: { $0.titleID == titleID }) ?? false
+        Task {
+            do {
+                queue = try await engine.dequeue([titleID]).queue
+                telemetry.event("builder.takenOut", fields: ["building": .flag(building)])
+            } catch {
+                show(error, origin: "queue")
+            }
+        }
+    }
+
+    /// Stops the build of TITLE_ID: the batch goes on with the next game, or
+    /// stops when it has no other.
+    func stopBuild(_ titleID: String) {
+        let others = (status?.current.filter { $0.titleID != titleID }.count ?? 0) + waiting.count
+        if others == 0 {
+            stop()
+        } else {
+            takeOut(titleID)
+        }
+    }
+
+    /// Stops the batch: the game building, and every game waiting its turn.
     func stop() {
         Engine.stopBatch(status)
     }
 
-    /// The progress of TITLE_ID in the batch running now.
+    /// The progress of TITLE_ID in the batch running now: building, or
+    /// waiting its turn, in the batch or asked for and not taken yet.
     func progress(_ titleID: String) -> GameProgress? {
-        guard status?.running == true else { return nil }
-        return status?.games.first { $0.titleID == titleID && ($0.state == "building" || $0.state == "queued") }
+        guard let status, status.running == true else { return nil }
+        if let found = status.games.first(where: { $0.titleID == titleID && ($0.state == "building" || $0.state == "queued") }) {
+            return found.state == "queued" && queue.stop.contains(titleID) ? nil : found
+        }
+        guard adding.contains(titleID) || queue.waiting(for: status.pid).contains(titleID) else { return nil }
+        return GameProgress(titleID: titleID, name: library?.game(titleID)?.name ?? titleID, state: "queued")
+    }
+
+    /// Whether TITLE_ID, building, was taken out of the batch: its build is
+    /// stopping.
+    func stopping(_ titleID: String) -> Bool {
+        queue.stop.contains(titleID) && progress(titleID)?.state == "building"
+    }
+
+    /// The games waiting their turn in the batch running now, in the order
+    /// they will be built: the batch's own, then those asked for.
+    var waiting: [GameProgress] {
+        guard let status, status.running == true else { return [] }
+        var list = status.queued.filter { !queue.stop.contains($0.titleID) }
+        var seen = Set(status.games.filter { $0.state == "building" || $0.state == "queued" }.map(\.titleID))
+        for titleID in queue.waiting(for: status.pid) + adding.sorted() where !seen.contains(titleID) {
+            seen.insert(titleID)
+            list.append(GameProgress(titleID: titleID, name: library?.game(titleID)?.name ?? titleID, state: "queued"))
+        }
+        return list
+    }
+
+    /// The games due that the batch running now does not have.
+    var dueOutsideBatch: [Game] {
+        (library?.due ?? []).filter { progress($0.titleID) == nil }
+    }
+
+    /// The games asked for while the batch runs, for the gallery.
+    func preview(queue: BuildQueue) {
+        guard sample else { return }
+        self.queue = queue
     }
 
     private func poll() {
@@ -360,6 +482,8 @@ final class AppModel: ObservableObject {
         let fresh = Engine.readStatus(home)
         let before = status
         if fresh != before { status = fresh }
+        let asked = Engine.readQueue(home)
+        if asked != queue { queue = asked }
         if let starting {
             if let fresh, fresh.running == true, (fresh.startedDate ?? .distantPast) >= starting.addingTimeInterval(-5) {
                 self.starting = nil
@@ -376,6 +500,12 @@ final class AppModel: ObservableObject {
         }
         if before?.running == true, fresh?.running == false, let fresh {
             batchEnded(fresh)
+        } else if before?.running == true, let fresh, fresh.running == true {
+            // A game of the batch ended: its sheet says so, as the batch goes on.
+            let ended = Set(fresh.finished.map(\.titleID)).subtracting(before?.finished.map(\.titleID) ?? [])
+            if !ended.isEmpty {
+                Task { await refreshLibrary(update: false) }
+            }
         }
     }
 
