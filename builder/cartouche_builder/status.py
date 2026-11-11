@@ -4,10 +4,11 @@ The batch that holds the lock writes it, whether the app or the nightly run
 started it: what it does now (nxnative brought up to date, then the games
 one after the other, those asked for while it runs after the others), each
 game's stage and share done, the games built or failed, and the last lines
-it said. The file is written whole each time (a
-temporary file renamed over it), at most a few times a second, so the app
-can read it whenever it likes. The batch's own process number tells the app
-whether it still runs.
+it said. The games it was asked for are there from its start, waiting their
+turn while nxnative moves and the plan is made. The file is written whole
+each time (a temporary file renamed over it), at most a few times a second,
+so the app can read it whenever it likes. The batch's own process number
+tells the app whether it still runs.
 """
 
 from __future__ import annotations
@@ -109,15 +110,23 @@ class Status:
             self.lines.append(text)
             self.write(force=True)
 
+    def asked(self, title_ids: list[str], names: dict[str, str]) -> None:
+        """The games the batch was asked for, waiting their turn from its
+        start, by the names the builder last saw (NAMES), until the plan
+        names them (planned)."""
+        with self.lock:
+            for title_id in title_ids:
+                self.games[title_id] = Game(title_id, names.get(title_id) or title_id)
+
     def planned(self, head: str, entries: list) -> None:
         """The batch's games, planned: it builds them, or, with none, looks at
-        the queue before it ends (finished)."""
+        the queue before it ends (finished). A game asked for that the plan
+        does not build leaves the batch."""
         with self.lock:
             self.data["head"] = head
             if entries:
                 self.data["state"] = "building"
-            for entry in entries:
-                self.games[entry.title_id] = Game(entry.title_id, entry.game.display_name, list(entry.reasons), entry.detail)
+            self.games = {entry.title_id: Game(entry.title_id, entry.game.display_name, list(entry.reasons), entry.detail) for entry in entries}
             self.write(force=True)
 
     def event(self, kind: str, title_id: str, value) -> None:

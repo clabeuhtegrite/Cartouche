@@ -7,11 +7,18 @@ in the queue (queue.py): the batch takes it when it can start another game
 and builds it after its own, and ends once the queue is empty. nxnative's
 checkout moves only between batches, so every game of a batch is built from
 the same commit.
+
+The lock is also held a moment by what moves nxnative's checkout or the
+workspace outside a batch: the app's look at nxnative (api library
+--update, at each start of the app and every six hours), a clean, the
+setup. A batch asked for meanwhile waits for it to end (LOCK_WAIT), where
+it used to say that a batch was running.
 """
 
 from __future__ import annotations
 
 import fcntl
+import json
 import os
 import shutil
 import sys
@@ -28,6 +35,7 @@ from . import config as configs
 from . import ipa as ipas
 from . import failure, library, notify, report, schedule, shares, toolchain
 from . import queue as queues
+from . import status as statuses
 from .engine import Engine, EngineError
 from .i18n import set_language, t
 from .paths import Paths
@@ -40,9 +48,20 @@ from .workspace import NOTES, Workspace, free_gb, same_volume
 ICON_LIMIT = 4 << 20
 ICON_SUFFIXES = (".jpg", ".jpeg", ".png", ".bmp")
 
+# How long a batch waits for the lock while something else than a batch
+# holds it (the app's look at nxnative, a clean, the setup), in seconds:
+# less than the app waits for a batch it started to say that it runs
+# (AppModel.readStatus, ten minutes).
+LOCK_WAIT = 480.0
+LOCK_POLL = 0.5
+
 
 class Busy(Exception):
     pass
+
+
+class Cancelled(Exception):
+    """Stopped while it waited for the lock: nothing was done."""
 
 
 class Blocked(Exception):
@@ -63,19 +82,60 @@ class Held:
 
 
 @contextmanager
-def batch_lock(paths: Paths):
+def batch_lock(paths: Paths, wait: float = 0.0, stop: threading.Event | None = None, on_wait=None):
+    """The batch lock, which writes its holder's process in the file. Held by
+    a batch, Busy at once; held by something else, Busy too, unless WAIT
+    gives the seconds to wait for it to end, ON_WAIT() being called once as
+    the wait begins. STOP set meanwhile ends the wait: Cancelled."""
     paths.locks.mkdir(parents=True, exist_ok=True)
     fd = os.open(paths.locks / "batch.lock", os.O_RDWR | os.O_CREAT, 0o600)
     try:
-        try:
-            fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
-        except BlockingIOError as error:
-            raise Busy(t("batch.busy")) from error
+        deadline = time.monotonic() + wait
+        waiting = False
+        while True:
+            try:
+                fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                break
+            except BlockingIOError as error:
+                if batch_holds(paths):
+                    raise Busy(t("batch.busy")) from error
+                if time.monotonic() >= deadline:
+                    raise Busy(t("batch.held")) from error
+                if stop is not None and stop.is_set():
+                    raise Cancelled() from error
+                if not waiting:
+                    waiting = True
+                    if on_wait is not None:
+                        on_wait()
+                if stop is not None:
+                    stop.wait(LOCK_POLL)
+                else:
+                    time.sleep(LOCK_POLL)
         os.ftruncate(fd, 0)
         os.write(fd, f"{os.getpid()}\n".encode())
         yield Held(fd)
     finally:
         os.close(fd)
+
+
+def holder(paths: Paths) -> int:
+    """The process that wrote itself in the lock's file last: the one that
+    holds it, while it is held."""
+    try:
+        text = (paths.locks / "batch.lock").read_text(encoding="utf-8").strip()
+    except (OSError, ValueError):
+        return 0
+    return int(text) if text.isdigit() else 0
+
+
+def batch_holds(paths: Paths) -> bool:
+    """Whether the lock is a batch's: status.json says one runs, and its
+    process is the lock's (not one long gone, whose number came back)."""
+    status = statuses.read(paths)
+    if not status or not status.get("running"):
+        return False
+    held_by = holder(paths)
+    return not held_by or held_by == status.get("pid")
 
 
 @dataclass
@@ -108,6 +168,18 @@ def context(paths: Paths | None = None) -> Context:
         marker.unlink(missing_ok=True)
     engine = Engine(paths.engine, config.engine_url, config.engine_branch)
     return Context(paths, config, engine, store)
+
+
+def known_names(ctx: Context) -> dict[str, str]:
+    """The games' names as the builder last saw them: the app's library
+    (library.json), else the name of each game's last build."""
+    names = {tid: r.build.name for tid, r in ctx.store.all().items() if r.build and r.build.name}
+    try:
+        cached = json.loads(ctx.paths.library.read_text(encoding="utf-8"))
+        names.update({g["title_id"]: g["name"] for g in cached.get("games", []) if isinstance(g, dict) and g.get("title_id") and g.get("name")})
+    except (OSError, ValueError, AttributeError, TypeError):
+        pass
+    return names
 
 
 def survey(ctx: Context, update: bool = True, force: set[str] | None = None, log=None, only: set[str] | None = None) -> Plan:
@@ -579,13 +651,20 @@ class _Skipped(Exception):
     pass
 
 
-def run_due(ctx: Context, update: bool = True, force: set[str] | None = None, only: set[str] | None = None, python: Path | None = None, on_event=None, stop=None, check_tools: bool = True, log=None, scheduled: bool = False) -> tuple[Plan, Summary]:
+def run_due(ctx: Context, update: bool = True, force: set[str] | None = None, only: set[str] | None = None, python: Path | None = None, on_event=None, stop=None, check_tools: bool = True, log=None, scheduled: bool = False, wait: float = 0.0) -> tuple[Plan, Summary]:
     """Plans and builds what is due (or ONLY those games), then the games
     asked for while it runs (queue.py), under the batch lock, and keeps
     status.json of it for the app. The batch ends under the queue's lock
-    (Runner.run): status.json says so, then the batch lock goes."""
-    with batch_lock(ctx.paths) as held:
+    (Runner.run): status.json says so, then the batch lock goes. A lock held
+    by something else than a batch is waited for WAIT seconds (batch_lock)."""
+    on_wait = (lambda: log(t("batch.waiting"))) if log else None
+    with batch_lock(ctx.paths, wait=wait, stop=stop, on_wait=on_wait) as held:
         status = Status(ctx.paths, scheduled=scheduled)
+        # The games asked for are in the batch from its start, waiting their
+        # turn while nxnative moves and the plan is made, as the app shows
+        # them: not as games left out of it.
+        if only:
+            status.asked(sorted(only), known_names(ctx))
         status.write(force=True)
 
         def say(message: str) -> None:

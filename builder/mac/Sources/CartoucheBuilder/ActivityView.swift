@@ -37,7 +37,7 @@ struct ActivityView: View {
                             Button(role: .destructive) {
                                 model.stop()
                             } label: {
-                                Label(model.waiting.isEmpty ? tr("Stop", "Arrêter") : tr("Stop all", "Tout arrêter"), systemImage: "stop.fill")
+                                Label(model.stopsSeveral ? tr("Stop all", "Tout arrêter") : tr("Stop", "Arrêter"), systemImage: "stop.fill")
                             }
                             .controlSize(.large)
                             .help(tr("Stops the game building and every game waiting.", "Arrête le jeu en construction et tous les jeux en attente."))
@@ -68,19 +68,17 @@ struct ActivityView: View {
                             }
                         }
                     } else if model.starting != nil {
-                        Card {
-                            HStack(spacing: 12) {
-                                ProgressView().controlSize(.small)
-                                Text(tr("Starting…", "Démarrage…"))
-                                    .foregroundStyle(.secondary)
-                            }
-                        }
+                        StartingCard()
                     } else {
                         LastBatchCard(status: status)
                     }
                     if status.running == true {
                         if !model.waiting.isEmpty {
                             GameList(title: tr("Queue", "File d’attente"), games: model.waiting) { model.takeOut($0) }
+                        }
+                    } else if model.starting != nil {
+                        if !model.waiting.isEmpty {
+                            GameList(title: tr("Queue", "File d’attente"), games: model.waiting)
                         }
                     } else if !status.queued.isEmpty {
                         GameList(title: tr("Waiting their turn", "En attente"), games: status.queued)
@@ -106,12 +104,9 @@ struct ActivityView: View {
                         }
                     }
                 } else if model.starting != nil {
-                    Card {
-                        HStack(spacing: 12) {
-                            ProgressView().controlSize(.small)
-                            Text(tr("Starting…", "Démarrage…"))
-                                .foregroundStyle(.secondary)
-                        }
+                    StartingCard()
+                    if !model.waiting.isEmpty {
+                        GameList(title: tr("Queue", "File d’attente"), games: model.waiting)
                     }
                 } else {
                     ContentUnavailableView(tr("No build yet", "Pas encore de construction"), systemImage: "hammer",
@@ -207,6 +202,35 @@ struct CurrentCard: View {
                 }
             }
         }
+    }
+}
+
+/// A batch asked for, until it runs: a moment, or as long as the app's look
+/// at nxnative, or a clean, holds the batch lock, which the batch waits for.
+struct StartingCard: View {
+    @EnvironmentObject private var model: AppModel
+
+    var body: some View {
+        Card {
+            HStack(spacing: 12) {
+                ProgressView().controlSize(.small)
+                Text(text)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+    }
+
+    private var text: String {
+        if model.checking {
+            return tr("Checking nxnative and your games first: the batch starts as soon as that is done…",
+                      "Vérification de nxnative et de vos jeux d’abord : la série démarre dès qu’elle est finie…")
+        }
+        if model.cleaning {
+            return tr("Freeing space first: the batch starts as soon as that is done…",
+                      "Libération d’espace d’abord : la série démarre dès qu’elle est finie…")
+        }
+        return tr("Starting…", "Démarrage…")
     }
 }
 
@@ -316,7 +340,7 @@ struct GameList: View {
                     Image(systemName: "minus.circle")
                 }
                 .buttonStyle(.borderless)
-                .disabled(model.adding.contains(game.titleID))
+                .disabled(!model.canTakeOut(game.titleID))
                 .help(tr("Remove from the queue", "Retirer de la file"))
             }
         }
