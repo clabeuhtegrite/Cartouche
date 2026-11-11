@@ -38,6 +38,7 @@ enum LibraryFilter: String, CaseIterable, Identifiable {
 struct LibraryView: View {
     @EnvironmentObject private var model: AppModel
     @State private var filter: LibraryFilter = .all
+    @State private var showBundleIPA = false
     @State private var search = ""
 
     private var games: [Game] {
@@ -92,8 +93,15 @@ struct LibraryView: View {
         }
         .animation(.snappy(duration: 0.25), value: model.selection != nil)
         .searchable(text: $search, placement: .toolbar, prompt: tr("Search a game", "Chercher un jeu"))
+        .sheet(isPresented: $showBundleIPA) { BundleIPAView() }
         .toolbar {
             ToolbarItemGroup(placement: .primaryAction) {
+                Button {
+                    showBundleIPA = true
+                } label: {
+                    Label(tr("Import IPA + ROMFS…", "Importer IPA + ROMFS…"), systemImage: "square.and.arrow.down")
+                }
+                .disabled(model.engine == nil || model.isBuilding || model.bundling || (model.config?.games.isEmpty ?? true))
                 if model.isBuilding {
                     Button {
                         model.section = .activity

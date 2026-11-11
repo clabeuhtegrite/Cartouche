@@ -11,6 +11,7 @@ tell a newer IPA of a game from the one installed.
 
 from __future__ import annotations
 
+import errno
 import os
 import plistlib
 import re
@@ -24,6 +25,7 @@ from datetime import datetime
 from pathlib import Path
 
 from . import titles
+from .i18n import t
 
 INFO_PLIST = re.compile(r"^Payload/[^/]+\.app/Info\.plist$")
 PARTIAL_SUFFIX = ".builder-partial"
@@ -130,6 +132,137 @@ def find_in_folder(folder: Path, title_id: str, read: bool = True) -> list[Path]
 
 
 # ---- Delivery ----------------------------------------------------------------
+
+
+def bundle_romfs(source: Path, image: Path, folder: Path, progress=None) -> Path:
+    """Packages a matching external image without rebuilding the IPA.
+
+    For nxnative builds that support <App>/romfs.img. The originals and
+    their executable are kept; Cartouche signs the completed app when it
+    installs it. A fixed hidden partial keeps incomplete IPAs out of the
+    library, including on network storage. The caller holds batch_lock.
+    """
+    from .romfs import identity
+
+    report = progress or (lambda message: None)
+    info, app, wanted = _bundle_input(source)
+    name = file_name((info.name or "Game") + " (with ROMFS)", info.title_id)
+    target = folder / name
+    if target.exists():
+        raise ValueError(t("bundle.exists"))
+    partial = folder / f".{name}{PARTIAL_SUFFIX}"
+    if partial.exists():
+        partial.unlink()
+
+    def percent(key):
+        last = -1
+
+        def changed(done, total):
+            nonlocal last
+            value = min(100, done * 100 // max(1, total))
+            if value != last:
+                last = value
+                report(t(key, percent=value))
+        return changed
+
+    with image.open("rb") as reader:
+        image_stat = os.fstat(reader.fileno())
+        if identity(reader) != wanted:
+            raise ValueError(t("bundle.mismatch"))
+        try:
+            report(t("bundle.copy", percent=0))
+            if not _clone(source, partial):
+                _copy(source, partial, source.stat().st_size, None, percent("bundle.copy"))
+            if _bundle_input(partial) != (info, app, wanted):
+                raise ValueError(t("bundle.changed_ipa"))
+            added = percent("bundle.add")
+            with zipfile.ZipFile(partial, "a", allowZip64=True) as archive:
+                entry = zipfile.ZipInfo(app + "romfs.img")
+                entry.file_size = image_stat.st_size
+                entry.external_attr = 0o100644 << 16
+                reader.seek(0)
+                done = 0
+                with archive.open(entry, "w", force_zip64=True) as writer:
+                    while block := reader.read(8 << 20):
+                        writer.write(block)
+                        done += len(block)
+                        added(done, image_stat.st_size)
+                after = os.fstat(reader.fileno())
+                if done != image_stat.st_size or after.st_mtime_ns != image_stat.st_mtime_ns:
+                    raise ValueError(t("bundle.changed"))
+            report(t("bundle.check"))
+            with zipfile.ZipFile(partial) as archive:
+                if archive.testzip() is not None:
+                    raise ValueError(t("bundle.bad_ipa"))
+            try:
+                target = _publish(partial, target)
+            except FileExistsError:
+                raise ValueError(t("bundle.exists")) from None
+        except BaseException:
+            try:
+                partial.unlink()
+            except OSError:
+                pass
+            raise
+    return target
+
+
+def _publish(source: Path, target: Path) -> Path:
+    """Publish whole, preserving existing files on local and NAS storage.
+
+    Prefer strict no-replace publication. On shares without exclusive
+    rename support, recheck the target before renaming under the batch lock.
+    """
+    try:
+        _rename_exclusive(source, target)
+        return target
+    except OSError as error:
+        if error.errno not in (errno.ENOTSUP, errno.EOPNOTSUPP, errno.ENOSYS):
+            raise
+    if os.path.lexists(target):
+        raise FileExistsError(errno.EEXIST, os.strerror(errno.EEXIST), str(target))
+    os.rename(source, target)
+    return target
+
+
+def _rename_exclusive(source: Path, target: Path) -> None:
+    if sys.platform == "darwin":
+        import ctypes
+
+        rename = ctypes.CDLL(None, use_errno=True).renamex_np
+        rename.argtypes = [ctypes.c_char_p, ctypes.c_char_p, ctypes.c_uint]
+        rename.restype = ctypes.c_int
+        if rename(os.fsencode(source), os.fsencode(target), 0x00000004):  # RENAME_EXCL, stdio.h
+            number = ctypes.get_errno()
+            raise OSError(number, os.strerror(number), str(target))
+    else:
+        os.link(source, target)
+        source.unlink()
+
+
+def _bundle_input(source: Path) -> tuple[IpaInfo, str, tuple[int, str]]:
+    info = read_info(source)
+    if not info or not info.title_id:
+        raise ValueError(t("bundle.bad_ipa"))
+    with zipfile.ZipFile(source) as archive:
+        names = archive.namelist()
+        if len(set(names)) != len(names):
+            raise ValueError(t("bundle.bad_ipa"))
+        app = next(name[:-len("Info.plist")] for name in names if INFO_PLIST.match(name))
+        if app + "romfs.img" in names or any(name.startswith(app + "romfs/") for name in names):
+            raise ValueError(t("bundle.already"))
+        expected = archive.getinfo(app + "romfs.id") if app + "romfs.id" in names else None
+        if expected is None or expected.file_size > 512:
+            raise ValueError(t("bundle.no_identity"))
+        try:
+            words = archive.read(expected).decode("ascii").split()
+            if not words or words[0] != "DMROMFSID1":
+                raise ValueError()
+            fields = dict(word.split("=", 1) for word in words[1:])
+            wanted = int(fields["size"]), fields["index"].lower()
+        except (ValueError, KeyError, UnicodeError):
+            raise ValueError(t("bundle.no_identity")) from None
+    return info, app, wanted
 
 
 def deliver(source: Path, folder: Path, name: str, stop=None, progress=None) -> Path:

@@ -99,6 +99,8 @@ final class AppModel: ObservableObject {
     @Published private(set) var checking = false
     @Published private(set) var loadingStorage = false
     @Published private(set) var cleaning = false
+    @Published private(set) var bundling = false
+    @Published private(set) var bundleMessage = ""
     /// A batch asked for, until status.json shows it: a few seconds, or as
     /// long as the engine's look at nxnative holds the batch lock, which the
     /// batch waits for (batch.LOCK_WAIT).
@@ -212,7 +214,7 @@ final class AppModel: ObservableObject {
     // MARK: Updates
 
     private func startUpdates() {
-        updater.isBuilding = { [weak self] in self?.isBuilding ?? false }
+        updater.isBuilding = { [weak self] in (self?.isBuilding ?? false) || (self?.bundling ?? false) }
         updater.isIdle = { [weak self] in self?.isIdle ?? false }
         updater.quit = { NSApp.terminate(nil) }
         updater.failed = { [weak self] error in self?.telemetry.error(error, origin: "update", background: true) }
@@ -225,7 +227,7 @@ final class AppModel: ObservableObject {
     /// Nothing the player would see go: no build, no iPhone connected, no
     /// window open, the app in the background.
     var isIdle: Bool {
-        guard !isBuilding, bridge.connected.isEmpty, bridge.request == nil, !NSApp.isActive else { return false }
+        guard !isBuilding, !bundling, bridge.connected.isEmpty, bridge.request == nil, !NSApp.isActive else { return false }
         return !NSApp.windows.contains { $0.isVisible && $0.styleMask.contains(.titled) }
     }
 
@@ -335,13 +337,14 @@ final class AppModel: ObservableObject {
     // MARK: Builds
 
     var isBuilding: Bool { status?.running == true || starting != nil }
-    /// A game can be built, or added to the batch running or starting.
-    var canBuild: Bool { engine != nil && setup.ready }
+    /// A game can be built, or added to the batch running or starting: not
+    /// while an IPA is being imported.
+    var canBuild: Bool { engine != nil && setup.ready && !bundling }
 
     /// Builds GAMES (what is due when empty), again with FORCE. While a batch
     /// runs, or starts, they wait their turn in it, built after its own games.
     func build(_ games: [String] = [], force: Bool = false) {
-        guard !sample else { return }
+        guard !sample, !bundling else { return }
         guard engine != nil else {
             section = .setup
             return
@@ -775,6 +778,41 @@ final class AppModel: ObservableObject {
                 show(error, origin: "clean")
             }
         }
+    }
+
+    func bundleIPA(_ ipa: URL, image: URL) async throws -> String {
+        guard let engine, !sample, !isBuilding, !bundling else {
+            throw EngineFailure(kind: "busy", message: tr("Wait for the current operation to finish.", "Attendez la fin de l’opération en cours."))
+        }
+        bundling = true
+        bundleMessage = tr("Checking the IPA and game data…", "Vérification de l’IPA et des fichiers du jeu…")
+        defer { bundling = false }
+        let started = Date()
+        let answer: BundleIPAAnswer
+        do {
+            answer = try await engine.bundleROMFS(ipa: ipa, image: image) { [weak self] line in
+                Task { @MainActor in self?.bundleMessage = line }
+            }
+        } catch {
+            // The sheet shows its words; the measurements count it by its codes.
+            telemetry.error(error, origin: "import")
+            throw error
+        }
+        telemetry.event("builder.imported", game: answer.titleID, fields: importedFields(answer, seconds: Date().timeIntervalSince(started)))
+        await refreshLibrary(update: false)
+        return answer.ipa
+    }
+
+    /// An IPA imported with its game data, for the telemetry: never its
+    /// name nor where it went.
+    private func importedFields(_ answer: BundleIPAAnswer, seconds: TimeInterval) -> [String: TelemetryValue] {
+        var fields: [String: TelemetryValue] = [
+            "seconds": .number(seconds.rounded()),
+            "remote": .flag(library?.folders?.remote ?? false),
+        ]
+        if let bytes = answer.bytes, bytes > 0 { fields["ipaMB"] = .number((Double(bytes) / 1_000_000).rounded()) }
+        if let nxnative = answer.nxnative { fields["nxnative"] = .text(nxnative) }
+        return fields
     }
 
     func mountShares() {

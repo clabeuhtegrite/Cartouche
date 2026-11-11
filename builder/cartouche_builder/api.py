@@ -19,6 +19,8 @@ follows through status.json (status.py).
   config [--set JSON]    the settings, changed by the keys of JSON
   follow ID on|off       follows a game, or leaves it out
   mount                  connects the shares of the folders again
+  bundle-romfs --ipa IPA --romfs IMAGE
+                         packages matching external game data without compiling
   queue                  the games asked for while a batch runs (queue.py)
   queue add [--force] ID ...
                          adds games to the batch running, after its own; it
@@ -34,6 +36,7 @@ import argparse
 import json
 import sys
 import traceback
+import zipfile
 from dataclasses import asdict, fields
 from pathlib import Path
 
@@ -71,6 +74,9 @@ def main(argv: list[str]) -> int:
     follow_parser.add_argument("title_id")
     follow_parser.add_argument("state", choices=("on", "off"))
     commands.add_parser("mount")
+    bundle_parser = commands.add_parser("bundle-romfs")
+    bundle_parser.add_argument("--ipa", required=True, type=Path)
+    bundle_parser.add_argument("--romfs", required=True, type=Path)
     queue_parser = commands.add_parser("queue")
     queue_actions = queue_parser.add_subparsers(dest="action")
     add_parser = queue_actions.add_parser("add")
@@ -96,6 +102,7 @@ def main(argv: list[str]) -> int:
             "config": lambda: config(ctx, args.set),
             "follow": lambda: follow(ctx, args.title_id, args.state == "on"),
             "mount": lambda: mount(ctx),
+            "bundle-romfs": lambda: bundle_romfs(ctx, args.ipa, args.romfs),
             "queue": lambda: queue(ctx, args.action, getattr(args, "title_ids", []), getattr(args, "force", False)),
         }[args.command]
         return _answer({"api": API_VERSION, **handler()})
@@ -109,7 +116,7 @@ def main(argv: list[str]) -> int:
         return _answer({"error": {"kind": "engine", "message": str(error), **failure.describe(error)}}, 3)
     except storage.Refused as error:
         return _answer({"error": {"kind": "refused", "message": t("api.refused", path=error)}}, 3)
-    except (OSError, ValueError, RuntimeError) as error:
+    except (OSError, ValueError, RuntimeError, zipfile.BadZipFile) as error:
         return _answer({"error": {"kind": "failed", "message": f"{type(error).__name__}: {error}", **failure.describe(error)}}, 3)
     except Exception as error:  # noqa: BLE001 - the app reads an answer whatever went wrong
         # Its traceback goes where the app keeps what the engine says.
@@ -125,6 +132,27 @@ def _answer(data: dict, code: int = 0) -> int:
 
 def _say(message: str) -> None:
     print(message, file=sys.stderr, flush=True)
+
+
+def bundle_romfs(ctx: batch.Context, source: Path, image: Path) -> dict:
+    """Import without a sources folder, nxnative checkout or build tools."""
+    folder = ctx.config.path("games")
+    if not folder:
+        raise batch.Blocked(t("bundle.no_folder"))
+    with batch.batch_lock(ctx.paths):
+        shares.reconnect([folder], ctx.config.shares, log=lambda address: _say(t("batch.mounting", share=address)))
+        if not folder.is_dir():
+            raise ValueError(t("bundle.no_folder"))
+        target = ipas.bundle_romfs(source, image, folder, progress=_say)
+    # For the app's measurements: the game by its title ID, the nxnative it
+    # was built with and the complete IPA's size, never its name or path.
+    info = ipas.read_info(target)
+    try:
+        size = target.stat().st_size
+    except OSError:
+        size = None
+    return {"ipa": str(target), "title_id": info.title_id if info else None,
+            "nxnative": info.short_commit if info else None, "bytes": size}
 
 
 # ---- The games ------------------------------------------------------------------
