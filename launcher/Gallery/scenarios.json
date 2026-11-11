@@ -1,7 +1,22 @@
 {
   "comment": "Each scenario is one screenshot: a screen of the launcher, the player's games (title IDs), whether the setup is done and whether a controller is connected; the game of a sheet or of its settings page, with the page's category (one of nxnative's sections, or cartouche.saves for the cloud saves), or the game being installed with work: installing, or its install that failed, with the report to copy, with work: install-failed, or a new version of Cartouche on offer with work: update, a newer build of one of the player's games in their games folder with work: newer-build (the sheet's game, or the first of the player's); the Apple ID sign-in, with Apple's request for a verification code with work: code; a certificate iOS no longer accepts, with work: certificate; the sheet's game, or the first of the player's, paused behind the console, with work: paused; the player's NAS out of reach, away from home, with a newer build of that game in its games folder and two games' saves waiting for it, with work: offline; Add your Mac (screen: storage-mac), the form that pairs this iPhone with a Mac nearby: two Macs whose Cartouche Builder shares with Cartouche, with work: mac-nearby, pairing with the first, with the six digits on both screens, with work: mac-code, or none, iOS refusing Cartouche the local network, with work: mac-refused; the Storage page with the player's Mac, paired, as the games folder and the saves folder, with work: mac, and that Mac out of reach, away from home, with two games' saves waiting for it, with work: mac-offline; the first game's guide after No thanks to its Mac step, with work: build-skipped. A scenario with a width and a height is drawn at that size in points, with the safe area of that iPhone, on an iPad: the iPhone 17 Pro, and the iPhone Duo folded (466 x 678) and unfolded (626 x 890), from Apple's pixel sizes at 3x. A scenario with a device takes the whole screen of that simulator, with its own safe area and system bars; a landscape one turns the gallery sideways, as a game does, while the simulator stays upright.",
-  "language": "en",
+  "language": "fr",
   "scenarios": [
+    {
+      "name": "iphone-home-first-launch",
+      "screen": "games",
+      "owned": [],
+      "setup": false,
+      "controller": false,
+      "width": 402,
+      "height": 874,
+      "insets": [
+        62,
+        0,
+        34,
+        0
+      ]
+    },
     {
       "name": "iphone-home",
       "screen": "games",
@@ -20,6 +35,26 @@
         34,
         0
       ]
+    },
+    {
+      "name": "iphone-home-certificate-refused",
+      "screen": "games",
+      "owned": [
+        "0400C3F00006E000",
+        "040074A01BF12000",
+        "01006BB00C6F0000"
+      ],
+      "setup": true,
+      "controller": true,
+      "width": 402,
+      "height": 874,
+      "insets": [
+        62,
+        0,
+        34,
+        0
+      ],
+      "work": "certificate"
     },
     {
       "name": "iphone-home-landscape",
@@ -81,9 +116,91 @@
       ]
     },
     {
+      "name": "iphone-sheet-newer-build",
+      "screen": "sheet",
+      "sheet": "0400C3F00006E000",
+      "owned": [
+        "0400C3F00006E000",
+        "040074A01BF12000",
+        "01006BB00C6F0000"
+      ],
+      "setup": true,
+      "controller": false,
+      "width": 402,
+      "height": 874,
+      "insets": [
+        62,
+        0,
+        34,
+        0
+      ],
+      "work": "newer-build"
+    },
+    {
+      "name": "iphone-sheet-other",
+      "screen": "sheet",
+      "sheet": "01003FC01670C000",
+      "owned": [
+        "0400C3F00006E000",
+        "040074A01BF12000",
+        "01006BB00C6F0000"
+      ],
+      "setup": true,
+      "controller": false,
+      "width": 402,
+      "height": 874,
+      "insets": [
+        62,
+        0,
+        34,
+        0
+      ]
+    },
+    {
+      "name": "iphone-sheet-new-release",
+      "screen": "sheet",
+      "sheet": "0400486024DEC000",
+      "owned": [
+        "0400C3F00006E000",
+        "040074A01BF12000",
+        "0400486024DEC000"
+      ],
+      "setup": true,
+      "controller": false,
+      "width": 402,
+      "height": 874,
+      "insets": [
+        62,
+        0,
+        34,
+        0
+      ]
+    },
+    {
       "name": "iphone-game-settings",
       "screen": "settings",
       "sheet": "0400C3F00006E000",
+      "owned": [
+        "0400C3F00006E000",
+        "040074A01BF12000",
+        "01006BB00C6F0000"
+      ],
+      "setup": true,
+      "controller": false,
+      "width": 402,
+      "height": 874,
+      "insets": [
+        62,
+        0,
+        34,
+        0
+      ]
+    },
+    {
+      "name": "iphone-game-settings-controls",
+      "screen": "settings",
+      "sheet": "0400C3F00006E000",
+      "category": "Controls",
       "owned": [
         "0400C3F00006E000",
         "040074A01BF12000",
@@ -122,6 +239,106 @@
       ]
     },
     {
+      "name": "iphone-installing",
+      "screen": "games",
+      "sheet": "0400C3F00006E000",
+      "work": "installing",
+      "owned": [
+        "040074A01BF12000",
+        "01006BB00C6F0000"
+      ],
+      "setup": true,
+      "controller": false,
+      "width": 402,
+      "height": 874,
+      "insets": [
+        62,
+        0,
+        34,
+        0
+      ]
+    },
+    {
+      "name": "iphone-install-failed",
+      "screen": "games",
+      "sheet": "0400C3F00006E000",
+      "work": "install-failed",
+      "owned": [
+        "040074A01BF12000",
+        "01006BB00C6F0000"
+      ],
+      "setup": true,
+      "controller": true,
+      "width": 402,
+      "height": 874,
+      "insets": [
+        62,
+        0,
+        34,
+        0
+      ]
+    },
+    {
+      "name": "iphone-update-offer",
+      "screen": "games",
+      "work": "update",
+      "owned": [
+        "0400C3F00006E000",
+        "040074A01BF12000",
+        "01006BB00C6F0000"
+      ],
+      "setup": true,
+      "controller": true,
+      "width": 402,
+      "height": 874,
+      "insets": [
+        62,
+        0,
+        34,
+        0
+      ]
+    },
+    {
+      "name": "iphone-home-newer-build",
+      "screen": "games",
+      "owned": [
+        "040074A01BF12000",
+        "0400C3F00006E000",
+        "01006BB00C6F0000"
+      ],
+      "setup": true,
+      "controller": false,
+      "width": 402,
+      "height": 874,
+      "insets": [
+        62,
+        0,
+        34,
+        0
+      ],
+      "work": "newer-build"
+    },
+    {
+      "name": "iphone-home-offline",
+      "screen": "games",
+      "owned": [
+        "040074A01BF12000",
+        "0400C3F00006E000",
+        "01006BB00C6F0000"
+      ],
+      "setup": true,
+      "controller": false,
+      "width": 402,
+      "height": 874,
+      "insets": [
+        62,
+        0,
+        34,
+        0
+      ],
+      "work": "offline"
+    },
+    {
       "name": "iphone-home-paused",
       "screen": "games",
       "owned": [
@@ -142,6 +359,142 @@
       "work": "paused"
     },
     {
+      "name": "iphone-sheet-paused",
+      "screen": "sheet",
+      "sheet": "0400C3F00006E000",
+      "owned": [
+        "0400C3F00006E000",
+        "040074A01BF12000",
+        "01006BB00C6F0000"
+      ],
+      "setup": true,
+      "controller": false,
+      "width": 402,
+      "height": 874,
+      "insets": [
+        62,
+        0,
+        34,
+        0
+      ],
+      "work": "paused"
+    },
+    {
+      "name": "duo-folded-update-offer",
+      "screen": "games",
+      "work": "update",
+      "owned": [
+        "0400C3F00006E000",
+        "040074A01BF12000",
+        "01006BB00C6F0000"
+      ],
+      "setup": true,
+      "controller": false,
+      "width": 466,
+      "height": 678,
+      "insets": [
+        32,
+        0,
+        20,
+        0
+      ]
+    },
+    {
+      "name": "iphone-setup",
+      "screen": "setup",
+      "owned": [],
+      "setup": false,
+      "controller": false,
+      "width": 402,
+      "height": 874,
+      "insets": [
+        62,
+        0,
+        34,
+        0
+      ]
+    },
+    {
+      "name": "iphone-sign-in",
+      "screen": "signin",
+      "owned": [],
+      "setup": false,
+      "controller": false,
+      "width": 402,
+      "height": 874,
+      "insets": [
+        62,
+        0,
+        34,
+        0
+      ]
+    },
+    {
+      "name": "iphone-guide-first-launch",
+      "screen": "guide",
+      "owned": [],
+      "setup": false,
+      "controller": false,
+      "width": 402,
+      "height": 874,
+      "insets": [
+        62,
+        0,
+        34,
+        0
+      ]
+    },
+    {
+      "name": "iphone-guide-build",
+      "screen": "guide",
+      "owned": [],
+      "setup": true,
+      "controller": false,
+      "width": 402,
+      "height": 874,
+      "insets": [
+        62,
+        0,
+        34,
+        0
+      ]
+    },
+    {
+      "name": "iphone-guide-build-skipped",
+      "screen": "guide",
+      "owned": [],
+      "setup": true,
+      "controller": false,
+      "width": 402,
+      "height": 874,
+      "insets": [
+        62,
+        0,
+        34,
+        0
+      ],
+      "work": "build-skipped"
+    },
+    {
+      "name": "iphone-system",
+      "screen": "system",
+      "owned": [
+        "0400C3F00006E000",
+        "040074A01BF12000",
+        "01006BB00C6F0000"
+      ],
+      "setup": true,
+      "controller": false,
+      "width": 402,
+      "height": 874,
+      "insets": [
+        62,
+        0,
+        34,
+        0
+      ]
+    },
+    {
       "name": "iphone-storage",
       "screen": "storage",
       "owned": [
@@ -159,6 +512,494 @@
         34,
         0
       ]
+    },
+    {
+      "name": "iphone-storage-offline",
+      "screen": "storage",
+      "owned": [
+        "0400C3F00006E000",
+        "040074A01BF12000",
+        "01006BB00C6F0000"
+      ],
+      "setup": true,
+      "controller": false,
+      "width": 402,
+      "height": 874,
+      "insets": [
+        62,
+        0,
+        34,
+        0
+      ],
+      "work": "offline"
+    },
+    {
+      "name": "iphone-storage-mac-nearby",
+      "screen": "storage-mac",
+      "owned": [
+        "0400C3F00006E000",
+        "040074A01BF12000",
+        "01006BB00C6F0000"
+      ],
+      "setup": true,
+      "controller": false,
+      "width": 402,
+      "height": 874,
+      "insets": [
+        62,
+        0,
+        34,
+        0
+      ],
+      "work": "mac-nearby"
+    },
+    {
+      "name": "iphone-storage-mac-code",
+      "screen": "storage-mac",
+      "owned": [
+        "0400C3F00006E000",
+        "040074A01BF12000",
+        "01006BB00C6F0000"
+      ],
+      "setup": true,
+      "controller": false,
+      "width": 402,
+      "height": 874,
+      "insets": [
+        62,
+        0,
+        34,
+        0
+      ],
+      "work": "mac-code"
+    },
+    {
+      "name": "iphone-storage-mac-refused",
+      "screen": "storage-mac",
+      "owned": [
+        "0400C3F00006E000",
+        "040074A01BF12000",
+        "01006BB00C6F0000"
+      ],
+      "setup": true,
+      "controller": false,
+      "width": 402,
+      "height": 874,
+      "insets": [
+        62,
+        0,
+        34,
+        0
+      ],
+      "work": "mac-refused"
+    },
+    {
+      "name": "iphone-storage-mac",
+      "screen": "storage",
+      "owned": [
+        "0400C3F00006E000",
+        "040074A01BF12000",
+        "01006BB00C6F0000"
+      ],
+      "setup": true,
+      "controller": false,
+      "width": 402,
+      "height": 874,
+      "insets": [
+        62,
+        0,
+        34,
+        0
+      ],
+      "work": "mac"
+    },
+    {
+      "name": "iphone-storage-mac-offline",
+      "screen": "storage",
+      "owned": [
+        "0400C3F00006E000",
+        "040074A01BF12000",
+        "01006BB00C6F0000"
+      ],
+      "setup": true,
+      "controller": false,
+      "width": 402,
+      "height": 874,
+      "insets": [
+        62,
+        0,
+        34,
+        0
+      ],
+      "work": "mac-offline"
+    },
+    {
+      "name": "iphone-telemetry",
+      "screen": "telemetry",
+      "owned": [
+        "0400C3F00006E000",
+        "040074A01BF12000",
+        "01006BB00C6F0000"
+      ],
+      "setup": true,
+      "controller": false,
+      "width": 402,
+      "height": 874,
+      "insets": [
+        62,
+        0,
+        34,
+        0
+      ]
+    },
+    {
+      "name": "iphone-report",
+      "screen": "report",
+      "owned": [
+        "0400C3F00006E000",
+        "040074A01BF12000",
+        "01006BB00C6F0000"
+      ],
+      "setup": true,
+      "controller": false,
+      "width": 402,
+      "height": 874,
+      "insets": [
+        62,
+        0,
+        34,
+        0
+      ]
+    },
+    {
+      "name": "duo-folded-sign-in-code",
+      "screen": "signin",
+      "work": "code",
+      "owned": [],
+      "setup": false,
+      "controller": false,
+      "width": 466,
+      "height": 678,
+      "insets": [
+        32,
+        0,
+        20,
+        0
+      ]
+    },
+    {
+      "name": "duo-folded-guide-build",
+      "screen": "guide",
+      "owned": [],
+      "setup": true,
+      "controller": false,
+      "width": 466,
+      "height": 678,
+      "insets": [
+        32,
+        0,
+        20,
+        0
+      ]
+    },
+    {
+      "name": "duo-folded-home",
+      "screen": "games",
+      "owned": [
+        "0400C3F00006E000",
+        "040074A01BF12000",
+        "01006BB00C6F0000"
+      ],
+      "setup": true,
+      "controller": false,
+      "width": 466,
+      "height": 678,
+      "insets": [
+        32,
+        0,
+        20,
+        0
+      ]
+    },
+    {
+      "name": "duo-folded-home-newer-build",
+      "screen": "games",
+      "owned": [
+        "040074A01BF12000",
+        "0400C3F00006E000",
+        "01006BB00C6F0000"
+      ],
+      "setup": true,
+      "controller": false,
+      "width": 466,
+      "height": 678,
+      "insets": [
+        32,
+        0,
+        20,
+        0
+      ],
+      "work": "newer-build"
+    },
+    {
+      "name": "duo-folded-storage-mac-nearby",
+      "screen": "storage-mac",
+      "owned": [
+        "0400C3F00006E000",
+        "040074A01BF12000",
+        "01006BB00C6F0000"
+      ],
+      "setup": true,
+      "controller": false,
+      "width": 466,
+      "height": 678,
+      "insets": [
+        32,
+        0,
+        20,
+        0
+      ],
+      "work": "mac-nearby"
+    },
+    {
+      "name": "duo-folded-storage-mac-code",
+      "screen": "storage-mac",
+      "owned": [
+        "0400C3F00006E000",
+        "040074A01BF12000",
+        "01006BB00C6F0000"
+      ],
+      "setup": true,
+      "controller": false,
+      "width": 466,
+      "height": 678,
+      "insets": [
+        32,
+        0,
+        20,
+        0
+      ],
+      "work": "mac-code"
+    },
+    {
+      "name": "duo-folded-storage-mac",
+      "screen": "storage",
+      "owned": [
+        "0400C3F00006E000",
+        "040074A01BF12000",
+        "01006BB00C6F0000"
+      ],
+      "setup": true,
+      "controller": false,
+      "width": 466,
+      "height": 678,
+      "insets": [
+        32,
+        0,
+        20,
+        0
+      ],
+      "work": "mac"
+    },
+    {
+      "name": "duo-folded-storage-mac-offline",
+      "screen": "storage",
+      "owned": [
+        "0400C3F00006E000",
+        "040074A01BF12000",
+        "01006BB00C6F0000"
+      ],
+      "setup": true,
+      "controller": false,
+      "width": 466,
+      "height": 678,
+      "insets": [
+        32,
+        0,
+        20,
+        0
+      ],
+      "work": "mac-offline"
+    },
+    {
+      "name": "duo-unfolded-home",
+      "screen": "games",
+      "owned": [
+        "0400C3F00006E000",
+        "040074A01BF12000",
+        "01006BB00C6F0000"
+      ],
+      "setup": true,
+      "controller": true,
+      "width": 626,
+      "height": 890,
+      "insets": [
+        32,
+        0,
+        20,
+        0
+      ]
+    },
+    {
+      "name": "duo-unfolded-landscape-home",
+      "screen": "games",
+      "owned": [
+        "0400C3F00006E000",
+        "040074A01BF12000",
+        "01006BB00C6F0000"
+      ],
+      "setup": true,
+      "controller": true,
+      "width": 890,
+      "height": 626,
+      "insets": [
+        24,
+        0,
+        20,
+        0
+      ]
+    },
+    {
+      "name": "duo-unfolded-landscape-first-launch",
+      "screen": "games",
+      "owned": [],
+      "setup": false,
+      "controller": false,
+      "width": 890,
+      "height": 626,
+      "insets": [
+        24,
+        0,
+        20,
+        0
+      ]
+    },
+    {
+      "name": "duo-unfolded-library",
+      "screen": "library",
+      "owned": [
+        "0400C3F00006E000",
+        "040074A01BF12000",
+        "01006BB00C6F0000"
+      ],
+      "setup": true,
+      "controller": true,
+      "width": 626,
+      "height": 890,
+      "insets": [
+        32,
+        0,
+        20,
+        0
+      ]
+    },
+    {
+      "name": "duo-unfolded-first-launch",
+      "screen": "games",
+      "owned": [],
+      "setup": true,
+      "controller": false,
+      "width": 626,
+      "height": 890,
+      "insets": [
+        32,
+        0,
+        20,
+        0
+      ]
+    },
+    {
+      "name": "duo-unfolded-library-first-launch",
+      "screen": "library",
+      "owned": [],
+      "setup": true,
+      "controller": false,
+      "width": 626,
+      "height": 890,
+      "insets": [
+        32,
+        0,
+        20,
+        0
+      ]
+    },
+    {
+      "name": "duo-unfolded-landscape-library-first-launch",
+      "screen": "library",
+      "owned": [],
+      "setup": true,
+      "controller": false,
+      "width": 890,
+      "height": 626,
+      "insets": [
+        24,
+        0,
+        20,
+        0
+      ]
+    },
+    {
+      "name": "duo-sim-home",
+      "device": "iPhone Duo",
+      "screen": "games",
+      "owned": [
+        "0400C3F00006E000",
+        "040074A01BF12000",
+        "01006BB00C6F0000"
+      ],
+      "setup": true,
+      "controller": true
+    },
+    {
+      "name": "duo-sim-library",
+      "device": "iPhone Duo",
+      "screen": "library",
+      "owned": [
+        "0400C3F00006E000",
+        "040074A01BF12000",
+        "01006BB00C6F0000"
+      ],
+      "setup": true,
+      "controller": false
+    },
+    {
+      "name": "duo-sim-sheet",
+      "device": "iPhone Duo",
+      "screen": "sheet",
+      "sheet": "0400C3F00006E000",
+      "owned": [
+        "0400C3F00006E000",
+        "040074A01BF12000",
+        "01006BB00C6F0000"
+      ],
+      "setup": true,
+      "controller": false
+    },
+    {
+      "name": "duo-sim-game-settings",
+      "device": "iPhone Duo",
+      "screen": "settings",
+      "sheet": "0400C3F00006E000",
+      "owned": [
+        "0400C3F00006E000",
+        "040074A01BF12000",
+        "01006BB00C6F0000"
+      ],
+      "setup": true,
+      "controller": false
+    },
+    {
+      "name": "duo-sim-home-landscape",
+      "device": "iPhone Duo",
+      "orientation": "landscape",
+      "screen": "games",
+      "owned": [
+        "0400C3F00006E000",
+        "040074A01BF12000",
+        "01006BB00C6F0000"
+      ],
+      "setup": true,
+      "controller": true
     }
   ]
 }
