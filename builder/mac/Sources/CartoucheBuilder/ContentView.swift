@@ -152,6 +152,12 @@ struct EngineFooter: View {
     }
 }
 
+/// A message above the page. Its text takes the lines it needs at the page's
+/// width, six at most, and never sets the window's least height: held at its
+/// whole height whatever the width (fixedSize), it counted as one word a line
+/// when AppKit asked the window's least size, three times the window's height
+/// on a player's Mac on 11 November, and the window laid out its pages that
+/// tall, their tops out of reach.
 struct BannerView: View {
     let banner: Banner
     let close: () -> Void
@@ -163,8 +169,8 @@ struct BannerView: View {
             Text(banner.text)
                 .font(.callout)
                 .textSelection(.enabled)
+                .lineLimit(6)
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .fixedSize(horizontal: false, vertical: true)
             Button(action: close) {
                 Image(systemName: "xmark")
             }

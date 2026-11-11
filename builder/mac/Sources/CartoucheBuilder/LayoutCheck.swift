@@ -6,18 +6,20 @@
 //  as the player opens it, on sample games whose nxnative commits are as
 //  long as nxnative's own, taken through what the player does: a game
 //  chosen and its sheet beside, nxnative checked, a message above the page,
-//  the window from wide to its smallest, the sidebar hidden and shown, each
-//  page, the pages chosen with the arrow keys, a build asked for while
-//  nxnative is checked. After each step every scrolling column must lie in
-//  the window and the sidebar must list its pages. Any exception AppKit
-//  raises ends the app (NSApplicationCrashOnExceptions), as one did on a
-//  player's Mac on 11 November: the game's sheet, then the system's
-//  inspector, made the page wider than the window at each update, until
-//  AppKit's constraint passes went round in a loop. And SwiftUI must never
-//  have said that a change was published while it updated the window,
-//  after which its behaviour is undefined: the sidebar did, at each page
-//  chosen, the same day. Nothing of the Mac's is read or kept: no engine,
-//  no bridge, no settings written.
+//  of one line and of several, the window from wide to its smallest, the
+//  sidebar hidden and shown, each page, the pages chosen with the arrow
+//  keys, a build asked for while nxnative is checked. After each step every
+//  scrolling column must lie in the window, across and down, and the
+//  sidebar must list its pages. Any exception AppKit raises ends the app
+//  (NSApplicationCrashOnExceptions), as one did on a player's Mac on
+//  11 November: the game's sheet, then the system's inspector, made the
+//  page wider than the window at each update, until AppKit's constraint
+//  passes went round in a loop. The same day a message above the page made
+//  the pages three times the window's height, their tops out of reach, which
+//  this check did not look at. And SwiftUI must never have said that a
+//  change was published while it updated the window, after which its
+//  behaviour is undefined: the sidebar did, at each page chosen. Nothing of
+//  the Mac's is read or kept: no engine, no bridge, no settings written.
 //
 
 import AppKit
@@ -163,6 +165,13 @@ enum LayoutCheck {
             model.banner = Banner(kind: .error, text: "La vérification de nxnative a échoué : fatal: unable to access 'https://github.com/seedds/nxnative/': Could not resolve host: github.com. Cartouche Builder réessaiera dans six heures.")
         }
         await step("the message closed") { model.banner = nil }
+        // A build that did not start, as the app says it: the last lines of
+        // its log, one under the other.
+        await step("a message of several lines above the page") {
+            model.banner = Banner(kind: .error, text: "La construction n’a pas démarré : Un lot tourne déjà sur ce Mac (la fenêtre ou le lancement de la nuit).\n"
+                                  + "Un lot tourne déjà sur ce Mac (la fenêtre ou le lancement de la nuit).\nUn lot tourne déjà sur ce Mac (la fenêtre ou le lancement de la nuit).")
+        }
+        await step("that message closed") { model.banner = nil }
         for width in widths {
             await step("the window at \(Int(width)) points, with the game's sheet") { resize(width) }
         }
@@ -262,10 +271,14 @@ enum LayoutCheck {
         guard let root = window.contentView else { return ["the window has no content"] }
         var found: [String] = []
         let width = root.bounds.width
+        let height = root.bounds.height
         for scroll in descendants(of: root).compactMap({ $0 as? NSScrollView }) where !scroll.isHiddenOrHasHiddenAncestor && scroll.bounds.width > 0 {
             let frame = scroll.convert(scroll.bounds, to: root)
             if frame.minX < -1 || frame.maxX > width + 1 {
                 found.append("\(name(scroll)) spans \(Int(frame.minX))…\(Int(frame.maxX)), out of the window's 0…\(Int(width))")
+            }
+            if frame.minY < -1 || frame.maxY > height + 1 {
+                found.append("\(name(scroll)) spans \(Int(frame.minY))…\(Int(frame.maxY)) in height, out of the window's 0…\(Int(height))")
             }
         }
         if let sidebar = splitController(window)?.splitViewItems.first, sidebar.behavior == .sidebar, !sidebar.isCollapsed {
