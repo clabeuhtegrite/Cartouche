@@ -10,9 +10,10 @@
 //  page. After each step every scrolling column must lie in the window and
 //  the sidebar must list its pages. Any exception AppKit raises ends the
 //  app (NSApplicationCrashOnExceptions), as one did on a player's Mac on
-//  11 November: the split view's columns, too wide together for the window,
-//  sent AppKit's constraint passes round in a loop. Nothing of the Mac's is
-//  read or kept: no engine, no bridge, no settings written.
+//  11 November: the game's sheet, then the system's inspector, made the
+//  page wider than the window at each update, until AppKit's constraint
+//  passes went round in a loop. Nothing of the Mac's is read or kept: no
+//  engine, no bridge, no settings written.
 //
 
 import AppKit
@@ -81,8 +82,9 @@ enum LayoutCheck {
     }
 
     /// A game nxnative improved, with commits of a paragraph each, as
-    /// nxnative writes them, and the engine's reasons quoting them.
-    private static func lengthen(_ game: inout Game) {
+    /// nxnative writes them, and the engine's reasons quoting them (also the
+    /// gallery's game-narrow page).
+    static func lengthen(_ game: inout Game) {
         let now = Date().timeIntervalSince1970
         let paragraphs = [
             "Graphics: the picture's size follows the console mode the game asks for at run time instead of a size fixed per build, so a game that draws below the display's size in handheld mode gets the larger picture when it switches, and the games that scale their frame buffer by a tier get the tier the handheld mode reports. Checked on three games over twenty minutes each: the GPU time stays within a millisecond of before, at the same frame rate, with the same four warnings in the log and none new; not run on the iPhone, where the larger picture leaves less room, nor on a slower Mac.",
@@ -128,8 +130,7 @@ enum LayoutCheck {
         }
         let chosen = model.library?.games.first { $0.name == "Hades II" }?.titleID
         let other = model.library?.games.first { $0.state == .failed }?.titleID
-        measure(model, chosen: chosen)
-        var failures = 0
+        var failures = measure(model, chosen: chosen)
 
         func step(_ name: String, _ action: () -> Void) async {
             action()
@@ -242,10 +243,13 @@ enum LayoutCheck {
         }.joined(separator: ", ")
     }
 
-    /// The least width of the sidebar, the library and the game's sheet,
-    /// as SwiftUI lays them out, and of the whole window's content.
-    private static func measure(_ model: AppModel, chosen: String?) {
-        func least<Content: View>(_ content: Content) -> Int {
+    /// The least width of the sidebar, each page and the game's sheet, as
+    /// SwiftUI lays them out, against what their columns leave them
+    /// (Columns): the number of them that need more. A page that scrolls
+    /// needs only what its scroll view does: what does not fit in it, the
+    /// gallery's game-narrow page shows.
+    private static func measure(_ model: AppModel, chosen: String?) -> Int {
+        func least<Content: View>(_ content: Content) -> CGFloat {
             let controller = NSHostingController(rootView: content
                 .environmentObject(model)
                 .environmentObject(model.setup)
@@ -253,13 +257,32 @@ enum LayoutCheck {
                 .environmentObject(model.covers)
                 .environmentObject(model.updater)
                 .environmentObject(model.telemetry))
-            return Int(controller.sizeThatFits(in: CGSize(width: 0, height: 700)).width.rounded(.up))
+            return controller.sizeThatFits(in: CGSize(width: 0, height: 700)).width.rounded(.up)
         }
-        var parts = ["sidebar \(least(Sidebar()))", "library \(least(LibraryView()))"]
+        // Beside the sidebar at its widest, a page has the rest of the
+        // window; the library, with the game's sheet, less.
+        let page = Columns.window.width - Columns.sidebar.most
+        var parts: [(String, CGFloat, CGFloat)] = [
+            ("sidebar", least(Sidebar()), Columns.sidebar.least),
+            ("library", least(LibraryView()), Columns.page),
+            ("builds", least(ActivityView()), page),
+            ("storage", least(StorageView()), page),
+            ("iPhone", least(BridgeView()), page),
+            ("tools", least(SetupView()), page),
+        ]
         if let game = model.game(chosen) {
-            parts.append("game's sheet \(least(GameDetailView(game: game)))")
+            parts.append(("game's sheet", least(GameDetailView(game: game)), Columns.sheet))
+            model.selection = chosen
+            parts.append(("library with the game's sheet", least(LibraryView()), page))
+            model.selection = nil
         }
-        say("least widths: " + parts.joined(separator: ", "))
+        var failures = 0
+        for (name, width, room) in parts {
+            let fits = width <= room
+            if !fits { failures += 1 }
+            say("\(fits ? "✓" : "✗") \(name) needs \(Int(width)) points, its column leaves it \(Int(room))")
+        }
+        return failures
     }
 
     // MARK: Helpers

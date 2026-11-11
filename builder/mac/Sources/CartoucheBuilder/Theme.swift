@@ -35,25 +35,52 @@ struct Card<Content: View>: View {
     }
 }
 
-/// A page's title and what it is about, above its cards.
+/// The window's columns: the sidebar, the page, and the game's sheet beside
+/// the library. The sheet is a column of the library's own, of one width,
+/// not the system's inspector: on macOS 27 the inspector, inside the split
+/// view's page, made the page wider than the window at each update, the
+/// page and the sidebar spilled past both edges, and AppKit went round its
+/// constraint passes until it ended the app (11 November). The window's
+/// least width holds the sidebar at its widest, a page and the sheet; each
+/// page lays itself out to fit (PageHeader, DueCard), and the layout check
+/// (LayoutCheck.swift) holds them to it.
+enum Columns {
+    static let sidebar: (least: CGFloat, ideal: CGFloat, most: CGFloat) = (200, 220, 280)
+    static let page: CGFloat = 340
+    static let sheet: CGFloat = 320
+    static let window = CGSize(width: sidebar.most + page + sheet, height: 620)
+}
+
+/// A page's title and what it is about, above its cards, with its button
+/// or its picker beside it, or under it when the page is too narrow.
 struct PageHeader<Accessory: View>: View {
     let title: String
     var subtitle: String = ""
     @ViewBuilder var accessory: Accessory
 
     var body: some View {
-        HStack(alignment: .firstTextBaseline, spacing: 12) {
-            VStack(alignment: .leading, spacing: 4) {
-                Text(title)
-                    .font(.largeTitle.weight(.bold))
-                if !subtitle.isEmpty {
-                    Text(subtitle)
-                        .font(.title3)
-                        .foregroundStyle(.secondary)
-                }
+        ViewThatFits(in: .horizontal) {
+            HStack(alignment: .firstTextBaseline, spacing: 12) {
+                titles
+                Spacer(minLength: 12)
+                accessory
             }
-            Spacer(minLength: 12)
-            accessory
+            VStack(alignment: .leading, spacing: 14) {
+                titles
+                accessory
+            }
+        }
+    }
+
+    private var titles: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(title)
+                .font(.largeTitle.weight(.bold))
+            if !subtitle.isEmpty {
+                Text(subtitle)
+                    .font(.title3)
+                    .foregroundStyle(.secondary)
+            }
         }
     }
 }
@@ -146,7 +173,33 @@ func reasonText(_ reason: String) -> String {
     case "failed_here": return tr("Failed at this commit of nxnative", "Échec à ce commit de nxnative")
     case "up_to_date": return tr("Up to date", "À jour")
     case "forced": return tr("Asked for", "Demandé")
+    case "not_selected": return tr("Not followed: rebuilt only when asked", "Pas suivi : reconstruit seulement à la demande")
+    case "no_profile": return tr("nxnative has no profile for it yet: built once it has one", "nxnative n’a pas encore de profil pour lui : construit dès qu’il en aura un")
+    case "no_source": return tr("Its dump is not in the sources folder: its IPA is shown, and rebuilt once the dump is back",
+                                "Son dump n’est pas dans le dossier des sources : son IPA est montrée, et reconstruite quand il reviendra")
     default: return reason
+    }
+}
+
+/// A reason a game is due, with how many of nxnative's commits it comes
+/// from: never a commit's own words, which are English and long (the
+/// sheet lists the commits below).
+func whyText(_ reason: String, counts: ChangeCounts?) -> String {
+    switch reason {
+    case "profile":
+        let count = counts?.profile ?? 0
+        guard count > 1 else { return reasonText(reason) }
+        return tr("nxnative changed its profile (\(count) commits)", "nxnative a changé son profil (\(count) commits)")
+    case "named":
+        let count = counts?.named ?? 0
+        guard count > 1 else { return reasonText(reason) }
+        return tr("\(count) fixes of nxnative name it", "\(count) correctifs de nxnative le nomment")
+    case "shared":
+        let count = counts?.shared ?? 0
+        guard count > 1 else { return reasonText(reason) }
+        return tr("nxnative’s shared code changed (\(count) commits)", "Le code commun de nxnative a changé (\(count) commits)")
+    default:
+        return reasonText(reason)
     }
 }
 

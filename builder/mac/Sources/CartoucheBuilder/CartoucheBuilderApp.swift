@@ -45,7 +45,7 @@ struct CartoucheBuilderApp: App {
                 .environmentObject(model.covers)
                 .environmentObject(model.updater)
                 .environmentObject(model.telemetry)
-                .frame(minWidth: 940, minHeight: 620)
+                .frame(minWidth: Columns.window.width, minHeight: Columns.window.height)
         }
         .defaultSize(width: 1220, height: 780)
         .defaultLaunchBehavior(AppModel.launchedQuietly ? .suppressed : .automatic)

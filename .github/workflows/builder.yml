@@ -121,12 +121,15 @@ jobs:
         id: layout
         timeout-minutes: 5
         run: '"build/builder/Cartouche Builder.app/Contents/MacOS/Cartouche Builder" --layout-check'
-      # The exception that ended it, from the crash report macOS writes.
+      # The exception that ended it: what AppKit logged, and the crash
+      # report macOS writes, when it has written one.
       - name: Say how it ended
         if: ${{ failure() && steps.layout.outcome == 'failure' }}
         run: |
-          sleep 15
-          for report in "$HOME"/Library/Logs/DiagnosticReports/Cartouche*.ips; do
+          log show --last 10m --style compact --predicate 'process == "Cartouche Builder"' 2>/dev/null \
+            | grep -iE "exception|constraint|terminat|assert" | tail -n 40 || true
+          sleep 20
+          for report in "$HOME"/Library/Logs/DiagnosticReports/*Cartouche*.ips /Library/Logs/DiagnosticReports/*Cartouche*.ips; do
             [ -f "$report" ] || continue
             echo "== $report"
             python3 - "$report" <<'PY'

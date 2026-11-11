@@ -3,7 +3,8 @@
 //  Cartouche Builder
 //
 //  The window: its pages in a sidebar, the page chosen, a message above
-//  it when something went wrong, and the setup assistant.
+//  it when something went wrong, and the setup assistant. The columns'
+//  widths are in Columns (Theme.swift).
 //
 
 import BuilderKit
@@ -17,7 +18,7 @@ struct ContentView: View {
     var body: some View {
         NavigationSplitView {
             Sidebar()
-                .navigationSplitViewColumnWidth(min: 200, ideal: 220, max: 280)
+                .navigationSplitViewColumnWidth(min: Columns.sidebar.least, ideal: Columns.sidebar.ideal, max: Columns.sidebar.most)
         } detail: {
             VStack(spacing: 0) {
                 if let banner = model.banner {
@@ -30,6 +31,9 @@ struct ContentView: View {
             }
             .animation(.snappy, value: model.banner)
         }
+        // Each page has its title at its top: none in the toolbar, where the
+        // covers scrolled under it.
+        .toolbar(removing: .title)
         .sheet(isPresented: $model.showSetup) {
             SetupAssistant(start: model.setupStep)
                 .environmentObject(model)

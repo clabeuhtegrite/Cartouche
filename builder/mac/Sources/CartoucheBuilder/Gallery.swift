@@ -21,7 +21,7 @@ import SwiftUI
 @MainActor
 enum Gallery {
     enum Page: String, CaseIterable {
-        case library, game, activity, storage, iphone, setup, settings, menubar, menubarBuilding = "menubar-building"
+        case library, game, gameNarrow = "game-narrow", activity, storage, iphone, setup, settings, menubar, menubarBuilding = "menubar-building"
         case assistantWelcome = "assistant-welcome", assistantTools = "assistant-tools", assistantSources = "assistant-sources"
         case assistantGames = "assistant-games", assistantKeys = "assistant-keys", assistantBuilds = "assistant-builds"
         case assistantIPhone = "assistant-iphone", assistantDone = "assistant-done"
@@ -45,6 +45,9 @@ enum Gallery {
             if step != nil { return SetupAssistant.size }
             switch self {
             case .settings: return SettingsTab.size
+            // The window at its smallest, with a game's sheet whose
+            // nxnative commits are a paragraph each, as nxnative writes them.
+            case .gameNarrow: return CGSize(width: Columns.window.width, height: 680)
             case .menubar, .menubarBuilding: return CGSize(width: 330, height: 0)
             default: return CGSize(width: 1220, height: 780)
             }
@@ -281,14 +284,18 @@ enum Gallery {
 
         func model(for page: Page) -> AppModel {
             let building = page == .activity || page == .menubarBuilding
+            var library = self.library
+            if page == .gameNarrow, let index = library.games.firstIndex(where: { $0.titleID == "0100152000022000" }) {
+                LayoutCheck.lengthen(&library.games[index])
+            }
             let model = AppModel.sampled(library: library, status: building ? self.building : nil, storage: storage, config: config, info: info)
             switch page {
             case .library, .activity, .storage, .iphone: model.section = AppSection(rawValue: page.rawValue) ?? .library
-            case .game: model.section = .library
+            case .game, .gameNarrow: model.section = .library
             case .setup: model.section = .setup
             default: break
             }
-            if page == .game { model.selection = "0100152000022000" }
+            if page == .game || page == .gameNarrow { model.selection = "0100152000022000" }
             if page == .setup || page == .assistantTools {
                 model.setup.preview([
                     .mac: .ready("macOS 26.1"),
