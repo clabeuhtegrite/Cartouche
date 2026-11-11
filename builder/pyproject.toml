@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "cartouche-builder"
-version = "0.2.0"
+version = "0.3.0"
 description = "Builds the player's own games into IPAs with nxnative on their Mac, and builds again those an nxnative change touches"
 readme = "README.md"
 requires-python = ">=3.12"
