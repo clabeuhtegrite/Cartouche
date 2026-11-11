@@ -1,0 +1,811 @@
+From cc01d777c053ed85db40999ffbe119d0b3a163ad Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Wed, 11 Nov 2026 20:18:43 +0000
+Subject: [PATCH] Sign in as the Cartouche Installer does
+
+Since October 2026, Apple refuses a sign-in whose identity is not the
+kind of machine that made its anisette data: "-80045" when it starts,
+"-80046" after a verification code. SideStore says it is a Mac, but
+takes anisette from any server of its list, most of them Android ones,
+or makes it on the device; writes the identifier in hexadecimal, which
+the v3 servers read as base64 and so turn into another machine; falls
+back to a server's own v1 headers, those of another machine still; and
+keeps the identifier and adi.pb one server made for the next. A server
+that refuses that adi.pb ("-45061 reprovision required") is never asked
+for a new one, and the keychain outlives a reinstall, so reinstalling
+does not help.
+
+A sign-in now gets anisette as the Cartouche Installer (iloader,
+isideload 0.5.2) does, which Apple accepts:
+
+- the Mac the Installer says it is, and the Xcode it says it runs, on
+  every request: provisioning, anisette, sign-in, verification code;
+- anisette from the Installer's Mac servers only, in its order,
+  starting with the one that last worked;
+- the identifier in base64, as the v3 protocol has it, and no v1
+  headers should /v3/get_headers fail;
+- the client-provided data and headers the Installer sends;
+- fresh anisette from the same machine once the player has typed a
+  verification code;
+- the machine kept in the keychain with what it was made with, and made
+  again when it was made another way, when the server refuses it, or
+  when Apple refused the last sign-in with it, which then starts with
+  the next server.
+
+What follows such a sign-in, the developer services and the renewals,
+keeps its machine and identity, since Apple's token works only with
+them. An account signed in before keeps SideStore's own way until it
+signs in again. Network errors with these servers count as anisette in
+Cartouche's measurements.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01MzPJoskkGEWhmzA3iCNNsk
+---
+ AltStore/Core/Components/Keychain.swift       |   6 +
+ .../Anisette/AnisetteDataManager.swift        |  35 +++
+ .../Anisette/RemoteAnisetteDataProvider.swift |  74 +++++-
+ .../DeveloperPortal/Authentication.swift      |  85 +++++--
+ SideStore/AppConstants.swift                  |  19 ++
+ .../Core/Anisette/AnisetteConfigManager.swift |   3 +-
+ .../Core/Anisette/AnisetteProvider.swift      |  10 +-
+ .../Core/Anisette/CartoucheAnisette.swift     | 233 ++++++++++++++++++
+ .../SignInOperation.swift                     |  39 ++-
+ SideStore/Intents/CartoucheOutcome.swift      |   2 +
+ 10 files changed, 463 insertions(+), 43 deletions(-)
+ create mode 100644 SideStore/Core/Anisette/CartoucheAnisette.swift
+
+diff --git a/AltStore/Core/Components/Keychain.swift b/AltStore/Core/Components/Keychain.swift
+index bb4133f..918696f 100644
+--- a/AltStore/Core/Components/Keychain.swift
++++ b/AltStore/Core/Components/Keychain.swift
+@@ -82,6 +82,11 @@ public class Keychain
+     @KeychainItem(key: "adiPb")
+     public var adiPb: String?
+ 
++    // Cartouche: how the two items above were made, when CartoucheAnisette
++    // made them.
++    @KeychainItem(key: "cartoucheAnisette")
++    public var cartoucheAnisette: String?
++
+     @KeychainItem(key: "deviceUDID")
+     public var deviceUDID: String?
+ 
+@@ -160,6 +165,7 @@ public class Keychain
+ 
+         if !keepAnisetteData {
+             self.adiPb = nil
++            self.cartoucheAnisette = nil
+             debugLog("[Keychain] Cleared Anisette ADI data (adiPb).")
+         } else {
+             debugLog("[Keychain] Preserved Anisette ADI data (adiPb).")
+diff --git a/Dependencies/SideSign/Sources/Anisette/AnisetteDataManager.swift b/Dependencies/SideSign/Sources/Anisette/AnisetteDataManager.swift
+index 8c64485..3cb4e65 100644
+--- a/Dependencies/SideSign/Sources/Anisette/AnisetteDataManager.swift
++++ b/Dependencies/SideSign/Sources/Anisette/AnisetteDataManager.swift
+@@ -505,6 +505,41 @@ public final class AnisetteDataManager: @unchecked Sendable {
+         }
+     }
+ 
++    /// Anisette from SERVER as the Cartouche Installer (isideload) gets it:
++    /// the identifier written in base64, the identity CLIENT INFO and USER
++    /// AGENT on every request, provisioning when there is no EXISTING ADI
++    /// BLOB, and no v1 headers of the server's own machine should
++    /// /v3/get_headers fail. Nothing is cached.
++    public func fetchStrictRemoteAnisetteData(
++        server: URL,
++        identifier: UUID,
++        existingAdiBlob: Data?,
++        clientInfo: String,
++        userAgent: String,
++        localUserID: String
++    ) async throws -> (data: AnisetteData, newAdiBlob: Data?) {
++        try FileManager.default.createDirectory(at: provisioningDir, withIntermediateDirectories: true)
++        let client = try AnisetteClient(
++            provisioningDir: provisioningDir,
++            clientInfo: clientInfo,
++            userAgent: userAgent,
++            lookupURL: Constants.Anisette.URLs.grandSlamLookup,
++            requiredLibraries: Constants.Anisette.Libraries.requiredNames,
++            provider: RemoteAnisetteDataProvider(serverURL: server, identifierEncoding: .base64, allowsV1Fallback: false)
++        )
++        let headers = AnisetteRequestHeaders().with {
++            $0.clientInfo = clientInfo
++            $0.userAgent = userAgent
++            $0.localUserID = localUserID
++        }
++        let (rawHeaders, newBlob) = try await client.getAnisetteData(
++            identifier: identifier,
++            storage: .memory(existingBlob: existingAdiBlob),
++            headers: headers
++        )
++        return (try Self.validateAndCreateAnisetteData(from: rawHeaders), newBlob)
++    }
++
+     public func fetchAnisetteDataWithFailover(
+         servers: [URL],
+         startIndex: Int = 0,
+diff --git a/Dependencies/SideSign/Sources/Anisette/RemoteAnisetteDataProvider.swift b/Dependencies/SideSign/Sources/Anisette/RemoteAnisetteDataProvider.swift
+index 26c596a..2729893 100644
+--- a/Dependencies/SideSign/Sources/Anisette/RemoteAnisetteDataProvider.swift
++++ b/Dependencies/SideSign/Sources/Anisette/RemoteAnisetteDataProvider.swift
+@@ -12,7 +12,24 @@ import AnisetteKit
+ public struct RemoteAnisetteDataProvider: AnisetteDataProvider, Sendable {
+     public var requiresLocalLibraries: Bool { false }
+ 
++    /// How the 16 bytes of the identifier are written to the server.
++    public enum IdentifierEncoding: Sendable {
++        /// 32 hexadecimal digits, as SideSign has always written them. The
++        /// v3 servers read the identifier as base64, so they make another
++        /// one from it, the same each time.
++        case hex
++        /// Base64, as the v3 protocol and the Cartouche Installer
++        /// (isideload) write it: the server's identifier is the device ID
++        /// sent to Apple.
++        case base64
++    }
++
+     public let serverURL: URL
++    public let identifierEncoding: IdentifierEncoding
++    /// Whether a server whose /v3/get_headers fails is asked for its own v1
++    /// headers instead. Those come from the server's own machine, not from
++    /// the one this identifier and adi.pb were provisioned as.
++    public let allowsV1Fallback: Bool
+ 
+     private final class ProvisioningSessionManager: @unchecked Sendable {
+         private let lock = NSLock()
+@@ -46,8 +63,17 @@ public struct RemoteAnisetteDataProvider: AnisetteDataProvider, Sendable {
+ 
+     private static let sessionManager = ProvisioningSessionManager()
+ 
+-    public init(serverURL: URL) {
++    public init(serverURL: URL, identifierEncoding: IdentifierEncoding = .hex, allowsV1Fallback: Bool = true) {
+         self.serverURL = serverURL
++        self.identifierEncoding = identifierEncoding
++        self.allowsV1Fallback = allowsV1Fallback
++    }
++
++    private func encoded(_ identifier: [UInt8]) -> String {
++        switch self.identifierEncoding {
++        case .hex: return identifier.map { String(format: "%02x", $0) }.joined()
++        case .base64: return Data(identifier).base64EncodedString()
++        }
+     }
+ 
+     public func getAnisetteHeaders(
+@@ -56,7 +82,11 @@ public struct RemoteAnisetteDataProvider: AnisetteDataProvider, Sendable {
+         identifier: [UInt8],
+         adiPb: [UInt8]
+     ) async throws -> AnisetteDataResponse {
+-        let cleanIdentifier = identifier.map { String(format: "%02x", $0) }.joined()
++        if !self.allowsV1Fallback {
++            return try await self.getV3Headers(identifier: identifier, adiPb: adiPb)
++        }
++
++        let cleanIdentifier = self.encoded(identifier)
+         let baseURL = serverURL.absoluteString.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+ 
+         // 1. If adiPb is present, attempt v3 /v3/get_headers
+@@ -105,6 +135,44 @@ public struct RemoteAnisetteDataProvider: AnisetteDataProvider, Sendable {
+         return try AnisetteDataResponse(from: json)
+     }
+ 
++    /// The server's /v3/get_headers, and nothing else: every failure is
++    /// thrown. A GetHeadersError, the server refusing this adi.pb (-45061:
++    /// "reprovision required"), is a badServerResponse with status -1 and
++    /// the server's message.
++    private func getV3Headers(identifier: [UInt8], adiPb: [UInt8]) async throws -> AnisetteDataResponse {
++        let baseURL = serverURL.absoluteString.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
++        guard !adiPb.isEmpty else {
++            throw AnisetteError.invalidAnisetteData
++        }
++        guard let url = URL(string: "\(baseURL)/\(Constants.URLs.v3GetHeaders)") else {
++            throw AnisetteError.invalidURL
++        }
++
++        var request = URLRequest(url: url)
++        request.timeoutInterval = Constants.Anisette.remoteRequestTimeout
++        request.httpMethod = "POST"
++        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
++        request.cachePolicy = .reloadIgnoringLocalCacheData
++        request.httpBody = try JSONSerialization.data(withJSONObject: [
++            "identifier": self.encoded(identifier),
++            "adi_pb": Data(adiPb).base64EncodedString()
++        ])
++
++        let (data, response) = try await URLSession.shared.data(for: request)
++        let status = (response as? HTTPURLResponse)?.statusCode ?? -1
++        guard let httpResp = response as? HTTPURLResponse, httpResp.isSuccess else {
++            // A server's error page says nothing more than its status.
++            throw AnisetteError.badServerResponse(statusCode: status, payload: "")
++        }
++        guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
++            throw AnisetteError.invalidAnisetteData
++        }
++        if let result = json["result"] as? String, result == "GetHeadersError" {
++            throw AnisetteError.badServerResponse(statusCode: -1, payload: json["message"] as? String ?? "GetHeadersError")
++        }
++        return try AnisetteDataResponse(from: json.compactMapValues { $0 as? String })
++    }
++
+     public func startProvision(
+         libDir: String,
+         provisioningDir: String,
+@@ -124,7 +192,7 @@ public struct RemoteAnisetteDataProvider: AnisetteDataProvider, Sendable {
+         let webSocketTask = URLSession.shared.webSocketTask(with: webSocketURL)
+         webSocketTask.resume()
+ 
+-        let cleanIdentifier = identifier.map { String(format: "%02x", $0) }.joined()
++        let cleanIdentifier = self.encoded(identifier)
+ 
+         do {
+             while true {
+diff --git a/Dependencies/SideSign/Sources/DeveloperPortal/Authentication.swift b/Dependencies/SideSign/Sources/DeveloperPortal/Authentication.swift
+index 0b8e0f2..ca50ec5 100644
+--- a/Dependencies/SideSign/Sources/DeveloperPortal/Authentication.swift
++++ b/Dependencies/SideSign/Sources/DeveloperPortal/Authentication.swift
+@@ -13,6 +13,14 @@ private enum PushedCodeState {
+     @TaskLocal static var handled = false
+ }
+ 
++/// Cartouche: where a sign-in gets anisette again for the requests it sends
++/// once the player has typed a verification code, which can be minutes after
++/// the anisette it started with; the Cartouche Installer (isideload) gets it
++/// again after a minute. Unset, the sign-in keeps the anisette it was given.
++public enum AnisetteRefresh {
++    @TaskLocal public static var fetch: (@Sendable () async throws -> AnisetteData)?
++}
++
+ public extension DeveloperPortal {
+ 
+     func authenticate(appleID unsanitizedAppleID: String,
+@@ -27,22 +35,18 @@ public extension DeveloperPortal {
+         debugLog("[SideSign] Starting authenticate...")
+         verboseLog("[SideSign] Authenticating Apple ID: \(sanitizedAppleID)")
+ 
++        // Cartouche: the client-provided data the Cartouche Installer
++        // (isideload) sends, nine strings, which Apple accepts.
+         let clientDictionary: [String: any Sendable] = [
+-            "bootstrap": true,
+-            "icscrec": true,
+-            "pbe": false,
+-            "prkgen": true,
+-            "svct": customHeaders.grandSlam.service,
++            "bootstrap": "true",
++            "icscrec": "true",
+             "loc": anisetteData.locale,
+-            "X-Apple-Locale": anisetteData.locale,
++            "pbe": "false",
++            "prkgen": "true",
++            "svct": customHeaders.grandSlam.service,
+             "X-Apple-I-MD": anisetteData.oneTimePassword,
+             "X-Apple-I-MD-M": anisetteData.machineID,
+-            "X-Mme-Device-Id": anisetteData.deviceID,
+-            "X-Apple-I-MD-LU": anisetteData.localUserID,
+-            "X-Apple-I-MD-RINFO": anisetteData.routingInfo,
+-            "X-Apple-I-SRL-NO": anisetteData.serialNumber,
+-            "X-Apple-I-Client-Time": anisetteData.clientTime,
+-            "X-Apple-I-TimeZone": anisetteData.timeZone
++            "X-Mme-Device-Id": anisetteData.deviceID
+         ]
+ 
+         guard let srpClient = SRPClient(),
+@@ -64,7 +68,7 @@ public extension DeveloperPortal {
+         ]
+ 
+         debugLog("[SideSign] Sending authentication 'init' request...")
+-        let initResponse = try await sendAuthenticationRequest(parameters: initParameters, anisetteData: anisetteData)
++        let initResponse = try await sendAuthenticationRequest(parameters: initParameters, anisetteData: anisetteData, xcodeVersion: xcodeVersion)
+ 
+         guard let c = initResponse["c"] as? String,
+               let salt = initResponse["s"] as? Data,
+@@ -127,7 +131,7 @@ public extension DeveloperPortal {
+             "u": sanitizedAppleID
+         ]
+ 
+-        let completeResponseDictionary = try await sendAuthenticationRequest(parameters: completeParameters, anisetteData: anisetteData)
++        let completeResponseDictionary = try await sendAuthenticationRequest(parameters: completeParameters, anisetteData: anisetteData, xcodeVersion: xcodeVersion)
+         debugLog("[SideSign] SRP complete step finished.")
+ 
+         guard let encryptedData = completeResponseDictionary["spd"] as? Data else {
+@@ -219,11 +223,12 @@ public extension DeveloperPortal {
+                     verificationHandler: verificationHandler,
+                     codeAlreadySent: pushedCode
+                 )
++                let freshAnisetteData = await self.refreshed(anisetteData)
+                 return try await PushedCodeState.$handled.withValue(PushedCodeState.handled || pushedCode) {
+                     try await authenticate(
+                         appleID: unsanitizedAppleID,
+                         password: password,
+-                        anisetteData: anisetteData,
++                        anisetteData: freshAnisetteData,
+                         xcodeVersion: xcodeVersion,
+                         machinePassword: machinePassword,
+                         accountRepairHandler: accountRepairHandler,
+@@ -287,7 +292,7 @@ public extension DeveloperPortal {
+             "u": dsid
+         ]
+ 
+-        let fetchedToken = try await fetchAuthToken(app: app, parameters: appTokensParameters, sessionKey: sessionKey, anisetteData: anisetteData)
++        let fetchedToken = try await fetchAuthToken(app: app, parameters: appTokensParameters, sessionKey: sessionKey, anisetteData: anisetteData, xcodeVersion: xcodeVersion)
+         let session = Session(
+             dsid: dsid,
+             authToken: fetchedToken.token,
+@@ -302,7 +307,7 @@ public extension DeveloperPortal {
+         return AuthSession(account: account, session: session)
+     }
+ 
+-    func sendAuthenticationRequest(parameters requestParameters: [String: any Sendable], anisetteData: AnisetteData) async throws -> [String: any Sendable] {
++    func sendAuthenticationRequest(parameters requestParameters: [String: any Sendable], anisetteData: AnisetteData, xcodeVersion: String? = nil) async throws -> [String: any Sendable] {
+         let requestURL = Constants.URLs.grandSlamAuth
+         let h = customHeaders
+ 
+@@ -317,13 +322,21 @@ public extension DeveloperPortal {
+         request.httpMethod = "POST"
+         request.httpBody = plistData
+ 
+-        let headers: [String: String] = [
++        // Cartouche: the headers the Cartouche Installer (isideload) sends.
++        // Apple refuses a sign-in whose User-Agent and X-MMe-Client-Info are
++        // not those of the machine that made the anisette data (-80045), so
++        // both are the anisette's own.
++        var headers: [String: String] = [
+             "Content-Type": "text/x-xml-plist",
+             "X-MMe-Client-Info": anisetteData.clientInfo,
+-            "Accept": "*/*",
+-            "User-Agent": h.grandSlam.userAgent,
++            "Accept": "text/x-xml-plist",
++            "User-Agent": anisetteData.userAgent,
++            "X-Apple-App-Info": h.grandSlam.authApp,
+             "Connection": "close"
+         ]
++        if let xcodeVersion {
++            headers["X-Xcode-Version"] = xcodeVersion
++        }
+         headers.forEach { request.setValue($1, forHTTPHeaderField: $0) }
+ 
+         if let allHeaders = request.allHTTPHeaderFields {
+@@ -386,8 +399,8 @@ public extension DeveloperPortal {
+         let timeToLive: TimeInterval?
+     }
+ 
+-    private func fetchAuthToken(app: String, parameters: [String: any Sendable], sessionKey: Data, anisetteData: AnisetteData) async throws -> FetchedAuthToken {
+-        let responseDictionary = try await sendAuthenticationRequest(parameters: parameters, anisetteData: anisetteData)
++    private func fetchAuthToken(app: String, parameters: [String: any Sendable], sessionKey: Data, anisetteData: AnisetteData, xcodeVersion: String) async throws -> FetchedAuthToken {
++        let responseDictionary = try await sendAuthenticationRequest(parameters: parameters, anisetteData: anisetteData, xcodeVersion: xcodeVersion)
+ 
+         guard let encryptedToken = responseDictionary["et"] as? Data else {
+             let payload = prettyJSONString(from: responseDictionary)
+@@ -797,7 +810,7 @@ public extension DeveloperPortal {
+     }
+ 
+     private func validateTrustedDevice2FACode(code: String, context: TwoFactorAuthContext) async throws -> TwoFactorAuthValidationResult {
+-        var verifyRequest = makeTwoFactorAuthRequest(url: Constants.URLs.grandSlamValidate, context: context)
++        var verifyRequest = makeTwoFactorAuthRequest(url: Constants.URLs.grandSlamValidate, context: await self.refreshed(context))
+         verifyRequest.setValue(code, forHTTPHeaderField: "security-code")
+ 
+         if let allHeaders = verifyRequest.allHTTPHeaderFields {
+@@ -817,7 +830,7 @@ public extension DeveloperPortal {
+                                       mode: String,
+                                       context: TwoFactorAuthContext) async throws -> TwoFactorAuthValidationResult
+     {
+-        var verifyRequest = makeTwoFactorAuthRequest(url: Constants.URLs.phoneSecurityCode, context: context)
++        var verifyRequest = makeTwoFactorAuthRequest(url: Constants.URLs.phoneSecurityCode, context: await self.refreshed(context))
+         verifyRequest.httpMethod = "POST"
+         verifyRequest.httpBody = try PropertyListSerialization.data(fromPropertyList: [
+             "securityCode.code": code,
+@@ -893,6 +906,27 @@ public extension DeveloperPortal {
+         return .success
+     }
+ 
++    /// Fresh anisette, when the sign-in has somewhere to get it
++    /// (AnisetteRefresh); ANISETTE DATA otherwise, or when that fails.
++    private func refreshed(_ anisetteData: AnisetteData) async -> AnisetteData {
++        guard let fetch = AnisetteRefresh.fetch else { return anisetteData }
++        do {
++            return try await fetch()
++        } catch {
++            debugLog("[SideSign] Could not get fresh anisette, keeping the sign-in's: \(error)")
++            return anisetteData
++        }
++    }
++
++    private func refreshed(_ context: TwoFactorAuthContext) async -> TwoFactorAuthContext {
++        TwoFactorAuthContext(
++            dsid: context.dsid,
++            idmsToken: context.idmsToken,
++            anisetteData: await self.refreshed(context.anisetteData),
++            xcodeVersion: context.xcodeVersion
++        )
++    }
++
+     private func makeTwoFactorAuthRequest(url: URL, context: TwoFactorAuthContext) -> URLRequest {
+         let identityToken = "\(context.dsid):\(context.idmsToken)"
+         let encodedIdentityToken = Data(identityToken.utf8).base64EncodedString()
+@@ -904,7 +938,8 @@ public extension DeveloperPortal {
+             "Accept": "application/x-buddyml",
+             "Accept-Language": "en-us",
+             "Content-Type": "application/x-plist",
+-            "User-Agent": h.developerServices.userAgent,
++            // Cartouche: the anisette's own, as for the sign-in (-80046 otherwise).
++            "User-Agent": a.userAgent,
+             "X-Apple-App-Info": h.grandSlam.authApp,
+             "X-Xcode-Version": context.xcodeVersion,
+             "X-Apple-Identity-Token": encodedIdentityToken,
+diff --git a/SideStore/AppConstants.swift b/SideStore/AppConstants.swift
+index de03a9c..8d2edf0 100644
+--- a/SideStore/AppConstants.swift
++++ b/SideStore/AppConstants.swift
+@@ -72,6 +72,25 @@ public enum AppConstants {
+         public static let defaultClientInfo           = Constants.Anisette.defaultClientInfo
+         public static let defaultUserAgent            = Constants.Anisette.defaultUserAgent
+ 
++        // Cartouche: how the Cartouche Installer (iloader, isideload 0.5.2)
++        // signs in, which Apple accepts: the Mac it says it is, the Xcode it
++        // says it runs, and the Mac anisette servers it offers, in its order.
++        // Since October 2026, Apple refuses a sign-in whose identity is not
++        // the kind of machine that made its anisette (-80045): an Android or
++        // Windows server, or on-device anisette, with a Mac identity.
++        // CartoucheAnisette signs in with these.
++        public enum Cartouche {
++            public static let clientInfo   = "<Mac15,7> <macOS;27.0;26A5378j> <com.apple.AuthKit/1 (com.apple.akd/1.0)>"
++            public static let userAgent    = "akd/1.0 CFNetwork/811.5.4"
++            public static let xcodeVersion = "27.0 (27A5218g)"
++            public static let servers      = [
++                "https://mac-ani.jkcoxson.com",
++                "https://ani.iloader.app",
++                "https://new.ani.sidestore.io",
++                "https://ani3.stikstore.app",
++            ]
++        }
++
+         public enum URLs {
+             public static let grandSlamLookup = Constants.Anisette.URLs.grandSlamLookup
+         }
+diff --git a/SideStore/Core/Anisette/AnisetteConfigManager.swift b/SideStore/Core/Anisette/AnisetteConfigManager.swift
+index 161f608..a4ad359 100644
+--- a/SideStore/Core/Anisette/AnisetteConfigManager.swift
++++ b/SideStore/Core/Anisette/AnisetteConfigManager.swift
+@@ -168,7 +168,8 @@ public actor AnisetteConfigManager {
+     }
+ 
+     public func resolvedXcodeVersion() async -> String {
+-        return loadConfig().customXcodeVersion ?? "26.0 (26A242)"
++        // Cartouche: the Xcode the Cartouche Installer says it runs.
++        return loadConfig().customXcodeVersion ?? AppConstants.Anisette.Cartouche.xcodeVersion
+     }
+     
+     public func saveConfig(_ config: AnisetteConfig) {
+diff --git a/SideStore/Core/Anisette/AnisetteProvider.swift b/SideStore/Core/Anisette/AnisetteProvider.swift
+index bd62860..c5bf3cf 100644
+--- a/SideStore/Core/Anisette/AnisetteProvider.swift
++++ b/SideStore/Core/Anisette/AnisetteProvider.swift
+@@ -10,7 +10,15 @@ import Foundation
+ import SideSign
+ 
+ enum AnisetteProvider {
+-    static func fetch(handler: AnisetteServerHandler? = nil) async throws -> ALTAnisetteData {
++    static func fetch(handler: AnisetteServerHandler? = nil, signingIn: Bool = false) async throws -> ALTAnisetteData {
++        // Cartouche: a sign-in, and what follows one made that way, gets
++        // anisette as the Cartouche Installer does. An account signed in
++        // before keeps the machine it signed in with, below.
++        if signingIn || CartoucheAnisette.isBound {
++            debugLog("[AnisetteProvider] Fetching anisette as the Cartouche Installer does...")
++            return try await CartoucheAnisette.fetch(signingIn: signingIn)
++        }
++
+         if UserDefaults.standard.useOnDeviceAnisette {
+             debugLog("[AnisetteProvider] Fetching anisette via On-Device Anisette (ODA)...")
+             return try await OnDeviceAnisetteManager.shared.fetchAnisetteData()
+diff --git a/SideStore/Core/Anisette/CartoucheAnisette.swift b/SideStore/Core/Anisette/CartoucheAnisette.swift
+new file mode 100644
+index 0000000..0c2ccc0
+--- /dev/null
++++ b/SideStore/Core/Anisette/CartoucheAnisette.swift
+@@ -0,0 +1,233 @@
++//
++//  CartoucheAnisette.swift
++//  SideStore
++//
++//  Cartouche: anisette as the Cartouche Installer (iloader, isideload) gets
++//  it, which Apple accepts. Since October 2026, Apple refuses a sign-in whose
++//  identity is not the kind of machine that made its anisette (-80045), and
++//  SideStore's own way mixed them: it says it is a Mac, but takes anisette
++//  from any server of its list, most of them Android ones, or makes it on the
++//  device, and keeps the machine one server made (an identifier and its
++//  adi.pb) for the next.
++//
++//  Here, a sign-in:
++//  - says it is the Mac the Cartouche Installer says it is
++//    (AppConstants.Anisette.Cartouche) on every request: provisioning,
++//    anisette, sign-in, verification code;
++//  - takes its anisette from the Cartouche Installer's Mac servers only, in
++//    its order, starting with the one that last worked;
++//  - writes the identifier as the v3 protocol has it (base64), and never
++//    takes a server's own v1 headers instead;
++//  - keeps the machine it made, in the keychain with what it was made with
++//    (Keychain.cartoucheAnisette), but makes a new one when the one there was
++//    made another way, when the server refuses it (-45061, "reprovision
++//    required": reinstalling did not help, since the keychain outlives the
++//    app), or when Apple refused the last sign-in with it, which then starts
++//    with the next server.
++//
++//  What follows such a sign-in (the developer services, renewals) keeps its
++//  machine and identity, since Apple's token works only with them. An account
++//  signed in before keeps SideStore's own way until it signs in again.
++//
++//  Needs proper testing on an iPhone, with each server.
++//
++
++import CryptoKit
++import Foundation
++import SideSign
++
++enum CartoucheAnisette
++{
++    /// What the identifier and adi.pb in the keychain were made with.
++    struct Binding: Codable, Equatable
++    {
++        var version: Int
++        /// The server that last gave anisette for them.
++        var server: String
++        var clientInfo: String
++        var userAgent: String
++        /// Whether Apple refused the last sign-in made with them.
++        var refused: Bool
++    }
++
++    private struct Machine
++    {
++        var identifier: UUID
++        var adiPb: Data
++    }
++
++    private static let version = 1
++
++    private static var binding: Binding? {
++        get {
++            guard let text = Keychain.shared.cartoucheAnisette,
++                  let binding = try? JSONDecoder().decode(Binding.self, from: Data(text.utf8)),
++                  binding.version == self.version
++            else { return nil }
++            return binding
++        }
++        set {
++            guard let newValue, let data = try? JSONEncoder().encode(newValue) else {
++                Keychain.shared.cartoucheAnisette = nil
++                return
++            }
++            Keychain.shared.cartoucheAnisette = String(decoding: data, as: UTF8.self)
++        }
++    }
++
++    /// Whether the machine in the keychain was made here: what follows a
++    /// sign-in keeps using it.
++    static var isBound: Bool { self.binding != nil }
++
++    static func fetch(signingIn: Bool) async throws -> ALTAnisetteData
++    {
++        let binding = self.binding
++        let clientInfo: String
++        let userAgent: String
++        var machine = self.storedMachine()
++
++        if !signingIn, let binding
++        {
++            // Apple's token works only with the machine and the identity
++            // it was made with.
++            clientInfo = binding.clientInfo
++            userAgent = binding.userAgent
++        }
++        else
++        {
++            clientInfo = AppConstants.Anisette.Cartouche.clientInfo
++            userAgent = AppConstants.Anisette.Cartouche.userAgent
++            let keepsMachine = binding.map { $0.clientInfo == clientInfo && $0.userAgent == userAgent && !$0.refused } ?? false
++            if !keepsMachine
++            {
++                debugLog("[CartoucheAnisette] Making a new machine for this sign-in.")
++                machine = nil
++            }
++        }
++
++        var lastError: Error?
++        for server in self.servers(after: binding, signingIn: signingIn)
++        {
++            // A server may tell to make a new machine when it made the one
++            // there, or when that one is being replaced anyway.
++            let mayReprovision = signingIn || machine == nil || binding?.server == server.absoluteString
++            do
++            {
++                return try await self.fetch(from: server, machine: machine, clientInfo: clientInfo, userAgent: userAgent, mayReprovision: mayReprovision)
++            }
++            catch
++            {
++                lastError = error
++                debugLog("[CartoucheAnisette] \(server.absoluteString) failed: \(error)")
++            }
++        }
++        throw lastError ?? SideSign.AnisetteError.allServersFailed
++    }
++
++    /// After a sign-in Apple refused for something else than the account
++    /// (its password, its code, too many attempts): the next one makes a new
++    /// machine, with the next server.
++    static func signInFailed(with error: Error)
++    {
++        guard var binding = self.binding, self.isRefusal(error) else { return }
++        debugLog("[CartoucheAnisette] Apple refused the sign-in: the next one makes a new machine.")
++        binding.refused = true
++        self.binding = binding
++    }
++
++    // MARK: - Servers
++
++    /// The Cartouche Installer's servers, starting with the one that last
++    /// worked, or with the next one when Apple refused that sign-in.
++    private static func servers(after binding: Binding?, signingIn: Bool) -> [URL]
++    {
++        let servers = AppConstants.Anisette.Cartouche.servers.compactMap { URL(string: $0) }
++        guard let binding, let index = servers.firstIndex(where: { $0.absoluteString == binding.server }) else {
++            return servers
++        }
++        let start = signingIn && binding.refused ? (index + 1) % servers.count : index
++        return Array(servers[start...] + servers[..<start])
++    }
++
++    private static func fetch(from server: URL, machine: Machine?, clientInfo: String, userAgent: String, mayReprovision: Bool) async throws -> ALTAnisetteData
++    {
++        if let machine
++        {
++            do
++            {
++                let (data, _) = try await self.anisette(from: server, identifier: machine.identifier, adiPb: machine.adiPb, clientInfo: clientInfo, userAgent: userAgent)
++                self.binding = Binding(version: self.version, server: server.absoluteString, clientInfo: clientInfo, userAgent: userAgent, refused: self.binding?.refused ?? false)
++                return data
++            }
++            catch SideSign.AnisetteError.badServerResponse(let status, let message) where status == -1 && mayReprovision
++            {
++                // The server's GetHeadersError: it refuses this machine.
++                debugLog("[CartoucheAnisette] \(server.absoluteString) refuses this machine (\(message)): making a new one.")
++            }
++        }
++
++        let identifier = UUID()
++        let (data, adiPb) = try await self.anisette(from: server, identifier: identifier, adiPb: nil, clientInfo: clientInfo, userAgent: userAgent)
++        guard let adiPb, !adiPb.isEmpty else {
++            throw SideSign.AnisetteError.invalidAnisetteData
++        }
++        Keychain.shared.identifier = identifier.uuidString
++        Keychain.shared.adiPb = adiPb.base64EncodedString()
++        self.binding = Binding(version: self.version, server: server.absoluteString, clientInfo: clientInfo, userAgent: userAgent, refused: false)
++        debugLog("[CartoucheAnisette] Made a new machine with \(server.absoluteString).")
++        return data
++    }
++
++    private static func anisette(from server: URL, identifier: UUID, adiPb: Data?, clientInfo: String, userAgent: String) async throws -> (data: ALTAnisetteData, newAdiBlob: Data?)
++    {
++        try await SideSign.AnisetteDataManager.shared.fetchStrictRemoteAnisetteData(
++            server: server,
++            identifier: identifier,
++            existingAdiBlob: adiPb,
++            clientInfo: clientInfo,
++            userAgent: userAgent,
++            localUserID: self.localUserID(for: identifier)
++        )
++    }
++
++    // MARK: - Machine
++
++    private static func storedMachine() -> Machine?
++    {
++        guard let text = Keychain.shared.identifier, let identifier = UUID(uuidString: text),
++              let adiPb = Keychain.shared.adiPb.flatMap({ Data(base64Encoded: $0) }), !adiPb.isEmpty
++        else { return nil }
++        return Machine(identifier: identifier, adiPb: adiPb)
++    }
++
++    /// The local user, as the Cartouche Installer names it: the SHA-256 of
++    /// the identifier's bytes, in hexadecimal.
++    private static func localUserID(for identifier: UUID) -> String
++    {
++        var uuid = identifier.uuid
++        let bytes = withUnsafeBytes(of: &uuid) { Data($0) }
++        return SHA256.hash(data: bytes).map { String(format: "%02x", $0) }.joined()
++    }
++
++    // MARK: - Errors
++
++    /// Whether Apple refused the sign-in for something else than the
++    /// account: a code of its own other than too many attempts, or a page
++    /// instead of an answer.
++    private static func isRefusal(_ error: Error) -> Bool
++    {
++        switch error
++        {
++        case ServerError.underlyingError(let code, _):
++            return ![
++                GrandSlamAuthErrorCodes.tooManyAttempts,
++                GrandSlamAuthErrorCodes.tooManyCodesRequested,
++                GrandSlamAuthErrorCodes.rateLimited,
++            ].contains(code)
++        case ServerError.invalidResponseFormat:
++            return true
++        default:
++            return false
++        }
++    }
++}
+diff --git a/SideStore/Core/Operations/StandaloneOperations/SignInOperation.swift b/SideStore/Core/Operations/StandaloneOperations/SignInOperation.swift
+index 1ff9135..766453b 100644
+--- a/SideStore/Core/Operations/StandaloneOperations/SignInOperation.swift
++++ b/SideStore/Core/Operations/StandaloneOperations/SignInOperation.swift
+@@ -63,7 +63,7 @@ final class SignInOperation: BaseStandaloneOperation<StandaloneOperationContext,
+     }
+ 
+     private func getAnisetteData() async throws -> ALTAnisetteData {
+-        try await AnisetteProvider.fetch(handler: self.anisetteServerHandler)
++        try await AnisetteProvider.fetch(handler: self.anisetteServerHandler, signingIn: true)
+     }
+     
+     // Main Pipeline Execution
+@@ -150,19 +150,32 @@ final class SignInOperation: BaseStandaloneOperation<StandaloneOperationContext,
+         
+         let xcodeVersion = await AnisetteConfigManager.shared.resolvedXcodeVersion()
+ 
+-        let (account, session) = try await AuthManager.shared.signIn(
+-            appleID: appleID,
+-            password: password,
+-            anisetteData: anisetteData,
+-            xcodeVersion: xcodeVersion,
+-            accountRepairHandler: { url, message in
+-                await handler.accountRepair(url: url, message: message)
+-            },
+-            verificationHandler: { request in
+-                try await handler.verificationCode(for: request)
++        // Cartouche: what the sign-in sends once the player has typed a
++        // verification code goes with fresh anisette from the same machine,
++        // and a machine Apple refuses is not signed in with again
++        // (CartoucheAnisette).
++        let signedIn: (ALTAccount, ALTAppleAPISession)
++        do {
++            signedIn = try await AnisetteRefresh.$fetch.withValue({ try await AnisetteProvider.fetch() }) {
++                try await AuthManager.shared.signIn(
++                    appleID: appleID,
++                    password: password,
++                    anisetteData: anisetteData,
++                    xcodeVersion: xcodeVersion,
++                    accountRepairHandler: { url, message in
++                        await handler.accountRepair(url: url, message: message)
++                    },
++                    verificationHandler: { request in
++                        try await handler.verificationCode(for: request)
++                    }
++                )
+             }
+-        )
+-        
++        } catch {
++            CartoucheAnisette.signInFailed(with: error)
++            throw error
++        }
++        let (account, session) = signedIn
++
+         AuthManager.shared.adsid = session.dsid
+         AuthManager.shared.xcodeToken = session.authToken
+         AuthManager.shared.currentAppleID = appleID
+diff --git a/SideStore/Intents/CartoucheOutcome.swift b/SideStore/Intents/CartoucheOutcome.swift
+index 16c14a2..f0d55cd 100644
+--- a/SideStore/Intents/CartoucheOutcome.swift
++++ b/SideStore/Intents/CartoucheOutcome.swift
+@@ -294,6 +294,8 @@ final class CartoucheOutcome: @unchecked Sendable
+         func within(_ domain: String) -> Bool { host == domain || host.hasSuffix("." + domain) }
+ 
+         if within("apple.com") || within("icloud.com") { return "apple" }
++        // The anisette servers Cartouche signs in with (CartoucheAnisette).
++        if AppConstants.Anisette.Cartouche.servers.contains(where: { URL(string: $0)?.host?.lowercased() == host }) { return "anisette" }
+         if within("sidestore.io") { return "sideStore" }
+         if within("github.io") || within("github.com") || within("githubusercontent.com") { return "github" }
+         if host.hasPrefix("10.7.0.") || host == "localhost" || host == "127.0.0.1" { return "device" }
+-- 
+2.43.0
+
