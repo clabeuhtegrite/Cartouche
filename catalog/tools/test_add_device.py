@@ -97,10 +97,11 @@ class AddDeviceTest(unittest.TestCase):
     def test_adds_a_measurement_of_a_known_model(self):
         said = add_device.add(self.devices, add_device.read_entry(report(KNOWN)))
         self.assertEqual(said, ["iPhone19,4: 2026-11-10, iOS 27.3, Increased Memory Limit on, 6143 MiB"])
-        dates = [m["date"] for m in self.devices["devices"][0]["measurements"]]
-        self.assertEqual(dates, sorted(dates))
-        self.assertEqual(self.devices["devices"][0]["measurements"][-1],
-                         {"date": "2026-11-10", "iOS": "27.3", "increasedMemoryLimit": True, "appMemoryLimitMiB": 6143})
+        measurements = self.devices["devices"][0]["measurements"]
+        self.assertIn({"date": "2026-11-10", "iOS": "27.3", "increasedMemoryLimit": True, "appMemoryLimitMiB": 6143},
+                      measurements)
+        # In order of date, then of iOS version, as the file keeps them.
+        self.assertEqual(measurements, sorted(measurements, key=add_device.measurement_order))
         # The same report again adds nothing.
         self.assertEqual(add_device.add(self.devices, add_device.read_entry(report(KNOWN))), [])
 

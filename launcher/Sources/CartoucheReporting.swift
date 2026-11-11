@@ -186,6 +186,14 @@ enum CartoucheReports {
         } else {
             facts.append(.init("Memory", "no limit from iOS, \(increased)"))
         }
+        // A game behind the console has a limit of its own, which iOS may
+        // set above Cartouche's.
+        if CartoucheGameKeeping.isAvailable {
+            let keeping = CartoucheGameKeeping.shared
+            let behind = !keeping.keepsConsoleOpen ? "off"
+                : keeping.limitMiB.map { "limit \($0) MiB at the last game" } ?? "not measured yet"
+            facts.append(.init("Memory behind Cartouche", behind))
+        }
         if let free = freeSpace {
             facts.append(.init("Free on this iPhone", CartoucheReport.bytes(free)))
         }
