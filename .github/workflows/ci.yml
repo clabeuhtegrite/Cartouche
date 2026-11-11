@@ -38,10 +38,10 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - name: Check out LiveContainer, SideStore, SideSign and SMBClient
+      - name: Check out LiveContainer, SideStore, SideSign, minimuxer and SMBClient
         run: |
           git submodule update --init app/LiveContainer app/SideStore app/SMBClient
-          git -C app/SideStore submodule update --init Dependencies/SideSign
+          git -C app/SideStore submodule update --init Dependencies/SideSign Dependencies/minimuxer
       - name: Branding tests
         run: python3 -m unittest discover -s app/tests -v
       - name: Copy, patch and brand the pinned sources

@@ -404,14 +404,24 @@ final class CartoucheTelemetry: ObservableObject {
         event("game.installed", game: found.isEmpty ? catalog.titleId(matchingName: app.displayName) : found, fields: fields)
     }
 
-    /// An error Cartouche showed: what it was doing, and the error's domain
-    /// and code with those under it, never its words.
+    /// An error Cartouche showed: what it was doing, the error's domain and
+    /// code with those under it, and why it failed (CartoucheFailure): its
+    /// cause, the step, how far it got and how long it took, the error's
+    /// names and numbers. Never its words.
     private func noteError(_ note: Notification) {
         var fields: [String: CartoucheTelemetryValue] = [:]
+        let failure = note.userInfo?["failure"] as? CartoucheFailure
+        if let failure {
+            fields = failure.fields
+        }
         if let origin = note.userInfo?["origin"] as? String {
             fields["origin"] = .text(origin)
         }
-        if let error = note.userInfo?["error"] as? Error {
+        // The built-in SideStore's error comes back as its text alone: its
+        // codes come with the failure.
+        if let codes = failure?.codes {
+            fields["error"] = .text(codes)
+        } else if let error = note.userInfo?["error"] as? Error {
             fields["error"] = .text(Self.codes(of: error))
         }
         // What Cartouche checks by itself, such as the games folder at each

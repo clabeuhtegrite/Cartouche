@@ -365,7 +365,7 @@ final class CartoucheGameSettingsModel: ObservableObject, Hashable {
             cloudNote = CartoucheText.cloudStale
             // Read each time the page opens: the report is not kept.
             cloudReport = CartoucheReports.make(.cloud, CartoucheText.cloudFailedTitle, message: CartoucheText.cloudStale,
-                                                error: error, step: "Reading the cloud saves folder of " + name,
+                                                error: error, step: "Reading the cloud saves folder of " + name, stage: "cloudFolder",
                                                 inBackground: true)
         }
     }
@@ -385,7 +385,8 @@ final class CartoucheGameSettingsModel: ObservableObject, Hashable {
         } catch {
             cloudNote = CartoucheText.cloudFailed
             cloudReport = CartoucheReports.make(.cloud, CartoucheText.cloudFailedTitle, message: CartoucheText.cloudFailed,
-                                                error: error, step: "Keeping the cloud saves folder of " + name)
+                                                error: error, step: "Keeping the cloud saves folder of " + name,
+                                                stage: "cloudFolderChoice")
             return
         }
         cloudReport = nil

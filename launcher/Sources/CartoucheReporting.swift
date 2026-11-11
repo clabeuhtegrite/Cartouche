@@ -41,23 +41,31 @@ enum CartoucheReports {
     /// Posted on the main thread for each report made, with the report,
     /// redacted, as its object. Its user info holds, under "origin", the
     /// report's origin as its raw value ("install"), under "error" the
-    /// error behind it, if any, and under "background" whether it came of
-    /// a check Cartouche made by itself.
+    /// error behind it, if any, under "failure" why it failed, as names and
+    /// numbers (CartoucheFailure), and under "background" whether it came
+    /// of a check Cartouche made by itself.
     static let reported = Notification.Name("CartoucheErrorReported")
 
     /// A report on what just went wrong at ORIGIN, as the player reads it:
     /// TITLE and MESSAGE, the ERROR behind them, the STEP Cartouche was at
     /// and how far it had gone, and the FACTS of that step, such as its
-    /// sizes. It is noted in the journal and posted as reported. Unless it
-    /// came of a check Cartouche makes by itself, IN BACKGROUND, such as
-    /// reading the games folder each time it comes back, which fails
-    /// whenever the player is away from home, it is kept with the last ten.
+    /// sizes. FAILURE says why, as the measurements send it; without one,
+    /// it is read off ERROR, with STAGE, the step as a key. It is noted in
+    /// the journal and posted as reported. Unless it came of a check
+    /// Cartouche makes by itself, IN BACKGROUND, such as reading the games
+    /// folder each time it comes back, which fails whenever the player is
+    /// away from home, it is kept with the last ten.
     static func make(_ origin: CartoucheReport.Origin, _ title: String, message: String, error: Error? = nil,
-                     step: String? = nil, fraction: Double? = nil, facts: [CartoucheReport.Fact] = [],
+                     step: String? = nil, fraction: Double? = nil, stage: String? = nil, seconds: Double? = nil,
+                     failure: CartoucheFailure? = nil, facts: [CartoucheReport.Fact] = [],
                      inBackground: Bool = false) -> CartoucheReport {
-        note("Problem (" + origin.rawValue + "): " + title + ": " + message + (error.map { " [" + describe($0) + "]" } ?? ""))
+        let failure = failure ?? error.map {
+            CartoucheFailure.of($0, stage: stage, fraction: fraction, seconds: seconds, status: protocolStatus)
+        }
+        note("Problem (" + origin.rawValue + "): " + title + ": " + message + (error.map { " [" + describe($0) + "]" } ?? "")
+             + (failure.map { " {" + $0.summary + "}" } ?? ""))
         let report = CartoucheReport(origin: origin, title: title, message: message, step: step, fraction: fraction,
-                                     error: error.map(describe), facts: facts, environment: environment(),
+                                     error: error.map(describe), failure: failure, facts: facts, environment: environment(),
                                      journal: journal(last: journalShown))
         let redaction = redaction()
         if !inBackground {
@@ -66,6 +74,9 @@ enum CartoucheReports {
         var info: [String: Any] = ["origin": origin.rawValue, "background": inBackground]
         if let error {
             info["error"] = error
+        }
+        if let failure {
+            info["failure"] = failure
         }
         NotificationCenter.default.post(name: reported, object: report.redacted(by: redaction), userInfo: info)
         return report
@@ -152,7 +163,7 @@ enum CartoucheReports {
             $0.isMac ? CartoucheText.storageMacOffline($0.name) : CartoucheText.storageOfflineCheck($0.name)
         } ?? error.localizedDescription
         return make(.storage, CartoucheText.storageConnectFailed, message: message, error: error,
-                    step: "Connecting to " + kindName(server.kind), facts: facts)
+                    step: "Connecting to " + kindName(server.kind), stage: "connect", facts: facts)
     }
 
     // MARK: What a report says of this iPhone
@@ -254,6 +265,27 @@ enum CartoucheReports {
 
     // MARK: The error
 
+    /// The status an error of SMB, S3, FTP or SFTP holds, for its cause.
+    nonisolated static func protocolStatus(_ error: Error) -> CartoucheFailure.ProtocolStatus? {
+        #if canImport(SMBClient)
+        if let response = error as? ErrorResponse {
+            return .init(kind: .smb, status: Int(UInt32(truncatingIfNeeded: response.header.status)))
+        }
+        #endif
+        #if canImport(NIOSSH)
+        if let failure = error as? SFTPFailure {
+            return .init(kind: .sftp, status: Int(failure.code))
+        }
+        #endif
+        if let failure = error as? CartoucheS3Failure {
+            return .init(kind: .s3, status: failure.status, code: failure.code)
+        }
+        if let failure = error as? FTPFailure {
+            return .init(kind: .ftp, status: failure.reply.code)
+        }
+        return nil
+    }
+
     /// ERROR as its domains and codes, with what an error of SMB, S3, FTP or
     /// SFTP holds.
     static func describe(_ error: Error) -> String {
@@ -319,6 +351,35 @@ enum CartoucheReports {
         }
         return redaction
     }
+}
+
+// MARK: What the storage's errors stand for
+
+extension CartoucheStorageError: CartoucheDescribedError {
+    var failureKind: String { kind.rawValue }
+
+    var failureCause: CartoucheFailure.Cause {
+        switch kind {
+        case .noSpaceHere: return .noSpace
+        case .noSpaceThere: return .storageFull
+        case .readOnly: return .storageReadOnly
+        case .gameUnreadable: return .fileUnreadable
+        case .tooLarge, .listingTooLong, .copyUnreadable, .badAnswer: return .storageAnswer
+        case .notInBuild: return .other
+        case .noPassword, .keysNeeded, .accountNeeded, .noSavesFolder: return .storageSetup
+        case .notAnApp: return .notAnApp
+        case .badAddress, .badBucket, .badName: return .storageAddress
+        case .signInFailed, .noSubsystem: return .storageServer
+        case .folderGone: return .storageNotFound
+        case .noHostKey, .hostKeyChanged: return .storageHostKey
+        }
+    }
+}
+
+extension CartoucheStorageOffline: CartoucheDescribedError {
+    var failureKind: String { isMac ? "macOffline" : "offline" }
+    var failureCause: CartoucheFailure.Cause { .storageOffline }
+    var underlyingError: Error? { nil }
 }
 
 // MARK: The button under an error

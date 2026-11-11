@@ -163,7 +163,7 @@ final class CartoucheSavesFolder {
         let folder = gameFolder(of: target)
         var names = try await copyNames(in: folder)
         guard names.contains(name), let date = CartoucheSaveSync.date(inName: name) else {
-            throw CartoucheStorageError(CartoucheText.savesCopyUnreadable)
+            throw CartoucheStorageError(.copyUnreadable, CartoucheText.savesCopyUnreadable)
         }
         var outcome = CartoucheSaveOutcome(step: .fetch, base: base)
         if let here = CartoucheSaveSync.saves(in: target.documents),
@@ -288,7 +288,7 @@ final class CartoucheSavesFolder {
         var offset: UInt64 = 0
         while offset < source.size {
             let part = try await source.read(at: offset, count: Int(min(source.size - offset, 8 << 20)))
-            guard !part.isEmpty else { throw CartoucheStorageError(CartoucheText.savesCopyUnreadable) }
+            guard !part.isEmpty else { throw CartoucheStorageError(.copyUnreadable, CartoucheText.savesCopyUnreadable) }
             try await sink.write(part)
             offset += UInt64(part.count)
         }
@@ -298,7 +298,7 @@ final class CartoucheSavesFolder {
         let file = try CartoucheFileSource(local)
         let entries = try await CartoucheZip.entries(of: file)
         guard CartoucheSaveSync.holdsSavesOnly(entries) else {
-            throw CartoucheStorageError(CartoucheText.savesCopyUnreadable)
+            throw CartoucheStorageError(.copyUnreadable, CartoucheText.savesCopyUnreadable)
         }
         let unpacked = work.appendingPathComponent("unpacked", isDirectory: true)
         try await CartoucheZip.extract(file, entries: entries, into: unpacked, progress: nil)

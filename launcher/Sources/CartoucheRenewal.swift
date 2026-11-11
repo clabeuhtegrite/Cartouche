@@ -14,8 +14,10 @@ import UserNotifications
 
 @available(iOS 17.0, *)
 enum CartoucheRenewal {
-    struct Failure: LocalizedError {
+    struct Failure: LocalizedError, CartoucheExplainedError {
         let message: String
+        /// Why, as the built-in SideStore left it (CartoucheSideStoreOutcome).
+        var failure: CartoucheFailure?
         var errorDescription: String? { message }
     }
 
@@ -39,21 +41,28 @@ enum CartoucheRenewal {
     static var canRenew: Bool { refreshAllApps != nil }
 
     /// Renews Cartouche, and every app its SideStore manages, without
-    /// leaving the app. LocalDevVPN has to be connected.
+    /// leaving the app. LocalDevVPN has to be connected. A failure says why,
+    /// as SideStore left it.
     @MainActor
     static func renew(progress: Progress) async throws {
         guard let refresh = refreshAllApps else {
-            throw Failure(message: CartoucheText.renewUnavailable)
+            throw Failure(message: CartoucheText.renewUnavailable, failure: CartoucheFailure(.bridgeMissing, stage: "start"))
         }
-        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
+        CartoucheStoreKeychain.remove(CartoucheSideStoreOutcome.account)
+        let started = Date()
+        let message: String? = await withCheckedContinuation { continuation in
             refresh.call(refresh.receiver, refreshSelector, progress) { message in
-                if let message {
-                    continuation.resume(throwing: Failure(message: message as String))
-                } else {
-                    continuation.resume()
-                }
+                continuation.resume(returning: message.map { $0 as String })
             }
         }
+        let outcome = CartoucheStoreKeychain.data(CartoucheSideStoreOutcome.account)
+            .flatMap { CartoucheSideStoreOutcome(data: $0, expecting: .refresh) }
+        CartoucheStoreKeychain.remove(CartoucheSideStoreOutcome.account)
+        guard let message else { return }
+        let failure = CartoucheFailure.sideStore(outcome: outcome, message: message, fraction: progress.fractionCompleted,
+                                                 seconds: Date().timeIntervalSince(started),
+                                                 vpn: CartoucheVPN.isConnected, pairing: CartouchePairing.exists)
+        throw Failure(message: message, failure: failure)
     }
 
     // MARK: Warnings before expiry

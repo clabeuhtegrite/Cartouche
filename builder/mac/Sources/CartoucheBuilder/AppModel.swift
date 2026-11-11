@@ -491,11 +491,22 @@ final class AppModel: ObservableObject {
                 self.starting = nil
                 batchEnded(fresh)
             } else if startingProcess?.isRunning != true || Date().timeIntervalSince(starting) > 600 {
-                // The batch ended, or never began, without a word in status.json.
+                // The batch ended, or never began, without a word in status.json:
+                // how long it was waited for, how the engine ended and the
+                // exception its log ends on, never the log's words.
+                var fields: [String: TelemetryValue] = ["origin": .text("build"), "kind": .text("not_started"),
+                                                        "seconds": .number(Date().timeIntervalSince(starting).rounded())]
+                if let process = startingProcess, !process.isRunning {
+                    fields["exit"] = .count(Int(process.terminationStatus))
+                    fields["signal"] = .flag(process.terminationReason == .uncaughtSignal)
+                } else {
+                    fields["running"] = .flag(startingProcess != nil)
+                }
+                if let exception = FailureDetails.exception(in: lastLogLines(80)) { fields["exception"] = .text(exception) }
                 self.starting = nil
                 startingProcess = nil
                 banner = Banner(kind: .error, text: tr("The build did not start: ", "La construction n’a pas démarré : ") + lastLogLines())
-                telemetry.event("builder.error", fields: ["origin": .text("build"), "kind": .text("not_started")])
+                telemetry.event("builder.error", fields: fields)
             }
         }
         if before?.running == true, fresh?.running == false, let fresh {
@@ -509,10 +520,10 @@ final class AppModel: ObservableObject {
         }
     }
 
-    private func lastLogLines() -> String {
+    private func lastLogLines(_ count: Int = 3) -> String {
         let log = home.logs.appendingPathComponent("app-batch.log")
         guard let text = try? String(contentsOf: log, encoding: .utf8) else { return "" }
-        return text.split(whereSeparator: \.isNewline).suffix(3).joined(separator: "\n")
+        return text.split(whereSeparator: \.isNewline).suffix(count).joined(separator: "\n")
     }
 
     private func batchEnded(_ status: BatchStatus) {
@@ -572,6 +583,7 @@ final class AppModel: ObservableObject {
             fields["minutes"] = .number((ended.timeIntervalSince(started) / 60 * 10).rounded() / 10)
         }
         if let head { fields["nxnative"] = .text(head) }
+        if let failure = status.failure { fields.merge(BuilderTelemetry.fields(of: failure)) { _, new in new } }
         telemetry.event("builder.batch", fields: fields)
     }
 

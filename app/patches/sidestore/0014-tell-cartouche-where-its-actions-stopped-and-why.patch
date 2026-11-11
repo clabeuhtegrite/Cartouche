@@ -1,0 +1,679 @@
+From 3ef8bed09161bb182bbc3ade2f0eb1c4a8cb3222 Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Wed, 11 Nov 2026 17:31:24 +0000
+Subject: [PATCH] Tell Cartouche where its actions stopped and why
+
+LiveContainer passes back to Cartouche only the text of an action's
+error, which Cartouche shows the player and never sends: its
+measurements knew that signing in failed, not where nor why.
+
+Sign In to Cartouche, Refresh All Apps and Update Cartouche now leave
+Cartouche, in the keychain item cartouche.outcome, how they ended: the
+step reached (the sign-in's own steps, or the last operation started,
+which every operation notes as it starts), how far it got, how long it
+took, and the error as names and numbers: its family and case, its
+domains and codes, Apple's code, the HTTP status, the URL error's code
+and what the server it could not reach is (Apple, SideStore, GitHub,
+the device), never its address. The sign-in also notes whether Apple
+asked for a verification code and how, how many certificates the
+account has and whether this SideStore holds one. Never the error's
+words, an Apple ID, a team, a device or a path.
+---
+ .../App Intents/RefreshAllAppsIntent.swift    |   5 +
+ .../Core/Operations/AsyncOperation.swift      |   3 +
+ SideStore/Intents/CartoucheOutcome.swift      | 333 ++++++++++++++++++
+ SideStore/Intents/CartoucheSignInIntent.swift | 121 ++++++-
+ SideStore/Intents/UpdateCartoucheIntent.swift |   4 +
+ 5 files changed, 461 insertions(+), 5 deletions(-)
+ create mode 100644 SideStore/Intents/CartoucheOutcome.swift
+
+diff --git a/AltStore/Intents/App Intents/RefreshAllAppsIntent.swift b/AltStore/Intents/App Intents/RefreshAllAppsIntent.swift
+index 11b9bfb..e2d775f 100644
+--- a/AltStore/Intents/App Intents/RefreshAllAppsIntent.swift	
++++ b/AltStore/Intents/App Intents/RefreshAllAppsIntent.swift	
+@@ -139,6 +139,9 @@ struct RefreshAllAppsIntent: AppIntent, CustomIntentMigratedAppIntent, Predictab
+     
+     func perform() async throws -> some IntentResult & ProvidesDialog
+     {
++        // Cartouche: how it ended, for Cartouche, which runs it to renew its
++        // signature (CartoucheOutcome).
++        let outcome = CartoucheOutcome(action: .refresh)
+         do
+         {
+             // Request foreground execution at ~27 seconds to gracefully handle timeout.
+@@ -174,10 +177,12 @@ struct RefreshAllAppsIntent: AppIntent, CustomIntentMigratedAppIntent, Predictab
+                 }
+             }
+             
++            outcome.save(error: nil, progress: self.progress)
+             return .result(dialog: "All apps have been refreshed.")
+         }
+         catch
+         {
++            outcome.save(error: error, progress: self.progress)
+             let intentError = IntentError(error)
+             throw intentError
+         }
+diff --git a/SideStore/Core/Operations/AsyncOperation.swift b/SideStore/Core/Operations/AsyncOperation.swift
+index c4cb952..d1d028a 100644
+--- a/SideStore/Core/Operations/AsyncOperation.swift
++++ b/SideStore/Core/Operations/AsyncOperation.swift
+@@ -52,6 +52,9 @@ class BaseOperation<Context: OperationContext, Result>: NSObject, AsyncOperation
+     
+     func executePreconditionCheck(parentProgress: Progress?) async throws {
+         let className = String(describing: type(of: self))
++        // Cartouche: the operations an action ran, for Cartouche to know
++        // where one stopped.
++        CartoucheOutcome.reached(className)
+         debugLog("[\(className)] executePreconditionCheck() started")
+         defer { debugLog("[\(className)] executePreconditionCheck() completed") }
+         
+diff --git a/SideStore/Intents/CartoucheOutcome.swift b/SideStore/Intents/CartoucheOutcome.swift
+new file mode 100644
+index 0000000..16c14a2
+--- /dev/null
++++ b/SideStore/Intents/CartoucheOutcome.swift
+@@ -0,0 +1,333 @@
++//
++//  CartoucheOutcome.swift
++//  SideStore
++//
++//  Cartouche: how the last of Cartouche's actions (Sign In to Cartouche,
++//  Refresh All Apps, Update Cartouche) ended. LiveContainer passes back to
++//  Cartouche only the text of an action's error, which Cartouche shows the
++//  player and never sends anywhere. This leaves Cartouche, in SideStore's
++//  keychain item cartouche.outcome (service: the bundle identifier, as in
++//  CartoucheSignInIntent), the step the action reached, how far it got,
++//  how long it took and its error as names and numbers, for Cartouche's
++//  measurements to say why actions fail:
++//
++//  {"version": 1, "action": "signIn" | "refresh" | "update", "ok": false,
++//   "date": 1762880000, "seconds": 12, "percent": 50, "stage": "device",
++//   "trail": "SignIn", "family": "minimuxer", "kind": "noVPN",
++//   "codes": "Minimuxer.MinimuxerError 3", "apple": -22406, "http": 503,
++//   "network": -1009, "host": "apple", "codeAsked": true,
++//   "codeMode": "trustedDevice", "certificates": 1, "bundledCertificate": true,
++//   "activeCertificate": false, "teams": 2, "teamType": "free"}
++//
++//  Never the error's words, an Apple ID, a team, a device, a certificate's
++//  serial, a path or an address: only the names below, chosen here, those
++//  of SideStore's error cases and operations, and numbers. Cartouche checks
++//  each value again before it keeps any.
++//
++
++import Foundation
++import Minimuxer
++import MinimuxerCommon
++import Security
++import SideSign
++
++final class CartoucheOutcome: @unchecked Sendable
++{
++    enum Action: String
++    {
++        case signIn
++        case refresh
++        case update
++    }
++
++    static let account = "cartouche.outcome"
++    static let version = 1
++
++    // MARK: - Trail
++
++    private static let trailLock = NSLock()
++    private static var trail: [String] = []
++
++    /// Notes that an operation started (BaseOperation's precondition check):
++    /// the operations an action ran, in order, end with the one it stopped in.
++    static func reached(_ operation: String)
++    {
++        var name = operation
++        if name.hasSuffix("Operation"), name.count > "Operation".count
++        {
++            name.removeLast("Operation".count)
++        }
++        self.trailLock.lock()
++        defer { self.trailLock.unlock() }
++        if self.trail.last != name
++        {
++            self.trail.append(name)
++        }
++        if self.trail.count > 12
++        {
++            self.trail.removeFirst(self.trail.count - 12)
++        }
++    }
++
++    private static func takeTrail() -> [String]
++    {
++        self.trailLock.lock()
++        defer { self.trailLock.unlock() }
++        return self.trail
++    }
++
++    // MARK: - Outcome
++
++    let action: Action
++    private let start = Date()
++    private let lock = NSLock()
++    private var facts: [String: Any] = [:]
++
++    init(action: Action)
++    {
++        self.action = action
++        Self.trailLock.lock()
++        Self.trail = []
++        Self.trailLock.unlock()
++        Self.delete()
++    }
++
++    /// Something the action learnt on its way: a name or a number.
++    func note(_ key: String, _ value: Any)
++    {
++        self.lock.lock()
++        self.facts[key] = value
++        self.lock.unlock()
++    }
++
++    /// Leaves Cartouche how the action ended: with ERROR, or well when nil.
++    /// STAGE, when the action knows it, is the step it reached; otherwise
++    /// the last operation it started.
++    func save(error: Error?, stage: String? = nil, progress: Progress? = nil)
++    {
++        var outcome: [String: Any] = [
++            "version": Self.version,
++            "action": self.action.rawValue,
++            "ok": error == nil,
++            "date": Int(Date().timeIntervalSince1970),
++            "seconds": max(0, Int(Date().timeIntervalSince(self.start).rounded())),
++        ]
++
++        let trail = Self.takeTrail()
++        if !trail.isEmpty
++        {
++            outcome["trail"] = trail.suffix(5).joined(separator: ">")
++        }
++        if let stage = stage ?? trail.last
++        {
++            outcome["stage"] = stage
++        }
++        if let progress, progress.totalUnitCount > 0
++        {
++            let fraction = min(max(progress.fractionCompleted, 0), 1)
++            outcome["percent"] = Int((fraction * 100).rounded())
++        }
++
++        self.lock.lock()
++        for (key, value) in self.facts
++        {
++            outcome[key] = value
++        }
++        self.lock.unlock()
++
++        if let error
++        {
++            let (family, kind) = Self.kind(of: error)
++            outcome["family"] = family
++            outcome["kind"] = kind
++            outcome["codes"] = Self.codes(of: error)
++            if let apple = Self.appleCode(of: error)
++            {
++                outcome["apple"] = apple
++            }
++            if let status = Self.httpStatus(of: error)
++            {
++                outcome["http"] = status
++            }
++            if let (code, host) = Self.network(of: error)
++            {
++                outcome["network"] = code
++                outcome["host"] = host
++            }
++        }
++
++        guard let data = try? JSONSerialization.data(withJSONObject: outcome) else { return }
++        Self.write(data)
++    }
++
++    // MARK: - Errors, as names and numbers
++
++    /// The family of an error (whose it is) and its kind (its case).
++    static func kind(of error: Error) -> (family: String, kind: String)
++    {
++        if let error = error as? CartoucheSignInError
++        {
++            return ("cartouche", error.kind.rawValue)
++        }
++
++        let family: String
++        switch error
++        {
++        case is DeveloperPortalError: family = "portal"
++        case is ServerError: family = "server"
++        case is AnisetteError: family = "anisette"
++        case is OperationError: family = "operation"
++        case is MinimuxerError: family = "minimuxer"
++        case is PairingError: family = "pairing"
++        case is EMProxyError: family = "emProxy"
++        case is SignerError: family = "signer"
++        case is CertificateError: family = "certificate"
++        case is OCSPValidationError: family = "ocsp"
++        case is DatabaseError: family = "database"
++        case is DecodingError: family = "decoding"
++        case is CancellationError: return ("cancelled", "cancelled")
++        default:
++            let nsError = error as NSError
++            switch nsError.domain
++            {
++            case NSURLErrorDomain: return ("network", "url")
++            case NSCocoaErrorDomain: return ("cocoa", "cocoa")
++            case NSPOSIXErrorDomain: return ("posix", "posix")
++            case NSOSStatusErrorDomain: return ("system", "osStatus")
++            default: return ("other", self.name(String(describing: type(of: error))) ?? "unnamed")
++            }
++        }
++        return (family, self.caseName(of: error))
++    }
++
++    /// The name of an enumeration's case, without what it carries.
++    static func caseName(of value: Any) -> String
++    {
++        let mirror = Mirror(reflecting: value)
++        guard mirror.displayStyle == .enum else {
++            return self.name(String(describing: type(of: value))) ?? "unnamed"
++        }
++        // A case that carries values is the label of what it carries; one
++        // that carries none prints as its name, unless its type prints
++        // itself otherwise, which the check below leaves out.
++        if let label = mirror.children.first?.label
++        {
++            return self.name(label) ?? "unnamed"
++        }
++        return self.name(String(describing: value)) ?? "unnamed"
++    }
++
++    /// NAME when it is a name a programmer gave, nothing else.
++    static func name(_ name: String) -> String?
++    {
++        guard (1...48).contains(name.count),
++              let first = name.unicodeScalars.first, CharacterSet.letters.contains(first),
++              name.unicodeScalars.allSatisfy({ $0.isASCII && (CharacterSet.alphanumerics.contains($0) || $0 == "_") })
++        else { return nil }
++        return name
++    }
++
++    /// The domain and code of the error and of those under it, up to four:
++    /// "NSURLErrorDomain -1001 < NSPOSIXErrorDomain 60".
++    static func codes(of error: Error) -> String
++    {
++        var parts: [String] = []
++        var current: NSError? = error as NSError
++        while let found = current, parts.count < 4
++        {
++            let domain = found.domain.unicodeScalars.allSatisfy({ $0.isASCII && (CharacterSet.alphanumerics.contains($0) || "._-".unicodeScalars.contains($0)) }) && found.domain.count <= 64 ? found.domain : "other"
++            parts.append("\(domain) \(found.code)")
++            current = found.userInfo[NSUnderlyingErrorKey] as? NSError
++        }
++        return parts.joined(separator: " < ")
++    }
++
++    /// Apple's own code, when Apple's servers gave one: -22406 for a wrong
++    /// password, the Developer Portal's result code...
++    static func appleCode(of error: Error) -> Int?
++    {
++        if case ServerError.underlyingError(let code, _) = error
++        {
++            return code
++        }
++        return nil
++    }
++
++    /// The HTTP status a server answered with, when the error says.
++    static func httpStatus(of error: Error) -> Int?
++    {
++        switch error
++        {
++        case AnisetteError.badServerResponse(let status, _) where (100...599).contains(status):
++            return status
++        case ServerError.badServerResponse(let reason, _):
++            // "HTTP 503 from bundleIds", "... (HTTP 502)": only the number.
++            guard let range = reason.range(of: "HTTP [1-5][0-9][0-9]", options: .regularExpression) else { return nil }
++            return Int(reason[range].dropFirst(5))
++        default:
++            return nil
++        }
++    }
++
++    /// The URL error's code and what the server it could not reach is,
++    /// as one of a few names, never its address.
++    static func network(of error: Error) -> (code: Int, host: String)?
++    {
++        var current: NSError? = error as NSError
++        var depth = 0
++        while let found = current, depth < 4
++        {
++            if found.domain == NSURLErrorDomain
++            {
++                let url = found.userInfo[NSURLErrorFailingURLErrorKey] as? URL
++                return (found.code, self.hostKind(url?.host))
++            }
++            current = found.userInfo[NSUnderlyingErrorKey] as? NSError
++            depth += 1
++        }
++        return nil
++    }
++
++    static func hostKind(_ host: String?) -> String
++    {
++        guard let host = host?.lowercased(), !host.isEmpty else { return "unknown" }
++        func within(_ domain: String) -> Bool { host == domain || host.hasSuffix("." + domain) }
++
++        if within("apple.com") || within("icloud.com") { return "apple" }
++        if within("sidestore.io") { return "sideStore" }
++        if within("github.io") || within("github.com") || within("githubusercontent.com") { return "github" }
++        if host.hasPrefix("10.7.0.") || host == "localhost" || host == "127.0.0.1" { return "device" }
++        return "other"
++    }
++
++    // MARK: - Keychain
++
++    private static var service: String { Bundle.Info.appbundleIdentifier }
++
++    private static func delete()
++    {
++        let query: [String: Any] = [
++            kSecClass as String: kSecClassGenericPassword,
++            kSecAttrService as String: self.service,
++            kSecAttrAccount as String: self.account,
++        ]
++        SecItemDelete(query as CFDictionary)
++    }
++
++    private static func write(_ data: Data)
++    {
++        self.delete()
++        let item: [String: Any] = [
++            kSecClass as String: kSecClassGenericPassword,
++            kSecAttrService as String: self.service,
++            kSecAttrAccount as String: self.account,
++            kSecAttrAccessible as String: kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly,
++            kSecValueData as String: data,
++        ]
++        let status = SecItemAdd(item as CFDictionary, nil)
++        if status != errSecSuccess
++        {
++            debugLog("[CartoucheOutcome] could not leave the outcome: \(status)")
++        }
++    }
++}
+diff --git a/SideStore/Intents/CartoucheSignInIntent.swift b/SideStore/Intents/CartoucheSignInIntent.swift
+index bfbce53..578da19 100644
+--- a/SideStore/Intents/CartoucheSignInIntent.swift
++++ b/SideStore/Intents/CartoucheSignInIntent.swift
+@@ -29,6 +29,9 @@
+ //  that SideStore's screens would offer to retry or skip ends the sign-in
+ //  with that error, for Cartouche to show.
+ //
++//  However it ends, it leaves Cartouche the step it reached and its error as
++//  names and numbers (CartoucheOutcome).
++//
+ 
+ import AppIntents
+ import Foundation
+@@ -52,13 +55,16 @@ struct CartoucheSignInIntent: AppIntent, ProgressReportingIntent
+ 
+     func perform() async throws -> some IntentResult
+     {
+-        let handler = CartoucheSignInHandler()
++        let outcome = CartoucheOutcome(action: .signIn)
++        let handler = CartoucheSignInHandler(outcome: outcome)
+         defer { handler.finish() }
+ 
+         do
+         {
+             try await DatabaseManager.shared.start()
++            handler.reach(.credentials)
+             let credentials = try handler.takeCredentials()
++            handler.reach(.account)
+ 
+             // Another account's team and certificate would sign with the
+             // wrong identity: forget them, as Sign Out does.
+@@ -87,6 +93,8 @@ struct CartoucheSignInIntent: AppIntent, ProgressReportingIntent
+             }
+             catch
+             {
++                handler.reach(progress: operation.progress.completedUnitCount)
++                handler.noteCertificates(operation.certificateFlow.portalCertificates?.count)
+                 // A decision this handler made ends the operation with
+                 // "cancelled": the error behind it says more.
+                 throw handler.reason ?? error
+@@ -95,10 +103,13 @@ struct CartoucheSignInIntent: AppIntent, ProgressReportingIntent
+             // SideStore's own screens never show in Cartouche, but should
+             // they ever, they start past the onboarding.
+             UserDefaults.standard.hasCompletedOnboarding = true
++            handler.reach(.finish)
++            outcome.save(error: nil, stage: handler.stage.rawValue, progress: self.progress)
+             return .result()
+         }
+         catch
+         {
++            outcome.save(error: error, stage: handler.stage.rawValue, progress: self.progress)
+             throw IntentError(error)
+         }
+     }
+@@ -106,6 +117,15 @@ struct CartoucheSignInIntent: AppIntent, ProgressReportingIntent
+ 
+ struct CartoucheSignInError: LocalizedError
+ {
++    /// What ended the sign-in, as Cartouche's measurements name it.
++    enum Kind: String
++    {
++        case noCredentials
++        case codeTimeout
++        case accountRepair
++    }
++
++    var kind: Kind
+     var message: String
+     var errorDescription: String? { self.message }
+ }
+@@ -127,10 +147,79 @@ final class CartoucheSignInHandler: SignInHandler, AnisetteServerHandler, @unche
+     /// How long the player has to type a verification code.
+     static let codeTimeout: TimeInterval = 600
+ 
++    /// The sign-in's steps, in order, as Cartouche's measurements name them.
++    enum Stage: String, CaseIterable
++    {
++        case database
++        case credentials
++        case account
++        case verification
++        case team
++        case certificate
++        case device
++        case finish
++    }
++
+     private let lock = NSLock()
++    private let outcome: CartoucheOutcome
+     private var credentials: Credentials?
+     private var lastSignInError: Error?
+     private var decidedError: Error?
++    private var reachedStage = Stage.database
++
++    init(outcome: CartoucheOutcome)
++    {
++        self.outcome = outcome
++    }
++
++    /// The furthest step the sign-in reached.
++    var stage: Stage {
++        self.lock.lock()
++        defer { self.lock.unlock() }
++        return self.reachedStage
++    }
++
++    /// Notes that the sign-in reached STAGE, if it had not gone further.
++    func reach(_ stage: Stage)
++    {
++        let order = Stage.allCases
++        self.lock.lock()
++        if let next = order.firstIndex(of: stage), let current = order.firstIndex(of: self.reachedStage), next > current
++        {
++            self.reachedStage = stage
++        }
++        self.lock.unlock()
++    }
++
++    /// The steps SignInOperation's progress tells (25 once signed in to the
++    /// account, 50 once the team is chosen, 75 once the device is registered).
++    func reach(progress completed: Int64)
++    {
++        if completed >= 75
++        {
++            self.reach(.finish)
++        }
++        else if completed >= 50
++        {
++            self.reach(.certificate)
++        }
++        else if completed >= 25
++        {
++            self.reach(.team)
++        }
++    }
++
++    /// The certificates the account has on the portal, a number, and
++    /// whether this SideStore holds one: what decides whether it can sign.
++    func noteCertificates(_ count: Int?)
++    {
++        if let count
++        {
++            self.outcome.note("certificates", count)
++        }
++        self.outcome.note("bundledCertificate", Bundle.main.object(forInfoDictionaryKey: Bundle.Info.certificateID) != nil)
++        self.outcome.note("activeCertificate", CertificateManager.shared.activeCertificate != nil)
++    }
+ 
+     /// Why the sign-in ended, when this handler ended it.
+     var reason: Error? {
+@@ -195,7 +284,7 @@ final class CartoucheSignInHandler: SignInHandler, AnisetteServerHandler, @unche
+               let credentials = try? JSONDecoder().decode(Credentials.self, from: data),
+               !credentials.appleID.isEmpty, !credentials.password.isEmpty
+         else {
+-            throw CartoucheSignInError(message: NSLocalizedString("Cartouche gave no Apple ID to sign in with.", comment: ""))
++            throw CartoucheSignInError(kind: .noCredentials, message: NSLocalizedString("Cartouche gave no Apple ID to sign in with.", comment: ""))
+         }
+         self.lock.lock()
+         self.credentials = credentials
+@@ -231,7 +320,10 @@ final class CartoucheSignInHandler: SignInHandler, AnisetteServerHandler, @unche
+ 
+     func handleSignInResult(_ result: Result<(ALTAccount, ALTAppleAPISession), Error>) async
+     {
+-        guard case .failure(let error) = result else { return }
++        guard case .failure(let error) = result else {
++            self.reach(.team)
++            return
++        }
+         self.lock.lock()
+         self.lastSignInError = error
+         self.lock.unlock()
+@@ -258,6 +350,10 @@ final class CartoucheSignInHandler: SignInHandler, AnisetteServerHandler, @unche
+             activeID = id
+         }
+ 
++        self.reach(.verification)
++        self.outcome.note("codeAsked", true)
++        self.outcome.note("codeMode", request.mode?.rawValue ?? TwoFactorDeliveryMode.trustedDevice.rawValue)
++
+         let id = UUID().uuidString
+         var message: [String: Any] = [
+             "id": id,
+@@ -303,7 +399,7 @@ final class CartoucheSignInHandler: SignInHandler, AnisetteServerHandler, @unche
+             }
+         }
+ 
+-        self.record(CartoucheSignInError(message: NSLocalizedString("No verification code came in time. Sign in again.", comment: "")))
++        self.record(CartoucheSignInError(kind: .codeTimeout, message: NSLocalizedString("No verification code came in time. Sign in again.", comment: "")))
+         return .cancel
+     }
+ 
+@@ -312,15 +408,17 @@ final class CartoucheSignInHandler: SignInHandler, AnisetteServerHandler, @unche
+         // Skipping it can get the account restricted: the player opens the
+         // page, then signs in again.
+         let detail = message.isEmpty ? AppConstants.defaultAccountRepairMessage : message
+-        self.record(CartoucheSignInError(message: "\(detail)\n\n\(url.absoluteString)"))
++        self.record(CartoucheSignInError(kind: .accountRepair, message: "\(detail)\n\n\(url.absoluteString)"))
+         return .cancel
+     }
+ 
+     func resolveTeam(_ teams: [ALTTeam]) async throws -> ALTTeam
+     {
++        self.outcome.note("teams", teams.count)
+         // The free team, which signs Cartouche, as SideStore's list shows it.
+         if let team = teams.first(where: { $0.type == .free }) ?? teams.first(where: { $0.type == .individual }) ?? teams.first
+         {
++            self.outcome.note("teamType", Self.name(of: team.type))
+             return team
+         }
+         throw DeveloperPortalError.noTeams
+@@ -328,16 +426,29 @@ final class CartoucheSignInHandler: SignInHandler, AnisetteServerHandler, @unche
+ 
+     func resolveProvisioningError(_ error: Error) async -> ProvisioningErrorDecision
+     {
++        self.reach(.certificate)
+         self.record(error)
+         return .cancel
+     }
+ 
+     func resolveDeviceRegistrationErrors(_ error: Error) async -> ProvisioningErrorDecision
+     {
++        self.reach(.device)
+         self.record(error)
+         return .cancel
+     }
+ 
++    private static func name(of type: ALTTeamType) -> String
++    {
++        switch type
++        {
++        case .free: return "free"
++        case .individual: return "individual"
++        case .organization: return "organization"
++        case .unknown: return "unknown"
++        }
++    }
++
+     func resolveRevocation(certificates: [ALTX509Certificate], teamType: ALTTeamType) async throws -> RevokeDecision
+     {
+         .keepExisting
+diff --git a/SideStore/Intents/UpdateCartoucheIntent.swift b/SideStore/Intents/UpdateCartoucheIntent.swift
+index e87aa90..161adcc 100644
+--- a/SideStore/Intents/UpdateCartoucheIntent.swift
++++ b/SideStore/Intents/UpdateCartoucheIntent.swift
+@@ -30,6 +30,8 @@ struct UpdateCartoucheIntent: AppIntent, ProgressReportingIntent
+ 
+     func perform() async throws -> some IntentResult
+     {
++        // How it ended, for Cartouche (CartoucheOutcome).
++        let outcome = CartoucheOutcome(action: .update)
+         do
+         {
+             try await DatabaseManager.shared.start()
+@@ -76,10 +78,12 @@ struct UpdateCartoucheIntent: AppIntent, ProgressReportingIntent
+                 }
+             }
+ 
++            outcome.save(error: nil, progress: self.progress)
+             return .result()
+         }
+         catch
+         {
++            outcome.save(error: error, progress: self.progress)
+             throw IntentError(error)
+         }
+     }
+-- 
+2.43.0
+

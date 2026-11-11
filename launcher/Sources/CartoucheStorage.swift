@@ -83,12 +83,43 @@ enum CartoucheStorageRole: String, CaseIterable, Identifiable {
     var id: String { rawValue }
 }
 
-struct CartoucheStorageError: LocalizedError {
+/// Why the player's storage failed: its message, as the player reads it,
+/// its kind, a key that stays the same in every language, for the
+/// measurements, and the error behind it, whose domains and codes reports
+/// and measurements take along.
+struct CartoucheStorageError: LocalizedError, CustomNSError {
+    enum Kind: String {
+        /// Not enough space on this iPhone, or on the server.
+        case noSpaceHere, noSpaceThere
+        case readOnly
+        /// The installed game, a file larger than Cartouche expects, a
+        /// folder's listing too long, a copy of saves that cannot be read.
+        case gameUnreadable, tooLarge, listingTooLong, copyUnreadable
+        case notInBuild, noPassword, notAnApp
+        /// An S3 address or bucket, an FTP name Cartouche cannot use.
+        case badAddress, badBucket, badName
+        /// What the place needs: keys, an account, a saves folder.
+        case keysNeeded, accountNeeded, noSavesFolder
+        case signInFailed, badAnswer, folderGone
+        /// The SFTP server's key: none shown, or another than the one kept.
+        case noHostKey, hostKeyChanged
+        case noSubsystem
+    }
+
+    let kind: Kind
     let message: String
+    let underlyingError: Error?
     var errorDescription: String? { message }
 
-    init(_ message: String) {
+    var errorUserInfo: [String: Any] {
+        guard let underlyingError else { return [:] }
+        return [NSUnderlyingErrorKey: underlyingError as NSError]
+    }
+
+    init(_ kind: Kind, _ message: String, underlying: Error? = nil) {
+        self.kind = kind
         self.message = message
+        underlyingError = underlying
     }
 }
 
@@ -465,7 +496,7 @@ extension CartoucheRemote {
     func read(_ path: String, limit: Int = 16 << 20) async throws -> Data {
         let source = try await open(path)
         guard source.size <= UInt64(limit) else {
-            throw CartoucheStorageError(CartoucheText.storageTooLarge(CartoucheStoragePath.name(path)))
+            throw CartoucheStorageError(.tooLarge, CartoucheText.storageTooLarge(CartoucheStoragePath.name(path)))
         }
         return try await source.read(at: 0, count: Int(source.size))
     }
@@ -494,10 +525,10 @@ enum CartoucheStorage {
             let remote = try await CartoucheSFTPServer.connect(server, password: password, knownKey: server.hostKey)
             return (remote, remote.hostKey)
             #else
-            throw CartoucheStorageError("SFTP is not in this build")
+            throw CartoucheStorageError(.notInBuild, "SFTP is not in this build")
             #endif
         case .smb, .folder, .s3, .mac:
-            throw CartoucheStorageError("Not a server signed in to with a password here")
+            throw CartoucheStorageError(.noPassword, "Not a server signed in to with a password here")
         }
     }
 
@@ -533,7 +564,7 @@ enum CartoucheStorage {
             #if canImport(SMBClient)
             return try await CartoucheSMB.connect(server, password: secret)
             #else
-            throw CartoucheStorageError("SMB is not in this build")
+            throw CartoucheStorageError(.notInBuild, "SMB is not in this build")
             #endif
         case .folder:
             return try CartoucheFolder(server)
@@ -557,7 +588,7 @@ enum CartoucheStorage {
             }
             return remote
             #else
-            throw CartoucheStorageError("SFTP is not in this build")
+            throw CartoucheStorageError(.notInBuild, "SFTP is not in this build")
             #endif
         case .mac:
             return try await CartoucheMacStorage.connect(server, secret: secret, settings: settings)

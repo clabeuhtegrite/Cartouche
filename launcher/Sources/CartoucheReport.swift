@@ -86,6 +86,9 @@ struct CartoucheReport: Codable, Equatable, Sendable {
     /// The error behind the message, as its domain and code, then those of
     /// the errors under it (describe(_:)).
     var error: String?
+    /// Why it failed, as the measurements say it (CartoucheFailure.swift): a
+    /// cause, the step, and the error's names and numbers.
+    var failure: CartoucheFailure?
     /// The sizes and other facts of the step.
     var facts: [Fact]
     var date: Date
@@ -94,13 +97,15 @@ struct CartoucheReport: Codable, Equatable, Sendable {
     var journal: [String]
 
     init(origin: Origin? = nil, title: String, message: String, step: String? = nil, fraction: Double? = nil,
-         error: String? = nil, facts: [Fact] = [], date: Date = Date(), environment: Environment, journal: [String] = []) {
+         error: String? = nil, failure: CartoucheFailure? = nil, facts: [Fact] = [], date: Date = Date(),
+         environment: Environment, journal: [String] = []) {
         self.origin = origin
         self.title = title
         self.message = message
         self.step = step
         self.fraction = fraction
         self.error = error
+        self.failure = failure
         self.facts = facts
         self.date = date
         self.environment = environment
@@ -125,6 +130,12 @@ extension CartoucheReport {
         lines.append(Self.line("Message", report.message))
         if let error = report.error {
             lines.append(Self.line("Error", error))
+        }
+        if let failure = report.failure {
+            lines.append(Self.line("Cause", failure.summary))
+            if let codes = failure.codes, codes != report.error {
+                lines.append(Self.line("Codes", codes))
+            }
         }
         if let step = report.step {
             let reached = report.fraction.map { " (" + Self.percent($0) + ")" } ?? ""

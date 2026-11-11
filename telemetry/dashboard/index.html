@@ -771,15 +771,36 @@
         };
 
         // MARK: Errors
-        const codes = groupBy(errors, (event) => (text(event.fields.origin) ?? "?") + "|" + (text(event.fields.error) ?? ""));
+        // Since the version of 2026-11-20, an error says its cause and the
+        // step it stopped at (launcher/Sources/CartoucheFailure.swift).
+        const codes = groupBy(errors, (event) => ["origin", "cause", "stage", "error"].map((key) => text(event.fields[key]) ?? "").join("|"));
+        const signInErrors = errors.filter((event) => event.fields.origin === "signIn");
+        const signedIn = named("account.signedIn");
         const errorsView = {
             count: errors.length,
             iphones: new Set(errors.map((event) => event.install)).size,
             background: share(errors, (event) => event.fields.background),
             byOrigin: countBy(errors, (event) => text(event.fields.origin) ?? "?"),
+            byCause: countBy(errors, (event) => text(event.fields.cause) ?? "unknown"),
+            signIn: {
+                succeeded: signedIn.length,
+                failed: signInErrors.length,
+                iphones: new Set(signInErrors.map((event) => event.install)).size,
+                byStage: countBy(signInErrors, (event) => text(event.fields.stage) ?? "unknown"),
+                byCause: countBy(signInErrors, (event) => text(event.fields.cause) ?? "unknown"),
+                vpn: share(signInErrors, (event) => event.fields.vpn),
+                pairing: share(signInErrors, (event) => event.fields.pairing),
+                codeAsked: share(signInErrors, (event) => event.fields.codeAsked),
+                automatic: share(signInErrors, (event) => event.fields.automatic),
+                seconds: median(signInErrors.map((event) => event.fields.seconds)),
+                secondsOk: median(signedIn.map((event) => event.fields.seconds)),
+            },
             byCode: [...codes.values()]
                 .map((list) => ({
                     origin: text(list[0].fields.origin),
+                    cause: text(list[0].fields.cause),
+                    stage: text(list[0].fields.stage),
+                    kind: mode(list.map((event) => text(event.fields.kind))),
                     error: text(list[0].fields.error),
                     count: list.length,
                     iphones: new Set(list.map((event) => event.install)).size,
@@ -849,7 +870,7 @@
                 .sort((a, b) => b.count - a.count),
             cleaned: { count: cleaned.length, freedMB: sum(cleaned.map((event) => event.fields.freedMB)) },
             paired: { count: paired.length, allowed: share(paired, (event) => event.fields.allowed) },
-            errors: countBy(mac("builder.error"), (event) => [text(event.fields.origin), text(event.fields.kind) ?? text(event.fields.error)].filter(Boolean).join(" · ") || "?").slice(0, 8),
+            errors: countBy(mac("builder.error"), (event) => [text(event.fields.origin), text(event.fields.kind) ?? text(event.fields.error), text(event.fields.exception), text(event.fields.where)].filter(Boolean).join(" · ") || "?").slice(0, 8),
             updates: countBy(mac("builder.updated"), (event) => (text(event.fields.from) && text(event.fields.to) ? event.fields.from + " → " + event.fields.to : null)),
             daily: days.map((day) => ({
                 day,
@@ -992,13 +1013,15 @@
             });
         };
         const origins = [
-            ["storage", "NSPOSIXErrorDomain 60", 5],
-            ["storage", "SMBErrorDomain 2 < NSPOSIXErrorDomain 54", 3],
-            ["install", "NSCocoaErrorDomain 640 < NSPOSIXErrorDomain 28", 2],
-            ["start", "LCErrorDomain 3", 1],
-            ["saves", "NSURLErrorDomain -1005", 2],
-            ["update", "NSURLErrorDomain -1009", 1],
-            ["renewal", "SideStoreErrorDomain 1004", 1],
+            ["storage", "NSPOSIXErrorDomain 60", 5, { cause: "network", stage: "connect" }],
+            ["storage", "SMBErrorDomain 2 < NSPOSIXErrorDomain 54", 3, { cause: "network", stage: "browse" }],
+            ["install", "NSCocoaErrorDomain 640 < NSPOSIXErrorDomain 28", 2, { cause: "noSpace", stage: "unpacking", percent: 62, seconds: 340 }],
+            ["start", "LCErrorDomain 3", 1, { cause: "other", stage: "starting" }],
+            ["saves", "NSURLErrorDomain -1005", 2, { cause: "network", stage: "savesSync" }],
+            ["update", "NSURLErrorDomain -1009", 1, { cause: "offline", stage: "source" }],
+            ["renewal", "SideStore 1", 1, { cause: "device", stage: "ResignApp", kind: "noDevice", vpn: false, pairing: true }],
+            ["signIn", "SideStore 1", 3, { cause: "device", stage: "device", kind: "noDevice", percent: 50, seconds: 21, vpn: false, pairing: true, codeAsked: true }],
+            ["signIn", "SideSign.ServerError 3", 1, { cause: "appleServer", stage: "team", kind: "underlyingError", apple: -20209, percent: 25, seconds: 14, vpn: true, pairing: true, codeAsked: false }],
         ];
         const weighted = (list) => {
             const total = list.reduce((all, item) => all + item[2], 0);
@@ -1020,10 +1043,11 @@
                         fields: { games: phone.favourites.length + (phone.device === "iPhone19,4" ? 2 : 0), setUp: phone.install !== phones[11].install || d > 3, storage: phone.storage, saves: phone.storage === "folder" ? "none" : phone.storage, signatureDays: 7 - ((d + phone.renewed) % 7) },
                     });
                     if (rand() < 0.07) {
-                        const [origin, error] = weighted(origins);
-                        add(phone, day, { kind: "event", name: "error", fields: { origin, error, background: origin === "storage" && rand() < 0.6 } });
+                        const [origin, error, , details] = weighted(origins);
+                        add(phone, day, { kind: "event", name: "error", fields: { origin, error, background: origin === "storage" && rand() < 0.6, ...details } });
                     }
                 }
+                if ((d + phone.renewed) % 7 === 3) add(phone, day, { kind: "event", name: "account.signedIn", fields: { seconds: 18, codeAsked: true, automatic: false } });
                 if ((d + phone.renewed) % 7 === 0) add(phone, day, { kind: "event", name: "signature.renewed", fields: { daysLeft: 7 } });
                 const sessions = Math.floor(rand() * 3.2);
                 for (let s = 0; s < sessions; s += 1) {
@@ -1251,12 +1275,35 @@
         signIn: "Connexion Apple", storage: "Stockage", saves: "Sauvegardes", cloud: "Sauvegardes sur le stockage",
     };
     const CAUSES = { shaders: "Shaders", textures: "Textures", other: "Autre" };
+    // The causes an error of the app gives (CartoucheFailure.Cause).
+    const FAILURE_CAUSES = {
+        appleCredentials: "Identifiant ou mot de passe Apple", appSpecificPassword: "Mot de passe pour app demandé", verificationCode: "Code de vérification refusé",
+        verificationTimeout: "Code non saisi à temps", tooManyAttempts: "Trop de tentatives", accountRepair: "Compte Apple à réparer", noTeam: "Aucune équipe",
+        appleRefused: "Refus d'Apple", appleServer: "Réponse d'Apple", anisette: "Serveur anisette", certificateRefused: "Certificat d'un autre appareil",
+        tooManyCertificates: "Trop de certificats", certificate: "Certificat", appID: "Identifiant d'app", appGroup: "Groupe d'apps", profile: "Profil",
+        deviceRegistration: "Enregistrement de l'iPhone", notSignedIn: "Pas connecté à Apple", appBundle: "Paquet de l'app", vpn: "VPN (LocalDevVPN)",
+        pairing: "Fichier de jumelage", device: "Connexion à l'iPhone", sideStoreQuit: "SideStore s'est arrêté", sideStoreBusy: "SideStore déjà occupé",
+        sideStoreSlowStart: "SideStore trop lent à démarrer", liveProcessMissing: "LiveProcess absent", liveProcessFailed: "LiveProcess n'a pas démarré",
+        intentMissing: "Action de SideStore introuvable", noOutcome: "SideStore n'a rien laissé", bridgeMissing: "Pont vers SideStore absent", keychain: "Trousseau",
+        credentialsMissing: "Identifiants absents", database: "Base de SideStore", noUpdate: "Pas de mise à jour", noApps: "Aucune app à renouveler",
+        timedOut: "Délai dépassé", offline: "Hors ligne", network: "Réseau", serverStatus: "Statut HTTP d'un serveur", storageOffline: "Stockage hors ligne",
+        storageCredentials: "Identifiants du stockage", storagePermission: "Droits sur le stockage", storageNotFound: "Introuvable sur le stockage",
+        storageFull: "Stockage plein", storageReadOnly: "Stockage en lecture seule", storageAddress: "Adresse du stockage", storageHostKey: "Clé du serveur SFTP",
+        storageAnswer: "Réponse du stockage", storageServer: "Serveur de stockage", storageSetup: "Réglages du stockage", noSpace: "Plus de place sur l'iPhone",
+        fileMissing: "Fichier introuvable", fileUnreadable: "Fichier illisible", notAnApp: "Pas une app", notSigned: "Signature impossible",
+        notPrimary: "Pas le Cartouche principal", gameRunning: "Un jeu tourne", cancelled: "Annulé", other: "Autre", unknown: "Non dite (avant le 20 nov.)",
+    };
+    // The steps of the Apple sign-in (patch 0014 of SideStore), and Cartouche's own before it.
+    const SIGN_IN_STAGES = {
+        start: "Avant SideStore", database: "Base de SideStore", credentials: "Identifiants", account: "Compte Apple", verification: "Code de vérification",
+        team: "Équipe", certificate: "Certificat", device: "Enregistrement de l'iPhone", finish: "Fin", unknown: "Non dite (avant le 20 nov.)",
+    };
     const CAUSE_TONES = { shaders: "var(--s1)", textures: "var(--s2)", other: "var(--s3)" };
     const SIGNALS = { 4: "SIGILL", 5: "SIGTRAP", 6: "SIGABRT", 8: "SIGFPE", 9: "SIGKILL", 10: "SIGBUS", 11: "SIGSEGV", 13: "SIGPIPE", 15: "SIGTERM" };
     const SWITCHES = { bridge: "Pont vers Cartouche", remote: "Accès à distance", menuBar: "Barre des menus", atLogin: "Ouvert à la connexion", automaticUpdates: "Mises à jour auto", schedule: "Constructions planifiées" };
     const SETUP = { metal: "Metal Toolchain", xcode: "Xcode", homebrew: "Homebrew", tools: "Outils" };
     const UPSCALERS = { metalfx: "MetalFX", bilinear: "Bilinéaire" };
-    const EVENTS = { "app.opened": "Ouverture de l'app", "app.updated": "Mise à jour de Cartouche", "signature.renewed": "Signature renouvelée", "game.installed": "Jeu installé ou mis à jour", error: "Erreur" };
+    const EVENTS = { "app.opened": "Ouverture de l'app", "app.updated": "Mise à jour de Cartouche", "signature.renewed": "Signature renouvelée", "game.installed": "Jeu installé ou mis à jour", "account.signedIn": "Connexion Apple réussie", error: "Erreur" };
 
     const gameName = (id, name) => name || id || "?";
     function language(code) {
@@ -1848,14 +1895,32 @@
 
     function errors(model) {
         const e = model.errors;
+        const s = e.signIn;
+        const tried = s.succeeded + s.failed;
         return [
             card("Où l'app a échoué", plural(e.count, "erreur", "erreurs") + " sur " + plural(e.iphones, "iPhone", "iPhones") + (e.background ? ", " + percent(e.background.share) + " en arrière-plan." : "."),
                 bars(e.byOrigin.map((row) => ({ label: ORIGINS[row.key] || row.key, value: row.count, figure: count(row.count), note: plural(row.installs, "iPhone", "iPhones") })), { empty: "Aucune erreur sur cette période." })),
+            card("Pourquoi", "La cause que l'app tire de l'erreur, de ses codes et de l'étape atteinte, jamais de son texte.",
+                bars(e.byCause.map((row) => ({ label: FAILURE_CAUSES[row.key] || row.key, value: row.count, figure: count(row.count), note: plural(row.installs, "iPhone", "iPhones") })), { empty: "Aucune erreur sur cette période." })),
+            card("Connexion Apple", tried ? plural(s.succeeded, "connexion réussie", "connexions réussies") + " sur " + plural(tried, "essai", "essais") + (s.failed ? ", " + plural(s.failed, "échec", "échecs") + " sur " + plural(s.iphones, "iPhone", "iPhones") + "." : ".") : "Aucune connexion sur cette période.",
+                facts([
+                    ["Réussite", tried ? percent(s.succeeded / tried) : DASH],
+                    ["VPN connecté aux échecs", shareText(s.vpn)],
+                    ["Fichier de jumelage", shareText(s.pairing)],
+                    ["Code demandé", shareText(s.codeAsked)],
+                    ["Relancée seule", shareText(s.automatic)],
+                    ["Durée d'un échec", has(s.seconds) ? n0.format(s.seconds) : DASH, "s"],
+                    ["Durée d'une réussite", has(s.secondsOk) ? n0.format(s.secondsOk) : DASH, "s"],
+                ]),
+                bars(s.byStage.map((row) => ({ label: SIGN_IN_STAGES[row.key] || row.key, value: row.count, figure: count(row.count), note: plural(row.installs, "iPhone", "iPhones"), tip: ["étape atteinte"] })), { empty: "Aucun échec de connexion sur cette période." })),
             card("Par version de Cartouche", "Erreurs pour 100 ouvertures de l'app, les versions récentes d'abord.",
                 bars(e.byVersion.filter((row) => row.opens).map((row) => ({ label: "Cartouche " + row.version, value: (row.errors / row.opens) * 100, figure: one((row.errors / row.opens) * 100) + " / 100", note: plural(row.errors, "erreur", "erreurs"), tip: [plural(row.opens, "ouverture", "ouvertures")] })), { empty: "Aucune erreur sur cette période." })),
-            h("article", { class: "card span" }, h("h3", { text: "Codes d'erreur" }), h("p", { class: "sub", text: "Domaines et codes de l'erreur et de celles qu'elle contient, jamais son texte." }),
+            h("article", { class: "card span" }, h("h3", { text: "Codes d'erreur" }), h("p", { class: "sub", text: "Cause, étape atteinte, cas de l'erreur, domaines et codes de l'erreur et de celles qu'elle contient, jamais son texte." }),
                 table([
                     { label: "Où", cell: (row) => ORIGINS[row.origin] || row.origin || DASH, sort: (row) => row.origin || "", numeric: false },
+                    { label: "Cause", cell: (row) => (row.cause ? FAILURE_CAUSES[row.cause] || row.cause : DASH), sort: (row) => row.cause || "", numeric: false },
+                    { label: "Étape", mono: true, cell: (row) => row.stage || DASH },
+                    { label: "Cas", mono: true, cell: (row) => row.kind || DASH },
                     { label: "Erreur", mono: true, cell: (row) => row.error || DASH },
                     { label: "Fois", numeric: true, cell: (row) => count(row.count), sort: (row) => row.count },
                     { label: "iPhones", numeric: true, cell: (row) => count(row.iphones), sort: (row) => row.iphones },

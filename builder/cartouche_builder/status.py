@@ -185,11 +185,15 @@ class Status:
                     game.state = "stopped" if summary.stopped else "skipped"
             self.write(force=True)
 
-    def failed(self, error: str) -> None:
+    def failed(self, error: str, details: dict | None = None) -> None:
+        """The batch failed, as ERROR says; DETAILS are what the app's
+        measurements may send of it (failure.py)."""
         with self.lock:
             self.data["state"] = "failed"
             self.data["ended"] = now_iso()
             self.data["error"] = error
+            if details:
+                self.data["failure"] = details
             for game in self.games.values():
                 if game.state in ("queued", "building"):
                     game.state = "stopped"

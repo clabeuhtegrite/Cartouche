@@ -37,6 +37,37 @@ import Combine
 import SwiftUI
 import UIKit
 
+/// Why an IPA could not be installed, as LiveContainer's Apps tab says it,
+/// with its kind for the measurements.
+struct CartoucheInstallError: LocalizedError, CartoucheDescribedError {
+    enum Kind: String {
+        case notAnIPA, noAppBundle, infoPlistUnreadable, appUnreadable, gameRunning
+    }
+
+    let kind: Kind
+    var message: String?
+
+    init(_ kind: Kind, message: String? = nil) {
+        self.kind = kind
+        self.message = message
+    }
+
+    var errorDescription: String? {
+        if let message { return message }
+        switch kind {
+        case .notAnIPA: return "lc.appList.urlFileIsNotIpaError".loc
+        case .noAppBundle: return "lc.appList.bundleNotFondError".loc
+        case .infoPlistUnreadable: return "lc.appList.infoPlistCannotReadError".loc
+        case .appUnreadable: return "lc.appList.appInfoInitError".loc
+        case .gameRunning: return nil
+        }
+    }
+
+    var failureKind: String { kind.rawValue }
+    var failureCause: CartoucheFailure.Cause { kind == .gameRunning ? .gameRunning : .notAnApp }
+    var underlyingError: Error? { nil }
+}
+
 @MainActor
 final class CartoucheGameActions: ObservableObject {
     static let shared = CartoucheGameActions()
@@ -93,13 +124,13 @@ final class CartoucheGameActions: ObservableObject {
         facts = [.init("IPA", url.lastPathComponent), .init("From", "a file on this iPhone")]
         let model = DataManager.shared.model
         guard model.multiLCStatus != 2 else {
-            fail(.install, CartoucheText.installFailed, message: "lc.appList.manageInPrimaryTip".loc)
+            fail(.install, CartoucheText.installFailed, message: "lc.appList.manageInPrimaryTip".loc, cause: .notPrimary)
             return
         }
         let accessing = url.startAccessingSecurityScopedResource()
         guard FileManager.default.isReadableFile(atPath: url.path) else {
             if accessing { url.stopAccessingSecurityScopedResource() }
-            fail(.install, CartoucheText.installFailed, message: "lc.appList.ipaAccessError".loc)
+            fail(.install, CartoucheText.installFailed, message: "lc.appList.ipaAccessError".loc, cause: .fileUnreadable)
             return
         }
         // Unpacking writes about as much as the IPA holds.
@@ -111,12 +142,12 @@ final class CartoucheGameActions: ObservableObject {
             facts.append(.init("Needed", CartoucheReport.bytes(needed)))
             fail(.install, CartoucheText.installFailed,
                  message: CartoucheText.installNoSpace(needed: CartoucheText.storageAmount(bytes: needed),
-                                                       free: CartoucheText.storageAmount(bytes: free)))
+                                                       free: CartoucheText.storageAmount(bytes: free)), cause: .noSpace)
             return
         }
 
         work = CartoucheGameWork(kind: .installing, name: url.deletingPathExtension().lastPathComponent,
-                                 step: CartoucheText.installUnpacking, fraction: 0)
+                                 step: CartoucheText.installUnpacking, fraction: 0, stage: "unpacking")
         // A large game takes minutes to unpack: the iPhone must not lock
         // meanwhile, which would pause Cartouche.
         UIApplication.shared.isIdleTimerDisabled = true
@@ -126,7 +157,7 @@ final class CartoucheGameActions: ObservableObject {
                 let builtAt = await Self.builtAt(ofIPA: url)
                 let (app, warning) = try await installUnpacked(into: model, builtAt: builtAt) { folder, progress in
                     guard await Self.unpack(url.path, into: folder.path, progress) == 0 else {
-                        throw "lc.appList.urlFileIsNotIpaError".loc
+                        throw CartoucheInstallError(.notAnIPA)
                     }
                 }
                 await fetchSaves(of: app)
@@ -154,12 +185,12 @@ final class CartoucheGameActions: ObservableObject {
                  .init("From", CartoucheReports.place(.games))] + Self.buildFacts(game.build)
         let model = DataManager.shared.model
         guard model.multiLCStatus != 2 else {
-            fail(.install, CartoucheText.installFailed, message: "lc.appList.manageInPrimaryTip".loc)
+            fail(.install, CartoucheText.installFailed, message: "lc.appList.manageInPrimaryTip".loc, cause: .notPrimary)
             return
         }
         let server = location.server
         let step = CartoucheText.installFromStorageStep(server.name)
-        work = CartoucheGameWork(kind: .installing, name: game.name, step: step, fraction: nil)
+        work = CartoucheGameWork(kind: .installing, name: game.name, step: step, fraction: nil, stage: "reading")
         UIApplication.shared.isIdleTimerDisabled = true
         beginBackground()
         Task {
@@ -182,20 +213,23 @@ final class CartoucheGameActions: ObservableObject {
                 source.onRetry = { @Sendable _, _ in
                     Task { @MainActor in
                         CartoucheGameActions.shared.work?.step = CartoucheText.installFromStorageRetry(server.name)
+                        CartoucheGameActions.shared.work?.stage = "reconnecting"
                     }
                 }
                 source.onResumed = { @Sendable in
                     Task { @MainActor in
                         CartoucheGameActions.shared.work?.step = step
+                        CartoucheGameActions.shared.work?.stage = "reading"
                     }
                 }
                 let entries = try await CartoucheZip.entries(of: source)
                 let needed = Int64(clamping: entries.reduce(UInt64(0)) { $0 + $1.size }) + 512 * 1_048_576
                 if let free = Self.freeSpace(), free < needed {
-                    throw CartoucheStorageError(CartoucheText.installFromStorageNoSpace(
+                    throw CartoucheStorageError(.noSpaceHere, CartoucheText.installFromStorageNoSpace(
                         needed: CartoucheText.storageAmount(bytes: needed), free: CartoucheText.storageAmount(bytes: free)))
                 }
                 work?.fraction = 0
+                work?.stage = "unpacking"
                 let builtAt = CartoucheStoredGames.infoPlistEntry(in: entries)?.modified
                 let (app, warning) = try await installUnpacked(into: model, builtAt: builtAt) { folder, progress in
                     try await CartoucheZip.extract(source, entries: entries, into: folder, progress: progress)
@@ -246,7 +280,7 @@ final class CartoucheGameActions: ObservableObject {
         installed = app
         if let warning {
             // Installed, but not signed: the game would not start.
-            fail(.install, CartoucheText.installSignWarning, message: warning)
+            fail(.install, CartoucheText.installSignWarning, message: warning, cause: .notSigned)
         } else if CartoucheCatalog.shared.entries(for: [app]).owned.isEmpty {
             notice = CartoucheGameNotice(title: CartoucheText.installDone, message: CartoucheText.installNotAGame(app.displayName))
         }
@@ -280,18 +314,18 @@ final class CartoucheGameActions: ObservableObject {
         try await unpack(folder, unpacking)
         let payload = folder.appendingPathComponent("Payload", isDirectory: true)
         guard let bundleName = try fileManager.contentsOfDirectory(atPath: payload.path).first(where: { $0.hasSuffix(".app") }) else {
-            throw "lc.appList.bundleNotFondError".loc
+            throw CartoucheInstallError(.noAppBundle)
         }
         let unpacked = payload.appendingPathComponent(bundleName)
         guard let newInfo = LCAppInfo(bundlePath: unpacked.path), let bundleId = newInfo.bundleIdentifier() else {
-            throw "lc.appList.infoPlistCannotReadError".loc
+            throw CartoucheInstallError(.infoPlistUnreadable)
         }
         work?.name = newInfo.displayName() ?? work?.name ?? ""
 
         // The same game installed already: this copy takes its place.
         let previous = model.apps.first { $0.appInfo.bundleIdentifier() == bundleId }
         if let previous, previous === running?.app {
-            throw CartoucheText.quitFirst(previous.displayName)
+            throw CartoucheInstallError(.gameRunning, message: CartoucheText.quitFirst(previous.displayName))
         }
         var relativePath = "\(bundleId.sanitizeNonACSII()).app"
         var destination = LCPath.bundlePath.appendingPathComponent(relativePath)
@@ -310,11 +344,12 @@ final class CartoucheGameActions: ObservableObject {
         }
         try fileManager.moveItem(at: unpacked, to: destination)
         guard let info = LCAppInfo(bundlePath: destination.path) else {
-            throw "lc.appList.appInfoInitError".loc
+            throw CartoucheInstallError(.appUnreadable)
         }
         info.relativeBundlePath = relativePath
 
         work?.step = CartoucheText.installSigning
+        work?.stage = "signing"
         if previous?.uiDontSign ?? false || LCUtils.appGroupUserDefault.bool(forKey: "LCDontSignApp") {
             info.dontSign = true
         }
@@ -456,7 +491,7 @@ final class CartoucheGameActions: ObservableObject {
         let builtAt = build.builtAt
         facts = [.init("To", CartoucheReports.place(.games))] + Self.buildFacts(build)
         work = CartoucheGameWork(kind: .exporting, name: app.displayName,
-                                 step: CartoucheText.exportStep(location.server.name), fraction: 0)
+                                 step: CartoucheText.exportStep(location.server.name), fraction: 0, stage: "exporting")
         UIApplication.shared.isIdleTimerDisabled = true
         beginBackground()
         Task {
@@ -467,7 +502,7 @@ final class CartoucheGameActions: ObservableObject {
                 remote = connected
                 if await CartoucheStorageSettings.shared.checkAccess(connected, server: location.server.id,
                                                                      path: location.path) == false {
-                    throw CartoucheStorageError(CartoucheText.exportReadOnly(location.server.name))
+                    throw CartoucheStorageError(.readOnly, CartoucheText.exportReadOnly(location.server.name))
                 }
                 var items = try await Self.exportedItems(of: bundle)
                 let infoPlist = "Payload/\(bundle.lastPathComponent)/Info.plist"
@@ -479,7 +514,7 @@ final class CartoucheGameActions: ObservableObject {
                 let total = items.reduce(UInt64(0)) { $0 + $1.size }
                 facts.append(.init("IPA size", CartoucheReport.bytes(Int64(clamping: total))))
                 if let free = try? await connected.freeSpace(), free < total + 64 << 20 {
-                    throw CartoucheStorageError(CartoucheText.exportNoSpace(
+                    throw CartoucheStorageError(.noSpaceThere, CartoucheText.exportNoSpace(
                         needed: CartoucheText.storageAmount(bytes: Int64(clamping: total)),
                         server: location.server.name,
                         free: CartoucheText.storageAmount(bytes: Int64(clamping: free))))
@@ -525,7 +560,7 @@ final class CartoucheGameActions: ObservableObject {
         let top = "Payload/" + bundle.lastPathComponent
         guard let root = status(of: bundle), root.type == S_IFDIR,
               let walker = FileManager.default.enumerator(atPath: bundle.path) else {
-            throw CartoucheStorageError(CartoucheText.exportUnreadable)
+            throw CartoucheStorageError(.gameUnreadable, CartoucheText.exportUnreadable)
         }
         var items = [CartoucheExportedItem(name: top + "/", url: bundle, kind: .folder, size: 0, mode: root.mode, date: root.date)]
         while let relative = walker.nextObject() as? String {
@@ -535,7 +570,7 @@ final class CartoucheGameActions: ObservableObject {
                 continue
             }
             let url = bundle.appendingPathComponent(relative)
-            guard let found = status(of: url) else { throw CartoucheStorageError(CartoucheText.exportUnreadable) }
+            guard let found = status(of: url) else { throw CartoucheStorageError(.gameUnreadable, CartoucheText.exportUnreadable) }
             let name = top + "/" + relative
             switch found.type {
             case S_IFDIR:
@@ -610,7 +645,8 @@ final class CartoucheGameActions: ObservableObject {
         facts = Self.buildFacts(CartoucheInstalledBuilds.shared.build(of: app))
             + [.init("nxnative's settings screen", showingSettings ? "shown" : "skipped")]
         work = CartoucheGameWork(kind: .starting, name: app.displayName,
-                                 step: showingSettings ? CartoucheText.startSettings : CartoucheText.startSoon, fraction: nil)
+                                 step: showingSettings ? CartoucheText.startSettings : CartoucheText.startSoon, fraction: nil,
+                                 stage: "preparing")
         signing = app.$signProgress
             .combineLatest(app.$isSigningInProgress)
             .receive(on: DispatchQueue.main)
@@ -618,6 +654,7 @@ final class CartoucheGameActions: ObservableObject {
                 let (fraction, inProgress) = value
                 guard inProgress else { return }
                 self?.work?.step = CartoucheText.installSigning
+                self?.work?.stage = "signing"
                 self?.work?.fraction = fraction
             }
         Task {
@@ -629,10 +666,12 @@ final class CartoucheGameActions: ObservableObject {
                 let backups = CartoucheSaveBackups.shared
                 if backups.isSyncing {
                     work?.step = CartoucheText.savesFinishing
+                    work?.stage = "savesFinishing"
                 }
                 await backups.finish()
                 await fetchSaves(of: app)
                 work?.step = showingSettings ? CartoucheText.startSettings : CartoucheText.startSoon
+                work?.stage = "starting"
                 try Self.prepareStart(of: app, showingSettings: showingSettings)
                 if #available(iOS 18.0, *), try await startBehindConsole(app, showingSettings: showingSettings) {
                     signing = nil
@@ -901,6 +940,7 @@ final class CartoucheGameActions: ObservableObject {
         _ = Self.dataFolder(of: app)
         guard let target = saves(of: app) else { return }
         work?.step = CartoucheText.savesSyncing(location.server.name)
+        work?.stage = "savesSync"
         work?.fraction = nil
         await backups.sync(target)
     }
@@ -962,7 +1002,8 @@ final class CartoucheGameActions: ObservableObject {
              url: (container.isShared ? LCPath.lcGroupDataPath : LCPath.dataPath).appendingPathComponent(container.folderName))
         }
         facts = [.init("Saves", erasingData ? "erased too" : "kept")]
-        work = CartoucheGameWork(kind: .uninstalling, name: app.displayName, step: CartoucheText.uninstallStep, fraction: nil)
+        work = CartoucheGameWork(kind: .uninstalling, name: app.displayName, step: CartoucheText.uninstallStep, fraction: nil,
+                                 stage: "removing")
         Task {
             do {
                 try await Self.remove(bundlePath: bundlePath, folders: folders.map(\.url), erasingData: erasingData)
@@ -993,15 +1034,34 @@ final class CartoucheGameActions: ObservableObject {
     }
 
     /// Tells the player that the step failed, with the report they can copy:
-    /// TITLE, and MESSAGE, or else ERROR's, as they read it.
-    private func fail(_ origin: CartoucheReport.Origin, _ title: String, message: String? = nil, error: Error? = nil) {
+    /// TITLE, and MESSAGE, or else ERROR's, as they read it. CAUSE says why
+    /// when ERROR does not, nor any of LiveContainer's own errors it may be.
+    private func fail(_ origin: CartoucheReport.Origin, _ title: String, message: String? = nil, error: Error? = nil,
+                      cause: CartoucheFailure.Cause? = nil) {
         let message = message ?? error?.localizedDescription ?? ""
+        let stage = work.map(\.stage).flatMap { $0.isEmpty ? nil : $0 }
+        let seconds = work.map { Date().timeIntervalSince($0.started) }
+        var failure: CartoucheFailure?
+        if let cause {
+            failure = CartoucheFailure(cause, stage: stage, fraction: work?.fraction, seconds: seconds)
+        } else if let error, let known = Self.liveContainerErrors.first(where: { error.localizedDescription == $0.key.loc }) {
+            failure = CartoucheFailure(known.cause, stage: stage, fraction: work?.fraction, seconds: seconds,
+                                       details: ["kind": .text(known.kind)])
+        }
         let report = CartoucheReports.make(origin, title, message: message, error: error,
                                            step: work.map { $0.title + ": " + $0.step }, fraction: work?.fraction,
-                                           facts: facts)
+                                           stage: stage, seconds: seconds, failure: failure, facts: facts)
         workFailed = true
         notice = CartoucheGameNotice(title: title, message: message, report: report)
     }
+
+    /// LiveContainer's errors are their text alone, in the player's
+    /// language: those Cartouche tells apart, by the key of their text.
+    private static let liveContainerErrors: [(key: String, kind: String, cause: CartoucheFailure.Cause)] = [
+        ("lc.signer.latestCertificateInvalidErr", "latestCertificateInvalid", .certificate),
+        ("lc.signer.noCertificateFoundErr", "noCertificateFound", .certificate),
+        ("lc.signer.crashDuringSignErr", "crashDuringSign", .notSigned),
+    ]
 
     /// "Game build: 1.0.0, nxnative 844bf1a5ea8f, built 2026-11-06 19:12:40 +0100".
     private static func buildFacts(_ build: CartoucheGameBuild?) -> [CartoucheReport.Fact] {

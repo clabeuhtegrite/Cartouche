@@ -231,6 +231,72 @@
       "name": "builder.takenOut",
       "schema": 1,
       "seq": 12
+    },
+    {
+      "cartouche": "0.2.1",
+      "device": "Mac16,12",
+      "fields": {
+        "background": false,
+        "exception": "ModuleNotFoundError",
+        "exit": 1,
+        "kind": "crashed",
+        "origin": "library"
+      },
+      "id": "6a1d9e3c-0000-4000-8000-000000000013",
+      "install": "8c1f6c2e-7a2f-4e19-8c3d-2f6a9b0e1d7c",
+      "ios": "26.6",
+      "kind": "event",
+      "language": "fr",
+      "name": "builder.error",
+      "schema": 1,
+      "seq": 13
+    },
+    {
+      "cartouche": "0.2.1",
+      "device": "Mac16,12",
+      "fields": {
+        "exception": "PermissionError",
+        "exit": 1,
+        "kind": "not_started",
+        "origin": "build",
+        "seconds": 3,
+        "signal": false
+      },
+      "id": "6a1d9e3c-0000-4000-8000-000000000014",
+      "install": "8c1f6c2e-7a2f-4e19-8c3d-2f6a9b0e1d7c",
+      "ios": "26.6",
+      "kind": "event",
+      "language": "fr",
+      "name": "builder.error",
+      "schema": 1,
+      "seq": 14
+    },
+    {
+      "cartouche": "0.2.1",
+      "device": "Mac16,12",
+      "fields": {
+        "built": 0,
+        "errno": 28,
+        "exception": "OSError",
+        "failed": 0,
+        "games": 2,
+        "jobs": 1,
+        "minutes": 0.4,
+        "nxnative": "6c3aeb3d70a1",
+        "scheduled": false,
+        "skipped": 0,
+        "state": "failed",
+        "stopped": 2,
+        "where": "workspace.prepare"
+      },
+      "id": "6a1d9e3c-0000-4000-8000-000000000015",
+      "install": "8c1f6c2e-7a2f-4e19-8c3d-2f6a9b0e1d7c",
+      "ios": "26.6",
+      "kind": "event",
+      "language": "fr",
+      "name": "builder.batch",
+      "schema": 1,
+      "seq": 15
     }
   ]
 }

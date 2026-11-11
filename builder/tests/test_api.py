@@ -82,6 +82,18 @@ class Api(Home):
         code, data = self.call("follow", "nope", "on")
         self.assertEqual(code, 2)
 
+    def test_an_error_says_its_class_where_and_errno_never_its_words(self):
+        with mock.patch.object(api, "survey_storage", side_effect=PermissionError(13, "Permission denied", "/Users/player/Jeux")):
+            code, data = self.call("storage")
+        self.assertEqual((code, data["error"]["kind"]), (3, "failed"))
+        self.assertEqual((data["error"]["exception"], data["error"]["where"], data["error"]["errno"]), ("PermissionError", "api.lambda", 13))
+        # One the builder does not expect is an answer too, not a traceback alone.
+        with mock.patch.object(api, "survey_storage", side_effect=KeyError("/Users/player/Jeux")):
+            code, data = self.call("storage")
+        self.assertEqual((code, data["error"]["kind"], data["error"]["exception"]), (3, "unexpected", "KeyError"))
+        self.assertNotIn("errno", data["error"])
+        self.assertEqual(set(data["error"]), {"kind", "message", "exception", "where"})
+
     def test_blocked_without_folders_says_why(self):
         configs.save(Paths.default(), configs.Config(engine_url=str(self.remote)))
         code, data = self.call("library")

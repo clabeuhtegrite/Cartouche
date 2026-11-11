@@ -318,7 +318,7 @@ final class CartoucheSetup: ObservableObject {
     /// The pairing file the player gave could not be taken, as ERROR says.
     func pairingFailed(_ error: Error) {
         pairingReport = CartoucheReports.make(.pairing, CartoucheText.setupPairingFailed, message: error.localizedDescription,
-                                              error: error, step: "Taking the pairing file")
+                                              error: error, step: "Taking the pairing file", stage: "pairingFile")
     }
 
     func importOpenedPairingFile(_ url: URL) {

@@ -42,7 +42,7 @@ final class CartoucheSMB: CartoucheRemote {
                                        password: password.isEmpty ? nil : password)
             }
         } catch {
-            throw CartoucheStorageError(CartoucheText.storageSignInFailed(server.host, error.localizedDescription))
+            throw CartoucheStorageError(.signInFailed, CartoucheText.storageSignInFailed(server.host, error.localizedDescription), underlying: error)
         }
         var shareAccess: UInt32 = 0
         if !server.share.isEmpty {
@@ -117,7 +117,7 @@ final class CartoucheSMB: CartoucheRemote {
             try await client.login(username: server.username.isEmpty ? nil : server.username,
                                    password: password.isEmpty ? nil : password)
         } catch {
-            throw CartoucheStorageError(CartoucheText.storageSignInFailed(server.host, error.localizedDescription))
+            throw CartoucheStorageError(.signInFailed, CartoucheText.storageSignInFailed(server.host, error.localizedDescription), underlying: error)
         }
         defer { Task { _ = try? await client.logoff() } }
         return try await listShares(client)

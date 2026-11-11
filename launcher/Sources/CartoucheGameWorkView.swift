@@ -23,6 +23,11 @@ struct CartoucheGameWork: Equatable {
     var step: String
     /// From 0 to 1, or nil while there is nothing to measure.
     var fraction: Double?
+    /// What happens now, as a key that stays the same in every language,
+    /// for the measurements: "unpacking", "signing".
+    var stage = ""
+    /// When it started.
+    var started = Date()
 
     /// "Installing Mario Kart World".
     var title: String {

@@ -409,11 +409,24 @@ public final class BuilderTelemetry: ObservableObject {
     public func error(_ error: Error, origin: String, background: Bool = false) {
         var fields: [String: TelemetryValue] = ["origin": .text(origin), "background": .flag(background)]
         if let failure = error as? EngineFailure {
-            fields["kind"] = .text(failure.kind)
+            fields["kind"] = .text(FailureDetails.name(failure.kind) ?? "other")
+            fields.merge(Self.fields(of: failure.details)) { _, new in new }
+            if let exit = failure.exit, (-1_000...1_000).contains(exit) { fields["exit"] = .count(exit) }
         } else {
             fields["error"] = .text(Self.codes(of: error))
         }
         event("builder.error", fields: fields)
+    }
+
+    /// What the telemetry may say of why the engine failed: the exception's
+    /// class, where and errno, each checked again, since the engine wrote
+    /// them.
+    public nonisolated static func fields(of details: FailureDetails) -> [String: TelemetryValue] {
+        var fields: [String: TelemetryValue] = [:]
+        if let exception = details.exception.flatMap(FailureDetails.name) { fields["exception"] = .text(exception) }
+        if let place = details.place.flatMap(FailureDetails.place) { fields["where"] = .text(place) }
+        if let number = details.errorNumber, (1..<10_000).contains(number) { fields["errno"] = .count(number) }
+        return fields
     }
 
     /// "NSCocoaErrorDomain 640 < NSPOSIXErrorDomain 28": an error and the

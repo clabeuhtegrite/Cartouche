@@ -935,6 +935,7 @@ struct CartoucheStorageFolderBrowser: View {
         } catch {
             problem = CartoucheReports.make(.storage, CartoucheText.storageBrowseFailed, message: error.localizedDescription,
                                             error: error, step: "Listing a folder on " + CartoucheReports.kindName(server.kind),
+                                            stage: "browse",
                                             facts: [.init("Depth", String(path.split(separator: "/").count))])
         }
     }
@@ -958,7 +959,8 @@ struct CartoucheStorageFolderBrowser: View {
             // The name the player just typed is theirs too.
             CartoucheReports.redactTyped(names: [name])
             problem = CartoucheReports.make(.storage, CartoucheText.storageNewFolderFailed, message: error.localizedDescription,
-                                            error: error, step: "Creating a folder on " + CartoucheReports.kindName(server.kind))
+                                            error: error, step: "Creating a folder on " + CartoucheReports.kindName(server.kind),
+                                            stage: "newFolder")
         }
     }
 }
@@ -1193,7 +1195,7 @@ struct CartoucheSaveCopiesView: View {
         } catch {
             problem = CartoucheReports.make(.saves, CartoucheText.savesListFailed, message: error.localizedDescription,
                                             error: error, step: "Listing the copies of " + target.name + "'s saves, in "
-                                                + CartoucheReports.place(.saves))
+                                                + CartoucheReports.place(.saves), stage: "savesList")
         }
     }
 
@@ -1210,7 +1212,7 @@ struct CartoucheSaveCopiesView: View {
             restoreOffline = away.localizedDescription
         } catch {
             failure = CartoucheReports.make(.saves, CartoucheText.savesPutBackFailed, message: error.localizedDescription,
-                                            error: error, step: "Putting back a copy of " + target.name + "'s saves",
+                                            error: error, step: "Putting back a copy of " + target.name + "'s saves", stage: "savesPutBack",
                                             facts: [.init("Copy", CartoucheReport.timestamp(copy.date) + ", "
                                                 + CartoucheReport.bytes(Int64(clamping: copy.size)))])
         }

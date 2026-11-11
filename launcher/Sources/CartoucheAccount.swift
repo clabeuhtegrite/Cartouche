@@ -22,6 +22,10 @@
 //  takes the certificate the installer put in Cartouche. The player sees
 //  the sign-in only should Apple ask for a verification code.
 //
+//  However the sign-in ends, SideStore leaves the step it reached and its
+//  error as names and numbers (CartoucheSideStoreOutcome, patch 0014):
+//  Cartouche's measurements send them, never the error's words.
+//
 
 import Foundation
 
@@ -59,6 +63,8 @@ final class CartoucheAccount: ObservableObject {
     /// cleared yet.
     private var answered: Set<String> = []
     private var watching: Task<Void, Never>?
+    /// When the sign-in started.
+    private var started: Date?
 
     private init() {}
 
@@ -88,18 +94,20 @@ final class CartoucheAccount: ObservableObject {
         // SideStore keeps the Apple ID only once signed in.
         CartoucheReports.redactTyped(accounts: [appleID])
         guard let bridge = Self.bridge, CartoucheStoreKeychain.service != nil else {
-            failed(CartoucheText.signInUnavailable)
+            failed(CartoucheText.signInUnavailable, failure: CartoucheFailure(.bridgeMissing, stage: "start"))
             return
         }
         // What an earlier sign-in may have left.
         CartoucheStoreKeychain.remove(CartoucheSignInMessage.requestAccount)
         CartoucheStoreKeychain.remove(CartoucheSignInMessage.responseAccount)
+        CartoucheStoreKeychain.remove(CartoucheSideStoreOutcome.account)
         guard CartoucheStoreKeychain.set(CartoucheSignInMessage.credentials(appleID: appleID, password: password),
                                          for: CartoucheSignInMessage.credentialsAccount) else {
-            failed(CartoucheText.signInKeychainFailed)
+            failed(CartoucheText.signInKeychainFailed, failure: CartoucheFailure(.keychain, stage: "start"))
             return
         }
         answered = []
+        started = Date()
         let progress = Progress(totalUnitCount: 100)
         self.progress = progress
         phase = .signingIn
@@ -159,28 +167,41 @@ final class CartoucheAccount: ObservableObject {
 
     private func finished(_ message: String?) {
         let fraction = progress?.fractionCompleted
+        let seconds = started.map { Date().timeIntervalSince($0) }
         watching?.cancel()
         watching = nil
         phase = nil
         progress = nil
+        started = nil
         // Should SideStore not have started, the password goes too.
         CartoucheStoreKeychain.remove(CartoucheSignInMessage.credentialsAccount)
         CartoucheStoreKeychain.remove(CartoucheSignInMessage.responseAccount)
+        // How SideStore's action ended, which it left for Cartouche.
+        let outcome = CartoucheStoreKeychain.data(CartoucheSideStoreOutcome.account)
+            .flatMap { CartoucheSideStoreOutcome(data: $0, expecting: .signIn) }
+        CartoucheStoreKeychain.remove(CartoucheSideStoreOutcome.account)
         if let message {
-            failed(CartoucheSignInMessage.readable(message), fraction: fraction)
+            let failure = CartoucheFailure.sideStore(outcome: outcome, message: message, fraction: fraction, seconds: seconds,
+                                                     vpn: CartoucheVPN.isConnected, pairing: CartouchePairing.exists)
+            failed(CartoucheSignInMessage.readable(message), fraction: fraction, failure: failure)
         } else {
             CartoucheReports.note("Sign-in done")
+            var fields = CartoucheFailure.sideStoreSuccess(outcome: outcome, seconds: seconds)
+            fields["automatic"] = .flag(isAutomatic)
+            CartoucheTelemetry.shared.event("account.signedIn", fields: fields)
         }
         signedIn = message == nil
         isAutomatic = false
         CartoucheSetup.shared.refresh()
     }
 
-    /// The sign-in failed, as MESSAGE says.
-    private func failed(_ message: String, fraction: Double? = nil) {
+    /// The sign-in failed, as MESSAGE says, for the reason FAILURE gives.
+    private func failed(_ message: String, fraction: Double? = nil, failure: CartoucheFailure) {
+        var failure = failure
+        failure.details["automatic"] = .flag(isAutomatic)
         problemReport = CartoucheReports.make(.signIn, CartoucheText.signInFailedTitle, message: message,
                                               step: isAutomatic ? "Signing in again by itself, for a new certificate" : "Signing in",
-                                              fraction: fraction)
+                                              fraction: fraction, failure: failure)
     }
 
     /// The page an error asks the player to open, such as Apple's own when it

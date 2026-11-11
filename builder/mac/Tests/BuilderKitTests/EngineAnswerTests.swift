@@ -154,6 +154,8 @@ final class EngineAnswerTests: XCTestCase {
         let crash = RunResult(status: 1, errors: Data("Traceback (most recent call last):\n  ...\nKeyError: 'x'\n".utf8))
         XCTAssertThrowsError(try Engine.decode(Library.self, from: crash)) { error in
             XCTAssertEqual((error as? EngineFailure)?.kind, "crashed")
+            XCTAssertEqual((error as? EngineFailure)?.details, FailureDetails(exception: "KeyError"))
+            XCTAssertEqual((error as? EngineFailure)?.exit, 1)
         }
         let slow = RunResult(status: 15, timedOut: true)
         XCTAssertThrowsError(try Engine.decode(Library.self, from: slow)) { error in
@@ -163,6 +165,50 @@ final class EngineAnswerTests: XCTestCase {
         XCTAssertThrowsError(try Engine.decode(StorageAnswer.self, from: odd)) { error in
             XCTAssertEqual((error as? EngineFailure)?.kind, "unreadable")
         }
+    }
+
+    func testAFailureSaysItsExceptionWhereAndErrnoNeverItsWords() throws {
+        let answer = #"{"error": {"kind": "failed", "message": "PermissionError: [Errno 13] Permission denied: '/Users/player/Jeux'", "#
+            + #""exception": "PermissionError", "where": "storage.survey", "errno": 13}}"#
+        XCTAssertThrowsError(try Engine.decode(Library.self, from: RunResult(status: 3, output: Data((answer + "\n").utf8)))) { error in
+            let failure = error as? EngineFailure
+            XCTAssertEqual(failure?.kind, "failed")
+            XCTAssertEqual(failure?.details, FailureDetails(exception: "PermissionError", place: "storage.survey", errorNumber: 13))
+            XCTAssertNil(failure?.exit)
+            XCTAssertEqual(failure.map { BuilderTelemetry.fields(of: $0.details) },
+                           ["exception": .text("PermissionError"), "where": .text("storage.survey"), "errno": .count(13)])
+        }
+        // An older engine says none of it; whatever else it says is left out.
+        let older = try JSONDecoder().decode(EngineFailure.self, from: Data(#"{"kind": "engine", "message": "git failed"}"#.utf8))
+        XCTAssertTrue(older.details.isEmpty)
+        let odd = FailureDetails(exception: "No space left on /Volumes/Jeux", place: "/Users/player/x.py", errorNumber: -1)
+        XCTAssertEqual(BuilderTelemetry.fields(of: odd), [:])
+        // A batch that failed says it in status.json.
+        let status = try JSONDecoder().decode(BatchStatus.self, from: Data(#"{"state": "failed", "failure": {"exception": "OSError", "errno": 28}}"#.utf8))
+        XCTAssertEqual(status.failure, FailureDetails(exception: "OSError", errorNumber: 28))
+    }
+
+    func testTheExceptionATracebackEndsOn() {
+        let chained = """
+            Traceback (most recent call last):
+              File "/Users/player/Builder/engine/cartouche_builder/batch.py", line 3, in run
+                raise OSError(28, "No space left")
+            OSError: [Errno 28] No space left on device: '/Volumes/Jeux'
+
+            During handling of the above exception, another exception occurred:
+
+            Traceback (most recent call last):
+              File "/Users/player/Builder/engine/cartouche_builder/cli.py", line 9, in main
+                    ^^^^^^^^^
+            cartouche_builder.engine.EngineError: git fetch failed for /Users/player/nxnative
+            """
+        XCTAssertEqual(FailureDetails.exception(in: chained), "EngineError")
+        XCTAssertEqual(FailureDetails.exception(in: "Traceback (most recent call last):\n  File \"x.py\"\nKeyboardInterrupt\n"), "KeyboardInterrupt")
+        XCTAssertNil(FailureDetails.exception(in: "Note: something went wrong\nError: no such folder /Users/player"))
+        XCTAssertNil(FailureDetails.exception(in: "Traceback (most recent call last):\n  File \"x.py\"\nNo space left on /Volumes/Jeux: what now\n"))
+        XCTAssertEqual(FailureDetails.place("library.scan"), "library.scan")
+        XCTAssertNil(FailureDetails.place("library"))
+        XCTAssertNil(FailureDetails.place("a.b.c"))
     }
 
     func testAGameStateTheAppDoesNotKnowIsUnknown() throws {

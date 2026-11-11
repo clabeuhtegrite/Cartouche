@@ -22,8 +22,9 @@ import Foundation
 import UIKit
 
 /// Why an update could not start or finish.
-struct CartoucheUpdateError: LocalizedError {
+struct CartoucheUpdateError: LocalizedError, CartoucheExplainedError {
     let message: String
+    var failure: CartoucheFailure?
     var errorDescription: String? { message }
 }
 
@@ -56,6 +57,8 @@ final class CartoucheUpdates: ObservableObject {
     @Published private(set) var target: CartoucheRelease?
     @Published private(set) var phase: Phase?
     @Published private(set) var progress: Progress?
+    /// When the update started.
+    private var started: Date?
     /// Why the last update failed, for the System page, and the report on
     /// it.
     @Published private(set) var problemReport: CartoucheReport?
@@ -166,7 +169,8 @@ final class CartoucheUpdates: ObservableObject {
                 // iPhone is offline: its report is not kept.
                 checkReport = CartoucheReports.make(.update, CartoucheText.updateCheckFailedTitle,
                                                     message: CartoucheText.updateCheckFailed(error.localizedDescription),
-                                                    error: error, step: "Reading Cartouche's source", inBackground: offering)
+                                                    error: error, step: "Reading Cartouche's source", stage: "source",
+                                                    inBackground: offering)
             }
         }
     }
@@ -175,7 +179,9 @@ final class CartoucheUpdates: ObservableObject {
         let request = URLRequest(url: url, cachePolicy: .reloadIgnoringLocalCacheData, timeoutInterval: 30)
         let (data, response) = try await URLSession.shared.data(for: request)
         if let http = response as? HTTPURLResponse, !(200 ..< 300).contains(http.statusCode) {
-            throw CartoucheUpdateError(message: CartoucheText.updateSourceStatus(http.statusCode))
+            throw CartoucheUpdateError(message: CartoucheText.updateSourceStatus(http.statusCode),
+                                       failure: CartoucheFailure(.serverStatus, stage: "source",
+                                                                 details: ["http": .number(Double(http.statusCode))]))
         }
         let system = ProcessInfo.processInfo.operatingSystemVersion
         let systemVersion = "\(system.majorVersion).\(system.minorVersion).\(system.patchVersion)"
@@ -223,13 +229,16 @@ final class CartoucheUpdates: ObservableObject {
         problemReport = nil
         CartoucheReports.note("Update to Cartouche " + release.version + " started")
         guard let bridge = Self.bridge else {
-            failed(CartoucheText.updateUnavailable, version: release.version, step: nil, fraction: nil)
+            failed(CartoucheText.updateUnavailable, version: release.version, step: nil, fraction: nil,
+                   failure: CartoucheFailure(.bridgeMissing, stage: "start"))
             return
         }
         let progress = Progress(totalUnitCount: 100)
         self.progress = progress
         target = release
         phase = .preparing
+        started = Date()
+        CartoucheStoreKeychain.remove(CartoucheSideStoreOutcome.account)
         defaults.set(release.version, forKey: Self.pendingKey)
         bridge.call(bridge.receiver, Self.updateSelector, progress) { [weak self] message in
             let text = message.map { $0 as String }
@@ -243,23 +252,41 @@ final class CartoucheUpdates: ObservableObject {
         let version = target?.version ?? ""
         let step = phase == .installing ? CartoucheText.updateInstallingTitle(version) : CartoucheText.updatePreparingTitle(version)
         let fraction = phase == .preparing ? progress?.fractionCompleted : nil
+        let seconds = started.map { Date().timeIntervalSince($0) }
         phase = nil
         progress = nil
         target = nil
+        started = nil
         endBackground()
         defaults.removeObject(forKey: Self.pendingKey)
+        // How SideStore's action ended, which it left for Cartouche.
+        let outcome = Self.takeOutcome()
         if let message {
-            failed(message, version: version, step: step, fraction: fraction)
+            let failure = CartoucheFailure.sideStore(outcome: outcome, message: message, fraction: fraction, seconds: seconds,
+                                                     vpn: CartoucheVPN.isConnected, pairing: CartouchePairing.exists)
+            failed(message, version: version, step: step, fraction: fraction, failure: failure)
         } else {
             CartoucheReports.note("Update to Cartouche " + version + " installed")
             notice = CartoucheGameNotice(title: CartoucheText.updateInstalledTitle(version), message: CartoucheText.updateInstalledMessage)
         }
     }
 
-    /// The update to VERSION failed at STEP, as SideStore's MESSAGE says.
-    private func failed(_ message: String, version: String, step: String?, fraction: Double?) {
+    /// What the built-in SideStore left of how its last update ended, once:
+    /// AGE at most ago.
+    private static func takeOutcome(maximumAge: TimeInterval = 3_600) -> CartoucheSideStoreOutcome? {
+        let outcome = CartoucheStoreKeychain.data(CartoucheSideStoreOutcome.account)
+            .flatMap { CartoucheSideStoreOutcome(data: $0, expecting: .update, maximumAge: maximumAge) }
+        if outcome != nil {
+            CartoucheStoreKeychain.remove(CartoucheSideStoreOutcome.account)
+        }
+        return outcome
+    }
+
+    /// The update to VERSION failed at STEP, as SideStore's MESSAGE says,
+    /// for the reason FAILURE gives.
+    private func failed(_ message: String, version: String, step: String?, fraction: Double?, failure: CartoucheFailure) {
         let report = CartoucheReports.make(.update, CartoucheText.updateFailedTitle, message: message, step: step,
-                                           fraction: fraction, facts: [.init("New version", version)])
+                                           fraction: fraction, failure: failure, facts: [.init("New version", version)])
         problemReport = report
         notice = CartoucheGameNotice(title: CartoucheText.updateFailedTitle, message: CartoucheText.updateFailed(message), report: report)
     }
@@ -271,8 +298,13 @@ final class CartoucheUpdates: ObservableObject {
         let running = Self.runningVersion
         if CartoucheVersion.isHigher(pending, than: running) {
             let message = CartoucheText.updateUnfinished(pending)
+            // SideStore may have ended after Cartouche left the screen: what
+            // it left says how, a day at most after.
+            var failure = CartoucheFailure.sideStore(outcome: Self.takeOutcome(maximumAge: 86_400), message: nil, fraction: nil,
+                                                     seconds: nil, vpn: nil, pairing: nil)
+            failure.details["unfinished"] = .flag(true)
             let report = CartoucheReports.make(.update, CartoucheText.updateUnfinishedTitle, message: message,
-                                               facts: [.init("New version", pending)])
+                                               failure: failure, facts: [.init("New version", pending)])
             notice = CartoucheGameNotice(title: CartoucheText.updateUnfinishedTitle, message: message, report: report)
         } else {
             CartoucheReports.note("Update to Cartouche " + pending + " installed")
