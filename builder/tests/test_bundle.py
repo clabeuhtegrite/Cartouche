@@ -201,6 +201,16 @@ class Bundle(Home):
         answer = json.loads(out.getvalue())
         self.assertTrue((self.games / answer["ipa"].split("/")[-1]).is_file())
 
+    def test_api_answer_tells_the_game_and_size_for_the_measurements(self):
+        configs.save(Paths.default(), configs.Config(games=str(self.games)))
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out), contextlib.redirect_stderr(io.StringIO()):
+            code = api.main(["bundle-romfs", "--ipa", str(self.source), "--romfs", str(self.image)])
+        self.assertEqual(code, 0, out.getvalue())
+        answer = json.loads(out.getvalue())
+        target = self.games / answer["ipa"].split("/")[-1]
+        self.assertEqual((answer["title_id"], answer["nxnative"], answer["bytes"]), (MKW, "a" * 12, target.stat().st_size))
+
     def test_api_bad_zip_keeps_failure_details(self):
         configs.save(Paths.default(), configs.Config(games=str(self.games)))
         out = io.StringIO()

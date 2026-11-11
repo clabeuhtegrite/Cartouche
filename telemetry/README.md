@@ -94,6 +94,7 @@ Cartouche Builder sends events in the same form, to the same routes, with its ow
 | `builder.queued` | Games added to the batch running, to build after its own. | `games`, how many; `forced`, built again even if up to date |
 | `builder.takenOut` | A game taken out of the batch running. | `building`, whether its build was stopped, not only left out |
 | `builder.cleaned` | Room freed on the Storage page. | `what`, `items`, `freedMB` |
+| `builder.imported` | An nxnative IPA built without its game data, made whole with its `romfs.img` (**Import IPA + ROMFS…**). | `seconds`; `ipaMB`, the complete IPA's size; `nxnative`, the commit its IPA was built from; `remote`, folders on a share |
 | `builder.paired` | An iPhone asked to pair. | `allowed` |
 | `builder.updated` | The first start of a new version. | `from`, `to` |
 | `builder.error` | An error the app met. | `origin`, what it was doing; `kind`, the engine's kind of error, or `error`, the domains and codes of the error and those under it, never its words; `background`; for the engine's, `exception`, the Python exception's class, `where`, the module and function of the engine that met it (`library.scan`), `errno`, and `exit`, its exit status when it ended without an answer ([`failure.py`](../builder/cartouche_builder/failure.py)); for a batch that never started (`not_started`), `seconds` waited, `exit` and `signal`, or `running`, and the `exception` its log ends on |

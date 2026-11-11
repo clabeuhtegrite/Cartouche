@@ -29,6 +29,14 @@ final class EngineAnswerTests: XCTestCase {
         XCTAssertEqual(answer.ipa, "/Volumes/Games/Example (with ROMFS).ipa")
     }
 
+    func testBundledIPAAnswerTellsTheGameForTheMeasurements() throws {
+        let line = "{\"api\":1,\"ipa\":\"/Volumes/Games/Example (with ROMFS) [0100152000022000].ipa\",\"title_id\":\"0100152000022000\",\"nxnative\":\"6c3aeb3d70a1\",\"bytes\":5120000000}\n"
+        let answer = try Engine.decode(BundleIPAAnswer.self, from: RunResult(status: 0, output: Data(line.utf8)))
+        XCTAssertEqual(answer.titleID, "0100152000022000")
+        XCTAssertEqual(answer.nxnative, "6c3aeb3d70a1")
+        XCTAssertEqual(answer.bytes, 5_120_000_000)
+    }
+
     /// What the engine prints: a tool's line, then its answer.
     private func output(_ name: String) throws -> RunResult {
         var output = Data("Looking at nxnative and the games…\n".utf8)

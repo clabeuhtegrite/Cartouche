@@ -144,7 +144,15 @@ def bundle_romfs(ctx: batch.Context, source: Path, image: Path) -> dict:
         if not folder.is_dir():
             raise ValueError(t("bundle.no_folder"))
         target = ipas.bundle_romfs(source, image, folder, progress=_say)
-    return {"ipa": str(target)}
+    # For the app's measurements: the game by its title ID, the nxnative it
+    # was built with and the complete IPA's size, never its name or path.
+    info = ipas.read_info(target)
+    try:
+        size = target.stat().st_size
+    except OSError:
+        size = None
+    return {"ipa": str(target), "title_id": info.title_id if info else None,
+            "nxnative": info.short_commit if info else None, "bytes": size}
 
 
 # ---- The games ------------------------------------------------------------------

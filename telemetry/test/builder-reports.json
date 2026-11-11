@@ -297,6 +297,25 @@
       "name": "builder.batch",
       "schema": 1,
       "seq": 15
+    },
+    {
+      "cartouche": "0.2.1",
+      "device": "Mac16,12",
+      "fields": {
+        "ipaMB": 5120,
+        "nxnative": "6c3aeb3d70a1",
+        "remote": true,
+        "seconds": 48
+      },
+      "game": "0100152000022000",
+      "id": "6a1d9e3c-0000-4000-8000-000000000016",
+      "install": "8c1f6c2e-7a2f-4e19-8c3d-2f6a9b0e1d7c",
+      "ios": "26.6",
+      "kind": "event",
+      "language": "fr",
+      "name": "builder.imported",
+      "schema": 1,
+      "seq": 16
     }
   ]
 }

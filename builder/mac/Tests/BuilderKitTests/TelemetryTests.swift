@@ -50,6 +50,7 @@ final class TelemetryTests: XCTestCase {
                                                      "failed": .count(0), "games": .count(2), "jobs": .count(1), "minutes": .number(0.4),
                                                      "nxnative": .text(head), "scheduled": .flag(false), "skipped": .count(0),
                                                      "state": .text("failed"), "stopped": .count(2), "where": .text("workspace.prepare")]
+        let imported: [String: TelemetryValue] = ["ipaMB": .number(5120), "nxnative": .text(head), "remote": .flag(true), "seconds": .number(48)]
         let events: [(name: String, game: String?, fields: [String: TelemetryValue])] = [
             ("builder.opened", nil, opened),
             ("builder.setup", nil, setup),
@@ -66,6 +67,7 @@ final class TelemetryTests: XCTestCase {
             ("builder.error", nil, crashed),
             ("builder.error", nil, notStarted),
             ("builder.batch", nil, failedBatch),
+            ("builder.imported", "0100152000022000", imported),
         ]
         var made: [TelemetryEvent] = []
         for (index, event) in events.enumerated() {

@@ -787,11 +787,32 @@ final class AppModel: ObservableObject {
         bundling = true
         bundleMessage = tr("Checking the IPA and game data…", "Vérification de l’IPA et des fichiers du jeu…")
         defer { bundling = false }
-        let path = try await engine.bundleROMFS(ipa: ipa, image: image) { [weak self] line in
-            Task { @MainActor in self?.bundleMessage = line }
+        let started = Date()
+        let answer: BundleIPAAnswer
+        do {
+            answer = try await engine.bundleROMFS(ipa: ipa, image: image) { [weak self] line in
+                Task { @MainActor in self?.bundleMessage = line }
+            }
+        } catch {
+            // The sheet shows its words; the measurements count it by its codes.
+            telemetry.error(error, origin: "import")
+            throw error
         }
+        telemetry.event("builder.imported", game: answer.titleID, fields: importedFields(answer, seconds: Date().timeIntervalSince(started)))
         await refreshLibrary(update: false)
-        return path
+        return answer.ipa
+    }
+
+    /// An IPA imported with its game data, for the telemetry: never its
+    /// name nor where it went.
+    private func importedFields(_ answer: BundleIPAAnswer, seconds: TimeInterval) -> [String: TelemetryValue] {
+        var fields: [String: TelemetryValue] = [
+            "seconds": .number(seconds.rounded()),
+            "remote": .flag(library?.folders?.remote ?? false),
+        ]
+        if let bytes = answer.bytes, bytes > 0 { fields["ipaMB"] = .number((Double(bytes) / 1_000_000).rounded()) }
+        if let nxnative = answer.nxnative { fields["nxnative"] = .text(nxnative) }
+        return fields
     }
 
     func mountShares() {
