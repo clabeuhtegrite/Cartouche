@@ -9,9 +9,10 @@
 //  with its own safe area, size classes and system bars.
 //
 //      -GalleryScreen games|library|sheet|settings|setup|signin|guide|system|storage|storage-mac|telemetry|report
-//                                        storage-mac: Add your Mac, the
-//                                        form that pairs this iPhone with a
-//                                        Mac nearby
+//                                        library: every game, open over
+//                                        the home; storage-mac: Add your
+//                                        Mac, the form that pairs this
+//                                        iPhone with a Mac nearby
 //      -GalleryWidth 402 -GalleryHeight 874     (none: the whole screen)
 //      -GalleryInsets 62,0,34,0          top, leading, bottom, trailing
 //      -GalleryWidthClass compact        the width class at a scenario's
@@ -369,9 +370,10 @@ struct CartoucheGalleryApp: App {
         let entries = CartoucheCatalog.shared.entries(for: model.apps, stored: CartoucheStoredGames.shared.games)
         switch scenario.screen {
         case "library":
-            NavigationStack {
-                CartoucheLibraryView(entries: entries, isActive: true, onPlay: { _ in }, onSheet: { _ in }, onBack: {})
-            }
+            // Every game, open over the home as the player opens it, beside
+            // the sheet of the game in focus on an iPhone Duo unfolded once
+            // the player has a game.
+            CartoucheGamesView(showingLibrary: true)
         case "sheet":
             if let entry = entries.all.first(where: { $0.titleId == scenario.sheet }) {
                 NavigationStack {

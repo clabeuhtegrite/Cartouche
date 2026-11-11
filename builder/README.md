@@ -6,7 +6,7 @@ It runs nxnative's own build script, as nxnative's [front-end page](https://gith
 
 ## Install
 
-Download `Cartouche-Builder-<version>.dmg` from the latest [`builder-v<version>` release](https://github.com/clabeuhtegrite/Cartouche/releases), open it, and drag **Cartouche Builder** onto **Applications**. The app is signed ad hoc, not by Apple: the first time, macOS says it cannot check it. Open **System Settings › Privacy & Security** and click **Open Anyway** beside Cartouche Builder, once. Its updates open without asking again.
+[Download Cartouche Builder](https://clabeuhtegrite.github.io/Cartouche/download/#builder), or use the button on [Cartouche's site](https://clabeuhtegrite.github.io/Cartouche/#builder): the disk image downloads at once. Open it, and drag **Cartouche Builder** onto **Applications**. The app is signed ad hoc, not by Apple: the first time, macOS says it cannot check it. Open **System Settings › Privacy & Security** and click **Open Anyway** beside Cartouche Builder, once. Its updates open without asking again.
 
 At its first start a setup assistant opens, with no Terminal, and opens again at each start until it is gone through to its end. Nothing is chosen for you: every folder starts empty, and the app reads nothing another app left on the Mac. Its steps, on the left with what is done and what is missing; each choice is saved as you make it, and all of them can be changed later in the settings, where **Advanced › Open the setup assistant** opens it again:
 
@@ -114,4 +114,4 @@ swift test --package-path mac
 
 ### Publishing a version
 
-A version is the one in `pyproject.toml`, with its notes in `RELEASE.md`. On `main`, run the **Builder** workflow from the Actions tab with **Publish** ticked: it tests and builds the app, makes its disk image and publishes both with the SHA-256 as the release `builder-v<version>`, without GitHub's Latest mark, which stays Cartouche's. Each copy of the app finds it within six hours.
+A version is the one in `pyproject.toml`, with its notes in `RELEASE.md`. On `main`, run the **Builder** workflow from the Actions tab with **Publish** ticked: it tests and builds the app, makes its disk image and publishes both with the SHA-256 as the release `builder-v<version>`, without GitHub's Latest mark, which stays Cartouche's. Each copy of the app finds it within six hours, and the workflow publishes the site again, whose buttons and download page then give this version ([site/README.md](../site/README.md#publishing)).

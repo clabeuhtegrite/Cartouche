@@ -54,8 +54,14 @@ struct CartoucheGameSheetView: View {
         self.onExport = onExport
     }
 
+    /// The memory the game has here, where Play starts it: behind the
+    /// console, iOS may give it more than Cartouche's own limit.
+    private var gameLimitMiB: Int? {
+        keeping.gameLimitMiB(ownLimitMiB: memory?.limitMiB)
+    }
+
     private var fit: CartoucheFit? {
-        entry.sheet.map { CartoucheFit.of($0, memory: memory) }
+        entry.sheet.map { CartoucheFit.of($0, limitMiB: gameLimitMiB) }
     }
 
     private var serverName: String {
@@ -95,8 +101,8 @@ struct CartoucheGameSheetView: View {
                 }
             }
 
-            if let app = entry.app, let saves = CartoucheGameActions.shared.saves(of: app) {
-                CartoucheSavesSection(target: saves)
+            if let app = entry.app, let saves = actions.saves(of: app) {
+                CartoucheSavesSection(target: saves, isRunning: actions.isRunning(app))
             }
 
             if let app = entry.app {
@@ -251,7 +257,7 @@ struct CartoucheGameSheetView: View {
                                     detail: CartoucheDevice.hasIncreasedMemoryLimit ? CartoucheText.imlActive(limit) : CartoucheText.imlInactive(limit)))
         }
         if let peak = sheet.peakMemoryMiB {
-            let fits = memory.map { peak <= $0.limitMiB } ?? true
+            let fits = gameLimitMiB.map { peak <= $0 } ?? true
             list.append(Requirement(ok: fits,
                                     title: CartoucheText.memoryRequirement,
                                     detail: CartoucheText.memoryNeeded(CartoucheText.memoryAmount(mebibytes: peak))))
@@ -310,7 +316,8 @@ struct CartoucheGameSheetView: View {
     private func manageSection(_ app: LCAppModel) -> some View {
         Section {
             if keeping.keepsConsoleOpen, CartoucheGameKeeping.isAvailable,
-               let bundleId = app.appInfo.bundleIdentifier(), keeping.startsInPlace(bundleId: bundleId) {
+               let bundleId = app.appInfo.bundleIdentifier(),
+               keeping.startsInPlace(bundleId: bundleId, ownLimitMiB: memory?.limitMiB) {
                 VStack(alignment: .leading, spacing: 8) {
                     Label(CartoucheText.startsInPlaceNote, systemImage: "rectangle.on.rectangle.slash")
                         .font(.subheadline)

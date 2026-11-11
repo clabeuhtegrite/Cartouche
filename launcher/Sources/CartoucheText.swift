@@ -27,7 +27,7 @@ enum CartoucheText {
 
     // MARK: Catalogue
 
-    static var emptyMessage: String { s("games.empty.message", "Import the IPA of a supported game that you built on your Mac from your own copy.") }
+    static var emptyMessage: String { s("games.empty.message", "Import the IPA of a supported game, made from your own copy.") }
     static var noSheet: String { s("games.noSheet", "No sheet yet") }
     static var importCopy: String { s("action.import", "Import my copy") }
     static var play: String { s("action.play", "Play") }
@@ -98,7 +98,7 @@ enum CartoucheText {
     static var reasonGPU: String { s("reason.gpu", "Needs a GPU that reads BC-compressed textures.") }
     static var reasonIML: String { s("reason.iml", "Needs Increased Memory Limit, which is not active for Cartouche yet.") }
     static func reasonMemory(needed: String, limit: String) -> String {
-        f("reason.memory", "Needs about %1$@; Cartouche may use %2$@ on this iPhone.", needed, limit)
+        f("reason.memory", "Needs about %1$@; a game may use %2$@ on this iPhone.", needed, limit)
     }
     static var reasonDoesNotRun: String { s("reason.doesNotRun", "Testers could not run it on this iPhone model.") }
 
@@ -242,7 +242,7 @@ enum CartoucheText {
     static var imlOff: String { s("system.memory.iml.off", "Not active") }
     static var measureAgain: String { s("system.memory.measure", "Measure again") }
     static var memoryUnavailable: String { s("system.memory.unavailable", "iOS gives no memory limit here.") }
-    static var memoryFooter: String { s("system.memory.footer", "Your games share this limit. With Increased Memory Limit, an iPhone with 12 GB allows about 6 GiB.") }
+    static var memoryFooter: String { s("system.memory.footer", "Your games share this limit. With Increased Memory Limit, an iPhone with 12 GB allows Cartouche about 8 GiB.") }
     static func memoryKnown(_ limit: String) -> String { f("system.memory.known", "Testers measured %@ on this model with Increased Memory Limit.", limit) }
     static var signature: String { s("system.signature", "Signature") }
     static var expires: String { s("system.signature.expires", "Expires") }
@@ -350,7 +350,8 @@ enum CartoucheText {
         f("work.export.noSpace", "The copy takes about %1$@, and %2$@ has %3$@ free. Free some space there, then copy the game again.", needed, server, free)
     }
     static var exportUnreadable: String { s("work.export.unreadable", "Cartouche could not read the installed game.") }
-    static var savesFinishing: String { s("work.start.saves", "Cartouche first finishes copying your saves.") }
+    static var savesFinishing: String { s("work.start.saves", "Cartouche first finishes syncing your saves.") }
+    static func savesSyncing(_ server: String) -> String { f("work.saves.syncing", "Syncing your saves with %@", server) }
 
     static var gameSettings: String { s("action.gameSettings", "Game settings") }
     static var uninstall: String { s("action.uninstall", "Uninstall") }
@@ -410,14 +411,17 @@ enum CartoucheText {
     static func gameStoppedMemory(_ limit: String) -> String {
         f("running.stopped.memory", "iOS closed the game near its limit of %@ behind Cartouche. From now on, it starts in Cartouche’s place, with all of Cartouche’s memory.", limit)
     }
+    static func gameStoppedMemoryBehind(_ limit: String) -> String {
+        f("running.stopped.memory.behind", "iOS closed the game near its limit of %@ behind Cartouche: in Cartouche’s place, it would have no more memory. Your progress is kept up to its last save.", limit)
+    }
     static var startsInPlaceNote: String { s("sheet.inPlace", "Behind Cartouche, this game would run short of memory: it starts in Cartouche’s place, and the console closes while it runs.") }
     static var tryBehindAgain: String { s("sheet.inPlace.retry", "Try behind Cartouche again") }
     static var playingTitle: String { s("system.playing", "While a game runs") }
     static var keepConsoleOpen: String { s("system.playing.keep", "Keep Cartouche open behind the game") }
     static var behindLimit: String { s("system.playing.limit", "Memory for a game behind Cartouche") }
     static var behindLimitUnknown: String { s("system.playing.limit.unknown", "Measured at the next game") }
-    static var playingFooter: String { s("system.playing.footer", "The Home button over the game, or the controller’s, brings back the console and pauses the game. A game that needs more memory starts in Cartouche’s place, as before.") }
-    static var memoryFooterBehind: String { s("system.memory.footer.behind", "Games that start in Cartouche’s place share this limit; behind Cartouche, a game has its own. With Increased Memory Limit, an iPhone with 12 GB allows about 6 GiB.") }
+    static var playingFooter: String { s("system.playing.footer", "The Home button over the game, or the controller’s, brings back the console and pauses the game. A game that needs more memory than it has here starts in Cartouche’s place, when Cartouche has more.") }
+    static var memoryFooterBehind: String { s("system.memory.footer.behind", "Games that start in Cartouche’s place share this limit; behind Cartouche, a game has its own, below. With Increased Memory Limit, an iPhone with 12 GB allows Cartouche about 8 GiB.") }
     static func updateWhilePlaying(_ name: String) -> String { f("system.updates.playing", "Quit %@ first: Cartouche closes to install its update.", name) }
 
     // MARK: Play time and size
@@ -530,7 +534,7 @@ enum CartoucheText {
     static var storageReadOnlySaves: String { s("storage.readOnly.saves", "Read-only for your account: Cartouche cannot copy your saves here. Choose a folder you can write to.") }
     static func storageReadOnlyServer(_ name: String) -> String { f("storage.readOnly.server", "%@ (read-only)", name) }
     static func exportReadOnly(_ server: String) -> String { f("work.export.readOnly", "Your account on %@ can only read the games folder: Cartouche cannot copy the game there.", server) }
-    static func storageSavesFooter(_ kept: Int) -> String { f("storage.saves.footer", "After each game, Cartouche copies the game’s saves here, in a folder per game, and keeps the %lld newest copies.", kept) }
+    static func storageSavesFooter(_ kept: Int) -> String { f("storage.saves.footer", "Cartouche keeps your games’ saves in step with this folder, a folder per game: they come when a game is installed and before it starts, as after another iPhone played it or Cartouche was installed again, and go after each game. The %lld newest copies are kept.", kept) }
     static func storageSignInFailed(_ host: String, _ reason: String) -> String { f("storage.signInFailed", "Cartouche could not sign in to %1$@: %2$@", host, reason) }
     static func storageTooLarge(_ name: String) -> String { f("storage.tooLarge", "%@ is larger than Cartouche expects.", name) }
     static var storageConnectFailed: String { s("storage.failed.connect", "Cartouche could not connect") }
@@ -548,20 +552,28 @@ enum CartoucheText {
     // MARK: A game's saves
 
     static var savesTitle: String { s("saves.title", "Saves") }
-    static var savesLastCopy: String { s("saves.lastCopy", "Last copy") }
+    static var savesLastSync: String { s("saves.lastSync", "Last sync") }
     static var savesNoCopy: String { s("saves.noCopy", "None yet") }
     static var savesPutBack: String { s("saves.putBack", "Put back a copy") }
-    static var savesNoFolder: String { s("saves.noFolder", "Choose a saves folder in System › Storage: Cartouche will copy this game’s saves there after each game.") }
-    static var savesPutBackFooter: String { s("saves.putBack.footer", "Putting back a copy replaces this game’s saves on this iPhone. Cartouche copies the current ones first.") }
+    static var savesNoFolder: String { s("saves.noFolder", "Choose a saves folder in System › Storage: Cartouche will keep this game’s saves in step with it, and bring them back if Cartouche is installed again.") }
+    static var savesPutBackFooter: String { s("saves.putBack.footer", "Putting back a copy replaces this game’s saves on this iPhone. Cartouche sends the current ones to your saves folder first, and the copy put back becomes the newest one there, which your other iPhones take too.") }
     static var savesPutBackQuestion: String { s("saves.putBack.question", "Put back this copy?") }
-    static var savesPutBackMessage: String { s("saves.putBack.message", "It replaces the game’s saves on this iPhone. Cartouche copies them first, so you can come back to them.") }
+    static var savesPutBackMessage: String { s("saves.putBack.message", "It replaces the game’s saves on this iPhone. Cartouche sends them to your saves folder first, so you can come back to them.") }
     static var savesCopyUnreadable: String { s("saves.unreadable", "This copy cannot be read: it is incomplete, or holds more than a game’s saves.") }
     static var savesReadOnly: String { s("saves.readOnly", "Your saves folder is read-only for your account: choose another one in System › Storage.") }
-    static func savesCopyNow(_ server: String) -> String { f("saves.copyNow", "Copy to %@ now", server) }
-    static func savesFooter(_ kept: Int) -> String { f("saves.footer", "After each game, Cartouche copies these saves to your saves folder and keeps the %lld newest copies.", kept) }
+    static func savesSyncNow(_ server: String) -> String { f("saves.syncNow", "Sync with %@ now", server) }
+    static var savesRunning: String { s("saves.running", "Quit the game to sync its saves or put back a copy.") }
+    static func savesFetched(_ date: String) -> String { f("saves.fetched", "The newest saves, of %@, came from your saves folder.", date) }
+    static func savesFetchedOver(_ date: String, _ kept: String) -> String {
+        f("saves.fetched.kept", "The newest saves, of %1$@, came from your saves folder. This iPhone’s are kept there as the copy of %2$@.", date, kept)
+    }
+    static func savesKeptHere(_ kept: String) -> String {
+        f("saves.kept", "Newer saves are in your saves folder: they come when the game next starts. This iPhone’s are kept there as the copy of %@.", kept)
+    }
+    static func savesFooter(_ kept: Int) -> String { f("saves.footer", "Cartouche keeps these saves in step with your saves folder: the newest come when the game is installed and before it starts, and go there after each game. When both changed, the newest win and the others stay as a copy. The %lld newest copies are kept.", kept) }
     static func savesPutBackAction(_ date: String) -> String { f("saves.putBack.action", "Put back the copy of %@", date) }
     static func savesPutBackDone(_ date: String) -> String { f("saves.putBack.done", "The copy of %@ is back in place.", date) }
-    static var savesCopyFailed: String { s("saves.failed.copy", "The saves were not copied") }
+    static var savesCopyFailed: String { s("saves.failed.copy", "The saves were not synced") }
     static var savesListFailed: String { s("saves.failed.list", "The copies of the saves were not read") }
     static var savesPutBackFailed: String { s("saves.failed.putBack", "The copy was not put back") }
     static func savesWaiting(_ count: Int) -> String {

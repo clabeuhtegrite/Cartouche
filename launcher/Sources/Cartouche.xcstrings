@@ -602,13 +602,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Import the IPA of a supported game that you built on your Mac from your own copy."
+            "value" : "Import the IPA of a supported game, made from your own copy."
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Importez l’IPA d’un jeu pris en charge, construite sur votre Mac à partir de votre propre copie."
+            "value" : "Importez l’IPA d’un jeu pris en charge, créée à partir de votre propre copie."
           }
         }
       }
@@ -1945,13 +1945,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Needs about %1$@; Cartouche may use %2$@ on this iPhone."
+            "value" : "Needs about %1$@; a game may use %2$@ on this iPhone."
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Nécessite environ %1$@ ; Cartouche peut utiliser %2$@ sur cet iPhone."
+            "value" : "Nécessite environ %1$@ ; un jeu peut utiliser %2$@ sur cet iPhone."
           }
         }
       }
@@ -2551,6 +2551,23 @@
         }
       }
     },
+    "running.stopped.memory.behind" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "iOS closed the game near its limit of %@ behind Cartouche: in Cartouche’s place, it would have no more memory. Your progress is kept up to its last save."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "iOS a fermé le jeu près de sa limite de %@ derrière Cartouche : à la place de Cartouche, il n’aurait pas plus de mémoire. Votre progression est gardée jusqu’à sa dernière sauvegarde."
+          }
+        }
+      }
+    },
     "running.stopped.paused" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -2619,36 +2636,19 @@
         }
       }
     },
-    "saves.copyNow" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Copy to %@ now"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Copier vers %@ maintenant"
-          }
-        }
-      }
-    },
     "saves.failed.copy" : {
       "extractionState" : "manual",
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "The saves were not copied"
+            "value" : "The saves were not synced"
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Les sauvegardes n’ont pas été copiées"
+            "value" : "Les sauvegardes n’ont pas été synchronisées"
           }
         }
       }
@@ -2687,36 +2687,87 @@
         }
       }
     },
+    "saves.fetched" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The newest saves, of %@, came from your saves folder."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Les sauvegardes les plus récentes, du %@, sont arrivées de votre dossier des sauvegardes."
+          }
+        }
+      }
+    },
+    "saves.fetched.kept" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The newest saves, of %1$@, came from your saves folder. This iPhone’s are kept there as the copy of %2$@."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Les sauvegardes les plus récentes, du %1$@, sont arrivées de votre dossier des sauvegardes. Celles de cet iPhone y sont gardées : copie du %2$@."
+          }
+        }
+      }
+    },
     "saves.footer" : {
       "extractionState" : "manual",
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "After each game, Cartouche copies these saves to your saves folder and keeps the %lld newest copies."
+            "value" : "Cartouche keeps these saves in step with your saves folder: the newest come when the game is installed and before it starts, and go there after each game. When both changed, the newest win and the others stay as a copy. The %lld newest copies are kept."
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Après chaque partie, Cartouche copie ces sauvegardes dans votre dossier des sauvegardes et garde les %lld copies les plus récentes."
+            "value" : "Cartouche synchronise ces sauvegardes avec votre dossier des sauvegardes : les plus récentes arrivent à l’installation du jeu et avant chaque lancement, et y repartent après chaque partie. Si les deux ont changé, les plus récentes l’emportent et les autres restent en copie. Les %lld copies les plus récentes sont gardées."
           }
         }
       }
     },
-    "saves.lastCopy" : {
+    "saves.kept" : {
       "extractionState" : "manual",
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Last copy"
+            "value" : "Newer saves are in your saves folder: they come when the game next starts. This iPhone’s are kept there as the copy of %@."
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Dernière copie"
+            "value" : "Des sauvegardes plus récentes sont dans votre dossier des sauvegardes : elles arrivent au prochain lancement du jeu. Celles de cet iPhone y sont gardées : copie du %@."
+          }
+        }
+      }
+    },
+    "saves.lastSync" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Last sync"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dernière synchronisation"
           }
         }
       }
@@ -2744,13 +2795,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Choose a saves folder in System › Storage: Cartouche will copy this game’s saves there after each game."
+            "value" : "Choose a saves folder in System › Storage: Cartouche will keep this game’s saves in step with it, and bring them back if Cartouche is installed again."
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Choisissez un dossier des sauvegardes dans Système › Stockage : Cartouche y copiera les sauvegardes de ce jeu après chaque partie."
+            "value" : "Choisissez un dossier des sauvegardes dans Système › Stockage : Cartouche y synchronisera les sauvegardes de ce jeu, et les remettra si Cartouche est réinstallé."
           }
         }
       }
@@ -2812,13 +2863,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Putting back a copy replaces this game’s saves on this iPhone. Cartouche copies the current ones first."
+            "value" : "Putting back a copy replaces this game’s saves on this iPhone. Cartouche sends the current ones to your saves folder first, and the copy put back becomes the newest one there, which your other iPhones take too."
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Remettre une copie remplace les sauvegardes de ce jeu sur cet iPhone. Cartouche copie d’abord les actuelles."
+            "value" : "Remettre une copie remplace les sauvegardes de ce jeu sur cet iPhone. Cartouche envoie d’abord les actuelles dans votre dossier des sauvegardes, et la copie remise y devient la plus récente, que vos autres iPhone prennent aussi."
           }
         }
       }
@@ -2829,13 +2880,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "It replaces the game’s saves on this iPhone. Cartouche copies them first, so you can come back to them."
+            "value" : "It replaces the game’s saves on this iPhone. Cartouche sends them to your saves folder first, so you can come back to them."
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Elle remplace les sauvegardes du jeu sur cet iPhone. Cartouche les copie d’abord : vous pourrez y revenir."
+            "value" : "Elle remplace les sauvegardes du jeu sur cet iPhone. Cartouche les envoie d’abord dans votre dossier des sauvegardes : vous pourrez y revenir."
           }
         }
       }
@@ -2870,6 +2921,40 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Votre dossier des sauvegardes est en lecture seule pour votre compte : choisissez-en un autre dans Système › Stockage."
+          }
+        }
+      }
+    },
+    "saves.running" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Quit the game to sync its saves or put back a copy."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Quittez le jeu pour synchroniser ses sauvegardes ou remettre une copie."
+          }
+        }
+      }
+    },
+    "saves.syncNow" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sync with %@ now"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Synchroniser avec %@ maintenant"
           }
         }
       }
@@ -7657,13 +7742,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "After each game, Cartouche copies the game’s saves here, in a folder per game, and keeps the %lld newest copies."
+            "value" : "Cartouche keeps your games’ saves in step with this folder, a folder per game: they come when a game is installed and before it starts, as after another iPhone played it or Cartouche was installed again, and go after each game. The %lld newest copies are kept."
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Après chaque partie, Cartouche copie ici les sauvegardes du jeu, dans un dossier par jeu, et garde les %lld copies les plus récentes."
+            "value" : "Cartouche synchronise les sauvegardes de vos jeux avec ce dossier, un dossier par jeu : elles arrivent à l’installation d’un jeu et avant chaque lancement, comme après une partie sur un autre iPhone ou une réinstallation de Cartouche, et y repartent après chaque partie. Les %lld copies les plus récentes sont gardées."
           }
         }
       }
@@ -8303,13 +8388,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Your games share this limit. With Increased Memory Limit, an iPhone with 12 GB allows about 6 GiB."
+            "value" : "Your games share this limit. With Increased Memory Limit, an iPhone with 12 GB allows Cartouche about 8 GiB."
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Vos jeux partagent cette limite. Avec la mémoire augmentée, un iPhone de 12 Go accorde environ 6 Gio."
+            "value" : "Vos jeux partagent cette limite. Avec la mémoire augmentée, un iPhone de 12 Go accorde environ 8 Gio à Cartouche."
           }
         }
       }
@@ -8320,13 +8405,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Games that start in Cartouche’s place share this limit; behind Cartouche, a game has its own. With Increased Memory Limit, an iPhone with 12 GB allows about 6 GiB."
+            "value" : "Games that start in Cartouche’s place share this limit; behind Cartouche, a game has its own, below. With Increased Memory Limit, an iPhone with 12 GB allows Cartouche about 8 GiB."
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Les jeux lancés à la place de Cartouche partagent cette limite ; derrière Cartouche, un jeu a la sienne. Avec la mémoire augmentée, un iPhone de 12 Go accorde environ 6 Gio."
+            "value" : "Les jeux lancés à la place de Cartouche partagent cette limite ; derrière Cartouche, un jeu a la sienne, ci-dessous. Avec la mémoire augmentée, un iPhone de 12 Go accorde environ 8 Gio à Cartouche."
           }
         }
       }
@@ -8473,13 +8558,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "The Home button over the game, or the controller’s, brings back the console and pauses the game. A game that needs more memory starts in Cartouche’s place, as before."
+            "value" : "The Home button over the game, or the controller’s, brings back the console and pauses the game. A game that needs more memory than it has here starts in Cartouche’s place, when Cartouche has more."
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Le bouton Home sur le jeu, ou celui de la manette, ramène la console et met le jeu en pause. Un jeu qui demande plus de mémoire démarre à la place de Cartouche, comme avant."
+            "value" : "Le bouton Home sur le jeu, ou celui de la manette, ramène la console et met le jeu en pause. Un jeu qui demande plus de mémoire qu’il n’en a ici démarre à la place de Cartouche, si Cartouche en a plus."
           }
         }
       }
@@ -10218,6 +10303,23 @@
         }
       }
     },
+    "work.saves.syncing" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Syncing your saves with %@"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Synchronisation de vos sauvegardes avec %@"
+          }
+        }
+      }
+    },
     "work.signing" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -10275,13 +10377,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Cartouche first finishes copying your saves."
+            "value" : "Cartouche first finishes syncing your saves."
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Cartouche finit d’abord de copier vos sauvegardes."
+            "value" : "Cartouche finit d’abord de synchroniser vos sauvegardes."
           }
         }
       }

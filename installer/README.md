@@ -14,7 +14,9 @@ It installs nothing but Cartouche: an IPA whose bundle identifier is not Cartouc
 
 ## Download and first open
 
-Each version is the GitHub release `installer-v<version>`, published without GitHub's *Latest* mark, which is meant for Cartouche. While Cartouche's versions are 0.x pre-releases, GitHub still shows the installer as the latest release. Nothing reads that mark: the installer and Cartouche take Cartouche's newest version from its source.
+Download it [for Mac](https://clabeuhtegrite.github.io/Cartouche/download/#installer-mac) or [for Windows](https://clabeuhtegrite.github.io/Cartouche/download/#installer-windows): these links, like the buttons of [Cartouche's site](https://clabeuhtegrite.github.io/Cartouche/#install), give the file itself, at once.
+
+Each version is the GitHub release `installer-v<version>`, published without GitHub's *Latest* mark, which is meant for Cartouche. While Cartouche's versions are 0.x pre-releases, GitHub still gives that mark to the newest release that is not one, the Installer's or Cartouche Builder's. Nothing reads it: the installer and Cartouche take Cartouche's newest version from its source, and the site takes the Installer's and the Builder's from their releases each time it is published ([site/README.md](../site/README.md#publishing)).
 
 | Computer | File | First open |
 | --- | --- | --- |
@@ -56,7 +58,7 @@ On Windows, isideload's cryptography needs Strawberry Perl, make, and the Visual
 To publish a version:
 
 1. In a pull request, raise the version in [`src-tauri/tauri.conf.json`](src-tauri/tauri.conf.json), which names the release, in [`src-tauri/Cargo.toml`](src-tauri/Cargo.toml) then `Cargo.lock` (`cargo update -p cartouche-installer`), and in `package.json` and its lockfile (`npm version <version> --no-git-tag-version`), and write the notes of the release in [`RELEASE.md`](RELEASE.md).
-2. Once it is merged, run **Actions › Installer › Run workflow** on `main` with **Publish** ticked. The workflow builds both, then publishes them as the release `installer-v<version>`, never marked as the latest. It stops if that release exists already.
+2. Once it is merged, run **Actions › Installer › Run workflow** on `main` with **Publish** ticked. The workflow builds both, then publishes them as the release `installer-v<version>`, never marked as the latest, and publishes the site again, whose buttons and download page then give this version. It stops if that release exists already.
 
 ## Licence
 

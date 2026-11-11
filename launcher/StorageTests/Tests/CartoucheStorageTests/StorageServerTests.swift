@@ -8,10 +8,10 @@
 //  in to, and adds what only its protocol has. The steps are the app's: the
 //  library lists the games folder and reads each IPA's Info.plist where it
 //  sits, Install from unpacks an IPA in one pass from the server, Copy to
-//  writes the installed game back as an IPA, the saves go as zips after each
-//  game and the oldest are removed, and Cartouche asks where the account can
-//  write. The IPAs are made-up apps (make_ipas.py), one past 4 GiB, as
-//  games are.
+//  writes the installed game back as an IPA, the saves of two iPhones are
+//  kept in step through the saves folder (CartoucheSavesFolder), and
+//  Cartouche asks where the account can write. The IPAs are made-up apps
+//  (make_ipas.py), one past 4 GiB, as games are.
 //
 
 import Darwin
@@ -405,46 +405,129 @@ class StorageServerTests: XCTestCase {
 
     // MARK: Saves
 
-    func testCopiesSavesAndPutsThemBack() async throws {
-        let remote = try await signIn()
-        let folder = try await scratchFolder(remote)
-        // A game's saves, as CartoucheSaveBackups zips them.
-        let documents = try localFolder()
+    /// A game's Documents on one of the test's iPhones, its saves
+    /// written at WRITTEN, save0.bin holding PARTY.
+    private func play(_ party: String, written: Date, in place: URL? = nil) throws -> URL {
+        let documents = try place ?? localFolder()
         let saves = documents.appendingPathComponent("save", isDirectory: true)
         try FileManager.default.createDirectory(at: saves.appendingPathComponent("Profils"), withIntermediateDirectories: true)
-        try noise(200_000, seed: 4).write(to: saves.appendingPathComponent("save0.bin"))
+        try (Data(party.utf8) + noise(200_000, seed: 4)).write(to: saves.appendingPathComponent("save0.bin"))
         try Data("Joueur 1".utf8).write(to: saves.appendingPathComponent("Profils/joueur é.txt"))
-        let gameFolder = CartoucheStoragePath.join(folder, "Essai de stockage [0100CA27C0DE0000]")
-        try await remote.makeFolders(gameFolder)
-        var names: [String] = []
-        for minute in 0 ..< 3 {
-            let name = "2026-11-10 07.0\(minute).00.zip"
-            let upload = try await remote.create(CartoucheStoragePath.join(gameFolder, name), size: nil)
-            do {
-                let writer = CartoucheZipWriter(sink: upload)
-                try await writer.addFolder("save/")
-                try await writer.addFolder("save/Profils/")
-                try await writer.addFile("save/Profils/joueur é.txt", from: saves.appendingPathComponent("Profils/joueur é.txt"))
-                try await writer.addFile("save/save0.bin", from: saves.appendingPathComponent("save0.bin"))
-                try await writer.finish()
-                try await upload.finish()
-            } catch {
-                await upload.cancel()
-                throw error
-            }
-            names.append(name)
+        for file in ["save0.bin", "Profils/joueur é.txt"] {
+            try FileManager.default.setAttributes([.modificationDate: written], ofItemAtPath: saves.appendingPathComponent(file).path)
         }
-        let listed = try await remote.list(gameFolder).map(\.name).sorted()
-        XCTAssertEqual(listed, names)
-        // The oldest goes, as Cartouche keeps the newest copies only.
-        try await remote.delete(CartoucheStoragePath.join(gameFolder, names[0]))
-        let kept = try await remote.list(gameFolder).map(\.name).sorted()
-        XCTAssertEqual(kept, Array(names.dropFirst()))
-        // And the newest comes back as it was.
-        let restored = try await install(CartoucheStoragePath.join(gameFolder, names[2]), from: remote)
-        XCTAssertEqual(try Data(contentsOf: restored.appendingPathComponent("save/save0.bin")), noise(200_000, seed: 4))
-        XCTAssertEqual(try String(contentsOf: restored.appendingPathComponent("save/Profils/joueur é.txt"), encoding: .utf8),
-                       "Joueur 1")
+        return documents
+    }
+
+    /// What save0.bin holds in DOCUMENTS, before the noise.
+    private func party(in documents: URL) throws -> String {
+        let data = try Data(contentsOf: documents.appendingPathComponent("save/save0.bin"))
+        XCTAssertEqual(data.suffix(200_000), noise(200_000, seed: 4))
+        return String(decoding: data.dropLast(200_000), as: UTF8.self)
+    }
+
+    func testKeepsSavesInStepAcrossIPhones() async throws {
+        let remote = try await signIn()
+        let folder = try await scratchFolder(remote)
+        let scratchHere = try localFolder()
+        // A round of syncs, as Cartouche makes one each time.
+        func round() -> CartoucheSavesFolder {
+            CartoucheSavesFolder(remote: remote, path: folder, place: "test|" + folder, scratch: scratchHere)
+        }
+        let gameFolder = CartoucheStoragePath.join(folder, "Essai de stockage [0100CA27C0DE0000]")
+        func copies() async throws -> [String] {
+            try await remote.list(gameFolder).map(\.name).filter { !$0.hasSuffix(".partial") }.sorted()
+        }
+        let morning = Date(timeIntervalSince1970: 1_794_292_800)
+
+        // An iPhone plays: its saves go, named by when they were written.
+        let first = CartoucheSaveTarget(key: "first", name: "Essai de stockage", titleId: "0100ca27c0de0000",
+                                        documents: try play("partie 1", written: morning))
+        let sent = try await round().sync(first, base: nil, fetching: false)
+        XCTAssertEqual(sent.step, .send)
+        XCTAssertEqual(sent.sent, CartoucheSaveSync.fileName(morning))
+        var firstBase = try XCTUnwrap(sent.base)
+        let afterFirst = try await copies()
+        XCTAssertEqual(afterFirst, [CartoucheSaveSync.fileName(morning)])
+        let unchanged = try await round().sync(first, base: firstBase, fetching: true)
+        XCTAssertEqual(unchanged.step, .none)
+
+        // Cartouche installed again, or another iPhone: no saves there, and
+        // the newest copy comes, whole.
+        let second = CartoucheSaveTarget(key: "second", name: "Essai de stockage", titleId: "0100CA27C0DE0000",
+                                         documents: try localFolder())
+        let waits = try await round().sync(second, base: nil, fetching: false)
+        XCTAssertEqual(waits.step, .none)
+        let fetched = try await round().sync(second, base: nil, fetching: true)
+        XCTAssertEqual(fetched.step, .fetch)
+        XCTAssertEqual(fetched.fetched, CartoucheSaveSync.fileName(morning))
+        XCTAssertEqual(try party(in: second.documents), "partie 1")
+        XCTAssertEqual(try String(contentsOf: second.documents.appendingPathComponent("save/Profils/joueur é.txt"),
+                                  encoding: .utf8), "Joueur 1")
+        var secondBase = try XCTUnwrap(fetched.base)
+        XCTAssertEqual(secondBase.content, firstBase.content)
+
+        // The second plays; the first takes its saves when the game starts,
+        // after reading what the newest copy holds from its end alone.
+        _ = try play("partie 2", written: morning + 600, in: second.documents)
+        let secondSent = try await round().sync(second, base: secondBase, fetching: false)
+        XCTAssertEqual(secondSent.step, .send)
+        secondBase = try XCTUnwrap(secondSent.base)
+        let firstFetched = try await round().sync(first, base: firstBase, fetching: true)
+        XCTAssertEqual(firstFetched.step, .fetch)
+        XCTAssertEqual(firstFetched.fetched, CartoucheSaveSync.fileName(morning + 600))
+        XCTAssertEqual(try party(in: first.documents), "partie 2")
+        firstBase = try XCTUnwrap(firstFetched.base)
+
+        // Both play without the server; the second's, written last, win.
+        _ = try play("partie 3a", written: morning + 1_200, in: first.documents)
+        _ = try play("partie 3b", written: morning + 1_800, in: second.documents)
+        let secondWins = try await round().sync(second, base: secondBase, fetching: false)
+        XCTAssertEqual(secondWins.step, .send)
+        secondBase = try XCTUnwrap(secondWins.base)
+        // After the game, the first's are kept as a copy of their own date;
+        // the newer ones come at its next start.
+        let firstKept = try await round().sync(first, base: firstBase, fetching: false)
+        XCTAssertEqual(firstKept.step, .keep)
+        XCTAssertEqual(firstKept.kept, CartoucheSaveSync.fileName(morning + 1_200))
+        XCTAssertEqual(try party(in: first.documents), "partie 3a")
+        firstBase = try XCTUnwrap(firstKept.base)
+        let firstStarts = try await round().sync(first, base: firstBase, fetching: true)
+        XCTAssertEqual(firstStarts.step, .fetch)
+        XCTAssertEqual(try party(in: first.documents), "partie 3b")
+        firstBase = try XCTUnwrap(firstStarts.base)
+        let afterConflict = try await copies()
+        XCTAssertEqual(afterConflict, [morning, morning + 600, morning + 1_200, morning + 1_800].map(CartoucheSaveSync.fileName))
+
+        // The first puts back its own: it becomes the newest copy, which
+        // the second takes at its next start.
+        let putBack = try await round().putBack(CartoucheSaveSync.fileName(morning + 1_200), of: first, base: firstBase)
+        XCTAssertEqual(try party(in: first.documents), "partie 3a")
+        XCTAssertNil(putBack.kept, "the saves it replaced were in the folder already")
+        let newest = try XCTUnwrap(putBack.sent)
+        let afterPutBack = try await copies()
+        XCTAssertEqual(afterPutBack.last, newest)
+        firstBase = try XCTUnwrap(putBack.base)
+        XCTAssertEqual(firstBase.copy, newest)
+        let secondTakes = try await round().sync(second, base: secondBase, fetching: true)
+        XCTAssertEqual(secondTakes.step, .fetch)
+        XCTAssertEqual(try party(in: second.documents), "partie 3a")
+        secondBase = try XCTUnwrap(secondTakes.base)
+
+        // The ten newest copies stay, the one just made among them.
+        for game in 0 ..< 8 {
+            _ = try play("partie \(4 + game)", written: Date().addingTimeInterval(-3_600 + Double(game)), in: second.documents)
+            let more = try await round().sync(second, base: secondBase, fetching: false)
+            XCTAssertEqual(more.step, .send)
+            secondBase = try XCTUnwrap(more.base)
+        }
+        let kept = try await copies()
+        XCTAssertEqual(kept.count, CartoucheSaveSync.kept)
+        XCTAssertEqual(kept.last, secondBase.copy)
+        XCTAssertFalse(kept.contains(CartoucheSaveSync.fileName(morning)))
+        let listedCopies = try await round().copies(of: second)
+        XCTAssertEqual(listedCopies.map { CartoucheStoragePath.name($0.path) }, Array(kept.reversed()))
+        XCTAssertEqual(try party(in: second.documents), "partie 11")
     }
 
     // MARK: Where the account can write

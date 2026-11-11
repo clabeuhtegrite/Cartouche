@@ -129,6 +129,7 @@ final class CartoucheGameActions: ObservableObject {
                         throw "lc.appList.urlFileIsNotIpaError".loc
                     }
                 }
+                await fetchSaves(of: app)
                 finishInstall(app, warning: warning)
             } catch {
                 fail(.install, CartoucheText.installFailed, error: error)
@@ -199,6 +200,7 @@ final class CartoucheGameActions: ObservableObject {
                 let (app, warning) = try await installUnpacked(into: model, builtAt: builtAt) { folder, progress in
                     try await CartoucheZip.extract(source, entries: entries, into: folder, progress: progress)
                 }
+                await fetchSaves(of: app)
                 finishInstall(app, warning: warning)
             } catch let lost as CartoucheResumingSource.Lost {
                 facts.append(.init("Connection", "lost after \(lost.attempts) failed attempts, "
@@ -621,13 +623,16 @@ final class CartoucheGameActions: ObservableObject {
         Task {
             let delegate = app.delegate
             do {
-                // Starting the game closes Cartouche: the copies of saves
-                // under way finish first.
-                if CartoucheSaveBackups.shared.isCopying {
+                // Starting the game closes Cartouche: the syncs of saves
+                // under way finish first, then the newest saves come, as
+                // when another iPhone played the game since.
+                let backups = CartoucheSaveBackups.shared
+                if backups.isSyncing {
                     work?.step = CartoucheText.savesFinishing
-                    await CartoucheSaveBackups.shared.finish()
-                    work?.step = showingSettings ? CartoucheText.startSettings : CartoucheText.startSoon
                 }
+                await backups.finish()
+                await fetchSaves(of: app)
+                work?.step = showingSettings ? CartoucheText.startSettings : CartoucheText.startSoon
                 try Self.prepareStart(of: app, showingSettings: showingSettings)
                 if #available(iOS 18.0, *), try await startBehindConsole(app, showingSettings: showingSettings) {
                     signing = nil
@@ -683,12 +688,14 @@ final class CartoucheGameActions: ObservableObject {
         guard keeping.keepsConsoleOpen, CartoucheGameKeeping.isAvailable,
               // LiveContainer runs these only in its own place.
               info.defaultClassicMode == 0, !info.isJITNeeded, !info.is32bit,
-              !keeping.startsInPlace(bundleId: info.bundleIdentifier()) else { return false }
+              !keeping.startsInPlace(bundleId: info.bundleIdentifier(),
+                                     ownLimitMiB: CartoucheMemoryReading.now()?.limitMiB) else { return false }
         return fitsBehindConsole(app, limitMiB: nil)
     }
 
-    /// Whether the game has the memory it needs behind the console, by its
-    /// sheet, with the limit measured there.
+    /// Whether the game starts behind the console, by its sheet, with the
+    /// limit measured there: unless it needs more, and Cartouche's place
+    /// has more.
     private func fitsBehindConsole(_ app: LCAppModel, limitMiB: Int?) -> Bool {
         let sheet = CartoucheCatalog.shared.entries(for: [app]).owned.first?.sheet
         return CartoucheGameKeeping.shared.fitsBehind(needsIML: sheet?.requirements.increasedMemoryLimit ?? false,
@@ -736,7 +743,8 @@ final class CartoucheGameActions: ObservableObject {
 
     /// The first reading of the running game's memory: the limit iOS set
     /// behind the console. A game that needs more starts again in
-    /// Cartouche's place at once, before the player is into it.
+    /// Cartouche's place at once, before the player is into it, when that
+    /// place has more.
     func gameMeasured(_ app: LCAppModel, reading: CartoucheGameMemoryReading) {
         CartoucheGameKeeping.shared.measured(limitMiB: reading.limitMiB)
         guard running?.app === app, pendingStart == nil, let bundleId = app.appInfo.bundleIdentifier(),
@@ -750,7 +758,8 @@ final class CartoucheGameActions: ObservableObject {
 
     /// The running game has ended: the player quit it, or iOS stopped it,
     /// and then the console says so. A game iOS stopped close to its memory
-    /// limit starts in Cartouche's place from then on.
+    /// limit starts in Cartouche's place from then on, when that place has
+    /// more; otherwise it stays behind the console, where it has as much.
     func gameDidEnd(_ app: LCAppModel, quit: Bool, wasInFront: Bool, reading: CartoucheGameMemoryReading?) {
         guard let ended = running, ended.app === app else { return }
         running = nil
@@ -760,7 +769,12 @@ final class CartoucheGameActions: ObservableObject {
                                         userInfo: ["quit": quit, "dataFolder": ended.dataFolder])
         if !quit {
             let title = CartoucheText.gameStoppedTitle(app.displayName)
-            if wasInFront, let reading, reading.wasNearLimit, let bundleId = app.appInfo.bundleIdentifier() {
+            if wasInFront, let reading, reading.wasNearLimit,
+               !CartoucheGamePlace.cartoucheHasMore(than: reading.limitMiB, ownMiB: CartoucheMemoryReading.now()?.limitMiB) {
+                // It stays behind the console, where it has as much.
+                notice = CartoucheGameNotice(title: title, message: CartoucheText.gameStoppedMemoryBehind(
+                    CartoucheText.memoryAmount(mebibytes: reading.limitMiB)))
+            } else if wasInFront, let reading, reading.wasNearLimit, let bundleId = app.appInfo.bundleIdentifier() {
                 CartoucheGameKeeping.shared.startInPlace(bundleId: bundleId)
                 notice = CartoucheGameNotice(title: title, message: CartoucheText.gameStoppedMemory(
                     CartoucheText.memoryAmount(mebibytes: reading.limitMiB)))
@@ -850,7 +864,8 @@ final class CartoucheGameActions: ObservableObject {
 
     /// Where the game keeps its saves: the Documents of the data folder it
     /// starts with. Nil for an app that is not an nxnative game, or a game
-    /// that never started.
+    /// that has no data folder yet: one installed while no saves folder was
+    /// chosen, which never started.
     func saves(of app: LCAppModel) -> CartoucheSaveTarget? {
         let catalog = CartoucheCatalog.shared
         guard let found = catalog.gameTitle(of: app), let bundleId = app.appInfo.bundleIdentifier(),
@@ -860,14 +875,34 @@ final class CartoucheGameActions: ObservableObject {
                                    documents: container.containerURL.appendingPathComponent("Documents", isDirectory: true))
     }
 
-    /// Copies the saves of the nxnative games among APPS that changed since
-    /// their last copy, if the player chose a saves folder.
+    /// Sends the saves of the nxnative games among APPS that changed since
+    /// they were last in step with the player's saves folder, if they chose
+    /// one (CartoucheSaveBackups).
     func copySaves(of apps: [LCAppModel]) {
         let backups = CartoucheSaveBackups.shared
         guard backups.isOn, work == nil else { return }
-        // The game behind the console may be writing its saves: they are
-        // copied once it has ended.
+        // The game behind the console may be writing its saves: they go
+        // once it has ended.
         backups.copyChanged(apps.filter { $0 !== running?.app }.compactMap { saves(of: $0) })
+    }
+
+    /// Syncs the game's saves with the player's saves folder, if they chose
+    /// one, the newest copy coming when it is the one to play: when the game
+    /// is installed, as after Cartouche was installed again, and before it
+    /// starts, as when another iPhone played it since. The game gets its
+    /// data folder for it, as on its first start. A server offline from
+    /// here is left alone: the game plays with the saves it has. What did
+    /// not go through shows on the game's sheet.
+    private func fetchSaves(of app: LCAppModel) async {
+        let backups = CartoucheSaveBackups.shared
+        guard backups.isOn, CartoucheCatalog.shared.gameTitle(of: app) != nil,
+              let location = CartoucheStorageSettings.shared.location(.saves),
+              !CartoucheStorageReach.shared.isOffline(location.server.id) else { return }
+        _ = Self.dataFolder(of: app)
+        guard let target = saves(of: app) else { return }
+        work?.step = CartoucheText.savesSyncing(location.server.name)
+        work?.fraction = nil
+        await backups.sync(target)
     }
 
     // MARK: Size and play time

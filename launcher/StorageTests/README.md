@@ -14,7 +14,8 @@ The package builds the launcher's own files, linked from [`Sources/CartoucheStor
 - the games folder as the library lists it, with sizes and times, the folder one level down, no hidden file, and each IPA's `Info.plist` read where it sits, with the build it names;
 - Install from: the IPA unpacked in one pass from the server, every file as it was, links and executables too, and, on SMB and SFTP, the connection cut on the way and the install reading on from where it stopped on a new one (CartoucheResumingSource);
 - Copy to: the installed app written back as an IPA, then installed again from there; a file replaced only once the new one is finished, while another connection still reads the old one; nothing left of a copy given up;
-- folders made, again, and removed; save copies written as zips, the oldest removed, the newest put back;
+- folders made, again, and removed;
+- a game's saves kept in step between two iPhones through the saves folder, as the app keeps them ([`CartoucheStorageSaves.swift`](../Sources/CartoucheStorageSaves.swift)): sent, then brought whole to an iPhone that has none, as after Cartouche is installed again; the newer ones fetched after reading what a copy holds from its end alone; when both iPhones played, the saves written last winning and the others kept as a copy of their own date; a copy put back becoming the newest, which the other iPhone takes; and the ten newest copies kept, the one just made among them;
 - where the account can write and where it cannot, as the app asks it, leaving nothing behind, and an install from a place it can only read;
 - the IPA past 4 GiB: installed, with the memory the test takes measured all along, which must stay within 256 MiB of where it started, then copied back and read again past 4 GiB.
 

@@ -7,7 +7,11 @@ artworks loaded from IGDB by the IDs of catalog/covers.json, as the app loads
 them; it carries no image of a game. Besides those images it loads nothing
 from another site, and it links only to Cartouche's repository, nxnative's
 and IGDB: never to a game, a dump, an IPA, a catalog of games, keys or
-firmware, nor to a server of the project (docs/decisions.md, 40).
+firmware, nor to a server of the project (docs/decisions.md, 40). Its only
+downloads are the project's own programs for a computer, the Cartouche
+Installer and Cartouche Builder, each a file of their releases marked for
+the publication to give its newest one (site/tools/downloads.py), as the
+download page, download/index.html, gives them too.
 
 A catalog change that touches a game of the page (its name, its covers, where
 nxnative plays it) fails here: update the list at the top of the page's
@@ -25,16 +29,26 @@ from pathlib import Path
 
 SITE = Path(__file__).resolve().parents[1]
 PAGE = SITE / "index.html"
+DOWNLOAD_PAGE = SITE / "download" / "index.html"
 CATALOG = SITE.parent / "catalog"
 
-# Every absolute link the page may hold, whole: the repository and its pages,
-# the releases of the Installer and of Cartouche Builder, nxnative, and IGDB,
-# which the page credits.
+# The files the site offers, straight from this repository's releases: the
+# Cartouche Installer for Mac and for Windows, and Cartouche Builder. A link
+# to one is marked data-download="<file>", for the publication to give it the
+# newest release (site/tools/downloads.py).
 REPOSITORY = "https://github.com/clabeuhtegrite/Cartouche"
+DOWNLOADS = {
+    "builder": re.compile(re.escape(REPOSITORY) + r"/releases/download/builder-v(\d+\.\d+\.\d+)/Cartouche-Builder-\1\.dmg"),
+    "installer-mac": re.compile(re.escape(REPOSITORY) + r"/releases/download/installer-v(\d+\.\d+\.\d+)/Cartouche-Installer-\1-Mac\.dmg"),
+    "installer-windows": re.compile(re.escape(REPOSITORY) + r"/releases/download/installer-v(\d+\.\d+\.\d+)/Cartouche-Installer-\1-Windows\.exe"),
+}
+
+# Every absolute link the page may hold, whole: the repository and its pages,
+# the files above, nxnative, and IGDB, which the page credits.
 ALLOWED_LINKS = [
     re.compile(re.escape(REPOSITORY)),
     re.compile(re.escape(REPOSITORY) + r"/blob/main/[\w/.-]+\.md(?:#[\w-]+)?"),
-    re.compile(re.escape(REPOSITORY) + r"/releases\?q=(?:installer|builder)&expanded=true"),
+    *DOWNLOADS.values(),
     re.compile(r"https://github\.com/seedds/nxnative"),
     re.compile(r"https://www\.igdb\.com"),
 ]
@@ -60,7 +74,8 @@ STATUSES = {"ready": "iphone", "stored": "iphone", "iphone": "iphone", "mac": "m
 
 
 class Page(HTMLParser):
-    """The page's tags, with their attributes, and its scripts and styles."""
+    """The page's tags, with their attributes, its scripts and styles, and
+    the rest of its text."""
 
     def __init__(self) -> None:
         super().__init__(convert_charrefs=True)
@@ -68,6 +83,7 @@ class Page(HTMLParser):
         self.ids: set[str] = set()
         self.scripts: list[tuple[dict[str, str], str]] = []
         self.styles: list[str] = []
+        self.words: list[str] = []
         self._in: str | None = None
 
     def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
@@ -95,14 +111,52 @@ class Page(HTMLParser):
             self.scripts[-1] = (attrs, text + data)
         elif self._in == "style":
             self.styles[-1] += data
+        else:
+            self.words.append(data)
 
 
-def read_page() -> tuple[str, Page]:
-    text = PAGE.read_text(encoding="utf-8")
+def read_page(path: Path = PAGE) -> tuple[str, Page]:
+    text = path.read_text(encoding="utf-8")
     page = Page()
     page.feed(text)
     page.close()
     return text, page
+
+
+def download_of(href: str) -> str | None:
+    """The file of the site's downloads a link gives, if it gives one."""
+    return next((key for key, pattern in DOWNLOADS.items() if pattern.fullmatch(href)), None)
+
+
+# What a page says to its visitor besides its elements' text.
+SAID = ("content", "data-fr", "data-en", "aria-label", "data-label-fr", "data-label-en", "title", "alt")
+
+
+def check_downloads(test: unittest.TestCase, text: str, page: Page) -> dict[str, str]:
+    """Each download of a page: a file of its releases, marked as that file,
+    one release for each file wherever the page links to it, and no version
+    said: a button says what it downloads, not which version (the owner,
+    2026-11-10). The version of each file."""
+    versions: dict[str, set[str]] = {}
+    for tag, attrs in page.tags:
+        key = download_of(attrs.get("href", "")) if tag == "a" else None
+        if key or "data-download" in attrs:
+            test.assertEqual(attrs.get("data-download"), key, f"<{tag} href={attrs.get('href')!r}> is marked data-download={attrs.get('data-download')!r}")
+            versions.setdefault(key, set()).add(DOWNLOADS[key].fullmatch(attrs["href"]).group(1))
+    for key, found in versions.items():
+        test.assertEqual(len(found), 1, f"{key}: the page links to {sorted(found)}")
+    # The Installer's two files are one release.
+    if "installer-mac" in versions and "installer-windows" in versions:
+        test.assertEqual(versions["installer-mac"], versions["installer-windows"])
+    # Only links are marked, and nothing the visitor reads names a version.
+    test.assertNotRegex(text, r"\sdata-download-")
+    said = page.words + [value for tag, attrs in page.tags for name, value in attrs.items() if name in SAID]
+    for words in said:
+        test.assertNotRegex(words, r"(?i)\bversion\s+\d")
+        for found in versions.values():
+            for version in found:
+                test.assertNotRegex(words, r"(?<![\d.])" + re.escape(version) + r"(?![\d.])", f"the page says the version {version}")
+    return {key: found.pop() for key, found in versions.items()}
 
 
 def app_colors(title_id: str) -> tuple[str, str]:
@@ -173,6 +227,9 @@ class SiteTests(unittest.TestCase):
         for href in self.links():
             if href.startswith("#"):
                 self.assertIn(href[1:], self.page.ids, f"{href} leads nowhere on the page")
+            elif href == "download/":
+                # The site's download page, beside it on Pages.
+                self.assertTrue(DOWNLOAD_PAGE.is_file())
             else:
                 self.assertTrue(any(p.fullmatch(href) for p in ALLOWED_LINKS), f"the page links to {href!r}")
 
@@ -190,8 +247,13 @@ class SiteTests(unittest.TestCase):
         for tag, attrs in self.page.tags:
             self.assertNotIn("download", attrs, f"<{tag} download>")
             for name in ("href", "src"):
+                # The project's own Installer and Builder aside.
+                if name == "href" and tag == "a" and download_of(attrs.get(name, "")):
+                    continue
                 self.assertNotRegex(attrs.get(name, ""), GAME_FILES, f"<{tag} {name}> is a file of a game, keys or an archive")
         for href in self.links():
+            if download_of(href):
+                continue
             self.assertNotRegex(href, GAME_FILES)
             self.assertFalse(href.startswith(("magnet:", "ftp:", "smb:", "sftp:", "s3:")), href)
         # The site holds its page, its icon, its notes and its tests: no image
@@ -202,8 +264,16 @@ class SiteTests(unittest.TestCase):
                 self.assertLess(path.stat().st_size, 512 * 1024, f"{path.relative_to(SITE)} is too large for the site")
         self.assertEqual(sorted(p.name for p in SITE.glob("*.svg")), ["favicon.svg"])
 
+    def test_downloads_are_the_installer_and_the_builder(self) -> None:
+        # Each button gives the file itself, Mac and Windows for the
+        # Installer, with no version beside it.
+        versions = check_downloads(self, self.text, self.page)
+        self.assertEqual(sorted(versions), sorted(DOWNLOADS))
+        buttons = [attrs["data-download"] for tag, attrs in self.page.tags if tag == "a" and "data-download" in attrs]
+        self.assertEqual(buttons, ["builder", "installer-mac", "installer-windows", "builder"])
+
     def test_no_server_address_or_secret(self) -> None:
-        for path in [PAGE, SITE / "favicon.svg"]:
+        for path in [PAGE, DOWNLOAD_PAGE, SITE / "favicon.svg"]:
             # Drawings' numbers aside: an icon's path can read like an address.
             text = re.sub(r'\s(?:d|points|viewBox|transform)="[^"]*"', "", path.read_text(encoding="utf-8"))
             for pattern, what in (
@@ -297,6 +367,84 @@ class SiteTests(unittest.TestCase):
             self.assertIn(call[0], IGDB_SIZES)
             self.assertIn(call[2], ("cover", "artwork"))
         self.assertNotIn("data:image", self.text)
+
+
+class DownloadPageTests(unittest.TestCase):
+    """download/index.html: the newest file of each of the project's programs
+    for a computer, for the links of the repository's guides. A link to it
+    that names one, download/#builder, #installer-mac or #installer-windows,
+    starts its download from the page's button."""
+
+    @classmethod
+    def setUpClass(cls) -> None:
+        cls.text, cls.page = read_page(DOWNLOAD_PAGE)
+        cls.code = "\n".join(text for attrs, text in cls.page.scripts)
+
+    def test_loads_nothing_from_another_site_and_sends_nothing(self) -> None:
+        for tag, attrs in self.page.tags:
+            for name in ("src", "srcset", "poster", "data", "action", "formaction"):
+                self.assertNotRegex(attrs.get(name, ""), r"^(?:[a-z][a-z0-9+.-]*:|//)", f"<{tag} {name}> loads {attrs.get(name)!r}")
+            if tag == "link":
+                self.assertNotRegex(attrs.get("href", ""), r"^(?:[a-z][a-z0-9+.-]*:|//)", f"<link> loads {attrs.get('href')!r}")
+            self.assertNotIn(tag, ("iframe", "embed", "object", "form", "base", "video", "audio", "img"), f"the page has an <{tag}>")
+            if tag == "script":
+                self.assertNotIn("src", attrs, "the page's script is its own, inline")
+        for style in self.page.styles:
+            self.assertNotIn("@import", style)
+            self.assertNotRegex(style, r"url\(\s*['\"]?(?:[a-z][a-z0-9+.-]*:|//)")
+        self.assertRegex(self.text, r'<meta name="referrer" content="no-referrer">')
+        # The script names no address: the file it starts is its button's.
+        self.assertNotRegex(self.code, r"https?:")
+        for call in ("fetch(", "XMLHttpRequest", "sendBeacon", "WebSocket", "EventSource", "document.cookie", "import(", "new Image", "Worker(", "window.open"):
+            self.assertNotIn(call, self.code)
+        self.assertEqual(set(re.findall(r"navigator\.(\w+)", self.text)), {"languages", "language"})
+        self.assertEqual(re.findall(r"location\.href\s*=\s*([^;]+);", self.code), ["link.href"])
+
+    def test_links_to_the_files_the_site_and_the_repository(self) -> None:
+        for tag, attrs in self.page.tags:
+            if tag != "a":
+                continue
+            href = attrs.get("href", "")
+            if href.startswith("#"):
+                self.assertIn(href[1:], self.page.ids, f"{href} leads nowhere on the page")
+            elif href != "../":
+                self.assertTrue(any(p.fullmatch(href) for p in ALLOWED_LINKS), f"the page links to {href!r}")
+        for tag, attrs in self.page.tags:
+            if tag == "use":
+                href = attrs.get("href", "")
+                self.assertTrue(href.startswith("#") and href[1:] in self.page.ids, f"<use> of {href!r}")
+
+    def test_each_file_has_its_card_and_its_button(self) -> None:
+        # The address names the card; the card's one button gives its file.
+        cards = [attrs["id"] for tag, attrs in self.page.tags if tag == "li" and "file" in attrs.get("class", "").split()]
+        self.assertEqual(sorted(cards), sorted(DOWNLOADS))
+        for key in cards:
+            card = self.text[self.text.index(f'id="{key}"'):]
+            card = card[:card.index("</li>")]
+            self.assertEqual(re.findall(r'\sdata-download="([^"]*)"', card), [key])
+            self.assertEqual(card.count("data-started hidden"), 1, f"{key} says when its download starts")
+        versions = check_downloads(self, self.text, self.page)
+        self.assertEqual(sorted(versions), sorted(DOWNLOADS))
+
+    def test_the_same_files_as_the_site(self) -> None:
+        text, page = read_page()
+        self.assertEqual(check_downloads(self, self.text, self.page), check_downloads(self, text, page))
+
+    def test_every_text_in_both_languages(self) -> None:
+        body = self.text[self.text.index("<body>"):]
+        pairs = re.findall(r'<(\w+)\b[^>]*\slang="(fr|en)"', body)
+        self.assertEqual([tag for tag, lang in pairs if lang == "fr"], [tag for tag, lang in pairs if lang == "en"])
+        self.assertGreater(len(pairs), 30)
+        self.assertEqual(len(re.findall(r"data-label-fr=", self.text)), len(re.findall(r"data-label-en=", self.text)))
+        self.assertIn('data-fr="', self.text)
+        self.assertIn('data-en="', self.text)
+
+    def test_provides_no_game(self) -> None:
+        for sentence in (
+            "Cartouche ne contient et ne télécharge aucun jeu, aucune clé ni aucun firmware : vous construisez vos jeux à partir de vos propres copies.",
+            "Cartouche contains and downloads no games, no keys and no firmware: you build your games from your own copies.",
+        ):
+            self.assertIn(sentence, self.text)
 
 
 if __name__ == "__main__":

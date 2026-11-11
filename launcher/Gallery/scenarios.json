@@ -894,6 +894,51 @@
       ]
     },
     {
+      "name": "duo-unfolded-first-launch",
+      "screen": "games",
+      "owned": [],
+      "setup": true,
+      "controller": false,
+      "width": 626,
+      "height": 890,
+      "insets": [
+        32,
+        0,
+        20,
+        0
+      ]
+    },
+    {
+      "name": "duo-unfolded-library-first-launch",
+      "screen": "library",
+      "owned": [],
+      "setup": true,
+      "controller": false,
+      "width": 626,
+      "height": 890,
+      "insets": [
+        32,
+        0,
+        20,
+        0
+      ]
+    },
+    {
+      "name": "duo-unfolded-landscape-library-first-launch",
+      "screen": "library",
+      "owned": [],
+      "setup": true,
+      "controller": false,
+      "width": 890,
+      "height": 626,
+      "insets": [
+        24,
+        0,
+        20,
+        0
+      ]
+    },
+    {
       "name": "duo-sim-home",
       "device": "iPhone Duo",
       "screen": "games",

@@ -126,7 +126,7 @@ struct CartoucheLibraryView: View {
             ScrollViewReader { reader in
                 ScrollView(.vertical) {
                     VStack(alignment: .leading, spacing: 18) {
-                        filterBar
+                        filterBar(margin: layout.margin)
                         if shown.isEmpty {
                             ContentUnavailableView.search(text: query)
                                 .frame(maxWidth: .infinity)
@@ -169,7 +169,11 @@ struct CartoucheLibraryView: View {
         }
     }
 
-    private var filterBar: some View {
+    /// The filters, on a row that scrolls from one edge of the library to
+    /// the other: they start at the grid's MARGIN, and those past an edge
+    /// fade out there instead of being cut off, as at the fold of an iPhone
+    /// Duo unfolded, beside a game's sheet.
+    private func filterBar(margin: CGFloat) -> some View {
         ScrollView(.horizontal) {
             HStack(spacing: 8) {
                 ForEach(Filter.allCases, id: \.self) { item in
@@ -204,7 +208,20 @@ struct CartoucheLibraryView: View {
             .padding(.vertical, 4)
         }
         .scrollIndicators(.hidden)
+        .contentMargins(.horizontal, margin, for: .scrollContent)
+        // The chips' glass shows whole above and below the row.
         .scrollClipDisabled()
+        .mask {
+            HStack(spacing: 0) {
+                LinearGradient(colors: [.clear, .black], startPoint: .leading, endPoint: .trailing)
+                    .frame(width: margin)
+                Rectangle()
+                LinearGradient(colors: [.black, .clear], startPoint: .leading, endPoint: .trailing)
+                    .frame(width: margin)
+            }
+            .padding(.vertical, -12)
+        }
+        .padding(.horizontal, -margin)
     }
 
     private func grid(_ shown: [CartoucheEntry], layout: Layout) -> some View {

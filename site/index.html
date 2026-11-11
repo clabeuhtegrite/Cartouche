@@ -248,10 +248,10 @@
         font: 600 .8rem/1.5 var(--text);
         text-align: center;
     }
-    .facts { list-style: none; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0 28px; margin: clamp(48px, 6vw, 80px) 0 0; padding: 0; }
+    .facts { list-style: none; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0 28px; margin: clamp(48px, 6vw, 80px) 0 0; padding: 0; }
     .facts li { padding-top: 18px; border-top: 1px solid var(--line); color: var(--ink-2); font-size: .95rem; }
     .facts b { display: block; margin-bottom: 4px; color: var(--ink); font: 800 1.16rem/1.25 var(--display); }
-    @media (max-width: 860px) { .facts { grid-template-columns: repeat(2, minmax(0, 1fr)); row-gap: 26px; } }
+    @media (max-width: 860px) { .facts { grid-template-columns: repeat(2, minmax(0, 1fr)); row-gap: 26px; } .facts li:last-child:nth-child(odd) { grid-column: 1 / -1; } }
 
     /* ---------- Sections ---------- */
     .section { position: relative; isolation: isolate; padding-block: clamp(64px, 8.5vw, 124px); }
@@ -727,9 +727,9 @@
     .uslider::-moz-range-thumb { width: calc(38 * var(--pt)); height: calc(24 * var(--pt)); border: 0; border-radius: 99px; background: #fff; box-shadow: 0 calc(2 * var(--pt)) calc(6 * var(--pt)) rgba(0, 0, 0, .35); }
     .uswitch { position: relative; flex: none; width: calc(62 * var(--pt)); height: calc(30 * var(--pt)); border-radius: 99px; background: rgba(120, 120, 128, .36); }
     .uswitch::after { content: ""; position: absolute; top: calc(3 * var(--pt)); left: calc(3 * var(--pt)); width: calc(38 * var(--pt)); height: calc(24 * var(--pt)); border-radius: 99px; background: #fff; box-shadow: 0 calc(2 * var(--pt)) calc(4 * var(--pt)) rgba(0, 0, 0, .25); }
+    .uswitch--on { background: var(--ready); }
+    .uswitch--on::after { left: auto; right: calc(3 * var(--pt)); }
     .bigtitle { padding: 0 calc(2 * var(--pt)); font: 700 calc(34 * var(--pt))/1.1 var(--text); letter-spacing: -.01em; }
-    .membar { height: calc(12 * var(--pt)); margin-top: calc(2 * var(--pt)); border-radius: 99px; background: rgba(255, 255, 255, .12); overflow: hidden; }
-    .membar i { display: block; width: 1.6%; min-width: calc(10 * var(--pt)); height: 100%; border-radius: 99px; background: var(--link); }
 
     /* ---------- All games ---------- */
     .lib__body { position: relative; z-index: 1; padding: calc(100 * var(--pt)) calc(18 * var(--pt)) 0; }
@@ -1080,6 +1080,9 @@
         font: 800 1.35rem/1 var(--display);
     }
     .step .btn { margin-top: 16px; }
+    .step .actions { margin-top: 16px; }
+    /* The Installer's two buttons: one width, side by side or one above the other. */
+    .step .actions .btn { flex: 1 1 0; min-width: max-content; max-width: 18rem; justify-content: center; margin-top: 0; }
     .step p a, .guide a { color: var(--ink); }
     .guide { margin-top: 30px; padding-left: 70px; }
     @media (max-width: 520px) { .guide { padding-left: 0; } }
@@ -1233,7 +1236,6 @@
                     <p class="hint"><span lang="fr">Touchez une jaquette<span class="hint__keys">, ou <kbd>←</kbd> <kbd>→</kbd> au clavier</span>. Jouer, Fiche et le dock mènent à la suite.</span><span lang="en">Tap a cover<span class="hint__keys">, or press <kbd>←</kbd> <kbd>→</kbd></span>. Play, Details and the dock lead to the rest of the page.</span></p>
                 </div>
                 <ul class="facts">
-                    <li><span lang="fr"><b>≈ 6 Gio de mémoire</b> pour vos jeux, sur un iPhone de 12 Go</span><span lang="en"><b>≈ 6 GiB of memory</b> for your games, on a 12 GB iPhone</span></li>
                     <li><span lang="fr"><b>Un compte Apple gratuit</b> suffit, sans compte développeur</span><span lang="en"><b>A free Apple account</b> is enough, no developer account</span></li>
                     <li><span lang="fr"><b>Manette ou tactile</b> sur chaque écran</span><span lang="en"><b>Controller or touch</b> on every screen</span></li>
                     <li><span lang="fr"><b>Vos propres copies</b> de vos jeux, aucun jeu fourni</span><span lang="en"><b>Your own copies</b> of your games, none included</span></li>
@@ -1320,8 +1322,8 @@
                         <p class="label"><span lang="fr">Votre stockage</span><span lang="en">Your storage</span></p>
                         <h2><span lang="fr">Vos jeux et vos sauvegardes restent chez vous.</span><span lang="en">Your games and saves stay at home.</span></h2>
                         <div class="prose">
-                            <p lang="fr">Gardez vos jeux sur votre propre stockage, avec votre propre compte. Ceux qui s’y trouvent apparaissent dans votre bibliothèque, prêts à installer, et Cartouche y copie vos sauvegardes après chaque partie.</p>
-                            <p lang="en">Keep your games on storage of your own, with your own account. The games there show in your library, ready to install, and Cartouche copies your saves there after each game.</p>
+                            <p lang="fr">Gardez vos jeux sur votre propre stockage, avec votre propre compte. Ceux qui s’y trouvent apparaissent dans votre bibliothèque, prêts à installer, et Cartouche y garde vos sauvegardes synchronisées, d’un iPhone à l’autre.</p>
+                            <p lang="en">Keep your games on storage of your own, with your own account. The games there show in your library, ready to install, and Cartouche keeps your saves in sync there, from one iPhone to the next.</p>
                         </div>
                         <p class="note"><svg aria-hidden="true"><use href="#i-lock"/></svg><span lang="fr">Uniquement votre propre stockage, avec votre propre compte : jamais de lien public.</span><span lang="en">Only storage of your own, with your own account: never a public link.</span></p>
                     </div>
@@ -1334,7 +1336,7 @@
                     </ul>
                 </div>
                 <ul class="keeps">
-                    <li><svg aria-hidden="true"><use href="#i-tick"/></svg><span lang="fr"><b>Après chaque partie</b>, une copie datée de vos sauvegardes ; Cartouche garde les 10 plus récentes.</span><span lang="en"><b>After each game</b>, a dated copy of your saves; Cartouche keeps the 10 most recent.</span></li>
+                    <li><svg aria-hidden="true"><use href="#i-tick"/></svg><span lang="fr"><b>Sauvegardes synchronisées</b> : envoyées après chaque partie, reprises à l’installation, même après avoir réinstallé Cartouche, et avant de jouer. La plus récente l’emporte, l’autre reste en copie ; Cartouche garde les 10 plus récentes.</span><span lang="en"><b>Saves in sync</b>: sent after each game, brought back at install, even after reinstalling Cartouche, and before you play. The newest wins, the other stays as a copy; Cartouche keeps the 10 most recent.</span></li>
                     <li><svg aria-hidden="true"><use href="#i-tick"/></svg><span lang="fr"><b>Une installation coupée</b> reprend là où elle s’était arrêtée.</span><span lang="en"><b>An install that was cut off</b> picks up where it stopped.</span></li>
                     <li><svg aria-hidden="true"><use href="#i-tick"/></svg><span lang="fr"><b>Une version plus récente</b> dans votre dossier ? Cartouche propose la mise à jour et garde vos sauvegardes.</span><span lang="en"><b>A newer build</b> in your folder? Cartouche offers the update and keeps your saves.</span></li>
                     <li><svg aria-hidden="true"><use href="#i-tick"/></svg><span lang="fr"><b>Un dossier en lecture seule</b> ? Cartouche installe ses jeux sans rien y écrire.</span><span lang="en"><b>A read-only folder</b>? Cartouche installs its games and writes nothing there.</span></li>
@@ -1348,7 +1350,6 @@
                     <p class="label"><span lang="fr">En coulisse</span><span lang="en">Behind the scenes</span></p>
                     <h2><span lang="fr">Il s’occupe du reste.</span><span lang="en">It takes care of the rest.</span></h2>
                     <ul class="perks">
-                        <li class="perk"><span class="tag-icon"><svg aria-hidden="true"><use href="#i-cpu"/></svg></span><div><h3><span lang="fr">La mémoire des gros jeux</span><span lang="en">Memory for big games</span></h3><p><span lang="fr">La mémoire augmentée donne à Cartouche environ 6 Gio sur un iPhone de 12 Go, au lieu de 3,3 Gio, avec un compte Apple gratuit.</span><span lang="en">Increased Memory Limit gives Cartouche about 6 GiB on a 12 GB iPhone instead of 3.3 GiB, on a free Apple account.</span></p></div></li>
                         <li class="perk"><span class="tag-icon"><svg aria-hidden="true"><use href="#i-refresh"/></svg></span><div><h3><span lang="fr">Signé et renouvelé</span><span lang="en">Signed and renewed</span></h3><p><span lang="fr">Le SideStore intégré renouvelle sa signature de 7 jours depuis la page Système, ou chaque nuit par une automatisation Raccourcis. Cartouche prévient 24 h et 6 h avant.</span><span lang="en">The built-in SideStore renews its seven-day signature from the System page, or every night from a Shortcuts automation. Cartouche warns you 24 h and 6 h before.</span></p></div></li>
                         <li class="perk"><span class="tag-icon"><svg aria-hidden="true"><use href="#i-download"/></svg></span><div><h3><span lang="fr">Mis à jour sans ordinateur</span><span lang="en">Updated without a computer</span></h3><p><span lang="fr">Cartouche propose ses nouvelles versions sur la console et les installe lui-même. Vos jeux et vos sauvegardes restent.</span><span lang="en">Cartouche offers its new versions over the console and installs them itself. Your games and saves stay.</span></p></div></li>
                         <li class="perk"><span class="tag-icon"><svg aria-hidden="true"><use href="#i-hidden"/></svg></span><div><h3><span lang="fr">Hors de vue</span><span lang="en">Out of sight</span></h3><p><span lang="fr">Cartouche s’appuie sur LiveContainer et SideStore sans jamais les montrer. Vos jeux tournent dans Cartouche et ne comptent pas dans la limite de trois apps d’un compte gratuit.</span><span lang="en">Cartouche is built on LiveContainer and SideStore and never shows them. Your games run inside Cartouche and don’t count against a free account’s limit of three apps.</span></p></div></li>
@@ -1377,7 +1378,7 @@
                             <p lang="en">Cartouche Builder is Cartouche’s Mac app. From your own copies, it builds each game with nxnative and puts it in your games folder. Then it follows them: when nxnative improves one, it builds it again, now or at night, and Cartouche offers the update on the iPhone, saves kept.</p>
                         </div>
                         <div class="actions">
-                            <a class="btn btn--primary" href="https://github.com/clabeuhtegrite/Cartouche/releases?q=builder&amp;expanded=true"><svg aria-hidden="true"><use href="#i-download"/></svg><span lang="fr">Télécharger Cartouche Builder</span><span lang="en">Download Cartouche Builder</span></a>
+                            <a class="btn btn--primary" data-download="builder" href="https://github.com/clabeuhtegrite/Cartouche/releases/download/builder-v0.2.0/Cartouche-Builder-0.2.0.dmg"><svg aria-hidden="true"><use href="#i-download"/></svg><span lang="fr">Télécharger Cartouche Builder</span><span lang="en">Download Cartouche Builder</span></a>
                             <a class="btn btn--glass" href="https://github.com/clabeuhtegrite/Cartouche/blob/main/builder/README.md"><svg aria-hidden="true"><use href="#i-doc"/></svg><span lang="fr">Son guide</span><span lang="en">Its guide</span></a>
                         </div>
                         <p class="builder-need"><span lang="fr">Gratuit, pour un Mac à puce Apple avec macOS 26.6 ou ultérieur. La première fois, macOS ne peut pas le vérifier : Réglages Système › Confidentialité et sécurité › Ouvrir quand même.</span><span lang="en">Free, for a Mac with Apple silicon and macOS 26.6 or later. The first time, macOS cannot check it: System Settings › Privacy &amp; Security › Open Anyway.</span></p>
@@ -1413,10 +1414,13 @@
                     <ol class="steps">
                         <li class="step"><span class="step__n" aria-hidden="true">1</span><div><h3><span lang="fr">LocalDevVPN sur l’iPhone</span><span lang="en">LocalDevVPN on the iPhone</span></h3><p><span lang="fr">Installez-le depuis l’App Store : Cartouche se connecte et se renouvelle par lui, sans ordinateur. Son trafic ne sort jamais de l’iPhone.</span><span lang="en">Install it from the App Store: Cartouche signs in and renews itself through it, without a computer. Its traffic never leaves the iPhone.</span></p></div></li>
                         <li class="step"><span class="step__n" aria-hidden="true">2</span><div><h3><span lang="fr">L’Installeur Cartouche</span><span lang="en">The Cartouche Installer</span></h3><p><span lang="fr">Sur un Mac ou un PC Windows, branchez l’iPhone et connectez-vous avec votre compte Apple. L’Installeur pose Cartouche avec son certificat, la mémoire augmentée et le fichier de jumelage.</span><span lang="en">On a Mac or a Windows PC, plug in the iPhone and sign in with your Apple account. The Installer puts Cartouche on it with its certificate, Increased Memory Limit and the pairing file.</span></p>
-                            <a class="btn btn--primary" href="https://github.com/clabeuhtegrite/Cartouche/releases?q=installer&amp;expanded=true"><svg aria-hidden="true"><use href="#i-download"/></svg><span lang="fr">Télécharger l’Installeur</span><span lang="en">Download the Installer</span></a></div></li>
+                            <div class="actions">
+                                <a class="btn btn--primary" data-download="installer-mac" href="https://github.com/clabeuhtegrite/Cartouche/releases/download/installer-v0.1.0/Cartouche-Installer-0.1.0-Mac.dmg"><svg aria-hidden="true"><use href="#i-download"/></svg><span lang="fr">Télécharger pour Mac</span><span lang="en">Download for Mac</span></a>
+                                <a class="btn btn--primary" data-download="installer-windows" href="https://github.com/clabeuhtegrite/Cartouche/releases/download/installer-v0.1.0/Cartouche-Installer-0.1.0-Windows.exe"><svg aria-hidden="true"><use href="#i-download"/></svg><span lang="fr">Télécharger pour Windows</span><span lang="en">Download for Windows</span></a>
+                            </div></div></li>
                         <li class="step"><span class="step__n" aria-hidden="true">3</span><div><h3><span lang="fr">Le guide de Cartouche</span><span lang="en">Cartouche’s guide</span></h3><p><span lang="fr">Ouvrez Cartouche : son guide, « Votre premier jeu », vous accompagne jusqu’à votre première partie et coche chaque étape tout seul.</span><span lang="en">Open Cartouche: its guide, Your first game, takes you all the way to playing, and ticks off each step by itself.</span></p></div></li>
                         <li class="step"><span class="step__n" aria-hidden="true">4</span><div><h3><span lang="fr">Vos jeux, sur votre Mac</span><span lang="en">Your games, on your Mac</span></h3><p><span lang="fr">Glissez <a href="#builder">Cartouche Builder</a> dans Applications : il installe ce qu’il faut à nxnative, sans Terminal, vous ouvre l’App Store pour Xcode, puis construit vos jeux à partir de vos propres copies. La première fois, macOS ne peut pas le vérifier : Réglages Système › Confidentialité et sécurité › Ouvrir quand même.</span><span lang="en">Drag <a href="#builder">Cartouche Builder</a> onto Applications: it installs what nxnative needs, with no Terminal, opens the App Store for Xcode, then builds your games from your own copies. The first time, macOS cannot check it: System Settings › Privacy &amp; Security › Open Anyway.</span></p>
-                            <a class="btn btn--primary" href="https://github.com/clabeuhtegrite/Cartouche/releases?q=builder&amp;expanded=true"><svg aria-hidden="true"><use href="#i-download"/></svg><span lang="fr">Télécharger Cartouche Builder</span><span lang="en">Download Cartouche Builder</span></a></div></li>
+                            <a class="btn btn--primary" data-download="builder" href="https://github.com/clabeuhtegrite/Cartouche/releases/download/builder-v0.2.0/Cartouche-Builder-0.2.0.dmg"><svg aria-hidden="true"><use href="#i-download"/></svg><span lang="fr">Télécharger Cartouche Builder</span><span lang="en">Download Cartouche Builder</span></a></div></li>
                     </ol>
                     <p class="small guide"><span lang="fr">Pas à pas, de rien à votre premier jeu : <a href="https://github.com/clabeuhtegrite/Cartouche/blob/main/docs/getting-started.fr.md">le guide Premiers pas</a>.</span><span lang="en">Step by step, from nothing to your first game: <a href="https://github.com/clabeuhtegrite/Cartouche/blob/main/docs/getting-started.md">the Getting started guide</a>.</span></p>
                 </div>
@@ -1500,6 +1504,7 @@
             <div class="foot__row">
                 <a class="wordmark" href="#top" aria-label="Cartouche"><svg aria-hidden="true"><use href="#i-cartridge"/></svg><b>Cartouche</b></a>
                 <nav data-label-fr="Liens" data-label-en="Links" aria-label="Links">
+                    <a href="download/"><span lang="fr">Téléchargements</span><span lang="en">Downloads</span></a>
                     <a href="https://github.com/clabeuhtegrite/Cartouche">GitHub</a>
                     <a href="https://github.com/clabeuhtegrite/Cartouche/blob/main/LEGAL.md"><span lang="fr">Mentions légales</span><span lang="en">Legal</span></a>
                     <a href="https://github.com/clabeuhtegrite/Cartouche/blob/main/docs/privacy.md"><span lang="fr">Confidentialité</span><span lang="en">Privacy</span></a>
@@ -1769,11 +1774,9 @@
             '<div class="sheet__body"><h3 class="bigtitle">' + t("Système", "System") + "</h3>" +
             '<div class="ucard"><div class="urow">' + ic("checklist", "ublue") + '<span class="urow__main">' + t("Mise en route", "Setup") + "</span>" + status("done") + ic("chevron", "urow__chev") + "</div></div>" +
             '<div class="ucard"><div class="urow">' + ic("drive", "ublue") + '<span class="urow__main">' + t("Stockage", "Storage") + '</span><span class="urow__val">' + SERVER + "</span>" + ic("chevron", "urow__chev") + "</div></div>" +
-            '<p class="ugroup">' + t("Mémoire", "Memory") + "</p>" +
-            '<div class="ucard"><div class="urow urow--stack"><span class="urow__main"><b>' + t("Limite pour Cartouche", "Limit for Cartouche") + "</b><small>" + t("6&nbsp;143 Mio (6,0 Gio)", "6,143 MiB (6.0 GiB)") + '</small></span><div class="membar"><i></i></div></div>' +
-            '<div class="urow"><span class="urow__main">' + t("Utilisée", "Used now") + '</span><span class="urow__val">' + t("96 Mio (0,1 Gio)", "96 MiB (0.1 GiB)") + "</span></div>" +
-            '<div class="urow"><span class="urow__main">' + t("Mémoire augmentée", "Increased Memory Limit") + "</span>" + status("active") + "</div></div>" +
-            '<p class="ufoot">' + t("Vos jeux partagent cette limite. Avec la mémoire augmentée, un iPhone de 12 Go accorde environ 6 Gio.", "Your games share this limit. With Increased Memory Limit, an iPhone with 12 GB allows about 6 GiB.") + "</p>" +
+            '<p class="ugroup">' + t("Pendant une partie", "While a game runs") + "</p>" +
+            '<div class="ucard"><div class="urow"><span class="urow__main">' + t("Garder Cartouche ouvert derrière le jeu", "Keep Cartouche open behind the game") + '</span><span class="uswitch uswitch--on" aria-hidden="true"></span></div></div>' +
+            '<p class="ufoot">' + t("Le bouton Home sur le jeu, ou celui de la manette, ramène la console et met le jeu en pause.", "The Home button over the game, or the controller’s, brings back the console and pauses the game.") + "</p>" +
             '<p class="ugroup">' + t("Signature", "Signature") + "</p>" +
             '<div class="ucard"><div class="urow"><span class="urow__main">' + t("Expire le", "Expires") + '</span><span class="urow__val">' + t("16 nov. à 12:29", "Nov 16 at 12:29 PM") + "</span></div>" +
             '<div class="urow"><span class="urow__main">' + t("Jours restants", "Days left") + '</span><span class="urow__val">6</span></div>' +

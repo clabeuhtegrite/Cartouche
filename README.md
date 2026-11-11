@@ -11,7 +11,7 @@ Cartouche is an iOS app that turns an iPhone into a console for the games [nxnat
 - **Back to the console mid-game.** The Home button, on screen or on a controller, brings the console back and leaves the game paused behind it: **Resume** goes back to it, **Quit** ends it.
 - **Your own storage.** Keep your games and saves on your Mac through Cartouche Builder, a shared folder of your Mac, PC or NAS, an FTP or SFTP server, a private S3 bucket or a folder in Files, with your own account: the games there show in the library, ready to install, and your saves are copied after each game, or once the storage answers again when it is out of reach.
 - **Signed and renewed by itself.** The built-in SideStore renews Cartouche's seven-day signature from the System page or every night from a Shortcuts automation, and Cartouche warns before it expires.
-- **The memory games need.** Cartouche's App ID gets Increased Memory Limit, about 6 GiB instead of 3.3 GiB on a 12 GB iPhone, on a free account.
+- **The memory games need.** Cartouche's App ID gets Increased Memory Limit on a free account: on a 12 GB iPhone, Cartouche has about 8 GiB, with Game Mode, where an app without the capability has 3.3 GiB.
 - **Updates from the iPhone.** Cartouche offers its new versions over the console, and the built-in SideStore installs them.
 - **Every iPhone, the Duo included.** The interface follows the space it has, folded or unfolded, and keeps clear of the fold and the cameras.
 - **Your games, built on your Mac.** Cartouche Builder, a Mac app beside Cartouche, builds your games with nxnative from your own files into your games folder, and builds a game again when a change to nxnative touches it ([builder/README.md](builder/README.md)).
@@ -24,9 +24,9 @@ You never see LiveContainer or SideStore, which Cartouche is built on: it drives
 Step by step, from nothing to your first game: [docs/getting-started.md](docs/getting-started.md), in French [docs/getting-started.fr.md](docs/getting-started.fr.md). In short:
 
 1. On the iPhone, install **LocalDevVPN** from the App Store: the built-in SideStore needs it to sign in and to renew Cartouche without a computer.
-2. On a Mac or a Windows PC, download the **Cartouche Installer** from its latest [`installer-v…` release](https://github.com/clabeuhtegrite/Cartouche/releases), plug in the iPhone, sign in with your Apple account (a free one is enough) and install. It puts the latest Cartouche on the iPhone with its certificate, the memory capability and the pairing file ([installer/README.md](installer/README.md)).
+2. On a Mac or a Windows PC, download the **Cartouche Installer**, [for Mac](https://clabeuhtegrite.github.io/Cartouche/download/#installer-mac) or [for Windows](https://clabeuhtegrite.github.io/Cartouche/download/#installer-windows), plug in the iPhone, sign in with your Apple account (a free one is enough) and install. It puts the latest Cartouche on the iPhone with its certificate, the memory capability and the pairing file ([installer/README.md](installer/README.md)).
 3. Open Cartouche: its guide, **Your first game**, takes you from there, and ticks each step by itself.
-4. On a Mac with Apple silicon, download **Cartouche Builder** from its latest [`builder-v…` release](https://github.com/clabeuhtegrite/Cartouche/releases) and drag it onto Applications: it installs the tools nxnative builds with, then builds your game into your games folder ([builder/README.md](builder/README.md#install)).
+4. On a Mac with Apple silicon, [download **Cartouche Builder**](https://clabeuhtegrite.github.io/Cartouche/download/#builder) and drag it onto Applications: it installs the tools nxnative builds with, then builds your game into your games folder ([builder/README.md](builder/README.md#install)).
 5. In Cartouche, **System › Storage › Add your Mac (Cartouche Builder)**, with the code both screens show: Cartouche installs your games from the Mac and keeps your saves there. A NAS or another storage of yours works too.
 
 Supported: iOS 26 or later on an iPhone 15 Pro or newer, or an iPad with an M1 or newer, as nxnative. The bigger games need a 12 GB iPhone.

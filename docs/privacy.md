@@ -4,7 +4,7 @@ What Cartouche sends, where, and what it never sends.
 
 ## Your games, saves and accounts
 
-Cartouche downloads no game, and sends none of your games' or saves' files anywhere but the storage you set up yourself, with your own account: your Mac with Cartouche Builder, a shared folder, an FTP or SFTP server, an S3 bucket or a folder in Files. That account's password stays in the iPhone's keychain.
+Cartouche downloads no game, and sends none of your games' or saves' files anywhere but the storage you set up yourself, with your own account: your Mac with Cartouche Builder, a shared folder, an FTP or SFTP server, an S3 bucket or a folder in Files. That account's password stays in the iPhone's keychain. So do your storage's settings, its servers and the folders you chose, without their passwords, so that Cartouche finds them if you install it again; removing a server in Cartouche removes it there too.
 
 Your Mac is reached on your own network, or through your own VPN, and only once you clicked **Allow** on it for this iPhone, when both screens showed the same six digits. The key they then share stays in the iPhone's keychain and in Cartouche Builder's folder on the Mac, readable by your account only; it never crosses the network, and every exchange after is encrypted with it. Cartouche sees only two folders of the Mac, the games folder and the saves folder you chose in Cartouche Builder; removing the iPhone from Cartouche Builder's list ends its access.
 
