@@ -1103,6 +1103,9 @@
         font: 800 1.35rem/1 var(--display);
     }
     .step .btn { margin-top: 16px; }
+    .step .actions { margin-top: 16px; }
+    /* The Installer's two buttons: one width, side by side or one above the other. */
+    .step .actions .btn { flex: 1 1 0; min-width: max-content; max-width: 18rem; justify-content: center; margin-top: 0; }
     .step p a, .guide a { color: var(--ink); }
     .guide { margin-top: 30px; padding-left: 70px; }
     @media (max-width: 520px) { .guide { padding-left: 0; } }
@@ -1430,7 +1433,7 @@
                             <p lang="en">Cartouche Builder is Cartouche’s Mac app. From your own copies, it builds each game with nxnative and puts it in your games folder. Then it follows them: when nxnative improves one, it builds it again, now or at night, and Cartouche offers the update on the iPhone, saves kept.</p>
                         </div>
                         <div class="actions">
-                            <a class="btn btn--primary" href="https://github.com/clabeuhtegrite/Cartouche/releases?q=builder&amp;expanded=true"><svg aria-hidden="true"><use href="#i-download"/></svg><span lang="fr">Télécharger Cartouche Builder</span><span lang="en">Download Cartouche Builder</span></a>
+                            <a class="btn btn--primary" data-download="builder" href="https://github.com/clabeuhtegrite/Cartouche/releases/download/builder-v0.2.0/Cartouche-Builder-0.2.0.dmg"><svg aria-hidden="true"><use href="#i-download"/></svg><span lang="fr">Télécharger Cartouche Builder</span><span lang="en">Download Cartouche Builder</span></a>
                             <a class="btn btn--glass" href="https://github.com/clabeuhtegrite/Cartouche/blob/main/builder/README.md"><svg aria-hidden="true"><use href="#i-doc"/></svg><span lang="fr">Son guide</span><span lang="en">Its guide</span></a>
                         </div>
                         <p class="builder-need"><span lang="fr">Gratuit, pour un Mac à puce Apple avec macOS 26.6 ou ultérieur. La première fois, macOS ne peut pas le vérifier : Réglages Système › Confidentialité et sécurité › Ouvrir quand même.</span><span lang="en">Free, for a Mac with Apple silicon and macOS 26.6 or later. The first time, macOS cannot check it: System Settings › Privacy &amp; Security › Open Anyway.</span></p>
@@ -1466,10 +1469,13 @@
                     <ol class="steps">
                         <li class="step"><span class="step__n" aria-hidden="true">1</span><div><h3><span lang="fr">LocalDevVPN sur l’iPhone</span><span lang="en">LocalDevVPN on the iPhone</span></h3><p><span lang="fr">Installez-le depuis l’App Store : Cartouche se connecte et se renouvelle par lui, sans ordinateur. Son trafic ne sort jamais de l’iPhone.</span><span lang="en">Install it from the App Store: Cartouche signs in and renews itself through it, without a computer. Its traffic never leaves the iPhone.</span></p></div></li>
                         <li class="step"><span class="step__n" aria-hidden="true">2</span><div><h3><span lang="fr">L’Installeur Cartouche</span><span lang="en">The Cartouche Installer</span></h3><p><span lang="fr">Sur un Mac ou un PC Windows, branchez l’iPhone et connectez-vous avec votre compte Apple. L’Installeur pose Cartouche avec son certificat, la mémoire augmentée et le fichier de jumelage.</span><span lang="en">On a Mac or a Windows PC, plug in the iPhone and sign in with your Apple account. The Installer puts Cartouche on it with its certificate, Increased Memory Limit and the pairing file.</span></p>
-                            <a class="btn btn--primary" href="https://github.com/clabeuhtegrite/Cartouche/releases?q=installer&amp;expanded=true"><svg aria-hidden="true"><use href="#i-download"/></svg><span lang="fr">Télécharger l’Installeur</span><span lang="en">Download the Installer</span></a></div></li>
+                            <div class="actions">
+                                <a class="btn btn--primary" data-download="installer-mac" href="https://github.com/clabeuhtegrite/Cartouche/releases/download/installer-v0.1.0/Cartouche-Installer-0.1.0-Mac.dmg"><svg aria-hidden="true"><use href="#i-download"/></svg><span lang="fr">Télécharger pour Mac</span><span lang="en">Download for Mac</span></a>
+                                <a class="btn btn--primary" data-download="installer-windows" href="https://github.com/clabeuhtegrite/Cartouche/releases/download/installer-v0.1.0/Cartouche-Installer-0.1.0-Windows.exe"><svg aria-hidden="true"><use href="#i-download"/></svg><span lang="fr">Télécharger pour Windows</span><span lang="en">Download for Windows</span></a>
+                            </div></div></li>
                         <li class="step"><span class="step__n" aria-hidden="true">3</span><div><h3><span lang="fr">Le guide de Cartouche</span><span lang="en">Cartouche’s guide</span></h3><p><span lang="fr">Ouvrez Cartouche : son guide, « Votre premier jeu », vous accompagne jusqu’à votre première partie et coche chaque étape tout seul.</span><span lang="en">Open Cartouche: its guide, Your first game, takes you all the way to playing, and ticks off each step by itself.</span></p></div></li>
                         <li class="step"><span class="step__n" aria-hidden="true">4</span><div><h3><span lang="fr">Vos jeux, sur votre Mac</span><span lang="en">Your games, on your Mac</span></h3><p><span lang="fr">Glissez <a href="#builder">Cartouche Builder</a> dans Applications : il installe ce qu’il faut à nxnative, sans Terminal, vous ouvre l’App Store pour Xcode, puis construit vos jeux à partir de vos propres copies. La première fois, macOS ne peut pas le vérifier : Réglages Système › Confidentialité et sécurité › Ouvrir quand même.</span><span lang="en">Drag <a href="#builder">Cartouche Builder</a> onto Applications: it installs what nxnative needs, with no Terminal, opens the App Store for Xcode, then builds your games from your own copies. The first time, macOS cannot check it: System Settings › Privacy &amp; Security › Open Anyway.</span></p>
-                            <a class="btn btn--primary" href="https://github.com/clabeuhtegrite/Cartouche/releases?q=builder&amp;expanded=true"><svg aria-hidden="true"><use href="#i-download"/></svg><span lang="fr">Télécharger Cartouche Builder</span><span lang="en">Download Cartouche Builder</span></a></div></li>
+                            <a class="btn btn--primary" data-download="builder" href="https://github.com/clabeuhtegrite/Cartouche/releases/download/builder-v0.2.0/Cartouche-Builder-0.2.0.dmg"><svg aria-hidden="true"><use href="#i-download"/></svg><span lang="fr">Télécharger Cartouche Builder</span><span lang="en">Download Cartouche Builder</span></a></div></li>
                     </ol>
                     <p class="small guide"><span lang="fr">Pas à pas, de rien à votre premier jeu : <a href="https://github.com/clabeuhtegrite/Cartouche/blob/main/docs/getting-started.fr.md">le guide Premiers pas</a>.</span><span lang="en">Step by step, from nothing to your first game: <a href="https://github.com/clabeuhtegrite/Cartouche/blob/main/docs/getting-started.md">the Getting started guide</a>.</span></p>
                 </div>
@@ -1553,6 +1559,7 @@
             <div class="foot__row">
                 <a class="wordmark" href="#top" aria-label="Cartouche"><svg aria-hidden="true"><use href="#i-cartridge"/></svg><b>Cartouche</b></a>
                 <nav data-label-fr="Liens" data-label-en="Links" aria-label="Links">
+                    <a href="download/"><span lang="fr">Téléchargements</span><span lang="en">Downloads</span></a>
                     <a href="https://github.com/clabeuhtegrite/Cartouche">GitHub</a>
                     <a href="https://github.com/clabeuhtegrite/Cartouche/blob/main/LEGAL.md"><span lang="fr">Mentions légales</span><span lang="en">Legal</span></a>
                     <a href="https://github.com/clabeuhtegrite/Cartouche/blob/main/docs/privacy.md"><span lang="fr">Confidentialité</span><span lang="en">Privacy</span></a>

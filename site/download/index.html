@@ -1,0 +1,306 @@
+<!doctype html>
+<html lang="en" data-lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Download Cartouche</title>
+<meta name="description" content="Download Cartouche: the Cartouche Installer for Mac and Windows, and Cartouche Builder for Mac." data-en="Download Cartouche: the Cartouche Installer for Mac and Windows, and Cartouche Builder for Mac." data-fr="Téléchargez Cartouche : l’Installeur Cartouche pour Mac et Windows, et Cartouche Builder pour Mac.">
+<meta name="color-scheme" content="dark">
+<meta name="theme-color" content="#090A11">
+<meta name="referrer" content="no-referrer">
+<link rel="icon" href="../favicon.svg" type="image/svg+xml">
+<script>
+    // The page's language before it is drawn: the visitor's choice on the
+    // site, else the browser's.
+    (function () {
+        var lang;
+        try { lang = localStorage.getItem("cartouche.site.lang"); } catch (e) {}
+        if (lang !== "fr" && lang !== "en") {
+            var wanted = (navigator.languages && navigator.languages[0]) || navigator.language || "en";
+            lang = wanted.toLowerCase().indexOf("fr") === 0 ? "fr" : "en";
+        }
+        document.documentElement.setAttribute("data-lang", lang);
+        document.documentElement.lang = lang;
+    })();
+</script>
+<style>
+    /* The site's look (../index.html), for one page: the newest file of each
+       of Cartouche's programs for a computer. A link to this page that names
+       one, #installer-mac, #installer-windows or #builder, downloads it at
+       once; the publication gives every button its newest release
+       (../tools/downloads.py). */
+    :root {
+        color-scheme: dark;
+        --stage: #090A11;
+        --ink: #F6F6FA;
+        --ink-2: rgba(246, 246, 250, .7);
+        --ink-3: rgba(246, 246, 250, .48);
+        --line: rgba(255, 255, 255, .1);
+        --indigo: #4F46E5;
+        --pink: #EC4899;
+        --ready: #34D37E;
+        --panel: rgba(28, 28, 33, .74);
+        --display: ui-rounded, "SF Pro Rounded", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+        --text: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    }
+    *, *::before, *::after { box-sizing: border-box; }
+    html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; background: var(--stage); }
+    body {
+        margin: 0;
+        min-height: 100vh;
+        background:
+            radial-gradient(70% 46% at 8% 0%, rgba(79, 70, 229, .34), transparent 72%),
+            radial-gradient(60% 40% at 96% 12%, rgba(236, 72, 153, .2), transparent 74%),
+            var(--stage);
+        background-repeat: no-repeat;
+        color: var(--ink);
+        font-family: var(--text);
+        font-size: 17px;
+        line-height: 1.55;
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
+    }
+    html[data-lang="fr"] [lang="en"], html[data-lang="en"] [lang="fr"] { display: none !important; }
+    svg { display: block; max-width: 100%; }
+    a { color: inherit; text-decoration-thickness: 1px; text-underline-offset: .2em; }
+    button { font: inherit; color: inherit; }
+    :focus-visible { outline: 2px solid #fff; outline-offset: 3px; }
+    p { margin: 0; }
+    h1, h2 { margin: 0; font-family: var(--display); text-wrap: balance; }
+    .wrap {
+        width: 100%;
+        max-width: 1080px;
+        margin-inline: auto;
+        padding-left: max(16px, env(safe-area-inset-left, 0px));
+        padding-right: max(16px, env(safe-area-inset-right, 0px));
+    }
+    @media (min-width: 760px) {
+        .wrap {
+            padding-left: max(40px, env(safe-area-inset-left, 0px));
+            padding-right: max(40px, env(safe-area-inset-right, 0px));
+        }
+    }
+
+    .top { padding-block: max(12px, env(safe-area-inset-top, 0px)) 12px; }
+    .top__bar {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        min-height: 58px;
+        padding: 0 9px 0 18px;
+        border-radius: 999px;
+        background: rgba(16, 17, 27, .64);
+        box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .13), 0 14px 34px -16px rgba(0, 0, 0, .8);
+    }
+    .wordmark { display: inline-flex; align-items: center; gap: 9px; margin-right: auto; text-decoration: none; }
+    .wordmark svg { width: 18px; height: 24px; }
+    .wordmark b {
+        font: 800 1.38rem/1 var(--display);
+        letter-spacing: -.01em;
+        background: linear-gradient(90deg, #7A73FF, var(--pink));
+        -webkit-background-clip: text;
+        background-clip: text;
+        color: transparent;
+    }
+    .lang { display: inline-flex; padding: 3px; border-radius: 999px; background: rgba(255, 255, 255, .07); box-shadow: inset 0 0 0 1px var(--line); }
+    .lang button {
+        border: 0;
+        background: none;
+        padding: 7px 10px;
+        border-radius: 999px;
+        font: 700 .78rem/1 var(--display);
+        letter-spacing: .08em;
+        color: var(--ink-3);
+        cursor: pointer;
+    }
+    .lang button[aria-pressed="true"] { background: rgba(255, 255, 255, .16); color: var(--ink); }
+
+    main { padding-block: clamp(36px, 7vw, 84px) clamp(56px, 8vw, 96px); }
+    .label {
+        margin: 0 0 16px;
+        font: 800 .78rem/1.2 var(--display);
+        letter-spacing: .16em;
+        text-transform: uppercase;
+        color: var(--ink-3);
+    }
+    h1 { font-weight: 800; font-size: clamp(2.3rem, 1.3rem + 3.6vw, 4rem); line-height: 1; letter-spacing: -.025em; }
+    .lede { margin-top: 22px; max-width: 38em; color: var(--ink-2); font-size: 1.08rem; }
+
+    .files { list-style: none; display: grid; gap: 16px; margin: clamp(32px, 5vw, 52px) 0 0; padding: 0; }
+    @media (min-width: 900px) { .files { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+    .file {
+        display: flex;
+        flex-direction: column;
+        padding: 24px 24px 26px;
+        border-radius: 28px;
+        background: var(--panel);
+        box-shadow: inset 0 0 0 1px var(--line);
+        scroll-margin-top: 24px;
+    }
+    .file.is-chosen { box-shadow: inset 0 0 0 2px rgba(122, 115, 255, .85), 0 18px 46px -22px rgba(79, 70, 229, .9); }
+    .tag-icon {
+        display: grid;
+        place-items: center;
+        width: 46px;
+        height: 46px;
+        margin-bottom: 16px;
+        border-radius: 14px;
+        background: linear-gradient(140deg, rgba(79, 70, 229, .45), rgba(236, 72, 153, .32));
+        box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .14);
+    }
+    .tag-icon svg { width: 24px; height: 24px; }
+    .file h2 { font: 700 1.3rem/1.25 var(--display); }
+    .file__what { margin-top: 8px; color: var(--ink-2); font-size: .97rem; }
+    .file__get { margin-top: auto; padding-top: 22px; }
+    .file__get .btn { display: flex; width: 100%; justify-content: center; }
+    .btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+        min-height: 52px;
+        padding: 0 21px 0 14px;
+        border-radius: 999px;
+        color: #fff;
+        font-weight: 600;
+        font-size: 1.04rem;
+        text-decoration: none;
+        background: linear-gradient(180deg, #6159F2, var(--indigo));
+        box-shadow: inset 0 1px 0 rgba(255, 255, 255, .28), 0 12px 30px -12px rgba(79, 70, 229, .9);
+        transition: transform .18s ease;
+    }
+    .btn:hover { transform: translateY(-1px); }
+    .btn:active { transform: translateY(1px); }
+    .btn svg { width: 20px; height: 20px; flex: none; }
+    .file__started { display: flex; gap: 8px; align-items: flex-start; margin: -4px 0 18px; padding: 10px 14px; border-radius: 16px; background: rgba(52, 211, 126, .12); color: var(--ink); font-size: .95rem; }
+    .file__started[hidden] { display: none; }
+    .file__started svg { width: 20px; height: 20px; flex: none; margin-top: 1px; color: var(--ready); }
+    .file__first { margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--line); color: var(--ink-3); font-size: .9rem; }
+
+    .after { margin-top: 30px; max-width: 46em; color: var(--ink-3); font-size: .95rem; }
+    .after a, .foot a { color: var(--ink-2); }
+    .after a:hover, .foot a:hover { color: var(--ink); }
+    .foot { padding-block: 32px calc(36px + env(safe-area-inset-bottom, 0px)); border-top: 1px solid var(--line); }
+    .foot nav { display: flex; flex-wrap: wrap; gap: 8px 22px; }
+    .foot nav a { text-decoration: none; }
+    .foot nav a:hover { text-decoration: underline; }
+    .foot p { margin-top: 16px; max-width: 62em; color: var(--ink-3); font-size: .88rem; }
+    @media (prefers-reduced-motion: reduce) { .btn { transition: none; } }
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
+    <defs>
+        <linearGradient id="g-brand" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#4F46E5"/><stop offset="1" stop-color="#EC4899"/></linearGradient>
+        <symbol id="i-cartridge" viewBox="0 0 18 24"><rect x=".35" y=".6" width="17.3" height="22.8" rx="1.9" fill="url(#g-brand)"/><rect x="5.15" y="3.2" width="7.7" height="1.2" rx=".6" fill="#fff" fill-opacity=".55"/><rect x="5.15" y="5.85" width="7.7" height="1.2" rx=".6" fill="#fff" fill-opacity=".55"/></symbol>
+        <symbol id="i-download" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7.5v8.5M8.3 12.5 12 16.2l3.7-3.7"/></g></symbol>
+        <symbol id="i-laptop" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.9" stroke-linejoin="round"><rect x="4.5" y="5" width="15" height="10.5" rx="1.6"/><path stroke-linecap="round" d="M2.5 19h19"/></g></symbol>
+        <symbol id="i-desktop" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.9" stroke-linejoin="round"><rect x="3" y="4" width="18" height="12.5" rx="1.8"/><path stroke-linecap="round" d="M9 20.5h6M12 16.5v4"/></g></symbol>
+        <symbol id="i-hammer" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" d="M4.6 19.4 12.4 11.6"/><rect x="9" y="6.4" width="12" height="5.2" rx="1.4" fill="currentColor" transform="rotate(45 15 9)"/></symbol>
+        <symbol id="i-check" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="currentColor"/><path fill="none" stroke="#0B0C12" stroke-opacity=".85" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" d="m7.4 12.3 3.1 3.1 6.1-6.6"/></symbol>
+    </defs>
+</svg>
+
+<header class="top wrap">
+    <div class="top__bar">
+        <a class="wordmark" href="../" aria-label="Cartouche"><svg aria-hidden="true"><use href="#i-cartridge"/></svg><b>Cartouche</b></a>
+        <div class="lang" role="group" data-label-fr="Langue" data-label-en="Language" aria-label="Language">
+            <button type="button" data-set-lang="fr" aria-pressed="false">FR</button>
+            <button type="button" data-set-lang="en" aria-pressed="true">EN</button>
+        </div>
+    </div>
+</header>
+
+<main class="wrap">
+    <p class="label"><span lang="fr">Téléchargements</span><span lang="en">Downloads</span></p>
+    <h1><span lang="fr">Téléchargez Cartouche.</span><span lang="en">Download Cartouche.</span></h1>
+    <p class="lede"><span lang="fr">L’Installeur pose Cartouche sur votre iPhone depuis un Mac ou un PC, puis Cartouche se met à jour tout seul. Cartouche Builder construit vos jeux sur votre Mac.</span><span lang="en">The Installer puts Cartouche on your iPhone from a Mac or a PC, then Cartouche updates itself. Cartouche Builder builds your games on your Mac.</span></p>
+
+    <ul class="files">
+        <li class="file" id="installer-mac">
+            <p class="file__started" data-started hidden><svg aria-hidden="true"><use href="#i-check"/></svg><span lang="fr">Le téléchargement commence. S’il ne démarre pas, utilisez le bouton.</span><span lang="en">Your download is starting. If it does not, use the button.</span></p>
+            <span class="tag-icon"><svg aria-hidden="true"><use href="#i-laptop"/></svg></span>
+            <h2><span lang="fr">L’Installeur Cartouche pour Mac</span><span lang="en">The Cartouche Installer for Mac</span></h2>
+            <p class="file__what"><span lang="fr">Pose Cartouche sur votre iPhone, une fois, depuis un Mac à puce Apple ou Intel avec macOS 11 ou ultérieur.</span><span lang="en">Puts Cartouche on your iPhone, once, from a Mac with Apple silicon or Intel and macOS 11 or later.</span></p>
+            <p class="file__first"><span lang="fr">La première fois, macOS ne peut pas le vérifier : Réglages Système › Confidentialité et sécurité › Ouvrir quand même.</span><span lang="en">The first time, macOS cannot check it: System Settings › Privacy &amp; Security › Open Anyway.</span></p>
+            <div class="file__get">
+                <a class="btn" data-download="installer-mac" data-label-fr="Télécharger l’Installeur Cartouche pour Mac" data-label-en="Download the Cartouche Installer for Mac" aria-label="Download the Cartouche Installer for Mac" href="https://github.com/clabeuhtegrite/Cartouche/releases/download/installer-v0.1.0/Cartouche-Installer-0.1.0-Mac.dmg"><svg aria-hidden="true"><use href="#i-download"/></svg><span lang="fr">Télécharger</span><span lang="en">Download</span></a>
+            </div>
+        </li>
+        <li class="file" id="installer-windows">
+            <p class="file__started" data-started hidden><svg aria-hidden="true"><use href="#i-check"/></svg><span lang="fr">Le téléchargement commence. S’il ne démarre pas, utilisez le bouton.</span><span lang="en">Your download is starting. If it does not, use the button.</span></p>
+            <span class="tag-icon"><svg aria-hidden="true"><use href="#i-desktop"/></svg></span>
+            <h2><span lang="fr">L’Installeur Cartouche pour Windows</span><span lang="en">The Cartouche Installer for Windows</span></h2>
+            <p class="file__what"><span lang="fr">Pose Cartouche sur votre iPhone, une fois, depuis un PC sous Windows 10 ou 11 avec Appareils Apple du Microsoft Store, ou iTunes.</span><span lang="en">Puts Cartouche on your iPhone, once, from a PC with Windows 10 or 11 and Apple Devices from the Microsoft Store, or iTunes.</span></p>
+            <p class="file__first"><span lang="fr">Si SmartScreen arrête l’installation, qui n’est pas signée : Informations complémentaires › Exécuter quand même.</span><span lang="en">If SmartScreen stops the setup, which is not signed: More info › Run anyway.</span></p>
+            <div class="file__get">
+                <a class="btn" data-download="installer-windows" data-label-fr="Télécharger l’Installeur Cartouche pour Windows" data-label-en="Download the Cartouche Installer for Windows" aria-label="Download the Cartouche Installer for Windows" href="https://github.com/clabeuhtegrite/Cartouche/releases/download/installer-v0.1.0/Cartouche-Installer-0.1.0-Windows.exe"><svg aria-hidden="true"><use href="#i-download"/></svg><span lang="fr">Télécharger</span><span lang="en">Download</span></a>
+            </div>
+        </li>
+        <li class="file" id="builder">
+            <p class="file__started" data-started hidden><svg aria-hidden="true"><use href="#i-check"/></svg><span lang="fr">Le téléchargement commence. S’il ne démarre pas, utilisez le bouton.</span><span lang="en">Your download is starting. If it does not, use the button.</span></p>
+            <span class="tag-icon"><svg aria-hidden="true"><use href="#i-hammer"/></svg></span>
+            <h2>Cartouche Builder</h2>
+            <p class="file__what"><span lang="fr">Construit vos jeux à partir de vos propres copies, sur un Mac à puce Apple avec macOS 26.6 ou ultérieur, et les refait quand nxnative les améliore. Glissez-le dans Applications.</span><span lang="en">Builds your games from your own copies, on a Mac with Apple silicon and macOS 26.6 or later, and builds them again when nxnative improves them. Drag it onto Applications.</span></p>
+            <p class="file__first"><span lang="fr">La première fois, macOS ne peut pas le vérifier : Réglages Système › Confidentialité et sécurité › Ouvrir quand même. Ensuite, il se met à jour tout seul.</span><span lang="en">The first time, macOS cannot check it: System Settings › Privacy &amp; Security › Open Anyway. Then it updates itself.</span></p>
+            <div class="file__get">
+                <a class="btn" data-download="builder" data-label-fr="Télécharger Cartouche Builder" data-label-en="Download Cartouche Builder" aria-label="Download Cartouche Builder" href="https://github.com/clabeuhtegrite/Cartouche/releases/download/builder-v0.2.0/Cartouche-Builder-0.2.0.dmg"><svg aria-hidden="true"><use href="#i-download"/></svg><span lang="fr">Télécharger</span><span lang="en">Download</span></a>
+            </div>
+        </li>
+    </ul>
+
+    <p class="after"><span lang="fr">De rien à votre premier jeu : <a href="https://github.com/clabeuhtegrite/Cartouche/blob/main/docs/getting-started.fr.md">le guide Premiers pas</a>. Cartouche ne contient et ne télécharge aucun jeu, aucune clé ni aucun firmware : vous construisez vos jeux à partir de vos propres copies.</span><span lang="en">From nothing to your first game: <a href="https://github.com/clabeuhtegrite/Cartouche/blob/main/docs/getting-started.md">the Getting started guide</a>. Cartouche contains and downloads no games, no keys and no firmware: you build your games from your own copies.</span></p>
+</main>
+
+<footer class="foot">
+    <div class="wrap">
+        <nav data-label-fr="Liens" data-label-en="Links" aria-label="Links">
+            <a href="../"><span lang="fr">Le site de Cartouche</span><span lang="en">Cartouche’s site</span></a>
+            <a href="https://github.com/clabeuhtegrite/Cartouche">GitHub</a>
+            <a href="https://github.com/clabeuhtegrite/Cartouche/blob/main/LEGAL.md"><span lang="fr">Mentions légales</span><span lang="en">Legal</span></a>
+            <a href="https://github.com/clabeuhtegrite/Cartouche/blob/main/docs/privacy.md"><span lang="fr">Confidentialité</span><span lang="en">Privacy</span></a>
+        </nav>
+        <p><span lang="fr">Cartouche est un logiciel libre sous licence AGPL-3.0. Il n’est affilié ni à Nintendo, ni à Apple, ni au projet nxnative.</span><span lang="en">Cartouche is free software under the AGPL-3.0. It is affiliated with neither Nintendo, nor Apple, nor the nxnative project.</span></p>
+    </div>
+</footer>
+
+<script>
+(function () {
+    "use strict";
+    var root = document.documentElement;
+
+    // ---------- Language, as on the site ----------
+    var TITLES = { fr: "Télécharger Cartouche", en: "Download Cartouche" };
+    function applyLang(lang) {
+        root.setAttribute("data-lang", lang);
+        root.lang = lang;
+        document.title = TITLES[lang];
+        var meta = document.querySelector('meta[name="description"]');
+        if (meta) meta.setAttribute("content", meta.getAttribute("data-" + lang));
+        document.querySelectorAll("[data-set-lang]").forEach(function (b) { b.setAttribute("aria-pressed", String(b.getAttribute("data-set-lang") === lang)); });
+        document.querySelectorAll("[data-label-fr]").forEach(function (el) { el.setAttribute("aria-label", el.getAttribute("data-label-" + lang)); });
+    }
+    document.querySelectorAll("[data-set-lang]").forEach(function (b) {
+        b.addEventListener("click", function () {
+            var lang = b.getAttribute("data-set-lang");
+            try { localStorage.setItem("cartouche.site.lang", lang); } catch (e) {}
+            applyLang(lang);
+        });
+    });
+    applyLang(root.getAttribute("data-lang") === "fr" ? "fr" : "en");
+
+    // ---------- The file a link names ----------
+    // download/#builder, #installer-mac or #installer-windows: its download
+    // starts at once, and the page stays, with its card and what to do next.
+    var name = location.hash.slice(1);
+    var card = /^[a-z-]+$/.test(name) ? document.getElementById(name) : null;
+    var link = card && card.querySelector("a[data-download]");
+    if (link) {
+        card.classList.add("is-chosen");
+        var started = card.querySelector("[data-started]");
+        if (started) started.hidden = false;
+        location.href = link.href;
+    }
+})();
+</script>
+</body>
+</html>
