@@ -83,6 +83,11 @@ class Paths:
         return self.root / "queue.json"
 
     @property
+    def identified(self) -> Path:
+        """Which game each source file named without its title ID holds (identify.py)."""
+        return self.root / "identified.json"
+
+    @property
     def library(self) -> Path:
         """The last look at the games, for the app to show at once (api.py)."""
         return self.root / "library.json"
