@@ -55,6 +55,7 @@ enum LayoutCheck {
             exit(1)
         }
         var library = samples.library
+        library.issues = Gallery.issues
         let more = ["Hades II", "Luigi’s Mansion 3", "Donkey Kong Bananza", "Mario Kart World", "Mario Tennis Fever",
                     "Pokémon Pokopia", "Splatoon Raiders", "Star Fox", "Super Mario Party Jamboree"]
         let model = library.games[0]

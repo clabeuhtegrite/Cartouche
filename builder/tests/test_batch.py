@@ -10,7 +10,7 @@ from unittest import mock
 from cartouche_builder import batch, config as configs, ipa
 from cartouche_builder.paths import Paths
 
-from support import HOLLOW, MKW, ODYSSEY, Home, commit, make_dump, make_engine_remote, make_zip_dump
+from support import HOLLOW, MKW, ODYSSEY, ZELDA, Home, commit, make_dump, make_engine_remote, make_xci, make_zip_dump, write_keys
 
 NAMES = {MKW: "Mario Kart World", ODYSSEY: "Super Mario Odyssey", HOLLOW: "Hollow Knight"}
 PYTHON = Path(sys.executable)
@@ -83,6 +83,24 @@ class Batches(Home):
         plan, summary = self.run_due()
         self.assertEqual([e.title_id for e in plan.to_build], [MKW])
         self.assertEqual((workspace.build_folder(MKW) / "runs.txt").read_text().count("run"), 2)
+
+    def test_loose_packages_build_from_a_folder_of_links(self):
+        # A cartridge dump loose in the sources folder, named without its ID.
+        commit(self.remote, "Zelda's profile", {f"dm/games/{ZELDA}/game.tsv": f"# Zelda\ntitle_id\t{ZELDA}\nname\tZelda\n"})
+        write_keys(self.keys)
+        make_xci(self.sources / "Zelda.xci", [ZELDA])
+        plan, summary = self.run_due(only={ZELDA})
+        self.assertEqual(summary.failed, [])
+        workspace = batch.context().workspace
+        args = json.loads((workspace.build_folder(ZELDA) / "args.json").read_text())
+        links = Path(args[0])
+        self.assertEqual(links, workspace.root / ".cartouche-builder" / "sources" / ZELDA)
+        self.assertEqual([(p.name, p.resolve()) for p in links.iterdir()], [("Zelda.xci", (self.sources / "Zelda.xci").resolve())])
+        self.assertIn("-k", args)
+        self.assertIn(f"Zelda [{ZELDA}].ipa", [p.name for p in self.games.iterdir()])
+        # A game in a folder of its own still goes to nxnative as it is.
+        plan, summary = self.run_due(only={ODYSSEY})
+        self.assertEqual(Path(json.loads((workspace.build_folder(ODYSSEY) / "args.json").read_text())[0]), self.sources / "Odyssey")
 
     def test_ipa_not_kept_on_another_disk_and_extracted_files_kept_when_asked(self):
         paths = Paths.default()

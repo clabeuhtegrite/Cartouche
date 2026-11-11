@@ -132,7 +132,7 @@ def survey(ctx: Context, update: bool = True, force: set[str] | None = None, log
     if not head:
         raise Blocked(t("batch.no_engine"))
     profiles = ctx.engine.profiles()
-    found = library.discover(ctx.config.path("sources"), {tid: p.name for tid, p in profiles.items()})
+    found = library.discover(ctx.config.path("sources"), {tid: p.name for tid, p in profiles.items()}, keys=ctx.config.path("keys"), cache=ctx.paths.identified)
     identity = toolchain.identity(toolchain.environment(ctx.paths)) if sys.platform == "darwin" else ""
     games = [g for g in found.games if g.title_id in only] if only else found.games
     result = plan(games, ctx.engine, head, profiles, ctx.store, ctx.config, ctx.config.path("games"), identity, force)
@@ -381,6 +381,10 @@ class Runner:
                 source = dump
             elif game.kind == "nup":
                 source = game.inputs[0]
+            elif game.shared:
+                # Beside other games' packages, or in several folders: nxnative
+                # takes a folder of one game, so it gets one of links to them.
+                source = workspace.link_sources(title_id, game.inputs)
             else:
                 source = game.folder
             work = workspace.build_folder(title_id)

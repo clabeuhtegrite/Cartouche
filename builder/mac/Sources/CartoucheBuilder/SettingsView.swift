@@ -206,7 +206,7 @@ struct FolderSettings: View {
         Form {
             Section {
                 FolderField(title: tr("Game sources", "Sources des jeux"),
-                            help: tr("One folder per game: its packages, .nup, dump or zipped dump.", "Un dossier par jeu : ses paquets, .nup, dump ou dump zippé."),
+                            help: tr("Your games: packages, .nup files, dumps or zipped dumps, loose or in folders.", "Vos jeux : paquets, fichiers .nup, dumps ou dumps zippés, en vrac ou dans des dossiers."),
                             path: model.config?.sources ?? "") { path in model.update { $0.sources = path } }
                 FolderField(title: tr("Games folder", "Dossier des jeux"),
                             help: tr("Where the IPAs go: the folder Cartouche reads, on this Mac or on your NAS.", "Où vont les IPA : le dossier que lit Cartouche, sur ce Mac ou sur votre NAS."),
