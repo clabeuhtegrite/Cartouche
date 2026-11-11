@@ -602,13 +602,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Import the IPA of a supported game that you built on your Mac from your own copy."
+            "value" : "Import the IPA of a supported game, made from your own copy."
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Importez l’IPA d’un jeu pris en charge, construite sur votre Mac à partir de votre propre copie."
+            "value" : "Importez l’IPA d’un jeu pris en charge, créée à partir de votre propre copie."
           }
         }
       }

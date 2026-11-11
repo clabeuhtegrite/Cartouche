@@ -27,7 +27,7 @@ enum CartoucheText {
 
     // MARK: Catalogue
 
-    static var emptyMessage: String { s("games.empty.message", "Import the IPA of a supported game that you built on your Mac from your own copy.") }
+    static var emptyMessage: String { s("games.empty.message", "Import the IPA of a supported game, made from your own copy.") }
     static var noSheet: String { s("games.noSheet", "No sheet yet") }
     static var importCopy: String { s("action.import", "Import my copy") }
     static var play: String { s("action.play", "Play") }
