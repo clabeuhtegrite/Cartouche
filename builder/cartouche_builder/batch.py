@@ -22,12 +22,12 @@ from pathlib import Path
 from . import build as builds
 from . import config as configs
 from . import ipa as ipas
-from . import library, notify, report, shares, toolchain
+from . import library, notify, report, schedule, shares, toolchain
 from .engine import Engine
 from .i18n import set_language, t
 from .paths import Paths
 from .planner import Entry, Plan, fingerprint, plan
-from .state import Attempt, Build, Store, attempt_now, now_iso
+from .state import TAKEN_OVER, Attempt, Build, Store, attempt_now, now_iso
 from .status import Status
 from .workspace import NOTES, Workspace, free_gb, same_volume
 
@@ -78,11 +78,16 @@ def context(paths: Paths | None = None) -> Context:
     config = configs.load(paths)
     set_language(config.language or None)
     store = Store(paths)
-    marker = paths.state / ".legacy-imported"
-    if config.imported and not marker.exists():
-        store.import_legacy()
-        marker.parent.mkdir(parents=True, exist_ok=True)
-        marker.write_text(now_iso() + "\n")
+    # Once: the first builders took over NxNative Batch Builder's records at
+    # their first start, and left this mark. Those builds are forgotten, as
+    # its settings were (config.migrate), and a nightly run left from them
+    # stops until the player turns it on again.
+    marker = paths.state / TAKEN_OVER
+    if marker.exists():
+        store.forget_taken_over()
+        if not config.schedule and schedule.installed():
+            schedule.uninstall()
+        marker.unlink(missing_ok=True)
     engine = Engine(paths.engine, config.engine_url, config.engine_branch)
     return Context(paths, config, engine, store)
 

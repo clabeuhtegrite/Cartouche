@@ -80,7 +80,9 @@ final class AppModel: ObservableObject {
     @Published var section: AppSection = .library
     @Published var selection: String?
     @Published var banner: Banner?
-    @Published var showOnboarding = false
+    @Published var showSetup = false
+    /// The step the setup assistant opens at.
+    @Published var setupStep: SetupStep = .welcome
     @Published private(set) var engine: Engine?
     @Published private(set) var library: Library?
     @Published private(set) var status: BatchStatus?
@@ -134,11 +136,12 @@ final class AppModel: ObservableObject {
         await setup.refresh()
         if engine == nil, let python = await PythonFinder.find() { _ = makeEngine(python) }
         await loadConfig()
+        // At once, before the library: its first check fetches nxnative.
+        showSetup = needsSetup
         bridge.attach(model: self)
         let checked = library?.checked.flatMap(ISODate.parse)
         let stale = checked.map { Date().timeIntervalSince($0) > AppModel.checkInterval } ?? true
         await refreshLibrary(update: stale && setup.ready)
-        showOnboarding = needsOnboarding
         checkRegularly()
         telemetry.event("builder.opened", fields: openedFields())
     }
@@ -204,9 +207,23 @@ final class AppModel: ObservableObject {
         return !NSApp.windows.contains { $0.isVisible && $0.styleMask.contains(.titled) }
     }
 
-    var needsOnboarding: Bool {
-        guard let config else { return true }
-        return config.sources.isEmpty || config.games.isEmpty
+    /// The setup assistant opens by itself until it is gone through to its
+    /// end (SetupAssistant.swift).
+    var needsSetup: Bool { !(config?.setupDone ?? false) }
+
+    /// The folder of the dumps or the games folder is not chosen yet.
+    var foldersMissing: Bool { (config?.sources ?? "").isEmpty || (config?.games ?? "").isEmpty }
+
+    /// Opens the setup assistant at STEP, over the window.
+    func openSetup(at step: SetupStep = .welcome) {
+        setupStep = step
+        showSetup = true
+    }
+
+    /// The setup assistant's last step: it no longer opens by itself.
+    func finishSetup() {
+        update { $0.setupDone = true }
+        showSetup = false
     }
 
     @discardableResult
@@ -236,7 +253,13 @@ final class AppModel: ObservableObject {
     // MARK: The engine's answers
 
     func loadConfig() async {
-        guard !sample, let engine else { return }
+        guard !sample else { return }
+        guard let engine else {
+            // Python comes with the Mac's tools: until then, the settings as
+            // they were saved, for the setup assistant to show and change.
+            if config == nil { use(SettingsFile.read(home)) }
+            return
+        }
         do {
             let answer = try await engine.config()
             apply(answer)
@@ -246,15 +269,18 @@ final class AppModel: ObservableObject {
     }
 
     private func apply(_ answer: ConfigAnswer) {
-        let language = answer.config.language
-        if language != L10n.chosen || config == nil {
-            L10n.use(language)
+        use(answer.config)
+        info = answer.builder
+    }
+
+    private func use(_ fresh: BuilderConfig) {
+        if fresh.language != L10n.chosen || config == nil {
+            L10n.use(fresh.language)
             engine?.language = L10n.code
             telemetry.language = L10n.code
         }
-        config = answer.config
-        info = answer.builder
-        bridge.update(games: answer.config.games)
+        config = fresh
+        bridge.update(games: fresh.games)
     }
 
     func refreshLibrary(update: Bool) async {
@@ -467,7 +493,7 @@ final class AppModel: ObservableObject {
 
     /// Changes the engine's settings by EDIT, at once on the screen.
     func update(_ edit: (inout BuilderConfig) -> Void) {
-        guard !sample, let before = config, let engine else { return }
+        guard !sample, let before = config else { return }
         var changed = before
         edit(&changed)
         let changes = changed.changes(from: before)
@@ -475,9 +501,21 @@ final class AppModel: ObservableObject {
         config = changed
         if changes["language"] != nil {
             L10n.use(changed.language)
-            engine.language = L10n.code
+            engine?.language = L10n.code
             telemetry.language = L10n.code
             objectWillChange.send()
+        }
+        guard let engine else {
+            // No engine yet: saved as the engine saves them, for it to read
+            // when the Mac's tools bring its Python.
+            do {
+                try SettingsFile.write(changes, home)
+                bridge.update(games: changed.games)
+            } catch {
+                config = before
+                show(error, origin: "settings")
+            }
+            return
         }
         Task {
             do {
@@ -487,7 +525,7 @@ final class AppModel: ObservableObject {
                 if changes.keys.contains(where: refolded.contains) {
                     await refreshLibrary(update: false)
                 }
-                if changes.keys.contains(where: ["sources", "games"].contains), showOnboarding == false, needsOnboarding == false {
+                if changes.keys.contains(where: ["sources", "games"].contains), !showSetup, !foldersMissing {
                     banner = nil
                 }
             } catch {

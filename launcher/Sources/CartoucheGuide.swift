@@ -6,10 +6,14 @@
 //  never used Cartouche (CartoucheGuideView): LocalDevVPN, the Apple ID,
 //  the game built on a Mac with Cartouche Builder, the games folder, then
 //  the game installed. Each step ticks itself from what Cartouche sees, in
-//  any order. The guide opens by itself once, the first time the console
-//  shows before the player has signed in, and stays a card at the top of
-//  the home until the first game is installed; from then on it shows no
-//  more, whatever happens later, and the setup banner takes its place.
+//  any order. The Mac's step is the player's to take: No thanks skips it,
+//  for a player whose games are built already or who has no Mac, and the
+//  guide goes on without it. The guide opens by itself once, the first
+//  time the console shows before the player has signed in, and stays a
+//  card at the top of the home until the first game is installed, unless
+//  the player takes the card off the home; from then on it shows there no
+//  more, whatever happens later, and the setup banner takes its place. The
+//  System page opens it at any time.
 //
 
 import SwiftUI
@@ -38,6 +42,8 @@ final class CartoucheGuide: ObservableObject {
         var hasGame = false
         var hasGamesFolder = false
         var hasInstalledGame = false
+        /// The player said No thanks to building their game on a Mac.
+        var buildSkipped = false
 
         func isDone(_ step: Step) -> Bool {
             switch step {
@@ -51,8 +57,14 @@ final class CartoucheGuide: ObservableObject {
             }
         }
 
-        /// The first step left, nil once every step is done.
-        var current: Step? { Step.allCases.first { !isDone($0) } }
+        /// A step the player passed over without doing it: the Mac's, after
+        /// No thanks, until a game of theirs shows anyway.
+        func isSkipped(_ step: Step) -> Bool {
+            step == .build && buildSkipped && !isDone(step)
+        }
+
+        /// The first step left, nil once every step is done or skipped.
+        var current: Step? { Step.allCases.first { !isDone($0) && !isSkipped($0) } }
         var isFinished: Bool { current == nil }
     }
 
@@ -60,14 +72,25 @@ final class CartoucheGuide: ObservableObject {
     /// Whether the player has had a game installed once: the home shows the
     /// guide no more.
     @Published private(set) var isFinishedOnce: Bool
+    /// Whether the player said No thanks to the Mac's step.
+    @Published private(set) var buildSkipped: Bool
+    /// Whether the player took the guide's card off the home.
+    @Published private(set) var isCardHidden: Bool
+    /// The System page asked for the guide, which opens over the console
+    /// once the page has gone (CartoucheGamesView).
+    @Published private(set) var isOpenRequested = false
 
     private let defaults: UserDefaults
     private static let openedKey = "Cartouche.guide.opened"
     private static let finishedKey = "Cartouche.guide.finished"
+    private static let buildSkippedKey = "Cartouche.guide.buildSkipped"
+    private static let cardHiddenKey = "Cartouche.guide.cardHidden"
 
     init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
         isFinishedOnce = defaults.bool(forKey: Self.finishedKey)
+        buildSkipped = defaults.bool(forKey: Self.buildSkippedKey)
+        isCardHidden = defaults.bool(forKey: Self.cardHiddenKey)
     }
 
     /// Reads again whether LocalDevVPN is connected.
@@ -87,25 +110,54 @@ final class CartoucheGuide: ObservableObject {
             hasGame: !entries.owned.isEmpty,
             hasGamesFolder: CartoucheStorageSettings.shared.location(.games) != nil
                 || CartoucheStoredGames.shared.serverName != nil,
-            hasInstalledGame: entries.owned.contains { $0.app != nil })
+            hasInstalledGame: entries.owned.contains { $0.app != nil },
+            buildSkipped: buildSkipped)
     }
 
     /// Whether the home shows the guide's card, in place of the setup banner:
-    /// until the player's first game is installed.
+    /// until the player's first game is installed, unless they took the
+    /// card off the home.
     func showsCard(_ progress: Progress) -> Bool {
-        !isFinishedOnce && !progress.hasInstalledGame
+        !isFinishedOnce && !isCardHidden && !progress.hasInstalledGame
     }
 
     /// Whether the guide opens by itself: once, the first time the console
     /// shows to a player who has not signed in yet, which a new install is.
     func opensByItself(_ progress: Progress) -> Bool {
-        !isFinishedOnce && !progress.signedIn && !progress.hasInstalledGame
+        !isFinishedOnce && !isCardHidden && !progress.signedIn && !progress.hasInstalledGame
             && !defaults.bool(forKey: Self.openedKey)
     }
 
     /// The guide has been on screen: it opens by itself no more.
     func noteOpened() {
         defaults.set(true, forKey: Self.openedKey)
+    }
+
+    /// No thanks to the Mac's step: the guide goes on to the games folder,
+    /// and the home's card with it. The step stays in the guide, closed, for
+    /// a player who wants it after all.
+    func skipBuild() {
+        guard !buildSkipped else { return }
+        buildSkipped = true
+        defaults.set(true, forKey: Self.buildSkippedKey)
+    }
+
+    /// Takes the guide's card off the home, for good: the System page still
+    /// opens the guide, and the setup banner says what the setup lacks.
+    func hideCard() {
+        guard !isCardHidden else { return }
+        isCardHidden = true
+        defaults.set(true, forKey: Self.cardHiddenKey)
+    }
+
+    /// Opens the guide over the console, from the System page.
+    func requestOpen() {
+        isOpenRequested = true
+    }
+
+    /// The console has the request, and opens the guide.
+    func noteOpenRequestTaken() {
+        isOpenRequested = false
     }
 
     /// Keeps that the player has had their first game installed, once they
@@ -121,11 +173,21 @@ final class CartoucheGuide: ObservableObject {
     /// scenario of the launcher's gallery (launcher/Gallery): they run one
     /// after the other, and a scenario with a game installed finishes it.
     func startOverForGallery() {
-        defaults.removeObject(forKey: Self.openedKey)
-        defaults.removeObject(forKey: Self.finishedKey)
+        for key in [Self.openedKey, Self.finishedKey, Self.buildSkippedKey, Self.cardHiddenKey] {
+            defaults.removeObject(forKey: key)
+        }
         isFinishedOnce = false
+        buildSkipped = false
+        isCardHidden = false
     }
     #endif
+
+    // MARK: Cartouche Builder
+
+    /// What the Mac's step sends the Mac, by AirDrop or Messages: Cartouche
+    /// Builder's part of Cartouche's site, in the language of the Mac's
+    /// browser, with its disk image.
+    static let builderPage = URL(string: "https://clabeuhtegrite.github.io/Cartouche/#builder")!
 
     // MARK: LocalDevVPN
 

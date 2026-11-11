@@ -2,13 +2,15 @@
 //  CartoucheSystemView.swift
 //  Cartouche
 //
-//  What Cartouche has on this iPhone: the player's storage, where their
-//  games and saves are kept; the memory limit iOS sets for it, which the
-//  games that start in its place share; whether games run behind the
-//  console, and the memory they have there; when its signature expires,
-//  and how it is renewed; the device that the game sheets are compared
-//  with; Cartouche's updates; the game measurements it sends
-//  (CartoucheTelemetryView); and Report a problem (CartoucheReportView).
+//  What Cartouche has on this iPhone: its setup, and the guide to the
+//  player's first game (CartoucheGuideView), which opens over the console;
+//  the player's storage, where their games and saves are kept; the memory
+//  limit iOS sets for it, which the games that start in its place share;
+//  whether games run behind the console, and the memory they have there;
+//  when its signature expires, and how it is renewed; the device that the
+//  game sheets are compared with; Cartouche's updates; the game
+//  measurements it sends (CartoucheTelemetryView); and Report a problem
+//  (CartoucheReportView).
 //  It opens over the console (CartoucheRootView), and OK or the
 //  controller's Menu button closes it.
 //
@@ -31,6 +33,8 @@ struct CartoucheSystemView: View {
     @ObservedObject private var keeping = CartoucheGameKeeping.shared
     @ObservedObject private var actions = CartoucheGameActions.shared
     @ObservedObject private var telemetry = CartoucheTelemetry.shared
+    @ObservedObject private var guide = CartoucheGuide.shared
+    @ObservedObject private var storedGames = CartoucheStoredGames.shared
     @EnvironmentObject private var sharedModel: SharedModel
 
     private let catalog = CartoucheCatalog.shared
@@ -98,7 +102,40 @@ struct CartoucheSystemView: View {
                     Label(CartoucheText.setupTitle, systemImage: "checklist")
                 }
             }
+            guideRow
         }
+    }
+
+    /// The first game's guide, whose card may have left the home: it opens
+    /// over the console, where its steps install and start the games, once
+    /// this page has gone.
+    private var guideRow: some View {
+        let progress = guide.progress(catalog.entries(for: sharedModel.apps, stored: storedGames.games))
+        return Button {
+            guide.requestOpen()
+            close()
+        } label: {
+            LabeledContent {
+                HStack(spacing: 8) {
+                    if let step = progress.current {
+                        Text(CartoucheText.guideStatusStep(step.number, CartoucheGuide.Step.allCases.count))
+                    } else {
+                        Label(CartoucheText.guideStatusDone, systemImage: "checkmark.circle.fill")
+                            .labelStyle(CartoucheTightLabelStyle())
+                            .foregroundStyle(Color.green)
+                    }
+                    // As the rows that open a page have it: a row with a
+                    // status alone reads as a fact, not as a button.
+                    Image(systemName: "chevron.forward")
+                        .font(.footnote.weight(.semibold))
+                        .foregroundStyle(.tertiary)
+                        .accessibilityHidden(true)
+                }
+            } label: {
+                Label(CartoucheText.guideTitle, systemImage: "flag.checkered")
+            }
+        }
+        .tint(.primary)
     }
 
     // MARK: Storage
