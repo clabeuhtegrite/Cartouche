@@ -167,7 +167,7 @@ final class CartoucheSaveBackups: ObservableObject {
     private func syncRound(_ targets: [CartoucheSaveTarget], fetching: Bool, onlyChanged: Bool, byPlayer: Bool) async -> Round {
         var result = Round()
         guard let location = settings.location(.saves) else {
-            result.failure = CartoucheStorageError(CartoucheText.savesNoFolder)
+            result.failure = CartoucheStorageError(.noSavesFolder, CartoucheText.savesNoFolder)
             return result
         }
         let place = Self.place(location)
@@ -206,7 +206,7 @@ final class CartoucheSaveBackups: ObservableObject {
             let connected = try await CartoucheStorage.connect(location.server, settings: settings)
             remote = connected
             if await settings.checkAccess(connected, server: location.server.id, path: location.path) == false {
-                throw CartoucheStorageError(CartoucheText.savesReadOnly)
+                throw CartoucheStorageError(.readOnly, CartoucheText.savesReadOnly)
             }
             let folder = CartoucheSavesFolder(remote: connected, path: location.path, place: place, scratch: Self.scratch)
             // One game that fails leaves the others to go.
@@ -234,6 +234,7 @@ final class CartoucheSaveBackups: ObservableObject {
             // can fail on the way too: their report is not kept.
             problemReport = CartoucheReports.make(.saves, CartoucheText.savesCopyFailed, message: error.localizedDescription,
                                                   error: error, step: "Syncing the saves with " + CartoucheReports.place(.saves),
+                                                  stage: "savesSync",
                                                   facts: [.init("Games", String(due.count))], inBackground: !byPlayer)
             NSLog("[Cartouche] saves not synced: %@", error.localizedDescription)
             result.failure = error
@@ -391,7 +392,7 @@ final class CartoucheSaveBackups: ObservableObject {
         let remote = try await CartoucheStorage.connect(location.server, settings: settings)
         do {
             if await settings.checkAccess(remote, server: location.server.id, path: location.path) == false {
-                throw CartoucheStorageError(CartoucheText.savesReadOnly)
+                throw CartoucheStorageError(.readOnly, CartoucheText.savesReadOnly)
             }
             let folder = CartoucheSavesFolder(remote: remote, path: location.path, place: place, scratch: Self.scratch)
             let outcome = try await folder.putBack(CartoucheStoragePath.name(backup.path), of: target,

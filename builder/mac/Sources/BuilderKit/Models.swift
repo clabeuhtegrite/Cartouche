@@ -13,13 +13,93 @@ import Foundation
 public struct EngineFailure: Codable, Error, LocalizedError, Equatable {
     public var kind: String
     public var message: String
+    /// What the measurements may send of it, never its words: the class of
+    /// the exception, where the engine's code met it and its errno
+    /// (cartouche_builder/failure.py), and the engine's exit status when it
+    /// ended without an answer.
+    public var details: FailureDetails
+    public var exit: Int?
 
-    public init(kind: String, message: String) {
+    private enum CodingKeys: String, CodingKey { case kind, message, exit }
+
+    public init(kind: String, message: String, details: FailureDetails = FailureDetails(), exit: Int? = nil) {
         self.kind = kind
         self.message = message
+        self.details = details
+        self.exit = exit
+    }
+
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        kind = try c.decode(String.self, forKey: .kind)
+        message = try c.decode(String.self, forKey: .message)
+        details = (try? FailureDetails(from: decoder)) ?? FailureDetails()
+        exit = try? c.decodeIfPresent(Int.self, forKey: .exit)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encode(kind, forKey: .kind)
+        try c.encode(message, forKey: .message)
+        try c.encodeIfPresent(exit, forKey: .exit)
+        try details.encode(to: encoder)
     }
 
     public var errorDescription: String? { message }
+}
+
+/// Why the engine failed, as names and numbers (cartouche_builder/failure.py):
+/// {"exception": "FileNotFoundError", "where": "library.scan", "errno": 2}.
+public struct FailureDetails: Codable, Equatable, Sendable {
+    public var exception: String?
+    /// The module and the function of the engine's code: "library.scan".
+    public var place: String?
+    public var errorNumber: Int?
+
+    private enum CodingKeys: String, CodingKey { case exception, place = "where", errorNumber = "errno" }
+
+    public init(exception: String? = nil, place: String? = nil, errorNumber: Int? = nil) {
+        self.exception = exception
+        self.place = place
+        self.errorNumber = errorNumber
+    }
+
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        exception = try? c.decodeIfPresent(String.self, forKey: .exception)
+        place = try? c.decodeIfPresent(String.self, forKey: .place)
+        errorNumber = try? c.decodeIfPresent(Int.self, forKey: .errorNumber)
+    }
+
+    public var isEmpty: Bool { exception == nil && place == nil && errorNumber == nil }
+
+    /// The class of the exception Python ended on, from the last traceback
+    /// in TEXT ("KeyError"), never its words.
+    public static func exception(in text: String) -> String? {
+        let lines = text.split(whereSeparator: \.isNewline).map(String.init)
+        guard let start = lines.lastIndex(where: { $0.hasPrefix("Traceback (most recent call last):") }) else { return nil }
+        // The traceback's frames are indented; its last line, which is not,
+        // names the exception, with its module when it is not a built-in one.
+        guard let line = lines[(start + 1)...].first(where: { !$0.hasPrefix(" ") && !$0.hasPrefix("\t") }) else { return nil }
+        let head = line.split(separator: ":", maxSplits: 1, omittingEmptySubsequences: false).first.map(String.init) ?? ""
+        return head.split(separator: ".").last.map(String.init).flatMap(name)
+    }
+
+    /// TEXT when it is a name a programmer gave ("CalledProcessError"),
+    /// nothing else.
+    public static func name(_ text: String) -> String? {
+        guard (1...48).contains(text.count), let first = text.unicodeScalars.first,
+              first == "_" || ("A"..."Z").contains(first) || ("a"..."z").contains(first),
+              text.unicodeScalars.allSatisfy({ $0 == "_" || ("A"..."Z").contains($0) || ("a"..."z").contains($0) || ("0"..."9").contains($0) })
+        else { return nil }
+        return text
+    }
+
+    /// "library.scan" when it is a module and a function, nothing else.
+    public static func place(_ text: String) -> String? {
+        let parts = text.split(separator: ".", omittingEmptySubsequences: false).map(String.init)
+        return parts.count == 2 && parts.allSatisfy({ name($0) != nil }) ? text : nil
+    }
 }
 
 // MARK: The library
@@ -355,12 +435,14 @@ public struct BatchStatus: Codable, Equatable {
     public var head: String?
     public var message: String?
     public var error: String?
+    /// Why a batch that failed did, as names and numbers.
+    public var failure: FailureDetails?
     public var report: String?
     public var games: [GameProgress]
     public var lines: [String]
     public var running: Bool?
 
-    enum CodingKeys: String, CodingKey { case pid, scheduled, state, started, updated, ended, head, message, error, report, games, lines, running }
+    enum CodingKeys: String, CodingKey { case pid, scheduled, state, started, updated, ended, head, message, error, failure, report, games, lines, running }
 
     public init(state: String, pid: Int? = nil, games: [GameProgress] = [], lines: [String] = [], message: String? = nil) {
         self.state = state
@@ -381,6 +463,7 @@ public struct BatchStatus: Codable, Equatable {
         head = try c.decodeIfPresent(String.self, forKey: .head)
         message = try c.decodeIfPresent(String.self, forKey: .message)
         error = try c.decodeIfPresent(String.self, forKey: .error)
+        failure = try? c.decodeIfPresent(FailureDetails.self, forKey: .failure)
         report = try c.decodeIfPresent(String.self, forKey: .report)
         games = (try? c.decodeIfPresent([GameProgress].self, forKey: .games)) ?? []
         lines = (try? c.decodeIfPresent([String].self, forKey: .lines)) ?? []

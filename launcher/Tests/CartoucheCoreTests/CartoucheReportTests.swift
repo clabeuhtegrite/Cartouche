@@ -118,6 +118,23 @@ final class CartoucheReportTests: XCTestCase {
         XCTAssertEqual(Array(lines[14...]), ["", "Last steps:", "11-10 07:02:11 Installing Mario Kart World", "11-10 07:12:03 Failed at 37 %"])
     }
 
+    func testWhyItFailedFollowsTheError() throws {
+        var report = sample
+        report.failure = CartoucheFailure(.network, stage: "unpacking", fraction: 0.375, seconds: 312.4,
+                                          codes: "NSPOSIXErrorDomain 57", details: ["vpn": .flag(false)])
+        var lines = report.text(redactedBy: .shapes).components(separatedBy: "\n")
+        XCTAssertEqual(Array(lines[5...7]), [
+            "Error: NSPOSIXErrorDomain 57",
+            "Cause: network, at unpacking, 37 %, 312 s; vpn no",
+            "Step: Installing Mario Kart World: unpacking it as it arrives (37 %)",
+        ])
+        // The codes the cause comes from, when they are not the error's.
+        report.failure?.codes = "SideStore 1 < NSURLErrorDomain -1001"
+        lines = report.text(redactedBy: .shapes).components(separatedBy: "\n")
+        XCTAssertEqual(lines[7], "Codes: SideStore 1 < NSURLErrorDomain -1001")
+        XCTAssertEqual(try JSONDecoder().decode(CartoucheReport.self, from: JSONEncoder().encode(report)), report)
+    }
+
     func testAReportWithoutStepErrorOrJournal() {
         let report = CartoucheReport(title: "Problem", message: "Nothing starts", environment: environment)
         let text = report.text(redactedBy: .shapes)

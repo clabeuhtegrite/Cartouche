@@ -26,7 +26,7 @@ from pathlib import Path
 from . import build as builds
 from . import config as configs
 from . import ipa as ipas
-from . import library, notify, report, schedule, shares, toolchain
+from . import failure, library, notify, report, schedule, shares, toolchain
 from . import queue as queues
 from .engine import Engine, EngineError
 from .i18n import set_language, t
@@ -611,7 +611,7 @@ def run_due(ctx: Context, update: bool = True, force: set[str] | None = None, on
                 # Nothing waits for a batch that is gone.
                 with queues.locked(ctx.paths):
                     queues.clear(ctx.paths)
-                    status.failed(str(error) or type(error).__name__)
+                    status.failed(str(error) or type(error).__name__, failure.describe(error))
                     held.release()
             raise
         return result, summary

@@ -16,10 +16,10 @@ final class CartoucheFolder: CartoucheRemote {
     private let accessing: Bool
 
     init(_ server: CartoucheStorageServer) throws {
-        guard let bookmark = server.bookmark else { throw CartoucheStorageError(CartoucheText.storageFolderGone) }
+        guard let bookmark = server.bookmark else { throw CartoucheStorageError(.folderGone, CartoucheText.storageFolderGone) }
         var stale = false
         guard let url = try? URL(resolvingBookmarkData: bookmark, options: [], relativeTo: nil, bookmarkDataIsStale: &stale) else {
-            throw CartoucheStorageError(CartoucheText.storageFolderGone)
+            throw CartoucheStorageError(.folderGone, CartoucheText.storageFolderGone)
         }
         root = url
         accessing = url.startAccessingSecurityScopedResource()
@@ -49,7 +49,7 @@ final class CartoucheFolder: CartoucheRemote {
             result = Result { try body(url) }
         }
         if let failure { throw failure }
-        guard let result else { throw CartoucheStorageError(CartoucheText.storageFolderGone) }
+        guard let result else { throw CartoucheStorageError(.folderGone, CartoucheText.storageFolderGone) }
         return try result.get()
     }
 

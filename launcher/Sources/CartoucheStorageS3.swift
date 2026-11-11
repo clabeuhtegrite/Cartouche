@@ -37,11 +37,11 @@ final class CartoucheS3: CartoucheRemote {
     /// player gave one.
     static func target(of server: CartoucheStorageServer) throws -> CartoucheS3Bucket {
         guard let endpoint = CartoucheS3Endpoint.parse(server.host) else {
-            throw CartoucheStorageError(CartoucheText.storageS3BadAddress)
+            throw CartoucheStorageError(.badAddress, CartoucheText.storageS3BadAddress)
         }
         let name = server.share.trimmingCharacters(in: .whitespaces)
         guard !name.isEmpty, !name.contains("/") else {
-            throw CartoucheStorageError(CartoucheText.storageS3BadBucket)
+            throw CartoucheStorageError(.badBucket, CartoucheText.storageS3BadBucket)
         }
         let region = (server.region ?? "").trimmingCharacters(in: .whitespaces)
         return CartoucheS3Bucket(endpoint: endpoint, name: name,
@@ -55,7 +55,7 @@ final class CartoucheS3: CartoucheRemote {
         let accessKey = server.username.trimmingCharacters(in: .whitespaces)
         // Only with the player's keys: never a public bucket.
         guard !accessKey.isEmpty, !secretKey.isEmpty else {
-            throw CartoucheStorageError(CartoucheText.storageS3KeysNeeded)
+            throw CartoucheStorageError(.keysNeeded, CartoucheText.storageS3KeysNeeded)
         }
         // A server that takes no connection is out of reach from here, as a
         // NAS at home is from elsewhere: said within the reach patience,
@@ -69,7 +69,7 @@ final class CartoucheS3: CartoucheRemote {
         } catch let failure as URLError where offlineCodes.contains(failure.code) {
             throw CartoucheStorageOffline(server)
         } catch {
-            throw CartoucheStorageError(CartoucheText.storageSignInFailed(bucket.endpoint.host, error.localizedDescription))
+            throw CartoucheStorageError(.signInFailed, CartoucheText.storageSignInFailed(bucket.endpoint.host, error.localizedDescription), underlying: error)
         }
         return remote
     }
@@ -90,7 +90,7 @@ final class CartoucheS3: CartoucheRemote {
                       headers: [String: String] = [:], body: Data? = nil,
                       retrying: Bool = true) async throws -> (Data, HTTPURLResponse) {
         guard let url = bucket.url(key, query: query) else {
-            throw CartoucheStorageError(CartoucheText.storageS3BadAddress)
+            throw CartoucheStorageError(.badAddress, CartoucheText.storageS3BadAddress)
         }
         let signer = CartoucheS3Signer(accessKey: accessKey, secretKey: secretKey, region: bucket.region)
         let signed = signer.sign(method: method, authority: bucket.authority, path: bucket.path(key), query: query,
@@ -110,7 +110,7 @@ final class CartoucheS3: CartoucheRemote {
             (data, response) = try await session.data(for: request)
         }
         guard let http = response as? HTTPURLResponse else {
-            throw CartoucheStorageError(CartoucheText.storageS3BadAnswer)
+            throw CartoucheStorageError(.badAnswer, CartoucheText.storageS3BadAnswer)
         }
         guard (200 ..< 300).contains(http.statusCode) else {
             let failure = CartoucheS3Failure.parse(data, status: http.statusCode,
@@ -132,7 +132,7 @@ final class CartoucheS3: CartoucheRemote {
         if let most { query.append(("max-keys", String(most))) }
         let (data, _) = try await send("GET", key: "", query: query)
         guard let listing = CartoucheS3Listing.parse(data) else {
-            throw CartoucheStorageError(CartoucheText.storageS3BadAnswer)
+            throw CartoucheStorageError(.badAnswer, CartoucheText.storageS3BadAnswer)
         }
         return listing
     }
@@ -188,7 +188,7 @@ final class CartoucheS3: CartoucheRemote {
         let key = Self.key(path)
         let (_, response) = try await send("HEAD", key: key)
         guard let length = response.value(forHTTPHeaderField: "Content-Length").flatMap(UInt64.init) else {
-            throw CartoucheStorageError(CartoucheText.storageS3BadAnswer)
+            throw CartoucheStorageError(.badAnswer, CartoucheText.storageS3BadAnswer)
         }
         return CartoucheReadAhead(size: length) { [self] offset, count in
             let (data, response) = try await send("GET", key: key,
@@ -252,7 +252,7 @@ final class CartoucheS3: CartoucheRemote {
     fileprivate func startUpload(_ key: String) async throws -> String {
         let (data, _) = try await send("POST", key: key, query: [("uploads", "")])
         guard let id = CartoucheS3Multipart.uploadID(data) else {
-            throw CartoucheStorageError(CartoucheText.storageS3BadAnswer)
+            throw CartoucheStorageError(.badAnswer, CartoucheText.storageS3BadAnswer)
         }
         return id
     }
@@ -260,7 +260,7 @@ final class CartoucheS3: CartoucheRemote {
     fileprivate func uploadPart(_ key: String, id: String, number: Int, _ data: Data) async throws -> String {
         let (_, response) = try await send("PUT", key: key, query: [("partNumber", String(number)), ("uploadId", id)], body: data)
         guard let etag = response.value(forHTTPHeaderField: "ETag") else {
-            throw CartoucheStorageError(CartoucheText.storageS3BadAnswer)
+            throw CartoucheStorageError(.badAnswer, CartoucheText.storageS3BadAnswer)
         }
         return etag
     }

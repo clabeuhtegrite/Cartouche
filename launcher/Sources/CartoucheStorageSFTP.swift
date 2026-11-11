@@ -38,7 +38,7 @@ final class CartoucheSFTPServer: CartoucheRemote {
         let user = server.username.trimmingCharacters(in: .whitespaces)
         // Only with the player's own account.
         guard !host.isEmpty, !user.isEmpty else {
-            throw CartoucheStorageError(CartoucheText.storageFTPAccountNeeded)
+            throw CartoucheStorageError(.accountNeeded, CartoucheText.storageFTPAccountNeeded)
         }
         let check = HostKeyCheck(expected: knownKey)
         do {
@@ -46,7 +46,7 @@ final class CartoucheSFTPServer: CartoucheRemote {
                                                            user: user, password: password, check: check)
             guard let key = check.seen else {
                 connection.close()
-                throw CartoucheStorageError(CartoucheText.storageSFTPNoKey)
+                throw CartoucheStorageError(.noHostKey, CartoucheText.storageSFTPNoKey)
             }
             return CartoucheSFTPServer(connection: connection, hostKey: key)
         } catch let error as CartoucheStorageError {
@@ -58,9 +58,9 @@ final class CartoucheSFTPServer: CartoucheRemote {
         } catch {
             // The key refused closes the connection, whatever error comes.
             if check.changed {
-                throw CartoucheStorageError(CartoucheText.storageSFTPKeyChanged(host))
+                throw CartoucheStorageError(.hostKeyChanged, CartoucheText.storageSFTPKeyChanged(host))
             }
-            throw CartoucheStorageError(CartoucheText.storageSignInFailed(host, Self.reason(error)))
+            throw CartoucheStorageError(.signInFailed, CartoucheText.storageSignInFailed(host, Self.reason(error)), underlying: error)
         }
     }
 
@@ -92,7 +92,7 @@ final class CartoucheSFTPServer: CartoucheRemote {
         let file = CartoucheSFTP.path(path)
         let attributes = try await connection.stat(file)
         guard let size = attributes.size else {
-            throw CartoucheStorageError(CartoucheText.storageSFTPBadAnswer)
+            throw CartoucheStorageError(.badAnswer, CartoucheText.storageSFTPBadAnswer)
         }
         let handle = try await connection.open(file, flags: .read)
         let opened = SFTPOpenFile(connection: connection, handle: handle)
@@ -414,7 +414,7 @@ private final class SFTPChannelHandler: ChannelInboundHandler, @unchecked Sendab
         let result: Result<Void, Error>?
         switch event {
         case is ChannelSuccessEvent: result = .success(())
-        case is ChannelFailureEvent: result = .failure(CartoucheStorageError(CartoucheText.storageSFTPNoSubsystem))
+        case is ChannelFailureEvent: result = .failure(CartoucheStorageError(.noSubsystem, CartoucheText.storageSFTPNoSubsystem))
         default: result = nil
         }
         guard let result else {
@@ -535,7 +535,7 @@ private final class SFTPConnection: @unchecked Sendable {
             handler.expectVersion(continuation)
             send(CartoucheSFTP.initialize())
         }
-        guard version >= 3 else { throw CartoucheStorageError(CartoucheText.storageSFTPBadAnswer) }
+        guard version >= 3 else { throw CartoucheStorageError(.badAnswer, CartoucheText.storageSFTPBadAnswer) }
     }
 
     func close() {
@@ -572,7 +572,7 @@ private final class SFTPConnection: @unchecked Sendable {
 
     private static func check(_ answer: CartoucheSFTP.Response) throws {
         guard case let .status(_, code, message) = answer else {
-            throw CartoucheStorageError(CartoucheText.storageSFTPBadAnswer)
+            throw CartoucheStorageError(.badAnswer, CartoucheText.storageSFTPBadAnswer)
         }
         guard code == CartoucheSFTP.Status.ok.rawValue else {
             throw SFTPFailure(code: code, message: message)
@@ -582,7 +582,7 @@ private final class SFTPConnection: @unchecked Sendable {
     private static func handle(_ answer: CartoucheSFTP.Response) throws -> Data {
         if case let .handle(_, handle) = answer { return handle }
         try check(answer)
-        throw CartoucheStorageError(CartoucheText.storageSFTPBadAnswer)
+        throw CartoucheStorageError(.badAnswer, CartoucheText.storageSFTPBadAnswer)
     }
 
     /// Runs MAKE on PATH, which must answer OK.
@@ -609,7 +609,7 @@ private final class SFTPConnection: @unchecked Sendable {
         let answer = try await request { CartoucheSFTP.stat(id: $0, path) }
         if case let .attributes(_, attributes) = answer { return attributes }
         try Self.check(answer)
-        throw CartoucheStorageError(CartoucheText.storageSFTPBadAnswer)
+        throw CartoucheStorageError(.badAnswer, CartoucheText.storageSFTPBadAnswer)
     }
 
     func open(_ path: String, flags: CartoucheSFTP.OpenFlags) async throws -> Data {
@@ -687,7 +687,7 @@ private final class SFTPConnection: @unchecked Sendable {
                         return (number, asked, Data())
                     default:
                         try Self.check(answer)
-                        throw CartoucheStorageError(CartoucheText.storageSFTPBadAnswer)
+                        throw CartoucheStorageError(.badAnswer, CartoucheText.storageSFTPBadAnswer)
                     }
                 }
                 index += 1

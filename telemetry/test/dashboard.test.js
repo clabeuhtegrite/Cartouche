@@ -569,6 +569,24 @@ test("errors by version of Cartouche, against its openings, the newest version f
   assert.deepEqual(["0.9.0", "0.10.0", "0.10.1", "1.0"].sort(M.newestFirst), ["1.0", "0.10.1", "0.10.0", "0.9.0"]);
 });
 
+test("the Apple sign-in says how often it goes through, the step it stops at and why", () => {
+  const [, event] = APP_REPORTS;
+  const failed = (seq, stage, cause, vpn) => ({ ...event, seq, name: "error", game: undefined, fields: { origin: "signIn", error: "SideStore 1", cause, stage, kind: "noDevice", vpn, pairing: true, seconds: 20 } });
+  const signedIn = (seq) => ({ ...event, seq, name: "account.signedIn", game: undefined, fields: { seconds: 12, automatic: false } });
+  const rows = [failed(1, "device", "device", false), failed(2, "device", "device", false), failed(3, "team", "appleServer", true), signedIn(4)].map(asRow);
+  const model = M.build(answer(rows), CATALOG);
+  const signIn = model.errors.signIn;
+  assert.deepEqual([signIn.succeeded, signIn.failed, signIn.iphones], [1, 3, 1]);
+  assert.deepEqual(signIn.byStage.map((row) => [row.key, row.count]), [["device", 2], ["team", 1]]);
+  assert.deepEqual(model.errors.byCause.map((row) => [row.key, row.count]), [["device", 2], ["appleServer", 1]]);
+  assert.deepEqual(signIn.vpn, { share: 1 / 3, yes: 1, known: 3 });
+  assert.deepEqual([signIn.seconds, signIn.secondsOk], [20, 12]);
+  assert.deepEqual(model.errors.byCode.map((row) => [row.cause, row.stage, row.kind, row.count]), [["device", "device", "noDevice", 2], ["appleServer", "team", "noDevice", 1]]);
+  // An error from before the causes says none.
+  const older = M.build(answer([asRow({ ...event, seq: 9, name: "error", game: undefined, fields: { origin: "storage", error: "NSPOSIXErrorDomain 60" } })]), CATALOG);
+  assert.deepEqual(older.errors.byCause.map((row) => row.key), ["unknown"]);
+});
+
 test("the sample data fills every section, and is the same each time", () => {
   const first = M.demo(28, CATALOG, NOW);
   assert.equal(JSON.stringify(first), JSON.stringify(M.demo(28, CATALOG, NOW)));
@@ -588,6 +606,9 @@ test("the sample data fills every section, and is the same each time", () => {
     renewals: model.devices.renewals,
     updates: model.devices.updates.length,
     built: model.builder.built.count,
+    signedIn: model.errors.signIn.succeeded,
+    signInFailures: model.errors.signIn.failed,
+    causes: model.errors.byCause.length,
     issues: model.problems.github.issues.length,
   })) {
     assert.ok(value > 0, name);

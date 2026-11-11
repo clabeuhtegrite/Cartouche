@@ -211,7 +211,9 @@ public final class Engine: @unchecked Sendable {
         let lines = result.output.split(separator: 10)
         guard let last = lines.last(where: { $0.first == UInt8(ascii: "{") }) else {
             let tail = result.tail()
-            throw EngineFailure(kind: result.timedOut ? "timeout" : "crashed", message: tail.isEmpty ? "exit \(result.status)" : tail)
+            let exception = FailureDetails.exception(in: result.errorText) ?? FailureDetails.exception(in: result.text)
+            throw EngineFailure(kind: result.timedOut ? "timeout" : "crashed", message: tail.isEmpty ? "exit \(result.status)" : tail,
+                                details: FailureDetails(exception: exception), exit: Int(result.status))
         }
         let data = Data(last)
         if let envelope = try? JSONDecoder().decode(Envelope.self, from: data), let error = envelope.error {

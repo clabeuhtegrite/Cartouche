@@ -55,7 +55,7 @@ final class OfflineTests: XCTestCase {
         }
         await expectOffline("SMB's shared folders", within: patience + Self.slack) {
             _ = try await CartoucheSMB.shares(self.server(.smb, host: Self.nowhere), password: "mot de passe")
-            throw CartoucheStorageError("listed the shared folders of an address that never answers")
+            throw CartoucheStorageError(.badAnswer, "listed the shared folders of an address that never answers")
         }
     }
 

@@ -3,7 +3,10 @@
 Cartouche Builder's Mac app runs these with the builder's Python and reads
 one JSON object on stdout; what a command says along the way goes to
 stderr. A command that cannot be done answers {"error": {"kind", "message"}}
-with exit code 3 (2 for a request it does not understand). The batches
+with exit code 3 (2 for a request it does not understand); when the cause
+is not one the builder knows ("engine", "failed", "unexpected"), the error
+also says the exception's class, where the builder's code met it and its
+errno (failure.py), which the app's measurements send. The batches
 themselves run as `cartouche-builder build`, which the app starts and
 follows through status.json (status.py).
 
@@ -30,10 +33,11 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+import traceback
 from dataclasses import asdict, fields
 from pathlib import Path
 
-from . import __version__, batch, config as configs, ipa as ipas, schedule, shares, storage, titles, toolchain
+from . import __version__, batch, config as configs, failure, ipa as ipas, schedule, shares, storage, titles, toolchain
 from . import queue as queues
 from . import status as statuses
 from .engine import Commit, EngineError
@@ -102,11 +106,15 @@ def main(argv: list[str]) -> int:
     except batch.Blocked as error:
         return _answer({"error": {"kind": "blocked", "message": str(error)}}, 3)
     except EngineError as error:
-        return _answer({"error": {"kind": "engine", "message": str(error)}}, 3)
+        return _answer({"error": {"kind": "engine", "message": str(error), **failure.describe(error)}}, 3)
     except storage.Refused as error:
         return _answer({"error": {"kind": "refused", "message": t("api.refused", path=error)}}, 3)
     except (OSError, ValueError, RuntimeError) as error:
-        return _answer({"error": {"kind": "failed", "message": f"{type(error).__name__}: {error}"}}, 3)
+        return _answer({"error": {"kind": "failed", "message": f"{type(error).__name__}: {error}", **failure.describe(error)}}, 3)
+    except Exception as error:  # noqa: BLE001 - the app reads an answer whatever went wrong
+        # Its traceback goes where the app keeps what the engine says.
+        traceback.print_exc(file=sys.stderr)
+        return _answer({"error": {"kind": "unexpected", "message": f"{type(error).__name__}: {error}", **failure.describe(error)}}, 3)
 
 
 def _answer(data: dict, code: int = 0) -> int:

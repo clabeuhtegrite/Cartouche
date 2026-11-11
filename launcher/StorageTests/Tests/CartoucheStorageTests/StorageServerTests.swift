@@ -188,7 +188,7 @@ class StorageServerTests: XCTestCase {
         let writer = CartoucheZipWriter(sink: upload)
         for item in items.sorted(by: { $0.name < $1.name }) {
             var info = stat()
-            guard lstat(item.url.path, &info) == 0 else { throw CartoucheStorageError("cannot read \(item.url.path)") }
+            guard lstat(item.url.path, &info) == 0 else { throw CartoucheStorageError(.gameUnreadable, "cannot read \(item.url.path)") }
             let mode = UInt32(info.st_mode & 0o7777)
             switch info.st_mode & S_IFMT {
             case S_IFDIR:

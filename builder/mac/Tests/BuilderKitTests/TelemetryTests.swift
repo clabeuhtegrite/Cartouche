@@ -42,6 +42,14 @@ final class TelemetryTests: XCTestCase {
         let cleaned: [String: TelemetryValue] = ["freedMB": .number(4210), "items": .count(3), "what": .text("extracted")]
         let queued: [String: TelemetryValue] = ["forced": .flag(true), "games": .count(2)]
         let takenOut: [String: TelemetryValue] = ["building": .flag(false)]
+        let crashed: [String: TelemetryValue] = ["background": .flag(false), "exception": .text("ModuleNotFoundError"), "exit": .count(1),
+                                                 "kind": .text("crashed"), "origin": .text("library")]
+        let notStarted: [String: TelemetryValue] = ["exception": .text("PermissionError"), "exit": .count(1), "kind": .text("not_started"),
+                                                    "origin": .text("build"), "seconds": .number(3), "signal": .flag(false)]
+        let failedBatch: [String: TelemetryValue] = ["built": .count(0), "errno": .count(28), "exception": .text("OSError"),
+                                                     "failed": .count(0), "games": .count(2), "jobs": .count(1), "minutes": .number(0.4),
+                                                     "nxnative": .text(head), "scheduled": .flag(false), "skipped": .count(0),
+                                                     "state": .text("failed"), "stopped": .count(2), "where": .text("workspace.prepare")]
         let events: [(name: String, game: String?, fields: [String: TelemetryValue])] = [
             ("builder.opened", nil, opened),
             ("builder.setup", nil, setup),
@@ -55,6 +63,9 @@ final class TelemetryTests: XCTestCase {
             ("builder.cleaned", nil, cleaned),
             ("builder.queued", nil, queued),
             ("builder.takenOut", nil, takenOut),
+            ("builder.error", nil, crashed),
+            ("builder.error", nil, notStarted),
+            ("builder.batch", nil, failedBatch),
         ]
         var made: [TelemetryEvent] = []
         for (index, event) in events.enumerated() {

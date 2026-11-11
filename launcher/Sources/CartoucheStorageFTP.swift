@@ -72,7 +72,7 @@ final class CartoucheFTP: CartoucheRemote {
 
     private static func path(_ path: String) throws -> String {
         guard let command = CartoucheFTPPath.command(path.precomposedStringWithCanonicalMapping) else {
-            throw CartoucheStorageError(CartoucheText.storageFTPBadName)
+            throw CartoucheStorageError(.badName, CartoucheText.storageFTPBadName)
         }
         return command
     }
@@ -318,7 +318,7 @@ private final class FTPSession {
         let user = server.username.trimmingCharacters(in: .whitespaces)
         // Only with the player's own account.
         guard !host.isEmpty, !user.isEmpty, !user.contains(where: \.isNewline), !password.contains(where: \.isNewline) else {
-            throw CartoucheStorageError(CartoucheText.storageFTPAccountNeeded)
+            throw CartoucheStorageError(.accountNeeded, CartoucheText.storageFTPAccountNeeded)
         }
         let control = FTPSocket(host: host, port: server.port ?? 21)
         do {
@@ -340,7 +340,7 @@ private final class FTPSession {
             guard signedIn.isDone else { throw FTPFailure(reply: signedIn) }
         } catch {
             control.close()
-            throw CartoucheStorageError(CartoucheText.storageSignInFailed(host, error.localizedDescription))
+            throw CartoucheStorageError(.signInFailed, CartoucheText.storageSignInFailed(host, error.localizedDescription), underlying: error)
         }
         let features = try await session.command("FEAT")
         if features.isDone {
@@ -653,7 +653,7 @@ private final class FTPSocket {
             let more = try await receiveChunk(most: 1 << 20)
             if more.isEmpty { return data }
             data.append(more)
-            if data.count > 64 << 20 { throw CartoucheStorageError(CartoucheText.storageFTPTooLong) }
+            if data.count > 64 << 20 { throw CartoucheStorageError(.listingTooLong, CartoucheText.storageFTPTooLong) }
         }
     }
 }

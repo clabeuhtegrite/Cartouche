@@ -287,7 +287,7 @@ final class CartoucheStoredGames: ObservableObject {
     /// from home too: the report is not kept.
     private static func readFailed(_ error: Error, step: String, facts: [CartoucheReport.Fact] = []) -> CartoucheReport {
         CartoucheReports.make(.storage, CartoucheText.storageGamesFailed, message: error.localizedDescription, error: error,
-                              step: step, facts: facts, inBackground: true)
+                              step: step, stage: "gamesFolder", facts: facts, inBackground: true)
     }
 
     private static func key(_ server: CartoucheStorageServer, path: String, size: UInt64, modified: Date?) -> String {
@@ -353,11 +353,11 @@ final class CartoucheStoredGames: ObservableObject {
     nonisolated static func infoPlist(of source: CartoucheByteSource) async throws -> (info: [String: Any], builtAt: Date?) {
         let entries = try await CartoucheZip.entries(of: source)
         guard let entry = infoPlistEntry(in: entries) else {
-            throw CartoucheStorageError(CartoucheText.storageNotAnApp)
+            throw CartoucheStorageError(.notAnApp, CartoucheText.storageNotAnApp)
         }
         let data = try await CartoucheZip.data(of: entry, in: source, limit: 4 << 20)
         guard let plist = try PropertyListSerialization.propertyList(from: data, format: nil) as? [String: Any] else {
-            throw CartoucheStorageError(CartoucheText.storageNotAnApp)
+            throw CartoucheStorageError(.notAnApp, CartoucheText.storageNotAnApp)
         }
         return (plist, entry.modified)
     }
