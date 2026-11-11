@@ -1,6 +1,6 @@
 # Showcase site
 
-[`index.html`](index.html) is Cartouche's showcase page: one static page, in French and English, that shows the app's screens rebuilt in HTML and CSS at their sizes in points, around nine games of nxnative's list, and says how to install Cartouche. A visitor can move the console's focus, send the game behind the console and bring it back, and tap a cover on the unfolded iPhone Duo for its sheet.
+[`index.html`](index.html) is Cartouche's showcase page: one static page, in French and English, that shows the app's screens rebuilt in HTML and CSS at their sizes in points, around nine games of nxnative's list, and says how to install Cartouche. A visitor can move the console's focus, and send the game behind the console, then bring it back.
 
 | Screen | Where the page shows it |
 | --- | --- |
@@ -8,7 +8,6 @@
 | All games, with a controller connected | The console |
 | A game's sheet and its settings | A game's sheet |
 | The game behind the console, paused or resumed | During a game |
-| The home on the iPhone Duo folded, the home and the sheet unfolded | iPhone Duo |
 | The System page | Behind the scenes |
 
 ## What it may show
