@@ -58,6 +58,9 @@ struct LibraryView: View {
                     if let problems = model.library?.problems, !problems.isEmpty {
                         ProblemsCard(problems: problems)
                     }
+                    if filter == .all || filter == .problems, let issues = model.library?.issues, !issues.isEmpty {
+                        IssuesCard(issues: issues, open: model.library?.games.isEmpty ?? true)
+                    }
                     if filter != .upToDate, !model.dueOutsideBatch.isEmpty {
                         DueCard(due: model.dueOutsideBatch)
                     }
@@ -386,6 +389,85 @@ struct ProblemsCard: View {
     }
 }
 
+/// What the engine left aside in the sources folder, and why, as it says it
+/// (library.py): a file whose name does not say its game while prod.keys
+/// are not chosen, a file cut short, a second copy of a game. Open when no
+/// game was found, as the reasons are then what the player needs; one line
+/// to open otherwise, as a copy the player keeps on purpose is no news.
+struct IssuesCard: View {
+    @EnvironmentObject private var model: AppModel
+    let issues: [String]
+    let open: Bool
+    @State private var expanded = false
+    @State private var all = false
+
+    private static let shown = 4
+
+    var body: some View {
+        Card {
+            HStack(alignment: .top, spacing: 14) {
+                Image(systemName: "questionmark.folder")
+                    .font(.title)
+                    .foregroundStyle(.orange)
+                VStack(alignment: .leading, spacing: 6) {
+                    ViewThatFits(in: .horizontal) {
+                        HStack(alignment: .firstTextBaseline) {
+                            heading
+                            Spacer(minLength: 12)
+                            toggle
+                        }
+                        VStack(alignment: .leading, spacing: 4) {
+                            heading
+                            toggle
+                        }
+                    }
+                    if open || expanded {
+                        ForEach(all ? issues : Array(issues.prefix(IssuesCard.shown)), id: \.self) { issue in
+                            Text(issue)
+                                .font(.callout)
+                                .foregroundStyle(.secondary)
+                                .textSelection(.enabled)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                        if !all && issues.count > IssuesCard.shown {
+                            Button(tr("Show the \(issues.count - IssuesCard.shown) others", "Afficher les \(issues.count - IssuesCard.shown) autres")) { all = true }
+                                .buttonStyle(.link)
+                        }
+                        ViewThatFits(in: .horizontal) {
+                            HStack { buttons }
+                            VStack(alignment: .leading) { buttons }
+                        }
+                        .padding(.top, 4)
+                    }
+                }
+            }
+        }
+    }
+
+    private var heading: some View {
+        Text(issues.count == 1 ? tr("1 file or folder left aside in your dumps", "1 fichier ou dossier laissé de côté dans vos dumps")
+             : tr("\(issues.count) files or folders left aside in your dumps", "\(issues.count) fichiers ou dossiers laissés de côté dans vos dumps"))
+            .font(.headline)
+            .fixedSize(horizontal: false, vertical: true)
+    }
+
+    @ViewBuilder private var toggle: some View {
+        if !open {
+            Button(expanded ? tr("Hide", "Masquer") : tr("See why", "Voir pourquoi")) { expanded.toggle() }
+                .buttonStyle(.link)
+        }
+    }
+
+    @ViewBuilder private var buttons: some View {
+        if let sources = model.config?.sources, !sources.isEmpty {
+            Button(tr("Show the dumps folder", "Afficher le dossier des dumps")) { model.open(sources) }
+        }
+        SettingsLink {
+            Text(tr("Settings…", "Réglages…"))
+        }
+    }
+}
+
 struct LoadingCard: View {
     var body: some View {
         HStack(spacing: 12) {
@@ -433,7 +515,12 @@ struct EmptyLibrary: View {
         if searching { return "" }
         switch filter {
         case .due: return tr("Every game is built from nxnative’s latest improvements.", "Chaque jeu est construit avec les dernières améliorations de nxnative.")
-        case .all: return tr("Put each game’s dump in a folder of its own, in your sources folder.", "Mettez le dump de chaque jeu dans un dossier à lui, dans votre dossier des sources.")
+        case .all:
+            if !(model.library?.issues.isEmpty ?? true) {
+                return tr("Above, what Cartouche Builder left aside in your dumps folder, and why.",
+                          "Ci-dessus, ce que Cartouche Builder a laissé de côté dans votre dossier des dumps, et pourquoi.")
+            }
+            return tr("Put your dumps in your dumps folder: loose, or each in a folder.", "Mettez vos dumps dans votre dossier des dumps : en vrac, ou chacun dans un dossier.")
         default: return ""
         }
     }
@@ -453,9 +540,9 @@ struct GameMenu: View {
                         .disabled(model.stopping(game.titleID))
                 } else {
                     Button(tr("Remove from the queue", "Retirer de la file")) { model.takeOut(game.titleID) }
-                        .disabled(model.adding.contains(game.titleID))
+                        .disabled(!model.canTakeOut(game.titleID))
                 }
-            } else if model.status?.running == true {
+            } else if model.isBuilding {
                 Button(tr("Add to the queue", "Ajouter à la file")) {
                     model.build([game.titleID], force: game.state != .due)
                 }

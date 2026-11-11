@@ -8,9 +8,10 @@ from pathlib import Path
 from unittest import mock
 
 from cartouche_builder import batch, config as configs, ipa
+from cartouche_builder import status as statuses
 from cartouche_builder.paths import Paths
 
-from support import HOLLOW, MKW, ODYSSEY, Home, commit, make_dump, make_engine_remote, make_zip_dump
+from support import HOLLOW, MKW, ODYSSEY, ZELDA, Home, commit, make_dump, make_engine_remote, make_xci, make_zip_dump, write_keys
 
 NAMES = {MKW: "Mario Kart World", ODYSSEY: "Super Mario Odyssey", HOLLOW: "Hollow Knight"}
 PYTHON = Path(sys.executable)
@@ -83,6 +84,24 @@ class Batches(Home):
         plan, summary = self.run_due()
         self.assertEqual([e.title_id for e in plan.to_build], [MKW])
         self.assertEqual((workspace.build_folder(MKW) / "runs.txt").read_text().count("run"), 2)
+
+    def test_loose_packages_build_from_a_folder_of_links(self):
+        # A cartridge dump loose in the sources folder, named without its ID.
+        commit(self.remote, "Zelda's profile", {f"dm/games/{ZELDA}/game.tsv": f"# Zelda\ntitle_id\t{ZELDA}\nname\tZelda\n"})
+        write_keys(self.keys)
+        make_xci(self.sources / "Zelda.xci", [ZELDA])
+        plan, summary = self.run_due(only={ZELDA})
+        self.assertEqual(summary.failed, [])
+        workspace = batch.context().workspace
+        args = json.loads((workspace.build_folder(ZELDA) / "args.json").read_text())
+        links = Path(args[0])
+        self.assertEqual(links, workspace.root / ".cartouche-builder" / "sources" / ZELDA)
+        self.assertEqual([(p.name, p.resolve()) for p in links.iterdir()], [("Zelda.xci", (self.sources / "Zelda.xci").resolve())])
+        self.assertIn("-k", args)
+        self.assertIn(f"Zelda [{ZELDA}].ipa", [p.name for p in self.games.iterdir()])
+        # A game in a folder of its own still goes to nxnative as it is.
+        plan, summary = self.run_due(only={ODYSSEY})
+        self.assertEqual(Path(json.loads((workspace.build_folder(ODYSSEY) / "args.json").read_text())[0]), self.sources / "Odyssey")
 
     def test_ipa_not_kept_on_another_disk_and_extracted_files_kept_when_asked(self):
         paths = Paths.default()
@@ -191,6 +210,93 @@ class Batches(Home):
             with self.assertRaises(batch.Busy):
                 with batch.batch_lock(ctx.paths):
                     pass
+
+    def hold_lock(self, seconds: float) -> threading.Thread:
+        """The lock held a moment by something else than a batch, as the
+        app's look at nxnative holds it (api library --update)."""
+        held = threading.Event()
+
+        def hold():
+            with batch.batch_lock(Paths.default()):
+                held.set()
+                time.sleep(seconds)
+
+        thread = threading.Thread(target=hold)
+        thread.start()
+        self.addCleanup(thread.join)
+        held.wait(5)
+        return thread
+
+    def test_a_batch_waits_for_the_lock_held_by_a_check(self):
+        said = []
+        self.hold_lock(1.5)
+        started = time.monotonic()
+        plan, summary = self.run_due(only={MKW}, wait=30, log=said.append)
+        self.assertGreaterEqual(time.monotonic() - started, 1.2)
+        self.assertEqual([entry.title_id for entry, _ in summary.built], [MKW])
+        self.assertTrue(any("checking nxnative" in line for line in said), said)
+        # The lock's file names the batch while it held the lock.
+        self.assertEqual(batch.holder(Paths.default()), os.getpid())
+
+    def test_a_batch_is_not_waited_for(self):
+        paths = Paths.default()
+        with batch.batch_lock(paths):
+            configs.write_json(paths.status, {"state": "building", "pid": os.getpid(), "games": []})
+            started = time.monotonic()
+            with self.assertRaises(batch.Busy) as raised:
+                self.run_due(only={MKW}, wait=30)
+        self.assertLess(time.monotonic() - started, 5)
+        self.assertIn("already running", str(raised.exception))
+
+    def test_a_batch_long_gone_in_status_json_is_not_one(self):
+        # status.json of a batch whose process number came back for another
+        # process: the lock is held by something else, so it is waited for.
+        paths = Paths.default()
+        configs.write_json(paths.status, {"state": "building", "pid": os.getppid(), "games": []})
+        self.hold_lock(1.0)
+        plan, summary = self.run_due(only={MKW}, wait=30)
+        self.assertEqual([entry.title_id for entry, _ in summary.built], [MKW])
+
+    def test_the_wait_has_an_end(self):
+        self.hold_lock(3)
+        started = time.monotonic()
+        with self.assertRaises(batch.Busy) as raised:
+            self.run_due(only={MKW}, wait=0.6)
+        self.assertLess(time.monotonic() - started, 2.5)
+        self.assertIn("checking nxnative", str(raised.exception))
+        self.assertNotIn("already running", str(raised.exception))
+
+    def test_a_stop_ends_the_wait(self):
+        self.hold_lock(3)
+        stop = threading.Event()
+        threading.Timer(0.5, stop.set).start()
+        started = time.monotonic()
+        with self.assertRaises(batch.Cancelled):
+            self.run_due(only={MKW}, wait=30, stop=stop)
+        self.assertLess(time.monotonic() - started, 3)
+        self.assertIsNone(batch.context().store.get(MKW).attempt)
+
+    def test_the_games_asked_for_wait_their_turn_from_the_start(self):
+        paths = Paths.default()
+        configs.write_json(paths.library, {"games": [{"title_id": MKW, "name": "Mario Kart World, as the app showed it"}]})
+        seen = []
+        survey = batch.survey
+
+        def looked(*args, **kwargs):
+            seen.append(statuses.read(paths))
+            return survey(*args, **kwargs)
+
+        with mock.patch.object(batch, "survey", looked):
+            plan, summary = self.run_due(only={MKW})
+        # While nxnative moved and the plan was made: in the batch, waiting.
+        self.assertEqual((seen[0]["state"], seen[0]["running"]), ("preparing", True))
+        self.assertEqual([(g["title_id"], g["name"], g["state"]) for g in seen[0]["games"]],
+                         [(MKW, "Mario Kart World, as the app showed it", "queued")])
+        self.assertEqual([(g["title_id"], g["name"], g["state"]) for g in statuses.read(paths)["games"]], [(MKW, "Mario Kart World", "built")])
+        # Asked for again, up to date: not built, and no longer in the batch.
+        plan, summary = self.run_due(only={MKW})
+        self.assertEqual(summary.built, [])
+        self.assertEqual(statuses.read(paths)["games"], [])
 
     def test_missing_keys(self):
         paths = Paths.default()

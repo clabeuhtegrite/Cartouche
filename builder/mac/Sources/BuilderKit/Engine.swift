@@ -283,7 +283,8 @@ public final class Engine: @unchecked Sendable {
 
     /// Starts a batch that builds GAMES (all that are due when empty), again
     /// even if up to date with FORCE, kept awake by caffeinate. It goes on
-    /// when the app quits; status.json says how it goes.
+    /// when the app quits; status.json says how it goes. While the engine's
+    /// look at nxnative holds the batch lock, it waits for it first.
     @discardableResult
     public func startBatch(games: [String] = [], force: Bool = false) throws -> Process {
         let process = Process()
@@ -342,6 +343,16 @@ public final class Engine: @unchecked Sendable {
     public static func stopBatch(_ status: BatchStatus?) {
         guard let pid = status?.pid, pid > 1 else { return }
         kill(pid_t(pid), SIGTERM)
+    }
+
+    /// Stops a batch startBatch began that does not run yet, as it waits for
+    /// the lock. caffeinate becomes the engine in the process startBatch
+    /// started, keeping the Mac awake from a child of its own that ends with
+    /// it: the engine takes SIGTERM as its Stop and ends without building
+    /// (cli._build).
+    public static func stopStarting(_ process: Process) {
+        guard process.isRunning else { return }
+        process.terminate()
     }
 
     public static func alive(_ pid: Int) -> Bool {

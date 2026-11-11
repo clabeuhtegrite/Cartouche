@@ -38,6 +38,21 @@ class Workspace:
     def output(self, title_id: str, name: str) -> Path:
         return self.build_folder(title_id) / "out" / name
 
+    def link_sources(self, title_id: str, files: list[Path]) -> Path:
+        """A folder of links to FILES, a game's packages, made anew: what
+        nxnative takes for a game whose packages lie beside another game's,
+        or in several folders. The packages themselves stay where they are."""
+        folder = self.root / NOTES / "sources" / title_id.upper()
+        remove_tree(folder)
+        folder.mkdir(parents=True)
+        taken: set[str] = set()
+        for index, path in enumerate(files, 1):
+            # Two folders may each have a file of the same name.
+            name = path.name if path.name.casefold() not in taken else f"{index} {path.name}"
+            taken.add(name.casefold())
+            (folder / name).symlink_to(path.absolute())
+        return folder
+
     def _note(self, folder: Path) -> Path:
         return self.root / NOTES / f"{folder.name}.json"
 

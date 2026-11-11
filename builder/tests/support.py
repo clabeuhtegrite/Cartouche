@@ -58,6 +58,87 @@ def make_zip_dump(path: Path, title_id: str, root: str = "Game") -> Path:
     return path
 
 
+# ---- Packages and NUPs named without their title ID (identify.py) -------------
+
+# A header key of the tests' own, as a prod.keys line gives it: no console's.
+HEADER_KEY = bytes(range(32))
+ZELDA = "01007EF00011E000"
+
+
+def write_keys(path: Path) -> Path:
+    path.write_text(f"master_key_00 = {'00' * 16}\nheader_key = {HEADER_KEY.hex()}\n")
+    return path
+
+
+def xts_encrypt(key: bytes, tweak: bytes, data: bytes) -> bytes:
+    """AES-128-XTS, the other way from identify.xts_decrypt."""
+    from cartouche_builder.identify import AES128, _double
+
+    cipher, step = AES128(key[:16]), AES128(key[16:]).encrypt(tweak)
+    out = bytearray()
+    for i in range(0, len(data), 16):
+        block = bytes(a ^ b for a, b in zip(data[i : i + 16], step))
+        out += bytes(a ^ b for a, b in zip(cipher.encrypt(block), step))
+        step = _double(step)
+    return bytes(out)
+
+
+def nca(content_type: int, program_id: str, key: bytes = HEADER_KEY) -> bytes:
+    """The first 0x400 bytes of an NCA, its header's sector encrypted as a
+    console's are: magic, content type and program ID, nothing else."""
+    sector = bytearray(0x200)
+    sector[0:4] = b"NCA3"
+    sector[5] = content_type
+    struct.pack_into("<Q", sector, 0x10, int(program_id, 16))
+    return bytes(0x200) + xts_encrypt(key, (1).to_bytes(16, "big"), bytes(sector))
+
+
+def partition(magic: bytes, files: list[tuple[str, bytes]]) -> bytes:
+    """A PFS0 (NSP) or HFS0 (XCI) partition of FILES."""
+    names = b"".join(name.encode() + b"\0" for name, _ in files)
+    table, offset, name_offset = b"", 0, 0
+    for name, data in files:
+        entry = struct.pack("<QQI", offset, len(data), name_offset)
+        table += entry + (bytes(4) if magic == b"PFS0" else struct.pack("<I", 0x200) + bytes(40))
+        offset += len(data)
+        name_offset += len(name.encode()) + 1
+    return magic + struct.pack("<III", len(files), len(names), 0) + table + names + b"".join(d for _, d in files)
+
+
+def make_nsp(path: Path, files: list[tuple[str, bytes]]) -> Path:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_bytes(partition(b"PFS0", files))
+    return path
+
+
+def make_xci(path: Path, title_ids: list[str], key: bytes = HEADER_KEY) -> Path:
+    """A cartridge dump: its header, and a secure partition with a content
+    meta NCA and a program NCA for each title."""
+    secure = []
+    for i, title_id in enumerate(title_ids):
+        secure.append((f"{i:032x}.cnmt.nca", nca(1, title_id, key)))
+        secure.append((f"{i + 100:032x}.nca", nca(0, title_id, key)))
+    root = partition(b"HFS0", [("update", partition(b"HFS0", [])), ("secure", partition(b"HFS0", secure))])
+    head = bytearray(0x200)
+    head[0x100:0x104] = b"HEAD"
+    struct.pack_into("<Q", head, 0x130, 0x200)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_bytes(bytes(head) + root)
+    return path
+
+
+def make_nup(path: Path, packages: list[tuple[str, int]]) -> Path:
+    """A NUP's superblock and table of contents: (title ID, kind) per package
+    (0 base, 1 update, 2 DLC), with no files."""
+    toc = b"TOC\x01" + struct.pack("<IQQQQQ", len(packages), 0, 0, 0x30 + 0x40 * len(packages), 0, 0)
+    for title_id, kind in packages:
+        toc += struct.pack("<QIIIIBBHIQI20x", int(title_id, 16), 0, 0xFFFFFFFF, 0xFFFFFFFF, 0, kind, 0, 0, 0, 0, 0)
+    head = struct.pack("<4sHHQQ32sQQII16s32s", b"NUP\x01", 0x80, 0, 0x80, len(toc), bytes(32), 0x80 + len(toc), 0x80 + len(toc), len(packages), 0, bytes(16), bytes(32))
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_bytes(head + toc)
+    return path
+
+
 def make_ipa(path: Path, info: dict, when=(2026, 11, 9, 21, 15, 52)) -> Path:
     path.parent.mkdir(parents=True, exist_ok=True)
     with zipfile.ZipFile(path, "w") as archive:
@@ -98,6 +179,8 @@ else:
     import re
     names = [source.name] + ([p.name for p in source.iterdir()] if source.is_dir() else [])
     found = [m.group(1) for n in names if (m := re.search(r"\[([0-9A-Fa-f]{16})\]", n))]
+    # The builder's folder of links to a game's packages is named by its ID.
+    found += [source.name] if re.fullmatch(r"[0-9A-F]{16}", source.name) else []
     title_id = "%016X" % (int(found[0], 16) & ~0xFFF)
 name = ""
 tsv = repo / "dm/games" / title_id / "game.tsv"

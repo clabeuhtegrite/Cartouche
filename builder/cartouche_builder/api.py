@@ -275,7 +275,7 @@ def game_json(ctx: batch.Context, entry, running: dict | None, profiles: dict) -
         "title_id": entry.title_id,
         "name": game.display_name,
         "kind": game.kind,
-        "source": str(game.inputs[0] if game.kind in ("nup", "zip") else game.folder),
+        "source": str(game.source),
         "source_size": game.size,
         "followed": entry.selected,
         "profile": entry.title_id in profiles,

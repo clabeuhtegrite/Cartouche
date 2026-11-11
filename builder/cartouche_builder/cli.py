@@ -158,7 +158,13 @@ def _build(ctx: batch.Context, args) -> int:
             print(f"  {value}", flush=True)
 
     try:
-        plan, summary = batch.run_due(ctx, update=not args.no_update, force=only if args.force else None, only=only or None, on_event=follow, stop=stop, log=print, scheduled=args.scheduled)
+        # The app's look at nxnative, a clean or the setup may hold the lock a
+        # moment: the batch waits for it, and starts once it is free.
+        plan, summary = batch.run_due(ctx, update=not args.no_update, force=only if args.force else None, only=only or None, on_event=follow, stop=stop,
+                                      log=lambda message: print(message, flush=True), scheduled=args.scheduled, wait=batch.LOCK_WAIT)
+    except batch.Cancelled:
+        print(t("cli.cancelled"), flush=True)
+        return 130
     except batch.Busy as error:
         # Games named while a batch runs wait their turn in it (queue.py).
         if only and not args.scheduled and queues.add(ctx.paths, sorted(only), force=args.force):

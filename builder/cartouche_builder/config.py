@@ -29,7 +29,7 @@ VERSION = 2
 
 @dataclass
 class Config:
-    sources: str = ""  # one folder per game: its packages, .nup, dump or zipped dump
+    sources: str = ""  # the games' packages, .nup files, dumps or zipped dumps, loose or in folders (library.py)
     games: str = ""  # where the IPAs go: the games folder Cartouche reads
     keys: str = ""  # the player's prod.keys, for games given as packages
     workspace: str = ""  # the games' build folders ("" = the builder's own)
