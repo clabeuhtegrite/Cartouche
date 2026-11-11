@@ -129,7 +129,9 @@ class SideStoreAnisetteTest(unittest.TestCase):
     def test_a_sign_in_gets_its_anisette_as_the_installer_does(self):
         operation = added(self.files, "SideStore/Core/Operations/StandaloneOperations/SignInOperation.swift")
         self.assertIn("signingIn: true", operation)
-        self.assertIn("CartoucheAnisette.signInFailed(with: error)", operation)
+        # A machine Apple refused is made again, unless a code was typed for it.
+        self.assertIn("CartoucheAnisette.signInFailed(with: error, afterCode: codeTyped.value)", operation)
+        self.assertIn("codeTyped.set()", operation)
         self.assertIn("AnisetteRefresh.$fetch.withValue", operation)
 
         provider = added(self.files, "SideStore/Core/Anisette/AnisetteProvider.swift")
@@ -148,6 +150,9 @@ class SideStoreAnisetteTest(unittest.TestCase):
         # The sign-in's own requests, then those of the verification code.
         self.assertIn('"User-Agent": anisetteData.userAgent', authentication)
         self.assertIn('"User-Agent": a.userAgent', authentication)
+        # Each request of the verification step goes with fresh anisette:
+        # asking for a code on a trusted device or by phone, checking it.
+        self.assertEqual(authentication.count("context: await self.refreshed(context))"), 4)
 
     def test_cartouche_reads_what_its_measurements_call_those_servers(self):
         outcome = added(self.files, "SideStore/Intents/CartoucheOutcome.swift")
