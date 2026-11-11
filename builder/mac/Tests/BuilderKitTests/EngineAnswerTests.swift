@@ -23,6 +23,12 @@ enum Fixture {
 }
 
 final class EngineAnswerTests: XCTestCase {
+    func testBundledIPAAnswerKeepsThePublishedPath() throws {
+        let result = RunResult(status: 0, output: Data("{\"api\":1,\"ipa\":\"/Volumes/Games/Example (with ROMFS).ipa\"}\n".utf8))
+        let answer = try Engine.decode(BundleIPAAnswer.self, from: result)
+        XCTAssertEqual(answer.ipa, "/Volumes/Games/Example (with ROMFS).ipa")
+    }
+
     /// What the engine prints: a tool's line, then its answer.
     private func output(_ name: String) throws -> RunResult {
         var output = Data("Looking at nxnative and the games…\n".utf8)

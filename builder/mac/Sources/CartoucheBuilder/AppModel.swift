@@ -99,6 +99,8 @@ final class AppModel: ObservableObject {
     @Published private(set) var checking = false
     @Published private(set) var loadingStorage = false
     @Published private(set) var cleaning = false
+    @Published private(set) var bundling = false
+    @Published private(set) var bundleMessage = ""
     /// A batch asked for, until status.json shows it.
     @Published private(set) var starting: Date?
     private var startingProcess: Process?
@@ -201,7 +203,7 @@ final class AppModel: ObservableObject {
     // MARK: Updates
 
     private func startUpdates() {
-        updater.isBuilding = { [weak self] in self?.isBuilding ?? false }
+        updater.isBuilding = { [weak self] in (self?.isBuilding ?? false) || (self?.bundling ?? false) }
         updater.isIdle = { [weak self] in self?.isIdle ?? false }
         updater.quit = { NSApp.terminate(nil) }
         updater.failed = { [weak self] error in self?.telemetry.error(error, origin: "update", background: true) }
@@ -214,7 +216,7 @@ final class AppModel: ObservableObject {
     /// Nothing the player would see go: no build, no iPhone connected, no
     /// window open, the app in the background.
     var isIdle: Bool {
-        guard !isBuilding, bridge.connected.isEmpty, bridge.request == nil, !NSApp.isActive else { return false }
+        guard !isBuilding, !bundling, bridge.connected.isEmpty, bridge.request == nil, !NSApp.isActive else { return false }
         return !NSApp.windows.contains { $0.isVisible && $0.styleMask.contains(.titled) }
     }
 
@@ -326,12 +328,12 @@ final class AppModel: ObservableObject {
     var isBuilding: Bool { status?.running == true || starting != nil }
     /// A game can be built, or added to the batch running: not in the few
     /// seconds a batch takes to start.
-    var canBuild: Bool { engine != nil && starting == nil && setup.ready }
+    var canBuild: Bool { engine != nil && starting == nil && setup.ready && !bundling }
 
     /// Builds GAMES (what is due when empty), again with FORCE. While a batch
     /// runs, they wait their turn in it, built after its own games.
     func build(_ games: [String] = [], force: Bool = false) {
-        guard !sample else { return }
+        guard !sample, !bundling else { return }
         guard engine != nil else {
             section = .setup
             return
@@ -706,6 +708,20 @@ final class AppModel: ObservableObject {
                 show(error, origin: "clean")
             }
         }
+    }
+
+    func bundleIPA(_ ipa: URL, image: URL) async throws -> String {
+        guard let engine, !sample, !isBuilding, !bundling else {
+            throw EngineFailure(kind: "busy", message: tr("Wait for the current operation to finish.", "Attendez la fin de l’opération en cours."))
+        }
+        bundling = true
+        bundleMessage = tr("Checking the IPA and game data…", "Vérification de l’IPA et des fichiers du jeu…")
+        defer { bundling = false }
+        let path = try await engine.bundleROMFS(ipa: ipa, image: image) { [weak self] line in
+            Task { @MainActor in self?.bundleMessage = line }
+        }
+        await refreshLibrary(update: false)
+        return path
     }
 
     func mountShares() {

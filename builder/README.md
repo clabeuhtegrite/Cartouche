@@ -32,6 +32,27 @@ A Mac that builds nxnative games has Apple silicon and macOS 26.6 or later. The 
 
 The menu bar shows a build under way, the games nxnative improved and an update ready; notifications say when a batch ends and when nxnative improves one of your games.
 
+### Import an IPA with separate game data
+
+For an existing nxnative IPA that expects an external `romfs.img`, choose
+**Import IPA + ROMFS…** in Library. Select the IPA and its matching image,
+then **Create complete IPA**. This needs Python, but no Xcode, console keys,
+sources folder or compilation. The build must support `romfs.img` inside its
+app bundle; packaging cannot add that capability to an older executable.
+
+Builder compares the image's size and index identity with the IPA's
+`romfs.id`. It rejects mismatched or incomplete
+images, IPAs without an identity, and IPAs that already contain game data.
+This is nxnative's build compatibility check, not an authenticity check of
+the game data. The original files and executable stay unchanged. A complete
+IPA named `<game> (with ROMFS) [<title ID>].ipa` is published to the games
+folder only once it is whole and its ZIP checksums pass. An existing file
+under that name is kept; move it first to import again.
+
+Refresh Cartouche on the iPhone to install the complete IPA. Cartouche signs
+the app at installation; no separate ROMFS transfer is needed. On a NAS,
+the game remains available while the Mac is off.
+
 ### While a batch builds
 
 A game asked for while a batch builds, with **Add to the queue** on its sheet or its card's menu, or **Add them to the queue** for the games nxnative improved, waits its turn at the end of the batch: it is built after the batch's own games and those asked for before it, in the same batch, with one report and one notification at the end. **Builds** lists the queue in its order, with a button that takes a game out of it. **Stop this game**, there or on its sheet, stops only the game building, and the batch goes on with the next; **Stop all** stops the batch and empties its queue. In the Terminal, `cartouche-builder build ID`, while a batch builds, adds the games to it in the same way.
