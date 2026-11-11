@@ -1,6 +1,6 @@
 # Roadmap
 
-Cartouche is a launcher: it installs, starts and keeps the games the player builds with nxnative, and signs, renews and updates itself. The app does not build games ([decision 28](decisions.md)); Cartouche Builder, a program of its own, builds them on the player's Mac ([decision 29](decisions.md)). Each release is checked on a real iPhone, not only in CI, and tested from a fresh install.
+Cartouche is a launcher: it installs, starts and keeps the games the player builds with nxnative, and signs, renews and updates itself. Today the app does not build games ([decision 28](decisions.md)): Cartouche Builder, a program of its own, builds them on the player's Mac ([decision 29](decisions.md)). Building on the iPhone, and playing on the Mac, are planned ([decision 55](decisions.md)). Each release is checked on a real iPhone, not only in CI, and tested from a fresh install.
 
 ## Released
 
@@ -16,12 +16,14 @@ Cartouche is a launcher: it installs, starts and keeps the games the player buil
 | 0.8 | An SFTP server of the player's for their games and saves, with their own account, its key checked at each connection. 0.8.1 installs games whose IPA holds a large deflated file read in pieces, and leaves no badge on the icon. |
 | 0.9 | A game updated from the player's games folder when it holds a newer build of it, such as one Cartouche Builder made again after a change to nxnative: Cartouche reads which build each IPA is and offers **Update** over the game. |
 | 0.10 | A game behind the console: the Home button brings the console back and leaves the game paused behind it, to resume or quit. The player's Mac as storage, through Cartouche Builder, paired once with six digits. A guide from the install to the first game; each game's play time and size; games in the iPhone's language; Game Mode. A server out of reach shown offline within seconds, and installs that read on after a dropped connection. **Copy the report** under each error and **Report a problem** in System. Game measurements sent to the project's server unless the player turns them off. In the catalog, the 64 games nxnative plays on the iPhone, and new games' covers every day. |
+| 0.11 | Saves in step with the player's saves folder both ways: brought back when a game is installed and before it starts, as after Cartouche is installed again or after another iPhone played it, and sent after each game, the newest winning and the other kept as a copy. The storage's servers and folders kept in the keychain too, for a new install of Cartouche to find them. No thanks to the Mac's step of the first game's guide. Game Mode's memory for a game behind the console, and a game that needs more starts in Cartouche's place. |
 
-Every release and its notes: [`app/releases`](../app/releases/). Beside the app, Cartouche Builder builds the player's games on their Mac and builds them again when nxnative changes for them; since 0.2, a Mac app from a disk image, it installs its own tools, updates itself, and serves the games and keeps the saves of the iPhones paired with it ([builder/README.md](../builder/README.md)).
+Every release and its notes: [`app/releases`](../app/releases/). Beside the app, Cartouche Builder builds the player's games on their Mac and builds them again when nxnative changes for them; since 0.2, a Mac app from a disk image, it installs its own tools, updates itself, and serves the games and keeps the saves of the iPhones paired with it; 0.3 sets the Mac up with an assistant at its first start, and 0.4 lets a game wait its turn in a batch and fits a narrow window ([builder/README.md](../builder/README.md)).
 
 ## Next
 
-- **0.10 on a phone and a Mac:** installed from inside Cartouche over 0.9, then each of its changes tried on a real iPhone and a real Mac: a game behind the console, the Mac paired, a server offline, an error report, a game in the iPhone's language.
+- **0.11 on a phone and a Mac:** installed from inside Cartouche over 0.10, then each of its changes tried on a real iPhone and a real Mac: saves brought back after Cartouche is installed again, a game behind the console with Game Mode, the Mac paired through Cartouche Builder 0.4, a server offline, an error report, a game in the iPhone's language.
+- **1.0:** a player who has never seen Cartouche installs it and plays their first game without help.
 
 ## Then
 
@@ -30,7 +32,11 @@ Every release and its notes: [`app/releases`](../app/releases/). Beside the app,
 - More testers: their iPhones measured and added to [`catalog/devices.json`](../catalog/devices.json), and compatibility sheets from their reports.
 - Game measurements from every iPhone, on unless the player turns them off ([decision 35](decisions.md)), sent from 0.10 on: the measurements of several iPhones in the game sheets, each Thursday.
 
+## Later
+
+- **Building on the iPhone.** A game built from the player's own files on the iPhone itself, with no Mac: Cartouche reads the game's package and the console's keys from Files or the player's own storage, runs nxnative's build on the phone and installs the game. What it takes: nxnative's code rewrite on iOS, which spike S2 ran on an iPhone in 0.1 with the very result of the Mac; the shaders, and the parts a Mac compiles with Xcode today; and room on the phone, in memory and in time, for the largest games ([decision 55](decisions.md)).
+- **Playing on the Mac.** The Mac app plays the player's games too: Cartouche Builder builds each game for the Mac as well, as nxnative plays it there, starts it with a controller, and keeps its saves in step with the iPhone's through the saves folder, which can be on that very Mac: a game left on the iPhone goes on on the Mac, and back ([decision 55](decisions.md)).
+
 ## Not planned
 
-- Building games on the iPhone from a dump ([decision 28](decisions.md)).
 - Hosting, downloading or listing downloadable games, keys or firmware ([decision 1](decisions.md)).
