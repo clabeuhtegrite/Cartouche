@@ -1,6 +1,19 @@
 """The builder's texts: key -> (English, French). i18n.t() picks one."""
 
 TEXTS: dict[str, tuple[str, str]] = {
+    # ---- Existing IPA and external game data
+    "bundle.bad_ipa": ("Choose a valid nxnative game IPA.", "Choisissez l’IPA valide d’un jeu nxnative."),
+    "bundle.bad_image": ("The ROMFS image is incomplete or invalid.", "L’image ROMFS est incomplète ou invalide."),
+    "bundle.already": ("This IPA already contains game data.", "Cette IPA contient déjà les fichiers du jeu."),
+    "bundle.no_identity": ("This IPA has no valid romfs.id; its matching image cannot be checked.", "Cette IPA n’a pas de romfs.id valide ; son image ne peut pas être vérifiée."),
+    "bundle.mismatch": ("The ROMFS image does not match this IPA’s game and build.", "L’image ROMFS ne correspond pas au jeu et à la version de cette IPA."),
+    "bundle.exists": ("The complete IPA already exists in the games folder. Move it before importing again.", "L’IPA complète existe déjà dans le dossier des jeux. Déplacez-la avant de recommencer."),
+    "bundle.changed": ("The ROMFS image changed while it was being copied. Try again.", "L’image ROMFS a changé pendant sa copie. Réessayez."),
+    "bundle.changed_ipa": ("The IPA changed while it was being copied. Try again.", "L’IPA a changé pendant sa copie. Réessayez."),
+    "bundle.copy": ("Copying the IPA… {percent}%", "Copie de l’IPA… {percent} %"),
+    "bundle.add": ("Adding the game data… {percent}%", "Ajout des fichiers du jeu… {percent} %"),
+    "bundle.check": ("Checking the complete IPA…", "Vérification de l’IPA complète…"),
+    "bundle.no_folder": ("Choose a games folder in Settings first.", "Choisissez d’abord le dossier des jeux dans les réglages."),
     # ---- The sources folder (library.py)
     "library.no_sources": ("The sources folder {path} is not there (is its drive connected?).", "Le dossier des sources {path} est introuvable (son disque est-il branché ?)."),
     "library.unreadable": ("{name}: cannot be read ({error}).", "{name} : illisible ({error})."),

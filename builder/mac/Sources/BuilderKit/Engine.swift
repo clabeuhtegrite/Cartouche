@@ -139,6 +139,7 @@ public struct StorageAnswer: Decodable { public var storage: StorageReport }
 public struct CleanAnswer: Decodable { public var cleaned: Cleaned }
 public struct FollowAnswer: Decodable { public var followed: Bool }
 public struct MountAnswer: Decodable { public var folders: Folders }
+public struct BundleIPAAnswer: Decodable { public var ipa: String }
 public struct QueueAnswer: Decodable {
     /// For an add: false when no batch runs, and nothing was kept.
     public var queued: Bool?
@@ -280,6 +281,12 @@ public final class Engine: @unchecked Sendable {
     }
 
     // MARK: Batches
+
+    /// Adds a matching external ROMFS to an existing IPA, without nxnative.
+    public func bundleROMFS(ipa: URL, image: URL, line: (@Sendable (String) -> Void)? = nil) async throws -> String {
+        try await api(BundleIPAAnswer.self, ["bundle-romfs", "--ipa", ipa.path, "--romfs", image.path],
+                      timeout: 24 * 3600, line: line).ipa
+    }
 
     /// Starts a batch that builds GAMES (all that are due when empty), again
     /// even if up to date with FORCE, kept awake by caffeinate. It goes on
