@@ -61,7 +61,7 @@ struct Banner: Identifiable, Equatable {
 
 @MainActor
 final class AppModel: ObservableObject {
-    static let shared = AppModel()
+    static let shared: AppModel = LayoutCheck.requested ? LayoutCheck.model() : AppModel()
     static let mainWindow = "main"
     static let guide = URL(string: "https://github.com/clabeuhtegrite/Cartouche/blob/main/builder/README.md")!
     /// How often nxnative is checked while the app runs.
@@ -641,6 +641,12 @@ final class AppModel: ObservableObject {
         model.engine = Engine(package: home.root, python: URL(fileURLWithPath: "/opt/homebrew/bin/python3.13"), home: home, language: L10n.code)
         model.started = true
         return model
+    }
+
+    /// nxnative being checked, or done, for the layout check.
+    func preview(checking: Bool) {
+        guard sample else { return }
+        self.checking = checking
     }
 }
 
