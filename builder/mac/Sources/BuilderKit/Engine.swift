@@ -30,12 +30,55 @@ public struct BuilderHome: Equatable, Sendable {
         return BuilderHome(support.appendingPathComponent("Cartouche Builder", isDirectory: true))
     }
 
+    public var config: URL { root.appendingPathComponent("config.json") }
     public var status: URL { root.appendingPathComponent("status.json") }
     public var library: URL { root.appendingPathComponent("library.json") }
     public var bridge: URL { root.appendingPathComponent("bridge.json") }
     public var logs: URL { root.appendingPathComponent("logs", isDirectory: true) }
     public var engine: URL { root.appendingPathComponent("nxnative", isDirectory: true) }
     public var saves: URL { root.appendingPathComponent("Saves", isDirectory: true) }
+}
+
+/// The engine's settings (config.json), while the engine cannot run yet:
+/// its Python comes with the Mac's tools, after the setup assistant's
+/// first steps. The app reads them as they are saved, and saves a change
+/// as the engine would, keeping every key it does not know; the engine
+/// reads them when it starts (config.py). They are brought up to date as
+/// the engine does it (config.migrate): settings an older builder took
+/// over from another tool ("imported") count as none, and an older
+/// builder's settings with both folders chosen as set up.
+public enum SettingsFile {
+    /// The settings' version, as config.py's VERSION: a file the app starts
+    /// is not one of an older builder's (test_app_contract.py checks it).
+    public static let version = 2
+
+    public static func read(_ home: BuilderHome) -> BuilderConfig {
+        guard let data = try? Data(contentsOf: home.config), let saved = object(data),
+              var config = try? JSONDecoder().decode(BuilderConfig.self, from: data) else { return BuilderConfig() }
+        if saved["imported"] as? Bool == true { return BuilderConfig() }
+        if (saved["version"] as? Int ?? 0) < version, !config.sources.isEmpty, !config.games.isEmpty {
+            config.setupDone = true
+        }
+        return config
+    }
+
+    /// Saves CHANGES, as BuilderConfig.changes(from:) gives them.
+    public static func write(_ changes: [String: Any], _ home: BuilderHome) throws {
+        var saved: [String: Any] = [:]
+        if let data = try? Data(contentsOf: home.config), let found = object(data), found["imported"] as? Bool != true {
+            saved = found
+        }
+        if saved.isEmpty { saved["version"] = version }
+        for (key, value) in changes { saved[key] = value }
+        try FileManager.default.createDirectory(at: home.root, withIntermediateDirectories: true)
+        let data = try JSONSerialization.data(withJSONObject: saved, options: [.prettyPrinted, .sortedKeys])
+        try data.write(to: home.config, options: .atomic)
+        try FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: home.config.path)
+    }
+
+    private static func object(_ data: Data) -> [String: Any]? {
+        (try? JSONSerialization.jsonObject(with: data)) as? [String: Any]
+    }
 }
 
 /// A native Python 3.12 or later, for the engine.

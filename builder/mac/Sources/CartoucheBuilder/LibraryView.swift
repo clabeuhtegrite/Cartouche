@@ -336,9 +336,11 @@ struct EmptyLibrary: View {
         } description: {
             Text(text)
         } actions: {
-            if !searching && filter == .all && model.needsOnboarding {
-                Button(tr("Choose my folders", "Choisir mes dossiers")) { model.showOnboarding = true }
-                    .buttonStyle(.borderedProminent)
+            if !searching && filter == .all && model.foldersMissing {
+                Button(tr("Choose my folders", "Choisir mes dossiers")) {
+                    model.openSetup(at: (model.config?.sources ?? "").isEmpty ? .sources : .games)
+                }
+                .buttonStyle(.borderedProminent)
             }
         }
         .frame(maxWidth: .infinity, minHeight: 280)

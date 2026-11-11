@@ -14,6 +14,7 @@ import contextlib
 import io
 import json
 import os
+import re
 import sys
 import threading
 import time
@@ -140,3 +141,12 @@ class AppContract(Home):
     def test_shape(self):
         self.assertEqual(shape({"a": [{"b": None}, {"b": 1}], "c": True}),
                          {"$": "object", "$.a": "array", "$.a[]": "object", "$.a[].b": "number", "$.c": "boolean"})
+
+    def test_the_app_saves_settings_at_the_engines_version(self):
+        """Until the engine can run, the app saves the settings itself
+        (SettingsFile in Engine.swift), at the engine's version: at an older
+        one, the engine would bring them up to date as an older builder's."""
+        source = (Path(__file__).resolve().parents[1] / "mac" / "Sources" / "BuilderKit" / "Engine.swift").read_text(encoding="utf-8")
+        found = re.search(r"public static let version = (\d+)", source)
+        self.assertIsNotNone(found, "Engine.swift has no SettingsFile.version")
+        self.assertEqual(int(found.group(1)), configs.VERSION)

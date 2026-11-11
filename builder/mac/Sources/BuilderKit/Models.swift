@@ -524,6 +524,9 @@ public struct BuilderConfig: Codable, Equatable {
     public var schedule: Bool
     public var scheduleHour: Int
     public var scheduleMinute: Int
+    /// The setup assistant was gone through to its end: it opens at the
+    /// app's start until then.
+    public var setupDone: Bool
 
     enum CodingKeys: String, CodingKey {
         case sources, games, keys, workspace, skip, aliases, unprofiled, jobs, language, notifications, schedule
@@ -538,6 +541,7 @@ public struct BuilderConfig: Codable, Equatable {
         case keepExtracted = "keep_extracted"
         case scheduleHour = "schedule_hour"
         case scheduleMinute = "schedule_minute"
+        case setupDone = "setup_done"
     }
 
     /// nxnative's own repository and branch (config.py).
@@ -547,7 +551,7 @@ public struct BuilderConfig: Codable, Equatable {
     public init(sources: String = "", games: String = "", keys: String = "", workspace: String = "", minFreeGB: Int = 20, workspaceLimitGB: Int = 0,
                 engineURL: String = BuilderConfig.engineURL, engineBranch: String = BuilderConfig.engineBranch, enginePolicy: String = "weekly", refreshDays: Int = 7, skip: [String] = [], aliases: [String: [String]] = [:], unprofiled: Bool = false,
                 gameLanguage: String = "", jobs: Int = 1, keepIPA: Bool = false, keepExtracted: Bool = false, language: String = "",
-                notifications: Bool = true, schedule: Bool = false, scheduleHour: Int = 3, scheduleMinute: Int = 30) {
+                notifications: Bool = true, schedule: Bool = false, scheduleHour: Int = 3, scheduleMinute: Int = 30, setupDone: Bool = false) {
         self.sources = sources
         self.games = games
         self.keys = keys
@@ -570,6 +574,7 @@ public struct BuilderConfig: Codable, Equatable {
         self.schedule = schedule
         self.scheduleHour = scheduleHour
         self.scheduleMinute = scheduleMinute
+        self.setupDone = setupDone
     }
 
     public init(from decoder: Decoder) throws {
@@ -597,6 +602,7 @@ public struct BuilderConfig: Codable, Equatable {
         schedule = try c.decodeIfPresent(Bool.self, forKey: .schedule) ?? d.schedule
         scheduleHour = try c.decodeIfPresent(Int.self, forKey: .scheduleHour) ?? d.scheduleHour
         scheduleMinute = try c.decodeIfPresent(Int.self, forKey: .scheduleMinute) ?? d.scheduleMinute
+        setupDone = try c.decodeIfPresent(Bool.self, forKey: .setupDone) ?? d.setupDone
     }
 
     /// The keys of THIS that differ from OTHER, as the engine's settings take them.
@@ -627,6 +633,7 @@ public struct BuilderConfig: Codable, Equatable {
         note(.schedule, schedule, other.schedule, schedule)
         note(.scheduleHour, scheduleHour, other.scheduleHour, scheduleHour)
         note(.scheduleMinute, scheduleMinute, other.scheduleMinute, scheduleMinute)
+        note(.setupDone, setupDone, other.setupDone, setupDone)
         return found
     }
 }
