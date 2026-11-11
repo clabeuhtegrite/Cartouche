@@ -1,0 +1,57 @@
+From 67e69603436d5d80edc82e1fd84a0d8fc9fdc072 Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Wed, 11 Nov 2026 22:45:00 +0000
+Subject: [PATCH] Stop unpacking an IPA once its install is cancelled
+
+Cartouche installs a game from an IPA on the iPhone with extract(), and
+the player can now stop that install from outside the app: from the
+Live Activity iOS shows for it on the Lock Screen and in the Dynamic
+Island, which the launcher's CartoucheContinuedWork asks for. The
+launcher then cancels the install's progress. extract() checks it
+before each block of a file and before each file, stops there, and
+returns 1, as for an archive it cannot read, so that the half-unpacked
+folder goes. Nothing else cancels that progress: an install nobody
+stops unpacks as before.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01MzPJorZx6iYEFcZ4qRgD4r
+---
+ LiveContainerSwiftUI/Utilities/unarchive.m | 10 +++++++++-
+ 1 file changed, 9 insertions(+), 1 deletion(-)
+
+diff --git a/LiveContainerSwiftUI/Utilities/unarchive.m b/LiveContainerSwiftUI/Utilities/unarchive.m
+index 5286f57..62839b4 100644
+--- a/LiveContainerSwiftUI/Utilities/unarchive.m
++++ b/LiveContainerSwiftUI/Utilities/unarchive.m
+@@ -12,6 +12,10 @@ copy_data(struct archive *ar, struct archive *aw, NSProgress *progress)
+   la_int64_t offset;
+ 
+   for (;;) {
++    // Cartouche: an install the player stopped stops here, between two
++    // blocks of a file.
++    if (progress.cancelled)
++      return (ARCHIVE_FATAL);
+     r = archive_read_data_block(ar, &buff, &size, &offset);
+     if (r == ARCHIVE_EOF)
+       return (ARCHIVE_OK);
+@@ -74,6 +78,9 @@ int extract(NSString* fileToExtract, NSString* extractionPath, NSProgress* progr
+     archive_write_disk_set_standard_lookup(ext);
+ 
+     while ((r = archive_read_next_header(a, &entry)) != ARCHIVE_EOF) {
++        // Cartouche: or here, between two files.
++        if (progress.cancelled)
++            break;
+         if (r == ARCHIVE_EOF)
+             break;
+         if (r < ARCHIVE_OK)
+@@ -107,5 +114,6 @@ int extract(NSString* fileToExtract, NSString* extractionPath, NSProgress* progr
+     archive_write_close(ext);
+     archive_write_free(ext);
+     
+-    return 0;
++    // Cartouche: a stopped install left part of the archive unpacked only.
++    return progress.cancelled ? 1 : 0;
+ }
+-- 
+2.43.0
+

@@ -156,6 +156,16 @@ $PB -c "Add :INIntentsSupported:1 string ViewAppIntent" "$APP/Info.plist"
 $PB -c "Add :NSUserActivityTypes array" "$APP/Info.plist"
 $PB -c "Add :NSUserActivityTypes:0 string RefreshAllIntent" "$APP/Info.plist"
 $PB -c "Add :NSUserActivityTypes:1 string ViewAppIntent" "$APP/Info.plist"
+# The steps iOS goes on with once the player leaves Cartouche, from iOS 26:
+# each install and each copy of a game asks for one of its own, named after
+# the bundle identifier the app runs as, then "transfer"
+# (launcher/Sources/CartoucheContinuedWork.swift). Signing adds the team's
+# identifier to the bundle identifier, and the Cartouche Installer and the
+# built-in SideStore move this entry under the new one. Listing it turns off
+# the older background fetch, which nothing in Cartouche uses.
+$PB -c "Delete :BGTaskSchedulerPermittedIdentifiers" "$APP/Info.plist" 2>/dev/null || true
+$PB -c "Add :BGTaskSchedulerPermittedIdentifiers array" "$APP/Info.plist"
+$PB -c "Add :BGTaskSchedulerPermittedIdentifiers: string $BUNDLE_ID.transfer.*" "$APP/Info.plist"
 # Game Mode, as LiveContainer's own app had it before it turned it off for
 # the banner iOS shows as it comes on: Cartouche is a console. A game that
 # runs behind the console (launcher/Sources/CartoucheGameHost.swift) gets the
