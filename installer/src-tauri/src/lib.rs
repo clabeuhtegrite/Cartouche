@@ -12,6 +12,7 @@ mod cartouche;
 mod error;
 mod logging;
 mod operation;
+mod imported_signing;
 
 use crate::{
     account::{

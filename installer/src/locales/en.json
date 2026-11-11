@@ -115,7 +115,7 @@
     "install_step_download": "Download Cartouche",
     "install_step_check": "Check the IPA",
     "install_step_install": "Sign and install it, with Increased Memory Limit",
-    "install_step_pairing": "Put the pairing file in Cartouche",
+    "install_step_pairing": "Preparing Cartouche",
     "pairing_title": "Pairing file",
     "pairing_success_title": "Pairing file in place",
     "pairing_success_message": "Cartouche finds it by itself."
@@ -262,5 +262,17 @@
       ]
     },
     "support_message": "If it keeps failing, press Copy to clipboard and paste the error in a <issues>Cartouche issue</issues>."
+  },
+  "signing": {
+    "title": "Signing",
+    "choice_hint": "Use a FlareStore certificate or another P12, or sign in with an Apple ID.",
+    "imported": "Import certificate",
+    "hint": "Choose your P12 and Apple provisioning profile. Signing happens on this computer; no Apple ID is needed.",
+    "choose_p12": "Choose P12 certificate",
+    "choose_profile": "Choose provisioning profile",
+    "password": "P12 password (leave blank for an unencrypted P12)",
+    "limitations": "Games run in Cartouche’s place. App extensions and weekly SideStore renewal are disabled. Updates use this installer. Memory permissions depend on your profile.",
+    "needs_files": "Choose a P12 and its provisioning profile.",
+    "needs_ready": "Select an iPhone and provide signing credentials."
   }
 }

@@ -1,0 +1,182 @@
+From: Cartouche contributors
+Subject: [PATCH] Support imported signing with keychain credentials and no account renewal
+
+--- a/LiveContainer/LCSharedUtils.m
++++ b/LiveContainer/LCSharedUtils.m
+@@ -3,6 +3,7 @@
+ #import "UIKitPrivate.h"
+ #import "utils.h"
+ @import MachO;
++@import Security;
+ 
+ extern NSUserDefaults *lcUserDefaults;
+ extern NSString *lcAppUrlScheme;
+@@ -11,7 +12,57 @@
+ NSString* FBSOpenApplicationOptionKeyActivateAsClassic = @"__ActivateAsClassic";
+ NSString* FBSOpenApplicationOptionKeyPayloadURL = @"__PayloadURL";
+ 
++static NSDictionary *cartoucheSigningCandidate;
++static NSDictionary *cartoucheCachedSigningMaterial;
++
+ @implementation LCSharedUtils
++
+++ (BOOL)cartoucheUsesImportedSigning {
++    @synchronized(self) {
++        if (cartoucheSigningCandidate) return YES;
++    }
++    NSBundle *host = lcMainBundle ?: NSBundle.mainBundle;
++    NSUserDefaults *defaults = lcUserDefaults ?: NSUserDefaults.standardUserDefaults;
++    return [host.infoDictionary[@"CartoucheImportedSigning"] boolValue]
++        || [defaults boolForKey:@"Cartouche.importedSigning.selected"];
++}
++
+++ (void)setCartoucheSigningCandidate:(NSDictionary *)material {
++    @synchronized(self) {
++        cartoucheSigningCandidate = [material copy];
++        cartoucheCachedSigningMaterial = nil;
++    }
++}
++
+++ (NSDictionary *)cartoucheSigningMaterial {
++    @synchronized(self) {
++        if (cartoucheSigningCandidate) return cartoucheSigningCandidate;
++        if (![self cartoucheUsesImportedSigning]) return nil;
++        if (cartoucheCachedSigningMaterial) return cartoucheCachedSigningMaterial;
++        NSBundle *host = lcMainBundle ?: NSBundle.mainBundle;
++        NSString *service = host.infoDictionary[@"CartoucheBundleIdentifier"];
++        if (!service) return nil;
++        NSDictionary *query = @{
++            (__bridge id)kSecClass: (__bridge id)kSecClassGenericPassword,
++            (__bridge id)kSecAttrService: service,
++            (__bridge id)kSecAttrAccount: @"Cartouche.importedSigning.material",
++            (__bridge id)kSecReturnData: @YES,
++            (__bridge id)kSecMatchLimit: (__bridge id)kSecMatchLimitOne
++        };
++        CFTypeRef result = nil;
++        if (SecItemCopyMatching((__bridge CFDictionaryRef)query, &result) != errSecSuccess) return nil;
++        NSData *data = CFBridgingRelease(result);
++        id material = [NSPropertyListSerialization propertyListWithData:data options:NSPropertyListImmutable format:nil error:nil];
++        if (![material isKindOfClass:NSDictionary.class]
++            || ![material[@"certificate"] isKindOfClass:NSData.class]
++            || ![material[@"password"] isKindOfClass:NSString.class]) return nil;
++        // Cache before guest keychain hooks are installed. No secrets are
++        // written to preferences or shared files.
++        cartoucheCachedSigningMaterial = material;
++        return material;
++    }
++}
++
+ 
+ + (NSString*) teamIdentifier {
+     static NSString* ans = nil;
+@@ -65,6 +116,12 @@
+     static dispatch_once_t once;
+     static NSString *appGroupID = @"Unknown";
+     dispatch_once(&once, ^{
++        // Imported signing may have no app-group entitlement. With no
++        // extensions in this mode, the host and guest use the app's sandbox.
++        if ([NSBundle.mainBundle.infoDictionary[@"CartoucheImportedSigning"] boolValue]) {
++            appGroupID = NSBundle.mainBundle.bundleIdentifier;
++            return;
++        }
+         NSArray* possibleAppGroups = @[
+             [@"group.com.SideStore.SideStore." stringByAppendingString:[self teamIdentifier]]
+         ];
+@@ -129,11 +186,20 @@
+     static dispatch_once_t onceToken;
+     dispatch_once(&onceToken, ^{
+         appGroupPath = [NSFileManager.defaultManager containerURLForSecurityApplicationGroupIdentifier:[LCSharedUtils appGroupID]];
++        if (!appGroupPath && [NSBundle.mainBundle.infoDictionary[@"CartoucheImportedSigning"] boolValue]) {
++            NSURL *support = [NSFileManager.defaultManager URLForDirectory:NSApplicationSupportDirectory
++                                                               inDomain:NSUserDomainMask
++                                                      appropriateForURL:nil create:YES error:nil];
++            appGroupPath = [support URLByAppendingPathComponent:@"CartoucheShared" isDirectory:YES];
++            [NSFileManager.defaultManager createDirectoryAtURL:appGroupPath
++                                  withIntermediateDirectories:YES attributes:nil error:nil];
++        }
+     });
+     return appGroupPath;
+ }
+ 
+ + (NSString *)certificatePassword {
++    if ([self cartoucheUsesImportedSigning]) return [self cartoucheSigningMaterial][@"password"];
+     NSUserDefaults* nud = NSUserDefaults.lcSharedDefaults ?: NSUserDefaults.standardUserDefaults;
+     return [nud objectForKey:@"LCCertificatePassword"];
+ }
+--- a/LiveContainer/LCSharedUtils.h
++++ b/LiveContainer/LCSharedUtils.h
+@@ -1,6 +1,9 @@
+ @import Foundation;
+ 
+ @interface LCSharedUtils : NSObject
+++ (BOOL)cartoucheUsesImportedSigning;
+++ (NSDictionary *)cartoucheSigningMaterial;
+++ (void)setCartoucheSigningCandidate:(NSDictionary *)material;
+ + (NSString*) teamIdentifier;
+ + (BOOL)isBuiltInSideStoreAppGroup:(NSString *)group;
+ + (NSString *)appGroupID;
+--- a/LiveContainerSwiftUI/Utilities/LCUtils.m
++++ b/LiveContainerSwiftUI/Utilities/LCUtils.m
+@@ -24,6 +24,7 @@
+ #pragma mark Certificate & password
+ 
+ + (NSData *)certificateData {
++    if ([LCSharedUtils cartoucheUsesImportedSigning]) return [LCSharedUtils cartoucheSigningMaterial][@"certificate"];
+     NSUserDefaults* nud = [[NSUserDefaults alloc] initWithSuiteName:[LCSharedUtils appGroupID]];
+     if(!nud) {
+         nud = NSUserDefaults.standardUserDefaults;
+--- a/SideStoreSupport/SideStore.swift
++++ b/SideStoreSupport/SideStore.swift
+@@ -11,6 +11,13 @@
+ 
+ @available(iOS 17.0, *)
+ func performIntentRefresh(identifier: String, mangledTypeName: String, intentProgress: Progress) async throws {
++    // Includes invocations from existing Shortcuts and widgets, not just
++    // Cartouche's own buttons. Never replace an imported signing identity.
++    if Bundle.main.object(forInfoDictionaryKey: "CartoucheImportedSigning") as? Bool == true
++        || UserDefaults(suiteName: LCSharedUtils.appGroupID())?.bool(forKey: "Cartouche.accountSigningDisabled") == true {
++        throw NSError(domain: "Cartouche", code: 1, userInfo: [NSLocalizedDescriptionKey:
++            "Use the Cartouche Installer with your imported certificate to update or renew Cartouche."])
++    }
+     intentProgress.totalUnitCount = 100
+     if UserDefaults.isSideStore() {
+         try await SideStoreIntentCaller.shared.callRefreshIntent(mangledTypeName: mangledTypeName)
+--- a/SideStoreSupport/SideStore-Bridging-Header.h
++++ b/SideStoreSupport/SideStore-Bridging-Header.h
+@@ -3,6 +3,7 @@
+ 
+ #include "../LiveContainer/FoundationPrivate.h"
+ #include "XPCServer.h"
++#include "../LiveContainer/LCSharedUtils.h"
+ #include "../LiveContainer/utils.h"
+ #include "PrivateIntentRunner.h"
+ #endif /* SideStore_Bridging_Header_h_h */
+--- a/LiveContainer/LCBootstrap.m
++++ b/LiveContainer/LCBootstrap.m
+@@ -288,7 +288,7 @@
+ 
+     // not found locally, let's look for the app in shared folder
+     if(!guestAppInfo) {
+-        NSURL *appGroupPath = [NSFileManager.defaultManager containerURLForSecurityApplicationGroupIdentifier:[LCSharedUtils appGroupID]];
++        NSURL *appGroupPath = [LCSharedUtils appGroupPath];
+         appGroupFolder = [appGroupPath URLByAppendingPathComponent:@"LiveContainer"];
+         bundlePath = [NSString stringWithFormat:@"%@/Applications/%@", appGroupFolder.path, selectedApp];
+         guestAppInfo = [NSDictionary dictionaryWithContentsOfFile:[NSString stringWithFormat:@"%@/LCAppInfo.plist", bundlePath]];
+@@ -668,7 +668,7 @@
+     
+     lcSharedDefaults = [[NSUserDefaults alloc] initWithSuiteName: [LCSharedUtils appGroupID]];
+     lcAppUrlScheme = NSBundle.mainBundle.infoDictionary[@"CFBundleURLTypes"][0][@"CFBundleURLSchemes"][0];
+-    lcAppGroupPath = [[NSFileManager.defaultManager containerURLForSecurityApplicationGroupIdentifier:[NSClassFromString(@"LCSharedUtils") appGroupID]] path];
++    lcAppGroupPath = [[NSClassFromString(@"LCSharedUtils") appGroupPath] path];
+     isLiveProcess = [lcAppUrlScheme isEqualToString:@"liveprocess"];
+     setenv("LC_HOME_PATH", getenv("HOME"), 0);
+ 
+@@ -857,7 +857,7 @@
+     if ([lcUserDefaults boolForKey:@"LCLoadTweaksToSelf"]) {
+         NSString *tweakFolder = nil;
+         if (isSharedBundle) {
+-            NSURL *appGroupPath = [NSFileManager.defaultManager containerURLForSecurityApplicationGroupIdentifier:[LCSharedUtils appGroupID]];
++            NSURL *appGroupPath = [LCSharedUtils appGroupPath];
+             tweakFolder = [appGroupPath.path stringByAppendingPathComponent:@"LiveContainer/Tweaks"];
+         } else {
+             NSString *docPath = [NSFileManager.defaultManager URLsForDirectory:NSDocumentDirectory inDomains:NSUserDomainMask].lastObject.path;

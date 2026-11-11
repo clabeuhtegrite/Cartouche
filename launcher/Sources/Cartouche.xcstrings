@@ -1327,6 +1327,23 @@
         }
       }
     },
+    "guide.importedIntro" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Import your certificate, then build and install your first game."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Importez votre certificat, puis construisez et installez votre premier jeu."
+          }
+        }
+      }
+    },
     "guide.intro" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -5658,6 +5675,278 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Connexion, inscription de cet iPhone et récupération du certificat…"
+          }
+        }
+      }
+    },
+    "signing.certificateChosen" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "P12 selected — replace"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "P12 sélectionné — remplacer"
+          }
+        }
+      }
+    },
+    "signing.chooseCertificate" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Choose P12 certificate"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Choisir le certificat P12"
+          }
+        }
+      }
+    },
+    "signing.chooseProfile" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Choose provisioning profile"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Choisir le profil de provisionnement"
+          }
+        }
+      }
+    },
+    "signing.how" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Use your P12, its password and provisioning profile. No Apple ID or VPN is needed for imported signing."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Utilisez votre P12, son mot de passe et son profil de provisionnement. Aucun compte Apple ni VPN n’est nécessaire pour cette signature."
+          }
+        }
+      }
+    },
+    "signing.invalidFile" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Choose a signing file smaller than 4 MB."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Choisissez un fichier de signature de moins de 4 Mo."
+          }
+        }
+      }
+    },
+    "signing.invalidKey" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cannot open this P12. Check its password and that it includes the private key."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Impossible d’ouvrir ce P12. Vérifiez son mot de passe et la présence de la clé privée."
+          }
+        }
+      }
+    },
+    "signing.invalidProfile" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The provisioning profile is invalid, expired or does not match this certificate."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Le profil de provisionnement est invalide, expiré ou ne correspond pas à ce certificat."
+          }
+        }
+      }
+    },
+    "signing.password" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "P12 password"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mot de passe du P12"
+          }
+        }
+      }
+    },
+    "signing.profileChosen" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Profile selected — replace"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Profil sélectionné — remplacer"
+          }
+        }
+      }
+    },
+    "signing.refused" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "iOS refused this signing certificate. Import a valid replacement; if its profile differs, reinstall Cartouche with it using the computer installer."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "iOS a refusé ce certificat de signature. Importez un certificat valide de remplacement ; si son profil diffère, réinstallez Cartouche avec celui-ci depuis l’installateur sur ordinateur."
+          }
+        }
+      }
+    },
+    "signing.reinstall" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "If this certificate is not allowed by the installed app’s profile, install Cartouche again with the same certificate and profile using the Cartouche Installer. To switch an imported installation to Apple ID signing, reinstall with the installer’s Apple ID option."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Si le profil de l’app installée n’autorise pas ce certificat, réinstallez Cartouche avec le même certificat et profil dans le Cartouche Installer. Pour passer une installation importée à la signature par compte Apple, réinstallez avec l’option Compte Apple de l’installateur."
+          }
+        }
+      }
+    },
+    "signing.title" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Import signing certificate"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Importer un certificat de signature"
+          }
+        }
+      }
+    },
+    "signing.updateOnComputer" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Updates and renewal use the Cartouche Installer on your computer with your imported certificate. No weekly Apple ID renewal is needed."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Les mises à jour et le renouvellement passent par le Cartouche Installer sur votre ordinateur avec votre certificat importé. Aucun renouvellement hebdomadaire par compte Apple n’est nécessaire."
+          }
+        }
+      }
+    },
+    "signing.use" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Use this certificate"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Utiliser ce certificat"
+          }
+        }
+      }
+    },
+    "signing.useAccount" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Use Apple ID signing"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Utiliser la signature par compte Apple"
+          }
+        }
+      }
+    },
+    "signing.wait" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Wait for the current sign-in or update to finish before changing certificates."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Attendez la fin de la connexion ou de la mise à jour avant de changer de certificat."
           }
         }
       }

@@ -115,7 +115,7 @@
     "install_step_download": "Télécharger Cartouche",
     "install_step_check": "Vérifier l’IPA",
     "install_step_install": "La signer et l’installer, avec la mémoire augmentée",
-    "install_step_pairing": "Mettre le fichier de jumelage dans Cartouche",
+    "install_step_pairing": "Préparation de Cartouche",
     "pairing_title": "Fichier de jumelage",
     "pairing_success_title": "Fichier de jumelage en place",
     "pairing_success_message": "Cartouche le trouve toute seule."
@@ -262,5 +262,17 @@
       ]
     },
     "support_message": "Si cela continue, touchez Copier et collez l’erreur dans une <issues>issue de Cartouche</issues>."
+  },
+  "signing": {
+    "title": "Signature",
+    "choice_hint": "Utilisez un certificat FlareStore ou un autre P12, ou connectez-vous avec un compte Apple.",
+    "imported": "Importer un certificat",
+    "hint": "Choisissez votre P12 et son profil de provisionnement Apple. La signature se fait sur cet ordinateur, sans compte Apple.",
+    "choose_p12": "Choisir le certificat P12",
+    "choose_profile": "Choisir le profil de provisionnement",
+    "password": "Mot de passe du P12 (laisser vide si le P12 n’est pas chiffré)",
+    "limitations": "Les jeux prennent la place de Cartouche. Les extensions et le renouvellement hebdomadaire par SideStore sont désactivés. Les mises à jour passent par cet installateur. Les droits mémoire dépendent du profil.",
+    "needs_files": "Choisissez un P12 et son profil de provisionnement.",
+    "needs_ready": "Sélectionnez un iPhone et fournissez les éléments de signature."
   }
 }

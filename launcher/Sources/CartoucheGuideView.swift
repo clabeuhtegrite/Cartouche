@@ -61,7 +61,7 @@ struct CartoucheGuideView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 14) {
                 header(progress)
-                ForEach(Step.allCases) { step in
+                ForEach(Step.allCases.filter { progress.requiresAccount || ($0 != .vpn && $0 != .account) }) { step in
                     card(step, progress: progress)
                 }
                 Label(CartoucheText.guideNoDownloads, systemImage: "lock.shield")
@@ -137,7 +137,7 @@ struct CartoucheGuideView: View {
                 .foregroundStyle(CartoucheTheme.secondaryText)
                 .fixedSize(horizontal: false, vertical: true)
             HStack(spacing: 6) {
-                ForEach(Step.allCases) { step in
+                ForEach(Step.allCases.filter { progress.requiresAccount || ($0 != .vpn && $0 != .account) }) { step in
                     Capsule()
                         .fill(capsuleStyle(step, progress))
                         .frame(height: 6)
@@ -149,7 +149,7 @@ struct CartoucheGuideView: View {
     }
 
     private func intro(_ progress: CartoucheGuide.Progress) -> String {
-        guard progress.isFinished else { return CartoucheText.guideIntro }
+        guard progress.isFinished else { return progress.requiresAccount ? CartoucheText.guideIntro : CartoucheText.guideImportedIntro }
         return progress.buildSkipped ? CartoucheText.guideFinishedIntroNoMac : CartoucheText.guideFinishedIntro
     }
 

@@ -118,7 +118,7 @@ final class CartoucheUpdates: ObservableObject {
     }
 
     /// Whether this build can update itself.
-    var canUpdate: Bool { Self.bridge != nil && Self.sourceURL != nil && Self.bundleIdentifier != nil }
+    var canUpdate: Bool { !CartoucheImportedSigning.accountSigningDisabled && Self.bridge != nil && Self.sourceURL != nil && Self.bundleIdentifier != nil }
 
     /// Whether the player can start the update now: the built-in SideStore
     /// needs the certificate and the pairing file, as for a renewal.
@@ -223,6 +223,7 @@ final class CartoucheUpdates: ObservableObject {
 
     /// Has the built-in SideStore install the available version.
     func start() {
+        guard !CartoucheImportedSigning.accountSigningDisabled else { return }
         guard phase == nil, let release = available else { return }
         isOffered = false
         notice = nil

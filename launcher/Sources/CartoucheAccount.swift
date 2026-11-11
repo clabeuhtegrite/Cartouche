@@ -87,7 +87,7 @@ final class CartoucheAccount: ObservableObject {
 
     /// Has the built-in SideStore sign in with this Apple ID.
     func signIn(appleID: String, password: String) {
-        guard phase == nil, CartoucheSignInMessage.canSignIn(appleID: appleID, password: password) else { return }
+        guard !CartoucheImportedSigning.accountSigningDisabled, phase == nil, CartoucheSignInMessage.canSignIn(appleID: appleID, password: password) else { return }
         problemReport = nil
         signedIn = false
         isAutomatic = false
@@ -123,7 +123,7 @@ final class CartoucheAccount: ObservableObject {
     /// password it keeps, for the certificate that signs Cartouche. Does
     /// nothing when it keeps none: the setup then asks the player.
     func signInAgain() {
-        guard phase == nil,
+        guard !CartoucheImportedSigning.accountSigningDisabled, phase == nil,
               let appleID = CartoucheStoreKeychain.string("appleIDEmailAddress"),
               let password = CartoucheStoreKeychain.string("appleIDPassword") else { return }
         signIn(appleID: appleID, password: password)

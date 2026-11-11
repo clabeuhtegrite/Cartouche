@@ -2,6 +2,11 @@
 //  CartoucheSetup.swift
 //  Cartouche
 //
+//  Imported signing is an alternative to the account setup below: the
+//  installer or the setup's import screen supplies a P12 and profile, the
+//  keychain keeps them, and no Apple ID, pairing file or VPN is needed for
+//  playing. CartoucheImportedSigning manages that selection and validation.
+//
 //  What Cartouche needs before it plays games and renews itself, and what it
 //  does on its own:
 //
@@ -102,6 +107,9 @@ enum CartoucheCertificate {
     /// LiveContainer has a certificate now.
     @discardableResult
     static func handOff() -> Bool {
+        if CartoucheImportedSigning.isSelected {
+            return CartoucheImportedSigning.material != nil && isInstalled
+        }
         guard let data = CartoucheStoreKeychain.data("signingCertificate") else { return isInstalled }
         let password = CartoucheStoreKeychain.data("signingCertificatePassword")
             .flatMap { String(data: $0, encoding: .utf8) } ?? ""
@@ -127,13 +135,28 @@ enum CartoucheCertificate {
     /// with an old one when the account has too many, fails it, and so would
     /// every game, with "the app is signed with the latest certificate but
     /// its signature is invalid".
-    static func works() async -> Bool {
+    private static let probeQueue = DispatchQueue(label: "io.github.clabeuhtegrite.cartouche.certificateProbe", qos: .userInitiated)
+
+    static func works(candidate: CartoucheSigningMaterial? = nil) async -> Bool {
         await withCheckedContinuation { continuation in
-            // The test waits for the signing on the thread it runs on.
-            DispatchQueue.global(qos: .userInitiated).async {
-                LCUtils.validateJITLessSetup { success, _ in
-                    continuation.resume(returning: success)
+            probeQueue.async {
+                let finished = DispatchSemaphore(value: 0)
+                if let candidate {
+                    LCSharedUtils.setCartoucheSigningCandidate([
+                        "certificate": candidate.certificate, "password": candidate.password
+                    ])
                 }
+                LCUtils.validateJITLessSetup { success, _ in
+                    // The native probe deletes its test library after this
+                    // callback. Finish on the next main-queue turn before
+                    // allowing another probe to use the same temporary file.
+                    DispatchQueue.main.async {
+                        if candidate != nil { LCSharedUtils.setCartoucheSigningCandidate(nil) }
+                        continuation.resume(returning: success)
+                        finished.signal()
+                    }
+                }
+                finished.wait()
             }
         }
     }
@@ -251,6 +274,9 @@ final class CartoucheSetup: ObservableObject {
     @Published private(set) var certificateWorks: Bool?
     @Published private(set) var hasPairingFile = false
     @Published private(set) var appleID: String?
+    @Published private(set) var usesImportedSigning = CartoucheImportedSigning.isSelected
+    @Published private(set) var isImportingSigning = false
+    @Published private(set) var signingProblem: String?
     /// Why the last pairing file given to Cartouche was refused, and the
     /// report on it.
     @Published private(set) var pairingReport: CartoucheReport?
@@ -260,22 +286,23 @@ final class CartoucheSetup: ObservableObject {
     @Published var openedPairingFile = false
 
     /// Games start once LiveContainer has the certificate, and it works.
-    var canPlay: Bool { hasCertificate && certificateWorks != false }
+    var canPlay: Bool { !isImportingSigning && hasCertificate && certificateWorks != false }
     /// LiveContainer has a certificate that iOS no longer accepts.
     var certificateRefused: Bool { hasCertificate && certificateWorks == false }
     /// Cartouche also renews and updates itself once SideStore has the
     /// pairing file and is signed in, and the certificate is known to work:
     /// an update signed with a revoked one would not open.
-    var isComplete: Bool { hasCertificate && certificateWorks == true && hasPairingFile && appleID != nil }
+    var isComplete: Bool { hasCertificate && certificateWorks == true && (usesImportedSigning || (hasPairingFile && appleID != nil)) }
     /// Whether the setup has something left for the player: a certificate
     /// still being checked does not show it.
-    var needsSetup: Bool { !(canPlay && hasPairingFile && appleID != nil) }
+    var needsSetup: Bool { !(canPlay && (usesImportedSigning || (hasPairingFile && appleID != nil))) }
 
     /// What Cartouche found of each certificate, for this launch.
     private var checked: [Data: Bool] = [:]
     private var checking: Data?
     /// The refused certificates SideStore was asked to replace, once each.
     private var replacing: Set<Data> = []
+    private var tookSigningHandoff = false
 
     private init() {
         refresh()
@@ -285,6 +312,31 @@ final class CartoucheSetup: ObservableObject {
     /// LiveContainer: call it each time Cartouche comes to the front, since
     /// the player signs in from SideStore.
     func refresh() {
+        guard !isImportingSigning else { return }
+        usesImportedSigning = CartoucheImportedSigning.isSelected
+        LCUtils.appGroupUserDefault.set(CartoucheImportedSigning.accountSigningDisabled, forKey: CartoucheImportedSigning.disabledKey)
+        let handoff = LCPath.docPath.appendingPathComponent(CartoucheImportedSigning.handoffName)
+        if !tookSigningHandoff && FileManager.default.fileExists(atPath: handoff.path) {
+            tookSigningHandoff = true
+            isImportingSigning = true
+            Task {
+                do {
+                    let data = try Data(contentsOf: handoff)
+                    let values = try PropertyListSerialization.propertyList(from: data, format: nil) as? [String: Any]
+                    if values?["source"] as? String == "account", !CartoucheImportedSigning.isImportedInstall {
+                        CartoucheImportedSigning.selectImported(false)
+                    } else {
+                        let material = try PropertyListDecoder().decode(CartoucheSigningMaterial.self, from: data)
+                        try await CartoucheImportedSigning.importMaterial(material)
+                    }
+                    signingProblem = nil
+                } catch { signingProblem = error.localizedDescription }
+                try? FileManager.default.removeItem(at: handoff)
+                isImportingSigning = false
+                finishSigningImport()
+            }
+            return
+        }
         hasCertificate = CartoucheCertificate.handOff()
         checkCertificate()
         if CartouchePairing.takeDroppedFile() { pairingReport = nil }
@@ -328,6 +380,34 @@ final class CartoucheSetup: ObservableObject {
 
     // MARK: Whether the certificate works
 
+    func importSigning(certificate: Data, password: String, profile: Data) async {
+        guard !isImportingSigning else { return }
+        isImportingSigning = true
+        do {
+            try await CartoucheImportedSigning.importMaterial(.init(certificate: certificate, password: password, profile: profile))
+            signingProblem = nil
+        } catch { signingProblem = error.localizedDescription }
+        isImportingSigning = false
+        finishSigningImport()
+    }
+
+    private func finishSigningImport() {
+        checked.removeAll()
+        checking = nil
+        certificateWorks = nil
+        refresh()
+    }
+
+    func useAccountSigning() {
+        guard !isImportingSigning, !CartoucheImportedSigning.isImportedInstall else { return }
+        CartoucheImportedSigning.selectImported(false)
+        for target in [LCUtils.appGroupUserDefault, UserDefaults.standard] {
+            target.removeObject(forKey: "LCCertificateData")
+            target.removeObject(forKey: "LCCertificatePassword")
+        }
+        finishSigningImport()
+    }
+
     /// Checks LiveContainer's certificate once per launch, and each time it
     /// changes.
     private func checkCertificate() {
@@ -362,7 +442,7 @@ final class CartoucheSetup: ObservableObject {
         // SideStore signs in again with the Apple ID it keeps, and takes the
         // certificate that signs Cartouche: the player only steps in should
         // Apple ask for a code, or the sign-in fail.
-        if !works, !replacing.contains(certificate) {
+        if !works, !CartoucheImportedSigning.accountSigningDisabled, !replacing.contains(certificate) {
             replacing.insert(certificate)
             if #available(iOS 17.0, *) { CartoucheAccount.shared.signInAgain() }
         }

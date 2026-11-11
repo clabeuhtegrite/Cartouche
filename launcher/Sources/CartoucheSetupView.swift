@@ -26,53 +26,72 @@ struct CartoucheSetupView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
                 header
-                step(
-                    number: 1,
-                    done: setup.hasPairingFile,
-                    title: CartoucheText.setupPairingTitle,
-                    detail: setup.hasPairingFile ? CartoucheText.setupPairingDone : CartoucheText.setupPairingHow
-                ) {
-                    Button {
-                        choosingPairingFile = true
-                    } label: {
-                        Label(setup.hasPairingFile ? CartoucheText.setupPairingReplace : CartoucheText.setupPairingChoose,
-                              systemImage: "doc.badge.plus")
-                    }
-                    .buttonStyle(.bordered)
-                    if let pairingReport = setup.pairingReport {
-                        Label(pairingReport.message, systemImage: "exclamationmark.triangle.fill")
-                            .font(.footnote)
-                            .foregroundStyle(.red)
-                        CartoucheReportButton(report: pairingReport)
-                            .font(.footnote)
-                            .buttonStyle(.bordered)
-                    }
-                }
-                step(
-                    number: 2,
-                    done: setup.appleID != nil,
-                    title: CartoucheText.setupAppleIDTitle,
-                    detail: setup.appleID.map(CartoucheText.setupAppleIDDone) ?? CartoucheText.setupAppleIDHow
-                ) {
-                    if setup.appleID == nil || !setup.hasCertificate || setup.certificateRefused {
-                        // SideStore registers this iPhone at sign-in, through
-                        // the pairing file.
+                if !setup.usesImportedSigning {
+                    step(
+                        number: 1,
+                        done: setup.hasPairingFile,
+                        title: CartoucheText.setupPairingTitle,
+                        detail: setup.hasPairingFile ? CartoucheText.setupPairingDone : CartoucheText.setupPairingHow
+                    ) {
                         Button {
-                            signingIn = true
+                            choosingPairingFile = true
                         } label: {
-                            Label(setup.appleID == nil ? CartoucheText.setupSignIn : CartoucheText.signInAgain,
-                                  systemImage: "person.crop.circle.badge.checkmark")
+                            Label(setup.hasPairingFile ? CartoucheText.setupPairingReplace : CartoucheText.setupPairingChoose,
+                                  systemImage: "doc.badge.plus")
                         }
-                        .buttonStyle(.borderedProminent)
-                        .disabled(!setup.hasPairingFile)
+                        .buttonStyle(.bordered)
+                        if let pairingReport = setup.pairingReport {
+                            Label(pairingReport.message, systemImage: "exclamationmark.triangle.fill")
+                                .font(.footnote)
+                                .foregroundStyle(.red)
+                            CartoucheReportButton(report: pairingReport)
+                                .font(.footnote)
+                                .buttonStyle(.bordered)
+                        }
+                    }
+                    step(
+                        number: 2,
+                        done: setup.appleID != nil,
+                        title: CartoucheText.setupAppleIDTitle,
+                        detail: setup.appleID.map(CartoucheText.setupAppleIDDone) ?? CartoucheText.setupAppleIDHow
+                    ) {
+                        if setup.appleID == nil || !setup.hasCertificate || setup.certificateRefused {
+                            // SideStore registers this iPhone at sign-in, through
+                            // the pairing file.
+                            Button {
+                                signingIn = true
+                            } label: {
+                                Label(setup.appleID == nil ? CartoucheText.setupSignIn : CartoucheText.signInAgain,
+                                      systemImage: "person.crop.circle.badge.checkmark")
+                            }
+                            .buttonStyle(.borderedProminent)
+                            .disabled(!setup.hasPairingFile)
+                        }
                     }
                 }
                 step(
-                    number: 3,
+                    number: setup.usesImportedSigning ? 1 : 3,
                     done: setup.hasCertificate && setup.certificateWorks == true,
                     title: CartoucheText.setupCertificateTitle,
                     detail: certificateDetail
                 ) {
+                    NavigationLink {
+                        CartoucheSigningView()
+                    } label: {
+                        Label(CartoucheText.signingTitle, systemImage: "signature")
+                    }
+                    .buttonStyle(.bordered)
+                    if let problem = setup.signingProblem {
+                        Text(problem).font(.footnote).foregroundStyle(.red)
+                    }
+                    if setup.isImportingSigning { ProgressView(CartoucheText.setupCertificateChecking) }
+                    if setup.usesImportedSigning {
+                        Text(CartoucheText.signingUpdateOnComputer).font(.footnote).foregroundStyle(.secondary)
+                        if !CartoucheImportedSigning.isImportedInstall {
+                            Button(CartoucheText.signingUseAccount) { setup.useAccountSigning() }
+                                .disabled(setup.isImportingSigning)
+                        }
+                    }
                     if !setup.hasCertificate {
                         Button(CartoucheText.setupCheckAgain, systemImage: "arrow.clockwise") {
                             setup.refresh()
@@ -80,7 +99,7 @@ struct CartoucheSetupView: View {
                         .buttonStyle(.bordered)
                     }
                 }
-                renewalNote
+                if !setup.usesImportedSigning { renewalNote }
             }
             .padding()
             .frame(maxWidth: 640)
@@ -109,6 +128,10 @@ struct CartoucheSetupView: View {
     }
 
     private var certificateDetail: String {
+        if setup.usesImportedSigning {
+            if setup.certificateRefused { return CartoucheText.signingRefused }
+            if !setup.hasCertificate { return CartoucheText.signingHow }
+        }
         guard setup.hasCertificate else { return CartoucheText.setupCertificateHow }
         switch setup.certificateWorks {
         case true?: return CartoucheText.setupCertificateDone
@@ -239,6 +262,7 @@ extension CartoucheSetup {
     }
 
     func bannerDetail(signingInAgain: Bool) -> String {
+        if usesImportedSigning { return certificateRefused ? CartoucheText.signingRefused : CartoucheText.signingHow }
         if certificateRefused {
             return signingInAgain ? CartoucheText.setupBannerCertificateRenewing : CartoucheText.setupBannerCertificateDetail
         }
