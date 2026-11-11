@@ -16,6 +16,15 @@
       "bundleIdentifier": "io.github.clabeuhtegrite.cartouche",
       "versions": [
         {
+          "version": "0.11.1",
+          "date": "2026-11-11T19:31:58Z",
+          "localizedDescription": "Errors now say why they happened, so that each one can be fixed sooner.\n\n- Measurements: each error Cartouche sends says its cause, from a fixed list, the step it stopped at, how far it got and how long it took. For the Apple ID sign-in, the renewal and the update of Cartouche, which the built-in SideStore runs, it also says where SideStore stopped and Apple's code, and a sign-in that goes through says how long it took. Never an error's words, your Apple ID, a path or an address. System › Game measurements lists what is sent, with the switch that turns it off.\n- Reports: Copy the report, under an error, now gives the error's cause too.\n- Mac: Cartouche Builder 0.4.1's errors say where in its engine they happened, and Cartouche Builder updates itself to it.",
+          "downloadURL": "https://github.com/clabeuhtegrite/Cartouche/releases/download/v0.11.1/Cartouche-0.11.1.ipa",
+          "size": 28110532,
+          "sha256": "7da825d6e1f254ee55daca193033cea9fa567f68998b543aab5c82550df41985",
+          "minOSVersion": "15.0"
+        },
+        {
           "version": "0.11.0",
           "date": "2026-11-11T02:04:56Z",
           "localizedDescription": "Your saves follow you, even after Cartouche is installed again, and Your first game no longer insists on a Mac.\n\n- Saves: each game's saves stay in step with your saves folder, both ways. Before a game starts, Cartouche takes the newest copy when the folder has one, as after another iPhone played it; after the game, the saves that changed go. When both changed, the saves written last win, and the others stay in the folder as a copy with their date.\n- Saves: a game installed again, as after Cartouche itself was installed again, gets its saves back. Your servers and folders, without their passwords, are now also kept in the keychain, which iOS keeps when an app is deleted, so a new install of Cartouche finds your storage again: open this version once before you uninstall Cartouche.\n- Games: a game's sheet shows what came and what was kept, the last sync, and Sync with … now.\n- Memory: with Game Mode, Cartouche has about 8 GiB on a 12 GB iPhone, and a game behind the console about 6 GiB. A game that needs more than it has behind the console starts in Cartouche's place; the others wait behind the console. A game's sheet compares its peak with the most memory Play can give it.\n- Setup: in Your first game, No thanks skips the Mac's step, for games built already or without a Mac. The home's card has a × that takes it away, and System › Your first game opens the guide again. Send the steps to my Mac sends Cartouche Builder's page.\n- iPhone Duo: unfolded, before your first game, the console takes the whole display, and a game's sheet moves beside it once you have one. All games' filters scroll from edge to edge.\n- Mac: Cartouche Builder 0.3.0 opens a setup assistant at its first start, and 0.2.0 updates itself to it.",
@@ -94,15 +103,6 @@
           "downloadURL": "https://github.com/clabeuhtegrite/Cartouche/releases/download/v0.5.1/Cartouche-0.5.1.ipa",
           "size": 25629529,
           "sha256": "ca4c41fd44cdcefcd005c18efce6776eec2960ab19ccc82ed237543935b6755a",
-          "minOSVersion": "15.0"
-        },
-        {
-          "version": "0.4.0",
-          "date": "2026-11-06T21:40:27Z",
-          "localizedDescription": "Updates from inside Cartouche, and storage that copes with large games and read-only shared folders.\n\n- Updates: Cartouche looks for its new versions itself, when it opens and when you come back to it, and offers them over the console with Update and Later. The System page shows them too, with what's new, and Check for an update. The built-in SideStore installs the new version without a computer and without showing itself, with LocalDevVPN connected, then Cartouche goes to the home screen for iOS to install it: open it again. Your games and their saves stay.\n- This is the first version that updates itself: install it once with the Cartouche Installer, over the Cartouche you have. The next ones come from inside Cartouche.\n- Storage: copying a large game to your storage, such as Mario Kart World to a NAS, no longer closes Cartouche partway through.\n- Storage: a shared folder your account can only read shows as read-only. Its games still install, but it takes no saves and no copy of a game.",
-          "downloadURL": "https://github.com/clabeuhtegrite/Cartouche/releases/download/v0.4.0/Cartouche-0.4.0.ipa",
-          "size": 36876394,
-          "sha256": "3d002488611caffb74bc092ea81fdc66f419f6d60b13aae315cd0f8414144452",
           "minOSVersion": "15.0"
         }
       ]
