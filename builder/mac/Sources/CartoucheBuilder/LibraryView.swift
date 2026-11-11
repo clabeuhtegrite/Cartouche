@@ -113,10 +113,18 @@ struct LibraryView: View {
     private var subtitle: String {
         guard let library = model.library else { return tr("Reading your games…", "Lecture de vos jeux…") }
         let count = library.games.count
-        let due = library.due.count
         let gamesText = tr("\(count) game\(count == 1 ? "" : "s")", "\(count) jeu\(count == 1 ? "" : "x")")
-        guard due > 0 else { return gamesText + tr(", all up to date", ", tous à jour") }
-        return gamesText + " · " + tr("\(due) to rebuild", "\(due) à reconstruire")
+        var parts = [gamesText]
+        // While a batch builds: its games, and those still to rebuild.
+        let states = library.games.compactMap { model.progress($0.titleID)?.state }
+        let building = states.filter { $0 == "building" }.count
+        let waiting = states.filter { $0 == "queued" }.count
+        if building > 0 { parts.append(tr("\(building) building", "\(building) en construction")) }
+        if waiting > 0 { parts.append(tr("\(waiting) waiting", "\(waiting) en attente")) }
+        let due = model.dueOutsideBatch.count
+        if due > 0 { parts.append(tr("\(due) to rebuild", "\(due) à reconstruire")) }
+        guard parts.count > 1 else { return gamesText + tr(", all up to date", ", tous à jour") }
+        return parts.joined(separator: " · ")
     }
 }
 
