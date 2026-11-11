@@ -6,7 +6,9 @@
 //  iPhone bridge and the Mac's tools), its settings, and an item in the
 //  menu bar that keeps it at hand when the window is closed. Started with
 //  --gallery FOLDER, it saves pictures of its screens with sample games
-//  instead (Gallery.swift), for CI; with --background, as after an update
+//  instead (Gallery.swift), for CI; with --layout-check, it takes its window
+//  through what a player does on sample games and checks that everything
+//  fits (LayoutCheck.swift), for CI; with --background, as after an update
 //  it installed by itself, it opens in the menu bar only.
 //
 
@@ -24,6 +26,7 @@ enum Main {
             Gallery.run(into: URL(fileURLWithPath: arguments[index + 1]))
             return
         }
+        if LayoutCheck.requested { LayoutCheck.prepare() }
         CartoucheBuilderApp.main()
     }
 }
@@ -42,7 +45,7 @@ struct CartoucheBuilderApp: App {
                 .environmentObject(model.covers)
                 .environmentObject(model.updater)
                 .environmentObject(model.telemetry)
-                .frame(minWidth: 940, minHeight: 620)
+                .frame(minWidth: Columns.window.width, minHeight: Columns.window.height)
         }
         .defaultSize(width: 1220, height: 780)
         .defaultLaunchBehavior(AppModel.launchedQuietly ? .suppressed : .automatic)
@@ -73,6 +76,10 @@ struct CartoucheBuilderApp: App {
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
+        if LayoutCheck.requested {
+            LayoutCheck.start()
+            return
+        }
         UNUserNotificationCenter.current().delegate = self
         Task { @MainActor in
             await AppModel.shared.start()

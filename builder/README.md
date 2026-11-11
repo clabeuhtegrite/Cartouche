@@ -112,6 +112,8 @@ swift test --package-path mac
 
 `mac/bundle.sh` makes `Cartouche Builder.app` with the engine inside, and `mac/make_dmg.sh` its disk image. Started with `--gallery FOLDER`, the app saves a picture of each page on sample games, in English and French, light and dark: the **Builder** workflow takes them for each pull request and keeps them on the branch `builder-screens/<branch>`.
 
+Started with `--layout-check`, the app opens its window on sample games whose nxnative commits are as long as nxnative's own, takes it through a game's sheet, widths from 1600 points to below its least, the sidebar hidden and shown and each page, and ends with an error when a column leaves the window or AppKit raises an exception ([`LayoutCheck.swift`](mac/Sources/CartoucheBuilder/LayoutCheck.swift)): the **Builder** workflow runs it once the app is built. The columns' widths are in `Columns` ([`Theme.swift`](mac/Sources/CartoucheBuilder/Theme.swift)): the window is never narrower than the sidebar at its widest, a page and a game's sheet, and each page lays out what it holds to fit its column.
+
 ### Publishing a version
 
 A version is the one in `pyproject.toml`, with its notes in `RELEASE.md`. On `main`, run the **Builder** workflow from the Actions tab with **Publish** ticked: it tests and builds the app, makes its disk image and publishes both with the SHA-256 as the release `builder-v<version>`, without GitHub's Latest mark, which stays Cartouche's. Each copy of the app finds it within six hours, and the workflow publishes the site again, whose buttons and download page then give this version ([site/README.md](../site/README.md#publishing)).

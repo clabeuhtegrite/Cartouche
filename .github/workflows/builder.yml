@@ -112,6 +112,35 @@ jobs:
         run: swift test --package-path builder/mac
       - name: Build the app
         run: builder/mac/bundle.sh build/builder
+      # The app as the player opens it, on sample games whose nxnative
+      # commits are as long as nxnative's own, taken through a game's sheet,
+      # the window down to its smallest, the sidebar and each page: every
+      # column must fit in the window, and AppKit raise nothing
+      # (LayoutCheck.swift).
+      - name: Check the window's layout
+        id: layout
+        timeout-minutes: 5
+        run: '"build/builder/Cartouche Builder.app/Contents/MacOS/Cartouche Builder" --layout-check'
+      # The exception that ended it: what AppKit logged, and the crash
+      # report macOS writes, when it has written one.
+      - name: Say how it ended
+        if: ${{ failure() && steps.layout.outcome == 'failure' }}
+        run: |
+          log show --last 10m --style compact --predicate 'process == "Cartouche Builder"' 2>/dev/null \
+            | grep -iE "exception|constraint|terminat|assert" | tail -n 40 || true
+          sleep 20
+          for report in "$HOME"/Library/Logs/DiagnosticReports/*Cartouche*.ips /Library/Logs/DiagnosticReports/*Cartouche*.ips; do
+            [ -f "$report" ] || continue
+            echo "== $report"
+            python3 - "$report" <<'PY'
+          import json, sys
+          body = open(sys.argv[1]).read().partition("\n")[2]
+          report = json.loads(body)
+          print(report.get("exception"), report.get("asi"))
+          for frame in report.get("lastExceptionBacktrace", [])[:45]:
+              print(" ", frame.get("symbol"), "+", frame.get("symbolLocation"))
+          PY
+          done
       # dmgbuild and the two packages it needs, at the versions and hashes
       # of builder/mac/Resources/dmg/requirements.txt, on a Python 3.10 or
       # later, which they need.

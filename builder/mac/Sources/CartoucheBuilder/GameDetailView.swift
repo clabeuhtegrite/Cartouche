@@ -5,6 +5,9 @@
 //  A game's sheet, beside the library: why it is due, nxnative's commits
 //  that touched it since its build, its build and its IPA, and what can be
 //  done: rebuild it, follow it or not, name it as nxnative's commits do.
+//  nxnative writes its commits in English, a paragraph each: the sheet says
+//  why in the player's words, and shows each commit's first lines, the
+//  rest when asked.
 //
 
 import BuilderKit
@@ -19,7 +22,7 @@ struct GameDetailView: View {
             VStack(alignment: .leading, spacing: 18) {
                 header
                 actions
-                if !game.detail.isEmpty || !game.reasons.isEmpty {
+                if !whyLines.isEmpty {
                     why
                 }
                 if let progress = model.progress(game.titleID) {
@@ -41,9 +44,9 @@ struct GameDetailView: View {
     }
 
     private var header: some View {
-        HStack(alignment: .top, spacing: 14) {
+        HStack(alignment: .top, spacing: 12) {
             CoverView(game: game)
-                .frame(width: 96)
+                .frame(width: 76)
                 .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
                 .shadow(color: .black.opacity(0.2), radius: 6, y: 3)
             VStack(alignment: .leading, spacing: 6) {
@@ -58,9 +61,21 @@ struct GameDetailView: View {
                 Label(look.text, systemImage: look.symbol)
                     .font(.callout.weight(.medium))
                     .foregroundStyle(look.color)
+                    .fixedSize(horizontal: false, vertical: true)
                     .padding(.top, 2)
             }
-            Spacer(minLength: 0)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            Button {
+                model.selection = nil
+            } label: {
+                Image(systemName: "xmark")
+                    .font(.callout.weight(.semibold))
+                    .foregroundStyle(.secondary)
+                    .frame(width: 22, height: 22)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.borderless)
+            .help(tr("Close its sheet", "Fermer sa fiche"))
         }
     }
 
@@ -109,18 +124,31 @@ struct GameDetailView: View {
     private var why: some View {
         SheetPart(title: tr("Why", "Pourquoi")) {
             VStack(alignment: .leading, spacing: 6) {
-                if !game.detail.isEmpty {
-                    Text(game.detail)
-                        .font(.callout)
-                        .fixedSize(horizontal: false, vertical: true)
-                } else {
-                    ForEach(game.reasons, id: \.self) { reason in
-                        Label(reasonText(reason), systemImage: "smallcircle.filled.circle")
-                            .font(.callout)
+                ForEach(whyLines, id: \.self) { line in
+                    Label {
+                        Text(line)
+                            .fixedSize(horizontal: false, vertical: true)
+                    } icon: {
+                        Image(systemName: "smallcircle.filled.circle")
+                            .foregroundStyle(.secondary)
                     }
+                    .font(.callout)
                 }
             }
         }
+    }
+
+    /// Why the game is as it is, a line each. For a game to build, its
+    /// reasons in the player's words: the engine's sentence quotes nxnative's
+    /// commits, in English and cut short, which the list below shows whole.
+    /// For a game up to date, the engine's sentence, which quotes none and
+    /// says when nxnative's shared changes are due.
+    private var whyLines: [String] {
+        let reasons = game.reasons.filter { $0 != "up_to_date" }
+        if reasons.isEmpty {
+            return game.detail.split(separator: ";").map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }
+        }
+        return reasons.map { whyText($0, counts: game.changeCounts) }
     }
 
     private func failure(_ attempt: GameAttempt) -> some View {
@@ -151,11 +179,8 @@ struct GameDetailView: View {
 
     private var changes: some View {
         SheetPart(title: tr("nxnative since its build", "nxnative depuis sa construction"), trailing: counts) {
-            VStack(alignment: .leading, spacing: 10) {
-                ForEach(game.changes.prefix(30)) { change in
-                    ChangeRow(change: change, link: model.library?.engine?.page(of: change.sha))
-                }
-            }
+            ChangeList(changes: Array(game.changes.prefix(30)), engine: model.library?.engine)
+                .id(game.titleID)
         }
     }
 
@@ -251,15 +276,47 @@ struct Fact: View {
     }
 }
 
-struct ChangeRow: View {
-    let change: Change
-    let link: URL?
+/// nxnative's commits since the game's build, the newest first: the first
+/// few, the others when asked.
+struct ChangeList: View {
+    static let shown = 4
+    let changes: [Change]
+    let engine: EngineCommit?
+    @State private var all = false
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 3) {
+        VStack(alignment: .leading, spacing: 12) {
+            ForEach(all ? changes : Array(changes.prefix(ChangeList.shown))) { change in
+                ChangeRow(change: change, link: engine?.page(of: change.sha))
+            }
+            if changes.count > ChangeList.shown {
+                Button(all ? tr("Show fewer", "En montrer moins")
+                           : tr("Show the \(changes.count - ChangeList.shown) others", "Voir les \(changes.count - ChangeList.shown) autres")) {
+                    withAnimation(.snappy) { all.toggle() }
+                }
+                .buttonStyle(.link)
+                .font(.callout)
+            }
+        }
+    }
+}
+
+/// A commit of nxnative: its first lines, all of it when asked, its kind,
+/// its link and when it was made.
+struct ChangeRow: View {
+    /// Longer than this, a commit's text is cut to its first lines.
+    static let long = 80
+    let change: Change
+    let link: URL?
+    @State private var open = false
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
             Text(change.subject)
                 .font(.callout)
+                .lineLimit(open ? nil : 2)
                 .fixedSize(horizontal: false, vertical: true)
+                .textSelection(.enabled)
             HStack(spacing: 6) {
                 Text(changeKindText(change.kind))
                     .font(.caption2.weight(.semibold))
@@ -267,16 +324,25 @@ struct ChangeRow: View {
                     .padding(.vertical, 2)
                     .background(Capsule().fill(change.kind == "shared" ? Color.secondary.opacity(0.15) : Theme.indigo.opacity(0.15)))
                 if let link {
-                    Link(change.short, destination: link)
+                    Link(change.short.prefix(7), destination: link)
                         .font(.caption.monospaced())
                 } else {
-                    Text(change.short)
+                    Text(change.short.prefix(7))
                         .font(.caption.monospaced())
                         .foregroundStyle(.secondary)
                 }
                 Text(Format.relative(change.date))
                     .font(.caption)
                     .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                Spacer(minLength: 4)
+                if change.subject.count > ChangeRow.long {
+                    Button(open ? tr("Less", "Moins") : tr("More", "Plus")) {
+                        withAnimation(.snappy) { open.toggle() }
+                    }
+                    .buttonStyle(.link)
+                    .font(.caption)
+                }
             }
         }
     }

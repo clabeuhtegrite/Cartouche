@@ -4,7 +4,8 @@
 //
 //  Every game: those of the sources folder and those of the games folder
 //  that have only their IPA, by their covers, with what nxnative improved
-//  and a button that rebuilds them. A game chosen opens its sheet beside.
+//  and a button that rebuilds them. A game chosen opens its sheet beside
+//  them, and chosen again closes it.
 //
 
 import BuilderKit
@@ -48,38 +49,45 @@ struct LibraryView: View {
     }
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 22) {
-                PageHeader(title: tr("Library", "Bibliothèque"), subtitle: subtitle) {
-                    Picker("", selection: $filter) {
-                        ForEach(LibraryFilter.allCases) { Text($0.title).tag($0) }
+        HStack(spacing: 0) {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 22) {
+                    PageHeader(title: tr("Library", "Bibliothèque"), subtitle: subtitle) {
+                        FilterPicker(filter: $filter)
                     }
-                    .pickerStyle(.segmented)
-                    .labelsHidden()
-                    .frame(maxWidth: 420)
-                }
-                if let problems = model.library?.problems, !problems.isEmpty {
-                    ProblemsCard(problems: problems)
-                }
-                if filter != .upToDate, let library = model.library, !library.due.isEmpty {
-                    DueCard(due: library.due)
-                }
-                if model.library == nil {
-                    LoadingCard()
-                } else if games.isEmpty {
-                    EmptyLibrary(filter: filter, searching: !search.isEmpty)
-                } else {
-                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 150, maximum: 190), spacing: 22, alignment: .top)], alignment: .leading, spacing: 26) {
-                        ForEach(games) { game in
-                            GameCard(game: game, selected: model.selection == game.titleID)
-                                .onTapGesture { model.selection = game.titleID }
-                                .contextMenu { GameMenu(game: game) }
+                    if let problems = model.library?.problems, !problems.isEmpty {
+                        ProblemsCard(problems: problems)
+                    }
+                    if filter != .upToDate, let library = model.library, !library.due.isEmpty {
+                        DueCard(due: library.due)
+                    }
+                    if model.library == nil {
+                        LoadingCard()
+                    } else if games.isEmpty {
+                        EmptyLibrary(filter: filter, searching: !search.isEmpty)
+                    } else {
+                        LazyVGrid(columns: [GridItem(.adaptive(minimum: 150, maximum: 190), spacing: 22, alignment: .top)], alignment: .leading, spacing: 26) {
+                            ForEach(games) { game in
+                                GameCard(game: game, selected: model.selection == game.titleID)
+                                    .onTapGesture { model.selection = model.selection == game.titleID ? nil : game.titleID }
+                                    .contextMenu { GameMenu(game: game) }
+                            }
                         }
                     }
                 }
+                .padding(28)
             }
-            .padding(28)
+            // The game's sheet, in a column of its own width (Columns): not
+            // the system's inspector, which on macOS 27 made the page wider
+            // than the window until AppKit ended the app.
+            if let game = model.game(model.selection) {
+                Divider()
+                GameDetailView(game: game)
+                    .frame(width: Columns.sheet)
+                    .transition(.move(edge: .trailing))
+            }
         }
+        .animation(.snappy(duration: 0.25), value: model.selection != nil)
         .searchable(text: $search, placement: .toolbar, prompt: tr("Search a game", "Chercher un jeu"))
         .toolbar {
             ToolbarItemGroup(placement: .primaryAction) {
@@ -100,13 +108,6 @@ struct LibraryView: View {
                 }
             }
         }
-        .inspector(isPresented: Binding(get: { model.selection != nil && model.game(model.selection) != nil },
-                                        set: { if !$0 { model.selection = nil } })) {
-            if let game = model.game(model.selection) {
-                GameDetailView(game: game)
-                    .inspectorColumnWidth(min: 320, ideal: 360, max: 460)
-            }
-        }
     }
 
     private var subtitle: String {
@@ -116,6 +117,30 @@ struct LibraryView: View {
         let gamesText = tr("\(count) game\(count == 1 ? "" : "s")", "\(count) jeu\(count == 1 ? "" : "x")")
         guard due > 0 else { return gamesText + tr(", all up to date", ", tous à jour") }
         return gamesText + " · " + tr("\(due) to rebuild", "\(due) à reconstruire")
+    }
+}
+
+/// Which games the library shows: in segments, or in a menu when the page
+/// is too narrow for them.
+struct FilterPicker: View {
+    @Binding var filter: LibraryFilter
+
+    var body: some View {
+        ViewThatFits(in: .horizontal) {
+            picker
+                .pickerStyle(.segmented)
+                .fixedSize()
+            picker
+                .pickerStyle(.menu)
+                .fixedSize()
+        }
+    }
+
+    private var picker: some View {
+        Picker(tr("Show", "Afficher"), selection: $filter) {
+            ForEach(LibraryFilter.allCases) { Text($0.title).tag($0) }
+        }
+        .labelsHidden()
     }
 }
 
@@ -213,44 +238,33 @@ struct CoverView: View {
     }
 }
 
-/// The games nxnative improved, and one button for all of them.
+/// The games nxnative improved, and one button for all of them: in a row,
+/// the button under them when the page is narrower, and the covers above
+/// the words when it is narrower still.
 struct DueCard: View {
     @EnvironmentObject private var model: AppModel
     let due: [Game]
 
     var body: some View {
-        HStack(spacing: 18) {
-            HStack(spacing: -18) {
-                ForEach(due.prefix(4)) { game in
-                    CoverView(game: game)
-                        .frame(width: 54)
-                        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
-                        .overlay(RoundedRectangle(cornerRadius: 8, style: .continuous).strokeBorder(.background, lineWidth: 2))
-                        .shadow(radius: 3)
-                }
+        ViewThatFits(in: .horizontal) {
+            HStack(spacing: 18) {
+                covers
+                texts
+                    .frame(idealWidth: 260, maxWidth: .infinity, alignment: .leading)
+                button
             }
-            VStack(alignment: .leading, spacing: 4) {
-                Text(title)
-                    .font(.headline)
-                Text(names)
-                    .font(.callout)
-                    .foregroundStyle(.secondary)
-                    .lineLimit(2)
-            }
-            Spacer(minLength: 12)
-            if model.isBuilding {
-                Button(tr("See the builds", "Voir les constructions")) { model.section = .activity }
-                    .controlSize(.large)
-            } else {
-                Button {
-                    model.build()
-                } label: {
-                    Label(tr("Rebuild all", "Tout reconstruire"), systemImage: "sparkles")
-                        .padding(.horizontal, 6)
+            VStack(alignment: .leading, spacing: 14) {
+                HStack(spacing: 14) {
+                    covers
+                    texts
+                        .frame(idealWidth: 200, maxWidth: .infinity, alignment: .leading)
                 }
-                .buttonStyle(.borderedProminent)
-                .controlSize(.large)
-                .disabled(!model.canBuild)
+                button
+            }
+            VStack(alignment: .leading, spacing: 12) {
+                covers
+                texts
+                button
             }
         }
         .padding(18)
@@ -263,6 +277,47 @@ struct DueCard: View {
             RoundedRectangle(cornerRadius: Theme.corner, style: .continuous)
                 .strokeBorder(Theme.indigo.opacity(0.25))
         )
+    }
+
+    private var covers: some View {
+        HStack(spacing: -18) {
+            ForEach(due.prefix(4)) { game in
+                CoverView(game: game)
+                    .frame(width: 54)
+                    .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                    .overlay(RoundedRectangle(cornerRadius: 8, style: .continuous).strokeBorder(.background, lineWidth: 2))
+                    .shadow(radius: 3)
+            }
+        }
+    }
+
+    private var texts: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(title)
+                .font(.headline)
+                .fixedSize(horizontal: false, vertical: true)
+            Text(names)
+                .font(.callout)
+                .foregroundStyle(.secondary)
+                .lineLimit(2)
+        }
+    }
+
+    @ViewBuilder private var button: some View {
+        if model.isBuilding {
+            Button(tr("See the builds", "Voir les constructions")) { model.section = .activity }
+                .controlSize(.large)
+        } else {
+            Button {
+                model.build()
+            } label: {
+                Label(tr("Rebuild all", "Tout reconstruire"), systemImage: "sparkles")
+                    .padding(.horizontal, 6)
+            }
+            .buttonStyle(.borderedProminent)
+            .controlSize(.large)
+            .disabled(!model.canBuild)
+        }
     }
 
     private var title: String {
@@ -298,17 +353,22 @@ struct ProblemsCard: View {
                             .font(.callout)
                             .foregroundStyle(.secondary)
                     }
-                    HStack {
-                        SettingsLink {
-                            Text(tr("Choose the folders…", "Choisir les dossiers…"))
-                        }
-                        if model.library?.folders?.remote == true {
-                            Button(tr("Connect the NAS again", "Reconnecter le NAS")) { model.mountShares() }
-                        }
+                    ViewThatFits(in: .horizontal) {
+                        HStack { buttons }
+                        VStack(alignment: .leading) { buttons }
                     }
                     .padding(.top, 4)
                 }
             }
+        }
+    }
+
+    @ViewBuilder private var buttons: some View {
+        SettingsLink {
+            Text(tr("Choose the folders…", "Choisir les dossiers…"))
+        }
+        if model.library?.folders?.remote == true {
+            Button(tr("Connect the NAS again", "Reconnecter le NAS")) { model.mountShares() }
         }
     }
 }
