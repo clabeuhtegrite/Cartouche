@@ -8,11 +8,16 @@ It runs nxnative's own build script, as nxnative's [front-end page](https://gith
 
 [Download Cartouche Builder](https://clabeuhtegrite.github.io/Cartouche/download/#builder), or use the button on [Cartouche's site](https://clabeuhtegrite.github.io/Cartouche/#builder): the disk image downloads at once. Open it, and drag **Cartouche Builder** onto **Applications**. The app is signed ad hoc, not by Apple: the first time, macOS says it cannot check it. Open **System Settings › Privacy & Security** and click **Open Anyway** beside Cartouche Builder, once. Its updates open without asking again.
 
-At its first start the app shows what it does and sets up the Mac, with no Terminal:
+At its first start a setup assistant opens, with no Terminal, and opens again at each start until it is gone through to its end. Nothing is chosen for you: every folder starts empty, and the app reads nothing another app left on the Mac. Its steps, on the left with what is done and what is missing; each choice is saved as you make it, and all of them can be changed later in the settings, where **Advanced › Open the setup assistant** opens it again:
 
-- **This Mac's tools:** what nxnative builds with, checked and installed for you. Xcode 27.2 comes from the App Store, with Apple's licence, which the app opens for you; Homebrew from its own installer, which asks for your Mac's password; then `xcodegen`, `zstd` and `glslang`, Python 3.12 or later, Xcode's iOS platform and Metal toolchain, nxnative and its Python environment, in the background. Since its commit 641636e2 (10 November 2026) nxnative needs no .NET.
-- **Your games:** where your dumps are and where the IPAs go, on the Mac or on your NAS.
-- **Cartouche on the iPhone:** whether the Mac shares its games and saves with Cartouche ([The iPhone](#the-iphone)).
+1. **Welcome:** what the app does.
+2. **This Mac's tools:** what nxnative builds with, checked and installed for you. Xcode 27.2 comes from the App Store, with Apple's licence, which the app opens for you; Homebrew from its own installer, which asks for your Mac's password; then `xcodegen`, `zstd` and `glslang`, Python 3.12 or later, Xcode's iOS platform and Metal toolchain, nxnative and its Python environment, in the background. The next steps can be done while they install. Since its commit 641636e2 (10 November 2026) nxnative needs no .NET.
+3. **Your dumps:** the folder with one folder per game, on the Mac or on your NAS, with the number of games found in it.
+4. **Games folder:** where the IPAs go, on the Mac (the assistant can create `Cartouche Games` in your home folder) or on your NAS. For a NAS, type its share's address (`smb://…`) and the Finder connects it, then choose the folder in it.
+5. **Keys:** `prod.keys`, for games given as packages only.
+6. **At night:** whether to build what is due every night, and when; notifications.
+7. **iPhone:** whether the Mac shares its games and saves with Cartouche ([The iPhone](#the-iphone)), how to pair it, and opening at login.
+8. **Ready:** what each step chose, with a button back to it.
 
 A Mac that builds nxnative games has Apple silicon and macOS 26.6 or later. The step by step guide, from the iPhone to the first game: [docs/getting-started.md](../docs/getting-started.md#2-build-your-game-on-your-mac).
 
@@ -78,13 +83,6 @@ Documentation, tests and nxnative's own tooling never make a game due. A game wh
 ## The nightly run
 
 **Build what is due every night**, in the settings, installs a launchd agent of your session (`~/Library/LaunchAgents/io.github.clabeuhtegrite.cartouche-builder.plist`) that runs `cartouche-builder build` at that time, with `caffeinate` keeping the Mac awake while it builds. A Mac asleep at that time runs it when it wakes. A sources or games folder on a network share that is not mounted is mounted again, with the password saved in the keychain. One batch runs at a time: the nightly run leaves the app's batch alone. A notification says how it went, and **Builds** keeps each batch's report.
-
-## Coming from NxNative Batch Builder
-
-At its first start, Cartouche Builder takes over NxNative Batch Builder's settings (its sources, IPA and build folders, `prod.keys` and the games you ticked) and the games it built, with the nxnative commit of each, from `~/Library/Application Support/NxNative Batch Builder`; it only reads them. Only the games ticked there are followed: the plan shows the others as not ticked, with the nxnative commit of their last build, until you follow them in the library. Its build folders stay where they are and are reused as they are. Two of its features are not taken over:
-
-- The ZIP archives of build folders on the NAS: a build folder stays on the Mac, under the size limit you set, instead of going to the NAS and back for each build.
-- Three builds at once: one by default, since nxnative uses every core for one game and a large game needs most of a 16 GB Mac's memory. The settings allow up to four.
 
 ## Where it keeps things
 

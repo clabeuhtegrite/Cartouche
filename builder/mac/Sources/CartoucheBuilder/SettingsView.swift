@@ -460,7 +460,10 @@ struct AdvancedSettings: View {
                 LabeledContent(tr("Version", "Version"), value: model.info?.version ?? "—")
                 LabeledContent("Python", value: model.engine?.python.path ?? "—")
                 Button(tr("Show its folder in the Finder", "Afficher son dossier dans le Finder")) { model.reveal(model.home.root.path) }
-                Button(tr("Show the first-start guide", "Revoir le guide de démarrage")) { model.showOnboarding = true }
+                Button(tr("Open the setup assistant", "Ouvrir l’assistant de configuration")) {
+                    model.showMainWindow()
+                    model.openSetup()
+                }
             }
         }
         .formStyle(.grouped)

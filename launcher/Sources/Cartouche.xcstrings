@@ -602,13 +602,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Import the IPA of a supported game that you built on your Mac from your own copy."
+            "value" : "Import the IPA of a supported game, made from your own copy."
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Importez l’IPA d’un jeu pris en charge, construite sur votre Mac à partir de votre propre copie."
+            "value" : "Importez l’IPA d’un jeu pris en charge, créée à partir de votre propre copie."
           }
         }
       }
@@ -970,23 +970,6 @@
         }
       }
     },
-    "guide.build.link" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "https://github.com/clabeuhtegrite/Cartouche/blob/main/docs/getting-started.md#2-build-your-game-on-your-mac"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "https://github.com/clabeuhtegrite/Cartouche/blob/main/docs/getting-started.fr.md#2-construisez-votre-jeu-sur-votre-mac"
-          }
-        }
-      }
-    },
     "guide.build.mac" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -1068,6 +1051,40 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Cartouche sur votre Mac"
+          }
+        }
+      }
+    },
+    "guide.build.skip" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No thanks"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Non merci"
+          }
+        }
+      }
+    },
+    "guide.build.skipped" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Skipped: your games will come from your games folder, or from an IPA you import."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Étape passée : vos jeux viendront du dossier des jeux, ou d’une IPA que vous importerez."
           }
         }
       }
@@ -1157,6 +1174,23 @@
         }
       }
     },
+    "guide.finished.introNoMac" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Your first game is on this iPhone. The next ones go the same way."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Votre premier jeu est sur cet iPhone. Les suivants prennent le même chemin."
+          }
+        }
+      }
+    },
     "guide.finished.title" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -1225,6 +1259,23 @@
         }
       }
     },
+    "guide.folder.howNoMac" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Choose the folder that holds your games, on your NAS, another server of yours or in Files: Cartouche lists them and offers their updates."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Choisissez le dossier qui contient vos jeux, sur votre NAS, un autre serveur à vous ou dans Fichiers : Cartouche les liste et propose leurs mises à jour."
+          }
+        }
+      }
+    },
     "guide.folder.import" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -1255,6 +1306,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Choisissez le dossier des jeux"
+          }
+        }
+      }
+    },
+    "guide.hide" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hide the guide"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Masquer le guide"
           }
         }
       }
@@ -1395,6 +1463,57 @@
         }
       }
     },
+    "guide.play.waitingNoMac" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No game in your games folder yet. Yours shows here as soon as it is there. You can also import an IPA."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pas encore de jeu dans le dossier des jeux. Le vôtre apparaît ici dès qu’il s’y trouve. Vous pouvez aussi importer une IPA."
+          }
+        }
+      }
+    },
+    "guide.status.done" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Done"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Terminé"
+          }
+        }
+      }
+    },
+    "guide.status.step" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Step %1$lld of %2$lld"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Étape %1$lld sur %2$lld"
+          }
+        }
+      }
+    },
     "guide.step.done" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -1408,6 +1527,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "%@, fait"
+          }
+        }
+      }
+    },
+    "guide.step.skipped" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@, skipped"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@, passée"
           }
         }
       }
@@ -1809,13 +1945,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Needs about %1$@; Cartouche may use %2$@ on this iPhone."
+            "value" : "Needs about %1$@; a game may use %2$@ on this iPhone."
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Nécessite environ %1$@ ; Cartouche peut utiliser %2$@ sur cet iPhone."
+            "value" : "Nécessite environ %1$@ ; un jeu peut utiliser %2$@ sur cet iPhone."
           }
         }
       }
@@ -2411,6 +2547,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "iOS a fermé le jeu près de sa limite de %@ derrière Cartouche. Désormais, il démarre à la place de Cartouche, avec toute la mémoire de Cartouche."
+          }
+        }
+      }
+    },
+    "running.stopped.memory.behind" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "iOS closed the game near its limit of %@ behind Cartouche: in Cartouche’s place, it would have no more memory. Your progress is kept up to its last save."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "iOS a fermé le jeu près de sa limite de %@ derrière Cartouche : à la place de Cartouche, il n’aurait pas plus de mémoire. Votre progression est gardée jusqu’à sa dernière sauvegarde."
           }
         }
       }
@@ -8167,13 +8320,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Your games share this limit. With Increased Memory Limit, an iPhone with 12 GB allows about 6 GiB."
+            "value" : "Your games share this limit. With Increased Memory Limit, an iPhone with 12 GB allows Cartouche about 8 GiB."
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Vos jeux partagent cette limite. Avec la mémoire augmentée, un iPhone de 12 Go accorde environ 6 Gio."
+            "value" : "Vos jeux partagent cette limite. Avec la mémoire augmentée, un iPhone de 12 Go accorde environ 8 Gio à Cartouche."
           }
         }
       }
@@ -8184,13 +8337,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Games that start in Cartouche’s place share this limit; behind Cartouche, a game has its own. With Increased Memory Limit, an iPhone with 12 GB allows about 6 GiB."
+            "value" : "Games that start in Cartouche’s place share this limit; behind Cartouche, a game has its own, below. With Increased Memory Limit, an iPhone with 12 GB allows Cartouche about 8 GiB."
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Les jeux lancés à la place de Cartouche partagent cette limite ; derrière Cartouche, un jeu a la sienne. Avec la mémoire augmentée, un iPhone de 12 Go accorde environ 6 Gio."
+            "value" : "Les jeux lancés à la place de Cartouche partagent cette limite ; derrière Cartouche, un jeu a la sienne, ci-dessous. Avec la mémoire augmentée, un iPhone de 12 Go accorde environ 8 Gio à Cartouche."
           }
         }
       }
@@ -8337,13 +8490,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "The Home button over the game, or the controller’s, brings back the console and pauses the game. A game that needs more memory starts in Cartouche’s place, as before."
+            "value" : "The Home button over the game, or the controller’s, brings back the console and pauses the game. A game that needs more memory than it has here starts in Cartouche’s place, when Cartouche has more."
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Le bouton Home sur le jeu, ou celui de la manette, ramène la console et met le jeu en pause. Un jeu qui demande plus de mémoire démarre à la place de Cartouche, comme avant."
+            "value" : "Le bouton Home sur le jeu, ou celui de la manette, ramène la console et met le jeu en pause. Un jeu qui demande plus de mémoire qu’il n’en a ici démarre à la place de Cartouche, si Cartouche en a plus."
           }
         }
       }

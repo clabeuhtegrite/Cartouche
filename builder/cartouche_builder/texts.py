@@ -62,7 +62,6 @@ TEXTS: dict[str, tuple[str, str]] = {
     "plan.failed_here": ("Failed at this nxnative commit ({error}); tried again when nxnative or its files change", "Échec à ce commit de nxnative ({error}) ; réessayé quand nxnative ou ses fichiers changeront"),
     "plan.up_to_date": ("Up to date (nxnative {commit})", "À jour (nxnative {commit})"),
     "origin.builder": ("built here", "construit ici"),
-    "origin.legacy": ("NxNative Batch Builder", "NxNative Batch Builder"),
     "origin.ipa": ("read from the IPA", "lu dans l'IPA"),
     # ---- A build (build.py, batch.py)
     "build.no_start": ("nxnative's build script did not start: {error}", "Le script de construction de nxnative n'a pas démarré : {error}"),
