@@ -353,10 +353,9 @@
         user-select: none;
     }
     .ui .ic { width: 1em; height: 1em; flex: none; }
-    .island, .indicator, .punch { position: absolute; z-index: 9; pointer-events: none; }
+    .island, .indicator { position: absolute; z-index: 9; pointer-events: none; }
     .island { left: 50%; top: calc(11 * var(--pt)); width: calc(124 * var(--pt)); height: calc(36 * var(--pt)); transform: translateX(-50%); border-radius: 999px; background: #000; }
     .indicator { left: 50%; bottom: calc(8 * var(--pt)); width: calc(140 * var(--pt)); height: calc(5 * var(--pt)); transform: translateX(-50%); border-radius: 99px; background: rgba(255, 255, 255, .86); }
-    .punch { left: 50%; top: calc(15 * var(--pt)); width: calc(12 * var(--pt)); height: calc(12 * var(--pt)); transform: translateX(-50%); border-radius: 50%; background: #000; box-shadow: 0 0 0 calc(1.5 * var(--pt)) rgba(255, 255, 255, .05); }
     .statusbar {
         position: absolute;
         z-index: 9;
@@ -685,7 +684,6 @@
         .focus { --room: calc(100cqw - 36 * var(--pt)); padding: 0 calc(18 * var(--pt)); }
         .dock--bottom { display: flex; }
     }
-    .home--shelf .focus { display: none; }
 
     /* ---------- A game's sheet, its settings, the System page ---------- */
     .navtitle { position: absolute; z-index: 3; top: calc(66 * var(--pt)); left: 0; right: 0; text-align: center; font: 600 calc(17 * var(--pt))/1 var(--text); }
@@ -806,27 +804,6 @@
     .play[data-state="console"] .game *, .play[data-state="console"] .game *::before { animation-play-state: paused; }
     .demo-bar { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 12px 18px; margin-top: 26px; }
     .demo-bar p { color: var(--ink-3); font-size: .92rem; }
-
-    /* ---------- iPhone Duo ---------- */
-    .half { position: absolute; top: 0; bottom: 0; width: 50%; overflow: hidden; overflow: clip; container-type: size; }
-    .half--left { left: 0; }
-    .half--right { right: 0; }
-    .half .home__bar { padding-top: calc(30 * var(--pt)); }
-    .half .sheet__body { padding-top: calc(84 * var(--pt)); }
-    .half .okbtn { top: calc(22 * var(--pt)); }
-    .fold {
-        position: absolute;
-        z-index: 8;
-        top: 0;
-        bottom: 0;
-        left: 50%;
-        width: calc(18 * var(--pt));
-        transform: translateX(-50%);
-        background: linear-gradient(90deg, transparent, rgba(255, 255, 255, .05) 32%, rgba(0, 0, 0, .5) 50%, rgba(255, 255, 255, .05) 68%, transparent);
-        pointer-events: none;
-    }
-    .duo-stage { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 2.65fr); gap: clamp(24px, 4vw, 64px); align-items: end; margin-top: clamp(44px, 6vw, 72px); }
-    @media (max-width: 760px) { .duo-stage { grid-template-columns: minmax(0, 1fr); } .duo-stage figure:first-child { order: 2; } }
 
     /* ---------- Plain page parts ---------- */
     .panel { border-radius: 28px; background: var(--panel); box-shadow: inset 0 0 0 1px var(--line); }
@@ -1219,7 +1196,6 @@
             <a class="wordmark" href="#top" aria-label="Cartouche"><svg aria-hidden="true"><use href="#i-cartridge"/></svg><b>Cartouche</b></a>
             <nav class="nav" data-label-fr="Sections" data-label-en="Sections" aria-label="Sections">
                 <a href="#console"><span lang="fr">La console</span><span lang="en">Console</span></a>
-                <a href="#duo">Duo</a>
                 <a href="#storage"><span lang="fr">Stockage</span><span lang="en">Storage</span></a>
                 <a href="#builder">Builder</a>
                 <a href="#install"><span lang="fr">Installer</span><span lang="en">Install</span></a>
@@ -1333,37 +1309,6 @@
                 </div>
                 <div class="demo-bar">
                     <button type="button" class="btn btn--glass" data-pause-toggle></button>
-                </div>
-            </div>
-        </section>
-
-        <section class="section" id="duo" style="--light:#57E6BB;--dark:#145C66;--gx:86%;--gx2:14%">
-            <div class="wrap">
-                <div class="intro intro--wide">
-                    <div>
-                        <p class="label">iPhone Duo</p>
-                        <h2><span lang="fr">Plié, une console. Déplié, la fiche à côté.</span><span lang="en">Folded, a console. Unfolded, the sheet beside it.</span></h2>
-                    </div>
-                    <div class="prose">
-                        <p lang="fr">Déplié, l’accueil et la fiche du jeu en focus se partagent l’écran, chacun d’un côté du pli. La fiche suit le focus, au doigt ou à la manette, et ouvre les réglages sur place. Plier ou déplier garde votre place.</p>
-                        <p lang="en">Unfolded, the home and the sheet of the game in focus share the screen, one on each side of the fold. The sheet follows the focus, by touch or controller, and opens the settings in place. Folding or unfolding keeps your place.</p>
-                        <p lang="fr">Sur chaque iPhone, l’interface suit la place qu’elle a, jamais le modèle, et laisse libres le pli et les caméras.</p>
-                        <p lang="en">On every iPhone, the interface follows the space it has, never the model, and keeps clear of the fold and the cameras.</p>
-                    </div>
-                </div>
-                <div class="duo-stage">
-                    <figure>
-                        <div class="device" style="--w:466;--h:678;--r:42;--b:13;max-width:250px;--light:#E6BB57;--dark:#5C6614">
-                            <div class="device__body"><div class="screen" data-screen="duo-closed" role="img" data-label-fr="L’accueil sur l’iPhone Duo plié" data-label-en="The home on the folded iPhone Duo" aria-label="The home on the folded iPhone Duo"></div></div>
-                        </div>
-                        <figcaption><span lang="fr">Plié</span><span lang="en">Folded</span></figcaption>
-                    </figure>
-                    <figure>
-                        <div class="device" data-duo style="--w:890;--h:626;--r:30;--b:14;max-width:760px;--light:#E6BB57;--dark:#5C6614">
-                            <div class="device__body"><div class="screen" data-screen="duo-open"></div></div>
-                        </div>
-                        <figcaption><span lang="fr">Déplié · touchez une jaquette, la fiche suit</span><span lang="en">Unfolded · tap a cover, the sheet follows</span></figcaption>
-                    </figure>
                 </div>
             </div>
         </section>
@@ -1753,9 +1698,9 @@
 
     function home(o) {
         var games = o.games, g = games[o.index];
-        return '<div class="ui home' + (o.shelfOnly ? " home--shelf" : "") + (o.pausedId ? " home--paused" : "") + '">' +
+        return '<div class="ui home' + (o.pausedId ? " home--paused" : "") + '">' +
             stage(games, g.id) +
-            (o.statusbar === false ? "" : statusbar()) +
+            statusbar() +
             '<div class="home__bar"><span class="mark" aria-hidden="true"><i></i><b>Cartouche</b></span>' +
             '<span class="upill glass" aria-hidden="true">' + ic("gamepad") + "</span>" + dock("top", o.links) + "</div>" +
             '<div class="home__main"><p class="home__label">' + t("Ma bibliothèque", "My library") + "</p>" +
@@ -1764,15 +1709,14 @@
                 return tile(x, { focused: i === o.index, interactive: o.interactive, paused: o.pausedId === x.id, eager: o.eager, priority: o.eager && i === o.index, sizes: o.sizes });
             }).join("") +
             outline("import", t("Importer un jeu", "Import a game")) + outline("grid", t("Tous les jeux", "All games")) + "</div></div>" +
-            (o.shelfOnly ? "" : '<div class="focus" data-focus>' + focusInfo(g, o) + "</div>") + "</div>" +
+            '<div class="focus" data-focus>' + focusInfo(g, o) + "</div></div>" +
             dock("bottom", o.links) +
-            (o.punch ? '<i class="punch"></i>' : "") + (o.island ? '<i class="island"></i>' : "") + '<i class="indicator"></i></div>';
+            (o.island ? '<i class="island"></i>' : "") + '<i class="indicator"></i></div>';
     }
 
     // A game's sheet: Play and its settings for an installed game, Install
     // for one in the games folder; its play time and size; what it needs.
-    function sheet(g, o) {
-        o = o || {};
+    function sheet(g) {
         var stored = g.status === "stored";
         var actions = stored
             ? '<span class="ubtn ubtn--primary ubtn--wide">' + ic("download") + t("Installer depuis " + SERVER, "Install from " + SERVER) + "</span>" +
@@ -1783,7 +1727,7 @@
             ? '<div class="urow"><span class="urow__main">' + t("Dans " + SERVER, "In " + SERVER) + '</span><span class="urow__val">' + tt(g.stored) + "</span></div>"
             : '<div class="urow"><span class="urow__main">' + t("Temps de jeu", "Play time") + "<small>" + tt(g.sessions) + '</small></span><span class="urow__val">' + tt(g.time) + "</span></div>" +
               '<div class="urow"><span class="urow__main">' + t("Sur cet iPhone", "On this iPhone") + "<small>" + tt(g.detail) + '</small></span><span class="urow__val">' + tt(g.size) + "</span></div>";
-        return '<div class="ui sheet">' + stage([g], g.id) + (o.statusbar === false ? "" : statusbar()) +
+        return '<div class="ui sheet">' + stage([g], g.id) + statusbar() +
             '<span class="okbtn glass" aria-hidden="true">OK</span>' +
             '<div class="sheet__body"><div class="sheet__head"><span class="tile sheet__tile" style="--a:' + g.light + ";--b:" + g.dark + '" aria-hidden="true">' + cartridge(g, { sizes: "auto, 80px" }) + "</span>" +
             '<div><h3 class="sheet__title">' + g.name + '</h3><div class="sheet__chips">' + chips(g) + "</div>" +
@@ -1791,7 +1735,7 @@
             '<p class="ugroup">' + t("Temps de jeu et taille", "Play time and size") + '</p><div class="ucard">' + stats + "</div>" +
             '<div class="ucard"><div class="urow"><span class="ustat" style="--c:var(--ready)">' + ic("check") + '</span><span class="urow__main">' + t("Cet iPhone a tout ce qu’il faut", "This iPhone has what it needs") + "</span>" + ic("chevron", "urow__chev") + "</div></div>" +
             (stored ? "" : '<div class="ucard"><div class="urow urow--danger">' + ic("trash") + '<span class="urow__main">' + t("Désinstaller", "Uninstall") + "</span></div></div>") +
-            "</div>" + (o.island === false ? "" : '<i class="island"></i>') + '<i class="indicator"></i></div>';
+            '</div><i class="island"></i><i class="indicator"></i></div>';
     }
 
     function scaleText(s) {
@@ -1871,13 +1815,6 @@
             '<button type="button" class="homebtn glass" data-home data-label-fr="Home : revenir à la console" data-label-en="Home: back to the console" aria-label="Home: back to the console">' + ic("house") + "</button>" +
             '<div class="console">' + home({ games: OWNED, index: OWNED.indexOf(g), pausedId: g.id, island: false }) + "</div>" +
             '<i class="island"></i><i class="indicator"></i></div>';
-    }
-
-    function duoOpen(index) {
-        return '<div class="ui duo">' +
-            '<div class="half half--left" style="--w:445;--h:626">' + home({ games: OWNED, index: index, shelfOnly: true, interactive: true, statusbar: false, sizes: "auto, 140px" }) + "</div>" +
-            '<div class="half half--right" style="--w:445;--h:626" data-duo-sheet>' + sheet(OWNED[index], { statusbar: false, island: false }) + "</div>" +
-            '<i class="fold" aria-hidden="true"></i></div>';
     }
 
     // ---------- Cartouche Builder, on the Mac ----------
@@ -2090,12 +2027,8 @@
     $('[data-screen="sheet"]').innerHTML = sheet(BY_ID.stardew);
     $('[data-screen="settings"]').innerHTML = settings(BY_ID.stardew);
     $('[data-screen="system"]').innerHTML = system();
-    $('[data-screen="duo-closed"]').innerHTML = home({ games: OWNED, index: FIRST, punch: true });
     var pauseScreen = $('[data-screen="pause"]');
     pauseScreen.innerHTML = playScreen(BY_ID.mk8d);
-    var duoDevice = $("[data-duo]");
-    var duoScreen = $('[data-screen="duo-open"]');
-    duoScreen.innerHTML = duoOpen(FIRST);
 
     // The hero's home: the focus moves on by itself until the visitor takes over.
     function heroFocus(i) {
@@ -2164,20 +2097,6 @@
         else if (e.target.closest("[data-home]")) setPause("console");
     });
     toggle.addEventListener("click", function () { setPause(pauseState === "console" ? "game" : "console"); });
-
-    // The unfolded Duo: the sheet on the right follows the focus on the left.
-    var duoIndex = FIRST;
-    function duoFocus(e) {
-        var b = e.target.closest("button.tile");
-        if (!b) return;
-        var index = indexOfTile(b);
-        if (index === duoIndex) return;
-        duoIndex = index;
-        setFocus($(".half--left", duoScreen), OWNED, index, { light: duoDevice });
-        $("[data-duo-sheet]", duoScreen).innerHTML = sheet(OWNED[index], { statusbar: false, island: false });
-    }
-    duoScreen.addEventListener("click", duoFocus);
-    duoScreen.addEventListener("focusin", duoFocus);
 
     // Cartouche Builder's window: its sidebar leads to its pages, Rebuild
     // all to the batch, which goes on while the window is in view.
