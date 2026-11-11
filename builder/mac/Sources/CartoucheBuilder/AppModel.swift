@@ -99,9 +99,16 @@ final class AppModel: ObservableObject {
     @Published private(set) var checking = false
     @Published private(set) var loadingStorage = false
     @Published private(set) var cleaning = false
-    /// A batch asked for, until status.json shows it.
+    /// A batch asked for, until status.json shows it: a few seconds, or as
+    /// long as the engine's look at nxnative holds the batch lock, which the
+    /// batch waits for (batch.LOCK_WAIT).
     @Published private(set) var starting: Date?
+    /// The games that batch was asked for, waiting their turn in it meanwhile.
+    @Published private(set) var startingGames: [String] = []
     private var startingProcess: Process?
+    /// Where app-batch.log ended when the batch was asked for: what it says
+    /// since is that batch's.
+    private var startingLog: UInt64 = 0
     /// The games to ask the batch running for, one request after the other.
     private var toAsk: [(games: [String], force: Bool)] = []
     private var enqueueing = false
@@ -136,15 +143,19 @@ final class AppModel: ObservableObject {
         telemetry.language = L10n.code
         telemetry.start()
         setup.makeEngine = { [weak self] python in self?.makeEngine(python) }
-        setup.onReady = { [weak self] in
-            Task { await self?.toolsReady() }
-        }
         setup.onStep = { [weak self] item, outcome, seconds in
             self?.telemetry.event("builder.setup", fields: ["item": .text(item.rawValue), "result": .text(outcome), "seconds": .number(seconds.rounded())])
         }
         startUpdates()
         poll()
         await setup.refresh()
+        // From now on: the tools found ready at this first look are no news,
+        // and the library is checked below only if it was not for six hours.
+        // A check holds the batch lock, which a build asked for meanwhile
+        // waits for.
+        setup.onReady = { [weak self] in
+            Task { await self?.toolsReady() }
+        }
         if engine == nil, let python = await PythonFinder.find() { _ = makeEngine(python) }
         await loadConfig()
         // At once, before the library: its first check fetches nxnative.
@@ -324,20 +335,18 @@ final class AppModel: ObservableObject {
     // MARK: Builds
 
     var isBuilding: Bool { status?.running == true || starting != nil }
-    /// A game can be built, or added to the batch running: not in the few
-    /// seconds a batch takes to start.
-    var canBuild: Bool { engine != nil && starting == nil && setup.ready }
+    /// A game can be built, or added to the batch running or starting.
+    var canBuild: Bool { engine != nil && setup.ready }
 
     /// Builds GAMES (what is due when empty), again with FORCE. While a batch
-    /// runs, they wait their turn in it, built after its own games.
+    /// runs, or starts, they wait their turn in it, built after its own games.
     func build(_ games: [String] = [], force: Bool = false) {
         guard !sample else { return }
         guard engine != nil else {
             section = .setup
             return
         }
-        guard starting == nil else { return }
-        if status?.running == true || enqueueing {
+        if status?.running == true || starting != nil || enqueueing {
             let wanted = games.isEmpty ? dueOutsideBatch.map(\.titleID) : games.filter { progress($0) == nil }
             if !wanted.isEmpty { enqueue(wanted, force: force && !games.isEmpty) }
             return
@@ -347,12 +356,25 @@ final class AppModel: ObservableObject {
 
     private func start(_ games: [String], force: Bool) {
         guard let engine else { return }
+        let log = home.logs.appendingPathComponent("app-batch.log")
+        let logged = ((try? FileManager.default.attributesOfItem(atPath: log.path))?[.size] as? NSNumber)?.uint64Value ?? 0
+        let asked = games.isEmpty ? dueOutsideBatch.map(\.titleID) : games
         do {
             startingProcess = try engine.startBatch(games: games, force: force)
+            startingLog = logged
+            startingGames = asked
             starting = Date()
         } catch {
             show(error, origin: "build")
         }
+    }
+
+    /// The batch asked for is no longer starting: it runs, it ended, or it
+    /// never began.
+    private func startingDone() {
+        starting = nil
+        startingProcess = nil
+        startingGames = []
     }
 
     /// GAMES at the end of the batch running now, shown waiting at once.
@@ -366,10 +388,12 @@ final class AppModel: ObservableObject {
         enqueueing = true
         Task {
             defer { enqueueing = false }
-            while !toAsk.isEmpty {
+            while true {
                 while starting != nil {
                     try? await Task.sleep(nanoseconds: 500_000_000)
                 }
+                // A batch stopped before it ran leaves nothing to ask for.
+                guard !toAsk.isEmpty else { break }
                 let (games, force) = toAsk.removeFirst()
                 defer { adding.subtract(games) }
                 guard let engine else { continue }
@@ -397,7 +421,7 @@ final class AppModel: ObservableObject {
     /// left out; building, its build stops and the batch goes on with the
     /// next game.
     func takeOut(_ titleID: String) {
-        guard !sample, let engine else { return }
+        guard !sample, let engine, canTakeOut(titleID) else { return }
         let building = status?.current.contains(where: { $0.titleID == titleID }) ?? false
         Task {
             do {
@@ -421,19 +445,47 @@ final class AppModel: ObservableObject {
     }
 
     /// Stops the batch: the game building, and every game waiting its turn.
+    /// A batch asked for that does not run yet, waiting for the lock, ends
+    /// without starting. The process of a batch that ended is never sent
+    /// anything: its number may be another's by now.
     func stop() {
-        Engine.stopBatch(status)
+        if status?.running == true {
+            Engine.stopBatch(status)
+        } else if starting != nil {
+            if let startingProcess { Engine.stopStarting(startingProcess) }
+            toAsk.forEach { adding.subtract($0.games) }
+            toAsk = []
+            startingDone()
+        }
     }
 
     /// The progress of TITLE_ID in the batch running now: building, or
-    /// waiting its turn, in the batch or asked for and not taken yet.
+    /// waiting its turn, in the batch or asked for and not taken yet; or in
+    /// the batch asked for, until it runs.
     func progress(_ titleID: String) -> GameProgress? {
-        guard let status, status.running == true else { return nil }
-        if let found = status.games.first(where: { $0.titleID == titleID && ($0.state == "building" || $0.state == "queued") }) {
-            return found.state == "queued" && queue.stop.contains(titleID) ? nil : found
+        if let status, status.running == true {
+            if let found = status.games.first(where: { $0.titleID == titleID && ($0.state == "building" || $0.state == "queued") }) {
+                return found.state == "queued" && queue.stop.contains(titleID) ? nil : found
+            }
+            guard adding.contains(titleID) || queue.waiting(for: status.pid).contains(titleID) else { return nil }
+        } else {
+            guard starting != nil, startingGames.contains(titleID) || adding.contains(titleID) else { return nil }
         }
-        guard adding.contains(titleID) || queue.waiting(for: status.pid).contains(titleID) else { return nil }
         return GameProgress(titleID: titleID, name: library?.game(titleID)?.name ?? titleID, state: "queued")
+    }
+
+    /// Whether Stop stops more than one game: those of the batch running, or
+    /// of the batch asked for, until it runs.
+    var stopsSeveral: Bool {
+        let building = status?.running == true ? status?.current.count ?? 0 : 0
+        return building + waiting.count > 1
+    }
+
+    /// Whether TITLE_ID can be taken out of the batch now: one runs, and the
+    /// game was asked of it. Until the batch asked for runs, its games can
+    /// only be stopped with it.
+    func canTakeOut(_ titleID: String) -> Bool {
+        status?.running == true && !adding.contains(titleID)
     }
 
     /// Whether TITLE_ID, building, was taken out of the batch: its build is
@@ -443,9 +495,16 @@ final class AppModel: ObservableObject {
     }
 
     /// The games waiting their turn in the batch running now, in the order
-    /// they will be built: the batch's own, then those asked for.
+    /// they will be built: the batch's own, then those asked for. Until the
+    /// batch asked for runs, the games it was asked for, then those since.
     var waiting: [GameProgress] {
-        guard let status, status.running == true else { return [] }
+        guard let status, status.running == true else {
+            guard starting != nil else { return [] }
+            var seen = Set<String>()
+            return (startingGames + adding.sorted()).filter { seen.insert($0).inserted }.map {
+                GameProgress(titleID: $0, name: library?.game($0)?.name ?? $0, state: "queued")
+            }
+        }
         var list = status.queued.filter { !queue.stop.contains($0.titleID) }
         var seen = Set(status.games.filter { $0.state == "building" || $0.state == "queued" }.map(\.titleID))
         for titleID in queue.waiting(for: status.pid) + adding.sorted() where !seen.contains(titleID) {
@@ -486,10 +545,14 @@ final class AppModel: ObservableObject {
         if asked != queue { queue = asked }
         if let starting {
             if let fresh, fresh.running == true, (fresh.startedDate ?? .distantPast) >= starting.addingTimeInterval(-5) {
-                self.starting = nil
+                startingDone()
             } else if let fresh, fresh.running == false, let ended = fresh.endedDate, ended >= starting.addingTimeInterval(-5) {
-                self.starting = nil
+                startingDone()
                 batchEnded(fresh)
+            } else if fresh?.running == true, let process = startingProcess, !process.isRunning, process.terminationStatus == 0 {
+                // Another batch began first, the nightly one: the games asked
+                // for went to its queue (cli._build).
+                startingDone()
             } else if startingProcess?.isRunning != true || Date().timeIntervalSince(starting) > 600 {
                 // The batch ended, or never began, without a word in status.json:
                 // how long it was waited for, how the engine ended and the
@@ -503,9 +566,9 @@ final class AppModel: ObservableObject {
                     fields["running"] = .flag(startingProcess != nil)
                 }
                 if let exception = FailureDetails.exception(in: lastLogLines(80)) { fields["exception"] = .text(exception) }
-                self.starting = nil
-                startingProcess = nil
-                banner = Banner(kind: .error, text: tr("The build did not start: ", "La construction n’a pas démarré : ") + lastLogLines())
+                let said = lastLogLines()
+                startingDone()
+                banner = Banner(kind: .error, text: tr("The build did not start: ", "La construction n’a pas démarré : ") + said)
                 telemetry.event("builder.error", fields: fields)
             }
         }
@@ -520,10 +583,16 @@ final class AppModel: ObservableObject {
         }
     }
 
+    /// The last lines the batch asked for wrote in app-batch.log: none of an
+    /// earlier batch's.
     private func lastLogLines(_ count: Int = 3) -> String {
         let log = home.logs.appendingPathComponent("app-batch.log")
-        guard let text = try? String(contentsOf: log, encoding: .utf8) else { return "" }
-        return text.split(whereSeparator: \.isNewline).suffix(count).joined(separator: "\n")
+        guard let handle = try? FileHandle(forReadingFrom: log) else { return "" }
+        defer { try? handle.close() }
+        let end = (try? handle.seekToEnd()) ?? 0
+        try? handle.seek(toOffset: startingLog <= end ? startingLog : 0)
+        guard let data = try? handle.readToEnd() else { return "" }
+        return String(decoding: data, as: UTF8.self).split(whereSeparator: \.isNewline).suffix(count).joined(separator: "\n")
     }
 
     private func batchEnded(_ status: BatchStatus) {
@@ -788,6 +857,15 @@ final class AppModel: ObservableObject {
     /// nxnative being checked, or done, for the layout check.
     func preview(checking: Bool) {
         guard sample else { return }
+        self.checking = checking
+    }
+
+    /// A batch asked for GAMES that does not run yet, waiting for the check
+    /// of nxnative to end (CHECKING), or none, for the layout check.
+    func preview(starting games: [String], checking: Bool) {
+        guard sample else { return }
+        startingGames = games
+        starting = games.isEmpty ? nil : Date()
         self.checking = checking
     }
 }

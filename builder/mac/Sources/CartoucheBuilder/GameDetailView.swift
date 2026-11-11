@@ -104,10 +104,10 @@ struct GameDetailView: View {
                                 .frame(maxWidth: .infinity)
                         }
                         .controlSize(.large)
-                        .disabled(model.adding.contains(game.titleID))
+                        .disabled(!model.canTakeOut(game.titleID))
                     }
-                } else if model.status?.running == true {
-                    // A build is running: this one waits its turn.
+                } else if model.isBuilding {
+                    // A build is running, or starting: this one waits its turn.
                     Button {
                         model.build([game.titleID], force: game.state != .due)
                     } label: {

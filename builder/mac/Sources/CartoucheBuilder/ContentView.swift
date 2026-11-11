@@ -57,9 +57,15 @@ struct Sidebar: View {
     @EnvironmentObject private var model: AppModel
     @EnvironmentObject private var setup: MacSetup
     @EnvironmentObject private var bridge: BridgeController
+    /// The page chosen in the list. The list writes its selection while
+    /// SwiftUI updates the window (a click, an arrow key), where the model
+    /// may not publish a change: SwiftUI says so, each time, and its
+    /// behaviour is then undefined. The model takes the page just after, and
+    /// the list follows the model when another part of the app turns the page.
+    @State private var chosen: AppSection?
 
     var body: some View {
-        List(selection: Binding(get: { model.section }, set: { if let section = $0 { model.section = section } })) {
+        List(selection: $chosen) {
             ForEach(AppSection.allCases) { section in
                 row(section)
                     .tag(section)
@@ -69,6 +75,17 @@ struct Sidebar: View {
         .safeAreaInset(edge: .bottom) {
             EngineFooter()
                 .padding(12)
+        }
+        .onAppear { chosen = model.section }
+        .onChange(of: chosen) { _, section in
+            if let section {
+                if section != model.section { model.section = section }
+            } else {
+                chosen = model.section
+            }
+        }
+        .onChange(of: model.section) { _, section in
+            if chosen != section { chosen = section }
         }
     }
 

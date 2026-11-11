@@ -49,7 +49,7 @@ struct MenuBarView: View {
             if model.isBuilding {
                 building
             }
-            if model.starting == nil, !model.dueOutsideBatch.isEmpty {
+            if !model.dueOutsideBatch.isEmpty {
                 improved(model.dueOutsideBatch)
             }
             if case let .ready(release) = updater.state {
@@ -101,7 +101,16 @@ struct MenuBarView: View {
     }
 
     @ViewBuilder private var building: some View {
-        if let status = model.status {
+        if model.status?.running != true {
+            // The batch asked for, until it runs.
+            HStack(spacing: 8) {
+                ProgressView()
+                    .controlSize(.small)
+                Text(model.checking ? tr("Checking nxnative first…", "Vérification de nxnative d’abord…") : tr("Starting…", "Démarrage…"))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+        } else if let status = model.status {
             ForEach(status.current, id: \.titleID) { progress in
                 HStack(spacing: 10) {
                     cover(progress.titleID)
@@ -126,7 +135,7 @@ struct MenuBarView: View {
                     .foregroundStyle(.secondary)
             }
             Spacer()
-            Button(model.waiting.isEmpty ? tr("Stop", "Arrêter") : tr("Stop all", "Tout arrêter")) { model.stop() }
+            Button(model.stopsSeveral ? tr("Stop all", "Tout arrêter") : tr("Stop", "Arrêter")) { model.stop() }
                 .controlSize(.small)
         }
     }
