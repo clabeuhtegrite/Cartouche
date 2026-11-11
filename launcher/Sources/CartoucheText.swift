@@ -318,7 +318,7 @@ enum CartoucheText {
     // MARK: Installing, starting and uninstalling a game
 
     static func installTitle(_ name: String) -> String { f("work.install.title", "Installing %@", name) }
-    static var installUnpacking: String { s("work.install.unpacking", "Unpacking the IPA. Keep Cartouche open: a large game takes a few minutes.") }
+    static var installUnpacking: String { s("work.install.unpacking", "Unpacking the IPA.") }
     static var installSigning: String { s("work.signing", "Signing it for this iPhone") }
     static var installFailed: String { s("work.install.failed", "The game was not installed") }
     static var installSignWarning: String { s("work.install.signWarning", "Installed, but not signed") }
@@ -335,7 +335,7 @@ enum CartoucheText {
     static func uninstallTitle(_ name: String) -> String { f("work.uninstall.title", "Uninstalling %@", name) }
     static var uninstallStep: String { s("work.uninstall.step", "Removing it from this iPhone") }
     static var uninstallFailed: String { s("work.uninstall.failed", "The game was not uninstalled") }
-    static func installFromStorageStep(_ server: String) -> String { f("work.install.stored", "Unpacking it from %@ as it arrives. Keep Cartouche open: a large game takes several minutes.", server) }
+    static func installFromStorageStep(_ server: String) -> String { f("work.install.stored", "Unpacking it from %@ as it arrives.", server) }
     static func installFromStorageNoSpace(needed: String, free: String) -> String {
         f("work.install.stored.noSpace", "Installing this game takes about %1$@ of free space, and this iPhone has %2$@. Free some space, then install it again.", needed, free)
     }
@@ -344,7 +344,7 @@ enum CartoucheText {
         f("work.install.stored.lost", "The connection to %1$@ dropped and did not come back within three minutes. Install the game again once the network is back. (%2$@)", server, reason)
     }
     static func exportTitle(_ name: String) -> String { f("work.export.title", "Copying %@", name) }
-    static func exportStep(_ server: String) -> String { f("work.export.step", "Copying it to %@. Keep Cartouche open: a large game takes several minutes.", server) }
+    static func exportStep(_ server: String) -> String { f("work.export.step", "Copying it to %@.", server) }
     static var exportFailed: String { s("work.export.failed", "The game was not copied") }
     static func exportNoSpace(needed: String, server: String, free: String) -> String {
         f("work.export.noSpace", "The copy takes about %1$@, and %2$@ has %3$@ free. Free some space there, then copy the game again.", needed, server, free)
@@ -352,6 +352,22 @@ enum CartoucheText {
     static var exportUnreadable: String { s("work.export.unreadable", "Cartouche could not read the installed game.") }
     static var savesFinishing: String { s("work.start.saves", "Cartouche first finishes syncing your saves.") }
     static func savesSyncing(_ server: String) -> String { f("work.saves.syncing", "Syncing your saves with %@", server) }
+
+    // MARK: A game's transfer, outside Cartouche
+
+    static var workKeepOpen: String { s("work.keepOpen", "Keep Cartouche open: a large game takes several minutes.") }
+    static var workCanLeave: String { s("work.canLeave", "You can leave Cartouche: the Lock Screen and the Dynamic Island then show how far it has gone.") }
+    static func outsideFrom(_ server: String) -> String { f("work.outside.from", "From %@", server) }
+    static func outsideTo(_ server: String) -> String { f("work.outside.to", "To %@", server) }
+    static func outsideFromPercent(_ percent: String, _ server: String) -> String { f("work.outside.fromPercent", "%1$@ · from %2$@", percent, server) }
+    static func outsideToPercent(_ percent: String, _ server: String) -> String { f("work.outside.toPercent", "%1$@ · to %2$@", percent, server) }
+    static func outsideUnpacking(_ percent: String) -> String { f("work.outside.unpacking", "%@ · unpacking", percent) }
+    static func outsideReconnecting(_ server: String) -> String { f("work.outside.reconnecting", "Connecting to %@ again", server) }
+    static var installStopped: String { s("work.install.stopped", "The install stopped") }
+    static var exportStopped: String { s("work.export.stopped", "The copy stopped") }
+    static var workStoppedOutside: String {
+        s("work.stopped.message", "It was stopped outside Cartouche: from the Lock Screen or the Dynamic Island, or by iOS. Start it again whenever you like.")
+    }
 
     static var gameSettings: String { s("action.gameSettings", "Game settings") }
     static var uninstall: String { s("action.uninstall", "Uninstall") }
