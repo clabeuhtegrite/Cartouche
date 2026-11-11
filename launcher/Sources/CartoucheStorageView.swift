@@ -968,20 +968,28 @@ struct CartoucheStorageFolderBrowser: View {
 @available(iOS 17.0, *)
 struct CartoucheSavesSection: View {
     let target: CartoucheSaveTarget
+    /// Whether the game runs behind the console, writing its saves: they
+    /// are neither synced nor put back meanwhile.
+    let isRunning: Bool
     @ObservedObject var backups = CartoucheSaveBackups.shared
     @ObservedObject private var settings = CartoucheStorageSettings.shared
     @ObservedObject private var reach = CartoucheStorageReach.shared
-    @State private var copying = false
+    @State private var syncing = false
 
-    init(target: CartoucheSaveTarget) {
+    init(target: CartoucheSaveTarget, isRunning: Bool = false) {
         self.target = target
+        self.isRunning = isRunning
     }
 
     var body: some View {
         Section {
             if let location = settings.location(.saves) {
-                LabeledContent(CartoucheText.savesLastCopy) {
-                    if let date = backups.lastCopy[target.key] {
+                if let news = backups.news[target.key], let line = Self.line(of: news) {
+                    Label(line, systemImage: news.kept == nil ? "arrow.down.circle.fill" : "arrow.triangle.branch")
+                        .font(.footnote)
+                }
+                LabeledContent(CartoucheText.savesLastSync) {
+                    if let date = backups.lastSync[target.key] {
                         Text(date, format: .relative(presentation: .named))
                     } else {
                         Text(CartoucheText.savesNoCopy)
@@ -993,26 +1001,32 @@ struct CartoucheSavesSection: View {
                         .foregroundStyle(Color.orange)
                 } else {
                     Button {
-                        copying = true
+                        syncing = true
                         Task {
-                            _ = await backups.copyNow(target)
-                            copying = false
+                            _ = await backups.syncNow(target)
+                            syncing = false
                         }
                     } label: {
                         HStack {
-                            Label(CartoucheText.savesCopyNow(location.server.name), systemImage: "arrow.up.doc.fill")
-                            if copying || backups.isCopying {
+                            Label(CartoucheText.savesSyncNow(location.server.name), systemImage: "arrow.triangle.2.circlepath")
+                            if syncing || backups.isSyncing {
                                 Spacer()
                                 ProgressView()
                             }
                         }
                     }
-                    .disabled(copying || backups.isCopying)
+                    .disabled(syncing || backups.isSyncing || isRunning)
                 }
                 NavigationLink {
                     CartoucheSaveCopiesView(target: target)
                 } label: {
                     Label(CartoucheText.savesPutBack, systemImage: "clock.arrow.circlepath")
+                }
+                .disabled(isRunning)
+                if isRunning {
+                    Text(CartoucheText.savesRunning)
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
                 }
                 if reach.isOffline(location.server.id) {
                     Label(CartoucheStorageOffline(location.server).localizedDescription, systemImage: "wifi.slash")
@@ -1038,6 +1052,20 @@ struct CartoucheSavesSection: View {
         } footer: {
             Text(CartoucheText.savesFooter(CartoucheSaveBackups.kept))
         }
+    }
+
+    /// What the last sync did that the player should know: the saves that
+    /// came, and those of this iPhone kept as a copy, by their dates.
+    private static func line(of news: CartoucheSaveNews) -> String? {
+        let fetched = news.fetched.map { $0.formatted(date: .abbreviated, time: .shortened) }
+        let kept = news.kept.map { $0.formatted(date: .abbreviated, time: .shortened) }
+        if let fetched, let kept {
+            return CartoucheText.savesFetchedOver(fetched, kept)
+        }
+        if let fetched {
+            return CartoucheText.savesFetched(fetched)
+        }
+        return kept.map(CartoucheText.savesKeptHere)
     }
 }
 

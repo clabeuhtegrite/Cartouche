@@ -2,23 +2,31 @@
 //  CartoucheSaveBackups.swift
 //  Cartouche
 //
-//  Copies of the games' saves in the player's saves folder. A game is
-//  Cartouche itself while it plays, so Cartouche copies when it opens again
-//  after a game, and whenever it comes back to the front: each game whose
-//  saves changed since their last copy gets a new one, and Play waits for
-//  the copies under way. A copy is a zip of the game's Documents/save and
-//  Documents/save_device, the folders nxnative keeps a game's saves in,
-//  named by its date, in a folder of the game's own:
-//  "<game> [<title ID>]/<date>.zip". The ten newest stay.
+//  The games' saves kept in step with the player's saves folder, where each
+//  game has a folder of its copies, the way nxnative keeps a game's save in
+//  step with a cloud folder (CartoucheSaveSync, CartoucheStorageSaves):
 //
-//  A copy can be put back from the game's sheet. The saves it replaces are
-//  copied first, and nxnative's working copy (save.work) goes, for the
-//  game to make it again from the saves put back.
+//  - When a game is installed, and before it starts, the newest copy comes,
+//    when the game has no saves on this iPhone, as after Cartouche was
+//    installed again, or when the copy is newer than theirs, as when
+//    another iPhone played the game since. A server offline from here is
+//    left alone: the game plays with the saves it has.
+//  - After a game, the saves that changed go: when a game behind the
+//    console ends and, since a game in Cartouche's place is Cartouche
+//    itself while it plays, when Cartouche opens again after a game and
+//    whenever it comes back to the front, but for the game that runs. Play
+//    waits for the syncs under way.
+//  - When both changed, the saves written last win, and the others are kept
+//    as a copy of their own date: the game's sheet says what came and what
+//    was kept. The ten newest copies stay.
+//  - A copy can be put back from the game's sheet: the saves it replaces go
+//    to the saves folder first, and the copy put back becomes the newest
+//    one there, which the player's other iPhones take at their next start.
 //
-//  Away from the saves folder's server, as from a NAS at home, the copies
+//  Away from the saves folder's server, as from a NAS at home, the saves
 //  wait: Cartouche finds the server offline within a few seconds
-//  (CartoucheStorageReach), leaves it alone while it stays so, and copies
-//  the saves waiting as soon as it answers again. Being offline is not a
+//  (CartoucheStorageReach), leaves it alone while it stays so, and sends the
+//  saves waiting as soon as it answers again. Being offline is not a
 //  problem: no report is made of it.
 //
 
@@ -26,75 +34,86 @@ import Combine
 import Foundation
 import UIKit
 
-/// A game's saves on this iPhone, and what to call their copies.
-struct CartoucheSaveTarget: Hashable, Identifiable {
-    /// What tells the game's saves apart: its bundle ID and data folder.
-    let key: String
-    let name: String
-    let titleId: String?
-    /// The game's Documents folder.
-    let documents: URL
-
-    var id: String { key }
-}
-
-/// A copy of a game's saves in the saves folder.
-struct CartoucheSaveBackup: Hashable, Identifiable {
-    let path: String
-    let date: Date
-    let size: UInt64
-
-    var id: String { path }
+/// What a sync did to a game's saves that the player should know.
+struct CartoucheSaveNews: Codable, Hashable {
+    /// The date of the copy that came here.
+    var fetched: Date?
+    /// The date of the copy the saves here were kept as, under a newer one.
+    var kept: Date?
 }
 
 @MainActor
 final class CartoucheSaveBackups: ObservableObject {
     static let shared = CartoucheSaveBackups()
     /// The copies kept for each game.
-    nonisolated static let kept = 10
-    /// The folders of a game's Documents that nxnative keeps its saves in.
-    nonisolated static let folders = ["save", "save_device"]
+    nonisolated static let kept = CartoucheSaveSync.kept
 
-    /// Whether copies are being made.
-    @Published private(set) var isCopying = false
-    /// The date of each game's last copy, by target key.
-    @Published private(set) var lastCopy: [String: Date]
-    /// Why the last copies failed, if they did, and the report on it.
+    /// Whether the saves are being synced.
+    @Published private(set) var isSyncing = false
+    /// When each game's saves were last synced, by target key.
+    @Published private(set) var lastSync: [String: Date]
+    /// What the last syncs did that the player should know, by target key.
+    @Published private(set) var news: [String: CartoucheSaveNews]
+    /// Why the last sync failed, if it did, and the report on it.
     @Published private(set) var problemReport: CartoucheReport?
     /// The games whose saves wait for the saves folder's server, offline
-    /// from here, by target key: they are copied once it answers again.
+    /// from here, by target key: they go once it answers again.
     @Published private(set) var waiting: Set<String> = []
 
     private let settings: CartoucheStorageSettings
     private let defaults: UserDefaults
+    /// What was last the same here and in the saves folder, for each game
+    /// (CartoucheSaveSync), by target key.
+    private var bases: [String: CartoucheSaveBase]
     private var run: Task<Void, Never>?
     private var background = UIBackgroundTaskIdentifier.invalid
+    private static let basesKey = "Cartouche.saves.bases"
+    private static let syncedKey = "Cartouche.saves.synced"
+    private static let newsKey = "Cartouche.saves.news"
+    /// What Cartouche kept before it synced the saves: how each game's saves
+    /// looked at their last copy, "<server ID>|<path>|<look>", and the date
+    /// that named the copy.
     private static let fingerprintsKey = "Cartouche.saves.fingerprints"
     private static let lastKey = "Cartouche.saves.last"
 
     init(settings: CartoucheStorageSettings = .shared, defaults: UserDefaults = .standard) {
         self.settings = settings
         self.defaults = defaults
-        lastCopy = (defaults.dictionary(forKey: Self.lastKey) as? [String: Date]) ?? [:]
+        let decoder = JSONDecoder()
+        bases = defaults.data(forKey: Self.basesKey).flatMap { try? decoder.decode([String: CartoucheSaveBase].self, from: $0) } ?? [:]
+        news = defaults.data(forKey: Self.newsKey).flatMap { try? decoder.decode([String: CartoucheSaveNews].self, from: $0) } ?? [:]
+        let synced = (defaults.dictionary(forKey: Self.syncedKey) as? [String: Date]) ?? [:]
+        let copied = (defaults.dictionary(forKey: Self.lastKey) as? [String: Date]) ?? [:]
+        lastSync = synced.merging(copied) { synced, _ in synced }
     }
 
     /// Whether the player chose a saves folder.
     var isOn: Bool { settings.location(.saves) != nil }
 
-    /// Copies the saves of the TARGETS that changed since their last copy,
-    /// unless copies are being made.
+    /// After a game: sends the saves of the TARGETS that changed since they
+    /// were last in step with the saves folder, unless syncs are under way.
+    /// What the folder has new for the others comes at their next start.
     func copyChanged(_ targets: [CartoucheSaveTarget]) {
         guard run == nil, isOn, !targets.isEmpty else { return }
         run = Task {
-            _ = await makeCopies(targets, always: false)
+            _ = await syncRound(targets, fetching: false, onlyChanged: true, byPlayer: false)
             run = nil
         }
     }
 
-    /// Copies TARGET's saves now, changed or not.
-    func copyNow(_ target: CartoucheSaveTarget) async -> Bool {
-        await finish()
-        return await makeCopies([target], always: true) == nil
+    /// Syncs TARGET's saves with the saves folder, the newest copy coming
+    /// here when it is the one to keep: when the game is installed and
+    /// before it starts. A server known to be offline from here is left
+    /// alone. What the sync did, unless it did not go through.
+    @discardableResult
+    func sync(_ target: CartoucheSaveTarget) async -> CartoucheSaveOutcome? {
+        await turn { await self.syncRound([target], fetching: true, onlyChanged: false, byPlayer: false).outcomes[target.key] }
+    }
+
+    /// Syncs TARGET's saves now, as the player asked: whether it went
+    /// through.
+    func syncNow(_ target: CartoucheSaveTarget) async -> Bool {
+        await turn { await self.syncRound([target], fetching: true, onlyChanged: false, byPlayer: true).failure == nil }
     }
 
     #if CARTOUCHE_GALLERY
@@ -105,7 +124,7 @@ final class CartoucheSaveBackups: ObservableObject {
     }
     #endif
 
-    /// Waits for the copies under way: before a game starts, which closes
+    /// Waits for the syncs under way: before a game starts, which closes
     /// Cartouche.
     func finish() async {
         while let run {
@@ -114,91 +133,175 @@ final class CartoucheSaveBackups: ObservableObject {
         }
     }
 
-    // MARK: Copying
+    /// Runs WORK once the syncs under way have ended, as the one under way:
+    /// one round at a time, as each signs in to the server and may write a
+    /// game's folder.
+    private func turn<T: Sendable>(_ work: @escaping @MainActor () async -> T) async -> T {
+        // The one under way, then any that began while it ended.
+        while let current = run {
+            await current.value
+            if run == current { run = nil }
+        }
+        let task = Task { @MainActor in await work() }
+        let marker = Task { @MainActor in _ = await task.value }
+        run = marker
+        let value = await task.value
+        if run == marker { run = nil }
+        return value
+    }
 
-    /// Copies the saves of the TARGETS that changed since their last copy,
-    /// or of them all, ALWAYS: nil once they are copied, else why not.
-    private func makeCopies(_ targets: [CartoucheSaveTarget], always: Bool) async -> Error? {
-        guard let location = settings.location(.saves) else { return CartoucheStorageError(CartoucheText.savesNoFolder) }
-        let place = location.server.id.uuidString + "|" + location.path
-        var fingerprints = (defaults.dictionary(forKey: Self.fingerprintsKey) as? [String: String]) ?? [:]
-        var due: [(target: CartoucheSaveTarget, stamp: String)] = []
+    // MARK: Syncing
+
+    /// What a round of syncs did, game by game, and why it stopped, if it
+    /// did.
+    private struct Round {
+        var outcomes: [String: CartoucheSaveOutcome] = [:]
+        var failure: Error?
+    }
+
+    /// Syncs the TARGETS with the saves folder, one game after another: all
+    /// of them, or, ONLYCHANGED, after a game, those whose saves changed
+    /// since they were last in step. FETCHING lets the newest copy come
+    /// here. BYPLAYER: the player asked, and a server found offline is tried
+    /// again.
+    private func syncRound(_ targets: [CartoucheSaveTarget], fetching: Bool, onlyChanged: Bool, byPlayer: Bool) async -> Round {
+        var result = Round()
+        guard let location = settings.location(.saves) else {
+            result.failure = CartoucheStorageError(CartoucheText.savesNoFolder)
+            return result
+        }
+        let place = Self.place(location)
+        var due: [(target: CartoucheSaveTarget, base: CartoucheSaveBase?)] = []
         for target in targets {
-            // A game that never saved has nothing to copy.
-            guard let fingerprint = await Self.fingerprint(of: target.documents) else {
-                waiting.remove(target.key)
-                continue
+            let base = savedBase(of: target, place: place)
+            if onlyChanged {
+                // A game that never saved, or whose saves did not change
+                // since they were last in step, has nothing to send.
+                guard let look = await Self.look(of: target.documents), look != base?.look else {
+                    waiting.remove(target.key)
+                    continue
+                }
             }
-            let stamp = place + "|" + fingerprint
-            if always || fingerprints[target.key] != stamp {
-                due.append((target, stamp))
-            } else {
-                waiting.remove(target.key)
-            }
+            due.append((target, base))
         }
-        guard !due.isEmpty else { return nil }
-        // The server was found offline a moment ago, from this network: the
-        // copies Cartouche makes by itself wait for it to answer again,
-        // rather than for the patience each time Cartouche comes back.
-        if !always && CartoucheStorageReach.shared.isSettledOffline(location.server.id) {
-            wait(for: due.map { $0.target })
-            return CartoucheStorageOffline(location.server)
+        guard !due.isEmpty else { return result }
+        // The server was found offline from here: the saves to send wait for
+        // it, rather than for the patience each time Cartouche comes back,
+        // and a game starts with the saves it has.
+        let reach = CartoucheStorageReach.shared
+        if !byPlayer && (onlyChanged ? reach.isSettledOffline(location.server.id) : reach.isOffline(location.server.id)) {
+            if onlyChanged { wait(for: due.map { $0.target }) }
+            result.failure = CartoucheStorageOffline(location.server)
+            return result
         }
 
-        isCopying = true
+        isSyncing = true
         beginBackground()
         defer {
-            isCopying = false
+            isSyncing = false
             endBackground()
         }
         var remote: CartoucheRemote?
-        var failure: Error?
         do {
             let connected = try await CartoucheStorage.connect(location.server, settings: settings)
             remote = connected
             if await settings.checkAccess(connected, server: location.server.id, path: location.path) == false {
                 throw CartoucheStorageError(CartoucheText.savesReadOnly)
             }
-            for (target, stamp) in due {
-                let folder = CartoucheStoragePath.join(location.path, Self.folderName(target))
-                try await connected.makeFolders(folder)
-                let date = Date()
-                let upload = try await connected.create(CartoucheStoragePath.join(folder, Self.fileName(date)), size: nil)
+            let folder = CartoucheSavesFolder(remote: connected, path: location.path, place: place, scratch: Self.scratch)
+            // One game that fails leaves the others to go.
+            var failed: Error?
+            for (target, base) in due {
                 do {
-                    try await Self.writeZip(of: target.documents, to: upload)
-                    try await upload.finish()
+                    let outcome = try await folder.sync(target, base: base, fetching: fetching)
+                    record(outcome, of: target)
+                    result.outcomes[target.key] = outcome
+                } catch let offline as CartoucheStorageOffline {
+                    throw offline
                 } catch {
-                    await upload.cancel()
-                    throw error
-                }
-                fingerprints[target.key] = stamp
-                defaults.set(fingerprints, forKey: Self.fingerprintsKey)
-                lastCopy[target.key] = date
-                defaults.set(lastCopy, forKey: Self.lastKey)
-                waiting.remove(target.key)
-                do {
-                    try await Self.prune(folder, in: connected)
-                } catch {
-                    NSLog("[Cartouche] cannot remove old copies of %@: %@", target.name, error.localizedDescription)
+                    NSLog("[Cartouche] saves of %@ not synced: %@", target.name, error.localizedDescription)
+                    failed = failed ?? error
                 }
             }
+            if let failed { throw failed }
             problemReport = nil
-            CartoucheReports.note("Saves copied: \(due.count) " + (due.count == 1 ? "game" : "games"))
         } catch let offline as CartoucheStorageOffline {
             // No problem: the saves wait for the server to answer again.
-            wait(for: due.map { $0.target })
-            failure = offline
+            if onlyChanged { wait(for: due.map { $0.target }.filter { result.outcomes[$0.key] == nil }) }
+            result.failure = offline
         } catch {
-            // The copies Cartouche makes by itself, each time it comes
-            // back, can fail on the way too: their report is not kept.
+            // The syncs Cartouche makes by itself, each time it comes back,
+            // can fail on the way too: their report is not kept.
             problemReport = CartoucheReports.make(.saves, CartoucheText.savesCopyFailed, message: error.localizedDescription,
-                                                  error: error, step: "Copying the saves to " + CartoucheReports.place(.saves),
-                                                  facts: [.init("Games", String(due.count))], inBackground: !always)
-            NSLog("[Cartouche] saves not copied: %@", error.localizedDescription)
-            failure = error
+                                                  error: error, step: "Syncing the saves with " + CartoucheReports.place(.saves),
+                                                  facts: [.init("Games", String(due.count))], inBackground: !byPlayer)
+            NSLog("[Cartouche] saves not synced: %@", error.localizedDescription)
+            result.failure = error
         }
+        note(result.outcomes, of: due.map { $0.target })
         await remote?.disconnect()
-        return failure
+        return result
+    }
+
+    /// The base of TARGET's saves for the saves folder at PLACE: the one
+    /// Cartouche keeps, or, for saves an older Cartouche copied, the copy it
+    /// made last, by its date, and how the saves looked then. None for
+    /// another folder than the one the base was for: the saves go to the
+    /// new one.
+    private func savedBase(of target: CartoucheSaveTarget, place: String) -> CartoucheSaveBase? {
+        if let base = bases[target.key] { return base.place == place ? base : nil }
+        let fingerprints = (defaults.dictionary(forKey: Self.fingerprintsKey) as? [String: String]) ?? [:]
+        let copied = (defaults.dictionary(forKey: Self.lastKey) as? [String: Date]) ?? [:]
+        guard let stamp = fingerprints[target.key], stamp.hasPrefix(place + "|"), let date = copied[target.key] else { return nil }
+        return CartoucheSaveBase(place: place, copy: CartoucheSaveSync.fileName(date), content: nil,
+                                 look: String(stamp.dropFirst(place.count + 1)))
+    }
+
+    /// Keeps what a sync of TARGET's saves did.
+    private func record(_ outcome: CartoucheSaveOutcome, of target: CartoucheSaveTarget) {
+        waiting.remove(target.key)
+        if let base = outcome.base, base != bases[target.key] {
+            bases[target.key] = base
+            defaults.set(try? JSONEncoder().encode(bases), forKey: Self.basesKey)
+        }
+        lastSync[target.key] = Date()
+        defaults.set(lastSync, forKey: Self.syncedKey)
+        let fetched = outcome.fetched.flatMap(CartoucheSaveSync.date(inName:))
+        let kept = outcome.kept.flatMap(CartoucheSaveSync.date(inName:))
+        if fetched != nil || kept != nil {
+            news[target.key] = CartoucheSaveNews(fetched: fetched, kept: kept)
+        } else if outcome.sent != nil {
+            // Played since: what came before is old news.
+            news[target.key] = nil
+        } else {
+            return
+        }
+        defaults.set(try? JSONEncoder().encode(news), forKey: Self.newsKey)
+    }
+
+    /// The journal's lines on a round: the saves sent, those that came, and
+    /// those kept under newer ones.
+    private func note(_ outcomes: [String: CartoucheSaveOutcome], of targets: [CartoucheSaveTarget]) {
+        let sent = targets.filter { outcomes[$0.key]?.sent != nil }.count
+        if sent > 0 {
+            CartoucheReports.note("Saves sent to the saves folder: \(sent) " + (sent == 1 ? "game" : "games"))
+        }
+        for target in targets {
+            guard let outcome = outcomes[target.key] else { continue }
+            var line: String
+            if let fetched = outcome.fetched {
+                line = "Saves of \(target.name) came from the saves folder, the copy \(fetched)"
+                if let kept = outcome.kept {
+                    line += "; this iPhone's kept there as \(kept)"
+                }
+            } else if let kept = outcome.kept {
+                line = "Saves of \(target.name): newer ones in the saves folder, for the next start; "
+                line += "this iPhone's kept there as \(kept)"
+            } else {
+                continue
+            }
+            CartoucheReports.note(line)
+        }
     }
 
     /// The saves of TARGETS wait for the saves folder's server, offline
@@ -209,6 +312,22 @@ final class CartoucheSaveBackups: ObservableObject {
         guard !added.isEmpty else { return }
         waiting.formUnion(added)
         CartoucheReports.note("Saves waiting for the saves folder: \(waiting.count) " + (waiting.count == 1 ? "game" : "games"))
+    }
+
+    /// The saves folder, as a base names it: "<server ID>|<path>".
+    private static func place(_ location: (server: CartoucheStorageServer, path: String)) -> String {
+        location.server.id.uuidString + "|" + location.path
+    }
+
+    /// Where the copies that come are unpacked, before they replace a
+    /// game's saves.
+    private static var scratch: URL {
+        FileManager.default.temporaryDirectory.appendingPathComponent("CartoucheSaves", isDirectory: true)
+    }
+
+    /// How the saves in DOCUMENTS look, read off the main thread.
+    nonisolated private static func look(of documents: URL) async -> String? {
+        CartoucheSaveSync.saves(in: documents)?.look
     }
 
     /// A few seconds more to finish, if the player leaves Cartouche.
@@ -226,198 +345,66 @@ final class CartoucheSaveBackups: ObservableObject {
         background = .invalid
     }
 
-    /// The folder of a game's copies: "<game> [<title ID>]".
-    nonisolated static func folderName(_ target: CartoucheSaveTarget) -> String {
-        var name = CartoucheStoragePath.fileName(target.name)
-        if let titleId = target.titleId { name += " [\(titleId.uppercased())]" }
-        return name
-    }
-
-    /// Made for each use: a formatter is not for several threads at once.
-    nonisolated private static func nameFormat() -> DateFormatter {
-        let formatter = DateFormatter()
-        formatter.locale = Locale(identifier: "en_US_POSIX")
-        formatter.timeZone = TimeZone(identifier: "UTC")
-        formatter.dateFormat = "yyyy-MM-dd'T'HH-mm-ss'Z'"
-        return formatter
-    }
-
-    /// A copy's name, its date in UTC: "2026-11-06T14-05-33Z.zip". The
-    /// names sort by date.
-    nonisolated static func fileName(_ date: Date) -> String {
-        nameFormat().string(from: date) + ".zip"
-    }
-
-    nonisolated static func date(inName name: String) -> Date? {
-        guard name.lowercased().hasSuffix(".zip") else { return nil }
-        return nameFormat().date(from: String(name.dropLast(4)))
-    }
-
-    /// What the saves are now: their files' count, size and newest date.
-    /// Nil when the game has no saves.
-    nonisolated static func fingerprint(of documents: URL) async -> String? {
-        var count = 0
-        var size: UInt64 = 0
-        var newest: Int64 = 0
-        var found = false
-        for folder in folders {
-            let root = documents.appendingPathComponent(folder, isDirectory: true)
-            guard let walker = FileManager.default.enumerator(at: root,
-                                                              includingPropertiesForKeys: [.fileSizeKey, .contentModificationDateKey,
-                                                                                           .isRegularFileKey]) else { continue }
-            found = found || FileManager.default.fileExists(atPath: root.path)
-            while let url = walker.nextObject() as? URL {
-                let values = try? url.resourceValues(forKeys: [.fileSizeKey, .contentModificationDateKey, .isRegularFileKey])
-                guard values?.isRegularFile == true else { continue }
-                count += 1
-                size += UInt64(values?.fileSize ?? 0)
-                let date = Int64(((values?.contentModificationDate ?? .distantPast).timeIntervalSince1970 * 1000).rounded())
-                newest = max(newest, date)
-            }
-        }
-        return found ? "\(count)|\(size)|\(newest)" : nil
-    }
-
-    /// The saves' folders, files and links, as a zip with paths from
-    /// Documents: save/..., save_device/...
-    nonisolated static func writeZip(of documents: URL, to sink: CartoucheByteSink) async throws {
-        let writer = CartoucheZipWriter(sink: sink)
-        for folder in folders {
-            let root = documents.appendingPathComponent(folder, isDirectory: true)
-            var isFolder: ObjCBool = false
-            guard FileManager.default.fileExists(atPath: root.path, isDirectory: &isFolder), isFolder.boolValue,
-                  let walker = FileManager.default.enumerator(atPath: root.path) else { continue }
-            try await writer.addFolder(folder + "/")
-            var relatives: [String] = []
-            while let relative = walker.nextObject() as? String {
-                relatives.append(relative)
-            }
-            for relative in relatives.sorted() {
-                let url = root.appendingPathComponent(relative)
-                let name = folder + "/" + relative
-                let values = try url.resourceValues(forKeys: [.isDirectoryKey, .isSymbolicLinkKey, .contentModificationDateKey])
-                let date = values.contentModificationDate ?? Date()
-                if values.isSymbolicLink == true {
-                    let target = try FileManager.default.destinationOfSymbolicLink(atPath: url.path)
-                    try await writer.addSymlink(name, target: target, date: date)
-                } else if values.isDirectory == true {
-                    try await writer.addFolder(name + "/", date: date)
-                } else {
-                    try await writer.addFile(name, from: url, date: date)
-                }
-            }
-        }
-        try await writer.finish()
-    }
-
-    /// Keeps the newest copies of a game, and removes what an interrupted
-    /// copy left.
-    nonisolated static func prune(_ folder: String, in remote: CartoucheRemote) async throws {
-        let items = try await remote.list(folder).filter { !$0.isFolder }
-        for item in items where item.name.hasSuffix(".partial") {
-            try await remote.delete(CartoucheStoragePath.join(folder, item.name))
-        }
-        let copies = items.filter { date(inName: $0.name) != nil }.map(\.name).sorted(by: >)
-        for name in copies.dropFirst(kept) {
-            try await remote.delete(CartoucheStoragePath.join(folder, name))
-        }
-    }
-
     // MARK: Listing and putting back
 
     /// TARGET's copies in the saves folder, the newest first.
     func copies(of target: CartoucheSaveTarget) async throws -> [CartoucheSaveBackup] {
         guard let location = settings.location(.saves) else { return [] }
         let remote = try await CartoucheStorage.connect(location.server, settings: settings)
-        let folder = CartoucheStoragePath.join(location.path, Self.folderName(target))
-        var items: [CartoucheRemoteItem] = []
+        let folder = CartoucheSavesFolder(remote: remote, path: location.path, place: Self.place(location), scratch: Self.scratch)
         do {
-            // A game never copied has no folder yet.
-            let parent = try await remote.list(CartoucheStoragePath.parent(folder))
-            if parent.contains(where: { $0.isFolder && $0.name == CartoucheStoragePath.name(folder) }) {
-                items = try await remote.list(folder)
-            }
+            let copies = try await folder.copies(of: target)
+            await remote.disconnect()
+            return copies
         } catch {
             await remote.disconnect()
             throw error
         }
-        await remote.disconnect()
-        return items.compactMap { item in
-            guard !item.isFolder, let date = Self.date(inName: item.name) else { return nil }
-            return CartoucheSaveBackup(path: CartoucheStoragePath.join(folder, item.name), date: date, size: item.size)
-        }
-        .sorted { $0.date > $1.date }
     }
 
-    /// Puts BACKUP back as TARGET's saves. The saves it replaces are copied
-    /// first; nothing changes on the iPhone unless the backup reads whole.
+    /// Puts BACKUP back as TARGET's saves, as the player chose it. The saves
+    /// it replaces go to the saves folder first; nothing changes on the
+    /// iPhone unless the backup reads whole. The copy put back then becomes
+    /// the newest one, which the player's other iPhones take at their next
+    /// start.
     func restore(_ backup: CartoucheSaveBackup, of target: CartoucheSaveTarget) async throws {
-        guard let location = settings.location(.saves) else { return }
-        await finish()
-        let fileManager = FileManager.default
-        let work = fileManager.temporaryDirectory.appendingPathComponent("CartoucheRestore", isDirectory: true)
-        try? fileManager.removeItem(at: work)
-        try fileManager.createDirectory(at: work, withIntermediateDirectories: true)
-        defer { try? fileManager.removeItem(at: work) }
-
-        // The backup, here first: copying the saves now may remove the
-        // oldest backup.
-        let remote = try await CartoucheStorage.connect(location.server, settings: settings)
-        let local = work.appendingPathComponent("backup.zip")
-        do {
-            let source = try await remote.open(backup.path)
-            let sink = try CartoucheFileSink(local)
-            var offset: UInt64 = 0
-            while offset < source.size {
-                let part = try await source.read(at: offset, count: Int(min(source.size - offset, 8 << 20)))
-                guard !part.isEmpty else { throw CartoucheStorageError(CartoucheText.savesCopyUnreadable) }
-                try await sink.write(part)
-                offset += UInt64(part.count)
+        let failure: Error? = await turn {
+            do {
+                try await self.putBack(backup, of: target)
+                return nil
+            } catch {
+                return error
             }
-            try sink.close()
+        }
+        if let failure { throw failure }
+    }
+
+    private func putBack(_ backup: CartoucheSaveBackup, of target: CartoucheSaveTarget) async throws {
+        guard let location = settings.location(.saves) else { return }
+        let place = Self.place(location)
+        isSyncing = true
+        beginBackground()
+        defer {
+            isSyncing = false
+            endBackground()
+        }
+        let remote = try await CartoucheStorage.connect(location.server, settings: settings)
+        do {
+            if await settings.checkAccess(remote, server: location.server.id, path: location.path) == false {
+                throw CartoucheStorageError(CartoucheText.savesReadOnly)
+            }
+            let folder = CartoucheSavesFolder(remote: remote, path: location.path, place: place, scratch: Self.scratch)
+            let outcome = try await folder.putBack(CartoucheStoragePath.name(backup.path), of: target,
+                                                   base: savedBase(of: target, place: place))
+            record(outcome, of: target)
+            // The player put it back: no news to tell of it.
+            news[target.key] = nil
+            defaults.set(try? JSONEncoder().encode(news), forKey: Self.newsKey)
+            problemReport = nil
         } catch {
             await remote.disconnect()
             throw error
         }
         await remote.disconnect()
-
-        // Every file of the backup, checked, before the saves change.
-        let unpacked = work.appendingPathComponent("unpacked", isDirectory: true)
-        try fileManager.createDirectory(at: unpacked, withIntermediateDirectories: true)
-        let source = try CartoucheFileSource(local)
-        let entries = try await CartoucheZip.entries(of: source)
-        guard entries.allSatisfy({ entry in
-            Self.folders.contains { entry.name == $0 + "/" || entry.name.hasPrefix($0 + "/") }
-        }) else {
-            throw CartoucheStorageError(CartoucheText.savesCopyUnreadable)
-        }
-        try await CartoucheZip.extract(source, entries: entries, into: unpacked, progress: nil)
-
-        if let failure = await makeCopies([target], always: true), Self.hasSaves(target.documents) {
-            throw failure
-        }
-        try fileManager.createDirectory(at: target.documents, withIntermediateDirectories: true)
-        for folder in Self.folders + ["save.work"] {
-            let old = target.documents.appendingPathComponent(folder, isDirectory: true)
-            if fileManager.fileExists(atPath: old.path) {
-                try fileManager.removeItem(at: old)
-            }
-        }
-        for folder in Self.folders {
-            let new = unpacked.appendingPathComponent(folder, isDirectory: true)
-            if fileManager.fileExists(atPath: new.path) {
-                try fileManager.moveItem(at: new, to: target.documents.appendingPathComponent(folder, isDirectory: true))
-            }
-        }
-        // The saves put back are copied already.
-        if let fingerprint = await Self.fingerprint(of: target.documents) {
-            var fingerprints = (defaults.dictionary(forKey: Self.fingerprintsKey) as? [String: String]) ?? [:]
-            fingerprints[target.key] = location.server.id.uuidString + "|" + location.path + "|" + fingerprint
-            defaults.set(fingerprints, forKey: Self.fingerprintsKey)
-        }
-    }
-
-    nonisolated private static func hasSaves(_ documents: URL) -> Bool {
-        folders.contains { FileManager.default.fileExists(atPath: documents.appendingPathComponent($0).path) }
     }
 }

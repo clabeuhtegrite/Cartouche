@@ -50,6 +50,7 @@ Votre jeu apparaît dans la dernière étape du guide et dans votre bibliothèqu
 ## Ensuite
 
 - **Laissez LocalDevVPN allumé** quand vous le pouvez : Cartouche renouvelle sa signature de sept jours par lui, depuis la page Système ou chaque nuit avec l’automatisation Raccourcis que cette page explique.
+- **Vos sauvegardes :** avec un dossier des sauvegardes choisi sur la page du stockage, Cartouche y synchronise les sauvegardes de chaque jeu : elles arrivent quand vous installez le jeu et avant chaque lancement, comme après une réinstallation de Cartouche ou une partie sur un autre iPhone, et y repartent après chaque partie.
 - **Mises à jour :** Cartouche propose lui-même ses nouvelles versions, et la mise à jour d’un jeu quand votre dossier des jeux en a une construction plus récente. Cartouche Builder se met à jour tout seul, quand il ne construit rien.
 - **Le guide :** la croix de sa carte la retire de l’accueil ; **Système › Votre premier jeu** le rouvre quand vous voulez.
 - **Le certificat ne marche plus :** l’accueil le dit ; reconnectez-vous. **Le fichier de jumelage manque :** l’installeur le remet dans Cartouche, ou réinstalle Cartouche par-dessus cette copie, ce qui garde vos jeux et leurs sauvegardes.

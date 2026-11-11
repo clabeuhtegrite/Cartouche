@@ -101,8 +101,8 @@ struct CartoucheGameSheetView: View {
                 }
             }
 
-            if let app = entry.app, let saves = CartoucheGameActions.shared.saves(of: app) {
-                CartoucheSavesSection(target: saves)
+            if let app = entry.app, let saves = actions.saves(of: app) {
+                CartoucheSavesSection(target: saves, isRunning: actions.isRunning(app))
             }
 
             if let app = entry.app {

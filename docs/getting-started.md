@@ -50,6 +50,7 @@ Your game shows in the guide's last step and in your library: **Install** instal
 ## Afterwards
 
 - **Leave LocalDevVPN on** when you can: Cartouche renews its seven-day signature through it, from the System page or every night with the Shortcuts automation that page explains.
+- **Your saves:** with a saves folder chosen on the storage page, Cartouche keeps each game's saves in step with it: they come when you install the game and before it starts, as after you install Cartouche again or play on another iPhone, and go after each game.
 - **Updates:** Cartouche offers its new versions itself, and the update of a game when your games folder holds a newer build of it. Cartouche Builder updates itself, when it builds nothing.
 - **The guide:** the × on its card takes it off the home; **System › Your first game** opens it again whenever you want.
 - **The certificate no longer works:** the home says so; sign in again. **The pairing file is missing:** the installer puts it in Cartouche again, or installs Cartouche again over this copy, which keeps your games and their saves.
