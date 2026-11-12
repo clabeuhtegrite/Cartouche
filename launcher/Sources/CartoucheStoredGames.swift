@@ -135,20 +135,11 @@ final class CartoucheInstalledBuilds {
         return build
     }
 
-    /// The record of the game's install, when it is of the build installed.
-    /// Cartouche 0.9.0 to 0.11.2 recorded no version, commit nor chain, as it
-    /// read them from LiveContainer's settings for the game: such a record,
-    /// of the build installed then, takes them from the game's Info.plist
-    /// and keeps when it was built.
+    /// The record of the game's install, when it is of the build installed
+    /// (CartoucheGameBuild.record(_:of:)).
     func record(of app: LCAppModel) -> CartoucheGameBuild? {
         guard let bundleId = app.appInfo.bundleIdentifier(), let recorded = builds[bundleId] else { return nil }
-        let installed = Self.installedBuild(of: app)
-        if recorded.version == nil, recorded.commit == nil, recorded.chain == nil {
-            return CartoucheGameBuild(version: installed.version, commit: installed.commit, chain: installed.chain,
-                                      builtAt: recorded.builtAt)
-        }
-        guard recorded.version == installed.version, recorded.commit == installed.commit else { return nil }
-        return recorded
+        return CartoucheGameBuild.record(recorded, of: Self.installedBuild(of: app))
     }
 
     /// The installed game's build, to compare with a copy in the games

@@ -166,14 +166,14 @@ final class CartoucheTelemetry: ObservableObject {
             .store(in: &observers)
         // Whether the installation is ready waits, too, for the check of
         // LiveContainer's certificate, which ends a few seconds after the
-        // launch: before it, it was not ready for anyone. Half a minute at
+        // launch: before it, no installation is ready yet. Half a minute at
         // most, after which the certificate says it is still being checked.
         let setup = CartoucheSetup.shared
         let checked = setup.$certificateWorks
             .combineLatest(setup.$hasCertificate)
             .filter { value in
                 let (works, hasCertificate) = value
-                return !hasCertificate || works != nil
+                return CartoucheSetupFacts.isChecked(hasCertificate: hasCertificate, certificateWorks: works)
             }
             .map { _ in () }
             .merge(with: Just(()).delay(for: .seconds(30), scheduler: DispatchQueue.main))
@@ -384,13 +384,11 @@ final class CartoucheTelemetry: ObservableObject {
         var fields: [String: CartoucheTelemetryValue] = [
             "games": .number(Double(games)),
             "setUp": .flag(setup.isComplete),
-            // What it is made of: never the Apple ID, only whether there is one.
-            "certificate": .text(setup.certificateState),
-            "pairing": .flag(setup.hasPairingFile),
-            "signedIn": .flag(setup.appleID != nil),
             "storage": .text(CartoucheStorageSettings.shared.location(.games)?.server.kind.rawValue ?? "none"),
             "saves": .text(CartoucheStorageSettings.shared.location(.saves)?.server.kind.rawValue ?? "none"),
         ]
+        // What it is made of: never the Apple ID, only whether there is one.
+        fields.merge(setup.facts.fields) { _, made in made }
         if let days = CartoucheSignature.current().daysLeft {
             fields["signatureDays"] = .number(Double(days))
         }
