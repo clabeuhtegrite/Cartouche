@@ -213,8 +213,9 @@ private final class SMBSource: CartoucheByteSource {
     /// dropped for the next, and macOS takes the memory of copies of several
     /// MiB back long after they are dropped: on the Mac of the storage
     /// tests, an install of an IPA past 4 GiB, read in requests of 8 MiB,
-    /// now and then grew by 300 to 560 MB, and by up to 115 MB with 4 MiB.
-    /// With 1 MiB, it stayed within 6 MB, every time.
+    /// now and then took 286 to 560 MB more than at its start, and up to
+    /// 115 MB more with 4 MiB. With 1 MiB, it took what the install itself
+    /// holds, 37 MB at most, and nothing more as it went.
     static let request = 1 << 20
 
     let size: UInt64
