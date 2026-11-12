@@ -118,6 +118,8 @@ final class AppModel: ObservableObject {
     private var started = false
     private var poller: Task<Void, Never>?
     private var checker: Task<Void, Never>?
+    /// When the library was last read for the player's coming back.
+    private var cameBack: Date?
 
     init(home: BuilderHome = .default, sample: Bool = false) {
         self.home = home
@@ -165,6 +167,8 @@ final class AppModel: ObservableObject {
         bridge.attach(model: self)
         let checked = library?.checked.flatMap(ISODate.parse)
         let stale = checked.map { Date().timeIntervalSince($0) > AppModel.checkInterval } ?? true
+        // This read is the one the app's coming to the front would ask for.
+        cameBack = Date()
         await refreshLibrary(update: stale && setup.ready)
         checkRegularly()
         telemetry.event("builder.opened", fields: openedFields())
@@ -307,7 +311,10 @@ final class AppModel: ObservableObject {
         bridge.update(games: fresh.games)
     }
 
-    func refreshLibrary(update: Bool) async {
+    /// The library read again, with a look at nxnative (UPDATE). QUIETLY: a
+    /// failure keeps the last library without a word, the next look saying
+    /// why.
+    func refreshLibrary(update: Bool, quietly: Bool = false) async {
         guard !sample, let engine else { return }
         if update {
             guard !checking else { return }
@@ -319,8 +326,19 @@ final class AppModel: ObservableObject {
             library = fresh
             if update { announceImproved(fresh) }
         } catch {
-            show(error, origin: update ? "check" : "library", background: update)
+            if !quietly { show(error, origin: update ? "check" : "library", background: update) }
         }
+    }
+
+    /// The player is back in the app, maybe from the Finder, where they put
+    /// a game in their dumps or their games folder: the library reads the
+    /// two folders again, without a look at nxnative, at most once in ten
+    /// seconds, and not while one is on its way.
+    func playerCameBack() {
+        guard started, !checking else { return }
+        if let last = cameBack, Date().timeIntervalSince(last) < 10 { return }
+        cameBack = Date()
+        Task { await refreshLibrary(update: false, quietly: true) }
     }
 
     func loadStorage() async {
