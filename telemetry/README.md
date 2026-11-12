@@ -72,6 +72,7 @@ A value the log does not have is left out.
 | `app.opened` | Each start of Cartouche. | `games`, `setUp`, `storage` and `saves` (the kind of storage, or `none`), `signatureDays` |
 | `app.updated` | The first start of a new version. | `from`, `to` |
 | `signature.renewed` | The signature lasts longer than it did. | `daysLeft` |
+| `renewal.done` | **Renew now** went through, on the System page, from the version of November 13. | `seconds`; what the built-in SideStore noted on its way, as for an error below; `outcome` (no) when SideStore left nothing; `recovered` and `cause`, when SideStore quit or failed on its way back once it had renewed Cartouche, which Cartouche read in the signature SideStore records; `attempts`, 2 when SideStore quit before it answered and Cartouche asked a new one |
 | `game.installed` | A game installed or updated. | `version`, `nxnative` |
 | `account.signedIn` | The Apple ID sign-in went through. | `seconds`; `automatic`, Cartouche signed in again by itself for a new certificate; what the built-in SideStore noted on its way, as for an error below; `outcome` (no) when SideStore left nothing; `limitedBefore`, how many sign-ins in a row Apple had refused for too many requests in the day before this one |
 | `error` | An error Cartouche reported. | `origin`, what Cartouche was doing; `error`, the domains and codes of the error and those under it, never its words; `background`; and, from the version of November 20, `cause`, `stage`, `percent`, `seconds` and the error's names and numbers, below |
