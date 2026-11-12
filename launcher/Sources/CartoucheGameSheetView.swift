@@ -108,10 +108,22 @@ struct CartoucheGameSheetView: View {
                     }
                 }
                 requirements(sheet)
-            } else if entry.isOwned {
-                Section {
-                    Text(CartoucheText.noSheetMessage)
-                        .foregroundStyle(.secondary)
+            } else {
+                // nxnative refuses this GPU for every game, with a sheet or
+                // without.
+                if let fit = CartoucheFit.withoutSheet() {
+                    Section {
+                        ForEach(fit.reasons, id: \.self) { reason in
+                            Label(reason, systemImage: "exclamationmark.triangle.fill")
+                                .foregroundStyle(Color.orange)
+                        }
+                    }
+                }
+                if entry.isOwned {
+                    Section {
+                        Text(CartoucheText.noSheetMessage)
+                            .foregroundStyle(.secondary)
+                    }
                 }
             }
 
@@ -263,7 +275,7 @@ struct CartoucheGameSheetView: View {
         var list = [Requirement(ok: CartoucheDevice.runsAtLeast(sheet.requirements.minimumIOS),
                                 title: CartoucheText.iosRequirement(sheet.requirements.minimumIOS),
                                 detail: CartoucheText.iosCurrent(CartoucheDevice.iOSVersion))]
-        if sheet.requirements.bcTextureCompression {
+        if sheet.requirements.bcTextureCompression || !CartoucheDevice.supportsBCTextureCompression {
             list.append(Requirement(ok: CartoucheDevice.supportsBCTextureCompression,
                                     title: CartoucheText.bcRequirement,
                                     detail: CartoucheDevice.supportsBCTextureCompression ? CartoucheText.gpuSupported : CartoucheText.gpuUnsupported))
@@ -342,24 +354,25 @@ struct CartoucheGameSheetView: View {
         }
     }
 
-    /// Whether the game starts in Cartouche's place, the game's copy in the
-    /// games folder, or the button that copies it there, and Uninstall,
-    /// last, in red.
+    /// Whether the game starts in Cartouche's place, for its own needs or
+    /// because games behind the console run without Increased Memory Limit
+    /// here, the game's copy in the games folder, or the button that copies
+    /// it there, and Uninstall, last, in red.
     private func manageSection(_ app: LCAppModel) -> some View {
         Section {
             if keeping.keepsConsoleOpen, CartoucheGameKeeping.isAvailable,
-               let bundleId = app.appInfo.bundleIdentifier(),
-               keeping.startsInPlace(bundleId: bundleId, ownLimitMiB: memory?.limitMiB) {
-                VStack(alignment: .leading, spacing: 8) {
-                    Label(CartoucheText.startsInPlaceNote, systemImage: "rectangle.on.rectangle.slash")
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                    Button(CartoucheText.tryBehindAgain) {
+               let bundleId = app.appInfo.bundleIdentifier() {
+                if keeping.startsInPlace(bundleId: bundleId, ownLimitMiB: memory?.limitMiB) {
+                    inPlaceNote(CartoucheText.startsInPlaceNote) {
                         keeping.startBehind(bundleId: bundleId)
                     }
-                    .font(.subheadline.weight(.semibold))
+                } else if keeping.sendsGamesInPlace(ownLimitMiB: memory?.limitMiB), let limit = keeping.limitMiB,
+                          !keeping.fitsBehind(needsIML: entry.sheet?.requirements.increasedMemoryLimit ?? false,
+                                              peakMiB: entry.sheet?.peakMemoryMiB, ownLimitMiB: memory?.limitMiB) {
+                    inPlaceNote(CartoucheText.startsInPlaceWithoutIML(CartoucheText.memoryAmount(mebibytes: limit))) {
+                        keeping.tryBehindAgain()
+                    }
                 }
-                .padding(.vertical, 2)
             }
             if let stored = entry.stored {
                 if entry.update == nil {
@@ -387,6 +400,19 @@ struct CartoucheGameSheetView: View {
                 }
             }
         }
+    }
+
+    /// Why the game starts in Cartouche's place, and the button that tries
+    /// behind the console again.
+    private func inPlaceNote(_ text: String, tryAgain: @escaping () -> Void) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Label(text, systemImage: "rectangle.on.rectangle.slash")
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+            Button(CartoucheText.tryBehindAgain, action: tryAgain)
+                .font(.subheadline.weight(.semibold))
+        }
+        .padding(.vertical, 2)
     }
 
     // MARK: Testers' results

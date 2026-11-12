@@ -1,0 +1,209 @@
+From ca361ea791a4133470188f5c164c09c7b7930b22 Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Thu, 12 Nov 2026 08:13:02 +0000
+Subject: [PATCH] Tell Cartouche the error behind SideStore's titles
+
+SideStore gives an error a title by wrapping it in an ALTWrappedError,
+as its refresh does with each app's failure ("Failed to Refresh ..."):
+the wrapper keeps the error's domain and code but hides its type and
+its case. Cartouche's outcome (cartouche.outcome, patch 0014) read the
+wrapper, so a renewal or an update that failed this way said only its
+domain and code, such as SideStore.OperationError 8, with
+ALTWrappedError for its kind, and none of Apple's codes.
+
+The outcome now reads the error the wrapper holds, as Swift threw it,
+not in the box NSError carries it in, whose case Mirror cannot read:
+its family, its case, Apple's code and the HTTP status are those of
+the error itself.
+
+That error 8 is invalidParameters, which SideStore throws for what its
+own code did not expect, with one of some forty sentences, which can
+name an app. The outcome gives "reason", which sentence it is, as a
+name chosen here ("notInContext", "askTeam", "noStepWeight"...), and
+"missing", the step or the value the sentence names, as SideStore's
+code names it ("targetAppBundle"); never the sentence.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01MzPJotfkQupUkkLdDH9vqz
+---
+ SideStore/Intents/CartoucheOutcome.swift | 142 ++++++++++++++++++++++-
+ 1 file changed, 141 insertions(+), 1 deletion(-)
+
+diff --git a/SideStore/Intents/CartoucheOutcome.swift b/SideStore/Intents/CartoucheOutcome.swift
+index 8b02640..0d20a81 100644
+--- a/SideStore/Intents/CartoucheOutcome.swift
++++ b/SideStore/Intents/CartoucheOutcome.swift
+@@ -19,6 +19,15 @@
+ //   "codeMode": "trustedDevice", "certificates": 1, "bundledCertificate": true,
+ //   "activeCertificate": false, "teams": 2, "teamType": "free"}
+ //
++//  An error SideStore wraps to give it a title, as its refresh does with each
++//  app's failure ("Failed to Refresh ..."), is told by the error it wraps.
++//  Its invalidParameters, which it throws for what its own code did not
++//  expect, also gives "reason", which of SideStore's sentences it is, and
++//  "missing", the step or the value that sentence names:
++//
++//  {"family": "operation", "kind": "invalidParameters",
++//   "reason": "notInContext", "missing": "targetAppBundle"}
++//
+ //  Never the error's words, an Apple ID, a team, a device, a certificate's
+ //  serial, a path or an address: only the names below, chosen here, those
+ //  of SideStore's error cases and operations, and numbers. Cartouche checks
+@@ -135,8 +144,10 @@ final class CartoucheOutcome: @unchecked Sendable
+         }
+         self.lock.unlock()
+ 
+-        if let error
++        if let thrown = error
+         {
++            // The error itself, not the title SideStore wrapped it in.
++            let error = Self.unwrapped(thrown)
+             let (family, kind) = Self.kind(of: error)
+             outcome["family"] = family
+             outcome["kind"] = kind
+@@ -164,6 +175,16 @@ final class CartoucheOutcome: @unchecked Sendable
+                 outcome["network"] = code
+                 outcome["host"] = host
+             }
++            // What SideStore's code did not expect, as one of its sentences.
++            if case OperationError.invalidParameters(let sentence) = error
++            {
++                let (reason, missing) = Self.reason(ofInvalidParameters: sentence)
++                outcome["reason"] = reason
++                if let missing
++                {
++                    outcome["missing"] = missing
++                }
++            }
+         }
+ 
+         guard let data = try? JSONSerialization.data(withJSONObject: outcome) else { return }
+@@ -172,6 +193,125 @@ final class CartoucheOutcome: @unchecked Sendable
+ 
+     // MARK: - Errors, as names and numbers
+ 
++    /// The error behind SideStore's wrappers: ALTWrappedError, which gives an
++    /// error a title or a failure, keeps its domain and code but hides its
++    /// type and its case. The error comes back as Swift threw it, not in
++    /// the box NSError carries it in, whose case Mirror cannot read.
++    static func unwrapped(_ error: Error) -> Error
++    {
++        var current = error
++        for _ in 0..<4
++        {
++            guard let wrapper = current as? ALTWrappedError else { break }
++            current = wrapper.wrappedError
++        }
++        switch current
++        {
++        case let typed as CartoucheSignInError: return typed
++        case let typed as DeveloperPortalError: return typed
++        case let typed as ServerError: return typed
++        case let typed as AnisetteError: return typed
++        case let typed as OperationError: return typed
++        case let typed as MinimuxerError: return typed
++        case let typed as PairingError: return typed
++        case let typed as EMProxyError: return typed
++        case let typed as SignerError: return typed
++        case let typed as CertificateError: return typed
++        case let typed as OCSPValidationError: return typed
++        case let typed as DatabaseError: return typed
++        case let typed as DecodingError: return typed
++        default: return current
++        }
++    }
++
++    /// SideStore's sentences for invalidParameters, which it throws for what
++    /// its own code did not expect, with the names Cartouche's measurements
++    /// send of them; the first that the sentence holds is its reason. The
++    /// sentence itself never leaves: it can name an app or a team.
++    static let invalidParametersReasons: [(sentence: String, reason: String)] = [
++        // A question for the player, which an action without a screen, as
++        // Cartouche runs them, cannot ask. First, as some also say what is nil.
++        ("Cannot prompt for credentials", "askCredentials"),
++        ("Cannot prompt for 2FA verification code", "askCode"),
++        ("Cannot resolve certificate revocation", "askRevocation"),
++        ("Cannot resolve team selection", "askTeam"),
++        ("Cannot resolve resign prompt", "askResign"),
++        ("Cannot show outdated anisette warning", "askAnisette"),
++        ("Cannot review permissions", "askPermissions"),
++        ("popoverPresentationController is nil", "askAppExtensions"),
++        ("unable to present dialog", "askAppExtensions"),
++        // The steps an operation runs in.
++        ("Missing PipelineStep mapping for ", "noStepMapping"),
++        ("Missing StandaloneStep mapping for ", "noStepMapping"),
++        ("Missing progress weight for step ", "noStepWeight"),
++        ("Invalid maxReuse ", "stepReuse"),
++        // What an operation expected to be given or to find.
++        ("Missing IPA URL for ", "noIpaURL"),
++        ("Missing download URL for ", "noDownloadURL"),
++        (" is nil", "notInContext"),
++        (" is missing in context", "notInContext"),
++        (" found in context", "notInContext"),
++        ("Could not resolve installed app for ", "noResultApp"),
++        ("Could not find installed database record for ", "noInstalledRecord"),
++        ("Could not locate signing certificate for ", "noSigningCertificate"),
++        (" certificate is missing.", "noCertificate"),
++        ("Active developer team identifier is ", "noTeamIdentifier"),
++        ("Cannot update features for unknown team type", "unknownTeamType"),
++        ("contains raw placeholder", "appGroupPlaceholder"),
++        ("Bundle is missing bundle identifier", "noBundleIdentifier"),
++        ("verifyPermissions requires storeApp", "noStoreApp"),
++        ("Invalid icon image data", "iconImage"),
++        ("Failed to resize icon image", "iconImage"),
++        ("not found in targetAppBundle", "noExtension"),
++        ("no profiles found to remove", "noProfilesToRemove"),
++        ("SideStore cannot delete itself", "deleteItself"),
++        ("never accidentally 'update' to already installed app", "sameVersion"),
++        ("could not be found in the main bundle", "noBackupApp"),
++        ("not supported on simulator", "simulator"),
++        // Minimuxer's own errors that SideStore passes on as this one.
++        ("Connection mode not configured", "connectionMode"),
++        ("MuxerNotListening: ", "muxerNotListening"),
++        ("RestartAlreadyInProgressError: ", "muxerRestarting"),
++        // Exporting or importing the account, which Cartouche never does.
++        ("Account or signing data is missing", "exportAccount"),
++        ("Failed to generate random salt", "exportAccount"),
++        ("Encryption payload failed", "exportAccount"),
++        ("Unsupported backup format", "backupFormat"),
++        ("Backup directory URL not found", "backupFolder"),
++    ]
++
++    /// What a sentence of invalidParameters names, in SideStore's code: the
++    /// step ("scheduleExpirationWarningNotification", or the operation
++    /// without its "Operation"), or the value an operation expected
++    /// ("targetAppBundle").
++    static let invalidParametersSubjects = [
++        "for step '([A-Za-z][A-Za-z0-9_]*)'",
++        "Step mapping for ([A-Za-z][A-Za-z0-9_]*)",
++        "\\b([A-Za-z][A-Za-z0-9_]*) is nil",
++        "\\b([A-Za-z][A-Za-z0-9_]*) is missing in context",
++    ]
++
++    /// Which of SideStore's sentences for invalidParameters SENTENCE is, as a
++    /// name ("other" for one not listed), and what it names, when it names it.
++    static func reason(ofInvalidParameters sentence: String) -> (reason: String, missing: String?)
++    {
++        let reason = self.invalidParametersReasons.first(where: { sentence.contains($0.sentence) })?.reason ?? "other"
++        for pattern in self.invalidParametersSubjects
++        {
++            guard let expression = try? NSRegularExpression(pattern: pattern),
++                  let match = expression.firstMatch(in: sentence, range: NSRange(sentence.startIndex..., in: sentence)),
++                  let range = Range(match.range(at: 1), in: sentence)
++            else { continue }
++            var subject = String(sentence[range])
++            if subject.hasSuffix("Operation"), subject.count > "Operation".count
++            {
++                subject.removeLast("Operation".count)
++            }
++            return (reason, self.name(subject))
++        }
++        return (reason, nil)
++    }
++
+     /// The family of an error (whose it is) and its kind (its case).
+     static func kind(of error: Error) -> (family: String, kind: String)
+     {
+-- 
+2.43.0
+

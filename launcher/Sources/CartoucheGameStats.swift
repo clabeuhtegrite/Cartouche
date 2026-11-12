@@ -212,7 +212,7 @@ struct CartoucheGameStatsSection: View {
                 }
                 if let stored = entry.stored {
                     LabeledContent(CartoucheText.statsStored(CartoucheStoredGames.shared.serverName ?? ""),
-                                   value: CartoucheText.size(bytes: stored.size))
+                                   value: CartoucheText.size(bytes: stored.storedSize))
                 }
             }
         }

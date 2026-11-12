@@ -37,8 +37,15 @@ final class LCAppInfo {
     private let identifier: String
     private let folder: String
     private let icon: UIImage?
-    /// The app's Info.plist, when the scenario gives it one.
-    var infoPlist: NSMutableDictionary?
+    /// The app's Info.plist, when the scenario gives it one: in the app's
+    /// bundle, where LiveContainer leaves it and the launcher reads it.
+    var infoPlist: NSMutableDictionary? {
+        didSet {
+            guard let infoPlist else { return }
+            try? FileManager.default.createDirectory(at: bundle, withIntermediateDirectories: true)
+            try? infoPlist.write(to: bundle.appendingPathComponent("Info.plist"))
+        }
+    }
     var installationDate: Date?
 
     init(name: String, identifier: String, folder: String, icon: UIImage?) {
@@ -51,8 +58,14 @@ final class LCAppInfo {
     var relativeBundlePath: String? { folder }
     func displayName() -> String? { name }
     func bundleIdentifier() -> String? { identifier }
-    func info() -> NSMutableDictionary? { infoPlist }
-    func bundlePath() -> String? { nil }
+    /// LiveContainer's own settings for the app (LCAppInfo.plist), never its
+    /// Info.plist: the gallery's apps have none.
+    func info() -> NSMutableDictionary? { nil }
+    func bundlePath() -> String? { infoPlist == nil ? nil : bundle.path }
+    private var bundle: URL {
+        GalleryState.documents.appendingPathComponent("Applications", isDirectory: true)
+            .appendingPathComponent(folder, isDirectory: true)
+    }
     func iconIsDarkIcon(_ isDark: Bool) -> UIImage? { icon }
 }
 
@@ -83,10 +96,14 @@ final class CartoucheGameActions: ObservableObject {
     @Published var running: CartoucheRunningGame?
     @Published var switching: CartoucheGameSwitch?
     @Published var quitQuestion: CartoucheRunningGame?
+    @Published var installQuestion: CartoucheInstallQuestion?
 
     nonisolated static func takes(_ url: URL) -> Bool { false }
     func install(_ url: URL) {}
     func install(stored game: CartoucheStoredGame) {}
+    func installAnyway(_ question: CartoucheInstallQuestion) { installQuestion = nil }
+    func dropInstall(_ question: CartoucheInstallQuestion) { installQuestion = nil }
+    func closeInstallQuestion() { installQuestion = nil }
     func play(_ app: LCAppModel, showingSettings: Bool = false) {}
     func resumeRunningGame() {}
     func askToQuit() { quitQuestion = running }

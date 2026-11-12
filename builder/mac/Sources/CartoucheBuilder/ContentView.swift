@@ -7,6 +7,7 @@
 //  widths are in Columns (Theme.swift).
 //
 
+import AppKit
 import BuilderKit
 import SwiftUI
 
@@ -39,6 +40,11 @@ struct ContentView: View {
                 .environmentObject(model)
                 .environmentObject(setup)
                 .environmentObject(bridge)
+        }
+        // Back from the Finder, where a game may have gone into the dumps or
+        // the games folder: it shows at once.
+        .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
+            model.playerCameBack()
         }
     }
 
@@ -140,6 +146,17 @@ struct EngineFooter: View {
                 .font(.caption2)
                 .foregroundStyle(.secondary)
                 .lineLimit(2)
+            if let newest = model.library?.engine?.heldBehind {
+                // The newest commit does not build: the games are built from
+                // the last one that did on this Mac (fallback.py).
+                Label(tr("nxnative \(newest.prefix(8)), its newest commit, does not build for now: Cartouche Builder stays on the last one that built.",
+                         "nxnative \(newest.prefix(8)), son dernier commit, ne construit pas pour l’instant : Cartouche Builder reste sur le dernier qui a construit."),
+                      systemImage: "exclamationmark.triangle")
+                    .font(.caption2)
+                    .foregroundStyle(.orange)
+                    .lineLimit(4)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
         }
         .padding(10)
         .background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(.quaternary.opacity(0.5)))
