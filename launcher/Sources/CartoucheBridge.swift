@@ -14,7 +14,8 @@
 //  that both screens show them and allows the iPhone on the Mac. A device
 //  in between would make each side show other digits, and cannot choose
 //  its halves to make them match (one chance in a million). The key both
-//  keep never crosses the network.
+//  keep never crosses the network. The Mac keeps it before it tells the
+//  iPhone it is accepted: Cartouche signs in as soon as it hears so.
 //
 //  Each connection after that: a fresh X25519 exchange, proved on both
 //  sides with the paired key (HMAC-SHA256), gives the connection its own
@@ -598,19 +599,24 @@ public enum CartoucheBridgeHandshake {
     // MARK: The Mac's side
 
     /// What the Mac does with a new connection: a session of a paired
-    /// device, or a pairing.
+    /// device, or a pairing, the device kept already.
     public enum Opening {
         case session(CartoucheBridgeSecureChannel)
-        case paired(device: String, name: String, key: Data)
+        case paired(device: String, name: String)
         case refused
     }
 
     /// Answers the first messages of a connection. KEY_OF gives a paired
     /// device's key; ALLOW asks the player, with the device's name and the
-    /// code, whether a new one may pair (nil: no pairing now).
+    /// code, whether a new one may pair (nil: no pairing now); KEEP keeps
+    /// the device the player allowed, its ID, its name and its paired key,
+    /// before the iPhone hears it is accepted: Cartouche signs in at once,
+    /// and a Mac that did not know it yet would answer that it is not
+    /// paired.
     public static func server(_ transport: CartoucheBridgeTransport, mac: String, name: String,
                               keyOf: (String) -> Data?,
-                              allow: ((String, String) async -> Bool)?) async throws -> Opening {
+                              allow: ((String, String) async -> Bool)?,
+                              keep: (_ device: String, _ name: String, _ key: Data) async -> Void) async throws -> Opening {
         let hello = try await receivePlain(CartoucheBridgeHello.self, on: transport)
         guard hello.v == CartoucheBridge.version else {
             try await sendPlain(CartoucheBridgeWelcome(v: CartoucheBridge.version, mac: mac, name: name, error: .protocolError, message: "version \(hello.v)"), on: transport)
@@ -658,14 +664,18 @@ public enum CartoucheBridgeHandshake {
             let shared = try ephemeral.sharedSecretFromKeyAgreement(with: devicePublic)
             let key = pairedKey(shared: shared, device: hello.device, mac: mac, deviceNonce: deviceNonce, macNonce: nonce)
             let digits = code(deviceKey: deviceKey, macKey: macKey, deviceNonce: deviceNonce, macNonce: nonce)
-            let deviceName = (hello.name ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
-            guard await allow(deviceName.isEmpty ? "iPhone" : String(deviceName.prefix(60)), digits) else {
+            let trimmed = (hello.name ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+            let deviceName = trimmed.isEmpty ? "iPhone" : String(trimmed.prefix(60))
+            guard await allow(deviceName, digits) else {
                 try? await sendPlain(CartoucheBridgePaired(accepted: false), on: transport)
                 return .refused
             }
+            // Kept first: the iPhone opens its first session as soon as it
+            // reads the answer.
+            await keep(hello.device, deviceName, CartoucheBridgeBytes.keyData(key))
             let accepted = Data(HMAC<SHA256>.authenticationCode(for: label + CartoucheBridgeBytes.text("accepted"), using: key))
             try await sendPlain(CartoucheBridgePaired(accepted: true, proof: accepted), on: transport)
-            return .paired(device: hello.device, name: deviceName.isEmpty ? "iPhone" : String(deviceName.prefix(60)), key: CartoucheBridgeBytes.keyData(key))
+            return .paired(device: hello.device, name: deviceName)
         }
     }
 }
