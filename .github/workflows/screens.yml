@@ -11,6 +11,10 @@ name: Launcher screens
 # gallery's files: a rebase or a merge of main that leaves those changes as
 # they were keeps the ones taken before, about half an hour of a Mac each
 # time. Run the workflow from the Actions tab to take them again.
+#
+# They are taken on Ad's Mac when it can take them now, which spares GitHub's
+# Macs, five at a time for the whole account, and their wait; on GitHub's
+# otherwise, and always for a run again (.github/mac/README.md).
 
 on:
   pull_request:
@@ -75,13 +79,37 @@ jobs:
           echo "::notice::An earlier run took the screenshots of these very changes, on $BRANCH: run this workflow from the Actions tab to take them again."
           echo "The screenshots of these very changes are on \`$BRANCH\` already." >> "$GITHUB_STEP_SUMMARY"
 
+  # Ad's Mac, when it can take them now, else GitHub's (route.py).
+  route:
+    name: Ad's Mac or GitHub
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: read # the jobs waiting for Ad's Mac
+    outputs:
+      runner: ${{ steps.route.outputs.runner }}
+      mac: ${{ steps.route.outputs.mac }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          sparse-checkout: .github/mac
+          persist-credentials: false
+      - name: Where the screenshots are taken
+        id: route
+        env:
+          MAC_JOB: Screenshots
+          MAC_LABELS: xcode-${{ env.XCODE_VERSION }},ios-sim-${{ env.XCODE_VERSION }}
+          RUNNERS_TOKEN: ${{ secrets.MAC_RUNNER_TOKEN }}
+          GH_TOKEN: ${{ github.token }}
+        run: python3 .github/mac/route.py
+
   screens:
     name: Screenshots
-    needs: taken
-    # Taken unless the first job found them, so that a failure there cannot
-    # skip them.
+    needs: [taken, route]
+    # Taken unless the first job found them, so that a failure there, or in
+    # the route, cannot skip them.
     if: ${{ !cancelled() && needs.taken.outputs.taken != 'true' }}
-    runs-on: xcode-27
+    runs-on: ${{ fromJSON(needs.route.outputs.runner || '"xcode-27"') }}
     timeout-minutes: 60
     env:
       # brew install takes the formula the runner knows, without updating
@@ -93,11 +121,20 @@ jobs:
         with:
           persist-credentials: false
       - name: Select Xcode
+        if: ${{ runner.environment == 'github-hosted' }}
         run: |
           sudo xcode-select -s "/Applications/Xcode_${XCODE_VERSION}.app"
           xcodebuild -version
       - name: Install XcodeGen
+        if: ${{ runner.environment == 'github-hosted' }}
         run: brew install xcodegen
+      # Its own simulators, which stay from a run to the next, shut down.
+      - name: Xcode, XcodeGen and simulators on Ad's Mac
+        if: ${{ runner.environment == 'self-hosted' }}
+        run: |
+          .github/mac/job.sh xcode "$XCODE_VERSION"
+          .github/mac/job.sh tool xcodegen
+          .github/mac/job.sh simulators
       - name: Take the screenshots
         run: launcher/Gallery/capture.sh build/screens
       - name: Upload them
@@ -122,6 +159,31 @@ jobs:
         with:
           path: build/screens-taken
           key: ${{ needs.taken.outputs.key }}
+
+  # Beside the screenshots when Ad's Mac takes them: sends the run back to
+  # GitHub's Macs when the Mac loses them or does not take them (watch.py).
+  watch:
+    name: Watch Ad's Mac
+    needs: [taken, route]
+    if: ${{ !cancelled() && needs.route.outputs.mac == 'true' && needs.taken.outputs.taken != 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    permissions:
+      contents: read
+      actions: write # cancels this run, and starts Mac rescue to run it again
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          sparse-checkout: .github/mac
+          persist-credentials: false
+      - name: Watch the screenshots on Ad's Mac
+        env:
+          MAC_JOB: Screenshots
+          MAC_LABELS: xcode-${{ env.XCODE_VERSION }},ios-sim-${{ env.XCODE_VERSION }}
+          RUNNERS_TOKEN: ${{ secrets.MAC_RUNNER_TOKEN }}
+          GH_TOKEN: ${{ github.token }}
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+        run: python3 .github/mac/watch.py
 
   # The only job that can write runs nothing from the pull request: it
   # commits the screenshots the job above uploaded.
