@@ -35,10 +35,10 @@ extension CartoucheText {
         case nil:
             guard signIn, let trouble = CartoucheSignInMessage.deviceTrouble(in: failure) else { return readable }
             // Before Apple, or once it accepted the account.
-            switch failure.stage {
-            case "deviceCheck"?: return deviceMessage(trouble) + " " + deviceBeforeApple
-            case "device"?: return deviceMessage(trouble) + " " + deviceAfterApple
-            default: return deviceMessage(trouble)
+            switch CartoucheSignInMessage.deviceMoment(of: failure) {
+            case .beforeApple: return deviceMessage(trouble) + " " + deviceBeforeApple
+            case .afterApple: return deviceMessage(trouble) + " " + deviceAfterApple
+            case .elsewhere: return deviceMessage(trouble)
             }
         }
     }

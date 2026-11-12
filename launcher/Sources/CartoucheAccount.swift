@@ -53,19 +53,9 @@ import Foundation
 final class CartoucheAccount: ObservableObject {
     static let shared = CartoucheAccount()
 
-    enum Phase: Equatable {
-        /// Cartouche waits for LocalDevVPN before it hands SideStore the
-        /// sign-in, or the step that registers this iPhone alone: nothing
-        /// has gone to Apple yet.
-        case waitingForVPN(deviceStep: Bool)
-        /// SideStore signs in, registers this iPhone and fetches the
-        /// certificate.
-        case signingIn
-        /// Apple asks for a verification code.
-        case code(CartoucheSignInMessage.CodeRequest)
-        /// SideStore registers this iPhone alone, with the account it kept.
-        case registeringDevice
-    }
+    /// Where the sign-in stands (CartoucheSignInMessage.swift, which swift
+    /// test checks).
+    typealias Phase = CartoucheSignInPhase
 
     @Published private(set) var phase: Phase?
     @Published private(set) var progress: Progress?
@@ -87,16 +77,10 @@ final class CartoucheAccount: ObservableObject {
     }
 
     /// Apple asks the player for a verification code.
-    var needsCode: Bool {
-        if case .code = phase { return true }
-        return false
-    }
+    var needsCode: Bool { phase?.needsCode ?? false }
 
     /// Whether Cartouche waits for LocalDevVPN.
-    var isWaitingForVPN: Bool {
-        if case .waitingForVPN = phase { return true }
-        return false
-    }
+    var isWaitingForVPN: Bool { phase?.isWaitingForVPN ?? false }
 
     /// The requests the player has answered, which SideStore may not have
     /// cleared yet.
@@ -111,21 +95,17 @@ final class CartoucheAccount: ObservableObject {
         case device
     }
     private var pending: Pending?
-    private var waitStarted: Date?
+    private var vpnWaiting: CartoucheVPNWait?
     private var waiting: Task<Void, Never>?
-    static let vpnTimeout: TimeInterval = 600
     /// How long the player waited for LocalDevVPN before what runs now, and
     /// whether they went on without it, for the measurements.
     private var vpnWait: TimeInterval?
     private var wentOnWithoutVPN = false
 
     /// Whether Cartouche started the step that registers this iPhone by
-    /// itself, how many times it did since it opened, and whether LocalDevVPN
-    /// was connected when it last looked.
+    /// itself, and when it does so (CartoucheDeviceStepWatch).
     private var deviceStepIsAutomatic = false
-    private var automaticDeviceSteps = 0
-    static let automaticDeviceStepsAtMost = 3
-    private var vpnSeen = false
+    private var deviceStepWatch = CartoucheDeviceStepWatch()
 
     private static let pauseKey = "CartoucheSignInPause"
 
@@ -316,7 +296,7 @@ final class CartoucheAccount: ObservableObject {
         isAutomatic = false
         // A step left is taken by itself once LocalDevVPN connects again,
         // not while it stays as it was.
-        vpnSeen = Self.vpnConnected
+        deviceStepWatch.ended(connected: Self.vpnConnected)
         CartoucheSetup.shared.refresh()
     }
 
@@ -349,7 +329,7 @@ final class CartoucheAccount: ObservableObject {
     /// Waits for LocalDevVPN, ten minutes at most, then goes on with PENDING.
     private func wait(for pending: Pending) {
         self.pending = pending
-        waitStarted = Date()
+        vpnWaiting = CartoucheVPNWait(started: Date())
         if case .device = pending {
             phase = .waitingForVPN(deviceStep: true)
         } else {
@@ -360,15 +340,17 @@ final class CartoucheAccount: ObservableObject {
         waiting = Task { [weak self] in
             while !Task.isCancelled {
                 try? await Task.sleep(for: .milliseconds(500))
-                guard let self, self.isWaitingForVPN else { return }
-                if Self.vpnConnected {
+                guard let self, self.isWaitingForVPN, let current = self.vpnWaiting else { return }
+                switch current.next(connected: Self.vpnConnected, at: Date()) {
+                case .goOn:
                     self.goOn()
                     return
-                }
-                if let since = self.waitStarted, Date().timeIntervalSince(since) > Self.vpnTimeout {
+                case .stop:
                     CartoucheReports.note("LocalDevVPN did not connect in time")
                     self.stopWaiting()
                     return
+                case .keepWaiting:
+                    continue
                 }
             }
         }
@@ -378,7 +360,7 @@ final class CartoucheAccount: ObservableObject {
     /// without it, as the player asks.
     func goOn() {
         guard isWaitingForVPN, let pending = self.pending else { return }
-        vpnWait = waitStarted.map { Date().timeIntervalSince($0) }
+        vpnWait = vpnWaiting?.seconds(at: Date())
         wentOnWithoutVPN = !Self.vpnConnected
         endWait()
         switch pending {
@@ -399,7 +381,7 @@ final class CartoucheAccount: ObservableObject {
         waiting?.cancel()
         waiting = nil
         pending = nil
-        waitStarted = nil
+        vpnWaiting = nil
         phase = nil
     }
 
@@ -429,19 +411,17 @@ final class CartoucheAccount: ObservableObject {
     }
 
     /// Takes the step left by itself as soon as LocalDevVPN connects: once
-    /// each time it does, three times at most while Cartouche is open.
-    /// CartoucheSetupRefresh calls it whenever Cartouche comes to the front,
-    /// and every two seconds while that step is left.
+    /// each time it does, three times at most while Cartouche is open
+    /// (CartoucheDeviceStepWatch). CartoucheSetupRefresh calls it whenever
+    /// Cartouche comes to the front, and every two seconds while that step
+    /// is left.
     func resumeDeviceStep() {
         #if CARTOUCHE_GALLERY
         // The gallery has no SideStore: its screens show the step as it is.
         return
         #else
-        let connected = Self.vpnConnected
-        defer { vpnSeen = connected }
-        guard connected, !vpnSeen, phase == nil, pausedUntil == nil, CartoucheSetup.shared.needsDevice,
-              automaticDeviceSteps < Self.automaticDeviceStepsAtMost else { return }
-        automaticDeviceSteps += 1
+        guard deviceStepWatch.look(connected: Self.vpnConnected, left: CartoucheSetup.shared.needsDevice,
+                                   idle: phase == nil && pausedUntil == nil) else { return }
         vpnWait = nil
         wentOnWithoutVPN = false
         startDeviceStep(automatic: true)
@@ -502,7 +482,7 @@ final class CartoucheAccount: ObservableObject {
             CartoucheTelemetry.shared.event("account.signedIn", fields: fields)
             signedIn = true
         }
-        vpnSeen = Self.vpnConnected
+        deviceStepWatch.ended(connected: Self.vpnConnected)
         CartoucheSetup.shared.refresh()
     }
 

@@ -46,17 +46,11 @@ struct CartoucheSignInView: View {
 
     /// Whether the screen offers to register this iPhone alone.
     private var showsDeviceStep: Bool {
-        switch account.phase {
-        case .registeringDevice?, .waitingForVPN(deviceStep: true)?: return true
-        case .signingIn?, .code?, .waitingForVPN(deviceStep: false)?: return false
-        case nil: return setup.needsDevice && !signingInAgain
-        }
+        CartoucheSignInPhase.showsDeviceStep(account.phase, left: setup.needsDevice, signingInAgain: signingInAgain)
     }
 
     /// Whether SideStore is at work, which nothing interrupts.
-    private var sideStoreRuns: Bool {
-        account.phase == .signingIn || account.phase == .registeringDevice
-    }
+    private var sideStoreRuns: Bool { account.phase?.sideStoreRuns ?? false }
 
     var body: some View {
         NavigationStack {
@@ -116,7 +110,7 @@ struct CartoucheSignInView: View {
             if id != nil { focus = .code }
         }
         .onChange(of: account.phase) { old, new in
-            guard new == nil, old == .signingIn || isCode(old) else { return }
+            guard CartoucheSignInPhase.endsSignIn(from: old, to: new) else { return }
             // The sign-in ended: its password goes, unless it never left
             // this iPhone. A sign-in that leaves this iPhone to register
             // offers that step.
@@ -133,11 +127,6 @@ struct CartoucheSignInView: View {
                 try? await Task.sleep(for: .seconds(1))
             }
         }
-    }
-
-    private func isCode(_ phase: CartoucheAccount.Phase?) -> Bool {
-        if case .code? = phase { return true }
-        return false
     }
 
     // MARK: The Apple ID

@@ -265,12 +265,14 @@ class SideStoreOutcomeTest(unittest.TestCase):
         before = set(re.findall(r'"(\w+)"', listed.group(1)))
         self.assertEqual(before - {"start"}, set(order[:order.index("account")]))
         self.assertIn('stage: "start"', (LAUNCHER / "CartoucheAccount.swift").read_text(encoding="utf-8"))
-        # And those Cartouche tells the player's next step by.
+        # And those Cartouche tells the player's next step by, which its
+        # words for the sign-in follow.
         read = set(re.findall(r'failure\.stage == "(\w+)"', message))
-        words = (LAUNCHER / "CartoucheTextSideStore.swift").read_text(encoding="utf-8")
-        read |= set(re.findall(r'case "(\w+)"\??:', block(words, "static func sideStoreMessage(", "sideStoreMessage")))
+        read |= set(re.findall(r'case "(\w+)"\??:', block(message, "static func deviceMoment(", "deviceMoment")))
         self.assertEqual(read, {"deviceCheck", "device", "account"})
         self.assertLessEqual(read, set(order))
+        words = (LAUNCHER / "CartoucheTextSideStore.swift").read_text(encoding="utf-8")
+        self.assertIn("deviceMoment(of: failure)", block(words, "static func sideStoreMessage(", "sideStoreMessage"))
 
     def test_every_family_sidestore_leaves_has_its_causes(self):
         kind = block(self.outcome, "static func kind(of error: Error)", "CartoucheOutcome.kind(of:)")

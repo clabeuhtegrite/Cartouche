@@ -415,6 +415,22 @@
       ]
     },
     {
+      "name": "iphone-setup-iphone-step",
+      "screen": "setup",
+      "work": "iphone-step",
+      "owned": [],
+      "setup": true,
+      "controller": false,
+      "width": 402,
+      "height": 874,
+      "insets": [
+        62,
+        0,
+        34,
+        0
+      ]
+    },
+    {
       "name": "iphone-sign-in",
       "screen": "signin",
       "owned": [],
