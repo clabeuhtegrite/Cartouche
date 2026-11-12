@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "covers.schema.json",
   "title": "The games' official covers",
-  "description": "Each game's official cover and artwork on IGDB, written by catalog/tools/igdb_covers.py: IGDB's game and image IDs only, never an address. The launcher builds the images' addresses itself.",
+  "description": "Each game's official cover and artwork on IGDB, and its genre there, written by catalog/tools/igdb_covers.py: IGDB's game and image IDs only, never an address. The launcher builds the images' addresses itself.",
   "type": "object",
   "additionalProperties": false,
   "required": ["schema", "source", "covers"],
@@ -54,6 +54,10 @@
         "artwork": {
           "$ref": "#/$defs/imageId",
           "description": "An artwork of the game, wide."
+        },
+        "genre": {
+          "enum": ["action", "adventure", "rpg", "puzzle", "strategy", "simulation", "racing", "sports", "board", "card", "family", "music"],
+          "description": "The game's genre on IGDB, as one of Cartouche's own: the launcher shows it for a game whose nxnative profile says none."
         }
       }
     }

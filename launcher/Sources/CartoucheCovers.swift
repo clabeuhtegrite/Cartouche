@@ -9,14 +9,40 @@
 //  images.igdb.com, loads each image once and keeps it in its caches
 //  folder, which iOS may empty: the image is loaded again then. Until an
 //  image has loaded, and for a game IGDB has none for, the views show
-//  Cartouche's own drawing.
+//  Cartouche's own drawing. A game Cartouche does not know has IGDB's
+//  images by its name (CartoucheGameLookup), and the player's own cover,
+//  from Photos or Files, goes over any (CartouchePlayerInfo).
 //
 
 import SwiftUI
 import UIKit
 
+/// An image of a game: one of IGDB's, or a file of the player's.
+enum CartoucheArt: Hashable, Sendable {
+    case igdb(String, CartoucheCoverStore.Kind)
+    case file(URL)
+}
+
+extension CartoucheEntry {
+    /// The game's cover: the player's own, else IGDB's, by the game's title
+    /// ID or, for a game Cartouche does not know, by its name.
+    var coverArt: CartoucheArt? {
+        if let playerCover { return .file(playerCover) }
+        if let id = cover?.cover ?? found?.cover { return .igdb(id, .cover) }
+        return nil
+    }
+
+    /// What the stage shows behind the game, faintly: the player's cover,
+    /// else IGDB's artwork, else its cover.
+    var backdrop: CartoucheArt? {
+        if let playerCover { return .file(playerCover) }
+        if let id = cover?.artwork ?? found?.artwork { return .igdb(id, .artwork) }
+        return coverArt
+    }
+}
+
 /// Loads IGDB's images, once each while Cartouche runs, and keeps them on
-/// disk.
+/// disk; reads the player's own.
 actor CartoucheCoverStore {
     static let shared = CartoucheCoverStore()
 
@@ -72,12 +98,43 @@ actor CartoucheCoverStore {
         loading[key] = task
         let image = await task.value
         loading[key] = nil
+        remember(image, as: key)
+        return image
+    }
+
+    /// The image of ART, from IGDB or from the player's file.
+    func image(_ art: CartoucheArt) async -> UIImage? {
+        switch art {
+        case .igdb(let id, let kind):
+            return await image(id, kind: kind)
+        case .file(let url):
+            return await image(file: url)
+        }
+    }
+
+    /// The image in FILE, a cover of the player's: each file holds one
+    /// cover only, a new cover going to a new file.
+    func image(file: URL) async -> UIImage? {
+        let key = "file-" + file.path
+        if let image = memory.object(forKey: key as NSString) { return image }
+        if let task = loading[key] { return await task.value }
+        let task = Task.detached(priority: .utility) { () -> UIImage? in
+            guard let data = try? Data(contentsOf: file), let image = UIImage(data: data) else { return nil }
+            return await image.byPreparingForDisplay() ?? image
+        }
+        loading[key] = task
+        let image = await task.value
+        loading[key] = nil
+        remember(image, as: key)
+        return image
+    }
+
+    private func remember(_ image: UIImage?, as key: String) {
         if let image, let cgImage = image.cgImage {
             memory.setObject(image, forKey: key as NSString, cost: cgImage.bytesPerRow * cgImage.height)
         } else if let image {
             memory.setObject(image, forKey: key as NSString)
         }
-        return image
     }
 
     /// How many images are loading: the gallery waits for none before it
@@ -85,12 +142,11 @@ actor CartoucheCoverStore {
     var pending: Int { loading.count }
 }
 
-/// One of IGDB's images, filling its frame or whole in it, over
-/// PLACEHOLDER until it has loaded or when there is none.
+/// A game's image, IGDB's or the player's, filling its frame or whole in
+/// it, over PLACEHOLDER until it has loaded or when there is none.
 @available(iOS 17.0, *)
 struct CartoucheCoverImage<Placeholder: View>: View {
-    let id: String?
-    var kind: CartoucheCoverStore.Kind = .cover
+    let art: CartoucheArt?
     /// Where the image sits when it is taller than its frame, from 0 (its
     /// top shows) to 1 (its bottom shows). A cover's title is in its upper
     /// part, and its bottom often holds a rating.
@@ -98,8 +154,18 @@ struct CartoucheCoverImage<Placeholder: View>: View {
     /// The whole image, as large as its frame allows, over a blurred copy of
     /// itself that fills the rest: a cover is never cut.
     var whole = false
-    @ViewBuilder let placeholder: () -> Placeholder
+    let placeholder: () -> Placeholder
     @State private var image: UIImage?
+
+    // Written out: the private state above would make the synthesized
+    // initializer private.
+    init(art: CartoucheArt?, anchor: CGFloat = 0.35, whole: Bool = false,
+         @ViewBuilder placeholder: @escaping () -> Placeholder) {
+        self.art = art
+        self.anchor = anchor
+        self.whole = whole
+        self.placeholder = placeholder
+    }
 
     var body: some View {
         GeometryReader { frame in
@@ -113,12 +179,12 @@ struct CartoucheCoverImage<Placeholder: View>: View {
             .frame(width: frame.size.width, height: frame.size.height)
         }
         .clipped()
-        .task(id: id) {
-            guard let id else {
+        .task(id: art) {
+            guard let art else {
                 image = nil
                 return
             }
-            let loaded = await CartoucheCoverStore.shared.image(id, kind: kind)
+            let loaded = await CartoucheCoverStore.shared.image(art)
             withAnimation(.easeOut(duration: 0.25)) { image = loaded }
         }
     }

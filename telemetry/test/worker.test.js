@@ -7,13 +7,29 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { beforeEach, test } from "node:test";
 
-import worker, { LIMITS, SQL, clean, cleanProblem, expire, fileWaiting, issueBody, resetThrottle } from "../worker.js";
+import worker, {
+  IGDB_GENRES,
+  LIMITS,
+  SQL,
+  chooseGame,
+  clean,
+  cleanLookup,
+  cleanProblem,
+  expire,
+  fileWaiting,
+  issueBody,
+  plainName,
+  ratio,
+  resetIGDB,
+  resetThrottle,
+} from "../worker.js";
 
 class FakeD1 {
   constructor() {
     this.reports = new Map();
     this.daily = new Map();
     this.problems = new Map();
+    this.lookups = new Map();
     this.down = false;
   }
 
@@ -91,6 +107,20 @@ class FakeD1 {
         for (const [id, row] of this.problems) {
           if ((row.issue !== null && row.day < args[0]) || row.day < args[1]) this.problems.delete(id);
         }
+        return {};
+      case SQL.lookup: {
+        const row = this.lookups.get(args[0]);
+        return row ? { day: row.day, answer: row.answer } : null;
+      }
+      case SQL.lookupsOfDay:
+        return { count: [...this.lookups.values()].filter((row) => row.day === args[0]).length };
+      case SQL.keepLookup: {
+        const [name, day, answer] = args;
+        this.lookups.set(name, { day, answer });
+        return {};
+      }
+      case SQL.expireLookups:
+        for (const [name, row] of this.lookups) if (row.day < args[0]) this.lookups.delete(name);
         return {};
       default:
         throw new Error(`a statement the Worker does not make: ${sql}`);
@@ -181,6 +211,7 @@ beforeEach(() => {
   db = new FakeD1();
   env = { DB: db };
   resetThrottle();
+  resetIGDB();
 });
 
 test("keeps a session and an event as they came, with the day received", async () => {
@@ -555,4 +586,260 @@ test("problems filed before yesterday go, those waiting stay up to 25 months", a
   db.problems.set("waiting-too-long", { id: "waiting-too-long", day: "2024-10-09", title: "t", body: "b", issue: null });
   await expire(env, NOW);
   assert.deepEqual([...db.problems.keys()], ["filed-yesterday", "waiting"]);
+});
+
+// MARK: Games Cartouche does not know
+
+// Twitch's token endpoint and IGDB's API as the Worker calls them: the
+// platforms, and the games each search finds, which a test may change.
+class FakeIGDB {
+  constructor() {
+    this.tokens = 0;
+    this.queries = [];
+    this.searches = new Map();
+    this.down = false;
+    this.refuseToken = false;
+  }
+
+  async fetch(url, init) {
+    if (this.down) throw new TypeError("network connection lost");
+    if (url === "https://id.twitch.tv/oauth2/token") {
+      const form = new URLSearchParams(init.body);
+      assert.equal(form.get("client_id"), "igdb-client");
+      assert.equal(form.get("client_secret"), "igdb-secret");
+      assert.equal(form.get("grant_type"), "client_credentials");
+      this.tokens += 1;
+      return Response.json({ access_token: `token-${this.tokens}`, expires_in: 5000000, token_type: "bearer" });
+    }
+    assert.equal(init.headers["client-id"], "igdb-client");
+    if (this.refuseToken || init.headers.authorization !== `Bearer token-${this.tokens}`) {
+      this.refuseToken = false;
+      return Response.json({ message: "Authorization Failure" }, { status: 401 });
+    }
+    const endpoint = url.replace("https://api.igdb.com/v4/", "");
+    this.queries.push([endpoint, init.body]);
+    if (endpoint === "platforms") {
+      return Response.json([{ id: 130, name: "Nintendo Switch" }, { id: 508, name: "Nintendo Switch 2" }]);
+    }
+    const terms = JSON.parse(init.body.split(";")[0].replace(/^search /, ""));
+    return Response.json(this.searches.get(terms) ?? []);
+  }
+
+  get searched() {
+    return this.queries.filter(([endpoint]) => endpoint === "games").map(([, query]) => query.split(";")[0]);
+  }
+}
+
+const UNRAVEL = {
+  id: 103281,
+  name: "Unravel Two",
+  platforms: [6, 48, 49, 130],
+  genres: [8, 9, 31, 32],
+  cover: { image_id: "co1yxz" },
+  artworks: [{ image_id: "ar7k2" }, { image_id: "ar7k3" }],
+};
+
+let igdb;
+function withIGDB() {
+  igdb = new FakeIGDB();
+  realFetch = globalThis.fetch;
+  globalThis.fetch = (url, init) => igdb.fetch(url, init);
+  env.IGDB_CLIENT_ID = "igdb-client";
+  env.IGDB_CLIENT_SECRET = "igdb-secret";
+}
+function withoutIGDB() {
+  if (realFetch) globalThis.fetch = realFetch;
+  realFetch = undefined;
+}
+
+const lookUp = (body, headers = {}, now = NOW) => worker.fetch(post("/v1/games", body, headers), env, {}, now);
+
+test("finds a game Cartouche does not know on IGDB, and keeps the answer for its name", async () => {
+  withIGDB();
+  try {
+    igdb.searches.set("Unravel TWO", [{ ...UNRAVEL, id: 99, name: "Unravel", cover: { image_id: "co1abc" } }, UNRAVEL]);
+    const response = await lookUp({ name: "Unravel TWO", platform: "switch" });
+    assert.equal(response.status, 200);
+    assert.deepEqual(await response.json(), {
+      found: true,
+      igdb: 103281,
+      name: "Unravel Two",
+      cover: "co1yxz",
+      artwork: "ar7k2",
+      genre: "puzzle",
+      platform: "switch",
+    });
+    // Among the two Switch platforms, by IGDB's IDs, asked once.
+    assert.deepEqual(igdb.queries[0], ["platforms", 'fields id,name; where name = "Nintendo Switch" | name = "Nintendo Switch 2"; limit 10;']);
+    assert.ok(igdb.queries[1][1].endsWith("where platforms = (130,508); limit 20;"));
+    assert.ok(igdb.queries[1][1].includes("genres"));
+    // Kept by the name made plain, never who asked.
+    assert.deepEqual([...db.lookups.keys()], ["switch:unravel two"]);
+    assert.equal(db.lookups.get("switch:unravel two").day, "2026-11-10");
+    assert.ok(!JSON.stringify([...db.lookups.values()]).includes("203.0.113.7"));
+    // Asked again, under another spelling of the same name: the database answers.
+    const again = await lookUp({ name: "  UNRAVEL™ two " , platform: "switch" }, { "cf-connecting-ip": "198.51.100.4" });
+    assert.equal((await again.json()).igdb, 103281);
+    assert.equal(igdb.searched.length, 1);
+    assert.equal(igdb.tokens, 1);
+  } finally {
+    withoutIGDB();
+  }
+});
+
+test("a game IGDB does not have is kept as none, and searched again as words only", async () => {
+  withIGDB();
+  try {
+    const response = await lookUp({ name: "Tiny:Homebrew® Game" });
+    assert.deepEqual(await response.json(), { found: false });
+    assert.deepEqual(igdb.searched, ['search "Tiny:Homebrew® Game"', 'search "Tiny Homebrew Game"']);
+    assert.deepEqual(db.lookups.get(":tiny homebrew game"), { day: "2026-11-10", answer: "" });
+    await lookUp({ name: "Tiny:Homebrew® Game" });
+    assert.equal(igdb.searched.length, 2);
+    // Found under its words: its platform is IGDB's.
+    igdb.searches.set("NieR Automata The End of YoRHa Edition", [
+      { id: 8, name: "NieR:Automata - The End of YoRHa Edition", platforms: [130], cover: { image_id: "nier" } },
+    ]);
+    const nier = await (await lookUp({ name: "NieR:Automata The End of YoRHa Edition" })).json();
+    assert.deepEqual(nier, { found: true, igdb: 8, name: "NieR:Automata - The End of YoRHa Edition", cover: "nier", platform: "switch" });
+  } finally {
+    withoutIGDB();
+  }
+});
+
+test("the platform the app says decides between a game and its Switch 2 Edition", async () => {
+  withIGDB();
+  try {
+    igdb.searches.set("Super Mario Odyssey", [
+      { id: 2, name: "Super Mario Odyssey - Nintendo Switch 2 Edition", platforms: [508], cover: { image_id: "smo2" } },
+      { id: 1, name: "Super Mario Odyssey", platforms: [130], cover: { image_id: "smo" }, genres: [8, 31] },
+    ]);
+    assert.equal((await (await lookUp({ name: "Super Mario Odyssey", platform: "switch" })).json()).igdb, 1);
+    const second = await (await lookUp({ name: "Super Mario Odyssey", platform: "switch2" })).json();
+    assert.equal(second.igdb, 2);
+    assert.equal(second.platform, "switch2");
+    // Without one, the first closest entry, on IGDB's platform.
+    const unsaid = await (await lookUp({ name: "Super Mario Odyssey" })).json();
+    assert.deepEqual([unsaid.igdb, unsaid.platform, unsaid.genre], [2, "switch2", undefined]);
+    assert.equal(db.lookups.size, 3);
+  } finally {
+    withoutIGDB();
+  }
+});
+
+test("an answer older than 30 days is asked again, and the daily run forgets it", async () => {
+  withIGDB();
+  try {
+    igdb.searches.set("Unravel TWO", [UNRAVEL]);
+    db.lookups.set("switch:unravel two", { day: "2026-10-10", answer: "" });
+    const response = await lookUp({ name: "Unravel TWO", platform: "switch" });
+    assert.equal((await response.json()).igdb, 103281);
+    assert.equal(db.lookups.get("switch:unravel two").day, "2026-11-10");
+    db.lookups.set("switch:old", { day: "2026-10-10", answer: "" });
+    db.lookups.set("switch:kept", { day: "2026-10-11", answer: "" });
+    await expire(env, NOW);
+    assert.deepEqual([...db.lookups.keys()].sort(), ["switch:kept", "switch:unravel two"]);
+  } finally {
+    withoutIGDB();
+  }
+});
+
+test("a name the server does not take is refused, and one of no Latin letter is found nowhere", async () => {
+  withIGDB();
+  try {
+    for (const body of [{}, { name: "" }, { name: " \n " }, { name: 42 }, { name: "x".repeat(LIMITS.lookupName + 1) },
+      { name: "Celeste", platform: "wii" }, "a string", ["Celeste"]]) {
+      const response = await lookUp(body);
+      assert.equal(response.status, 400, JSON.stringify(body));
+    }
+    assert.deepEqual(cleanLookup({ name: "Celeste\u0007", platform: "switch", extra: 1 }), { name: "Celeste", platform: "switch" });
+    const japanese = await lookUp({ name: "ゼルダの伝説" });
+    assert.deepEqual(await japanese.json(), { found: false });
+    assert.equal(igdb.queries.length, 0);
+    const get = await worker.fetch(new Request("https://telemetry.example.workers.dev/v1/games"), env, {}, NOW);
+    assert.equal(get.status, 405);
+  } finally {
+    withoutIGDB();
+  }
+});
+
+test("without IGDB, the app tries again later, and an answer kept before still holds", async () => {
+  const response = await lookUp({ name: "Unravel TWO", platform: "switch" });
+  assert.equal(response.status, 503);
+  assert.equal(response.headers.get("retry-after"), "3600");
+  assert.equal(db.lookups.size, 0);
+  db.lookups.set("switch:unravel two", { day: "2026-09-01", answer: JSON.stringify({ igdb: 103281, name: "Unravel Two", cover: "co1yxz", platform: "switch" }) });
+  const kept = await lookUp({ name: "Unravel TWO", platform: "switch" });
+  assert.equal(kept.status, 200);
+  assert.equal((await kept.json()).cover, "co1yxz");
+  withIGDB();
+  try {
+    igdb.down = true;
+    const away = await lookUp({ name: "Celeste" });
+    assert.equal(away.status, 503);
+    db.down = true;
+    igdb.down = false;
+    assert.equal((await lookUp({ name: "Celeste" })).status, 503);
+  } finally {
+    withoutIGDB();
+  }
+});
+
+test("a token Twitch no longer takes is replaced", async () => {
+  withIGDB();
+  try {
+    igdb.searches.set("Unravel TWO", [UNRAVEL]);
+    await lookUp({ name: "Celeste" });
+    igdb.refuseToken = true;
+    const refused = await lookUp({ name: "Unravel TWO" });
+    assert.equal(refused.status, 503);
+    const next = await lookUp({ name: "Unravel TWO" });
+    assert.equal((await next.json()).igdb, 103281);
+    assert.equal(igdb.tokens, 2);
+  } finally {
+    withoutIGDB();
+  }
+});
+
+test("an address asks for sixty names an hour, and the server asks IGDB a thousand times a day", async () => {
+  withIGDB();
+  try {
+    let last;
+    for (let index = 0; index <= LIMITS.lookupsPerAddressPerHour; index += 1) {
+      last = await lookUp({ name: `Game ${index}` });
+    }
+    assert.equal(last.status, 429);
+    assert.equal(last.headers.get("retry-after"), "3600");
+    for (let index = db.lookups.size; index < LIMITS.lookupsPerDay; index += 1) {
+      db.lookups.set(`:game ${index} more`, { day: "2026-11-10", answer: "" });
+    }
+    const other = { "cf-connecting-ip": "198.51.100.4" };
+    const capped = await lookUp({ name: "Celeste" }, other);
+    assert.equal(capped.status, 503);
+    assert.deepEqual(await capped.json(), { error: "too many games today" });
+    // What the database has, it still gives.
+    assert.deepEqual(await (await lookUp({ name: "Game 3" }, other)).json(), { found: false });
+    const tomorrow = await lookUp({ name: "Celeste" }, other, NOW + 86400000);
+    assert.equal(tomorrow.status, 200);
+  } finally {
+    withoutIGDB();
+  }
+});
+
+test("names compare as the catalog's tool compares them", () => {
+  assert.equal(plainName("The Legend of Zelda™: Link’s Awakening"), "the legend of zelda link s awakening");
+  assert.equal(plainName("Pokémon™ Scarlet & Violet – Nintendo Switch 2 Edition"), "pokemon scarlet and violet");
+  assert.equal(ratio("unravel two", "unravel two"), 1);
+  assert.equal(ratio("mario kart world", "mario kart 8 deluxe"), 0.6857142857142857);
+  assert.equal(ratio("", ""), 1);
+  // Known by another name only; an entry without a cover is never taken.
+  const found = [
+    { id: 1, name: "Mario Kart 8 Deluxe", platforms: [130] },
+    { id: 7, name: "Mario Kart 8: Deluxe Edition", platforms: [130], cover: { image_id: "mk8d" }, alternative_names: [{ name: "Mario Kart 8 Deluxe" }] },
+  ];
+  assert.equal(chooseGame("Mario Kart 8 Deluxe", 130, found).id, 7);
+  assert.equal(chooseGame("Mario Kart 8 Deluxe", 130, found.slice(0, 1)), undefined);
+  // Every genre is one of Cartouche's.
+  const known = ["action", "adventure", "rpg", "puzzle", "strategy", "simulation", "racing", "sports", "board", "card", "family", "music"];
+  for (const [, genre] of IGDB_GENRES) assert.ok(known.includes(genre), genre);
 });

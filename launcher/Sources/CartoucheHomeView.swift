@@ -201,7 +201,7 @@ struct CartoucheHomeView: View {
             .onAppear { isWide = metrics.isWide }
             .onChange(of: metrics.isWide) { _, wide in isWide = wide }
         }
-        .background(CartoucheStage(key: heroKey, artwork: heroArtwork))
+        .background(CartoucheStage(key: heroKey, art: heroBackdrop))
         .onChange(of: hero) { _, hero in
             if let hero { onFocus(hero) }
         }
@@ -227,8 +227,8 @@ struct CartoucheHomeView: View {
         return nil
     }
 
-    private var heroArtwork: String? {
-        if case .game(let entry) = hero { return entry.cover?.artwork }
+    private var heroBackdrop: CartoucheArt? {
+        if case .game(let entry) = hero { return entry.backdrop }
         return nil
     }
 

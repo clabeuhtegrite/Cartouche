@@ -2,9 +2,13 @@
 
 import io
 import json
+import re
 import unittest
+from pathlib import Path
 
 import igdb_covers
+
+ROOT = Path(__file__).resolve().parents[2]
 
 PLATFORMS = [{"id": 130, "name": "Nintendo Switch"}, {"id": 508, "name": "Nintendo Switch 2"}]
 
@@ -18,7 +22,7 @@ CATALOG = {"games": [
 SEARCHES = {
     "Mario Kart World": [
         {"id": 1, "name": "Mario Kart World", "platforms": [508], "cover": {"image_id": "mkw"},
-         "artworks": [{"image_id": "mkw-art"}]},
+         "artworks": [{"image_id": "mkw-art"}], "genres": [32, 10]},
         {"id": 2, "name": "Mario Kart 8", "platforms": [41], "cover": {"image_id": "mk8"}},
     ],
     "The Legend of Zelda: Tears of the Kingdom": [
@@ -65,7 +69,7 @@ class IgdbCoversTest(unittest.TestCase):
             {"titleId": "0100F2C0115B6000", "igdb": 4, "name": "The Legend of Zelda: Tears of the Kingdom",
              "cover": "totk"},
             {"titleId": "0400C3F00006E000", "igdb": 1, "name": "Mario Kart World", "cover": "mkw",
-             "artwork": "mkw-art"},
+             "artwork": "mkw-art", "genre": "racing"},
         ])
         # The search is limited to the two Switch platforms, by ID.
         self.assertIn("where platforms = (130,508)", asked[1][1])
@@ -122,6 +126,14 @@ class IgdbCoversTest(unittest.TestCase):
         self.assertEqual(records[0]["igdb"], 6)
         self.assertFalse(any(query.startswith("search") for query in asked))
 
+    def test_a_genre_pinned(self):
+        igdb_covers.GENRE_PINS["0400C3F00006E000"] = "family"
+        try:
+            records = igdb_covers.covers({"games": [CATALOG["games"][0]]}, stand_in([]), log=io.StringIO())
+        finally:
+            del igdb_covers.GENRE_PINS["0400C3F00006E000"]
+        self.assertEqual(records[0]["genre"], "family")
+
     def test_several_lists_are_searched_a_title_once(self):
         # The pinned list, then nxnative's main branch: a game both list is
         # searched once, as the pinned list has it; a newer game joins.
@@ -133,6 +145,37 @@ class IgdbCoversTest(unittest.TestCase):
         self.assertEqual(games[0]["name"], "Mario Kart World")
         records = igdb_covers.covers(igdb_covers.merged([pinned, newest]), stand_in([]), log=io.StringIO())
         self.assertEqual([r["igdb"] for r in records], [4, 1])
+
+    def test_genre(self):
+        # The genre that tells most of the game wins, whatever IGDB's order.
+        self.assertEqual(igdb_covers.genre_of([31, 8, 9, 32]), "puzzle")
+        self.assertEqual(igdb_covers.genre_of([12, 31]), "rpg")
+        self.assertEqual(igdb_covers.genre_of([4]), "action")
+        # Pokémon, a role-playing game with turns; Fire Emblem, tactical.
+        self.assertEqual(igdb_covers.genre_of([12, 16, 31]), "rpg")
+        self.assertEqual(igdb_covers.genre_of([12, 15, 16, 24]), "strategy")
+        self.assertEqual(igdb_covers.genre_of([12, 13, 15, 16, 24]), "strategy")
+        self.assertEqual(igdb_covers.genre_of([12, 13, 31]), "simulation")
+        # Indie alone, or nothing, is no genre.
+        self.assertIsNone(igdb_covers.genre_of([32]))
+        self.assertIsNone(igdb_covers.genre_of(None))
+        self.assertIsNone(igdb_covers.genre_of([]))
+
+    def test_genres_are_cartouches_and_the_servers(self):
+        # Each is a genre the schema and the launcher know.
+        schema = json.loads((ROOT / "catalog/schema/covers.schema.json").read_text(encoding="utf-8"))
+        known = schema["$defs"]["cover"]["properties"]["genre"]["enum"]
+        self.assertTrue({genre for _, genre in igdb_covers.GENRES} <= set(known))
+        self.assertTrue(set(igdb_covers.GENRE_PINS.values()) <= set(known))
+        text = (ROOT / "launcher/Sources/CartoucheText.swift").read_text(encoding="utf-8")
+        self.assertEqual(sorted(known), sorted(re.findall(r'case "(\w+)": return s\("genre\.', text)))
+        # The telemetry server finds the genre of a game Cartouche does not
+        # know with the same list, in the same order.
+        worker = (ROOT / "telemetry/worker.js").read_text(encoding="utf-8")
+        block = re.search(r"export const IGDB_GENRES = \[(.*?)\n\];", worker, re.S)
+        self.assertIsNotNone(block)
+        pairs = [(int(id), genre) for id, genre in re.findall(r'\[(\d+), "(\w+)"\]', block.group(1))]
+        self.assertEqual(pairs, igdb_covers.GENRES)
 
     def test_document_has_no_address(self):
         text = igdb_covers.document([{"titleId": "0400C3F00006E000", "igdb": 1, "name": "Mario Kart World",

@@ -14,7 +14,7 @@
 //  asks these questions with them. The game's process also says whether
 //  it has Increased Memory Limit: some installs signed it without, which
 //  left a game 3,376 MiB there while Cartouche had 8,192 (docs/decisions.md,
-//  66).
+//  67).
 //
 //  Platform-independent: tested on its own by launcher/Package.swift.
 //

@@ -223,28 +223,30 @@ extension View {
 }
 
 /// The stage: dark, lit from above by the colours of the game in focus,
-/// with its official artwork faintly behind them when IGDB has one.
+/// with its image faintly behind them when it has one: its official
+/// artwork, else its cover, or the player's own cover
+/// (CartoucheEntry.backdrop).
 @available(iOS 17.0, *)
 struct CartoucheStage: View {
     /// The tile key of the game in focus, or nil for Cartouche's colours.
     let key: String?
-    /// The IGDB image ID of the game's artwork, shown faintly at the top.
-    var artwork: String? = nil
+    /// The game's image, shown faintly at the top.
+    var art: CartoucheArt? = nil
 
     var body: some View {
         let colors = key.map(CartoucheTheme.colors(for:)) ?? (light: CartoucheTheme.indigo, dark: CartoucheTheme.pink)
         ZStack {
             CartoucheTheme.stage
-            if let artwork {
+            if let art {
                 GeometryReader { frame in
-                    CartoucheCoverImage(id: artwork, kind: .artwork, anchor: 0.5) { Color.clear }
+                    CartoucheCoverImage(art: art, anchor: 0.5) { Color.clear }
                         .frame(width: frame.size.width, height: frame.size.height * 0.62)
                         .blur(radius: 10)
                         .opacity(0.5)
                         .mask(LinearGradient(colors: [Color.black, Color.black.opacity(0)],
                                              startPoint: .top, endPoint: .bottom))
                 }
-                .id(artwork)
+                .id(art)
                 .transition(.opacity)
             }
             RadialGradient(colors: [colors.light.opacity(0.55), colors.light.opacity(0)],
@@ -255,7 +257,7 @@ struct CartoucheStage: View {
                            startPoint: .center, endPoint: .bottom)
         }
         .animation(.easeInOut(duration: 0.45), value: key)
-        .animation(.easeInOut(duration: 0.45), value: artwork)
+        .animation(.easeInOut(duration: 0.45), value: art)
         .ignoresSafeArea()
     }
 }

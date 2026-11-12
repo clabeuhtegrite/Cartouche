@@ -244,9 +244,40 @@ struct LCPath {
     static var docPath: URL { GalleryState.documents }
 }
 
-/// The icon of a game the player imported. The gallery draws one from the
-/// game's initials, never the game's own art.
+/// The icon of a game the player imported, and a cover of the player's
+/// own. The gallery draws them from the game's initials and name, never
+/// the game's own art.
 enum GalleryIcon {
+    /// A cover of the player's own, upright as a game case: the game's name
+    /// on bands of its colours, as a player might make one.
+    static func cover(name: String, key: String, width: CGFloat = 600) -> UIImage {
+        let height = width / CartoucheTheme.labelAspect
+        let colors = CartoucheTheme.colors(for: key + "-own")
+        let format = UIGraphicsImageRendererFormat()
+        format.scale = 1
+        return UIGraphicsImageRenderer(size: CGSize(width: width, height: height), format: format).image { context in
+            let cg = context.cgContext
+            UIColor(colors.dark).setFill()
+            cg.fill(CGRect(x: 0, y: 0, width: width, height: height))
+            for band in 0..<6 {
+                UIColor(colors.light).withAlphaComponent(0.16 + 0.1 * CGFloat(band % 3)).setFill()
+                let y = height * (0.18 + 0.11 * CGFloat(band))
+                UIBezierPath(roundedRect: CGRect(x: -width * 0.1, y: y, width: width * 1.2, height: height * 0.06),
+                             cornerRadius: height * 0.03).fill()
+            }
+            UIColor.white.withAlphaComponent(0.85).setFill()
+            UIBezierPath(ovalIn: CGRect(x: width * 0.58, y: height * 0.06, width: width * 0.3, height: width * 0.3)).fill()
+            let paragraph = NSMutableParagraphStyle()
+            paragraph.alignment = .left
+            let font = UIFont.systemFont(ofSize: width * 0.12, weight: .heavy)
+            let attributes: [NSAttributedString.Key: Any] = [
+                .font: font, .foregroundColor: UIColor.white, .paragraphStyle: paragraph,
+            ]
+            (name as NSString).draw(in: CGRect(x: width * 0.08, y: height * 0.7, width: width * 0.84, height: height * 0.28),
+                                    withAttributes: attributes)
+        }
+    }
+
     static func make(name: String, key: String, side: CGFloat = 512) -> UIImage {
         let colors = CartoucheTheme.colors(for: key)
         let words = name.split { !$0.isLetter && !$0.isNumber }

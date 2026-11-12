@@ -9,10 +9,12 @@
 //  games folder for a copy there; or Import my copy. Under them, the time
 //  the player played it and the space it takes (CartoucheGameStats), what
 //  stops the game on this iPhone, if anything (what it needs folds into
-//  one line when this iPhone has it all), the copies of its saves, the
-//  game's copy in the games folder and Uninstall, the testers' results,
-//  and last, folded, the technical details: the recommended settings, what
-//  nxnative's profile says and which build is installed.
+//  one line when this iPhone has it all), the copies of its saves, Edit
+//  the game's info for the player's own game (CartoucheGameInfoView), with
+//  what IGDB has of a game Cartouche does not know, the game's copy in the
+//  games folder and Uninstall, the testers' results, and last, folded, the
+//  technical details: the recommended settings, what nxnative's profile
+//  says and which build is installed.
 //
 
 import SwiftUI
@@ -33,6 +35,9 @@ struct CartoucheGameSheetView: View {
     var onInstallStored: (CartoucheStoredGame) -> Void = { _ in }
     /// Copies the installed game to the player's games folder.
     var onExport: (LCAppModel) -> Void = { _ in }
+    /// Opens what the player says of their game: its name, platform, genre
+    /// and cover.
+    var onEditInfo: () -> Void = {}
     @ObservedObject private var actions = CartoucheGameActions.shared
     @ObservedObject private var keeping = CartoucheGameKeeping.shared
     @ObservedObject private var reach = CartoucheStorageReach.shared
@@ -43,7 +48,8 @@ struct CartoucheGameSheetView: View {
          onSettings: @escaping (LCAppModel) -> Void, onImport: @escaping () -> Void,
          onUninstall: @escaping (LCAppModel) -> Void,
          onInstallStored: @escaping (CartoucheStoredGame) -> Void = { _ in },
-         onExport: @escaping (LCAppModel) -> Void = { _ in }) {
+         onExport: @escaping (LCAppModel) -> Void = { _ in },
+         onEditInfo: @escaping () -> Void = {}) {
         self.entry = entry
         self.memory = memory
         self.onPlay = onPlay
@@ -52,6 +58,7 @@ struct CartoucheGameSheetView: View {
         self.onUninstall = onUninstall
         self.onInstallStored = onInstallStored
         self.onExport = onExport
+        self.onEditInfo = onEditInfo
     }
 
     /// The memory the game has here, where Play starts it: behind the
@@ -115,6 +122,10 @@ struct CartoucheGameSheetView: View {
                 CartoucheSavesSection(target: saves, isRunning: actions.isRunning(app))
             }
 
+            if entry.isOwned {
+                infoSection
+            }
+
             if let app = entry.app {
                 manageSection(app)
             }
@@ -128,7 +139,7 @@ struct CartoucheGameSheetView: View {
             }
         }
         .scrollContentBackground(.hidden)
-        .background(CartoucheStage(key: entry.tileKey, artwork: entry.cover?.artwork))
+        .background(CartoucheStage(key: entry.tileKey, art: entry.backdrop))
         // The header names the game: the bar above it stays empty.
         .navigationBarTitleDisplayMode(.inline)
     }
@@ -319,6 +330,20 @@ struct CartoucheGameSheetView: View {
     }
 
     // MARK: The player's copy
+
+    /// What the player says of their game; for a game Cartouche does not
+    /// know, what IGDB has of it by its name, or that it has nothing yet.
+    private var infoSection: some View {
+        Section {
+            Button(action: onEditInfo) {
+                Label(CartoucheText.gameInfoEdit, systemImage: "square.and.pencil")
+            }
+        } footer: {
+            if entry.isUnknown, entry.playerCover == nil {
+                Text(entry.found.map { CartoucheText.gameInfoFound($0.name) } ?? CartoucheText.gameInfoNotFound)
+            }
+        }
+    }
 
     /// Whether the game starts in Cartouche's place, for its own needs or
     /// because games behind the console run without Increased Memory Limit

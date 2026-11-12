@@ -38,6 +38,12 @@
 //  player can copy (CartoucheReporting.swift). On an iPhone whose GPU
 //  nxnative refuses, an install asks first whether to go on.
 //
+//  A game of the player's that Cartouche does not know has what IGDB has
+//  of it by its name, which Cartouche asks its server about when the game
+//  comes, when its name changes and a month later (CartoucheGameLookup);
+//  its sheet opens what the player says of their game over it
+//  (CartoucheGameInfoView).
+//
 //  A player new to Cartouche follows its guide to their first game
 //  (CartoucheGuideView): it opens by itself on the first launch, then from
 //  the home's card, until their first game is installed or the player
@@ -81,6 +87,8 @@ struct CartoucheGamesView: View {
     /// The settings page open over the game's sheet, over the console or
     /// beside it.
     @State private var gameSettings: CartoucheGameSettingsModel?
+    /// The game whose info the player changes, over its sheet.
+    @State private var editingInfo: CartoucheEntry?
     /// The report of a failure was just copied, from its alert.
     @State private var reportCopied = false
     /// A game's sheet grows out of its cartridge.
@@ -112,7 +120,7 @@ struct CartoucheGamesView: View {
     /// beside it.
     private var nothingOverConsole: Bool {
         sheetID == nil && !showingSetup && !showingGuide && !importPicker.isShowing && uninstalling == nil
-            && actions.work == nil && actions.notice == nil && !showsUpdate
+            && editingInfo == nil && actions.work == nil && actions.notice == nil && !showsUpdate
             && actions.switching == nil && actions.quitQuestion == nil && actions.installQuestion == nil
     }
     /// Nothing over the console or beside it that takes the controller.
@@ -121,7 +129,7 @@ struct CartoucheGamesView: View {
     /// else is over it.
     private var showsUpdate: Bool {
         updates.isShowing && onGames && sheetID == nil && !showingSetup && !showingGuide && !importPicker.isShowing
-            && uninstalling == nil && actions.work == nil && actions.notice == nil
+            && uninstalling == nil && editingInfo == nil && actions.work == nil && actions.notice == nil
             && actions.running == nil && actions.switching == nil && actions.quitQuestion == nil
             && actions.installQuestion == nil
     }
@@ -137,7 +145,7 @@ struct CartoucheGamesView: View {
                     // The settings page beside the console takes the
                     // controller; the console has it otherwise.
                     .onReceive(CartoucheGamepad.shared.inputs) { input in
-                        guard onGames, nothingOverConsole, uninstallingInSheet == nil else { return }
+                        guard onGames, nothingOverConsole, uninstallingInSheet == nil, editingInfo == nil else { return }
                         _ = handleSettings(input)
                     }
             }
@@ -153,7 +161,7 @@ struct CartoucheGamesView: View {
                     // Over the sheet, which the other game's start closes.
                     .modifier(CartoucheRunningGameQuestions(shown: true, onSwitch: { sheetID = nil }))
                     .onReceive(CartoucheGamepad.shared.inputs) { input in
-                        guard !importPicker.isShowing, uninstallingInSheet == nil, actions.switching == nil,
+                        guard !importPicker.isShowing, uninstallingInSheet == nil, editingInfo == nil, actions.switching == nil,
                               actions.quitQuestion == nil, !handleSettings(input) else { return }
                         switch input {
                         case .b:
@@ -227,18 +235,26 @@ struct CartoucheGamesView: View {
         // The sheet over the console closed: its settings page goes too. It
         // stays when the sheet moves beside the console.
         .onChange(of: sheetID) { _, id in
-            if id == nil && !splits { gameSettings = nil }
+            if id == nil && !splits {
+                gameSettings = nil
+                editingInfo = nil
+            }
+        }
+        // A game of the player's that Cartouche does not know, installed,
+        // in the games folder or renamed: Cartouche asks its server about it.
+        .onChange(of: CartoucheCatalog.wanted(among: entries)) { _, _ in
+            lookUpGames()
         }
         // The iPhone Duo unfolded, or the player's first game there: the
         // sheet open over the console moves beside it, with its settings
-        // page. Folded: the settings page open beside the console comes back
-        // over it, in the game's sheet; the sheet alone stays behind, as the
-        // game in focus.
+        // page or its info. Folded: the settings page or the info open beside
+        // the console come back over it, in the game's sheet; the sheet alone
+        // stays behind, as the game in focus.
         .onChange(of: splits) { _, splits in
             if splits {
                 if let sheetID { paneID = sheetID }
                 sheetID = nil
-            } else if gameSettings != nil {
+            } else if gameSettings != nil || editingInfo != nil {
                 sheetID = paneID
             }
         }
@@ -346,6 +362,7 @@ struct CartoucheGamesView: View {
             CartoucheGameStats.shared.cameBack(sharedModel.apps)
             updates.checkIfDue()
             catalog.refreshCoversIfDue()
+            lookUpGames()
             openGuideIfNew()
         }
         // A renewal in the background moves the expiry date: warn for the
@@ -360,6 +377,7 @@ struct CartoucheGamesView: View {
             CartoucheGameStats.shared.cameBack(sharedModel.apps)
             updates.checkIfDue()
             catalog.refreshCoversIfDue()
+            lookUpGames()
         }
         .onReceive(NotificationCenter.default.publisher(for: UIApplication.didEnterBackgroundNotification)) { _ in
             CartoucheStorageReach.shared.setInFront(false)
@@ -433,7 +451,8 @@ struct CartoucheGamesView: View {
                 onImport: { chooseIPA(from: .sheet) },
                 onUninstall: { uninstallingInSheet = $0 },
                 onInstallStored: { installStored($0) },
-                onExport: { exportCopy($0) })
+                onExport: { exportCopy($0) },
+                onEditInfo: { editingInfo = entry })
                 .id(entry.id)
                 // Beside the console, the sheet's bar would hold nothing.
                 .toolbar(beside ? .hidden : .automatic, for: .navigationBar)
@@ -457,6 +476,20 @@ struct CartoucheGamesView: View {
                     }
                 }
         }
+        // What the player says of their game, over its sheet, which B
+        // closes as Cancel does (CartoucheGameInfoView).
+        .sheet(item: $editingInfo) { edited in
+            NavigationStack {
+                CartoucheGameInfoView(entry: edited) { editingInfo = nil }
+            }
+            .preferredColorScheme(.dark)
+        }
+    }
+
+    /// Asks Cartouche's server about the player's games it does not know,
+    /// when it is due (CartoucheGameLookup).
+    private func lookUpGames() {
+        catalog.lookUpGamesIfDue(among: catalog.entries(for: sharedModel.apps, stored: storedGames.games))
     }
 
     /// Done, with a symbol as well as its name: the iPhone Duo shows the

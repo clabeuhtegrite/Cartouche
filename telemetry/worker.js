@@ -21,6 +21,14 @@
 // the database keeps only its day and its issue's number, for the daily
 // cap, and forgets them two days later.
 //
+// POST /v1/games finds on IGDB the cover, the artwork and the genre of a
+// game of the player's that Cartouche's catalog does not know, by the name
+// its copy gives it (launcher/Sources/CartoucheGameLookup.swift), as
+// catalog/tools/igdb_covers.py finds those of the catalog's games, with the
+// Twitch application of IGDB_CLIENT_ID and IGDB_CLIENT_SECRET. The answer is
+// kept 30 days for that name, and given again to whoever asks for it: never
+// who asked.
+//
 // Every day, reports older than 25 months are deleted, and the problems
 // GitHub does not have yet are filed.
 //
@@ -54,6 +62,14 @@ export const LIMITS = {
   problemsPerAddressPerHour: 10,
   problemsPerDay: 50,
   problemsPerRun: 25,
+  // A game's name to find on IGDB, as JavaScript counts it.
+  lookupName: 128,
+  // Names one address may ask for in an hour, counted in each Worker
+  // instance's memory and never kept; names the server asks IGDB for in a
+  // day, from every address; days an answer is kept and given again.
+  lookupsPerAddressPerHour: 60,
+  lookupsPerDay: 1000,
+  lookupKeptDays: 30,
 };
 
 export const SQL = {
@@ -73,6 +89,12 @@ export const SQL = {
   problemFiled: "UPDATE problems SET issue = ?2, title = '', body = '' WHERE id = ?1",
   waitingProblems: "SELECT id, title, body FROM problems WHERE issue IS NULL ORDER BY day, id LIMIT ?1",
   expireProblems: "DELETE FROM problems WHERE (issue IS NOT NULL AND day < ?1) OR day < ?2",
+  lookup: "SELECT day, answer FROM lookups WHERE name = ?1",
+  lookupsOfDay: "SELECT count(*) AS count FROM lookups WHERE day = ?1",
+  keepLookup:
+    "INSERT INTO lookups (name, day, answer) VALUES (?1, ?2, ?3) " +
+    "ON CONFLICT (name) DO UPDATE SET day = excluded.day, answer = excluded.answer",
+  expireLookups: "DELETE FROM lookups WHERE day < ?1",
 };
 
 // MARK: Fields
@@ -376,10 +398,265 @@ export async function fileWaiting(env) {
   return filed;
 }
 
+// MARK: Games Cartouche does not know
+
+// IGDB (igdb.com, Twitch's game database), asked as catalog/tools/
+// igdb_covers.py asks it: among its Nintendo Switch and Nintendo Switch 2
+// games, by name, an entry with a cover whose name, or one of its other
+// names, is close enough once plain.
+export const IGDB = {
+  token: "https://id.twitch.tv/oauth2/token",
+  api: "https://api.igdb.com/v4/",
+  platforms: { switch: "Nintendo Switch", switch2: "Nintendo Switch 2" },
+  fields: "fields name,alternative_names.name,platforms,genres,cover.image_id,artworks.image_id;",
+  likeness: 0.9,
+};
+
+// IGDB's genres, by their IDs, as Cartouche's own (CartoucheText.genre in
+// launcher/Sources/CartoucheText.swift), in the order they win when a game
+// has several: the more a genre tells of a game, the earlier. Tactical says
+// Fire Emblem, where Turn-based strategy also goes to Pokémon, a
+// role-playing game. IGDB's Indie tells nothing of the kind.
+// catalog/tools/igdb_covers.py has the same list, which its tests check.
+export const IGDB_GENRES = [
+  [10, "racing"], // Racing
+  [14, "sports"], // Sport
+  [7, "music"], // Music
+  [4, "action"], // Fighting
+  [5, "action"], // Shooter
+  [11, "strategy"], // Real Time Strategy (RTS)
+  [24, "strategy"], // Tactical
+  [36, "strategy"], // MOBA
+  [13, "simulation"], // Simulator
+  [12, "rpg"], // Role-playing (RPG)
+  [15, "strategy"], // Strategy
+  [16, "strategy"], // Turn-based strategy (TBS)
+  [35, "board"], // Card & Board Game
+  [9, "puzzle"], // Puzzle
+  [26, "puzzle"], // Quiz/Trivia
+  [8, "action"], // Platform
+  [25, "action"], // Hack and slash/Beat 'em up
+  [33, "action"], // Arcade
+  [30, "action"], // Pinball
+  [31, "adventure"], // Adventure
+  [2, "adventure"], // Point-and-click
+  [34, "adventure"], // Visual Novel
+];
+
+const IMAGE = /^[0-9a-z]{1,40}$/;
+const EDITION = /\b(nintendo switch 2 edition|nintendo switch edition|switch 2 edition)\b/g;
+
+/** NAME without accents, marks, punctuation, case or edition words, as
+ * igdb_covers.py's plain() makes it. */
+export function plainName(name) {
+  const text = name
+    .replace(/[™®©]/g, "")
+    .normalize("NFKD")
+    .replace(/\p{M}/gu, "")
+    .toLowerCase()
+    .replaceAll("&", " and ")
+    .replace(EDITION, " ");
+  return text.replace(/[^a-z0-9]+/g, " ").trim();
+}
+
+/** NAME as words only, for a second search, as igdb_covers.py's words():
+ * IGDB's search finds neither "NieR:Automata" nor "Rabbids®" as a game's
+ * copy may spell them. */
+export function searchWords(name) {
+  return name
+    .replace(/[™®©]/g, "")
+    .replace(/[^\p{L}\p{N}_]+/gu, " ")
+    .trim();
+}
+
+/** How alike A and B are, from 0 to 1, as Python's
+ * difflib.SequenceMatcher(None, a, b).ratio() says it for names shorter
+ * than 200 characters: twice the characters of their matching blocks,
+ * over the characters of both. */
+export function ratio(a, b) {
+  const total = a.length + b.length;
+  if (total === 0) return 1;
+  const where = new Map();
+  for (let j = 0; j < b.length; j++) {
+    const places = where.get(b[j]);
+    if (places) places.push(j);
+    else where.set(b[j], [j]);
+  }
+  let matched = 0;
+  const left = [[0, a.length, 0, b.length]];
+  while (left.length) {
+    const [aLow, aHigh, bLow, bHigh] = left.pop();
+    // The longest block of A's part in B's, the earliest in A, then in B.
+    let bestA = aLow;
+    let bestB = bLow;
+    let size = 0;
+    let lengths = new Map();
+    for (let i = aLow; i < aHigh; i++) {
+      const next = new Map();
+      for (const j of where.get(a[i]) ?? []) {
+        if (j < bLow) continue;
+        if (j >= bHigh) break;
+        const length = (lengths.get(j - 1) ?? 0) + 1;
+        next.set(j, length);
+        if (length > size) {
+          bestA = i - length + 1;
+          bestB = j - length + 1;
+          size = length;
+        }
+      }
+      lengths = next;
+    }
+    if (size === 0) continue;
+    matched += size;
+    if (aLow < bestA && bLow < bestB) left.push([aLow, bestA, bLow, bestB]);
+    if (bestA + size < aHigh && bestB + size < bHigh) left.push([bestA + size, aHigh, bestB + size, bHigh]);
+  }
+  return (2 * matched) / total;
+}
+
+/** How alike NAME is to the IGDB entry's name or one of its other names. */
+export function likeness(name, entry) {
+  const wanted = plainName(name);
+  const others = Array.isArray(entry.alternative_names) ? entry.alternative_names.map((other) => other?.name) : [];
+  return Math.max(
+    ...[entry.name, ...others].map((other) => ratio(wanted, plainName(typeof other === "string" ? other : ""))),
+  );
+}
+
+/** The IGDB entry for the game NAME among FOUND, or undefined: an entry
+ * with a cover and a name close enough to NAME; among those, the closest
+ * name wins, then an entry on the platform PLATFORM, IGDB's ID of it. */
+export function chooseGame(name, platform, found) {
+  let best;
+  let bestKey;
+  for (const entry of found) {
+    if (!isObject(entry) || !Number.isInteger(entry.id) || entry.id < 1 || typeof entry.name !== "string") continue;
+    if (!IMAGE.test(entry.cover?.image_id ?? "")) continue;
+    const score = likeness(name, entry);
+    if (score < IGDB.likeness) continue;
+    const key = [Math.round(score * 1000) / 1000, Array.isArray(entry.platforms) && entry.platforms.includes(platform) ? 1 : 0];
+    if (!best || key[0] > bestKey[0] || (key[0] === bestKey[0] && key[1] > bestKey[1])) {
+      best = entry;
+      bestKey = key;
+    }
+  }
+  return best;
+}
+
+/** Cartouche's genre for IGDB's genre IDs, or undefined. */
+export function genreOf(genres) {
+  if (!Array.isArray(genres)) return undefined;
+  return IGDB_GENRES.find(([id]) => genres.includes(id))?.[1];
+}
+
+/** What the server gives of an IGDB entry: its ID and name, its cover, an
+ * artwork, its genre, and the platform the app said, else IGDB's. */
+function gameOf(entry, platform, platforms) {
+  const game = { igdb: entry.id, name: entry.name.slice(0, 200), cover: entry.cover.image_id };
+  const artwork = (Array.isArray(entry.artworks) ? entry.artworks : []).map((art) => art?.image_id).find((id) => IMAGE.test(id ?? ""));
+  if (artwork) game.artwork = artwork;
+  const genre = genreOf(entry.genres);
+  if (genre) game.genre = genre;
+  const on = Array.isArray(entry.platforms) ? entry.platforms : [];
+  game.platform = platform ?? (on.includes(platforms.switch) || !on.includes(platforms.switch2) ? "switch" : "switch2");
+  return game;
+}
+
+const quoted = (text) => `"${text.replaceAll("\\", "\\\\").replaceAll('"', '\\"')}"`;
+
+// The Twitch application's token, and IGDB's IDs of the two platforms, while
+// this instance of the Worker lives: never kept anywhere else.
+let igdbToken;
+let igdbPlatforms;
+
+export function resetIGDB() {
+  igdbToken = undefined;
+  igdbPlatforms = undefined;
+}
+
+async function igdbTokenOf(env, now) {
+  if (igdbToken && igdbToken.expires > now + 60000) return igdbToken.value;
+  if (!env.IGDB_CLIENT_ID || !env.IGDB_CLIENT_SECRET) throw new Error("no IGDB credentials");
+  const response = await fetch(IGDB.token, {
+    method: "POST",
+    headers: { "content-type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({
+      client_id: env.IGDB_CLIENT_ID,
+      client_secret: env.IGDB_CLIENT_SECRET,
+      grant_type: "client_credentials",
+    }).toString(),
+  });
+  if (!response.ok) throw new Error(`Twitch answered ${response.status}`);
+  const answer = await response.json();
+  if (typeof answer?.access_token !== "string") throw new Error("Twitch gave no token");
+  const seconds = Number.isFinite(answer.expires_in) ? answer.expires_in : 3600;
+  igdbToken = { value: answer.access_token, expires: now + seconds * 1000 };
+  return igdbToken.value;
+}
+
+/** What IGDB's ENDPOINT answers QUERY: a list. */
+async function askIGDB(env, endpoint, query, now) {
+  const token = await igdbTokenOf(env, now);
+  const response = await fetch(IGDB.api + endpoint, {
+    method: "POST",
+    headers: { "client-id": env.IGDB_CLIENT_ID, authorization: `Bearer ${token}`, accept: "application/json" },
+    body: query,
+  });
+  // A token Twitch no longer takes: the next request takes a new one.
+  if (response.status === 401) igdbToken = undefined;
+  if (!response.ok) throw new Error(`IGDB answered ${response.status}`);
+  const found = await response.json();
+  if (!Array.isArray(found)) throw new Error("IGDB answered no list");
+  return found;
+}
+
+/** IGDB's IDs of the Nintendo Switch and the Nintendo Switch 2. */
+async function igdbPlatformsOf(env, now) {
+  if (igdbPlatforms) return igdbPlatforms;
+  const names = Object.values(IGDB.platforms);
+  const found = await askIGDB(env, "platforms", `fields id,name; where ${names.map((name) => `name = ${quoted(name)}`).join(" | ")}; limit 10;`, now);
+  const ids = {};
+  for (const [key, name] of Object.entries(IGDB.platforms)) {
+    const platform = found.find((entry) => entry?.name === name && Number.isInteger(entry.id));
+    if (!platform) throw new Error(`IGDB has no platform named ${name}`);
+    ids[key] = platform.id;
+  }
+  igdbPlatforms = ids;
+  return ids;
+}
+
+/** The game NAME on IGDB, on PLATFORM if the app said it, or undefined
+ * when IGDB has none close enough: by the name as the app sent it, then as
+ * words only. Throws when IGDB cannot be asked. */
+export async function findGame(env, name, platform, now) {
+  const platforms = await igdbPlatformsOf(env, now);
+  const on = Object.values(platforms).join(",");
+  for (const terms of new Set([name, searchWords(name)])) {
+    if (!terms) continue;
+    const found = await askIGDB(env, "games", `search ${quoted(terms)}; ${IGDB.fields} where platforms = (${on}); limit 20;`, now);
+    const entry = chooseGame(name, platforms[platform] ?? 0, found);
+    if (entry) return gameOf(entry, platform, platforms);
+  }
+  return undefined;
+}
+
+/** The name and the platform the app asks for, or undefined: a name of a
+ * few words, without control characters, and switch or switch2 when the
+ * app knows the game's platform. */
+export function cleanLookup(value) {
+  if (!isObject(value)) return undefined;
+  const name = words(LIMITS.lookupName, false)(value.name)?.trim();
+  if (!name) return undefined;
+  if (!has(value, "platform")) return { name };
+  const platform = oneOf("switch", "switch2")(value.platform);
+  return platform ? { name, platform } : undefined;
+}
+
 // MARK: Requests
 
 const recent = new Map();
 const recentProblems = new Map();
+const recentLookups = new Map();
 
 /** Whether ADDRESS made more than MAXIMUM requests in this PERIOD, in
  * milliseconds, as SEEN counts them. Kept only in memory. */
@@ -404,6 +681,7 @@ function throttled(address, now) {
 export function resetThrottle() {
   recent.clear();
   recentProblems.clear();
+  recentLookups.clear();
 }
 
 function reply(status, body, headers = {}) {
@@ -529,8 +807,56 @@ async function problems(request, env, now) {
   return reply(201, { filed: true });
 }
 
-/** Deletes the reports older than 25 months, the counts of past days, and
- * the problems filed before yesterday. */
+/** What the server answers of a game it looked up: the game, or that IGDB
+ * has none. */
+const lookupAnswer = (answer) => (answer ? { found: true, ...JSON.parse(answer) } : { found: false });
+
+async function games(request, env, now) {
+  const read = await readJSON(request);
+  if (read.error) return read.error;
+  const asked = cleanLookup(read.value);
+  if (!asked) return reply(400, { error: "expected a game's name" });
+  if (over(recentLookups, request.headers.get("cf-connecting-ip"), now, 3600000, LIMITS.lookupsPerAddressPerHour)) {
+    return reply(429, { error: "too many games from this address" }, { "retry-after": "3600" });
+  }
+  const simple = plainName(asked.name);
+  // A name of no letter IGDB could read, such as one in Japanese only.
+  if (!simple) return reply(200, { found: false });
+  // Kept by the name made plain, with the platform the app said.
+  const name = `${asked.platform ?? ""}:${simple}`;
+  const day = today(now);
+  let known;
+  try {
+    known = await env.DB.prepare(SQL.lookup).bind(name).first();
+    if (known && known.day >= today(now - LIMITS.lookupKeptDays * 86400000)) return reply(200, lookupAnswer(known.answer));
+    const counted = await env.DB.prepare(SQL.lookupsOfDay).bind(day).first();
+    if ((counted?.count ?? 0) >= LIMITS.lookupsPerDay) {
+      if (known) return reply(200, lookupAnswer(known.answer));
+      return reply(503, { error: "too many games today" }, { "retry-after": "3600" });
+    }
+  } catch {
+    return reply(503, { error: "unavailable" }, { "retry-after": "3600" });
+  }
+  let game;
+  try {
+    game = await findGame(env, asked.name, asked.platform, now);
+  } catch {
+    // IGDB away, or no credentials: an answer kept before still holds.
+    if (known) return reply(200, lookupAnswer(known.answer));
+    return reply(503, { error: "IGDB unavailable" }, { "retry-after": "3600" });
+  }
+  const answer = game ? JSON.stringify(game) : "";
+  try {
+    await env.DB.prepare(SQL.keepLookup).bind(name, day, answer).run();
+  } catch {
+    // Answered all the same; asked again next time.
+  }
+  return reply(200, lookupAnswer(answer));
+}
+
+/** Deletes the reports older than 25 months, the counts of past days, the
+ * problems filed before yesterday, and the games looked up more than 30
+ * days ago. */
 export async function expire(env, now) {
   const cutoff = new Date(now);
   cutoff.setUTCMonth(cutoff.getUTCMonth() - LIMITS.keptMonths);
@@ -540,6 +866,7 @@ export async function expire(env, now) {
     env.DB.prepare(SQL.expireReports).bind(cutoff.toISOString().slice(0, 10)),
     env.DB.prepare(SQL.expireDaily).bind(counted.toISOString().slice(0, 10)),
     env.DB.prepare(SQL.expireProblems).bind(counted.toISOString().slice(0, 10), cutoff.toISOString().slice(0, 10)),
+    env.DB.prepare(SQL.expireLookups).bind(today(now - LIMITS.lookupKeptDays * 86400000)),
   ]);
 }
 
@@ -547,6 +874,7 @@ const ROUTES = new Map([
   ["/v1/reports", reports],
   ["/v1/forget", forget],
   ["/v1/problems", problems],
+  ["/v1/games", games],
 ]);
 
 export default {

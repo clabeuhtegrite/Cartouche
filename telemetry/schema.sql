@@ -43,3 +43,16 @@ CREATE TABLE IF NOT EXISTS problems (
 );
 CREATE INDEX IF NOT EXISTS problems_by_day ON problems (day);
 CREATE INDEX IF NOT EXISTS problems_waiting ON problems (issue, day);
+
+-- What IGDB has of a game Cartouche's catalog does not know, as the server
+-- found it for the name the app sent (worker.js, POST /v1/games): name is
+-- that name made plain, after the platform the app said, such as
+-- "switch:unravel two"; answer the game found, as JSON, or '' when IGDB has
+-- none close enough. day is the day the server asked IGDB, for its daily
+-- cap and to ask again after 30 days. Never who asked.
+CREATE TABLE IF NOT EXISTS lookups (
+  name TEXT PRIMARY KEY,
+  day TEXT NOT NULL,
+  answer TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS lookups_by_day ON lookups (day);

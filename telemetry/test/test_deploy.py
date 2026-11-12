@@ -10,6 +10,9 @@
 - with the problems' token, the Worker has it and the private repository
   to file problems in, never one GitHub says is public, and the token is
   never printed;
+- with a Twitch application's ID and secret, the server has them to find on
+  IGDB the covers of the games Cartouche does not know, never the dashboard,
+  and neither is printed; without them, the deploy says so;
 - the dashboard goes with them: its Worker and its page as they are, with
   the catalog's names, covers and chips in the page's place for them, and
   nothing in a name that could close it; the same database and problems'
@@ -70,7 +73,7 @@ class DeployTest(unittest.TestCase):
         database = self.cloudflare.databases[0]
         self.assertEqual((database["name"], database["jurisdiction"]), ("cartouche-telemetry", "eu"))
         tables = {row[0] for row in self.cloudflare.sql.execute("SELECT name FROM sqlite_master WHERE type = 'table'")}
-        self.assertEqual(tables, {"reports", "daily", "problems"})
+        self.assertEqual(tables, {"reports", "daily", "problems", "lookups"})
         self.assertNotIn("--", self.cloudflare.last_sql)
         script = self.cloudflare.scripts["cartouche-telemetry"]
         self.assertEqual(script["metadata"]["main_module"], "worker.js")
@@ -143,6 +146,26 @@ class DeployTest(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual([binding["name"] for binding in self.bindings()], ["DB"])
         self.assertIn("::error::Problems: clabeuhtegrite/Cartouche is public", result.stdout)
+
+    def test_the_server_alone_asks_igdb(self):
+        with tempfile.TemporaryDirectory() as folder:
+            summary = Path(folder) / "summary.md"
+            result = self.deploy(CLOUDFLARE_API_TOKEN=TOKEN, CLOUDFLARE_ACCOUNT_ID=ACCOUNT, GITHUB_STEP_SUMMARY=str(summary),
+                                 IGDB_CLIENT_ID="igdb-client-id", IGDB_CLIENT_SECRET="igdb-client-secret")
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertIn("IGDB: the server finds on IGDB the covers of the games Cartouche does not know", summary.read_text())
+        self.assertEqual(self.bindings()[1:], [
+            {"type": "secret_text", "name": "IGDB_CLIENT_ID", "text": "igdb-client-id"},
+            {"type": "secret_text", "name": "IGDB_CLIENT_SECRET", "text": "igdb-client-secret"},
+        ])
+        self.assertEqual([binding["name"] for binding in self.dashboard()["metadata"]["bindings"]], ["DB"])
+        self.assertNotIn("igdb-client-secret", result.stdout + result.stderr)
+        self.assertNotIn("igdb-client-id", result.stdout + result.stderr)
+        # Without them, the deploy says what the server cannot do.
+        result = self.deploy_with_secrets()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("::warning::IGDB: there is no IGDB_CLIENT_ID or IGDB_CLIENT_SECRET", result.stdout)
+        self.assertEqual([binding["name"] for binding in self.bindings()], ["DB"])
 
     def dashboard(self):
         return self.cloudflare.scripts["cartouche-dashboard"]
