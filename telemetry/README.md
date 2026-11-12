@@ -15,6 +15,10 @@ The Worker has no dependency and no build: the file is deployed as it is. The pr
   - 400 or 413: not a problem the server takes.
   - 429 with `Retry-After: 3600`: the address sent more than 10 problems in the hour, or the server took 50 today.
   - 503 with `Retry-After: 3600`: the database is unavailable.
+- `POST /v1/games` takes `{"name": "Unravel TWO", "platform": "switch"}`, the name of a game of the player's that Cartouche's catalog does not know, as its copy gives it or as the player renamed it, and its platform, `switch` or `switch2`, when Cartouche can tell it from the game's title ID or the player chose it ([`CartoucheGameLookup.swift`](../launcher/Sources/CartoucheGameLookup.swift)). It looks the game up on IGDB as [`igdb_covers.py`](../catalog/tools/igdb_covers.py) looks up the catalog's games, and answers `{"found": true, "igdb": 103281, "name": "Unravel Two", "cover": "…", "artwork": "…", "genre": "puzzle", "summary": "…", "platform": "switch"}`: IGDB's game ID and name, the image IDs of its cover and of an artwork, its genre as one of Cartouche's, its summary on IGDB, in English, without web addresses, with its spaces made plain and at most 2,000 characters, and its platform; or `{"found": false}` when IGDB has no game close enough. The server asks IGDB with the Twitch application of its secrets `IGDB_CLIENT_ID` and `IGDB_CLIENT_SECRET`, which the deploy gives it, and keeps its answer for that name 30 days, so that IGDB is asked once a month at most for a game, whoever has it.
+  - 400 or 413: not a name the server takes: up to 128 characters, and `switch` or `switch2` if a platform.
+  - 429 with `Retry-After: 3600`: the address asked for more than 60 names in the hour.
+  - 503 with `Retry-After: 3600`: IGDB cannot be asked, or the server asked it for 1,000 names today, or the database is unavailable. An answer the server kept before still comes.
 - `GET /` answers `Cartouche telemetry`, to check that it runs.
 
 ## What the server keeps
@@ -26,7 +30,9 @@ Each report is checked field by field and kept as the server rebuilt it: a field
 
 - `problems`: each problem a player sent, as its issue's title and body, until GitHub has it; then only its `day` and its `issue`'s number, for the daily cap, until the day after.
 
-Every day at 03:17 UTC, the reports older than 25 months go, and the problems GitHub does not have yet are filed, 25 at most.
+- `lookups`: what IGDB has of each game looked up for `POST /v1/games`, by its `name` made plain after the platform the app said, such as `switch:unravel two`: the `answer`, as the route gives it, or nothing when IGDB has none, and the `day` IGDB was asked. Never who asked, nor from where.
+
+Every day at 03:17 UTC, the reports older than 25 months go, the games looked up more than 30 days ago go, and the problems GitHub does not have yet are filed, 25 at most.
 
 ## Problems
 
@@ -74,6 +80,7 @@ A value the log does not have is left out.
 | `signature.renewed` | The signature lasts longer than it did. | `daysLeft` |
 | `renewal.done` | **Renew now** went through, on the System page, from the version of November 13. | `seconds`; what the built-in SideStore noted on its way, as for an error below; `outcome` (no) when SideStore left nothing; `recovered` and `cause`, when SideStore quit or failed on its way back once it had renewed Cartouche, which Cartouche read in the signature SideStore records; `attempts`, 2 when SideStore quit before it answered and Cartouche asked a new one |
 | `game.installed` | A game installed or updated. | `version`, `nxnative` |
+| `game.infoChanged` | The player changed what Cartouche shows of a game of theirs (**Edit the game's info**, from the version of November 13). | `known`, whether nxnative has a profile for the game or IGDB a cover by its title ID; `found`, whether IGDB had it by its name; `name`, `platform`, `genre` and `cover`, which of them the player gave, never what they wrote or chose |
 | `account.signedIn` | The Apple ID sign-in went through. | `seconds`; `automatic`, Cartouche signed in again by itself for a new certificate; what the built-in SideStore noted on its way, as for an error below; `outcome` (no) when SideStore left nothing; `limitedBefore`, how many sign-ins in a row Apple had refused for too many requests in the day before this one |
 | `import.picker` | The Files picker of an import closed; one still open when Cartouche ended is told at the next start. | `outcome`: `picked`, `cancelled`, `closed` with the controller's B, `lost` when it left the screen or never came without an answer, `quit` when Cartouche ended with it open; `place`, where the player opened it (`home`, `sheet`, `guide`); `seconds`, how long it was open; `shownMs`, how long it took to come on screen; `longestStallMs` and `stalls`, the longest Cartouche's main thread, which passes the picker every touch, took to answer meanwhile, and how many times it took over half a second; `background`, whether Cartouche went to the background meanwhile; `controller`, whether a game controller was connected |
 | `error` | An error Cartouche reported. | `origin`, what Cartouche was doing; `error`, the domains and codes of the error and those under it, never its words; `background`; and, from the version of November 20, `cause`, `stage`, `percent`, `seconds` and the error's names and numbers, below |

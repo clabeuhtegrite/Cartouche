@@ -11,7 +11,12 @@
 //  CartoucheCatalog/ (catalog/ in the Cartouche repository). None says
 //  where to get a game. Newer covers come every day (CartoucheLiveCovers),
 //  with those of the games nxnative added since: a game of the player's
-//  that the list does not know yet shows its cover by its title ID.
+//  that the list does not know yet shows its cover by its title ID. A game
+//  of the player's that nxnative has no profile for, such as one built with
+//  a fork of nxnative, has its platform from its title ID, and its cover,
+//  an artwork and its genre from IGDB by its name (CartoucheGameLookup).
+//  The player can change the name, the platform, the genre and the cover
+//  of any game of theirs, on this iPhone (CartouchePlayerInfo).
 //
 
 import Combine
@@ -112,16 +117,44 @@ struct CartoucheEntry: Identifiable, Hashable {
     /// The game's official cover and artwork on IGDB, if Cartouche has them
     /// (CartoucheCatalog.cover(titleId:)).
     var cover: CartoucheCover? = nil
+    /// What IGDB has of a game of the player's that Cartouche does not
+    /// know, by its name (CartoucheGameLookup).
+    var found: CartoucheFoundGame? = nil
+    /// What the player said of their game (CartouchePlayerInfo), and the
+    /// file of their cover.
+    var player: CartouchePlayerInfo? = nil
+    var playerCover: URL? = nil
 
-    var name: String {
+    /// The name the player gave the game, else its own.
+    var name: String { player?.name ?? ownName }
+
+    /// The game's name in the catalogue, else its copy's.
+    var ownName: String {
         if let sheet { return sheet.name }
         if let game { return game.name }
         return app?.appInfo.displayName() ?? stored?.name ?? ""
     }
 
     var titleId: String? { game?.titleId ?? sheet?.titleId ?? ownTitleId }
-    var platform: String? { sheet?.platform ?? game?.platform }
-    var genre: String? { game?.genre }
+    /// The platform the player chose, else the game's own.
+    var platform: String? { player?.platform ?? ownPlatform }
+    /// The catalogue's platform for the game, else the one its title ID
+    /// says, else IGDB's.
+    var ownPlatform: String? {
+        sheet?.platform ?? game?.platform ?? CartoucheGameWanted.platform(titleId: titleId) ?? found?.platform
+    }
+    /// The genre the player chose, else the game's own.
+    var genre: String? { player?.genre ?? ownGenre }
+    /// nxnative's genre for the game, else IGDB's: by its title ID, or by
+    /// its name for a game Cartouche does not know.
+    var ownGenre: String? {
+        if let genre = game?.genre, genre != "other" { return genre }
+        return cover?.genre ?? found?.genre
+    }
+    /// Whether Cartouche knows nothing of the game but what the player's
+    /// copy says: nxnative has no profile for it, nor IGDB a cover by its
+    /// title ID.
+    var isUnknown: Bool { game == nil && sheet == nil && cover == nil }
     var isOwned: Bool { app != nil || stored != nil }
     var isInstalled: Bool { app != nil }
     /// In the games folder, not on this iPhone: Install brings it.
@@ -141,7 +174,8 @@ struct CartoucheEntry: Identifiable, Hashable {
 
     static func == (lhs: CartoucheEntry, rhs: CartoucheEntry) -> Bool {
         lhs.id == rhs.id && lhs.app === rhs.app && lhs.stored == rhs.stored && lhs.update == rhs.update
-            && lhs.ownTitleId == rhs.ownTitleId && lhs.cover == rhs.cover
+            && lhs.ownTitleId == rhs.ownTitleId && lhs.cover == rhs.cover && lhs.found == rhs.found
+            && lhs.player == rhs.player && lhs.playerCover == rhs.playerCover
     }
 
     func hash(into hasher: inout Hasher) {
@@ -162,8 +196,15 @@ final class CartoucheCatalog: ObservableObject {
     /// Those, under the newer ones Cartouche read (CartoucheLiveCovers),
     /// which also have the games nxnative added since.
     private var covers: [String: CartoucheCover]
+    /// What IGDB has of the player's games Cartouche does not know, by the
+    /// key of the game asked (CartoucheGameWanted.key).
+    private var foundGames: [String: CartoucheFoundGame]
+    /// What the player said of their games.
+    private let playerInfo: CartouchePlayerInfoStore
     private let coversLock = NSLock()
-    /// Changes when newer covers arrive, for the views to show them.
+    /// Changes when newer covers arrive, when IGDB's answers about the
+    /// player's games do, and when the player changes what they said of
+    /// one, for the views to show them.
     @Published private(set) var coversRevision = 0
 
     /// The title ID each app's folder was found to hold, or "" for an
@@ -215,6 +256,15 @@ final class CartoucheCatalog: ObservableObject {
         self.carriedCovers = carried
         // The newer covers read the last time, until the next read.
         self.covers = CartoucheCoverList.merged(carried, with: CartoucheLiveCovers.kept(at: CartoucheLiveCovers.defaultFile))
+        self.foundGames = CartoucheGameLookup.kept(at: CartoucheGameLookup.defaultFile)
+        #if CARTOUCHE_GALLERY
+        // Each scenario of the gallery starts from nothing the player said.
+        let infoFolder = FileManager.default.temporaryDirectory.appendingPathComponent("GameInfo", isDirectory: true)
+        try? FileManager.default.removeItem(at: infoFolder)
+        self.playerInfo = CartouchePlayerInfoStore(folder: infoFolder)
+        #else
+        self.playerInfo = CartouchePlayerInfoStore(folder: CartouchePlayerInfoStore.defaultFolder)
+        #endif
 
         struct DeviceList: Decodable { let devices: [CartoucheDeviceProfile] }
         do {
@@ -273,6 +323,87 @@ final class CartoucheCatalog: ObservableObject {
         entry.cover = entry.titleId.flatMap { cover(titleId: $0) }
         return entry
     }
+
+    // MARK: The player's games Cartouche does not know, and what the player says
+
+    /// The key of what the player said of ENTRY's game: its bundle ID as
+    /// its IPA gives it, when it has no title ID, the same from one install
+    /// to the next (CartoucheGameStats.bundleId(of:)).
+    private static func playerKey(of entry: CartoucheEntry) -> String {
+        let installed = entry.app.flatMap {
+            ($0.appInfo.info()?["LCOrignalBundleIdentifier"] as? String) ?? $0.appInfo.bundleIdentifier()
+        }
+        return CartouchePlayerInfoStore.key(titleId: entry.titleId, bundleId: installed ?? entry.stored?.bundleId, id: entry.id)
+    }
+
+    /// What Cartouche asks its server about ENTRY, one of the player's games
+    /// it does not know: its name, the player's or its own, and its
+    /// platform, the player's or the one its title ID says.
+    static func wanted(for entry: CartoucheEntry) -> CartoucheGameWanted? {
+        guard entry.isOwned, entry.isUnknown else { return nil }
+        return CartoucheGameWanted(name: entry.name,
+                                   platform: entry.player?.platform ?? CartoucheGameWanted.platform(titleId: entry.titleId))
+    }
+
+    /// The games of ENTRIES that Cartouche asks its server about.
+    static func wanted(among entries: Entries) -> [CartoucheGameWanted] {
+        var seen = Set<String>()
+        return entries.owned.compactMap(wanted(for:)).filter { seen.insert($0.key).inserted }
+    }
+
+    /// ENTRY, one of the player's games, with what the player said of it
+    /// and, for a game Cartouche does not know, what IGDB has of it.
+    private func withOwnInfo(_ entry: CartoucheEntry) -> CartoucheEntry {
+        var entry = entry
+        coversLock.lock()
+        entry.player = playerInfo.info(for: Self.playerKey(of: entry))
+        entry.playerCover = playerInfo.coverFile(of: entry.player)
+        if let wanted = Self.wanted(for: entry) { entry.found = foundGames[wanted.key] }
+        coversLock.unlock()
+        return entry
+    }
+
+    /// Asks Cartouche's server about the player's games it does not know,
+    /// those of ENTRIES, when they are due (CartoucheGameLookup), and shows
+    /// the answers.
+    @MainActor
+    func lookUpGamesIfDue(among entries: Entries) {
+        CartoucheGameLookup.shared.lookUpIfDue(Self.wanted(among: entries)) { [weak self] found in
+            self?.showFound(found)
+        }
+    }
+
+    @MainActor
+    private func showFound(_ found: [String: CartoucheFoundGame]) {
+        coversLock.lock()
+        let changed = found != foundGames
+        foundGames = found
+        coversLock.unlock()
+        if changed { coversRevision += 1 }
+    }
+
+    /// Keeps what the player says of ENTRY's game (CartoucheGameInfoView):
+    /// INFO, with COVER the JPEG of a new cover of theirs
+    /// (CartouchePlayerInfoStore.jpeg(from:)); nil INFO and no COVER go back
+    /// to what Cartouche finds by itself.
+    @MainActor
+    func setPlayerInfo(_ info: CartouchePlayerInfo?, cover: Data? = nil, for entry: CartoucheEntry) throws {
+        coversLock.lock()
+        defer {
+            coversLock.unlock()
+            coversRevision += 1
+        }
+        try playerInfo.set(info, cover: cover, for: Self.playerKey(of: entry))
+    }
+
+    #if CARTOUCHE_GALLERY
+    /// IGDB's answers about the player's games, as the gallery stands in
+    /// for Cartouche's server.
+    @MainActor
+    func showFoundForGallery(_ found: [String: CartoucheFoundGame]) {
+        showFound(found)
+    }
+    #endif
 
     struct Entries {
         /// The player's games, known to Cartouche or not, by name.
@@ -340,7 +471,7 @@ final class CartoucheCatalog: ObservableObject {
             result.owned.append(CartoucheEntry(id: "stored:" + copy.path, game: game, sheet: sheet, app: nil, stored: copy,
                                                ownTitleId: titleId))
         }
-        result.owned = result.owned.map { withCover($0) }
+        result.owned = result.owned.map { withOwnInfo(withCover($0)) }
         result.owned.sort { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
         var others = games
             .filter { !ownedTitles.contains($0.titleId) }

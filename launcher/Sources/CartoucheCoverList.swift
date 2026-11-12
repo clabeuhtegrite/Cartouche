@@ -14,7 +14,8 @@
 
 import Foundation
 
-/// A game's official cover and artwork on IGDB (covers.json).
+/// A game's official cover and artwork on IGDB, and its genre there
+/// (covers.json).
 struct CartoucheCover: Decodable, Hashable {
     let titleId: String
     /// IGDB's ID of the game.
@@ -23,6 +24,10 @@ struct CartoucheCover: Decodable, Hashable {
     let cover: String
     /// The image ID of an artwork, wide.
     let artwork: String?
+    /// One of Cartouche's genres (CartoucheCoverList.genres), from IGDB's,
+    /// for a game whose nxnative profile says none. Lists before November
+    /// 2026 have none.
+    var genre: String? = nil
 }
 
 /// Reading a covers.json, and putting a newer list over the one the app
@@ -32,11 +37,15 @@ enum CartoucheCoverList {
     /// nxnative's 146 games.
     static let maximumSize = 1 << 20
 
+    /// Cartouche's genres, those of nxnative's profiles (CartoucheText.genre).
+    static let genres: Set<String> = ["action", "adventure", "rpg", "puzzle", "strategy", "simulation", "racing", "sports",
+                                      "board", "card", "family", "music"]
+
     /// The covers DATA lists, by title ID, or nil unless it is a covers.json:
     /// schema 1, from IGDB. A cover that is not as catalog/schema/covers.schema.json
     /// has it is left out, such as one whose image ID is anything but letters
-    /// and digits, and so is an artwork that is not; the first cover of a
-    /// title ID counts.
+    /// and digits, and so are an artwork that is not and a genre Cartouche
+    /// does not know; the first cover of a title ID counts.
     static func covers(in data: Data) -> [String: CartoucheCover]? {
         guard data.count <= maximumSize, let list = try? JSONDecoder().decode(List.self, from: data),
               list.schema == 1, list.source == "IGDB" else { return nil }
@@ -45,7 +54,9 @@ enum CartoucheCoverList {
             guard let cover = record.cover, covers[cover.titleId] == nil, isTitleId(cover.titleId), cover.igdb > 0,
                   isImageId(cover.cover) else { continue }
             let artwork = cover.artwork.flatMap { isImageId($0) ? $0 : nil }
-            covers[cover.titleId] = CartoucheCover(titleId: cover.titleId, igdb: cover.igdb, cover: cover.cover, artwork: artwork)
+            let genre = cover.genre.flatMap { genres.contains($0) ? $0 : nil }
+            covers[cover.titleId] = CartoucheCover(titleId: cover.titleId, igdb: cover.igdb, cover: cover.cover, artwork: artwork,
+                                                   genre: genre)
         }
         return covers
     }
