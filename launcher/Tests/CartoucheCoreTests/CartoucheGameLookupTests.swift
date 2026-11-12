@@ -99,17 +99,21 @@ final class CartoucheGameLookupTests: XCTestCase {
     }
 
     private func load(from server: Server) -> CartoucheGameLookup.Load {
-        { request in
-            let body = (request.httpBody.flatMap { try? JSONSerialization.jsonObject(with: $0) } as? [String: String]) ?? [:]
+        let load: CartoucheGameLookup.Load = { request in
+            let sent: Any? = request.httpBody.flatMap { try? JSONSerialization.jsonObject(with: $0) }
+            let body: [String: String] = (sent as? [String: String]) ?? [:]
             server.asked.append(body)
+            let headers: [String: String]? = server.retryAfter.map { ["Retry-After": $0] }
             guard let url = request.url,
-                  let response = HTTPURLResponse(url: url, statusCode: server.status, httpVersion: nil,
-                                                 headerFields: server.retryAfter.map { ["Retry-After": $0] }) else {
+                  let response = HTTPURLResponse(url: url, statusCode: server.status, httpVersion: nil, headerFields: headers) else {
                 throw URLError(.badURL)
             }
-            let answer = server.answers[body["name"] ?? ""] ?? ["found": false]
-            return (try JSONSerialization.data(withJSONObject: server.status == 200 ? answer : ["error": "no"]), response)
+            let found: [String: Any] = server.answers[body["name"] ?? ""] ?? ["found": false]
+            let answer: [String: Any] = server.status == 200 ? found : ["error": "no"]
+            let data = try JSONSerialization.data(withJSONObject: answer)
+            return (data, response as URLResponse)
         }
+        return load
     }
 
     /// Where the answers are kept: a folder of its own, removed after the

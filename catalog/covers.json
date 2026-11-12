@@ -7,930 +7,1063 @@
       "igdb": 26758,
       "name": "Super Mario Odyssey",
       "cover": "co1mxf",
-      "artwork": "lymumhy07tlqyprs0zrn"
+      "artwork": "lymumhy07tlqyprs0zrn",
+      "genre": "action"
     },
     {
       "titleId": "0100000011D90000",
       "igdb": 144051,
       "name": "Pokémon Brilliant Diamond",
       "cover": "co3b9t",
-      "artwork": "ar6li8"
+      "artwork": "ar6li8",
+      "genre": "rpg"
     },
     {
       "titleId": "010005501E68C000",
       "igdb": 306152,
       "name": "Ace Attorney Investigations Collection",
       "cover": "cobau4",
-      "artwork": "ar2zyf"
+      "artwork": "ar2zyf",
+      "genre": "puzzle"
     },
     {
       "titleId": "010012101468C000",
       "igdb": 236663,
       "name": "Metroid Prime Remastered",
       "cover": "cobbn9",
-      "artwork": "ar2605"
+      "artwork": "ar2605",
+      "genre": "action"
     },
     {
       "titleId": "010013C00E930000",
       "igdb": 115289,
       "name": "Hollow Knight: Silksong",
       "cover": "cobebu",
-      "artwork": "ar4prh"
+      "artwork": "ar4prh",
+      "genre": "action"
     },
     {
       "titleId": "010014C011146000",
       "igdb": 107315,
       "name": "Subnautica: Below Zero",
       "cover": "co39ve",
-      "artwork": "arbmr"
+      "artwork": "arbmr",
+      "genre": "adventure"
     },
     {
       "titleId": "010014E00DB56000",
       "igdb": 120551,
       "name": "Digimon Story Cyber Sleuth: Complete Edition",
       "cover": "coar93",
-      "artwork": "ard16"
+      "artwork": "ard16",
+      "genre": "rpg"
     },
     {
       "titleId": "010015100B514000",
       "igdb": 254339,
       "name": "Super Mario Bros. Wonder",
       "cover": "co6nnl",
-      "artwork": "ar2dcn"
+      "artwork": "ar2dcn",
+      "genre": "action"
     },
     {
       "titleId": "0100152000022000",
       "igdb": 26764,
       "name": "Mario Kart 8 Deluxe",
       "cover": "co213p",
-      "artwork": "ar4kb"
+      "artwork": "ar4kb",
+      "genre": "racing"
     },
     {
       "titleId": "010016100A186000",
       "igdb": 77648,
       "name": "SteamWorld Heist: Ultimate Edition",
       "cover": "co8gla",
-      "artwork": "ard06"
+      "artwork": "ard06",
+      "genre": "action"
     },
     {
       "titleId": "0100199023B2E000",
       "igdb": 359424,
       "name": "Atelier Ryza: Ever Darkness & the Secret Hideout DX",
       "cover": "coa88d",
-      "artwork": "ar3yj5"
+      "artwork": "ar3yj5",
+      "genre": "simulation"
     },
     {
       "titleId": "01001F5010DFA000",
       "igdb": 144054,
       "name": "Pokémon Legends: Arceus",
       "cover": "co3d03",
-      "artwork": "ar5qqt"
+      "artwork": "ar5qqt",
+      "genre": "rpg"
     },
     {
       "titleId": "010020400E1C2000",
       "igdb": 26700,
       "name": "Raging Loop",
       "cover": "co1tzv",
-      "artwork": "ar63n"
+      "artwork": "ar63n",
+      "genre": "adventure"
     },
     {
       "titleId": "010020D01AD24000",
       "igdb": 191435,
       "name": "Animal Well",
       "cover": "co4hdh",
-      "artwork": "ar6ra9"
+      "artwork": "ar6ra9",
+      "genre": "puzzle"
     },
     {
       "titleId": "0100217023F6C000",
       "igdb": 360075,
       "name": "Well Dweller",
       "cover": "coa8qh",
-      "artwork": "ar3z8j"
+      "artwork": "ar3z8j",
+      "genre": "rpg"
     },
     {
       "titleId": "0100276009872000",
       "igdb": 20744,
       "name": "Ōkami HD",
       "cover": "co22s8",
-      "artwork": "ar4nv"
+      "artwork": "ar4nv",
+      "genre": "rpg"
     },
     {
       "titleId": "010028600EBDA000",
       "igdb": 138227,
       "name": "Super Mario 3D World + Bowser's Fury",
       "cover": "cobb2d",
-      "artwork": "ara06"
+      "artwork": "ara06",
+      "genre": "action"
     },
     {
       "titleId": "010029B0118E8000",
       "igdb": 139346,
       "name": "Need for Speed: Hot Pursuit - Remastered",
       "cover": "co2nhk",
-      "artwork": "ar898"
+      "artwork": "ar898",
+      "genre": "racing"
     },
     {
       "titleId": "010029B018432000",
       "igdb": 236660,
       "name": "Ghost Trick: Phantom Detective",
       "cover": "cob9sm",
-      "artwork": "ar260t"
+      "artwork": "ar260t",
+      "genre": "puzzle"
     },
     {
       "titleId": "01002B00111A2000",
       "igdb": 138343,
       "name": "Hyrule Warriors: Age of Calamity",
       "cover": "cob22n",
-      "artwork": "ar1dic"
+      "artwork": "ar1dic",
+      "genre": "strategy"
     },
     {
       "titleId": "01002B30028F6000",
       "igdb": 26226,
       "name": "Celeste",
       "cover": "cob9dh",
-      "artwork": "ar6pwd"
+      "artwork": "ar6pwd",
+      "genre": "action"
     },
     {
       "titleId": "01002CD00A51C000",
       "igdb": 76638,
       "name": "Baba Is You",
       "cover": "co2hqt",
-      "artwork": "ar9ra"
+      "artwork": "ar9ra",
+      "genre": "strategy"
     },
     {
       "titleId": "01002DA013484000",
       "igdb": 143614,
       "name": "The Legend of Zelda: Skyward Sword HD",
       "cover": "cob8lb",
-      "artwork": "ar9d6"
+      "artwork": "ar9d6",
+      "genre": "adventure"
     },
     {
       "titleId": "01002E7016C46000",
       "igdb": 165351,
       "name": "Cult of the Lamb",
       "cover": "cobbwj",
-      "artwork": "ar4qv9"
+      "artwork": "ar4qv9",
+      "genre": "simulation"
     },
     {
       "titleId": "0100300012F2A000",
       "igdb": 152360,
       "name": "Advance Wars 1+2: Re-Boot Camp",
       "cover": "cobblq",
-      "artwork": "ar4n2z"
+      "artwork": "ar4n2z",
+      "genre": "strategy"
     },
     {
       "titleId": "0100317013770000",
       "igdb": 152201,
       "name": "Mario + Rabbids Sparks of Hope",
       "cover": "cob89b",
-      "artwork": "ar90h"
+      "artwork": "ar90h",
+      "genre": "strategy"
     },
     {
       "titleId": "010031F019294000",
       "igdb": 287854,
       "name": "Super Monkey Ball: Banana Rumble",
       "cover": "cobbw9",
-      "artwork": "ar2rmw"
+      "artwork": "ar2rmw",
+      "genre": "action"
     },
     {
       "titleId": "010032E00E6E2000",
       "igdb": 9643,
       "name": "Return of the Obra Dinn",
       "cover": "co27j9",
-      "artwork": "arbl3"
+      "artwork": "arbl3",
+      "genre": "puzzle"
     },
     {
       "titleId": "0100346017304000",
       "igdb": 191519,
       "name": "Taikou Risshiden V DX",
-      "cover": "co4hjt"
+      "cover": "co4hjt",
+      "genre": "rpg"
     },
     {
       "titleId": "010035F022078000",
       "igdb": 279634,
       "name": "Dragon Ball: Sparking! Zero",
       "cover": "co8bhn",
-      "artwork": "ar2o80"
+      "artwork": "ar2o80",
+      "genre": "action"
     },
     {
       "titleId": "010036E00FB20000",
       "igdb": 146075,
       "name": "The Great Ace Attorney Chronicles",
       "cover": "co2ylx",
-      "artwork": "ar46ab"
+      "artwork": "ar46ab",
+      "genre": "puzzle"
     },
     {
       "titleId": "010038600B27E000",
       "igdb": 1983,
       "name": "Bastion",
       "cover": "co1qlj",
-      "artwork": "ar4gb"
+      "artwork": "ar4gb",
+      "genre": "rpg"
     },
     {
       "titleId": "010038B015560000",
       "igdb": 347121,
       "name": "Final Fantasy Tactics: The Ivalice Chronicles",
       "cover": "co9wwi",
-      "artwork": "ar3nvz"
+      "artwork": "ar3nvz",
+      "genre": "strategy"
     },
     {
       "titleId": "01003E601E324000",
       "igdb": 149980,
       "name": "Dragon Quest III HD-2D Remake",
       "cover": "co8d90",
-      "artwork": "ar2zzf"
+      "artwork": "ar2zzf",
+      "genre": "rpg"
     },
     {
       "titleId": "01003FC01670C000",
       "igdb": 28337,
       "name": "13 Sentinels: Aegis Rim",
       "cover": "co2uls",
-      "artwork": "ar664"
+      "artwork": "ar664",
+      "genre": "strategy"
     },
     {
       "titleId": "010040801A4C8000",
       "igdb": 165390,
       "name": "Blasphemous II",
       "cover": "co6ej3",
-      "artwork": "ar2a2q"
+      "artwork": "ar2a2q",
+      "genre": "rpg"
     },
     {
       "titleId": "010042000A986000",
       "igdb": 54548,
       "name": "Dragon Quest Builders 2",
       "cover": "cob9ms",
-      "artwork": "ar52l"
+      "artwork": "ar52l",
+      "genre": "rpg"
     },
     {
       "titleId": "0100429011144000",
       "igdb": 9254,
       "name": "Subnautica",
       "cover": "coa938",
-      "artwork": "ar6yzp"
+      "artwork": "ar6yzp",
+      "genre": "adventure"
     },
     {
       "titleId": "010049900F546000",
       "igdb": 138225,
       "name": "Super Mario 3D All-Stars",
       "cover": "cob8wk",
-      "artwork": "ar221x"
+      "artwork": "ar221x",
+      "genre": "action"
     },
     {
       "titleId": "01004A4010FEA000",
       "igdb": 76888,
       "name": "Bayonetta 3",
       "cover": "co4z2i",
-      "artwork": "ar1lrx"
+      "artwork": "ar1lrx",
+      "genre": "action"
     },
     {
       "titleId": "01004AB00A260000",
       "igdb": 81085,
       "name": "Dark Souls: Remastered",
       "cover": "cobazz",
-      "artwork": "ar9u6"
+      "artwork": "ar9u6",
+      "genre": "rpg"
     },
     {
       "titleId": "01004D300C5AE000",
       "igdb": 172427,
       "name": "Kirby and the Forgotten Land",
       "cover": "co3vlw",
-      "artwork": "ar1cbl"
+      "artwork": "ar1cbl",
+      "genre": "action"
     },
     {
       "titleId": "010051701FB46000",
       "igdb": 332273,
       "name": "Monster Train 2",
       "cover": "coab4k",
-      "artwork": "ar3eqh"
+      "artwork": "ar3eqh",
+      "genre": "strategy"
     },
     {
       "titleId": "01005270232F2000",
       "igdb": 358535,
       "name": "Octopath Traveler 0",
       "cover": "coa7is",
-      "artwork": "ar3xls"
+      "artwork": "ar3xls",
+      "genre": "rpg"
     },
     {
       "titleId": "0100535012974000",
       "igdb": 113112,
       "name": "Hades",
       "cover": "cob9kr",
-      "artwork": "ar17ut"
+      "artwork": "ar17ut",
+      "genre": "rpg"
     },
     {
       "titleId": "010055D009F78000",
       "igdb": 26845,
       "name": "Fire Emblem: Three Houses",
       "cover": "co1n8t",
-      "artwork": "ar5r8j"
+      "artwork": "ar5r8j",
+      "genre": "strategy"
     },
     {
       "titleId": "010056B015FE8000",
       "igdb": 206805,
       "name": "Nier: Automata - The End of Yorha Edition",
       "cover": "co5jbj",
-      "artwork": "ar1p21"
+      "artwork": "ar1p21",
+      "genre": "rpg"
     },
     {
       "titleId": "010057D006492000",
       "igdb": 26765,
       "name": "Octopath Traveler",
       "cover": "cocj93",
-      "artwork": "vwk16rea1cfsqkmjgqcu"
+      "artwork": "vwk16rea1cfsqkmjgqcu",
+      "genre": "rpg"
     },
     {
       "titleId": "01005CA01580E000",
       "igdb": 114283,
       "name": "Persona 5 Royal",
       "cover": "coclf1",
-      "artwork": "ar616"
+      "artwork": "ar616",
+      "genre": "rpg"
     },
     {
       "titleId": "01006000040C2000",
       "igdb": 37135,
       "name": "Yoshi's Crafted World",
       "cover": "cobav7",
-      "artwork": "ara7e"
+      "artwork": "ara7e",
+      "genre": "action"
     },
     {
       "titleId": "0100606026F12000",
       "igdb": 405454,
       "name": "Final Fantasy Resonance",
       "cover": "coc7q4",
-      "artwork": "ar6m4q"
+      "artwork": "ar6m4q",
+      "genre": "rpg"
     },
     {
       "titleId": "010061D00DB74000",
       "igdb": 19456,
       "name": "Ori and the Blind Forest: Definitive Edition",
       "cover": "co2s0m",
-      "artwork": "ar89r"
+      "artwork": "ar89r",
+      "genre": "action"
     },
     {
       "titleId": "0100620012D6E000",
       "igdb": 166489,
       "name": "Big Brain Academy: Brain vs. Brain",
       "cover": "co3zhw",
-      "artwork": "ar11vj"
+      "artwork": "ar11vj",
+      "genre": "puzzle"
     },
     {
       "titleId": "010062B01525C000",
       "igdb": 234702,
       "name": "Persona 4 Golden",
       "cover": "coc4k1",
-      "artwork": "ar23vr"
+      "artwork": "ar23vr",
+      "genre": "rpg"
     },
     {
       "titleId": "0100633007D48000",
       "igdb": 14593,
       "name": "Hollow Knight",
       "cover": "cobfzp",
-      "artwork": "ar584b"
+      "artwork": "ar584b",
+      "genre": "action"
     },
     {
       "titleId": "010063301BD50000",
       "igdb": 337040,
       "name": "Super Robot Wars Y",
       "cover": "coajkv",
-      "artwork": "ar3dig"
+      "artwork": "ar3dig",
+      "genre": "strategy"
     },
     {
       "titleId": "0100646009FBE000",
       "igdb": 26855,
       "name": "Dead Cells",
       "cover": "co7jfv",
-      "artwork": "ar3pto"
+      "artwork": "ar3pto",
+      "genre": "action"
     },
     {
       "titleId": "010067300059A000",
       "igdb": 28414,
       "name": "Mario + Rabbids Kingdom Battle",
       "cover": "co2274",
-      "artwork": "ar4k9"
+      "artwork": "ar4k9",
+      "genre": "strategy"
     },
     {
       "titleId": "010069401ADB8000",
       "igdb": 68353,
       "name": "Unicorn Overlord",
       "cover": "co7310",
-      "artwork": "ar2iyr"
+      "artwork": "ar2iyr",
+      "genre": "strategy"
     },
     {
       "titleId": "0100698009C6E000",
       "igdb": 26820,
       "name": "Blasphemous",
       "cover": "codc10",
-      "artwork": "ar68m6"
+      "artwork": "ar68m6",
+      "genre": "rpg"
     },
     {
       "titleId": "010069C01AB82000",
       "igdb": 287850,
       "name": "Shin Megami Tensei V: Vengeance",
       "cover": "co7sv4",
-      "artwork": "ar2s42"
+      "artwork": "ar2s42",
+      "genre": "rpg"
     },
     {
       "titleId": "01006A800016E000",
       "igdb": 90101,
       "name": "Super Smash Bros. Ultimate",
       "cover": "co2255",
-      "artwork": "ar3p89"
+      "artwork": "ar3p89",
+      "genre": "action"
     },
     {
       "titleId": "01006BB00C6F0000",
       "igdb": 115284,
       "name": "The Legend of Zelda: Link's Awakening",
       "cover": "co1qve",
-      "artwork": "ara2s"
+      "artwork": "ara2s",
+      "genre": "puzzle"
     },
     {
       "titleId": "01006C300E9F0000",
       "igdb": 110069,
       "name": "Dragon Quest XI S: Echoes of an Elusive Age - Definitive Edition",
       "cover": "co1x9f",
-      "artwork": "ar7xw"
+      "artwork": "ar7xw",
+      "genre": "rpg"
     },
     {
       "titleId": "01006D0017F7A000",
       "igdb": 306137,
       "name": "Mario & Luigi: Brothership",
       "cover": "co8d9a",
-      "artwork": "ar4dgq"
+      "artwork": "ar4dgq",
+      "genre": "rpg"
     },
     {
       "titleId": "01006F8002326000",
       "igdb": 109462,
       "name": "Animal Crossing: New Horizons",
       "cover": "co3wls",
-      "artwork": "ar6rw"
+      "artwork": "ar6rw",
+      "genre": "simulation"
     },
     {
       "titleId": "01006FE013472000",
       "igdb": 152354,
       "name": "Mario Party Superstars",
       "cover": "cob9yl",
-      "artwork": "ar4bgf"
+      "artwork": "ar4bgf",
+      "genre": "board"
     },
     {
       "titleId": "0100713016CCC000",
       "igdb": 153808,
       "name": "AI: The Somnium Files - Nirvana Initiative",
       "cover": "cobbw0",
-      "artwork": "ar4qbe"
+      "artwork": "ar4qbe",
+      "genre": "puzzle"
     },
     {
       "titleId": "01007300020FA000",
       "igdb": 115283,
       "name": "Astral Chain",
       "cover": "cobd39",
-      "artwork": "ar945"
+      "artwork": "ar945",
+      "genre": "action"
     },
     {
       "titleId": "010074F013262000",
       "igdb": 191411,
       "name": "Xenoblade Chronicles 3",
       "cover": "co4ocq",
-      "artwork": "ar4q12"
+      "artwork": "ar4q12",
+      "genre": "rpg"
     },
     {
       "titleId": "010076F0049A2000",
       "igdb": 279337,
       "name": "Bayonetta",
       "cover": "co8ngp",
-      "artwork": "ar2r5m"
+      "artwork": "ar2r5m",
+      "genre": "action"
     },
     {
       "titleId": "01007820196A6000",
       "igdb": 260737,
       "name": "Red Dead Redemption",
       "cover": "co8y6p",
-      "artwork": "ar5xte"
+      "artwork": "ar5xte",
+      "genre": "action"
     },
     {
       "titleId": "01007960049A0000",
       "igdb": 279336,
       "name": "Bayonetta 2",
       "cover": "cob9e8",
-      "artwork": "ar4jx8"
+      "artwork": "ar4jx8",
+      "genre": "action"
     },
     {
       "titleId": "01007A3009184000",
       "igdb": 254340,
       "name": "Princess Peach: Showtime!",
       "cover": "cobaup",
-      "artwork": "ar2v0v"
+      "artwork": "ar2v0v",
+      "genre": "action"
     },
     {
       "titleId": "01007BB017812000",
       "igdb": 71,
       "name": "Portal",
       "cover": "coay61",
-      "artwork": "ar5e0u"
+      "artwork": "ar5e0u",
+      "genre": "puzzle"
     },
     {
       "titleId": "01007E3006DDA000",
       "igdb": 37137,
       "name": "Kirby Star Allies",
       "cover": "co8ezz",
-      "artwork": "ar1igw"
+      "artwork": "ar1igw",
+      "genre": "action"
     },
     {
       "titleId": "01007EF00011E000",
       "igdb": 7346,
       "name": "The Legend of Zelda: Breath of the Wild",
       "cover": "co3p2d",
-      "artwork": "ak6iozckwj322sjmxqd4"
+      "artwork": "ak6iozckwj322sjmxqd4",
+      "genre": "puzzle"
     },
     {
       "titleId": "010086A022444000",
       "igdb": 346035,
       "name": "Ball x Pit",
       "cover": "co9xid",
-      "artwork": "ar4otq"
+      "artwork": "ar4otq",
+      "genre": "action"
     },
     {
       "titleId": "010089B00D09C000",
       "igdb": 104971,
       "name": "AI: The Somnium Files",
       "cover": "cobbvz",
-      "artwork": "ar596"
+      "artwork": "ar596",
+      "genre": "puzzle"
     },
     {
       "titleId": "010089C01E9CA000",
       "igdb": 298315,
       "name": "SteamWorld Heist II",
       "cover": "co83o5",
-      "artwork": "ar2wuu"
+      "artwork": "ar2wuu",
+      "genre": "rpg"
     },
     {
       "titleId": "01008BC024FDE000",
       "igdb": 320972,
       "name": "Steins;Gate Re:Boot",
       "cover": "co90no",
-      "artwork": "ar6gid"
+      "artwork": "ar6gid",
+      "genre": "adventure"
     },
     {
       "titleId": "01008C0016544000",
       "igdb": 131890,
       "name": "Sea of Stars",
       "cover": "co215b",
-      "artwork": "ar67f6"
+      "artwork": "ar67f6",
+      "genre": "rpg"
     },
     {
       "titleId": "01008CF01BAAC000",
       "igdb": 306149,
       "name": "The Legend of Zelda: Echoes of Wisdom",
       "cover": "co8d9b",
-      "artwork": "ar5l22"
+      "artwork": "ar5l22",
+      "genre": "puzzle"
     },
     {
       "titleId": "01008D9022462000",
       "igdb": 296843,
       "name": "The Rogue Prince of Persia",
       "cover": "coab8v",
-      "artwork": "ar6p3j"
+      "artwork": "ar6p3j",
+      "genre": "action"
     },
     {
       "titleId": "01008DB008C2C000",
       "igdb": 115653,
       "name": "Pokémon Shield",
       "cover": "co1zk1",
-      "artwork": "ar5wf"
+      "artwork": "ar5wf",
+      "genre": "rpg"
     },
     {
       "titleId": "01008DD013200000",
       "igdb": 37001,
       "name": "Ori and the Will of the Wisps",
       "cover": "cocjl7",
-      "artwork": "ar89s"
+      "artwork": "ar89s",
+      "genre": "action"
     },
     {
       "titleId": "01008F6008C5E000",
       "igdb": 191930,
       "name": "Pokémon Violet",
       "cover": "co5sfa",
-      "artwork": "ar3vl4"
+      "artwork": "ar3vl4",
+      "genre": "rpg"
     },
     {
       "titleId": "01008F701C074000",
       "igdb": 252478,
       "name": "Sonic Superstars",
       "cover": "cobbw4",
-      "artwork": "ar2dfa"
+      "artwork": "ar2dfa",
+      "genre": "action"
     },
     {
       "titleId": "010092B0091D0000",
       "igdb": 103018,
       "name": "Team Sonic Racing",
       "cover": "co1upm",
-      "artwork": "qycdbn1yjtyqegeinjno"
+      "artwork": "qycdbn1yjtyqegeinjno",
+      "genre": "racing"
     },
     {
       "titleId": "01009320084A4000",
       "igdb": 5772,
       "name": "SteamWorld Dig",
       "cover": "cob1ud",
-      "artwork": "ar6w5"
+      "artwork": "ar6w5",
+      "genre": "puzzle"
     },
     {
       "titleId": "010093801237C000",
       "igdb": 15698,
       "name": "Metroid Dread",
       "cover": "coba9g",
-      "artwork": "arcok"
+      "artwork": "arcok",
+      "genre": "action"
     },
     {
       "titleId": "0100965017338000",
       "igdb": 306148,
       "name": "Super Mario Party Jamboree",
       "cover": "cob9yk",
-      "artwork": "ar4dht"
+      "artwork": "ar4dht",
+      "genre": "board"
     },
     {
       "titleId": "010097F018538000",
       "igdb": 203722,
       "name": "Dave the Diver",
       "cover": "cocdlv",
-      "artwork": "ar459s"
+      "artwork": "ar459s",
+      "genre": "simulation"
     },
     {
       "titleId": "010099C022B96000",
       "igdb": 229246,
       "name": "Super Mario Galaxy",
       "cover": "co5wv7",
-      "artwork": "ar2227"
+      "artwork": "ar2227",
+      "genre": "action"
     },
     {
       "titleId": "01009BF0072D4000",
       "igdb": 243900,
       "name": "Captain Toad: Treasure Tracker",
       "cover": "co6c6f",
-      "artwork": "ar2vj5"
+      "artwork": "ar2vj5",
+      "genre": "puzzle"
     },
     {
       "titleId": "01009D901BC56000",
       "igdb": 306143,
       "name": "Donkey Kong Country Returns HD",
       "cover": "cob9sh",
-      "artwork": "ar30lc"
+      "artwork": "ar30lc",
+      "genre": "action"
     },
     {
       "titleId": "0100A00019DE0000",
       "igdb": 228525,
       "name": "Hades II",
       "cover": "coaknx",
-      "artwork": "ar44rv"
+      "artwork": "ar44rv",
+      "genre": "rpg"
     },
     {
       "titleId": "0100A3501946E000",
       "igdb": 217554,
       "name": "Octopath Traveler II",
       "cover": "co7ds7",
-      "artwork": "ar3na1"
+      "artwork": "ar3na1",
+      "genre": "rpg"
     },
     {
       "titleId": "0100A3900C3E2000",
       "igdb": 133923,
       "name": "Paper Mario: The Origami King",
       "cover": "cob89j",
-      "artwork": "ar70r"
+      "artwork": "ar70r",
+      "genre": "rpg"
     },
     {
       "titleId": "0100A3D008C5C000",
       "igdb": 191931,
       "name": "Pokémon Scarlet",
       "cover": "co5sfi",
-      "artwork": "ar3vl5"
+      "artwork": "ar3vl5",
+      "genre": "rpg"
     },
     {
       "titleId": "0100A5C00D162000",
       "igdb": 9061,
       "name": "Cuphead",
       "cover": "co62ao",
-      "artwork": "ar4kfw"
+      "artwork": "ar4kfw",
+      "genre": "action"
     },
     {
       "titleId": "0100A6301214E000",
       "igdb": 217550,
       "name": "Fire Emblem Engage",
       "cover": "coc5d3",
-      "artwork": "ar5ra7"
+      "artwork": "ar5ra7",
+      "genre": "strategy"
     },
     {
       "titleId": "0100A7C01B792000",
       "igdb": 395525,
       "name": "Minecraft Dungeons II",
       "cover": "coc75p",
-      "artwork": "ar60u5"
+      "artwork": "ar60u5",
+      "genre": "rpg"
     },
     {
       "titleId": "0100A83022A22000",
       "igdb": 334239,
       "name": "Absolum",
       "cover": "coatin",
-      "artwork": "ar3cgl"
+      "artwork": "ar3cgl",
+      "genre": "action"
     },
     {
       "titleId": "0100A9D01C446000",
       "igdb": 366884,
       "name": "Dragon Quest VII Reimagined",
       "cover": "cobkan",
-      "artwork": "ar47gd"
+      "artwork": "ar47gd",
+      "genre": "rpg"
     },
     {
       "titleId": "0100ABD01785C000",
       "igdb": 72,
       "name": "Portal 2",
       "cover": "co1rs4",
-      "artwork": "ar6ny4"
+      "artwork": "ar6ny4",
+      "genre": "puzzle"
     },
     {
       "titleId": "0100ABF008968000",
       "igdb": 37382,
       "name": "Pokémon Sword",
       "cover": "co1zk2",
-      "artwork": "ar3vlt"
+      "artwork": "ar3vlt",
+      "genre": "rpg"
     },
     {
       "titleId": "0100ACD0163D0000",
       "igdb": 5503,
       "name": "Batman: Arkham Knight",
       "cover": "coagib",
-      "artwork": "nr77aejrms6l9ratykc0"
+      "artwork": "nr77aejrms6l9ratykc0",
+      "genre": "action"
     },
     {
       "titleId": "0100AE00096EA000",
       "igdb": 81147,
       "name": "Hyrule Warriors: Definitive Edition",
       "cover": "cob2j6",
-      "artwork": "ar70p"
+      "artwork": "ar70p",
+      "genre": "strategy"
     },
     {
       "titleId": "0100B04011742000",
       "igdb": 138950,
       "name": "Monster Hunter Rise",
       "cover": "co3uzk",
-      "artwork": "ar4qs0"
+      "artwork": "ar4qs0",
+      "genre": "rpg"
     },
     {
       "titleId": "0100B7C00933A000",
       "igdb": 59843,
       "name": "Pikmin 4",
       "cover": "coba9h",
-      "artwork": "ar2603"
+      "artwork": "ar2603",
+      "genre": "strategy"
     },
     {
       "titleId": "0100B99019412000",
       "igdb": 266674,
       "name": "Mario vs. Donkey Kong",
       "cover": "co8eak",
-      "artwork": "ar3p7n"
+      "artwork": "ar3p7n",
+      "genre": "puzzle"
     },
     {
       "titleId": "0100BA4026E94000",
       "igdb": 389434,
       "name": "Castlevania: Belmont's Curse",
       "cover": "cod5fk",
-      "artwork": "ar6ccd"
+      "artwork": "ar6ccd",
+      "genre": "rpg"
     },
     {
       "titleId": "0100BC0018138000",
       "igdb": 254327,
       "name": "Super Mario RPG",
       "cover": "coba9n",
-      "artwork": "ar3p11"
+      "artwork": "ar3p11",
+      "genre": "rpg"
     },
     {
       "titleId": "0100BC300CB48000",
       "igdb": 14144,
       "name": "Final Fantasy X/X-2 HD Remaster",
       "cover": "co2zpl",
-      "artwork": "gqcwzs1mdq9eyl0wugm8"
+      "artwork": "gqcwzs1mdq9eyl0wugm8",
+      "genre": "rpg"
     },
     {
       "titleId": "0100BF00112C0000",
       "igdb": 78497,
       "name": "Catherine: Full Body",
       "cover": "co2e3g",
-      "artwork": "ihoe9aqiu9swoxu8dlcu"
+      "artwork": "ihoe9aqiu9swoxu8dlcu",
+      "genre": "simulation"
     },
     {
       "titleId": "0100C1F0051B6000",
       "igdb": 85576,
       "name": "Donkey Kong Country: Tropical Freeze",
       "cover": "co7pmi",
-      "artwork": "ar3p57"
+      "artwork": "ar3p57",
+      "genre": "action"
     },
     {
       "titleId": "0100C2A01A730000",
       "igdb": 266723,
       "name": "Romance of the Three Kingdoms 8 Remake",
       "cover": "coanaf",
-      "artwork": "ar2iys"
+      "artwork": "ar2iys",
+      "genre": "strategy"
     },
     {
       "titleId": "0100C49025D3E000",
       "igdb": 408819,
       "name": "EA Sports FC 27",
       "cover": "coclf3",
-      "artwork": "ar6b8p"
+      "artwork": "ar6b8p",
+      "genre": "sports"
     },
     {
       "titleId": "0100CA9002322000",
       "igdb": 27433,
       "name": "SteamWorld Dig 2",
       "cover": "co24u8",
-      "artwork": "bhdccwxasmg5nvdfsynz"
+      "artwork": "bhdccwxasmg5nvdfsynz",
+      "genre": "puzzle"
     },
     {
       "titleId": "0100CC80140F8000",
       "igdb": 143610,
       "name": "Triangle Strategy",
       "cover": "co8wc0",
-      "artwork": "ar14jq"
+      "artwork": "ar14jq",
+      "genre": "strategy"
     },
     {
       "titleId": "0100CD801CE5E000",
       "igdb": 251833,
       "name": "Balatro",
       "cover": "co9f4g",
-      "artwork": "ar4m0f"
+      "artwork": "ar4m0f",
+      "genre": "strategy"
     },
     {
       "titleId": "0100CE4010AAC000",
       "igdb": 109276,
       "name": "Final Fantasy: Crystal Chronicles - Remastered Edition",
       "cover": "c9i4xgwbm7gojuhtwwqx",
-      "artwork": "iazaokiudhulj2beshzd"
+      "artwork": "iazaokiudhulj2beshzd",
+      "genre": "rpg"
     },
     {
       "titleId": "0100D5B026844000",
       "igdb": 313597,
       "name": "Silver Pines",
       "cover": "cod2rg",
-      "artwork": "ar6oyi"
+      "artwork": "ar6oyi",
+      "genre": "puzzle"
     },
     {
       "titleId": "0100D7C01F254000",
       "igdb": 306144,
       "name": "Dragon Quest I & II HD-2D Remake",
       "cover": "cobj0v",
-      "artwork": "ar4v1w"
+      "artwork": "ar4v1w",
+      "genre": "rpg"
     },
     {
       "titleId": "0100D9F01D474000",
       "igdb": 337031,
       "name": "Rhythm Heaven Groove",
       "cover": "cobwkn",
-      "artwork": "ar5ooc"
+      "artwork": "ar5ooc",
+      "genre": "music"
     },
     {
       "titleId": "0100DA801624E000",
       "igdb": 23733,
       "name": "Tunic",
       "cover": "td1t8kb33gyo8mvhl2pc",
-      "artwork": "arklp"
+      "artwork": "arklp",
+      "genre": "rpg"
     },
     {
       "titleId": "0100DCA0064A6000",
       "igdb": 109455,
       "name": "Luigi's Mansion 3",
       "cover": "co22a9",
-      "artwork": "ar688"
+      "artwork": "ar688",
+      "genre": "adventure"
     },
     {
       "titleId": "0100E44016C22000",
       "igdb": 133227,
       "name": "Patrick's Parabox",
       "cover": "co2obc",
-      "artwork": "arrtf"
+      "artwork": "arrtf",
+      "genre": "strategy"
     },
     {
       "titleId": "0100E65002BB8000",
       "igdb": 17000,
       "name": "Stardew Valley",
       "cover": "coa93h",
-      "artwork": "ar4yuh"
+      "artwork": "ar4yuh",
+      "genre": "simulation"
     },
     {
       "titleId": "0100E95004038000",
       "igdb": 26766,
       "name": "Xenoblade Chronicles 2",
       "cover": "cob8r2",
-      "artwork": "ar4w9"
+      "artwork": "ar4w9",
+      "genre": "rpg"
     },
     {
       "titleId": "0100EC9010258000",
       "igdb": 107262,
       "name": "Streets of Rage 4",
       "cover": "co2dru",
-      "artwork": "ar42x4"
+      "artwork": "ar42x4",
+      "genre": "action"
     },
     {
       "titleId": "0100ECD018EBE000",
       "igdb": 266690,
       "name": "Paper Mario: The Thousand-Year Door",
       "cover": "cob9xy",
-      "artwork": "ar3p23"
+      "artwork": "ar3p23",
+      "genre": "rpg"
     },
     {
       "titleId": "0100ED7012DB2000",
@@ -943,112 +1076,128 @@
       "igdb": 119388,
       "name": "The Legend of Zelda: Tears of the Kingdom",
       "cover": "co5vmg",
-      "artwork": "ar3m45"
+      "artwork": "ar3m45",
+      "genre": "puzzle"
     },
     {
       "titleId": "0100F43008C44000",
       "igdb": 288327,
       "name": "Pokémon Legends: Z-A",
       "cover": "co9wzc",
-      "artwork": "ar3m7o"
+      "artwork": "ar3m7o",
+      "genre": "rpg"
     },
     {
       "titleId": "0100F5D01DA3A000",
       "igdb": 283727,
       "name": "Brain Memory Training Academy",
       "cover": "co7nzi",
-      "artwork": "ar2pj3"
+      "artwork": "ar2pj3",
+      "genre": "strategy"
     },
     {
       "titleId": "0100FD8022DAA000",
       "igdb": 366900,
       "name": "Super Mario Galaxy 2",
       "cover": "coag5x",
-      "artwork": "ar47ug"
+      "artwork": "ar47ug",
+      "genre": "action"
     },
     {
       "titleId": "0100FF500E34A000",
       "igdb": 122238,
       "name": "Xenoblade Chronicles: Definitive Edition",
       "cover": "cob8r4",
-      "artwork": "ar4q10"
+      "artwork": "ar4q10",
+      "genre": "strategy"
     },
     {
       "titleId": "0400245021D2C000",
       "igdb": 366883,
       "name": "Yoshi and the Mysterious Book",
       "cover": "cobr0r",
-      "artwork": "ar5j8c"
+      "artwork": "ar5j8c",
+      "genre": "action"
     },
     {
       "titleId": "0400380020056000",
       "igdb": 348977,
       "name": "Splatoon Raiders",
       "cover": "cobyho",
-      "artwork": "ar6qsj"
+      "artwork": "ar6qsj",
+      "genre": "action"
     },
     {
       "titleId": "04003F40232DE000",
       "igdb": 338085,
       "name": "Hyrule Warriors: Age of Imprisonment",
       "cover": "cob9n1",
-      "artwork": "ar6jxx"
+      "artwork": "ar6jxx",
+      "genre": "action"
     },
     {
       "titleId": "0400486024DEC000",
       "igdb": 405460,
       "name": "The Legend of Zelda: Ocarina of Time",
       "cover": "cocv5r",
-      "artwork": "ar6knj"
+      "artwork": "ar6knj",
+      "genre": "puzzle"
     },
     {
       "titleId": "040074A01BF12000",
       "igdb": 338106,
       "name": "Donkey Kong Bananza",
       "cover": "cobd1q",
-      "artwork": "ar3eyk"
+      "artwork": "ar3eyk",
+      "genre": "action"
     },
     {
       "titleId": "040077201BE50000",
       "igdb": 338105,
       "name": "Kirby Air Riders",
       "cover": "coaauz",
-      "artwork": "ar3eyu"
+      "artwork": "ar3eyu",
+      "genre": "racing"
     },
     {
       "titleId": "04007EF01F8AE000",
       "igdb": 366896,
       "name": "Fire Emblem: Fortune's Weave",
       "cover": "coc7ma",
-      "artwork": "ar6ox8"
+      "artwork": "ar6ox8",
+      "genre": "strategy"
     },
     {
       "titleId": "0400A3A01EE4C000",
       "igdb": 366893,
       "name": "Pokémon Pokopia",
       "cover": "cobbur",
-      "artwork": "ar5ijo"
+      "artwork": "ar5ijo",
+      "genre": "simulation"
     },
     {
       "titleId": "0400C3F00006E000",
       "igdb": 338067,
       "name": "Mario Kart World",
       "cover": "cob9s9",
-      "artwork": "ar4973"
+      "artwork": "ar4973",
+      "genre": "racing"
     },
     {
       "titleId": "0400D4201C6EA000",
       "igdb": 366880,
       "name": "Mario Tennis Fever",
       "cover": "coag5n",
-      "artwork": "ar47nf"
+      "artwork": "ar47nf",
+      "genre": "sports"
     },
     {
       "titleId": "0400E88025B1A000",
       "igdb": 400709,
       "name": "Star Fox",
       "cover": "coc11a",
-      "artwork": "ar5ttl"
+      "artwork": "ar5ttl",
+      "genre": "action"
     }
   ]
 }

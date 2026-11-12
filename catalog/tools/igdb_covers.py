@@ -59,6 +59,7 @@ MATCHES: dict[str, int] = {}
 # by: title ID -> Cartouche's genre.
 GENRE_PINS: dict[str, str] = {
     "01002DA013484000": "adventure",  # The Legend of Zelda: Skyward Sword HD, a puzzle game on IGDB
+    "010063301BD50000": "strategy",  # Super Robot Wars Y, a simulator on IGDB
 }
 
 # IGDB's genres, by their IDs, as Cartouche's own (CartoucheText.genre in
