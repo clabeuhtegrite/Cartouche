@@ -348,6 +348,16 @@ enum CartoucheText {
     static func installFromStorageLost(_ server: String, _ reason: String) -> String {
         f("work.install.stored.lost", "The connection to %1$@ dropped and did not come back within three minutes. Install the game again once the network is back. (%2$@)", server, reason)
     }
+    static var installGameFiles: String { s("work.install.gameFiles", "Copying its game files, romfs.img.") }
+    static func installGameFilesMissing(_ name: String) -> String {
+        f("work.install.gameFiles.missing", "%@ was built without its game files, and its romfs.img is not beside its IPA in your games folder. Put it there, as nxnative wrote it, then install the game again.", name)
+    }
+    static func installGameFilesMismatch(_ name: String) -> String {
+        f("work.install.gameFiles.mismatch", "The romfs.img beside %@ is not the one it was built with. Put the one nxnative wrote with this IPA beside it, then install the game again.", name)
+    }
+    static func installGameFilesApart(_ name: String) -> String {
+        f("work.install.gameFiles.apart", "%@ was built without its game files. Put this IPA and its romfs.img together in your games folder, then install the game from there.", name)
+    }
     static func exportTitle(_ name: String) -> String { f("work.export.title", "Copying %@", name) }
     static func exportStep(_ server: String) -> String { f("work.export.step", "Copying it to %@.", server) }
     static var exportFailed: String { s("work.export.failed", "The game was not copied") }
@@ -484,6 +494,24 @@ enum CartoucheText {
     static var storageGamesFolder: String { s("storage.games", "Games folder") }
     static var storageSavesFolder: String { s("storage.saves", "Saves folder") }
     static var storageGamesFound: String { s("storage.games.found", "Games found") }
+    /// The games of the games folder built without their game files whose
+    /// romfs.img is not there, by their names.
+    static func storageGameFilesMissing(_ names: [String]) -> String {
+        let list = names.formatted(.list(type: .and))
+        if names.count == 1 {
+            return f("storage.gameFiles.missing.one", "%@ was built without its game files: put its romfs.img beside its IPA, and Cartouche installs the two together.", list)
+        }
+        return f("storage.gameFiles.missing", "%@ were built without their game files: put each one’s romfs.img beside its IPA, and Cartouche installs the two together.", list)
+    }
+    /// The images of game files no IPA of the games folder needs, by their
+    /// paths in it.
+    static func storageGameFilesLoose(_ names: [String]) -> String {
+        let list = names.formatted(.list(type: .and))
+        if names.count == 1 {
+            return f("storage.gameFiles.loose.one", "%@: a game’s files, but no IPA here was built to go with them. Put beside them the IPA nxnative built with them, or build the game with Cartouche Builder.", list)
+        }
+        return f("storage.gameFiles.loose", "%@: games’ files, but no IPA here was built to go with them. Put beside each the IPA nxnative built with it, or build the games with Cartouche Builder.", list)
+    }
     static var storageReadAgain: String { s("storage.readAgain", "Read the folder again") }
     static var storageChangeFolder: String { s("storage.changeFolder", "Change folder") }
     static var storageStopUsing: String { s("storage.stopUsing", "Stop using this folder") }

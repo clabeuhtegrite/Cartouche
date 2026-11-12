@@ -82,6 +82,9 @@ struct SetupAssistant: View {
     /// The place chosen for the dumps and for the games, before a folder is.
     @State private var places: [SetupStep: FolderPlace] = [:]
     @State private var sourcesCount: Int?
+    /// Whether the dumps folder, with no game in it, holds what nxnative
+    /// built already: IPAs, or images of game files (romfs.img).
+    @State private var sourcesBuilt = false
     @State private var problem: String?
 
     nonisolated static let size = CGSize(width: 820, height: 580)
@@ -285,6 +288,9 @@ struct SetupAssistant: View {
     private var sourcesDetail: String? {
         guard !config.sources.isEmpty, let count = sourcesCount else { return nil }
         switch count {
+        case 0 where sourcesBuilt:
+            return tr("No dump in it, but games nxnative built: their IPAs, with the romfs.img of those built without their game files, go in your games folder, the next step.",
+                      "Aucun dump dedans, mais des jeux construits par nxnative : leurs IPA, avec le romfs.img de celles construites sans les fichiers du jeu, vont dans votre dossier des jeux, l’étape suivante.")
         case 0: return tr("No game in it for now.", "Aucun jeu dedans pour l’instant.")
         case 1: return tr("1 game found", "1 jeu trouvé")
         default: return tr("\(count) games found", "\(count) jeux trouvés")
@@ -533,12 +539,15 @@ struct SetupAssistant: View {
 
     private func countSources() async {
         sourcesCount = nil
+        sourcesBuilt = false
         let path = config.sources
         guard !path.isEmpty else { return }
         if model.sample {
             sourcesCount = model.library?.games.filter { $0.source != nil }.count
         } else {
-            sourcesCount = await SetupFiles.countGames(at: path)
+            let count = await SetupFiles.countGames(at: path)
+            if count == 0 { sourcesBuilt = await SetupFiles.holdsBuilt(at: path) }
+            sourcesCount = count
         }
     }
 }
@@ -744,6 +753,7 @@ struct ChosenFolder: View {
                         Text(detail)
                             .font(.caption.weight(.medium))
                             .foregroundStyle(Theme.indigo)
+                            .fixedSize(horizontal: false, vertical: true)
                     }
                 }
                 Spacer(minLength: 8)
@@ -1008,6 +1018,32 @@ enum SetupFiles {
         }
         guard depth < SetupFiles.depth else { return }
         for sub in folders { SetupFiles.count(sub, top: false, depth: depth + 1, named: &named, unnamed: &unnamed) }
+    }
+
+    /// Whether the folder at PATH holds what nxnative built already, loose
+    /// or in folders as deep as games are looked for, its own build folders
+    /// too: an IPA, or the image of a game's files (romfs.img, in any letter
+    /// case), which go in the games folder (library.py, _built).
+    static func holdsBuilt(at path: String) async -> Bool {
+        let url = URL(fileURLWithPath: path, isDirectory: true)
+        return await Task.detached(priority: .utility) { () -> Bool in
+            SetupFiles.holdsBuilt(url, depth: 0)
+        }.value
+    }
+
+    private static func holdsBuilt(_ folder: URL, depth: Int) -> Bool {
+        guard let items = try? FileManager.default.contentsOfDirectory(at: folder, includingPropertiesForKeys: [.isDirectoryKey],
+                                                                       options: [.skipsHiddenFiles]) else { return false }
+        var folders: [URL] = []
+        for item in items {
+            let name = item.lastPathComponent.lowercased()
+            if (try? item.resourceValues(forKeys: [.isDirectoryKey]))?.isDirectory == true {
+                folders.append(item)
+            } else if name.hasSuffix(".ipa") || name.hasSuffix("romfs.img") {
+                return true
+            }
+        }
+        return depth < SetupFiles.depth && folders.contains { SetupFiles.holdsBuilt($0, depth: depth + 1) }
     }
 
     /// Whether FOLDER is laid out as nxnative takes a dump (library.is_dump).

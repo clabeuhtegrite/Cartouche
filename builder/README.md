@@ -53,6 +53,12 @@ Refresh Cartouche on the iPhone to install the complete IPA. Cartouche signs
 the app at installation; no separate ROMFS transfer is needed. On a NAS,
 the game remains available while the Mac is off.
 
+Cartouche also installs the two as they are: the IPA and its `romfs.img`,
+side by side in the games folder, are installed together, the image checked
+against `romfs.id` the same way. An IPA, a `romfs.img` or a folder nxnative
+built a game in (`<title ID>_build`), left in the sources folder where no
+dump is, is no game for the builder, and the library says where it goes.
+
 ### While a batch builds
 
 A game asked for while a batch builds, with **Add to the queue** on its sheet or its card's menu, or **Add them to the queue** for the games nxnative improved, waits its turn at the end of the batch: it is built after the batch's own games and those asked for before it, in the same batch, with one report and one notification at the end. **Builds** lists the queue in its order, with a button that takes a game out of it. **Stop this game**, there or on its sheet, stops only the game building, and the batch goes on with the next; **Stop all** stops the batch and empties its queue. In the Terminal, `cartouche-builder build ID`, while a batch builds, adds the games to it in the same way.
