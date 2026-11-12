@@ -14,12 +14,14 @@
 # puts there. A test that fails runs once more before it counts as failed,
 # and so do the tests when the test runner stops before the first one.
 # OUT keeps the results (UITests.xcresult), with the screen and the
-# accessibility tree of each test that failed, which the log shows too, then
-# what the gallery's Documents and On My iPhone held, and where the
-# gallery's main thread was in each wait of a second or more
-# (gallery-main-thread.txt, GalleryWatch in Sources/GalleryTesting.swift),
-# which the log shows for the waits that counted a second or more, and for
-# every one once a test failed.
+# accessibility tree of each test that failed, and where the gallery's main
+# thread was in each wait of a second or more (gallery-main-thread.txt,
+# GalleryWatch in Sources/GalleryTesting.swift). The log ends with what
+# matters most, as a tool that reads a job's log on GitHub may get only its
+# last few thousand lines: where the main thread was in the waits that
+# counted a second or more, what the gallery's Documents and On My iPhone
+# held, then each test that failed with what it found on the screen, each
+# test's result, and the summary.
 
 set -euo pipefail
 
@@ -154,8 +156,6 @@ if [ "$status" -ne 0 ] && grep -q "crashed while preparing to run tests\|never b
 fi
 
 echo "== UI tests: $((SECONDS - started)) s in all"
-xcrun xcresulttool get test-results summary --path "$OUT/UITests.xcresult" 2>/dev/null || true
-echo
 # The tests installed the gallery again, in a container of its own.
 CONTAINER="$(xcrun simctl get_app_container "$UDID" "$BUNDLE" data 2>/dev/null || true)"
 WAITS="$CONTAINER/tmp/gallery-main-thread.txt"
@@ -163,18 +163,18 @@ if [ -n "$CONTAINER" ] && [ -f "$WAITS" ]; then
   cp "$WAITS" "$OUT/"
   echo "== The main thread's waits of a second or more: where it was, for those that counted a second or more"
   # Each wait is a paragraph: its first line, then where the main thread
-  # was, which is shown in full for a wait that counted a second or more,
-  # and for every wait once a test failed. Swift's names, demangled.
+  # was, which is shown for a wait that counted a second or more. Swift's
+  # names, demangled.
   demangle() {
     if xcrun --find swift-demangle >/dev/null 2>&1; then xcrun swift-demangle --simplified; else cat; fi
   }
-  awk -v all="$([ "$status" -ne 0 ] && echo 1 || echo 0)" 'BEGIN { RS = ""; FS = "\n" }
+  awk 'BEGIN { RS = ""; FS = "\n" }
     {
       counted = 0
       if (match($1, /[0-9]+ ms counted/)) counted = substr($1, RSTART, RLENGTH) + 0
-      if (all == 1 || counted >= 1000) print $0; else print $1
+      if (counted >= 1000) print $0; else print $1
       print ""
-    }' "$WAITS" | demangle | head -n 8000 || true
+    }' "$WAITS" | demangle | head -n 2500 || true
 fi
 if [ "$status" -ne 0 ]; then
   # What the Files picker had to show.
@@ -184,9 +184,25 @@ if [ "$status" -ne 0 ]; then
     echo "== On My iPhone"
     ls -la "$LOCAL" || true
   fi
+  # Each failure, with the screen's accessibility tree as the test found
+  # it (ConsoleTestCase.expect), the first lines of each.
+  echo "== What the tests that failed found"
+  awk '
+    / error: / || tolower($0) ~ /^test case .* failed/ { tree = 0; print; next }
+    /^== .*The accessibility tree:$/ { tree = 1; lines = 0; print; next }
+    tree && (tolower($0) ~ /^test case / || /^ *t = /) { tree = 0 }
+    tree { if (lines < 400) print; else if (lines == 400) print "    … the rest of the tree in launcher-ui-tests"; lines++ }
+  ' "$OUT/xcodebuild.log" | head -n 1800 || true
 fi
+# Each test's result, and what the main thread's watch said at its end.
+echo "== Each test"
+grep -iE "^Test Case '.*' (passed|failed|skipped)|^== .*: Main thread: " "$OUT/xcodebuild.log" \
+  | sed -E "s/^Test Case '-\[CartoucheGalleryUITests\.//; s/\]'//" || true
+echo "== The summary"
+xcrun xcresulttool get test-results summary --path "$OUT/UITests.xcresult" 2>/dev/null || true
+echo
 xcrun simctl shutdown "$UDID" 2>/dev/null || true
 if [ "$status" -ne 0 ]; then
-  echo "::error::UI tests failed: the log above shows what each failed test found on the screen; launcher-ui-tests keeps the results"
+  echo "::error::UI tests failed: the end of the log shows each failed test and what it found on the screen; launcher-ui-tests keeps the results"
 fi
 exit "$status"
