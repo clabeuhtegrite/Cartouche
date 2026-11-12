@@ -1,7 +1,8 @@
-use std::sync::Mutex;
+use std::{path::Path, sync::Mutex};
 
 use crate::{
     device::{DeviceInfoMutex, get_provider},
+    environment::Environment,
     error::AppError,
 };
 use isideload::{
@@ -9,6 +10,7 @@ use isideload::{
     util::callbacks::{ExtensionsBehaviorCallbackBox, MaxCertsCallbackBox},
 };
 use tauri::State;
+use tracing::warn;
 
 pub type SideloaderMutex =
     Mutex<Option<Sideloader<MaxCertsCallbackBox, ExtensionsBehaviorCallbackBox>>>;
@@ -48,6 +50,7 @@ impl Drop for SideloaderGuard<'_> {
 /// the selected iPhone, with Increased Memory Limit on its App ID, as iloader
 /// does for every app. `progress` gets the fraction done, from 0 to 1.
 pub async fn sideload<F, Fut>(
+    env: &Environment,
     device_state: &State<'_, DeviceInfoMutex>,
     sideloader_state: &State<'_, SideloaderMutex>,
     app_path: String,
@@ -65,7 +68,7 @@ where
         }
     };
 
-    let provider = get_provider(&device.info).await?;
+    let provider = get_provider(env, &device.info).await?;
 
     let mut sideloader = SideloaderGuard::take(sideloader_state)?;
 
@@ -73,12 +76,25 @@ where
         .get_mut()
         .install_app(
             &provider,
-            app_path.into(),
+            app_path.clone().into(),
             true,
             progress,
             Some(&device.pairing),
         )
-        .await?;
+        .await;
+    remove_unpacked(Path::new(&app_path));
 
-    Ok(special)
+    Ok(special?)
+}
+
+/// isideload unpacks the IPA in the temporary folder, as `<its name>_extracted`,
+/// and leaves it there: a whole copy of Cartouche for each version installed.
+fn remove_unpacked(ipa: &Path) {
+    let Some(name) = ipa.file_name() else { return };
+    let unpacked = std::env::temp_dir().join(format!("{}_extracted", name.to_string_lossy()));
+    if unpacked.is_dir()
+        && let Err(e) = std::fs::remove_dir_all(&unpacked)
+    {
+        warn!("Failed to remove {}: {e}", unpacked.display());
+    }
 }

@@ -19,20 +19,28 @@ use rootcause::prelude::*;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::time::Duration;
-use tauri::{AppHandle, Emitter, Listener, State, Window};
+use tauri::{AppHandle, Emitter, Listener, Manager, Runtime, State, Window};
 use tauri_plugin_store::StoreExt;
-use tracing::debug;
+use tracing::{debug, warn};
 
 use crate::{
+    environment::Environment,
     error::AppError,
-    secure_storage::create_sideloading_storage,
+    secure_storage::{create_sideloading_storage, keyring_available},
     sideload::{SideloaderGuard, SideloaderMutex},
 };
 
+/// Where isideload keeps the anisette machine it provisioned.
+const ANISETTE_STATE_KEY: &str = "anisette_state";
+
+fn keyring_service<R: Runtime>(app: &AppHandle<R>) -> String {
+    app.state::<Environment>().keyring_service.clone()
+}
+
 #[tauri::command]
-pub async fn login_new(
-    handle: AppHandle,
-    window: Window,
+pub async fn login_new<R: Runtime>(
+    handle: AppHandle<R>,
+    window: Window<R>,
     sideloader_state: State<'_, SideloaderMutex>,
     email: String,
     password: String,
@@ -40,11 +48,17 @@ pub async fn login_new(
     save_credentials: bool,
 ) -> Result<(), AppError> {
     let account = login(&handle, window, &email, &password, anisette_server).await?;
-    let mut sideloader_guard = sideloader_state.lock().unwrap();
-    *sideloader_guard = Some(account);
+    {
+        let mut sideloader_guard = sideloader_state.lock().unwrap();
+        *sideloader_guard = Some(account);
+    }
 
-    if save_credentials {
-        let pass_entry = Entry::new(crate::KEYRING_SERVICE, &email).map_err(|e| {
+    // Only in the keychain, and only when the player lets the installer use
+    // it: never on disk, and not when Settings says not to.
+    if save_credentials && !keyring_available(handle.clone()) {
+        warn!("The keychain is off or unavailable: the password is not saved.");
+    } else if save_credentials {
+        let pass_entry = Entry::new(&keyring_service(&handle), &email).map_err(|e| {
             AppError::KeyringWithMessage(
                 "Failed to create entry for credentials".into(),
                 e.to_string(),
@@ -72,14 +86,14 @@ pub async fn login_new(
 }
 
 #[tauri::command]
-pub async fn login_stored(
-    handle: AppHandle,
-    window: Window,
+pub async fn login_stored<R: Runtime>(
+    handle: AppHandle<R>,
+    window: Window<R>,
     email: String,
     anisette_server: String,
     sideloader_state: State<'_, SideloaderMutex>,
 ) -> Result<(), AppError> {
-    let pass_entry = Entry::new(crate::KEYRING_SERVICE, &email).map_err(|e| {
+    let pass_entry = Entry::new(&keyring_service(&handle), &email).map_err(|e| {
         AppError::KeyringWithMessage(
             "Failed to create keyring entry for credentials".to_string(),
             e.to_string(),
@@ -96,7 +110,7 @@ pub async fn login_stored(
 }
 
 #[tauri::command]
-pub fn delete_account(handle: AppHandle, email: String) -> Result<(), AppError> {
+pub fn delete_account<R: Runtime>(handle: AppHandle<R>, email: String) -> Result<(), AppError> {
     let store = handle
         .store("data.json")
         .map_err(|e| AppError::Misc(format!("Failed to get store: {:?}", e)))?;
@@ -108,16 +122,19 @@ pub fn delete_account(handle: AppHandle, email: String) -> Result<(), AppError> 
         .unwrap_or_else(std::vec::Vec::new);
     existing_ids.retain(|v| v.as_str().is_none_or(|s| s != email));
     store.set("ids", Value::Array(existing_ids));
-    let pass_entry = Entry::new(crate::KEYRING_SERVICE, &email).map_err(|e| {
+    let pass_entry = Entry::new(&keyring_service(&handle), &email).map_err(|e| {
         AppError::KeyringWithMessage(
             "Failed to create keyring entry for credentials".into(),
             e.to_string(),
         )
     })?;
-    pass_entry.delete_credential().map_err(|e| {
-        AppError::KeyringWithMessage("Failed to delete credentials".into(), e.to_string())
-    })?;
-    Ok(())
+    match pass_entry.delete_credential() {
+        Ok(()) | Err(keyring::Error::NoEntry) => Ok(()),
+        Err(e) => Err(AppError::KeyringWithMessage(
+            "Failed to delete credentials".into(),
+            e.to_string(),
+        )),
+    }
 }
 
 #[tauri::command]
@@ -134,34 +151,29 @@ pub fn invalidate_account(sideloader_state: State<'_, SideloaderMutex>) {
     *sideloader_guard = None;
 }
 
+/// Forgets the anisette machine, wherever it is kept: the next sign-in
+/// provisions a new one. Whether there was one to forget.
 #[tauri::command]
-pub fn reset_anisette_state() -> Result<bool, AppError> {
-    let state_entry = Entry::new(crate::KEYRING_SERVICE, "anisette_state").map_err(|e| {
-        AppError::KeyringWithMessage(
-            "Failed to create keyring entry for anisette".into(),
-            e.to_string(),
-        )
-    })?;
-
-    match state_entry.delete_credential() {
-        Ok(_) => {
-            debug!("Anisette state deleted from keyring.");
-            Ok(true)
-        }
-        Err(keyring::Error::NoEntry) => {
-            debug!("No existing anisette state found in keyring, nothing to delete.");
-            Ok(false)
-        }
-        Err(e) => Err(AppError::KeyringWithMessage(
-            "Failed to delete anisette state".into(),
-            e.to_string(),
-        )),
+pub fn reset_anisette_state<R: Runtime>(app: AppHandle<R>) -> Result<bool, AppError> {
+    let storage = create_sideloading_storage(&app)?;
+    let existed = storage
+        .retrieve_data(ANISETTE_STATE_KEY)
+        .map_err(|e| AppError::Storage("Failed to read the anisette state".into(), e.to_string()))?
+        .is_some_and(|state| !state.is_empty());
+    storage
+        .delete(ANISETTE_STATE_KEY)
+        .map_err(|e| AppError::Storage("Failed to delete the anisette state".into(), e.to_string()))?;
+    if existed {
+        debug!("Anisette state deleted.");
+    } else {
+        debug!("No existing anisette state found, nothing to delete.");
     }
+    Ok(existed)
 }
 
-async fn login(
-    app: &AppHandle,
-    window: Window,
+async fn login<R: Runtime>(
+    app: &AppHandle<R>,
+    window: Window<R>,
     email: &str,
     password: &str,
     anisette_server: String,
@@ -199,6 +211,7 @@ async fn login(
     };
 
     let mut account = AppleAccount::builder(&email.to_lowercase())
+        .proxy_url(app.state::<Environment>().apple_proxy.clone())
         .anisette_provider(
             RemoteV3AnisetteProvider::default()?
                 .set_serial_number("0".to_string())

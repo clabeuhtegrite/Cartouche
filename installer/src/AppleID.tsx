@@ -212,7 +212,8 @@ export const AppleID = ({
                   await invoke("login_new", {
                     email: emailInput,
                     password: passwordInput,
-                    saveCredentials: saveCredentials,
+                    // The box shows only when the keychain can keep it.
+                    saveCredentials: saveCredentials && !noKeyringAvailable,
                     anisetteServer,
                   });
                   setForceUpdateIds((v) => v + 1);
@@ -277,9 +278,13 @@ export const AppleID = ({
               toast.warning(t("apple_id.valid_6digit"));
               return;
             }
-            await emit("2fa-recieved", tfaCode);
+            // Closed before the code goes: Apple can refuse it and the
+            // installer ask again before emit returns, and that question
+            // must stay open.
+            const code = tfaCode;
             setTfaOpen(false);
             setTfaCode("");
+            await emit("2fa-recieved", code);
           }}
         >
           <input
@@ -339,12 +344,10 @@ export const AppleID = ({
           <button
             className="action-button primary"
             onClick={async () => {
-              await emit(
-                "max-certs-response",
-                selectedSerials.length > 0 ? selectedSerials : null,
-              );
+              const revoke = selectedSerials.length > 0 ? selectedSerials : null;
               setCerts(null);
               setChooseCertsOpen(false);
+              await emit("max-certs-response", revoke);
             }}
           >
             {t("apple_id.continue")}
@@ -352,9 +355,9 @@ export const AppleID = ({
           <button
             className="action-button danger"
             onClick={async () => {
-              await emit("max-certs-response", null);
               setCerts(null);
               setChooseCertsOpen(false);
+              await emit("max-certs-response", null);
             }}
           >
             {t("common.cancel")}

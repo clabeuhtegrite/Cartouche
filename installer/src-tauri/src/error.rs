@@ -4,7 +4,7 @@ use rootcause::Report;
 use serde::Serialize;
 use serde::ser::{SerializeStruct, Serializer};
 
-#[derive(Debug, thiserror::Error, Clone, strum::AsRefStr)]
+#[derive(Debug, thiserror::Error, Clone, strum::AsRefStr, strum::VariantNames)]
 #[strum(serialize_all = "snake_case")]
 pub enum AppError {
     #[error("{0}")]
@@ -121,5 +121,43 @@ impl From<Report> for AppError {
         }
 
         AppError::Misc(report_str)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use strum::VariantNames;
+
+    use super::*;
+
+    /// The window picks what to suggest by the error's type: every type the
+    /// installer gives has its entry in errors.tsx, and errors.tsx names no
+    /// type the installer no longer gives.
+    #[test]
+    fn the_window_knows_every_error() {
+        let errors = include_str!("../../src/errors.tsx");
+        let start = errors.find("export const errorSuggestionKeys = {").expect("errorSuggestionKeys");
+        let end = start + errors[start..].find("} as const;").expect("its end");
+        let known: Vec<&str> = errors[start..end]
+            .lines()
+            .skip(1)
+            .filter_map(|line| line.trim().split_once(':').map(|(key, _)| key))
+            .filter(|key| !key.is_empty() && key.chars().all(|c| c.is_ascii_lowercase() || c == '_'))
+            .collect();
+        for variant in AppError::VARIANTS {
+            assert!(known.contains(variant), "errors.tsx has no suggestions for {variant}");
+        }
+        for key in &known {
+            assert!(AppError::VARIANTS.contains(key), "errors.tsx names {key}, which the installer never gives");
+        }
+    }
+
+    #[test]
+    fn serializes_as_the_window_reads_it() {
+        let error = AppError::DeviceComsWithMessage("Failed to get device".into(), "gone".into());
+        assert_eq!(
+            serde_json::to_value(&error).unwrap(),
+            serde_json::json!({ "type": "device_coms_with_message", "message": "Failed to get device: gone" })
+        );
     }
 }

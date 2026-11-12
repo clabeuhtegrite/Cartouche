@@ -10,12 +10,13 @@ use idevice::{IdeviceService, installation_proxy::InstallationProxyClient};
 use isideload::sideload::application::SpecialApp;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
-use tauri::{AppHandle, Manager, State, Window};
+use tauri::{AppHandle, Manager, Runtime, State, Window};
 use tokio::io::AsyncWriteExt;
 use tracing::{info, warn};
 
 use crate::{
     device::{DeviceInfo, DeviceInfoMutex, get_provider},
+    environment::Environment,
     error::AppError,
     operation::Operation,
     pairing::place_file,
@@ -106,8 +107,11 @@ fn latest_in(source: &str) -> Result<Release, AppError> {
     Ok(release)
 }
 
-pub async fn latest_release() -> Result<Release, AppError> {
-    let response = reqwest::get(SOURCE_URL)
+pub async fn latest_release(env: &Environment) -> Result<Release, AppError> {
+    let response = env
+        .http
+        .get(SOURCE_URL)
+        .send()
         .await
         .map_err(|e| AppError::Download(e.to_string()))?;
     if !response.status().is_success() {
@@ -125,18 +129,22 @@ pub async fn latest_release() -> Result<Release, AppError> {
 
 /// The newest Cartouche, for the window to name before it installs it.
 #[tauri::command]
-pub async fn cartouche_release() -> Result<Release, AppError> {
-    latest_release().await
+pub async fn cartouche_release(env: State<'_, Environment>) -> Result<Release, AppError> {
+    latest_release(&env).await
 }
 
 /// Downloads the release's IPA to `dest`, and checks its size and SHA-256
 /// against the source's.
 async fn download(
+    env: &Environment,
     release: &Release,
     dest: &Path,
     progress: impl Fn(f32) -> std::future::Ready<()>,
 ) -> Result<(), AppError> {
-    let mut response = reqwest::get(&release.download_url)
+    let mut response = env
+        .http
+        .get(&release.download_url)
+        .send()
         .await
         .map_err(|e| AppError::Download(e.to_string()))?;
     if !response.status().is_success() {
@@ -231,8 +239,11 @@ fn is_cartouche(bundle_id: &str) -> bool {
 }
 
 /// Cartouche as the iPhone lists it, if it is installed.
-pub async fn find_installed(device: &DeviceInfo) -> Result<Option<InstalledCartouche>, AppError> {
-    let provider = get_provider(device).await?;
+pub async fn find_installed(
+    env: &Environment,
+    device: &DeviceInfo,
+) -> Result<Option<InstalledCartouche>, AppError> {
+    let provider = get_provider(env, device).await?;
     let mut installation_proxy = InstallationProxyClient::connect(&provider)
         .await
         .map_err(|e| {
@@ -272,21 +283,25 @@ fn selected_device(device_state: &State<'_, DeviceInfoMutex>) -> Result<crate::d
 /// The Cartouche installed on the selected iPhone, if any.
 #[tauri::command]
 pub async fn installed_cartouche(
+    env: State<'_, Environment>,
     device_state: State<'_, DeviceInfoMutex>,
 ) -> Result<Option<InstalledCartouche>, AppError> {
     let device = selected_device(&device_state)?;
-    find_installed(&device.info).await
+    find_installed(&env, &device.info).await
 }
 
 /// Puts the selected iPhone's pairing file where Cartouche's built-in
 /// SideStore reads it. Cartouche sees it there on its next start.
-async fn place_pairing(device_state: &State<'_, DeviceInfoMutex>) -> Result<(), AppError> {
+async fn place_pairing(
+    env: &Environment,
+    device_state: &State<'_, DeviceInfoMutex>,
+) -> Result<(), AppError> {
     let device = selected_device(device_state)?;
-    let installed = find_installed(&device.info).await?.ok_or_else(|| {
+    let installed = find_installed(env, &device.info).await?.ok_or_else(|| {
         AppError::CartoucheMissing("The iPhone does not list Cartouche among its apps".into())
     })?;
     info!("Placing the pairing file in {}", installed.bundle_id);
-    let provider = get_provider(&device.info).await?;
+    let provider = get_provider(env, &device.info).await?;
     place_file(device.pairing, &provider, installed.bundle_id, PAIRING_PATH.into()).await
 }
 
@@ -296,9 +311,10 @@ async fn place_pairing(device_state: &State<'_, DeviceInfoMutex>) -> Result<(), 
 /// imported signing uses only the supplied profile's permissions and hands
 /// the identity to Cartouche for game signing.
 #[tauri::command]
-pub async fn install_cartouche_operation(
-    handle: AppHandle,
-    window: Window,
+pub async fn install_cartouche_operation<R: Runtime>(
+    handle: AppHandle<R>,
+    window: Window<R>,
+    env: State<'_, Environment>,
     device_state: State<'_, DeviceInfoMutex>,
     sideloader_state: State<'_, SideloaderMutex>,
     ipa_path: Option<String>,
@@ -327,7 +343,7 @@ pub async fn install_cartouche_operation(
             (path, false)
         }
         None => {
-            let release = op.fail_if_err("download", latest_release().await)?;
+            let release = op.fail_if_err("download", latest_release(&env).await)?;
             let dir = op.fail_if_err(
                 "download",
                 handle
@@ -337,7 +353,7 @@ pub async fn install_cartouche_operation(
             )?;
             let dest = dir.join(format!("Cartouche-{}.ipa", release.version));
             info!("Downloading Cartouche {} from {}", release.version, release.download_url);
-            if let Err(e) = download(&release, &dest, op.progress_reporter("download")).await {
+            if let Err(e) = download(&env, &release, &dest, op.progress_reporter("download")).await {
                 let _ = tokio::fs::remove_file(&dest).await;
                 return op.fail("download", e);
             }
@@ -352,7 +368,7 @@ pub async fn install_cartouche_operation(
         let signed = tokio::task::spawn_blocking(move || signing.sign(&signing_path, &udid)).await;
         if downloaded { let _ = tokio::fs::remove_file(&path).await; }
         let signed = op.fail_if_err("install", signed.map_err(|_| AppError::Misc("Local signing stopped unexpectedly.".into())).and_then(|result| result))?;
-        let provider = op.fail_if_err("install", get_provider(&device.info).await)?;
+        let provider = op.fail_if_err("install", get_provider(&env, &device.info).await)?;
         let progress = op.progress_reporter("install");
         // Keep the private temporary workspace alive until upload completes.
         let installed = isideload::sideload::install::install_app(&provider, &signed.app_path, |percent| { drop(progress(percent as f32 / 100.0)); }).await;
@@ -365,6 +381,7 @@ pub async fn install_cartouche_operation(
         return Ok(());
     }
     let installed = sideload(
+        &env,
         &device_state,
         &sideloader_state,
         path.to_string_lossy().to_string(),
@@ -381,7 +398,7 @@ pub async fn install_cartouche_operation(
         warn!("isideload did not take the IPA for a LiveContainer+SideStore: {special:?}");
     }
     op.move_on("install", "pairing")?;
-    op.fail_if_err("pairing", place_pairing(&device_state).await)?;
+    op.fail_if_err("pairing", place_pairing(&env, &device_state).await)?;
     op.complete("pairing")?;
     Ok(())
 }
@@ -389,13 +406,14 @@ pub async fn install_cartouche_operation(
 /// Puts the pairing file in the Cartouche already installed, for an iPhone
 /// whose pairing changed: after Delete Stored Pairing, or an iPhone erased.
 #[tauri::command]
-pub async fn place_cartouche_pairing_operation(
-    window: Window,
+pub async fn place_cartouche_pairing_operation<R: Runtime>(
+    window: Window<R>,
+    env: State<'_, Environment>,
     device_state: State<'_, DeviceInfoMutex>,
 ) -> Result<(), AppError> {
     let op = Operation::new("place_cartouche_pairing".to_string(), &window);
     op.start("pairing")?;
-    op.fail_if_err("pairing", place_pairing(&device_state).await)?;
+    op.fail_if_err("pairing", place_pairing(&env, &device_state).await)?;
     op.complete("pairing")?;
     Ok(())
 }

@@ -1,4 +1,4 @@
-use std::sync::{Mutex, OnceLock};
+use std::sync::Mutex;
 
 // used https://github.com/jkcoxson/idevice_pair/ as a guide
 use idevice::{
@@ -12,13 +12,14 @@ use idevice::{
 };
 use isideload::util::storage::{InMemoryStorage, SideloadingStorage};
 use plist_macro::{plist, plist_to_xml_bytes};
-use tauri::{AppHandle, State};
+use tauri::{AppHandle, Manager, Runtime, State};
 use tauri_plugin_dialog::DialogExt;
 use tokio_util::sync::CancellationToken;
 use tracing::{error, info, warn};
 
 use crate::{
     device::{DeviceInfo, DeviceInfoMutex, get_provider},
+    environment::Environment,
     error::AppError,
     secure_storage::{create_sideloading_storage, keyring_available},
 };
@@ -28,7 +29,11 @@ struct PairingStorageEntry {
     storage: Box<dyn SideloadingStorage>,
 }
 
-static PAIRING_STORAGE: OnceLock<Mutex<PairingStorageEntry>> = OnceLock::new();
+/// Where the RPPairing files and host labels are kept: the keychain, or the
+/// app's data folder without one. Made on first use, and again when the
+/// keychain comes or goes.
+#[derive(Default)]
+pub struct PairingStorage(Mutex<Option<PairingStorageEntry>>);
 
 async fn generate_lockdown_plist(
     device: &DeviceInfo,
@@ -73,8 +78,8 @@ async fn generate_lockdown_plist(
     })
 }
 
-async fn generate_rppairing_plist(
-    app: &AppHandle,
+async fn generate_rppairing_plist<R: Runtime>(
+    app: &AppHandle<R>,
     udid: &str,
     provider: &dyn IdeviceProvider,
 ) -> Result<(plist::Value, Vec<u8>), IdeviceError> {
@@ -90,18 +95,13 @@ fn new_host_label() -> String {
     format!("cartouche-{}", &id[..6])
 }
 
-fn host_label(app: &AppHandle, udid: &str) -> Result<String, AppError> {
+fn host_label<R: Runtime>(app: &AppHandle<R>, udid: &str) -> Result<String, AppError> {
     with_pairing_storage(app, |storage| {
         let key = format!("host_label_{udid}");
-        if let Some(value) = storage.retrieve_data(&key).map_err(|e| {
-            AppError::Storage(
-                "Failed to get pairing hostname from storage".into(),
-                e.to_string(),
-            )
-        })? {
-            return String::from_utf8(value).map_err(|e| {
-                AppError::Storage("Stored pairing hostname is invalid".into(), e.to_string())
-            });
+        let kept = readable(storage.retrieve_data(&key), "pairing's host name")
+            .and_then(|value| String::from_utf8(value).ok());
+        if let Some(hostname) = kept {
+            return Ok(hostname);
         }
 
         let hostname = new_host_label();
@@ -189,9 +189,9 @@ async fn place_individual_file(
 // tool, or to drop on Cartouche by hand. The installer puts it in Cartouche
 // itself (cartouche.rs).
 #[tauri::command]
-pub async fn export_pairing_cmd(
+pub async fn export_pairing_cmd<R: Runtime>(
     device_state: State<'_, DeviceInfoMutex>,
-    app: AppHandle,
+    app: AppHandle<R>,
 ) -> Result<(), AppError> {
     let device = {
         let device_guard = device_state.lock().unwrap();
@@ -224,7 +224,10 @@ pub async fn export_pairing_cmd(
     }
 }
 
-fn build_pairing_storage_entry(app: &AppHandle, keyring_enabled: bool) -> PairingStorageEntry {
+fn build_pairing_storage_entry<R: Runtime>(
+    app: &AppHandle<R>,
+    keyring_enabled: bool,
+) -> PairingStorageEntry {
     let storage = create_sideloading_storage(app).unwrap_or_else(|e| {
         error!(
             "Failed to create sideloading storage, storing pairing file in memory: {}",
@@ -239,36 +242,61 @@ fn build_pairing_storage_entry(app: &AppHandle, keyring_enabled: bool) -> Pairin
     }
 }
 
-fn with_pairing_storage<T>(
-    app: &AppHandle,
+fn with_pairing_storage<R: Runtime, T>(
+    app: &AppHandle<R>,
     f: impl FnOnce(&dyn SideloadingStorage) -> Result<T, AppError>,
 ) -> Result<T, AppError> {
-    let current_keyring_enabled = keyring_available();
-    let storage = PAIRING_STORAGE
-        .get_or_init(|| Mutex::new(build_pairing_storage_entry(app, current_keyring_enabled)));
-
-    let mut guard = storage
+    let current_keyring_enabled = keyring_available(app.clone());
+    let state = app.state::<PairingStorage>();
+    let mut guard = state
+        .0
         .lock()
         .map_err(|_| AppError::Misc("Failed to lock pairing storage".to_string()))?;
 
-    if guard.keyring_enabled != current_keyring_enabled {
-        info!(
-            "Pairing storage backend changed at runtime (keyring_enabled: {} -> {}), recreating storage",
-            guard.keyring_enabled, current_keyring_enabled
-        );
-        *guard = build_pairing_storage_entry(app, current_keyring_enabled);
+    match guard.as_ref() {
+        Some(entry) if entry.keyring_enabled == current_keyring_enabled => {}
+        Some(entry) => {
+            info!(
+                "Pairing storage backend changed at runtime (keyring_enabled: {} -> {}), recreating storage",
+                entry.keyring_enabled, current_keyring_enabled
+            );
+            *guard = Some(build_pairing_storage_entry(app, current_keyring_enabled));
+        }
+        None => *guard = Some(build_pairing_storage_entry(app, current_keyring_enabled)),
     }
 
-    f(guard.storage.as_ref())
+    f(guard.as_ref().expect("pairing storage").storage.as_ref())
 }
 
-pub async fn pairing_file(
-    app: &AppHandle,
+/// A stored value, if there is one: on disk, a deleted one is left empty.
+fn stored(value: Option<Vec<u8>>) -> Option<Vec<u8>> {
+    value.filter(|v| !v.is_empty())
+}
+
+/// A stored value that reads, if there is one. One that does not (a
+/// keychain entry another tool changed, a file cut short) counts as none:
+/// the installer pairs again rather than fail each time the iPhone is picked.
+fn readable(
+    value: Result<Option<Vec<u8>>, rootcause::Report>,
+    what: &str,
+) -> Option<Vec<u8>> {
+    match value {
+        Ok(value) => stored(value),
+        Err(e) => {
+            warn!("The {what} kept does not read, making a new one: {e}");
+            None
+        }
+    }
+}
+
+pub async fn pairing_file<R: Runtime>(
+    app: &AppHandle<R>,
+    env: &Environment,
     device: &DeviceInfo,
     usbmuxd: &mut UsbmuxdConnection,
     cancel: CancellationToken,
 ) -> Result<Vec<u8>, AppError> {
-    let provider = get_provider(device).await?;
+    let provider = get_provider(env, device).await?;
 
     let lockdown_plist = tokio::select! {
         _ = cancel.cancelled() => {
@@ -291,9 +319,7 @@ pub async fn pairing_file(
     let cache_key = format!("rppairing1.1_file_{}", device.udid);
 
     let cached_rppairing = with_pairing_storage(app, |storage| {
-        storage.retrieve_data(&cache_key).map_err(|e| {
-            AppError::Storage("Failed to get RPPairing from storage".into(), e.to_string())
-        })
+        Ok(readable(storage.retrieve_data(&cache_key), "RPPairing"))
     })?;
 
     let rppairing_plist = if let Some(cached) = cached_rppairing {
@@ -359,9 +385,9 @@ pub async fn pairing_file(
 }
 
 #[tauri::command]
-pub async fn delete_stored_rppairing(
+pub async fn delete_stored_rppairing<R: Runtime>(
     device_state: State<'_, DeviceInfoMutex>,
-    app: AppHandle,
+    app: AppHandle<R>,
 ) -> Result<(), AppError> {
     let device = {
         let device_guard = device_state.lock().unwrap();
@@ -390,7 +416,10 @@ pub async fn delete_stored_rppairing(
 }
 
 #[tauri::command]
-pub async fn has_stored_rppairing(device: DeviceInfo, app: AppHandle) -> Result<bool, AppError> {
+pub async fn has_stored_rppairing<R: Runtime>(
+    device: DeviceInfo,
+    app: AppHandle<R>,
+) -> Result<bool, AppError> {
     // rppairing not supported <17.4, returning true so the frontend can still automatically select it
     if is_ios_version_below(&device.version, 17, 4) {
         return Ok(true);
@@ -398,11 +427,8 @@ pub async fn has_stored_rppairing(device: DeviceInfo, app: AppHandle) -> Result<
     let cache_key = format!("rppairing1.1_file_{}", device.udid);
 
     with_pairing_storage(&app, |storage| {
-        storage.retrieve_data(&cache_key).map_err(|e| {
-            AppError::Storage("Failed to retrieve stored RPPairing".into(), e.to_string())
-        })
+        Ok(readable(storage.retrieve_data(&cache_key), "RPPairing").is_some())
     })
-    .map(|opt| opt.is_some())
 }
 
 fn parse_version_component(segment: Option<&str>) -> u32 {
