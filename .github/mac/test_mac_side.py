@@ -246,6 +246,23 @@ class PiecesTests(unittest.TestCase):
                 self.assertIn(version, url)
                 self.assertRegex(sha, r"^[0-9a-f]{64}$")
 
+    def test_the_runner_is_pinned_and_no_api_of_github_stops_the_installer(self):
+        # GitHub's API answers 403 to an address after 60 calls an hour, as it
+        # did to a GitHub Mac on 12 November, which stopped install.sh there.
+        install = self.read("install.sh")
+        self.assertRegex(install, r"\nRUNNER_VERSION=[0-9]+\.[0-9]+\.[0-9]+\n")
+        self.assertRegex(install, r"\nRUNNER_SHA=[0-9a-f]{64}\n")
+        self.assertIn("/download/v$RUNNER_VERSION/actions-runner-osx-arm64-$RUNNER_VERSION.tar.gz", install)
+        self.assertNotIn("api.github.com", install)
+
+    def test_the_installer_leaves_the_folder_it_starts_in_before_the_account_runs(self):
+        # Started from your home, which the account is refused, each of its
+        # commands said "getcwd: cannot access parent directories".
+        install = self.read("install.sh")
+        first = re.search(r"^[^#\n]*\bas_account (?!\(\))", install, re.M)
+        self.assertIsNotNone(first)
+        self.assertRegex(install[:first.start()], r"\ncd /\n")
+
 
 @unittest.skipIf(yaml is None, "PyYAML is not installed")
 class WorkflowTests(unittest.TestCase):

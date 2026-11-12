@@ -13,8 +13,9 @@
 # - the account cartouche-ci: hidden, with no password, so that no one logs
 #   in to it, with a group of its own, and refused the home of every other
 #   account by an ACL; in _developer, for the simulators' UI tests;
-# - the runner, in that account's home, registered to the repository as
-#   ad-mac with the labels the jobs ask for (route.py): cartouche-mac,
+# - the runner, at the version pinned below, in that account's home (it
+#   updates itself afterwards, as GitHub's own do), registered to the
+#   repository as ad-mac with the labels the jobs ask for (route.py): cartouche-mac,
 #   xcode-<version> for each Xcode of /Applications, ios-sim-<version> for
 #   each of them that runs every simulator of the screenshots;
 # - root's folder /Library/CartoucheCI: the job hooks (job_started.py), the
@@ -45,9 +46,15 @@ WORK="$HOME_DIR/work.noindex"
 # (iOS-27-2-iPhone19-4), as GitHub's Macs have it (decision 20): Xcode
 # 27.2's own iOS 27.2 runs no iPhone Duo.
 DUO_RUNTIME=24B91016s
+# The runner, and the SHA-256 its release gives for osx-arm64: no call to
+# GitHub's API, which refuses an address after 60 an hour, can stop it.
+RUNNER_VERSION=2.338.2
+RUNNER_SHA=25a065af409ffa317ab4d5a3b614dd15fc9c40f2172bc1b35a1b1258e919a388
 # What the account may not do in another account's home: anything.
 ACL="user:$ACCOUNT deny list,search,add_file,add_subdirectory,delete_child,readattr,writeattr,readextattr,writeextattr,readsecurity,writesecurity,chown"
 HERE="$(cd "$(dirname "$0")" && pwd)"
+# The account's commands start in /, never in a folder it is refused (yours).
+cd /
 
 say() { printf '\n== %s\n' "$*"; }
 fail() { printf '\n%s\n' "$*" >&2; exit 1; }
@@ -176,24 +183,14 @@ done < <(dscl . -list /Users UniqueID)
 
 say "The runner"
 if [ ! -x "$RUNNER/config.sh" ]; then
-  curl -fsSL --retry 3 https://api.github.com/repos/actions/runner/releases/latest -o "$TMP/release.json"
-  read -r version sha < <(/usr/bin/python3 -I - "$TMP/release.json" <<'PY'
-import json, re, sys
-release = json.load(open(sys.argv[1]))
-version = release["tag_name"].lstrip("v")
-sha = re.search(r"<!-- BEGIN SHA osx-arm64 -->\s*([0-9a-f]{64})\s*<!-- END SHA osx-arm64 -->", release["body"])
-print(version, sha.group(1) if sha else "")
-PY
-  )
-  [ -n "$sha" ] || fail "The runner's release $version gives no SHA-256 for osx-arm64."
   curl -fsSL --retry 3 -o "$TMP/runner.tar.gz" \
-    "https://github.com/actions/runner/releases/download/v$version/actions-runner-osx-arm64-$version.tar.gz"
-  [ "$(shasum -a 256 "$TMP/runner.tar.gz" | cut -d ' ' -f 1)" = "$sha" ] || fail "The runner's download has not the SHA-256 of its release."
+    "https://github.com/actions/runner/releases/download/v$RUNNER_VERSION/actions-runner-osx-arm64-$RUNNER_VERSION.tar.gz"
+  [ "$(shasum -a 256 "$TMP/runner.tar.gz" | cut -d ' ' -f 1)" = "$RUNNER_SHA" ] || fail "The runner's download has not the SHA-256 of its release."
   as_account mkdir -p "$RUNNER"
   chmod 644 "$TMP/runner.tar.gz"
   chmod 755 "$TMP"
   as_account tar -xzf "$TMP/runner.tar.gz" -C "$RUNNER"
-  echo "Runner $version, in $RUNNER."
+  echo "Runner $RUNNER_VERSION, in $RUNNER."
 fi
 REGISTERED="$(/usr/bin/python3 -I -c 'import json,sys; print(",".join(json.load(open(sys.argv[1])).get("labels", [])))' "$SUPPORT/config.json" 2>/dev/null || true)"
 if [ ! -f "$RUNNER/.runner" ] || [ "$REGISTERED" != "$LABELS" ]; then
