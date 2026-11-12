@@ -187,9 +187,9 @@ if [ ! -x "$RUNNER/config.sh" ]; then
     "https://github.com/actions/runner/releases/download/v$RUNNER_VERSION/actions-runner-osx-arm64-$RUNNER_VERSION.tar.gz"
   [ "$(shasum -a 256 "$TMP/runner.tar.gz" | cut -d ' ' -f 1)" = "$RUNNER_SHA" ] || fail "The runner's download has not the SHA-256 of its release."
   as_account mkdir -p "$RUNNER"
-  chmod 644 "$TMP/runner.tar.gz"
-  chmod 755 "$TMP"
-  as_account tar -xzf "$TMP/runner.tar.gz" -C "$RUNNER"
+  # Through tar's input: the account cannot enter root's temporary folder
+  # (/var/folders/zz/.../T, closed to every other account).
+  as_account tar -xzf - -C "$RUNNER" <"$TMP/runner.tar.gz"
   echo "Runner $RUNNER_VERSION, in $RUNNER."
 fi
 REGISTERED="$(/usr/bin/python3 -I -c 'import json,sys; print(",".join(json.load(open(sys.argv[1])).get("labels", [])))' "$SUPPORT/config.json" 2>/dev/null || true)"

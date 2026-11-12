@@ -301,6 +301,15 @@ class PiecesTests(unittest.TestCase):
         self.assertIn("/download/v$RUNNER_VERSION/actions-runner-osx-arm64-$RUNNER_VERSION.tar.gz", install)
         self.assertNotIn("api.github.com", install)
 
+    def test_the_account_is_given_no_file_of_root_s_temporary_folder(self):
+        # mktemp -d, as root, makes it in root's own folder of /var/folders,
+        # which no other account can enter: on Ad's Mac, the runner's tar
+        # said "Permission denied". The account reads such a file only
+        # through its input, which root opens.
+        install = (HERE / "install.sh").read_text()
+        self.assertEqual(re.findall(r"^[^#\n]*\bas_account\b[^<\n]*\$TMP.*$", install, re.M), [])
+        self.assertIn('as_account tar -xzf - -C "$RUNNER" <"$TMP/runner.tar.gz"', install)
+
     def test_the_installer_leaves_the_folder_it_starts_in_before_the_account_runs(self):
         # Started from your home, which the account is refused, each of its
         # commands said "getcwd: cannot access parent directories".
