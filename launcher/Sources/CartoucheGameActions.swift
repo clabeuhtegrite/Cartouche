@@ -397,11 +397,12 @@ final class CartoucheGameActions: ObservableObject {
     // MARK: Game files apart
 
     /// What an IPA built without its game files needs of them, and where
-    /// they come from (CartoucheRomfs): nothing, for an IPA that holds them;
-    /// the image the installed copy of the game holds in its app, when it is
-    /// the one this build needs; nothing again when the game's Documents
-    /// holds that one, where nxnative looks first; else the image IMAGE
-    /// opens, once checked. Throws, saying what to do, when none is the one.
+    /// they come from (CartoucheRomfs.plan): nothing, for an IPA that holds
+    /// them; the image the installed copy of the game holds in its app, when
+    /// it is the one this build needs; nothing again when the game's
+    /// Documents holds that one, where nxnative looks first; else the image
+    /// IMAGE opens, once checked. Throws, saying what to do, when none is
+    /// the one.
     private func planGameFiles(ofIPA source: CartoucheByteSource, entries: [CartoucheZipEntry], model: SharedModel,
                                image: (CartoucheRomfsIdentity) async throws -> CartoucheByteSource?) async throws -> CartoucheGameFiles {
         guard let needed = try await CartoucheRomfs.neededIdentity(ofIPA: source, entries: entries) else { return .init() }
@@ -409,34 +410,34 @@ final class CartoucheGameActions: ObservableObject {
         facts.append(.init("Game files", "apart from the IPA, \(CartoucheReport.bytes(Int64(clamping: needed.size)))"))
         let bundleId = (try? await CartoucheStoredGames.infoPlist(of: source, entries: entries))?.info["CFBundleIdentifier"] as? String
         let installed = bundleId.flatMap { id in model.apps.first { $0.appInfo.bundleIdentifier() == id } }
+        var app: URL?
         if let bundle = installed?.appInfo.bundlePath() {
-            let kept = URL(fileURLWithPath: bundle, isDirectory: true).appendingPathComponent(CartoucheRomfs.bundledName)
-            if await Self.holds(kept, needed) {
-                facts.append(.init("Game files from", "the installed copy"))
-                return CartoucheGameFiles(kept: kept)
-            }
+            app = URL(fileURLWithPath: bundle, isDirectory: true)
         }
         // Where nxnative reads them before the app: in the Documents of the
         // data folder the game starts with, or of the one an uninstalled
         // copy left, which it takes back.
         let container = installed.flatMap { $0.uiSelectedContainer ?? $0.uiContainers.first }
             ?? bundleId.flatMap { Self.leftData(of: $0, model: model) }
-        if let container {
-            let documents = container.containerURL.appendingPathComponent("Documents", isDirectory: true)
-            if let found = CartoucheRomfs.image(in: documents), await Self.holds(found, needed) {
+        let documents = container?.containerURL.appendingPathComponent("Documents", isDirectory: true)
+        do {
+            switch try await CartoucheRomfs.plan(needed, installed: app, documents: documents, opening: image) {
+            case .installed(let kept):
+                facts.append(.init("Game files from", "the installed copy"))
+                return CartoucheGameFiles(kept: kept)
+            case .documents:
                 facts.append(.init("Game files from", "the game's Documents"))
                 return .init()
+            case .copied(let opened):
+                facts.append(.init("Game files from", "beside the IPA"))
+                return CartoucheGameFiles(copied: (source: opened, needed: needed))
             }
-        }
-        guard let opened = try await image(needed) else {
+        } catch CartoucheGameFilesProblem.missing {
             throw CartoucheInstallError(.gameFilesMissing, message: CartoucheText.installGameFilesMissing(name))
-        }
-        guard let found = try await CartoucheRomfs.identity(ofImage: opened), needed.isMet(by: found) else {
-            facts.append(.init("Game files found", CartoucheReport.bytes(Int64(clamping: opened.size))))
+        } catch CartoucheGameFilesProblem.mismatch(let size) {
+            facts.append(.init("Game files found", CartoucheReport.bytes(Int64(clamping: size))))
             throw CartoucheInstallError(.gameFilesMismatch, message: CartoucheText.installGameFilesMismatch(name))
         }
-        facts.append(.init("Game files from", "beside the IPA"))
-        return CartoucheGameFiles(copied: (source: opened, needed: needed))
     }
 
     /// What the IPA at URL, picked in Files or opened from another app,
@@ -449,32 +450,12 @@ final class CartoucheGameActions: ObservableObject {
         }
         do {
             return try await planGameFiles(ofIPA: source, entries: entries, model: model) { needed in
-                guard let beside = Self.image(beside: url, size: needed.size) else { return nil }
+                guard let beside = CartoucheRomfs.image(beside: url, size: needed.size) else { return nil }
                 return try CartoucheFileSource(beside)
             }
         } catch let error as CartoucheInstallError where error.kind == .gameFilesMissing {
             throw CartoucheInstallError(.gameFilesMissing, message: CartoucheText.installGameFilesApart(work?.name ?? ""))
         }
-    }
-
-    /// An image of game files of SIZE beside the file at URL, romfs.img
-    /// itself first, when Cartouche may read the folder it is in.
-    nonisolated private static func image(beside url: URL, size: UInt64) -> URL? {
-        let folder = url.deletingLastPathComponent()
-        guard let names = try? FileManager.default.contentsOfDirectory(atPath: folder.path) else { return nil }
-        let images = names.filter(CartoucheRomfs.isImageName).sorted { a, b in
-            a == CartoucheRomfs.bundledName || (b != CartoucheRomfs.bundledName && a < b)
-        }
-        return images.lazy.map { folder.appendingPathComponent($0) }.first { image in
-            (try? image.resourceValues(forKeys: [.fileSizeKey]).fileSize).map { UInt64($0) == size } ?? false
-        }
-    }
-
-    /// Whether the file at URL is the image NEEDED names.
-    nonisolated private static func holds(_ url: URL, _ needed: CartoucheRomfsIdentity) async -> Bool {
-        guard let source = try? CartoucheFileSource(url), source.size == needed.size,
-              let identity = try? await CartoucheRomfs.identity(ofImage: source) else { return false }
-        return needed.isMet(by: identity)
     }
 
     /// Copies the image of the game's files into the app the IPA unpacked
@@ -623,10 +604,8 @@ final class CartoucheGameActions: ObservableObject {
         }
         // Moved, not copied: the image is as large as the game, and the
         // installed copy goes next.
-        if let kept, fileManager.fileExists(atPath: kept.path) {
-            let into = unpacked.appendingPathComponent(CartoucheRomfs.bundledName)
-            try? fileManager.removeItem(at: into)
-            try fileManager.moveItem(at: kept, to: into)
+        if let kept {
+            try CartoucheRomfs.keep(kept, in: unpacked)
         }
         var relativePath = "\(bundleId.sanitizeNonACSII()).app"
         var destination = LCPath.bundlePath.appendingPathComponent(relativePath)

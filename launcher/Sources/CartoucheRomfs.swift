@@ -101,6 +101,27 @@ struct CartoucheRomfsNeed: Hashable, Sendable {
     let size: UInt64
 }
 
+/// Where the image of its game files comes from, for the install of an IPA
+/// built without them (CartoucheRomfs.plan).
+enum CartoucheGameFilesSource {
+    /// The installed copy of the game holds it in its app, at this URL: it
+    /// goes over to the new copy (CartoucheRomfs.keep).
+    case installed(URL)
+    /// The game's Documents holds it, where nxnative looks first: none comes.
+    case documents
+    /// This image, from beside the IPA, checked: it is copied into the app
+    /// after the IPA (CartoucheRomfs.copy).
+    case copied(CartoucheByteSource)
+}
+
+/// Why an IPA built without its game files cannot be installed.
+enum CartoucheGameFilesProblem: Error, Equatable {
+    /// No image of the size it needs is beside it.
+    case missing
+    /// The image beside it, of this size, is not the one it was built with.
+    case mismatch(size: UInt64)
+}
+
 enum CartoucheRomfs {
     /// How much is read at once: the index of a large game takes a few.
     static let chunk = 8 << 20
@@ -225,9 +246,74 @@ enum CartoucheRomfs {
     /// romfs.img itself first, as nxnative looks for it.
     static func image(in folder: URL) -> URL? {
         guard let names = try? FileManager.default.contentsOfDirectory(atPath: folder.path) else { return nil }
-        let found = names.filter { !$0.hasPrefix(".") && $0.lowercased() == bundledName }
-            .sorted { a, b in a == bundledName || (b != bundledName && a < b) }
+        let found = names.filter { !$0.hasPrefix(".") && $0.lowercased() == bundledName }.sorted(by: comesFirst)
         return found.first.map { folder.appendingPathComponent($0) }
+    }
+
+    /// The image of SIZE beside the file at URL, as an IPA picked in Files
+    /// takes it: romfs.img itself first, then any name ending so, in any
+    /// letter case; nil when the folder cannot be read, as one Cartouche
+    /// may not.
+    static func image(beside url: URL, size: UInt64) -> URL? {
+        let folder = url.deletingLastPathComponent()
+        guard let names = try? FileManager.default.contentsOfDirectory(atPath: folder.path) else { return nil }
+        let images = names.filter { isImageName($0) }.sorted(by: comesFirst)
+        return images.lazy.map { folder.appendingPathComponent($0) }.first { image in
+            (try? image.resourceValues(forKeys: [.fileSizeKey]).fileSize).map { UInt64($0) == size } ?? false
+        }
+    }
+
+    /// Whether the file at URL is the image NEEDED names: of its size, with
+    /// its header and index.
+    static func holds(_ url: URL, _ needed: CartoucheRomfsIdentity) async -> Bool {
+        guard let source = try? CartoucheFileSource(url), source.size == needed.size,
+              let found = try? await identity(ofImage: source) else { return false }
+        return needed.isMet(by: found)
+    }
+
+    /// Whether the image named A comes before the one named B: romfs.img
+    /// itself first, then by name.
+    private static func comesFirst(_ a: String, _ b: String) -> Bool {
+        let aExact = a == bundledName
+        let bExact = b == bundledName
+        return aExact != bExact ? aExact : a < b
+    }
+
+    // MARK: The install
+
+    /// Where the image NEEDED comes from, for the install of an IPA built
+    /// without its game files: the one in INSTALLED, the app of the copy of
+    /// the game on the iPhone, when it is the one, which goes over to the
+    /// new copy; none, when DOCUMENTS, the game's, holds it, where nxnative
+    /// looks first; else the one OPENING opens from beside the IPA, once
+    /// checked. Throws CartoucheGameFilesProblem when there is none, or not
+    /// the one; what OPENING throws goes through.
+    static func plan(_ needed: CartoucheRomfsIdentity, installed: URL?, documents: URL?,
+                     opening: (CartoucheRomfsIdentity) async throws -> CartoucheByteSource?) async throws -> CartoucheGameFilesSource {
+        if let installed, let kept = image(in: installed), await holds(kept, needed) {
+            return .installed(kept)
+        }
+        if let documents, let found = image(in: documents), await holds(found, needed) {
+            return .documents
+        }
+        guard let opened = try await opening(needed) else { throw CartoucheGameFilesProblem.missing }
+        guard let found = try await identity(ofImage: opened), needed.isMet(by: found) else {
+            throw CartoucheGameFilesProblem.mismatch(size: opened.size)
+        }
+        return .copied(opened)
+    }
+
+    /// Moves KEPT, the image in the installed copy's app, into APP, the new
+    /// copy's, in place of any there: moved, not copied, since it is as large
+    /// as the game, and the installed copy goes next.
+    static func keep(_ kept: URL, in app: URL) throws {
+        let fileManager = FileManager.default
+        guard fileManager.fileExists(atPath: kept.path) else {
+            throw CartoucheZipError("the \(kept.lastPathComponent) of the installed game is gone")
+        }
+        let into = app.appendingPathComponent(bundledName)
+        try? fileManager.removeItem(at: into)
+        try fileManager.moveItem(at: kept, to: into)
     }
 
     // MARK: The games folder
@@ -236,8 +322,10 @@ enum CartoucheRomfs {
     /// files takes: one of the size it needs in its own folder, else one of
     /// that size elsewhere in the games folder, "romfs.img" itself before
     /// another name. An image may serve two IPAs of the same game. LOOSE:
-    /// the images no IPA takes, by path.
-    static func pair(_ needs: [CartoucheRomfsNeed], with images: [CartoucheRomfsImage])
+    /// the images no IPA takes, by path; none unless ALLREAD, since an IPA
+    /// of the folder Cartouche could not read may be the one an image goes
+    /// with.
+    static func pair(_ needs: [CartoucheRomfsNeed], with images: [CartoucheRomfsImage], allRead: Bool = true)
         -> (taken: [String: CartoucheRomfsImage], loose: [CartoucheRomfsImage]) {
         let ordered = images.sorted { a, b in
             let aExact = name(of: a.path) == bundledName
@@ -253,7 +341,7 @@ enum CartoucheRomfs {
             taken[need.path] = image
             used.insert(image.path)
         }
-        return (taken, ordered.filter { !used.contains($0.path) })
+        return (taken, allRead ? ordered.filter { !used.contains($0.path) } : [])
     }
 
     /// The last part of a path on the player's server.

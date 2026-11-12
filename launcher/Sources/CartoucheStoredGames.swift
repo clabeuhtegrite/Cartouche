@@ -84,15 +84,6 @@ struct CartoucheStoredGame: Codable, Hashable, Identifiable {
         return String(name[range].dropFirst().dropLast()).uppercased()
     }
 
-    /// The title ID nxnative writes in the Info.plist of the apps it builds,
-    /// DMTitleID, as Cartouche Builder reads it: for one built with another
-    /// bundle ID.
-    static func titleId(inInfoValue value: String) -> String? {
-        let text = value.trimmingCharacters(in: .whitespaces)
-        guard text.count == 16, text.allSatisfy(\.isHexDigit) else { return nil }
-        return text.uppercased()
-    }
-
     /// The title ID in an nxnative bundle ID, org.nxnative.<title ID>.
     static func titleId(inBundleId bundleId: String) -> String? {
         let prefix = "org.nxnative."
@@ -336,14 +327,13 @@ final class CartoucheStoredGames: ObservableObject {
         let needs = games.compactMap { game in
             game.gameFiles.map { CartoucheRomfsNeed(path: game.path, folder: CartoucheStoragePath.parent(game.path), size: $0.size) }
         }
-        let (taken, loose) = CartoucheRomfs.pair(needs, with: images)
+        let (taken, loose) = CartoucheRomfs.pair(needs, with: images, allRead: games.allSatisfy { $0.checkedGameFiles == true })
         let paired = games.map { game -> CartoucheStoredGame in
             var game = game
             game.gameFilesPath = taken[game.path]?.path
             return game
         }
-        let allRead = games.allSatisfy { $0.checkedGameFiles == true }
-        return (paired, allRead ? loose.map(\.path) : [])
+        return (paired, loose.map(\.path))
     }
 
     /// The report on the games folder, which ERROR kept Cartouche from
@@ -392,7 +382,7 @@ final class CartoucheStoredGames: ObservableObject {
             game.build = CartoucheGameBuild(info: info, builtAt: builtAt)
             if !named {
                 game.titleId = game.bundleId.flatMap(CartoucheStoredGame.titleId(inBundleId:))
-                    ?? (info["DMTitleID"] as? String).flatMap(CartoucheStoredGame.titleId(inInfoValue:))
+                    ?? CartoucheNxnativeApp.titleId(in: info)
                     ?? game.displayName.flatMap { CartoucheCatalog.shared.titleId(matchingName: $0) }
                     ?? CartoucheCatalog.shared.titleId(inFileName: item.name)
             }
@@ -400,11 +390,7 @@ final class CartoucheStoredGames: ObservableObject {
             // more entry read.
             game.gameFiles = try await CartoucheRomfs.neededIdentity(ofIPA: source, entries: entries)
             game.checkedGameFiles = true
-            // What nxnative writes in the apps it builds, or the romfs.id of
-            // one built without its game files, makes it one of its games,
-            // whatever its names.
-            let nxnative = ["DMLanguage", "DMTitleID", "DMCommit"].contains { info[$0] != nil }
-            game.isGame = game.titleId != nil || nxnative || game.gameFiles != nil
+            game.isGame = CartoucheNxnativeApp.isGame(info: info, titleId: game.titleId, needsGameFiles: game.gameFiles != nil)
             return (game, true)
         } catch {
             NSLog("[Cartouche] cannot read %@: %@", path, error.localizedDescription)

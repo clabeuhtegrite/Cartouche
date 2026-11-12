@@ -5,8 +5,10 @@
 //  The game files of an IPA nxnative built without them
 //  (Sources/CartoucheRomfs.swift): romfs.id's line, the identity of an
 //  image as nxnative and Cartouche Builder compute it, the IPAs that need
-//  one, the copy into a game's app, and which image of the games folder
-//  goes with which IPA.
+//  one, the copy into a game's app, where an install takes the image from
+//  (the installed copy, the game's Documents, beside the IPA) and what it
+//  says when none is the one, and which image of the games folder goes
+//  with which IPA.
 //
 
 import Foundation
@@ -15,6 +17,8 @@ import XCTest
 
 final class CartoucheRomfsTests: XCTestCase {
     private var folder: URL!
+    /// The image the IPAs of these tests need: image(), as romfs.id names it.
+    private let needed = CartoucheRomfsIdentity(size: 105, index: 0xC7A1_1B1C_1EEC_2709)
 
     override func setUpWithError() throws {
         folder = FileManager.default.temporaryDirectory.appendingPathComponent("CartoucheRomfsTests-\(UUID().uuidString)")
@@ -195,6 +199,129 @@ final class CartoucheRomfsTests: XCTestCase {
         }
     }
 
+    // MARK: The install
+
+    func testANewBuildKeepsTheImageOfTheInstalledCopy() async throws {
+        let app = try made("Installed/Game.app")
+        try image().write(to: app.appendingPathComponent("RomFS.img"))
+        let documents = try made("Data/Documents")
+        try image().write(to: documents.appendingPathComponent("romfs.img"))
+        var opened = 0
+        let plan = try await CartoucheRomfs.plan(needed, installed: app, documents: documents) { _ in
+            opened += 1
+            return nil
+        }
+        guard case .installed(let kept) = plan else { return XCTFail("\(plan)") }
+        XCTAssertEqual(kept.lastPathComponent, "RomFS.img")
+        XCTAssertEqual(opened, 0, "nothing read from the games folder")
+    }
+
+    func testAnImageInTheGamesDocumentsNeedsNone() async throws {
+        let app = try made("Installed/Game.app")
+        let documents = try made("Data/Documents")
+        try image().write(to: documents.appendingPathComponent("romfs.img"))
+        var opened = 0
+        let plan = try await CartoucheRomfs.plan(needed, installed: app, documents: documents) { _ in
+            opened += 1
+            return nil
+        }
+        guard case .documents = plan else { return XCTFail("\(plan)") }
+        XCTAssertEqual(opened, 0, "nothing read from the games folder")
+    }
+
+    func testAnImageThatIsNotTheOneIsPassedByForTheOneBesideTheIPA() async throws {
+        // Another game's image, of the same size, in the installed copy's
+        // app and in its Documents.
+        let app = try made("Installed/Game.app")
+        try image(name: "data.bim").write(to: app.appendingPathComponent("romfs.img"))
+        let documents = try made("Data/Documents")
+        try image(name: "data.bim").write(to: documents.appendingPathComponent("romfs.img"))
+        let beside = image()
+        var asked: [CartoucheRomfsIdentity] = []
+        let plan = try await CartoucheRomfs.plan(needed, installed: app, documents: documents) { wanted in
+            asked.append(wanted)
+            return MemorySource(beside)
+        }
+        guard case .copied(let source) = plan else { return XCTFail("\(plan)") }
+        XCTAssertEqual((source as? MemorySource)?.data, beside)
+        XCTAssertEqual(asked, [needed])
+    }
+
+    func testNoImageBesideTheIPAIsMissing() async throws {
+        do {
+            _ = try await CartoucheRomfs.plan(needed, installed: folder.appendingPathComponent("Gone.app"),
+                                              documents: folder.appendingPathComponent("Gone")) { _ in nil }
+            XCTFail("installed without its game files")
+        } catch let problem as CartoucheGameFilesProblem {
+            XCTAssertEqual(problem, .missing)
+        }
+    }
+
+    func testAnotherImageBesideTheIPAIsRefused() async throws {
+        for (name, data) in [("another game's", image(name: "data.bim")), ("no image", Data(repeating: 7, count: 105)),
+                             ("cut off", image().dropLast(5))] {
+            do {
+                _ = try await CartoucheRomfs.plan(needed, installed: nil, documents: nil) { _ in MemorySource(Data(data)) }
+                XCTFail("\(name) was taken")
+            } catch let problem as CartoucheGameFilesProblem {
+                XCTAssertEqual(problem, .mismatch(size: UInt64(data.count)), name)
+            }
+        }
+    }
+
+    func testAFailureToOpenTheImageGoesThrough() async throws {
+        do {
+            _ = try await CartoucheRomfs.plan(needed, installed: nil, documents: nil) { _ in throw URLError(.timedOut) }
+            XCTFail("the failure was lost")
+        } catch let error as URLError {
+            XCTAssertEqual(error.code, .timedOut)
+        }
+    }
+
+    func testANewBuildTakesTheImageOverFromTheInstalledCopy() throws {
+        let installed = try made("Installed/Game.app")
+        let fresh = try made("Install/Payload/Game.app")
+        let data = image()
+        try data.write(to: installed.appendingPathComponent("RomFS.img"))
+        try CartoucheRomfs.keep(installed.appendingPathComponent("RomFS.img"), in: fresh)
+        XCTAssertEqual(try Data(contentsOf: fresh.appendingPathComponent("romfs.img")), data)
+        XCTAssertNil(CartoucheRomfs.image(in: installed), "moved, not copied")
+        // An image gone meanwhile fails the install, and leaves the new
+        // copy's alone.
+        XCTAssertThrowsError(try CartoucheRomfs.keep(installed.appendingPathComponent("RomFS.img"), in: fresh))
+        XCTAssertEqual(try Data(contentsOf: fresh.appendingPathComponent("romfs.img")), data)
+    }
+
+    func testAnIPAPickedInFilesTakesTheImageOfItsSizeBesideIt() throws {
+        let games = try made("Files/Games")
+        let ipa = games.appendingPathComponent("Zelda.ipa")
+        try Data("ipa".utf8).write(to: ipa)
+        XCTAssertNil(CartoucheRomfs.image(beside: ipa, size: 105))
+        try Data(count: 105).write(to: games.appendingPathComponent("._romfs.img"))
+        try Data(count: 104).write(to: games.appendingPathComponent("Zelda.romfs.img"))
+        XCTAssertNil(CartoucheRomfs.image(beside: ipa, size: 105), "neither a hidden file nor one of another size")
+        try Data(count: 105).write(to: games.appendingPathComponent("Zelda RomFS.img"))
+        XCTAssertEqual(CartoucheRomfs.image(beside: ipa, size: 105)?.lastPathComponent, "Zelda RomFS.img")
+        try Data(count: 105).write(to: games.appendingPathComponent("romfs.img"))
+        XCTAssertEqual(CartoucheRomfs.image(beside: ipa, size: 105)?.lastPathComponent, "romfs.img")
+        // A folder Cartouche may not read.
+        XCTAssertNil(CartoucheRomfs.image(beside: folder.appendingPathComponent("Missing/Zelda.ipa"), size: 105))
+    }
+
+    func testAFileIsTheImageItNamesBySizeHeaderAndIndex() async throws {
+        let file = folder.appendingPathComponent("romfs.img")
+        try image().write(to: file)
+        let held = await CartoucheRomfs.holds(file, needed)
+        XCTAssertTrue(held)
+        let other = await CartoucheRomfs.holds(file, CartoucheRomfsIdentity(size: 105, index: 1))
+        XCTAssertFalse(other)
+        try image(name: "data.bim").write(to: file)
+        let another = await CartoucheRomfs.holds(file, needed)
+        XCTAssertFalse(another)
+        let gone = await CartoucheRomfs.holds(folder.appendingPathComponent("gone.img"), needed)
+        XCTAssertFalse(gone)
+    }
+
     // MARK: The games folder
 
     func testEachIPATakesTheImageOfItsSizeBesideIt() {
@@ -238,16 +365,33 @@ final class CartoucheRomfsTests: XCTestCase {
         XCTAssertTrue(loose.isEmpty)
     }
 
+    func testNoImageIsAloneWhileAnIPAOfTheFolderIsUnread() {
+        // An IPA Cartouche could not read may be the one it goes with.
+        let image = CartoucheRomfsImage(path: "Jeux/romfs.img", folder: "Jeux", size: 105)
+        XCTAssertEqual(CartoucheRomfs.pair([], with: [image]).loose, [image])
+        XCTAssertEqual(CartoucheRomfs.pair([], with: [image], allRead: false).loose, [])
+        let need = CartoucheRomfsNeed(path: "Jeux/Mario.ipa", folder: "Jeux", size: 105)
+        XCTAssertEqual(CartoucheRomfs.pair([need], with: [image], allRead: false).taken[need.path], image)
+    }
+
     // MARK: Helpers
 
     /// A root, one file and its bytes, as Cartouche Builder's tests write
-    /// them (builder/tests/test_bundle.py), with EXTRA after the index.
-    private func image(payload: Data = Data("example game data".utf8), extra: Data = Data()) -> Data {
+    /// them (builder/tests/test_bundle.py), with EXTRA after the index. A
+    /// file of another NAME makes another game's image.
+    private func image(payload: Data = Data("example game data".utf8), extra: Data = Data(), name: String = "data.bin") -> Data {
         var index = le(UInt64(1)) + le(UInt64(1)) + le(UInt32(0)) + le(UInt16(0)) + Data([0, 0])
-        index += le(UInt64(32)) + le(UInt64(payload.count)) + le(UInt32(0)) + le(UInt16(8)) + Data([1, 0])
-        index += Data("data.bin".utf8) + extra
+        index += le(UInt64(32)) + le(UInt64(payload.count)) + le(UInt32(0)) + le(UInt16(name.utf8.count)) + Data([1, 0])
+        index += Data(name.utf8) + extra
         let header = Data("DMROMFS1".utf8) + le(UInt64(32 + payload.count)) + le(UInt64(index.count)) + le(UInt64(2))
         return header + payload + index
+    }
+
+    /// The folder at PATH in the tests' folder, made.
+    private func made(_ path: String) throws -> URL {
+        let url = folder.appendingPathComponent(path, isDirectory: true)
+        try FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
+        return url
     }
 
     /// An IPA of an app Game.app with FILES in it; a name that ends with "/"

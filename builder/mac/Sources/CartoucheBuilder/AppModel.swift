@@ -118,8 +118,8 @@ final class AppModel: ObservableObject {
     private var started = false
     private var poller: Task<Void, Never>?
     private var checker: Task<Void, Never>?
-    /// When the library was last read for the player's coming back.
-    private var cameBack: Date?
+    /// When the library is read again for the player's coming back.
+    private var comebacks = ComebackReads()
 
     init(home: BuilderHome = .default, sample: Bool = false) {
         self.home = home
@@ -168,7 +168,7 @@ final class AppModel: ObservableObject {
         let checked = library?.checked.flatMap(ISODate.parse)
         let stale = checked.map { Date().timeIntervalSince($0) > AppModel.checkInterval } ?? true
         // This read is the one the app's coming to the front would ask for.
-        cameBack = Date()
+        comebacks.read()
         await refreshLibrary(update: stale && setup.ready)
         checkRegularly()
         telemetry.event("builder.opened", fields: openedFields())
@@ -333,11 +333,9 @@ final class AppModel: ObservableObject {
     /// The player is back in the app, maybe from the Finder, where they put
     /// a game in their dumps or their games folder: the library reads the
     /// two folders again, without a look at nxnative, at most once in ten
-    /// seconds, and not while one is on its way.
+    /// seconds (ComebackReads), and not while one is on its way.
     func playerCameBack() {
-        guard started, !checking else { return }
-        if let last = cameBack, Date().timeIntervalSince(last) < 10 { return }
-        cameBack = Date()
+        guard started, !checking, comebacks.comeBack() else { return }
         Task { await refreshLibrary(update: false, quietly: true) }
     }
 
