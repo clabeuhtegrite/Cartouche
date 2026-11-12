@@ -155,16 +155,33 @@ final class CartoucheTelemetry: ObservableObject {
         // LiveContainer lists the installed apps after the console shows:
         // its first list, or the list as it is a few seconds later, for a
         // player without games yet.
-        DataManager.shared.model.$apps
+        let listed = DataManager.shared.model.$apps
             .filter { !$0.isEmpty }
             .map { _ in () }
             .merge(with: Just(()).delay(for: .seconds(5), scheduler: DispatchQueue.main))
             .first()
+        listed
             .receive(on: DispatchQueue.main)
-            .sink { [weak self] _ in
-                self?.noteOpen(DataManager.shared.model.apps)
-                self?.collect()
+            .sink { [weak self] _ in self?.collect() }
+            .store(in: &observers)
+        // Whether the installation is ready waits, too, for the check of
+        // LiveContainer's certificate, which ends a few seconds after the
+        // launch: before it, no installation is ready yet. Half a minute at
+        // most, after which the certificate says it is still being checked.
+        let setup = CartoucheSetup.shared
+        let checked = setup.$certificateWorks
+            .combineLatest(setup.$hasCertificate)
+            .filter { value in
+                let (works, hasCertificate) = value
+                return CartoucheSetupFacts.isChecked(hasCertificate: hasCertificate, certificateWorks: works)
             }
+            .map { _ in () }
+            .merge(with: Just(()).delay(for: .seconds(30), scheduler: DispatchQueue.main))
+            .first()
+        listed.zip(checked)
+            // @Published sends a value before it sets it: read them after.
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in self?.noteOpen(DataManager.shared.model.apps) }
             .store(in: &observers)
         CartoucheGameActions.shared.$installed
             .compactMap { $0 }
@@ -363,14 +380,17 @@ final class CartoucheTelemetry: ObservableObject {
     private func noteOpen(_ apps: [LCAppModel]) {
         let catalog = CartoucheCatalog.shared
         let games = apps.filter { catalog.gameTitle(of: $0) != nil }.count
+        let setup = CartoucheSetup.shared
         var fields: [String: CartoucheTelemetryValue] = [
             "games": .number(Double(games)),
-            "setUp": .flag(CartoucheSetup.shared.isComplete),
+            "setUp": .flag(setup.isComplete),
             "storage": .text(CartoucheStorageSettings.shared.location(.games)?.server.kind.rawValue ?? "none"),
             "saves": .text(CartoucheStorageSettings.shared.location(.saves)?.server.kind.rawValue ?? "none"),
             // The player's own certificate, or the Apple ID's (docs/imported-signing.md).
             "signing": .text(CartoucheImportedSigning.isImportedInstall ? "imported" : "account"),
         ]
+        // What it is made of: never the Apple ID, only whether there is one.
+        fields.merge(setup.facts.fields) { _, made in made }
         if let days = CartoucheSignature.current().daysLeft {
             fields["signatureDays"] = .number(Double(days))
         }

@@ -296,6 +296,11 @@ final class CartoucheSetup: ObservableObject {
     /// Whether the setup has something left for the player: a certificate
     /// still being checked does not show it.
     var needsSetup: Bool { !(canPlay && (usesImportedSigning || (hasPairingFile && appleID != nil))) }
+    /// What the measurements say of the installation (CartoucheSetupFacts.swift).
+    var facts: CartoucheSetupFacts {
+        CartoucheSetupFacts(hasCertificate: hasCertificate, certificateWorks: certificateWorks,
+                            hasPairingFile: hasPairingFile, signedIn: appleID != nil)
+    }
 
     /// What Cartouche found of each certificate, for this launch.
     private var checked: [Data: Bool] = [:]

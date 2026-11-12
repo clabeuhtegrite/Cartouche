@@ -1,13 +1,13 @@
 {
   "api": 1,
-  "checked": "2026-11-10T17:11:06+00:00",
+  "checked": "2026-11-12T08:10:07+00:00",
   "engine": {
     "branch": "main",
     "commit_url": "",
-    "head": "16142e670c8f8517642e3f1bc29dbf947e9aa56d",
-    "short": "16142e670c8f",
+    "head": "ff1adf9f63d5999fab2d4f6649c029d3950ef4ce",
+    "short": "ff1adf9f63d5",
     "subject": "Super Mario Odyssey: the cap (PR #4)",
-    "time": 1794330666,
+    "time": 1794471006,
     "url": "/Users/player/Builder/remote"
   },
   "folders": {
@@ -84,11 +84,11 @@
       "aliases": [],
       "attempt": null,
       "build": {
-        "built_at": "2026-11-10T17:11:06+00:00",
+        "built_at": "2026-11-12T08:10:06+00:00",
         "chain": "abcdef012345",
-        "commit": "224b2cffcf14",
+        "commit": "aaa91bbd627c",
         "dirty": false,
-        "duration": 0.339671959000043,
+        "duration": 0.3525104159998591,
         "origin": "builder",
         "size": 846,
         "toolchain": "",
@@ -102,17 +102,17 @@
       "changes": [
         {
           "kind": "named",
-          "sha": "24aa0403c46bcde1ca66d2bf1dae8761d18e93f0",
-          "short": "24aa0403c46b",
+          "sha": "6d2a0fbe22ed4082ba61cf8b452b660e5bf3f7e6",
+          "short": "6d2a0fbe22ed",
           "subject": "Mario Kart World: the menus (PR #3)",
-          "time": 1794330666
+          "time": 1794471006
         },
         {
           "kind": "shared",
-          "sha": "16142e670c8f8517642e3f1bc29dbf947e9aa56d",
-          "short": "16142e670c8f",
+          "sha": "ff1adf9f63d5999fab2d4f6649c029d3950ef4ce",
+          "short": "ff1adf9f63d5",
           "subject": "Super Mario Odyssey: the cap (PR #4)",
-          "time": 1794330666
+          "time": 1794471006
         }
       ],
       "detail": "An nxnative commit names it: Mario Kart World: the menus (PR #3)",
@@ -140,20 +140,20 @@
     {
       "aliases": [],
       "attempt": {
-        "at": "2026-11-10T17:11:06+00:00",
-        "commit": "16142e670c8f",
+        "at": "2026-11-12T08:10:07+00:00",
+        "commit": "ff1adf9f63d5",
         "error": "the fake build failed on purpose",
-        "fingerprint": "eb60d0133c309132edad2051",
-        "log": "/Users/player/Builder/home/logs/0100000000010000/2026-11-10_17-11-06.log",
+        "fingerprint": "56ebb81dec1791c0fe59d2ac",
+        "log": "/Users/player/Builder/home/logs/0100000000010000/2026-11-12_08-10-07.log",
         "result": "failed",
         "toolchain": ""
       },
       "build": {
-        "built_at": "2026-11-10T17:11:06+00:00",
+        "built_at": "2026-11-12T08:10:06+00:00",
         "chain": "abcdef012345",
-        "commit": "224b2cffcf14",
+        "commit": "aaa91bbd627c",
         "dirty": false,
-        "duration": 0.3369916599995122,
+        "duration": 0.34675086400011423,
         "origin": "builder",
         "size": 849,
         "toolchain": "",
@@ -167,17 +167,17 @@
       "changes": [
         {
           "kind": "named",
-          "sha": "16142e670c8f8517642e3f1bc29dbf947e9aa56d",
-          "short": "16142e670c8f",
+          "sha": "ff1adf9f63d5999fab2d4f6649c029d3950ef4ce",
+          "short": "ff1adf9f63d5",
           "subject": "Super Mario Odyssey: the cap (PR #4)",
-          "time": 1794330666
+          "time": 1794471006
         },
         {
           "kind": "shared",
-          "sha": "24aa0403c46bcde1ca66d2bf1dae8761d18e93f0",
-          "short": "24aa0403c46b",
+          "sha": "6d2a0fbe22ed4082ba61cf8b452b660e5bf3f7e6",
+          "short": "6d2a0fbe22ed",
           "subject": "Mario Kart World: the menus (PR #3)",
-          "time": 1794330666
+          "time": 1794471006
         }
       ],
       "detail": "Failed at this nxnative commit (the fake build failed on purpose); tried again when nxnative or its files change",

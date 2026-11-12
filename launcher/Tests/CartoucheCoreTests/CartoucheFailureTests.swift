@@ -230,6 +230,30 @@ final class CartoucheFailureTests: XCTestCase {
                        ["seconds": .number(40), "outcome": .flag(false)])
     }
 
+    // MARK: What SideStore's code did not expect (patch 0018)
+
+    func testSaysWhichOfSideStoresSentencesAndWhatItNames() throws {
+        let left = try XCTUnwrap(outcome([
+            "stage": "FetchProvisioningProfiles", "family": "operation", "kind": "invalidParameters",
+            "codes": "SideStore.OperationError 8", "reason": "notInContext", "missing": "targetAppBundle",
+        ], action: .refresh))
+        XCTAssertEqual(left.cause, .other)
+        XCTAssertEqual(left.facts, ["reason": .text("notInContext"), "missing": .text("targetAppBundle")])
+        let failure = CartoucheFailure.sideStore(outcome: left, message: "Failed to Refresh Some App", fraction: 1,
+                                                 seconds: 4, vpn: true, pairing: true)
+        XCTAssertEqual(failure.codes, "SideStore.OperationError 8")
+        XCTAssertEqual(failure.details["kind"], .text("invalidParameters"))
+        XCTAssertEqual(failure.details["reason"], .text("notInContext"))
+        XCTAssertEqual(failure.details["missing"], .text("targetAppBundle"))
+    }
+
+    func testKeepsNoSentenceOfSideStoresForAReason() throws {
+        let read = try XCTUnwrap(outcome([
+            "reason": "Could not resolve installed app for 'Mario Kart World'", "missing": "context.targetAppBundle is nil",
+        ], action: .refresh))
+        XCTAssertEqual(read.facts, [:])
+    }
+
     // MARK: How a renewal ended
 
     func testARenewalEndsAsSideStoreLeftIt() throws {
