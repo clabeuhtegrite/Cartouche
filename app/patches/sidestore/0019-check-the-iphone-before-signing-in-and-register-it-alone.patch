@@ -1,0 +1,281 @@
+From 917ae4741a13a0f8fad467f91ae56dd96999fd2f Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Thu, 12 Nov 2026 07:54:13 +0000
+Subject: [PATCH] Check the iPhone before signing in, and register it alone
+ after
+
+The sign-ins that Cartouche's measurements saw stop at the device step
+had all got through Apple, more than half of them after the player had
+typed a verification code: LocalDevVPN was off or not carrying the
+iPhone's traffic, the iPhone was not on Wi-Fi, or it refused the
+pairing file. Signing in again then costs the player another code, and
+Apple one more sign-in, which it limits.
+
+Sign In to Cartouche now makes minimuxer's readiness check, the one the
+device step and every pipeline make, before anything goes to Apple: a
+pairing file loaded, Wi-Fi, LocalDevVPN connected and carrying the
+iPhone's traffic, and the iPhone answering through it. SideStore starts
+minimuxer as it launches, which can still be under way when the action
+starts: the check waits for it, 15 seconds at most. A sign-in that does
+not pass it stops at a new stage, deviceCheck, with minimuxer's error.
+
+A new action, Register Cartouche's iPhone, takes the device step alone,
+as SideStore's settings do from their pending actions: with the session
+and the team SideStore kept after a sign-in that stopped there, the same
+readiness check, then Apple's developer services. No sign-in, and no
+code. Shortcuts does not list it. Cartouche's outcome names it device,
+at the stages account (no session or team kept, for Cartouche to sign
+in again), deviceCheck, device and finish.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01MzPJoqvUrN1WHxbWeJ18R7
+---
+ SideStore/Intents/CartoucheDeviceCheck.swift  | 68 ++++++++++++++++
+ SideStore/Intents/CartoucheOutcome.swift      | 20 ++---
+ .../CartoucheRegisterDeviceIntent.swift       | 78 +++++++++++++++++++
+ SideStore/Intents/CartoucheSignInIntent.swift | 16 ++++
+ 4 files changed, 173 insertions(+), 9 deletions(-)
+ create mode 100644 SideStore/Intents/CartoucheDeviceCheck.swift
+ create mode 100644 SideStore/Intents/CartoucheRegisterDeviceIntent.swift
+
+diff --git a/SideStore/Intents/CartoucheDeviceCheck.swift b/SideStore/Intents/CartoucheDeviceCheck.swift
+new file mode 100644
+index 0000000..5feb56c
+--- /dev/null
++++ b/SideStore/Intents/CartoucheDeviceCheck.swift
+@@ -0,0 +1,68 @@
++//
++//  CartoucheDeviceCheck.swift
++//  SideStore
++//
++//  Cartouche: whether this iPhone is ready for what the built-in SideStore
++//  does through it, as each renewal and update needs it: a pairing file
++//  loaded that the iPhone accepts, Wi-Fi, LocalDevVPN connected and carrying
++//  the iPhone's own traffic, and the iPhone answering through it. It is the
++//  readiness check of minimuxer that every pipeline makes before it starts
++//  (PipelineRunner), and the one the sign-in's device step makes before it
++//  registers the iPhone.
++//
++//  Sign In to Cartouche makes it before it sends anything to Apple: a
++//  sign-in that Apple accepts and that then stops at the device step costs
++//  the player a verification code, and Apple one more sign-in, which it
++//  limits. Register Cartouche's iPhone makes it again before it registers
++//  the iPhone alone, once Apple has accepted the account.
++//
++
++import Foundation
++import Minimuxer
++
++enum CartoucheDeviceCheck
++{
++    /// How long the check waits for minimuxer: SideStore starts it as it
++    /// launches (AppBootManager), while the action may already be running.
++    static let startTimeout: TimeInterval = 15
++
++    /// Throws the error that keeps this iPhone from being reached, as
++    /// SideStore's operations would: noVPN, noConnection (no Wi-Fi), noDevice,
++    /// invalidPairingFile...
++    static func run() async throws
++    {
++        #if targetEnvironment(simulator)
++        return
++        #else
++        guard PairingFileManager.shared.fetchPairingFile() != nil else {
++            throw OperationError.pairingNotComplete(reason: "No pairing file has been loaded")
++        }
++
++        let deadline = Date().addingTimeInterval(self.startTimeout)
++        while true
++        {
++            do
++            {
++                try await ensureMinimuxerReady()
++                return
++            }
++            catch let error where self.isStarting(error) && Date() < deadline
++            {
++                try await Task.sleep(nanoseconds: 500_000_000)
++            }
++        }
++        #endif
++    }
++
++    /// Whether ERROR only says that minimuxer has not started yet, or not
++    /// read the pairing file yet, as it does for a moment after launch.
++    private static func isStarting(_ error: Error) -> Bool
++    {
++        guard let error = error as? OperationError else { return false }
++        switch error
++        {
++        case .minimuxerNotStarted, .pairingNotComplete: return true
++        default: return false
++        }
++    }
++}
+diff --git a/SideStore/Intents/CartoucheOutcome.swift b/SideStore/Intents/CartoucheOutcome.swift
+index 0d20a81..444c6be 100644
+--- a/SideStore/Intents/CartoucheOutcome.swift
++++ b/SideStore/Intents/CartoucheOutcome.swift
+@@ -3,16 +3,17 @@
+ //  SideStore
+ //
+ //  Cartouche: how the last of Cartouche's actions (Sign In to Cartouche,
+-//  Refresh All Apps, Update Cartouche) ended. LiveContainer passes back to
+-//  Cartouche only the text of an action's error, which Cartouche shows the
+-//  player and never sends anywhere. This leaves Cartouche, in SideStore's
+-//  keychain item cartouche.outcome (service: the bundle identifier, as in
+-//  CartoucheSignInIntent), the step the action reached, how far it got,
+-//  how long it took and its error as names and numbers, for Cartouche's
+-//  measurements to say why actions fail:
++//  Register Cartouche's iPhone, Refresh All Apps, Update Cartouche) ended.
++//  LiveContainer passes back to Cartouche only the text of an action's
++//  error, which Cartouche shows the player and never sends anywhere. This
++//  leaves Cartouche, in SideStore's keychain item cartouche.outcome
++//  (service: the bundle identifier, as in CartoucheSignInIntent), the step
++//  the action reached, how far it got, how long it took and its error as
++//  names and numbers, for Cartouche's measurements to say why actions fail:
+ //
+-//  {"version": 1, "action": "signIn" | "refresh" | "update", "ok": false,
+-//   "date": 1762880000, "seconds": 12, "percent": 50, "stage": "device",
++//  {"version": 1, "action": "signIn" | "device" | "refresh" | "update",
++//   "ok": false, "date": 1762880000, "seconds": 12, "percent": 50,
++//   "stage": "device",
+ //   "trail": "SignIn", "family": "minimuxer", "kind": "noVPN",
+ //   "codes": "Minimuxer.MinimuxerError 3", "apple": -22406, "http": 503,
+ //   "network": -1009, "host": "apple", "codeAsked": true,
+@@ -45,6 +46,7 @@ final class CartoucheOutcome: @unchecked Sendable
+     enum Action: String
+     {
+         case signIn
++        case device
+         case refresh
+         case update
+     }
+diff --git a/SideStore/Intents/CartoucheRegisterDeviceIntent.swift b/SideStore/Intents/CartoucheRegisterDeviceIntent.swift
+new file mode 100644
+index 0000000..f31d771
+--- /dev/null
++++ b/SideStore/Intents/CartoucheRegisterDeviceIntent.swift
+@@ -0,0 +1,78 @@
++//
++//  CartoucheRegisterDeviceIntent.swift
++//  SideStore
++//
++//  Cartouche: registers this iPhone with the team SideStore is signed in
++//  to, as the sign-in's device step does, and nothing else. A sign-in that
++//  Apple accepted can still stop at that step, LocalDevVPN being off or the
++//  iPhone not answering through it: SideStore then keeps the account, its
++//  session, the team and the certificate, as after its own sign-in, whose
++//  settings list Register Device among the actions left. Cartouche runs
++//  this action then, rather than signing in again, which would cost the
++//  player another verification code and Apple one more sign-in, which it
++//  limits: it goes with the session SideStore keeps, and Apple asks for no
++//  code. It runs as Sign In to Cartouche does, through LiveContainer's
++//  SideStoreSupport, in LiveProcess; Shortcuts does not list it.
++//
++//  It leaves Cartouche how it ended (CartoucheOutcome, action device), at
++//  one of these stages: account when SideStore keeps no session or team,
++//  for Cartouche to sign in again, deviceCheck when this iPhone did not
++//  answer (CartoucheDeviceCheck), device when Apple's developer services
++//  did not register it, finish once done.
++//
++
++import AppIntents
++import Foundation
++import SideSign
++
++@available(iOS 17.0, tvOS 17.0, *)
++struct CartoucheRegisterDeviceIntent: AppIntent, ProgressReportingIntent
++{
++    static var title: LocalizedStringResource = "Register Cartouche's iPhone"
++    static var description = IntentDescription("Registers this iPhone with the Apple ID that SideStore is signed in to, for Cartouche.")
++    static var openAppWhenRun = false
++    static var isDiscoverable: Bool { false }
++
++    init()
++    {
++        self.progress.completedUnitCount = 0
++        self.progress.totalUnitCount = 100
++    }
++
++    func perform() async throws -> some IntentResult
++    {
++        let outcome = CartoucheOutcome(action: .device)
++        var stage = "database"
++
++        do
++        {
++            try await DatabaseManager.shared.start()
++
++            // What the sign-in kept: without it, the whole sign-in is left.
++            stage = "account"
++            guard AuthManager.shared.adsid != nil, AuthManager.shared.hasStoredXcodeToken else {
++                throw OperationError.notAuthenticated
++            }
++            let team = try await AuthManager.shared.getAuthenticatedTeam()
++            self.progress.completedUnitCount = 10
++
++            stage = "deviceCheck"
++            try await CartoucheDeviceCheck.run()
++            self.progress.completedUnitCount = 40
++
++            stage = "device"
++            try await DeviceRegistrationFlow().registerCurrentDevice(for: team)
++
++            // As at the end of Sign In to Cartouche.
++            UserDefaults.standard.hasCompletedOnboarding = true
++            self.progress.completedUnitCount = 100
++            outcome.save(error: nil, stage: "finish", progress: self.progress)
++            return .result()
++        }
++        catch
++        {
++            outcome.save(error: error, stage: stage, progress: self.progress)
++            throw IntentError(error)
++        }
++    }
++}
+diff --git a/SideStore/Intents/CartoucheSignInIntent.swift b/SideStore/Intents/CartoucheSignInIntent.swift
+index 578da19..9894132 100644
+--- a/SideStore/Intents/CartoucheSignInIntent.swift
++++ b/SideStore/Intents/CartoucheSignInIntent.swift
+@@ -29,6 +29,15 @@
+ //  that SideStore's screens would offer to retry or skip ends the sign-in
+ //  with that error, for Cartouche to show.
+ //
++//  Before anything goes to Apple, it makes the readiness check the device
++//  step will make (CartoucheDeviceCheck): a sign-in that Apple accepts and
++//  that then stops at that step, LocalDevVPN being off or the pairing file
++//  refused, costs the player a verification code, and Apple one more
++//  sign-in, which it limits. Should it stop there all the same, SideStore
++//  keeps the account, the team and the certificate, as after its own
++//  sign-in, and Register Cartouche's iPhone (CartoucheRegisterDeviceIntent)
++//  takes that step alone.
++//
+ //  However it ends, it leaves Cartouche the step it reached and its error as
+ //  names and numbers (CartoucheOutcome).
+ //
+@@ -64,6 +73,11 @@ struct CartoucheSignInIntent: AppIntent, ProgressReportingIntent
+             try await DatabaseManager.shared.start()
+             handler.reach(.credentials)
+             let credentials = try handler.takeCredentials()
++
++            // Nothing goes to Apple before this iPhone answers as the device
++            // step needs it.
++            handler.reach(.deviceCheck)
++            try await CartoucheDeviceCheck.run()
+             handler.reach(.account)
+ 
+             // Another account's team and certificate would sign with the
+@@ -152,6 +166,8 @@ final class CartoucheSignInHandler: SignInHandler, AnisetteServerHandler, @unche
+     {
+         case database
+         case credentials
++        /// This iPhone answering through LocalDevVPN, before Apple.
++        case deviceCheck
+         case account
+         case verification
+         case team
+-- 
+2.43.0
+
