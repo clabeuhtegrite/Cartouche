@@ -200,6 +200,23 @@ class SheetsTest(unittest.TestCase):
             "Measured by Cartouche on 3 iPhones, 3 sessions from 2026-11-10 to 2026-11-10. None ended badly."])
         self.assert_valid(self.written())
 
+    def test_the_peak_counts_only_the_sessions_that_drew_a_frame(self):
+        # As Mario Kart World's on 2026-11-11: an iPhone whose sessions all
+        # crashed before their first frame, with 2 and 50 MiB loaded, made
+        # the peak of the three 4,475 MiB, under the 5,499 another measured.
+        self.session(self.phones[0], memory={"peakMiB": 5499})
+        self.session(self.phones[1], memory={"peakMiB": 4475})
+        for peak in (2, 50):
+            self.session(self.phones[2], memory={"peakMiB": peak}, frames=None, fps=None, stutters=None,
+                         end={"kind": "crash", "signal": 11})
+        self.run_sheets()
+        result = self.measured()["iPhone19,4"]
+        self.assertNotIn("peakMemoryMiB", result)
+        # Once that iPhone plays the game, the peak is the three iPhones' median.
+        self.session(self.phones[2], day="2026-11-11", memory={"peakMiB": 5161})
+        self.run_sheets()
+        self.assertEqual(self.measured()["iPhone19,4"]["peakMemoryMiB"], 5161)
+
     def test_a_session_sent_again_counts_once_at_its_highest_seq(self):
         again = str(uuid.uuid4())
         self.session(self.phones[0], session=again, seq=3, fps={"median": 20.0, "low5": 10.0})
