@@ -10,7 +10,8 @@ name: Launcher screens
 # A pull request's screenshots are taken once for what it changes in the
 # gallery's files: a rebase or a merge of main that leaves those changes as
 # they were keeps the ones taken before, about half an hour of a Mac each
-# time. Run the workflow from the Actions tab to take them again.
+# time. Run the workflow from the Actions tab to take them again. The Full
+# test pass takes them all, and keeps them with its run only (full-pass.yml).
 
 on:
   pull_request:
@@ -25,12 +26,21 @@ on:
       - "catalog/games/**"
       - ".github/workflows/screens.yml"
   workflow_dispatch:
+  # The Full test pass (full-pass.yml): every screenshot, kept with the run alone.
+  workflow_call:
+    inputs:
+      full:
+        description: "Take every screenshot, as the Full test pass does, and keep them with the run alone"
+        type: boolean
+        default: false
 
 permissions:
   contents: read
 
+# The Full test pass's run is its own: neither a push to main nor a pull
+# request cancels it.
 concurrency:
-  group: screens-${{ github.head_ref || github.ref }}
+  group: ${{ inputs.full && format('screens-full-{0}', github.run_id) || format('screens-{0}', github.head_ref || github.ref) }}
   cancel-in-progress: true
 
 env:
@@ -124,11 +134,12 @@ jobs:
           key: ${{ needs.taken.outputs.key }}
 
   # The only job that can write runs nothing from the pull request: it
-  # commits the screenshots the job above uploaded.
+  # commits the screenshots the job above uploaded. Not in the Full test
+  # pass, which publishes nothing.
   keep:
     name: Keep the screenshots on a branch
     needs: screens
-    if: ${{ !cancelled() && needs.screens.result != 'skipped' && (github.event_name == 'workflow_dispatch' || github.event.pull_request.head.repo.full_name == github.repository) }}
+    if: ${{ !cancelled() && !inputs.full && needs.screens.result != 'skipped' && (github.event_name == 'workflow_dispatch' || github.event.pull_request.head.repo.full_name == github.repository) }}
     runs-on: ubuntu-latest
     permissions:
       contents: write # the branch launcher-screens/<branch>

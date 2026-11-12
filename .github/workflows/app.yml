@@ -12,7 +12,8 @@ name: App
 # keeps, or the one its own first run kept. main builds only when what the
 # SideStore is built from changes, to keep the one every pull request finds:
 # the pull request it comes from has built the rest already. A release builds
-# everything again (release.yml).
+# everything again (release.yml), and the Full test pass builds and tests
+# everything, whatever the paths (full-pass.yml).
 
 on:
   push:
@@ -30,12 +31,21 @@ on:
       - ".github/workflows/app.yml"
   pull_request:
   workflow_dispatch:
+  # The Full test pass (full-pass.yml): every job, whatever the paths.
+  workflow_call:
+    inputs:
+      full:
+        description: "Build and test everything, as the Full test pass does, whatever the paths"
+        type: boolean
+        default: false
 
 permissions:
   contents: read
 
+# The Full test pass's run is its own: neither a push to main nor a pull
+# request cancels it.
 concurrency:
-  group: app-${{ github.ref }}
+  group: ${{ inputs.full && format('app-full-{0}', github.run_id) || format('app-{0}', github.ref) }}
   cancel-in-progress: true
 
 jobs:
@@ -52,9 +62,15 @@ jobs:
           persist-credentials: false
       - name: Does this change touch them?
         id: paths
+        env:
+          FULL: ${{ inputs.full }}
         run: |
           # main tested the launcher in the pull request it comes from; the
-          # Actions tab builds and tests everything.
+          # Actions tab and the Full test pass build and test everything.
+          if [ "$FULL" = "true" ]; then
+            printf 'build=true\nlauncher=true\n' >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
           case "$GITHUB_EVENT_NAME" in
             push) printf 'build=true\nlauncher=false\n' >> "$GITHUB_OUTPUT"; exit 0 ;;
             pull_request) ;;

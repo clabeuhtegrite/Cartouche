@@ -1,0 +1,134 @@
+name: Full test pass
+
+# Runs every test of the repository on one commit, as no pull request does:
+# it calls each workflow that tests a part of the project whole, with
+# `full: true`, whatever the paths that choose their jobs for a pull request
+# and without the memo of an earlier run, then judges that every test job ran
+# and passed. Nothing is published, pushed or deployed. A release of
+# Cartouche, of Cartouche Builder or of the Installer is published only once
+# this pass has passed on its commit (.github/full-pass/README.md).
+#
+# It runs on main when a version changes, as the pull request of a release
+# does, and when the pass itself changes; from the Actions tab on any branch;
+# and the Release, Builder and Installer workflows start it when no pass has
+# run on their commit. It does not run on pull requests: the Workflow audit
+# checks how it is wired instead (.github/full-pass/wiring.py).
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "app/config.env"
+      - "builder/pyproject.toml"
+      - "installer/src-tauri/tauri.conf.json"
+      - ".github/workflows/full-pass.yml"
+      - ".github/full-pass/**"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# One pass at a time on a branch, the Macs being few: another waits for it.
+concurrency:
+  group: full-pass-${{ github.ref }}
+  cancel-in-progress: false
+
+# Each call takes the workflow from this very commit. It is written ./, which
+# actionlint reads, rather than GitHub's newer $/, which it does not yet and
+# which zizmor would have: both name the commit that runs.
+jobs:
+  # The publish guard, the catalog, the app's sources, the shell scripts,
+  # Cartouche Builder's engine, the workflows and the site's page.
+  ci:
+    name: CI
+    uses: ./.github/workflows/ci.yml # zizmor: ignore[self-repository]
+    with:
+      full: true
+
+  # The launcher's tests, then the app, its publish guard and its entry in
+  # the SideStore source.
+  app:
+    name: App
+    uses: ./.github/workflows/app.yml # zizmor: ignore[self-repository]
+    with:
+      full: true
+
+  # The storage code against real servers.
+  storage:
+    name: Storage
+    uses: ./.github/workflows/storage.yml # zizmor: ignore[self-repository]
+    with:
+      full: true
+
+  # The launcher's gallery, its UI tests and its screenshots.
+  screens:
+    name: Launcher screens
+    uses: ./.github/workflows/screens.yml # zizmor: ignore[self-repository]
+    # What its jobs ask for, which GitHub checks before the pass starts: the
+    # one that would keep the screenshots on a branch, which the pass skips.
+    permissions:
+      contents: write
+    with:
+      full: true
+
+  # Cartouche Builder's Mac app: its tests, the app, its layout check, its
+  # disk image and its screenshots.
+  builder:
+    name: Builder
+    uses: ./.github/workflows/builder.yml # zizmor: ignore[self-repository]
+    # As above: the jobs that would publish, which the pass skips.
+    permissions:
+      contents: write
+      actions: write
+    with:
+      full: true
+
+  # The Installer's tests, its Mac app and its Windows setup.
+  installer:
+    name: Installer
+    uses: ./.github/workflows/installer.yml # zizmor: ignore[self-repository]
+    permissions:
+      contents: write
+      actions: write
+    with:
+      full: true
+
+  # The telemetry server, its dashboard, its database and its weekly sum.
+  telemetry:
+    name: Telemetry
+    uses: ./.github/workflows/telemetry.yml # zizmor: ignore[self-repository]
+    with:
+      full: true
+
+  # The showcase page with the download links of the releases as they are.
+  site:
+    name: Showcase site
+    uses: ./.github/workflows/site.yml # zizmor: ignore[self-repository]
+    permissions:
+      contents: write
+    with:
+      full: true
+
+  verdict:
+    name: Every test passed
+    needs: [ci, app, storage, screens, builder, installer, telemetry, site]
+    # Whatever the calls' results, so that the run always says which part
+    # did not pass.
+    if: ${{ always() }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      actions: read # the jobs of this run
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Did every test job run and pass?
+        env:
+          GH_TOKEN: ${{ github.token }}
+          NEEDS: ${{ toJSON(needs) }}
+        run: |
+          python3 -m venv .venv
+          .venv/bin/pip install --quiet pyyaml==6.0.3
+          .venv/bin/python .github/full-pass/verdict.py --run-id "$GITHUB_RUN_ID" --needs "$NEEDS" --summary "$GITHUB_STEP_SUMMARY"
