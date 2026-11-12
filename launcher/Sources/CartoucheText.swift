@@ -184,6 +184,7 @@ enum CartoucheText {
     static var setupAppleIDHow: String { s("setup.appleID.how", "Sign in once, here in Cartouche, with LocalDevVPN connected: Cartouche then takes its certificate and renews itself every week.") }
     static func setupAppleIDDone(_ appleID: String) -> String { f("setup.appleID.done", "Signed in: %@", appleID) }
     static var setupSignIn: String { s("setup.appleID.signIn", "Sign In") }
+    static func setupAppleIDDevice(_ appleID: String) -> String { f("setup.appleID.device", "Signed in: %@. This iPhone is left to register, which Cartouche does by itself once LocalDevVPN is connected.", appleID) }
     static var setupCertificateTitle: String { s("setup.certificate.title", "Certificate") }
     static var setupCertificateHow: String { s("setup.certificate.how", "Comes by itself once you have signed in. If not, install Cartouche again over this copy with the Cartouche Installer.") }
     static var setupCertificateDone: String { s("setup.certificate.done", "Cartouche signs your games with it.") }
@@ -202,6 +203,8 @@ enum CartoucheText {
     static var setupBannerCertificate: String { s("setup.banner.certificate", "The certificate no longer works") }
     static var setupBannerCertificateDetail: String { s("setup.banner.certificate.detail", "Sign in again to play") }
     static var setupBannerCertificateRenewing: String { s("setup.banner.certificate.renewing", "Cartouche signs in again…") }
+    static var setupBannerDeviceDetail: String { s("setup.banner.device.detail", "Connect LocalDevVPN to register this iPhone") }
+    static var setupBannerDeviceWorking: String { s("setup.banner.device.working", "Cartouche registers this iPhone…") }
     static var setupStatusDone: String { s("setup.status.done", "Done") }
     static var setupStatusToDo: String { s("setup.status.todo", "To do") }
 
@@ -233,6 +236,13 @@ enum CartoucheText {
     static var signInKeychainFailed: String { s("signIn.keychainFailed", "Cartouche could not hand your Apple ID to the built-in SideStore. Try again.") }
     static var signInTooManyRequests: String { s("signIn.tooManyRequests", "Apple is refusing new sign-ins for now: too many attempts in a short time, from this Apple ID or from this network. There is nothing to reset or reinstall. Wait for the countdown to end, then sign in again: trying sooner can make the wait longer.") }
     static func signInWait(_ remaining: String) -> String { f("signIn.wait", "Try again in %@", remaining) }
+    static var signInVPNWaiting: String { s("signIn.vpnWait", "Waiting for LocalDevVPN: Cartouche goes on by itself as soon as it is connected.") }
+    static var signInVPNGoOn: String { s("signIn.vpnWait.goOn", "Go on without waiting") }
+    static var signInDeviceTitle: String { s("signIn.device.title", "Last step: this iPhone") }
+    static var signInDeviceHow: String { s("signIn.device.how", "Apple accepted your Apple ID. Cartouche only has to register this iPhone with it, through LocalDevVPN: no password, no code.") }
+    static var signInDeviceButton: String { s("signIn.device.button", "Register this iPhone") }
+    static var signInDeviceWorking: String { s("signIn.device.working", "Registering this iPhone with your account…") }
+    static var signInDeviceFailedTitle: String { s("signIn.device.failed.title", "This iPhone is not registered yet") }
     // What Cartouche says instead of SideStore's words when Apple limits the
     // requests or answers with a page: CartoucheTextSideStore.swift.
 

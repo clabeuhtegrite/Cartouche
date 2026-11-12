@@ -313,10 +313,18 @@ struct GameList: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text(game.name)
                     .font(.callout.weight(.medium))
-                if let error = game.error, !error.isEmpty, game.state == "failed" {
+                // Why it failed, or was skipped (a full disk, no room, no keys).
+                if let error = game.shownError {
                     Text(error)
                         .font(.caption)
                         .foregroundStyle(.secondary)
+                        .lineLimit(3)
+                }
+                if let commit = game.fallbackCommit {
+                    Text(tr("From nxnative \(commit.prefix(8)), the last commit that built: the newest does not build for now",
+                            "Avec nxnative \(commit.prefix(8)), le dernier commit qui a construit : le plus récent ne construit pas pour l’instant"))
+                        .font(.caption)
+                        .foregroundStyle(.orange)
                         .lineLimit(2)
                 }
             }

@@ -17,6 +17,10 @@ of it (CartoucheSideStoreOutcome, launcher/Sources/CartoucheFailure.swift):
   and every sentence SideStore's code gives invalidParameters, which it
   throws for what it did not expect, has the name of a reason, each one
   named still SideStore's (app/patches/sidestore/0018).
+- the sign-in, and the step that registers this iPhone alone, check that
+  SideStore reaches the iPhone before anything goes to Apple
+  (app/patches/sidestore/0019), and the stages Cartouche reads of them are
+  theirs.
 
 SideStore's sources are read as app/scripts/prepare.sh leaves them, every
 patch applied, so that a later patch's fields count too. Needs the
@@ -238,6 +242,8 @@ class SideStoreOutcomeTest(unittest.TestCase):
         self.ours = ours()
         self.cause = block(self.ours, "var cause: CartoucheFailure.Cause", "CartoucheSideStoreOutcome.cause")
         self.sources = own_sources()
+        self.sign_in = self.files["SideStore/Intents/CartoucheSignInIntent.swift"]
+        self.device = patched("SideStore/Intents/CartoucheRegisterDeviceIntent.swift")
 
     def test_both_sides_name_the_same_keychain_item(self):
         account = re.compile(r'static let account = "([^"]+)"')
@@ -249,7 +255,7 @@ class SideStoreOutcomeTest(unittest.TestCase):
     def test_each_action_leaves_the_one_cartouche_waits_for(self):
         theirs = cases(block(self.outcome, "enum Action: String", "SideStore's actions"))
         mine = cases(block(self.ours, "enum Action: String", "Cartouche's actions"))
-        self.assertEqual(theirs, {"signIn", "refresh", "update"})
+        self.assertEqual(theirs, {"signIn", "device", "refresh", "update"})
         self.assertEqual(theirs, mine)
         left = {
             "SideStore/Intents/CartoucheSignInIntent.swift": "signIn",
@@ -258,10 +264,12 @@ class SideStoreOutcomeTest(unittest.TestCase):
         }
         for name, action in left.items():
             self.assertEqual(re.findall(r"CartoucheOutcome\(action: \.(\w+)\)", self.files[name]), [action], name)
-        waited = {"CartoucheAccount.swift": "signIn", "CartoucheRenewal.swift": "refresh", "CartoucheUpdates.swift": "update"}
-        for name, action in waited.items():
+        self.assertEqual(re.findall(r"CartoucheOutcome\(action: \.(\w+)\)", self.device), ["device"])
+        waited = {"CartoucheAccount.swift": ["signIn", "device"], "CartoucheRenewal.swift": ["refresh"],
+                  "CartoucheUpdates.swift": ["update"]}
+        for name, actions in waited.items():
             text = (LAUNCHER / name).read_text(encoding="utf-8")
-            self.assertEqual(re.findall(r"CartoucheSideStoreOutcome\(data: \$0, expecting: \.(\w+)", text), [action], name)
+            self.assertEqual(re.findall(r"CartoucheSideStoreOutcome\(data: \$0, expecting: \.(\w+)", text), actions, name)
 
     def test_cartouche_reads_every_field_sidestore_writes(self):
         save = block(self.outcome, "func save(", "CartoucheOutcome.save")
@@ -289,6 +297,46 @@ class SideStoreOutcomeTest(unittest.TestCase):
         # A refresh or an update leaves its last operation as its stage:
         # the trail AsyncOperation keeps.
         self.assertIn("CartoucheOutcome.reached(", self.files["SideStore/Core/Operations/AsyncOperation.swift"])
+
+    def test_the_sign_in_reaches_this_iphone_before_apple(self):
+        # Sign In to Cartouche makes minimuxer's readiness check before its
+        # sign-in starts, and Register Cartouche's iPhone before Apple's
+        # developer services (patch 0019).
+        check = "try await CartoucheDeviceCheck.run()"
+        sign_in = block(self.sign_in, "func perform()", "the sign-in's perform")
+        self.assertLess(sign_in.index("handler.reach(.deviceCheck)"), sign_in.index(check))
+        self.assertLess(sign_in.index(check), sign_in.index("handler.reach(.account)"))
+        self.assertLess(sign_in.index(check), sign_in.index("SignInOperation("))
+        device = block(self.device, "func perform()", "the device step's perform")
+        self.assertLess(device.index(check), device.index("registerCurrentDevice("))
+        self.assertIn("static var isDiscoverable: Bool { false }", self.device)
+        self.assertIn("try await ensureMinimuxerReady()", patched("SideStore/Intents/CartoucheDeviceCheck.swift"))
+
+    def test_the_stages_cartouche_reads_of_the_sign_in_are_sidestores(self):
+        body = block(self.sign_in, "enum Stage: String, CaseIterable", "the sign-in's stages")
+        order = re.findall(r"^\s*case (\w+)", body, re.M)
+        self.assertLess(order.index("deviceCheck"), order.index("account"))
+        # The step that registers this iPhone alone names its stages as the
+        # sign-in does.
+        device = set(re.findall(r'stage(?: =|:) "(\w+)"', block(self.device, "func perform()", "the device step's perform")))
+        self.assertEqual(device, {"database", "account", "deviceCheck", "device", "finish"})
+        self.assertLessEqual(device, set(order))
+        # The stages before anything goes to Apple: Cartouche's own, before
+        # it hands the sign-in over, then SideStore's before the account.
+        message = (LAUNCHER / "CartoucheSignInMessage.swift").read_text(encoding="utf-8")
+        listed = re.search(r"static let stagesBeforeApple: Set<String> = \[([^\]]*)\]", message)
+        self.assertIsNotNone(listed, "the stages before Apple not found")
+        before = set(re.findall(r'"(\w+)"', listed.group(1)))
+        self.assertEqual(before - {"start"}, set(order[:order.index("account")]))
+        self.assertIn('stage: "start"', (LAUNCHER / "CartoucheAccount.swift").read_text(encoding="utf-8"))
+        # And those Cartouche tells the player's next step by, which its
+        # words for the sign-in follow.
+        read = set(re.findall(r'failure\.stage == "(\w+)"', message))
+        read |= set(re.findall(r'case "(\w+)"\??:', block(message, "static func deviceMoment(", "deviceMoment")))
+        self.assertEqual(read, {"deviceCheck", "device", "account"})
+        self.assertLessEqual(read, set(order))
+        words = (LAUNCHER / "CartoucheTextSideStore.swift").read_text(encoding="utf-8")
+        self.assertIn("deviceMoment(of: failure)", block(words, "static func sideStoreMessage(", "sideStoreMessage"))
 
     def test_every_family_sidestore_leaves_has_its_causes(self):
         kind = block(self.outcome, "static func kind(of error: Error)", "CartoucheOutcome.kind(of:)")
