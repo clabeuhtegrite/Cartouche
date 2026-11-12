@@ -265,20 +265,20 @@
   },
   "signing": {
     "hint": "Choose your signing certificate (.p12) and its provisioning profile. Signing happens on this computer; no Apple ID is needed.",
-    "choose_p12": "Choose P12 certificate",
-    "choose_profile": "Choose provisioning profile",
-    "password": "P12 password (leave blank for an unencrypted P12)",
-    "limitations": "Games run in Cartouche’s place. App extensions and weekly SideStore renewal are disabled. Updates use this installer. Memory permissions depend on your profile.",
-    "needs_files": "Choose a P12 and its provisioning profile.",
-    "needs_ready": "Select an iPhone and provide signing credentials.",
+    "choose_p12": "Choose the certificate (.p12)",
+    "choose_profile": "Choose its profile (.mobileprovision)",
+    "password": "Certificate password (leave it empty if it has none)",
+    "limitations": "Games start in Cartouche’s place, never behind the console. Cartouche does not renew itself each week: install its updates with this installer. Increased Memory Limit depends on your profile.",
+    "needs_files": "Choose your certificate (.p12) and its profile.",
+    "needs_ready": "Choose an iPhone, then your certificate and its profile.",
     "have_certificate": "I have a signing certificate (.p12)",
     "use_account": "Use my Apple Account instead",
     "profile_checking": "Checking the provisioning profile…",
     "profile_invalid": "Cannot read this provisioning profile. Choose a valid .mobileprovision file.",
     "no_memory_limit": "This profile has no Increased Memory Limit: most games will not start. Without it, the app has about 3 GB of memory.",
     "install_hint": "Cartouche signed with your certificate and the permissions your provisioning profile grants.",
-    "step_install": "Sign and install with your certificate",
-    "step_handoff": "Prepare the encrypted signing handoff",
-    "success_message": "Open Cartouche on the iPhone to import the encrypted certificate handoff. If iOS requests trust or Developer Mode, follow the instructions in Settings. No Apple ID sign-in or pairing file is needed for imported signing."
+    "step_install": "Sign it with your certificate and install it",
+    "step_handoff": "Put your certificate in Cartouche, encrypted",
+    "success_message": "Open Cartouche on the iPhone: it takes your certificate by itself. If iOS asks you to trust the developer or to turn on Developer Mode, do it in Settings. Neither an Apple ID nor a pairing file is needed."
   }
 }

@@ -44,7 +44,19 @@ final class CartoucheGuide: ObservableObject {
         var hasInstalledGame = false
         /// The player said No thanks to building their game on a Mac.
         var buildSkipped = false
+        /// Cartouche signs with an Apple ID: one installed with the player's
+        /// own certificate has neither LocalDevVPN's step nor the Apple ID's.
         var requiresAccount = true
+
+        /// The steps this installation has, in their order.
+        var steps: [Step] {
+            requiresAccount ? Step.allCases : Step.allCases.filter { $0 != .vpn && $0 != .account }
+        }
+
+        /// STEP's number among them.
+        func number(of step: Step) -> Int {
+            (steps.firstIndex(of: step) ?? step.rawValue) + 1
+        }
 
         func isDone(_ step: Step) -> Bool {
             switch step {

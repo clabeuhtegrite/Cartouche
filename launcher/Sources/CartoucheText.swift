@@ -741,7 +741,7 @@ enum CartoucheText {
     static var telemetryWhat: String { s("telemetry.what", "What is sent") }
     static var telemetryWhatGames: String { s("telemetry.what.games", "For each game session: frame rate, frame and GPU times, stutters and what caused them, shader preparation, memory, heat and power, sound, the screen’s sizes, how the game ended, and the game’s version and settings.") }
     static var telemetryWhatDevice: String { s("telemetry.what.device", "This iPhone’s model, iOS version and memory limit, Cartouche’s version and language, and a random number of this copy of Cartouche.") }
-    static var telemetryWhatEvents: String { s("telemetry.what.events", "Each start of Cartouche, game installs, updates, renewals, Apple ID sign-ins, how the Files picker of each import went, and errors, by their codes and the step they stopped at.") }
+    static var telemetryWhatEvents: String { s("telemetry.what.events", "Each start of Cartouche, game installs, updates, renewals, Apple ID sign-ins, signing certificates you import, how the Files picker of each import went, and errors, by their codes and the step they stopped at.") }
     static var telemetryWhatNever: String { s("telemetry.what.never", "Never your Apple ID, your iPhone’s name, your files, the addresses of your storage or the game’s log itself.") }
     static var telemetryLastSent: String { s("telemetry.lastSent", "Last sent") }
     static var telemetryNever: String { s("telemetry.never", "Never") }

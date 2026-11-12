@@ -368,6 +368,8 @@ final class CartoucheTelemetry: ObservableObject {
             "setUp": .flag(CartoucheSetup.shared.isComplete),
             "storage": .text(CartoucheStorageSettings.shared.location(.games)?.server.kind.rawValue ?? "none"),
             "saves": .text(CartoucheStorageSettings.shared.location(.saves)?.server.kind.rawValue ?? "none"),
+            // The player's own certificate, or the Apple ID's (docs/imported-signing.md).
+            "signing": .text(CartoucheImportedSigning.isImportedInstall ? "imported" : "account"),
         ]
         if let days = CartoucheSignature.current().daysLeft {
             fields["signatureDays"] = .number(Double(days))

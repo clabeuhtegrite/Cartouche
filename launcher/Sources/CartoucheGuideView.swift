@@ -59,7 +59,7 @@ struct CartoucheGuideView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 14) {
                 header(progress)
-                ForEach(Step.allCases.filter { progress.requiresAccount || ($0 != .vpn && $0 != .account) }) { step in
+                ForEach(progress.steps) { step in
                     card(step, progress: progress)
                 }
                 Label(CartoucheText.guideNoDownloads, systemImage: "lock.shield")
@@ -132,7 +132,7 @@ struct CartoucheGuideView: View {
                 .foregroundStyle(CartoucheTheme.secondaryText)
                 .fixedSize(horizontal: false, vertical: true)
             HStack(spacing: 6) {
-                ForEach(Step.allCases.filter { progress.requiresAccount || ($0 != .vpn && $0 != .account) }) { step in
+                ForEach(progress.steps) { step in
                     Capsule()
                         .fill(capsuleStyle(step, progress))
                         .frame(height: 6)
@@ -182,7 +182,7 @@ struct CartoucheGuideView: View {
         let open = isOpen(step, progress)
         let skipped = progress.isSkipped(step)
         return HStack(alignment: .top, spacing: 14) {
-            badge(step, done: done, open: open, skipped: skipped)
+            badge(step, number: progress.number(of: step), done: done, open: open, skipped: skipped)
             VStack(alignment: .leading, spacing: 10) {
                 Text(Self.title(step))
                     .font(.system(.title3, design: .rounded, weight: .bold))
@@ -220,7 +220,7 @@ struct CartoucheGuideView: View {
                             : skipped && !open ? CartoucheText.guideStepSkipped(Self.title(step)) : Self.title(step))
     }
 
-    private func badge(_ step: Step, done: Bool, open: Bool, skipped: Bool) -> some View {
+    private func badge(_ step: Step, number: Int, done: Bool, open: Bool, skipped: Bool) -> some View {
         ZStack {
             Circle()
                 .fill(done ? Color.green : open ? CartoucheTheme.indigo : Color.white.opacity(0.14))
@@ -231,7 +231,7 @@ struct CartoucheGuideView: View {
                 Image(systemName: "forward.fill")
                     .font(.subheadline.weight(.heavy))
             } else {
-                Text(String(step.number))
+                Text(String(number))
                     .font(.headline.monospacedDigit().weight(.heavy))
             }
         }
@@ -484,7 +484,7 @@ struct CartoucheGuideCard: View {
 
     private var detail: String {
         guard let step = progress.current else { return CartoucheText.guideFinishedTitle }
-        return CartoucheText.guideCardDetail(step.number, CartoucheGuide.Step.allCases.count,
+        return CartoucheText.guideCardDetail(progress.number(of: step), progress.steps.count,
                                              CartoucheGuideView.title(step))
     }
 }

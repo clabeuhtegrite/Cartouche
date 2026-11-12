@@ -324,15 +324,19 @@ final class CartoucheSetup: ObservableObject {
                     guard let key = Bundle.main.object(forInfoDictionaryKey: "CartoucheSigningHandoffKey") as? Data,
                           let size = try handoff.resourceValues(forKeys: [.fileSizeKey]).fileSize,
                           size <= 9 * 1024 * 1024 else {
-                        throw CartoucheImportedSigning.ImportError(message: CartoucheText.signingHandoffFailed)
+                        throw CartoucheImportedSigning.ImportError(message: CartoucheText.signingHandoffFailed, kind: "handoff")
                     }
                     let data = try Data(contentsOf: handoff)
                     let material: CartoucheSigningMaterial
                     do { material = try CartoucheSigningMaterial.openHandoff(data, key: key) }
-                    catch { throw CartoucheImportedSigning.ImportError(message: CartoucheText.signingHandoffFailed) }
+                    catch { throw CartoucheImportedSigning.ImportError(message: CartoucheText.signingHandoffFailed, kind: "handoff") }
                     try await CartoucheImportedSigning.importMaterial(material)
                     signingProblem = nil
-                } catch { signingProblem = error.localizedDescription }
+                    CartoucheImportedSigning.measure(via: "installer", error: nil)
+                } catch {
+                    signingProblem = error.localizedDescription
+                    CartoucheImportedSigning.measure(via: "installer", error: error)
+                }
                 try? FileManager.default.removeItem(at: handoff)
                 isImportingSigning = false
                 finishSigningImport()
@@ -388,7 +392,11 @@ final class CartoucheSetup: ObservableObject {
         do {
             try await CartoucheImportedSigning.importMaterial(.init(certificate: certificate, password: password, profile: profile))
             signingProblem = nil
-        } catch { signingProblem = error.localizedDescription }
+            CartoucheImportedSigning.measure(via: "setup", error: nil)
+        } catch {
+            signingProblem = error.localizedDescription
+            CartoucheImportedSigning.measure(via: "setup", error: error)
+        }
         isImportingSigning = false
         finishSigningImport()
     }

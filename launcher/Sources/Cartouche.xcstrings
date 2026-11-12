@@ -1690,13 +1690,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Import your certificate, then build and install your first game."
+            "value" : "Three steps from here to your first game. Each one ticks itself once it is done."
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Importez votre certificat, puis construisez et installez votre premier jeu."
+            "value" : "Trois étapes jusqu’à votre premier jeu. Chacune se coche toute seule une fois faite."
           }
         }
       }
@@ -6093,13 +6093,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "P12 selected — replace"
+            "value" : "Choose another certificate (.p12)"
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "P12 sélectionné — remplacer"
+            "value" : "Choisir un autre certificat (.p12)"
           }
         }
       }
@@ -6110,13 +6110,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Choose P12 certificate"
+            "value" : "Choose the certificate (.p12)"
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Choisir le certificat P12"
+            "value" : "Choisir le certificat (.p12)"
           }
         }
       }
@@ -6127,13 +6127,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Choose provisioning profile"
+            "value" : "Choose its profile (.mobileprovision)"
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Choisir le profil de provisionnement"
+            "value" : "Choisir son profil (.mobileprovision)"
           }
         }
       }
@@ -6144,13 +6144,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "The certificate handoff could not be opened. Install Cartouche again with your signing certificate and provisioning profile."
+            "value" : "Cartouche could not open the certificate the installer gave it. Install Cartouche again with your certificate and its profile."
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Impossible d’ouvrir le transfert du certificat. Réinstallez Cartouche avec votre certificat de signature et son profil."
+            "value" : "Cartouche n’a pas pu ouvrir le certificat donné par l’Installeur Cartouche. Réinstallez Cartouche avec votre certificat et son profil."
           }
         }
       }
@@ -6161,13 +6161,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Use your P12, its password and provisioning profile. No Apple ID or VPN is needed for imported signing."
+            "value" : "Choose your certificate (.p12), its password and its profile (.mobileprovision). Neither an Apple ID nor LocalDevVPN is needed."
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Utilisez votre P12, son mot de passe et son profil de provisionnement. Aucun compte Apple ni VPN n’est nécessaire pour cette signature."
+            "value" : "Choisissez votre certificat (.p12), son mot de passe et son profil (.mobileprovision). Ni compte Apple ni LocalDevVPN ne sont nécessaires."
           }
         }
       }
@@ -6184,7 +6184,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Choisissez un fichier de signature de moins de 4 Mo."
+            "value" : "Choisissez un fichier de signature de moins de 4 Mo."
           }
         }
       }
@@ -6195,13 +6195,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Cannot open this P12. Check its password and that it includes the private key."
+            "value" : "This certificate does not open. Check its password, and that the .p12 holds its private key."
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Impossible d’ouvrir ce P12. Vérifiez son mot de passe et la présence de la clé privée."
+            "value" : "Ce certificat ne s’ouvre pas. Vérifiez son mot de passe, et que le .p12 contient bien sa clé privée."
           }
         }
       }
@@ -6218,7 +6218,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Le profil de provisionnement est invalide, expiré ou ne correspond pas à ce certificat."
+            "value" : "Ce profil n’est pas valide, a expiré ou ne correspond pas à ce certificat."
           }
         }
       }
@@ -6229,13 +6229,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "P12 password"
+            "value" : "Certificate password"
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Mot de passe du P12"
+            "value" : "Mot de passe du certificat"
           }
         }
       }
@@ -6246,13 +6246,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Profile selected — replace"
+            "value" : "Choose another profile (.mobileprovision)"
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Profil sélectionné — remplacer"
+            "value" : "Choisir un autre profil (.mobileprovision)"
           }
         }
       }
@@ -6263,13 +6263,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "iOS refused this signing certificate. Import a valid replacement; if its profile differs, reinstall Cartouche with it using the computer installer."
+            "value" : "iOS refused this certificate. Import another one, or install Cartouche again with a new certificate and its profile, from the Cartouche Installer."
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "iOS a refusé ce certificat de signature. Importez un certificat valide de remplacement ; si son profil diffère, réinstallez Cartouche avec celui-ci depuis l’installateur sur ordinateur."
+            "value" : "iOS a refusé ce certificat. Importez-en un autre, ou réinstallez Cartouche avec un nouveau certificat et son profil, depuis l’Installeur Cartouche."
           }
         }
       }
@@ -6280,13 +6280,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "If this certificate is not allowed by the installed app’s profile, install Cartouche again with your signing certificate (.p12) and its provisioning profile using the Cartouche Installer."
+            "value" : "If the profile Cartouche was installed with does not allow this certificate, install Cartouche again with it and its profile, from the Cartouche Installer."
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Si le profil de l’app installée n’autorise pas ce certificat, réinstallez Cartouche avec le même certificat et profil dans le Cartouche Installer. Pour passer une installation importée à la signature par compte Apple, réinstallez avec l’option Compte Apple de l’installateur."
+            "value" : "Si le profil avec lequel Cartouche a été installée n’autorise pas ce certificat, réinstallez Cartouche avec lui et son profil, depuis l’Installeur Cartouche."
           }
         }
       }
@@ -6314,13 +6314,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Updates and renewal use the Cartouche Installer on your computer with your imported certificate. No weekly Apple ID renewal is needed."
+            "value" : "Cartouche is signed with your own certificate: install its updates, and a new certificate before it expires, from the Cartouche Installer on your computer. It needs no renewal each week."
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Les mises à jour et le renouvellement passent par le Cartouche Installer sur votre ordinateur avec votre certificat importé. Aucun renouvellement hebdomadaire par compte Apple n’est nécessaire."
+            "value" : "Cartouche est signée avec votre propre certificat : installez ses mises à jour, et un nouveau certificat avant qu’il n’expire, depuis l’Installeur Cartouche sur votre ordinateur. Elle n’a pas besoin d’être renouvelée chaque semaine."
           }
         }
       }
@@ -10054,13 +10054,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Each start of Cartouche, game installs, updates, renewals, Apple ID sign-ins, how the Files picker of each import went, and errors, by their codes and the step they stopped at."
+            "value" : "Each start of Cartouche, game installs, updates, renewals, Apple ID sign-ins, signing certificates you import, how the Files picker of each import went, and errors, by their codes and the step they stopped at."
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Chaque ouverture de Cartouche, les installations de jeux, les mises à jour, les renouvellements, les connexions au compte Apple, le déroulement du sélecteur de fichiers de chaque import et les erreurs, par leurs codes et l’étape où elles se sont arrêtées."
+            "value" : "Chaque ouverture de Cartouche, les installations de jeux, les mises à jour, les renouvellements, les connexions au compte Apple, les certificats de signature importés, le déroulement du sélecteur de fichiers de chaque import et les erreurs, par leurs codes et l’étape où elles se sont arrêtées."
           }
         }
       }

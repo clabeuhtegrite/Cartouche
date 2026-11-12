@@ -118,7 +118,7 @@ struct CartoucheSystemView: View {
             LabeledContent {
                 HStack(spacing: 8) {
                     if let step = progress.current {
-                        Text(CartoucheText.guideStatusStep(step.number, CartoucheGuide.Step.allCases.count))
+                        Text(CartoucheText.guideStatusStep(progress.number(of: step), progress.steps.count))
                     } else {
                         Label(CartoucheText.guideStatusDone, systemImage: "checkmark.circle.fill")
                             .labelStyle(CartoucheTightLabelStyle())

@@ -33,26 +33,26 @@ enum CartoucheImportedSigning {
 
     @MainActor
     static func importMaterial(_ material: CartoucheSigningMaterial) async throws {
-        guard isImportedInstall else { throw ImportError(message: CartoucheText.signingReinstall) }
+        guard isImportedInstall else { throw ImportError(message: CartoucheText.signingReinstall, kind: "reinstall") }
         if #available(iOS 17.0, *) {
             guard CartoucheAccount.shared.phase == nil, CartoucheUpdates.shared.phase == nil else {
-                throw ImportError(message: CartoucheText.signingWait)
+                throw ImportError(message: CartoucheText.signingWait, kind: "busy")
             }
         }
         guard let team = LCUtils.getCertTeamId(withKeyData: material.certificate, password: material.password) else {
-            throw ImportError(message: CartoucheText.signingInvalidKey)
+            throw ImportError(message: CartoucheText.signingInvalidKey, kind: "invalidKey")
         }
         var items: CFArray?
         let options = [kSecImportExportPassphrase as String: material.password] as CFDictionary
         guard SecPKCS12Import(material.certificate as CFData, options, &items) == errSecSuccess,
               let first = (items as? [[String: Any]])?.first,
               let value = first[kSecImportItemIdentity as String] else {
-            throw ImportError(message: CartoucheText.signingInvalidKey)
+            throw ImportError(message: CartoucheText.signingInvalidKey, kind: "invalidKey")
         }
         let identity = value as! SecIdentity
         var certificate: SecCertificate?
         guard SecIdentityCopyCertificate(identity, &certificate) == errSecSuccess, let certificate else {
-            throw ImportError(message: CartoucheText.signingInvalidKey)
+            throw ImportError(message: CartoucheText.signingInvalidKey, kind: "invalidKey")
         }
         let hostProfile = try Data(contentsOf: Bundle.main.bundleURL.appendingPathComponent("embedded.mobileprovision"))
         #if CARTOUCHE_GALLERY
@@ -64,15 +64,15 @@ enum CartoucheImportedSigning {
             try material.validate(certificateDER: SecCertificateCopyData(certificate) as Data,
                                   team: team, hostTeam: hostTeam, hostProfile: hostProfile)
         } catch CartoucheSigningMaterial.Problem.reinstall {
-            throw ImportError(message: CartoucheText.signingReinstall)
+            throw ImportError(message: CartoucheText.signingReinstall, kind: "reinstall")
         } catch {
-            throw ImportError(message: CartoucheText.signingInvalidProfile)
+            throw ImportError(message: CartoucheText.signingInvalidProfile, kind: "invalidProfile")
         }
         guard await CartoucheCertificate.works(candidate: material) else {
-            throw ImportError(message: CartoucheText.signingRefused)
+            throw ImportError(message: CartoucheText.signingRefused, kind: "refused")
         }
         guard save(try PropertyListEncoder().encode(material)) else {
-            throw ImportError(message: CartoucheText.signInKeychainFailed)
+            throw ImportError(message: CartoucheText.signInKeychainFailed, kind: "keychain")
         }
         LCSharedUtils.setCartoucheSigningCandidate(nil)
         // Only a timestamp is persisted in engine preferences. Credentials
@@ -82,6 +82,18 @@ enum CartoucheImportedSigning {
 
     struct ImportError: LocalizedError {
         let message: String
+        /// What went wrong, as a name for the telemetry: never the
+        /// certificate, its password, its team or its profile.
+        var kind = "other"
         var errorDescription: String? { message }
+    }
+
+    /// Says how an import of a certificate went: VIA, `installer` for the
+    /// one the Cartouche Installer handed over, `setup` for one the player
+    /// chose in Setup; and its outcome, `imported` or why not.
+    @MainActor
+    static func measure(via: String, error: Error?) {
+        let outcome = error.map { ($0 as? ImportError)?.kind ?? "other" } ?? "imported"
+        CartoucheTelemetry.shared.event("signing.imported", fields: ["via": .text(via), "outcome": .text(outcome)])
     }
 }
