@@ -233,27 +233,8 @@ enum CartoucheText {
     static var signInKeychainFailed: String { s("signIn.keychainFailed", "Cartouche could not hand your Apple ID to the built-in SideStore. Try again.") }
     static var signInTooManyRequests: String { s("signIn.tooManyRequests", "Apple is refusing new sign-ins for now: too many attempts in a short time, from this Apple ID or from this network. There is nothing to reset or reinstall. Wait for the countdown to end, then sign in again: trying sooner can make the wait longer.") }
     static func signInWait(_ remaining: String) -> String { f("signIn.wait", "Try again in %@", remaining) }
-
-    // MARK: Apple's answers the built-in SideStore could not read
-
-    static var appleTooManyRequests: String { s("apple.tooManyRequests", "Apple is refusing more requests for now, after too many in a short time from this Apple ID or from this network. Wait a while, then try again.") }
-    static func applePage(_ status: Int) -> String { f("apple.page", "Apple’s servers sent back an error page (%lld) instead of an answer. Try again in a few minutes.", status) }
-    static var appleUnreadable: String { s("apple.unreadable", "Cartouche could not read Apple’s answer. Check this iPhone’s connection, then try again.") }
-
-    /// What Cartouche tells the player of the built-in SideStore's MESSAGE,
-    /// FAILURE being what Cartouche told of how its action ended: its own
-    /// words when Apple limits the requests or answered with a page, which
-    /// SideStore's would show as they are, those of a SIGN-IN when it is
-    /// one; SideStore's otherwise, without the App Intents error's name.
-    static func sideStoreMessage(_ message: String, failure: CartoucheFailure, signIn: Bool = false) -> String {
-        let readable = CartoucheSignInMessage.readable(message)
-        switch CartoucheSignInMessage.trouble(in: readable, failure: failure) {
-        case .tooManyRequests?: return signIn ? signInTooManyRequests : appleTooManyRequests
-        case .unreadable(let status?)?: return applePage(status)
-        case .unreadable(nil)?: return appleUnreadable
-        case nil: return readable
-        }
-    }
+    // What Cartouche says instead of SideStore's words when Apple limits the
+    // requests or answers with a page: CartoucheTextSideStore.swift.
 
     // MARK: System
 
