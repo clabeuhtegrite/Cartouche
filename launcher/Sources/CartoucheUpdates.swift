@@ -265,7 +265,9 @@ final class CartoucheUpdates: ObservableObject {
         if let message {
             let failure = CartoucheFailure.sideStore(outcome: outcome, message: message, fraction: fraction, seconds: seconds,
                                                      vpn: CartoucheVPN.isConnected, pairing: CartouchePairing.exists)
-            failed(message, version: version, step: step, fraction: fraction, failure: failure)
+            // Never Apple's page for an error, as SideStore's words would show it.
+            failed(CartoucheText.sideStoreMessage(message, failure: failure), version: version, step: step, fraction: fraction,
+                   failure: failure)
         } else {
             CartoucheReports.note("Update to Cartouche " + version + " installed")
             notice = CartoucheGameNotice(title: CartoucheText.updateInstalledTitle(version), message: CartoucheText.updateInstalledMessage)

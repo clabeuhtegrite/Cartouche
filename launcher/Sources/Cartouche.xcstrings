@@ -256,6 +256,57 @@
         }
       }
     },
+    "apple.page" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Apple’s servers sent back an error page (%lld) instead of an answer. Try again in a few minutes."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Les serveurs d’Apple ont renvoyé une page d’erreur (%lld) au lieu d’une réponse. Réessayez dans quelques minutes."
+          }
+        }
+      }
+    },
+    "apple.tooManyRequests" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Apple is refusing more requests for now, after too many in a short time from this Apple ID or from this network. Wait a while, then try again."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Apple refuse d’autres demandes pour l’instant, après trop de demandes en peu de temps pour cet identifiant Apple ou depuis ce réseau. Patientez un moment, puis réessayez."
+          }
+        }
+      }
+    },
+    "apple.unreadable" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cartouche could not read Apple’s answer. Check this iPhone’s connection, then try again."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cartouche n’a pas pu lire la réponse d’Apple. Vérifiez la connexion de cet iPhone, puis réessayez."
+          }
+        }
+      }
+    },
     "build.built" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -5611,6 +5662,23 @@
         }
       }
     },
+    "signIn.tooManyRequests" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Apple is refusing new sign-ins for now: too many attempts in a short time, from this Apple ID or from this network. There is nothing to reset or reinstall. Wait for the countdown to end, then sign in again: trying sooner can make the wait longer."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Apple refuse de nouvelles connexions pour l’instant : trop de tentatives en peu de temps, pour cet identifiant Apple ou depuis ce réseau. Il n’y a rien à réinitialiser ni à réinstaller. Attendez la fin du compte à rebours, puis reconnectez-vous : réessayer plus tôt peut allonger l’attente."
+          }
+        }
+      }
+    },
     "signIn.unavailable" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -5658,6 +5726,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Connectez d’abord LocalDevVPN"
+          }
+        }
+      }
+    },
+    "signIn.wait" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Try again in %@"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Réessayer dans %@"
           }
         }
       }
