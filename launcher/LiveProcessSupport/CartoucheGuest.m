@@ -27,6 +27,13 @@
 //        limit       footprint + available, in bytes
 //        sizes       each size its screen took: time (date), width and
 //                    height (points), footprint (bytes) at that moment
+//        increasedMemoryLimit
+//                    whether the process has Increased Memory Limit
+//                    (boolean), as its signature gives it, written once as
+//                    the game starts; missing when it cannot be read.
+//                    Without it, iOS gives the game a fraction of what
+//                    Cartouche has with it: 3,376 MiB against 8,192 on an
+//                    iPhone with 12 GB (docs/decisions.md, 64)
 //
 //  - The Home button of a controller: nxnative leaves it to the game
 //    without a use (DmGamepad.m). A press shows Cartouche's console, as the
@@ -38,6 +45,7 @@
 #import <Foundation/Foundation.h>
 #import <GameController/GameController.h>
 #import <UIKit/UIKit.h>
+#include <dlfcn.h>
 #include <mach/mach.h>
 #include <os/proc.h>
 #include <stddef.h>
@@ -67,6 +75,27 @@ static BOOL CartoucheGuestFootprint(uint64_t *footprint, uint64_t *peak) {
     *peak = (size_t)count * sizeof(natural_t) >= peakEnd && info.ledger_phys_footprint_peak > 0
         ? (uint64_t)info.ledger_phys_footprint_peak : info.phys_footprint;
     return YES;
+}
+
+/// Whether this process has Increased Memory Limit, as its signature gives
+/// it: 1 or 0, or -1 when the entitlement cannot be read. Security's
+/// functions, which Cartouche calls for its own (CartoucheDevice.swift),
+/// are looked up rather than linked: the iOS SDK does not declare them.
+static int CartoucheGuestIncreasedMemoryLimit(void) {
+    void *(*createFromSelf)(CFAllocatorRef) = (void *(*)(CFAllocatorRef))dlsym(RTLD_DEFAULT, "SecTaskCreateFromSelf");
+    CFTypeRef (*copyValue)(void *, CFStringRef, CFErrorRef *) =
+        (CFTypeRef (*)(void *, CFStringRef, CFErrorRef *))dlsym(RTLD_DEFAULT, "SecTaskCopyValueForEntitlement");
+    if (!createFromSelf || !copyValue) return -1;
+    void *task = createFromSelf(kCFAllocatorDefault);
+    if (!task) return -1;
+    CFErrorRef error = NULL;
+    id value = CFBridgingRelease(copyValue(task, CFSTR("com.apple.developer.kernel.increased-memory-limit"), &error));
+    CFRelease((CFTypeRef)task);
+    if (error) {
+        CFRelease(error);
+        return -1;
+    }
+    return [value isKindOfClass:NSNumber.class] && [value boolValue] ? 1 : 0;
 }
 
 /// The game's own scene, not the one nxnative opens on a TV. This process
@@ -171,6 +200,8 @@ void CartoucheGuestStart(NSDictionary *appInfo) {
         @"pid": @(getpid()),
         @"started": [NSDate date],
     } mutableCopy];
+    int increased = CartoucheGuestIncreasedMemoryLimit();
+    if (increased >= 0) reading[@"increasedMemoryLimit"] = increased == 1 ? @YES : @NO;
 
     measureQueue = dispatch_queue_create("Cartouche.GameMemory", DISPATCH_QUEUE_SERIAL);
     dispatch_async(measureQueue, ^{

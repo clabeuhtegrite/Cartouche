@@ -11,7 +11,10 @@
 //  which is higher: the game's process writes its limit as it runs
 //  (CartoucheGameMemoryReading), and Cartouche measures its own
 //  (CartoucheMemoryReading). CartoucheGameKeeping (CartoucheRunningGame.swift)
-//  asks these questions with them.
+//  asks these questions with them. The game's process also says whether
+//  it has Increased Memory Limit: some installs signed it without, which
+//  left a game 3,376 MiB there while Cartouche had 8,192 (docs/decisions.md,
+//  64).
 //
 //  Platform-independent: tested on its own by launcher/Package.swift.
 //
@@ -45,11 +48,24 @@ enum CartoucheGamePlace {
     /// leaves less than its room under the limit there, as Mario Kart
     /// World's, up to 6,074 MiB, under 6,144, or, without a peak, the
     /// capability, as a game does that needs all the memory it can have.
+    /// Without a peak, any game needs more once the process there ran
+    /// without the capability, BEHINDLACKSIML: iOS stopped Donkey Kong
+    /// Bananza within seconds there, four times, with 3,376 MiB, while
+    /// Cartouche's place had 8,192.
     /// Before any game has run behind the console, every game tries there.
-    static func startsBehind(needsIML: Bool, peakMiB: Int?, behindMiB: Int?, ownMiB: Int?) -> Bool {
+    static func startsBehind(needsIML: Bool, peakMiB: Int?, behindMiB: Int?, behindLacksIML: Bool = false,
+                             ownMiB: Int?) -> Bool {
         guard let behindMiB, cartoucheHasMore(than: behindMiB, ownMiB: ownMiB) else { return true }
         if let peakMiB { return peakMiB + roomMiB(under: behindMiB) <= behindMiB }
-        return !needsIML
+        return !needsIML && !behindLacksIML
+    }
+
+    /// Whether every game starts in Cartouche's place, but one whose peak
+    /// fits behind the console: the process there ran without Increased
+    /// Memory Limit, BEHINDLACKSIML, and Cartouche's place has more.
+    static func sendsGamesInPlace(behindMiB: Int?, behindLacksIML: Bool, ownMiB: Int?) -> Bool {
+        guard behindLacksIML, let behindMiB else { return false }
+        return cartoucheHasMore(than: behindMiB, ownMiB: ownMiB)
     }
 
     /// Whether a game that went to Cartouche's place for its memory, after

@@ -48,7 +48,10 @@ enum CartoucheDevice {
     }
 
     /// Whether the GPU samples BC-compressed textures, which games from
-    /// consoles use.
+    /// consoles use. nxnative refuses a GPU without them, the A16's and
+    /// older, for every game: the game says so on its screen, or, built by
+    /// an older nxnative, stops at its first texture (dm/ios/Sources/main.m,
+    /// dm/gfx/nvn/nvn_mtl.m).
     static let supportsBCTextureCompression: Bool = {
         #if CARTOUCHE_GALLERY
         return true
@@ -211,7 +214,8 @@ enum CartoucheFit: Hashable {
         if !CartoucheDevice.runsAtLeast(sheet.requirements.minimumIOS) {
             blockers.append(CartoucheText.reasonIOS(sheet.requirements.minimumIOS))
         }
-        if sheet.requirements.bcTextureCompression && !CartoucheDevice.supportsBCTextureCompression {
+        // Whatever the sheet says: nxnative refuses this GPU for every game.
+        if !CartoucheDevice.supportsBCTextureCompression {
             blockers.append(CartoucheText.reasonGPU)
         }
         if !blockers.isEmpty { return .unsupported(blockers) }

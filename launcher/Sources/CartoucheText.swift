@@ -95,7 +95,7 @@ enum CartoucheText {
     static var fitUnsupported: String { s("status.unsupported", "Not supported on this iPhone") }
 
     static func reasonIOS(_ version: String) -> String { f("reason.ios", "Needs iOS %@ or later.", version) }
-    static var reasonGPU: String { s("reason.gpu", "Needs a GPU that reads BC-compressed textures.") }
+    static var reasonGPU: String { s("reason.gpu", "nxnative’s games need an iPhone 15 Pro or later, or an iPad with an M1 chip or later: this iPhone’s GPU cannot read their compressed textures, and a game stops there before its first image.") }
     static var reasonIML: String { s("reason.iml", "Needs Increased Memory Limit, which is not active for Cartouche yet.") }
     static func reasonMemory(needed: String, limit: String) -> String {
         f("reason.memory", "Needs about %1$@; a game may use %2$@ on this iPhone.", needed, limit)
@@ -327,6 +327,8 @@ enum CartoucheText {
     static var installFailed: String { s("work.install.failed", "The game was not installed") }
     static var installSignWarning: String { s("work.install.signWarning", "Installed, but not signed") }
     static var installDone: String { s("work.install.done", "Installed") }
+    static var installGPUTitle: String { s("work.install.gpu", "This iPhone cannot run nxnative’s games") }
+    static var installAnyway: String { s("work.install.gpu.anyway", "Install anyway") }
     static func installNotAGame(_ name: String) -> String { f("work.install.notAGame", "%@ is not an nxnative game: you will find it in Apps.", name) }
     static func installNoSpace(needed: String, free: String) -> String {
         f("work.install.noSpace", "Installing this game takes about %1$@ of free space, and this iPhone has %2$@. Free some space, then import it again.", needed, free)
@@ -435,11 +437,15 @@ enum CartoucheText {
         f("running.stopped.memory.behind", "iOS closed the game near its limit of %@ behind Cartouche: in Cartouche’s place, it would have no more memory. Your progress is kept up to its last save.", limit)
     }
     static var startsInPlaceNote: String { s("sheet.inPlace", "Behind Cartouche, this game would run short of memory: it starts in Cartouche’s place, and the console closes while it runs.") }
+    static func startsInPlaceWithoutIML(_ limit: String) -> String {
+        f("sheet.inPlace.iml", "Behind Cartouche, games have only %@ here, without Increased Memory Limit: this game starts in Cartouche’s place, and the console closes while it runs.", limit)
+    }
     static var tryBehindAgain: String { s("sheet.inPlace.retry", "Try behind Cartouche again") }
     static var playingTitle: String { s("system.playing", "While a game runs") }
     static var keepConsoleOpen: String { s("system.playing.keep", "Keep Cartouche open behind the game") }
     static var behindLimit: String { s("system.playing.limit", "Memory for a game behind Cartouche") }
     static var behindLimitUnknown: String { s("system.playing.limit.unknown", "Measured at the next game") }
+    static var behindWithoutIML: String { s("system.playing.noIML", "Behind Cartouche, games run without Increased Memory Limit here: they start in Cartouche’s place, with all of its memory, unless their sheet shows they need less.") }
     static var playingFooter: String { s("system.playing.footer", "The Home button over the game, or the controller’s, brings back the console and pauses the game. A game that needs more memory than it has here starts in Cartouche’s place, when Cartouche has more.") }
     static var memoryFooterBehind: String { s("system.memory.footer.behind", "Games that start in Cartouche’s place share this limit; behind Cartouche, a game has its own, below. With Increased Memory Limit, an iPhone with 12 GB allows Cartouche about 8 GiB.") }
     static func updateWhilePlaying(_ name: String) -> String { f("system.updates.playing", "Quit %@ first: Cartouche closes to install its update.", name) }

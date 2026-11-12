@@ -45,7 +45,39 @@ final class CartoucheGamePlaceTests: XCTestCase {
         XCTAssertFalse(CartoucheGamePlace.startsBehind(needsIML: false, peakMiB: 5_000, behindMiB: behind, ownMiB: own))
         XCTAssertTrue(CartoucheGamePlace.startsBehind(needsIML: false, peakMiB: 2_500, behindMiB: behind, ownMiB: own))
         XCTAssertFalse(CartoucheGamePlace.startsBehind(needsIML: false, peakMiB: 3_000, behindMiB: behind, ownMiB: own))
+        // Until the process says it ran without the capability (below).
         XCTAssertTrue(CartoucheGamePlace.startsBehind(needsIML: false, peakMiB: nil, behindMiB: behind, ownMiB: own))
+        XCTAssertFalse(CartoucheGamePlace.sendsGamesInPlace(behindMiB: behind, behindLacksIML: false, ownMiB: own))
+    }
+
+    func testOnceTheProcessRanWithoutTheCapabilityOnlyAGameWhosePeakFitsStaysThere() {
+        let behind = 3_376
+        // Donkey Kong Bananza, which has no sheet: iOS stopped it there
+        // within seconds, four times.
+        XCTAssertFalse(CartoucheGamePlace.startsBehind(needsIML: false, peakMiB: nil, behindMiB: behind,
+                                                       behindLacksIML: true, ownMiB: own))
+        XCTAssertFalse(CartoucheGamePlace.startsBehind(needsIML: true, peakMiB: nil, behindMiB: behind,
+                                                       behindLacksIML: true, ownMiB: own))
+        XCTAssertFalse(CartoucheGamePlace.startsBehind(needsIML: true, peakMiB: 6_074, behindMiB: behind,
+                                                       behindLacksIML: true, ownMiB: own))
+        XCTAssertTrue(CartoucheGamePlace.startsBehind(needsIML: false, peakMiB: 2_500, behindMiB: behind,
+                                                      behindLacksIML: true, ownMiB: own))
+        XCTAssertTrue(CartoucheGamePlace.sendsGamesInPlace(behindMiB: behind, behindLacksIML: true, ownMiB: own))
+        // Without Game Mode, Cartouche's place still has more.
+        XCTAssertTrue(CartoucheGamePlace.sendsGamesInPlace(behindMiB: behind, behindLacksIML: true, ownMiB: 6_143))
+        // Without the capability in Cartouche either, it has no more: every
+        // game stays behind the console.
+        XCTAssertTrue(CartoucheGamePlace.startsBehind(needsIML: false, peakMiB: nil, behindMiB: behind,
+                                                      behindLacksIML: true, ownMiB: 3_376))
+        XCTAssertFalse(CartoucheGamePlace.sendsGamesInPlace(behindMiB: behind, behindLacksIML: true, ownMiB: 3_376))
+        // Nothing measured there yet: every game tries there.
+        XCTAssertTrue(CartoucheGamePlace.startsBehind(needsIML: false, peakMiB: nil, behindMiB: nil,
+                                                      behindLacksIML: true, ownMiB: own))
+        XCTAssertFalse(CartoucheGamePlace.sendsGamesInPlace(behindMiB: nil, behindLacksIML: true, ownMiB: own))
+        // The capability back: the sheet decides, as before.
+        XCTAssertTrue(CartoucheGamePlace.startsBehind(needsIML: false, peakMiB: nil, behindMiB: 6_144,
+                                                      behindLacksIML: false, ownMiB: own))
+        XCTAssertFalse(CartoucheGamePlace.sendsGamesInPlace(behindMiB: 6_144, behindLacksIML: false, ownMiB: own))
     }
 
     func testAGameKeepsAnEighthOfItsLimitOrHalfAGibibyte() {
