@@ -61,6 +61,20 @@
 //      -GalleryCategory Controls         the settings page's category, one
 //                                        of nxnative's sections
 //
+//  The UI tests (launcher/Gallery/UITests) open the whole console, as
+//  Cartouche shows it, and drive it (GalleryTesting.swift):
+//
+//      -GalleryScreen root               the console with the System page
+//                                        over it, as Cartouche's root view
+//      -GalleryTest 1                    a clean start, the IPA the Files
+//                                        picker offers, and the watch on
+//                                        the main thread
+//      -GalleryPairing 1                 the pairing file without the rest
+//                                        of the setup, to sign in
+//      -GalleryHoldMainThread 1.5        the main thread held once, for
+//                                        that many seconds, which the
+//                                        watch must see
+//
 
 import Network
 import SwiftUI
@@ -336,8 +350,10 @@ struct CartoucheGalleryApp: App {
     @StateObject private var model = SharedModel()
 
     init() {
+        GalleryTest.start()
         scenario = GalleryScenario.fromArguments()
         scenario.prepare()
+        MainActor.assumeIsolated { GalleryTest.prepared() }
     }
 
     var body: some Scene {
@@ -345,6 +361,13 @@ struct CartoucheGalleryApp: App {
             content
                 .environmentObject(model)
                 .preferredColorScheme(.dark)
+                .overlay(alignment: .bottomLeading) {
+                    if GalleryTest.isOn {
+                        GalleryWatchReadout()
+                            .frame(width: 2, height: 2)
+                            .allowsHitTesting(false)
+                    }
+                }
                 .onAppear {
                     model.apps = scenario.apps()
                     scenario.pause(among: model.apps)
@@ -440,6 +463,8 @@ struct CartoucheGalleryApp: App {
             NavigationStack {
                 CartoucheReportView()
             }
+        case "root":
+            CartoucheRootView()
         default:
             CartoucheGamesView()
         }

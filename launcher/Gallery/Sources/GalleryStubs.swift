@@ -71,7 +71,9 @@ final class LCAppModel: ObservableObject, Identifiable, Equatable {
 /// CartoucheGameActions.swift, which installs, starts, uninstalls and copies
 /// games with LiveContainer and opens their preferences, as the gallery
 /// stands it in: nothing happens, a scenario can show a step in progress,
-/// and every game has the settings of GallerySettings, kept in memory.
+/// every game has the settings of GallerySettings, kept in memory, and an
+/// install says, for the UI tests, which IPA it was given
+/// (GalleryTesting.swift).
 @MainActor
 final class CartoucheGameActions: ObservableObject {
     static let shared = CartoucheGameActions()
@@ -85,7 +87,7 @@ final class CartoucheGameActions: ObservableObject {
     @Published var quitQuestion: CartoucheRunningGame?
 
     nonisolated static func takes(_ url: URL) -> Bool { false }
-    func install(_ url: URL) {}
+    func install(_ url: URL) { GalleryTest.install(url, with: self) }
     func install(stored game: CartoucheStoredGame) {}
     func play(_ app: LCAppModel, showingSettings: Bool = false) {}
     func resumeRunningGame() {}
