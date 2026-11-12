@@ -167,9 +167,9 @@ final class CartoucheGameKeeping: ObservableObject {
     private static let keepsKey = "Cartouche.keepConsoleOpen"
     private static let inPlaceKey = "Cartouche.keepConsoleOpen.inPlace"
     private static let limitKey = "Cartouche.keepConsoleOpen.limitMiB"
-    /// The install of Cartouche with which the game's process ran without
-    /// Increased Memory Limit (install).
-    private static let lacksIMLKey = "Cartouche.keepConsoleOpen.lacksIML"
+    /// Whether the game's process ran without Increased Memory Limit, kept
+    /// with this install of Cartouche.
+    private let imlRecord: CartoucheBehindIMLRecord
 
     /// Whether games can run behind the console here: with iOS 18 or later,
     /// whose scene hosting shows the game's scene in Cartouche's window, and
@@ -201,13 +201,11 @@ final class CartoucheGameKeeping: ObservableObject {
         inPlace = Set(defaults.stringArray(forKey: Self.inPlaceKey) ?? [])
         let limit = defaults.integer(forKey: Self.limitKey)
         limitMiB = limit > 0 ? limit : nil
-        // Another install signed the game's process again: the next game
-        // tries behind the console, and says whether it has the capability.
-        let lacking = defaults.string(forKey: Self.lacksIMLKey)
-        behindLacksIML = lacking == Self.install
-        if lacking != nil && !behindLacksIML {
-            defaults.removeObject(forKey: Self.lacksIMLKey)
-        }
+        // After another install, which signed the game's process again, the
+        // next game tries behind the console, and says whether it has the
+        // capability.
+        imlRecord = CartoucheBehindIMLRecord(defaults: defaults, install: Self.install)
+        behindLacksIML = imlRecord.load()
     }
 
     /// This install of Cartouche, which signed the games' process with the
@@ -257,15 +255,8 @@ final class CartoucheGameKeeping: ObservableObject {
             limitMiB = limit
             UserDefaults.standard.set(limit, forKey: Self.limitKey)
         }
-        guard let has = reading.hasIncreasedMemoryLimit else { return }
-        let lacks = !has
-        guard lacks != behindLacksIML else { return }
-        behindLacksIML = lacks
-        if lacks {
-            UserDefaults.standard.set(Self.install, forKey: Self.lacksIMLKey)
-        } else {
-            UserDefaults.standard.removeObject(forKey: Self.lacksIMLKey)
-        }
+        let lacks = imlRecord.record(has: reading.hasIncreasedMemoryLimit, lacked: behindLacksIML)
+        if lacks != behindLacksIML { behindLacksIML = lacks }
     }
 
     /// Whether every game starts in Cartouche's place, but one whose peak
@@ -280,7 +271,7 @@ final class CartoucheGameKeeping: ObservableObject {
     /// whether its process has Increased Memory Limit now.
     func tryBehindAgain() {
         behindLacksIML = false
-        UserDefaults.standard.removeObject(forKey: Self.lacksIMLKey)
+        imlRecord.clear()
     }
 
     /// Whether a game that needs NEEDSIML, or PEAKMIB at its most, starts

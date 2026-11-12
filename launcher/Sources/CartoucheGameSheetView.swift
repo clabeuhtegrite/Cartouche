@@ -104,10 +104,12 @@ struct CartoucheGameSheetView: View {
             } else {
                 // nxnative refuses this GPU for every game, with a sheet or
                 // without.
-                if !CartoucheDevice.supportsBCTextureCompression {
+                if let fit = CartoucheFit.withoutSheet() {
                     Section {
-                        Label(CartoucheText.reasonGPU, systemImage: "exclamationmark.triangle.fill")
-                            .foregroundStyle(Color.orange)
+                        ForEach(fit.reasons, id: \.self) { reason in
+                            Label(reason, systemImage: "exclamationmark.triangle.fill")
+                                .foregroundStyle(Color.orange)
+                        }
                     }
                 }
                 if entry.isOwned {

@@ -578,7 +578,7 @@ struct CartoucheGamesView: View {
         Binding(
             get: { actions.installQuestion != nil },
             set: { shown in
-                if !shown { actions.installQuestion = nil }
+                if !shown { actions.closeInstallQuestion() }
             })
     }
 

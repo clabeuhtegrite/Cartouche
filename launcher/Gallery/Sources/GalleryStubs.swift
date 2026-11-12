@@ -90,6 +90,7 @@ final class CartoucheGameActions: ObservableObject {
     func install(stored game: CartoucheStoredGame) {}
     func installAnyway(_ question: CartoucheInstallQuestion) { installQuestion = nil }
     func dropInstall(_ question: CartoucheInstallQuestion) { installQuestion = nil }
+    func closeInstallQuestion() { installQuestion = nil }
     func play(_ app: LCAppModel, showingSettings: Bool = false) {}
     func resumeRunningGame() {}
     func askToQuit() { quitQuestion = running }

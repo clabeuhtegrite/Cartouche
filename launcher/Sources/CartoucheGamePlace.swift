@@ -11,13 +11,18 @@
 //  which is higher: the game's process writes its limit as it runs
 //  (CartoucheGameMemoryReading), and Cartouche measures its own
 //  (CartoucheMemoryReading). CartoucheGameKeeping (CartoucheRunningGame.swift)
-//  asks these questions with them. The game's process also says whether
-//  it has Increased Memory Limit: some installs signed it without, which
-//  left a game 3,376 MiB there while Cartouche had 8,192 (docs/decisions.md,
-//  67).
+//  asks these questions with them, and CartoucheGameActions acts on what a
+//  game's first measurement there and its end say (afterMeasure,
+//  afterStop). The game's process also says whether it has Increased
+//  Memory Limit: some installs signed it without, which left a game 3,376
+//  MiB there while Cartouche had 8,192 (docs/decisions.md, 67). Cartouche
+//  keeps that answer with the install it came from
+//  (CartoucheBehindIMLRecord).
 //
 //  Platform-independent: tested on its own by launcher/Package.swift.
 //
+
+import Foundation
 
 /// The answers, from the two limits in MiB: BEHINDMIB, the one iOS gave the
 /// last game behind the console, nil before any ran there; OWNMIB,
@@ -83,5 +88,114 @@ enum CartoucheGamePlace {
     static func gameLimitMiB(behindMiB: Int?, ownMiB: Int?) -> Int? {
         guard let behindMiB else { return ownMiB }
         return max(behindMiB, ownMiB ?? 0)
+    }
+
+    /// What follows the first measurement of a game behind the console,
+    /// three seconds in (CartoucheGameActions.gameMeasured).
+    enum AfterMeasure: Equatable {
+        /// It has what it needs there.
+        case staysBehind
+        /// It starts again in Cartouche's place at once; FROMNOWON, it
+        /// starts there from then on too (CartoucheGameKeeping.startInPlace).
+        case startsAgainInPlace(fromNowOn: Bool)
+    }
+
+    /// What follows the first measurement of a game behind the console, by
+    /// the limit iOS set there, LIMITMIB, and NEEDSIML, PEAKMIB,
+    /// BEHINDLACKSIML and OWNMIB, as for startsBehind: a game that needs
+    /// more than it has there starts again in Cartouche's place, and
+    /// starts there from then on, but while the process there runs without
+    /// Increased Memory Limit. Every game goes to Cartouche's place then
+    /// anyway (sendsGamesInPlace), and one marked for that would stay there
+    /// once another install signs that process with the capability, though
+    /// it fits behind the console again.
+    static func afterMeasure(limitMiB: Int, needsIML: Bool, peakMiB: Int?, behindLacksIML: Bool,
+                             ownMiB: Int?) -> AfterMeasure {
+        if startsBehind(needsIML: needsIML, peakMiB: peakMiB, behindMiB: limitMiB, behindLacksIML: behindLacksIML,
+                        ownMiB: ownMiB) {
+            return .staysBehind
+        }
+        let everyGame = sendsGamesInPlace(behindMiB: limitMiB, behindLacksIML: behindLacksIML, ownMiB: ownMiB)
+        return .startsAgainInPlace(fromNowOn: !everyGame)
+    }
+
+    /// What follows when iOS stopped a game behind the console, which the
+    /// player did not quit (CartoucheGameActions.gameDidEnd).
+    enum AfterStop: Equatable {
+        /// It starts again in Cartouche's place at once, as its first
+        /// measurement would have sent it: the process there runs without
+        /// Increased Memory Limit, and the game needs more than it has
+        /// there. iOS stopped Donkey Kong Bananza within two seconds,
+        /// before that measurement, four times, with 3,376 MiB, while
+        /// Cartouche had 8,192.
+        case startsAgainInPlace
+        /// Stopped near its limit, it starts in Cartouche's place from then
+        /// on, which has more, and the console says so.
+        case startsInPlaceFromNowOn
+        /// Stopped near its limit, it stays behind the console, where it has
+        /// as much, and the console says so.
+        case staysBehind
+        /// Stopped for another cause, or in the background: the console says
+        /// so.
+        case stopped
+    }
+
+    /// What follows when iOS stopped a game behind the console, by its last
+    /// reading there: LIMITMIB, the limit iOS set, nil without a reading,
+    /// and NEARLIMIT, whether it was close to it
+    /// (CartoucheGameMemoryReading.wasNearLimit); WASINFRONT, whether the
+    /// game was on screen; STARTPENDING, whether it was already to start
+    /// again, as after its first measurement. NEEDSIML, PEAKMIB,
+    /// BEHINDLACKSIML and OWNMIB, as for startsBehind.
+    static func afterStop(limitMiB: Int?, nearLimit: Bool, wasInFront: Bool, startPending: Bool,
+                          needsIML: Bool, peakMiB: Int?, behindLacksIML: Bool, ownMiB: Int?) -> AfterStop {
+        guard wasInFront, let limitMiB else { return .stopped }
+        if !startPending, sendsGamesInPlace(behindMiB: limitMiB, behindLacksIML: behindLacksIML, ownMiB: ownMiB),
+           !startsBehind(needsIML: needsIML, peakMiB: peakMiB, behindMiB: limitMiB, behindLacksIML: behindLacksIML,
+                         ownMiB: ownMiB) {
+            return .startsAgainInPlace
+        }
+        guard nearLimit else { return .stopped }
+        return cartoucheHasMore(than: limitMiB, ownMiB: ownMiB) ? .startsInPlaceFromNowOn : .staysBehind
+    }
+}
+
+/// Whether the game's process behind the console ran without Increased
+/// Memory Limit, as Cartouche keeps it in DEFAULTS from one launch to the
+/// next: with the install of Cartouche that process ran with, INSTALL, as
+/// CartoucheGameKeeping names it (its version, its build and its bundle
+/// folder, which iOS moves at each install). Another install signs that
+/// process again, maybe with the capability: its record of an earlier
+/// install goes, and the next game tries behind the console again.
+struct CartoucheBehindIMLRecord {
+    static let key = "Cartouche.keepConsoleOpen.lacksIML"
+
+    let defaults: UserDefaults
+    let install: String
+
+    /// Whether the process ran without the capability with this install.
+    func load() -> Bool {
+        guard let recorded = defaults.string(forKey: Self.key) else { return false }
+        if recorded == install { return true }
+        defaults.removeObject(forKey: Self.key)
+        return false
+    }
+
+    /// What the process said, HAS, nil when it could not tell, which leaves
+    /// LACKED, what was known: whether it runs without the capability now.
+    func record(has: Bool?, lacked: Bool) -> Bool {
+        guard let has else { return lacked }
+        if has {
+            defaults.removeObject(forKey: Self.key)
+        } else {
+            defaults.set(install, forKey: Self.key)
+        }
+        return !has
+    }
+
+    /// The player tries behind the console again: the next game there says
+    /// whether its process has the capability.
+    func clear() {
+        defaults.removeObject(forKey: Self.key)
     }
 }
