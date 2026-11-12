@@ -114,17 +114,39 @@ final class CartoucheInstalledBuilds {
         try? data.write(to: file, options: .atomic)
     }
 
-    /// The build of the installed game, as its Info.plist says.
+    /// The builds read from the games' Info.plist, by the game's bundle, with
+    /// when the Info.plist last changed: the console asks for them often.
+    private static var readBuilds: [String: (changed: Date?, build: CartoucheGameBuild)] = [:]
+    private static let readLock = NSLock()
+
+    /// The build of the installed game, as the Info.plist in its bundle says.
+    /// LiveContainer's info() is not it: those are LiveContainer's own
+    /// settings for the game (LCAppInfo.plist), which name no version.
     static func installedBuild(of app: LCAppModel) -> CartoucheGameBuild {
-        let info = app.appInfo.info()
-        return CartoucheGameBuild(version: info?["CFBundleShortVersionString"] as? String, commit: info?["DMCommit"] as? String,
-                                  chain: info?["DMChain"] as? String)
+        guard let path = app.appInfo.bundlePath() else { return CartoucheGameBuild() }
+        let bundle = URL(fileURLWithPath: path, isDirectory: true)
+        let changed = (try? bundle.appendingPathComponent("Info.plist")
+            .resourceValues(forKeys: [.contentModificationDateKey]))?.contentModificationDate
+        readLock.lock()
+        defer { readLock.unlock() }
+        if let known = readBuilds[path], known.changed == changed { return known.build }
+        let build = CartoucheGameBuild.installed(atBundle: bundle) ?? CartoucheGameBuild()
+        readBuilds[path] = (changed, build)
+        return build
     }
 
     /// The record of the game's install, when it is of the build installed.
+    /// Cartouche 0.9.0 to 0.11.2 recorded no version, commit nor chain, as it
+    /// read them from LiveContainer's settings for the game: such a record,
+    /// of the build installed then, takes them from the game's Info.plist
+    /// and keeps when it was built.
     func record(of app: LCAppModel) -> CartoucheGameBuild? {
         guard let bundleId = app.appInfo.bundleIdentifier(), let recorded = builds[bundleId] else { return nil }
         let installed = Self.installedBuild(of: app)
+        if recorded.version == nil, recorded.commit == nil, recorded.chain == nil {
+            return CartoucheGameBuild(version: installed.version, commit: installed.commit, chain: installed.chain,
+                                      builtAt: recorded.builtAt)
+        }
         guard recorded.version == installed.version, recorded.commit == installed.commit else { return nil }
         return recorded
     }

@@ -40,6 +40,15 @@ struct CartoucheGameBuild: Codable, Hashable {
                   chain: info["DMChain"] as? String, builtAt: builtAt)
     }
 
+    /// The build of the app installed at BUNDLE, as the Info.plist in it
+    /// says, without when it was built; nil when it has none to read.
+    static func installed(atBundle bundle: URL) -> CartoucheGameBuild? {
+        guard let data = try? Data(contentsOf: bundle.appendingPathComponent("Info.plist")),
+              let info = try? PropertyListSerialization.propertyList(from: data, format: nil) as? [String: Any]
+        else { return nil }
+        return CartoucheGameBuild(info: info, builtAt: nil)
+    }
+
     /// Whether nxnative says it was built from changed files, so that its
     /// commit does not tell what it holds.
     var isDirty: Bool { commit?.hasSuffix("+dirty") ?? false }

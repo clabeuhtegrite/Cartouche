@@ -26,6 +26,29 @@ final class CartoucheGameBuildTests: XCTestCase {
         XCTAssertNil(CartoucheGameBuild(info: [:], builtAt: nil).version)
     }
 
+    /// The installed game's build is in the Info.plist of its bundle, binary
+    /// once LiveContainer has written it again, not in LCAppInfo.plist.
+    func testReadsTheBuildOfAnInstalledGameFromItsInfoPlist() throws {
+        let bundle = FileManager.default.temporaryDirectory
+            .appendingPathComponent("CartoucheGameBuildTests-\(UUID().uuidString)/Game.app", isDirectory: true)
+        try FileManager.default.createDirectory(at: bundle, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: bundle.deletingLastPathComponent()) }
+        XCTAssertNil(CartoucheGameBuild.installed(atBundle: bundle))
+
+        let settings = try PropertyListSerialization.data(fromPropertyList: ["LCDataUUID": "A1B2"], format: .xml, options: 0)
+        try settings.write(to: bundle.appendingPathComponent("LCAppInfo.plist"))
+        let info: [String: Any] = ["CFBundleShortVersionString": "1.2.0", "DMCommit": "52124866A1B2", "DMChain": "844bf1a5ea8f",
+                                   "CFBundleIdentifier": "com.example.game"]
+        let data = try PropertyListSerialization.data(fromPropertyList: info, format: .binary, options: 0)
+        try data.write(to: bundle.appendingPathComponent("Info.plist"))
+        let build = try XCTUnwrap(CartoucheGameBuild.installed(atBundle: bundle))
+        XCTAssertEqual(build, CartoucheGameBuild(version: "1.2.0", commit: "52124866a1b2", chain: "844bf1a5ea8f"))
+        XCTAssertNil(build.builtAt)
+
+        try Data("not a property list".utf8).write(to: bundle.appendingPathComponent("Info.plist"))
+        XCTAssertNil(CartoucheGameBuild.installed(atBundle: bundle))
+    }
+
     func testALaterVersionIsNewer() {
         let installed = CartoucheGameBuild(version: "1.0.0", commit: "aaaaaaaaaaaa", builtAt: night)
         XCTAssertTrue(CartoucheGameBuild(version: "1.1.0", commit: "aaaaaaaaaaaa", builtAt: night).isNewer(than: installed))

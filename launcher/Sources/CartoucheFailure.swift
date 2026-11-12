@@ -456,7 +456,9 @@ struct CartoucheSideStoreOutcome: Equatable, Sendable {
     var service: String?
     var retryAfter: Int?
     /// What the action noted on its way: whether Apple asked for a code and
-    /// how, the account's certificates and teams.
+    /// how, the account's certificates and teams; for SideStore's
+    /// invalidParameters (patch 0018), which of its sentences it is and the
+    /// step or value that sentence names.
     var facts: [String: CartoucheTelemetryValue]
 
     /// What SideStore wrote, each value of the type it must have or none.
@@ -465,6 +467,7 @@ struct CartoucheSideStoreOutcome: Equatable, Sendable {
             case version, action, ok, date, seconds, percent, stage, trail, family, kind, codes, apple, http, network, host
             case codeAsked, bundledCertificate, activeCertificate, certificates, teams, codeMode, teamType
             case service, retryAfter
+            case reason, missing
         }
 
         var version: Int
@@ -484,7 +487,7 @@ struct CartoucheSideStoreOutcome: Equatable, Sendable {
             for key in [Key.seconds, .percent, .apple, .http, .network, .certificates, .teams, .retryAfter] {
                 if let value = try? values.decodeIfPresent(Int.self, forKey: key) { ints[key] = value }
             }
-            for key in [Key.stage, .trail, .family, .kind, .codes, .host, .codeMode, .teamType, .service] {
+            for key in [Key.stage, .trail, .family, .kind, .codes, .host, .codeMode, .teamType, .service, .reason, .missing] {
                 if let value = try? values.decodeIfPresent(String.self, forKey: key) { texts[key] = value }
             }
             for key in [Key.codeAsked, .bundledCertificate, .activeCertificate] {
@@ -533,7 +536,7 @@ struct CartoucheSideStoreOutcome: Equatable, Sendable {
         for key in [Written.Key.certificates, .teams] {
             if let count = written.int(key, in: 0...10_000) { facts[key.rawValue] = .number(Double(count)) }
         }
-        for key in [Written.Key.codeMode, .teamType] {
+        for key in [Written.Key.codeMode, .teamType, .reason, .missing] {
             if let name = written.name(key) { facts[key.rawValue] = .text(name) }
         }
         self.facts = facts
