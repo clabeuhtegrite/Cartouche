@@ -13,7 +13,7 @@ name: Launcher screens
 #
 # A pull request's UI tests and screenshots run once for what it changes in
 # the gallery's files: a rebase or a merge of main that leaves those changes
-# as they were keeps the results of before, about half an hour of a Mac each
+# as they were keeps the results of before, about an hour of a Mac each
 # time. Run the workflow from the Actions tab to run them again, with or
 # without the screenshots.
 
@@ -93,7 +93,9 @@ jobs:
     # cannot skip them.
     if: ${{ !cancelled() && needs.taken.outputs.taken != 'true' }}
     runs-on: xcode-27
-    timeout-minutes: 75
+    # The UI tests take half an hour, a failed one running once more, and
+    # the screenshots as long again.
+    timeout-minutes: 95
     outputs:
       # Whether the screenshots were taken, whole or in part: skipped when
       # the UI tests failed, or when the run was asked without them.
