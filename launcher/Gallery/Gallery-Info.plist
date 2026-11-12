@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  The gallery's own keys, which Xcode adds to the Info.plist it writes from
+  project.yml: the service of the keychain the launcher shares with the
+  built-in SideStore, as app/scripts/package.sh writes it into Cartouche's,
+  and the Documents the Files picker shows under On My iPhone, where the UI
+  tests pick an IPA, as Cartouche's are for a pairing file.
+-->
+<plist version="1.0">
+<dict>
+	<key>CartoucheBundleIdentifier</key>
+	<string>io.github.clabeuhtegrite.cartouche.gallery</string>
+	<key>LSSupportsOpeningDocumentsInPlace</key>
+	<true/>
+	<key>UIFileSharingEnabled</key>
+	<true/>
+</dict>
+</plist>
