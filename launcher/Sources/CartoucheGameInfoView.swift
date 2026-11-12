@@ -222,6 +222,8 @@ struct CartoucheGameInfoView: View {
             // button for all of them.
             .buttonStyle(.borderless)
             .font(.subheadline.weight(.semibold))
+            // A name on two lines starts where its symbol ends.
+            .multilineTextAlignment(.leading)
             .disabled(isReading)
         }
     }

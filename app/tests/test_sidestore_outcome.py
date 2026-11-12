@@ -9,14 +9,19 @@ of it (CartoucheSideStoreOutcome, launcher/Sources/CartoucheFailure.swift):
 - the stages and families Cartouche tells causes from are ones SideStore
   leaves, and the cases it names are cases of SideStore's errors;
 - the sentences Cartouche tells LiveContainer's bridge failures by, when
-  SideStore left nothing, are still LiveContainer's.
+  SideStore left nothing, are still LiveContainer's;
+- Apple's HTTP errors without an answer of its own, such as its 429 when it
+  limits the sign-ins (app/patches/sidestore/0016), are told apart in the
+  sign-in and the developer services, as cases Cartouche names.
 
-Needs the LiveContainer and SideStore submodules, with SideSign and
-minimuxer.
+SideStore's sources are read as app/scripts/prepare.sh leaves them, every
+patch applied, so that a later patch's fields count too. Needs the
+LiveContainer and SideStore submodules, with SideSign and minimuxer.
 
 Run from the repository root: python3 -m unittest discover -s app/tests -v
 """
 
+import functools
 import re
 import unittest
 from pathlib import Path
@@ -32,19 +37,79 @@ BRIDGE = ROOT / "app" / "LiveContainer" / "SideStoreSupport"
 UNMAPPED_FAMILIES = {"cocoa", "posix", "system", "other"}
 
 
+HUNK = re.compile(r"^@@ -(\d+)(?:,(\d+))? \+\d+(?:,(\d+))? @@")
+
+
+@functools.lru_cache(maxsize=None)
+def hunks(patch: Path) -> dict:
+    """The hunks of PATCH, by the file they change: each one as the line it
+    starts at in the file before, how many of its lines it replaces, and its
+    lines, as (" ", "-" or "+", text)."""
+    found, current = {}, None
+    lines = patch.read_text(encoding="utf-8").split("\n")
+    index = 0
+    while index < len(lines):
+        line = lines[index]
+        index += 1
+        if line.startswith("+++ "):
+            current = None if line.startswith("+++ /dev/null") else line[len("+++ b/"):].rstrip("\t")
+            if current:
+                found.setdefault(current, [])
+            continue
+        header = HUNK.match(line)
+        if not (current and header):
+            continue
+        start, old, new = int(header.group(1)), int(header.group(2) or 1), int(header.group(3) or 1)
+        replaced, body = old, []
+        while old > 0 or new > 0:
+            if index >= len(lines):
+                raise AssertionError(f"{patch.name}: a hunk of {current} ends early")
+            text = lines[index]
+            index += 1
+            if text.startswith("\\"):
+                continue  # "\ No newline at end of file"
+            tag, text = (text[:1], text[1:]) if text else (" ", "")
+            if tag not in " -+":
+                raise AssertionError(f"{patch.name}: a hunk of {current} has a line that is not one")
+            body.append((tag, text))
+            old -= tag != "+"
+            new -= tag != "-"
+        found[current].append((start, replaced, tuple(body)))
+    return found
+
+
+def patched(path: str) -> str:
+    """PATH of SideStore's sources as app/scripts/prepare.sh leaves it: the
+    submodule's, with every patch applied in name order, each hunk where
+    its lines are, nearest the line it gives, as patch(1) does."""
+    if not (SIDESTORE / "Dependencies" / "SideSign" / "Sources").is_dir():
+        raise AssertionError(f"{SIDESTORE.relative_to(ROOT)} is missing: run git submodule update --init --recursive")
+    original = SIDESTORE / path
+    lines = original.read_text(encoding="utf-8").split("\n") if original.exists() else []
+    for patch in sorted(PATCHES.glob("*.patch")):
+        shift = drift = 0
+        for start, replaced, body in hunks(patch).get(path, []):
+            before = [text for tag, text in body if tag != "+"]
+            after = [text for tag, text in body if tag != "-"]
+            given = (start if replaced == 0 else start - 1) + shift
+            at = next((position for distance in range(len(lines) + 1)
+                       for position in (given + drift - distance, given + drift + distance)
+                       if 0 <= position <= len(lines) - len(before)
+                       and lines[position:position + len(before)] == before), None)
+            if at is None:
+                raise AssertionError(f"{patch.name} does not apply to {path}")
+            lines[at:at + len(before)] = after
+            drift = at - given
+            shift += len(after) - len(before)
+    return "\n".join(lines)
+
+
 def patch_files() -> dict:
-    """The lines patch 0014 adds, by the file they go in."""
+    """The files patch 0014 changes, by their path, every patch applied."""
     patches = sorted(PATCHES.glob("*-tell-cartouche-where-its-actions-stopped-and-why.patch"))
     if len(patches) != 1:
         raise AssertionError(f"expected one outcome patch in {PATCHES.relative_to(ROOT)}, found {len(patches)}")
-    files, current = {}, None
-    for line in patches[0].read_text(encoding="utf-8").splitlines():
-        if line.startswith("+++ "):
-            current = line[len("+++ b/"):].rstrip("\t")
-            files[current] = []
-        elif current and line.startswith("+"):
-            files[current].append(line[1:])
-    return {name: "\n".join(lines) for name, lines in files.items()}
+    return {name: patched(name) for name in hunks(patches[0])}
 
 
 def block(text: str, opening: str, what: str) -> str:
@@ -190,6 +255,35 @@ class SideStoreOutcomeTest(unittest.TestCase):
         bridge = "\n".join(path.read_text(encoding="utf-8") for path in sorted(BRIDGE.glob("*.swift")))
         for sentence, _ in sentences:
             self.assertIn('"' + sentence, bridge, sentence)
+
+    def test_apples_http_errors_are_told_apart_from_its_answers(self):
+        # Apple's 429, and its pages for other errors, become
+        # ServerError.httpStatus before SideSign reads them as an answer
+        # (patch 0016): in the sign-in, its verification codes and the
+        # developer services.
+        requests = {
+            "Authentication.swift": ["func sendAuthenticationRequest(", "func sendTrustedDevice2FACodeRequest(",
+                                     "func sendPhone2FACodeRequest("],
+            "DeveloperPortalAPI.swift": ["func sendRequest<", "func sendServicesRequest<"],
+        }
+        for name, functions in requests.items():
+            text = patched("Dependencies/SideSign/Sources/DeveloperPortal/" + name)
+            for function in functions:
+                self.assertIn("ServerError.httpFailure(response, body: data)", block(text, function, function), function)
+        # Its outcome gives the status as http, and the service and the wait.
+        self.assertIn("case ServerError.httpStatus(let status, _, _)", self.outcome)
+        self.assertIn("if case ServerError.httpStatus(_, let retryAfter, let service) = error", self.outcome)
+
+    def test_the_server_errors_cartouche_tells_pages_by_are_sidesigns(self):
+        # Cartouche tells Apple's pages and HTTP errors by these cases of
+        # SideSign's ServerError (CartoucheSignInMessage.trouble), the
+        # first one patch 0016's.
+        errors = patched("Dependencies/SideSign/Sources/Models/Errors.swift")
+        server = cases(block(errors, "enum ServerError:", "SideSign's ServerError").split("var ")[0])
+        message = (LAUNCHER / "CartoucheSignInMessage.swift").read_text(encoding="utf-8")
+        named = set(re.findall(r'kind == "(\w+)"', block(message, "static func trouble(", "CartoucheSignInMessage.trouble")))
+        self.assertEqual(named, {"httpStatus", "invalidResponseFormat"})
+        self.assertLessEqual(named, server)
 
 
 if __name__ == "__main__":

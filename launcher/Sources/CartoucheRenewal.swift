@@ -62,7 +62,8 @@ enum CartoucheRenewal {
         let failure = CartoucheFailure.sideStore(outcome: outcome, message: message, fraction: progress.fractionCompleted,
                                                  seconds: Date().timeIntervalSince(started),
                                                  vpn: CartoucheVPN.isConnected, pairing: CartouchePairing.exists)
-        throw Failure(message: message, failure: failure)
+        // Never Apple's page for an error, as SideStore's words would show it.
+        throw Failure(message: CartoucheText.sideStoreMessage(message, failure: failure), failure: failure)
     }
 
     // MARK: Warnings before expiry
