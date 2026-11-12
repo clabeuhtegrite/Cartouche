@@ -7,6 +7,9 @@
 //  the certificate, which Cartouche hands to LiveContainer on its own
 //  (CartoucheSetup.swift). Each step shows
 //  where it stands, read again whenever Cartouche comes back to the front.
+//  The Apple ID's step stays open while this iPhone is left to register,
+//  and while the sign-in stopped before the certificate, with why it
+//  stopped.
 //
 
 import SwiftUI
@@ -50,21 +53,30 @@ struct CartoucheSetupView: View {
                 }
                 step(
                     number: 2,
-                    done: setup.appleID != nil,
+                    done: setup.signInStep == .done && !setup.needsDevice,
                     title: CartoucheText.setupAppleIDTitle,
-                    detail: setup.appleID.map(CartoucheText.setupAppleIDDone) ?? CartoucheText.setupAppleIDHow
+                    detail: appleIDDetail
                 ) {
-                    if setup.appleID == nil || !setup.hasCertificate || setup.certificateRefused {
+                    if setup.appleID == nil || !setup.hasCertificate || setup.certificateRefused || setup.needsDevice {
                         // SideStore registers this iPhone at sign-in, through
                         // the pairing file.
                         Button {
                             signingIn = true
                         } label: {
-                            Label(setup.appleID == nil ? CartoucheText.setupSignIn : CartoucheText.signInAgain,
-                                  systemImage: "person.crop.circle.badge.checkmark")
+                            Label(appleIDButton, systemImage: setup.needsDevice ? "iphone.gen3" : "person.crop.circle.badge.checkmark")
                         }
                         .buttonStyle(.borderedProminent)
-                        .disabled(!setup.hasPairingFile)
+                        .disabled(!setup.hasPairingFile || account.phase == .registeringDevice)
+                    }
+                    // Why the sign-in stopped, once its screen has gone.
+                    if setup.signInStep == .unfinished, account.phase == nil, let report = account.lastProblem {
+                        Label(report.message, systemImage: "exclamationmark.triangle.fill")
+                            .font(.footnote)
+                            .foregroundStyle(.red)
+                            .fixedSize(horizontal: false, vertical: true)
+                        CartoucheReportButton(report: report)
+                            .font(.footnote)
+                            .buttonStyle(.bordered)
                     }
                 }
                 step(
@@ -73,7 +85,8 @@ struct CartoucheSetupView: View {
                     title: CartoucheText.setupCertificateTitle,
                     detail: certificateDetail
                 ) {
-                    if !setup.hasCertificate {
+                    // A sign-in that stopped: signing in again brings it.
+                    if !setup.hasCertificate && setup.signInStep != .unfinished {
                         Button(CartoucheText.setupCheckAgain, systemImage: "arrow.clockwise") {
                             setup.refresh()
                         }
@@ -106,6 +119,23 @@ struct CartoucheSetupView: View {
                 setup.pairingFailed(error)
             }
         }
+    }
+
+    private var appleIDDetail: String {
+        guard let appleID = setup.appleID else { return CartoucheText.setupAppleIDHow }
+        // The sign-in stopped before the certificate: signing in again
+        // brings it.
+        if setup.signInStep == .unfinished {
+            let working = account.phase == .signingIn || account.needsCode
+            return working ? CartoucheText.signInWorking : CartoucheText.setupAppleIDUnfinished(appleID)
+        }
+        guard setup.needsDevice else { return CartoucheText.setupAppleIDDone(appleID) }
+        return account.phase == .registeringDevice ? CartoucheText.setupBannerDeviceWorking : CartoucheText.setupAppleIDDevice(appleID)
+    }
+
+    private var appleIDButton: String {
+        if setup.needsDevice { return CartoucheText.signInDeviceButton }
+        return setup.appleID == nil ? CartoucheText.setupSignIn : CartoucheText.signInAgain
     }
 
     private var certificateDetail: String {
@@ -205,7 +235,8 @@ struct CartoucheSetupBanner: View {
                     VStack(alignment: .leading, spacing: 3) {
                         Text(setup.bannerTitle)
                             .font(.headline)
-                        Text(setup.bannerDetail(signingInAgain: account.isAutomatic))
+                        Text(setup.bannerDetail(signingInAgain: account.isAutomatic,
+                                                registeringDevice: account.phase == .registeringDevice))
                             .font(.subheadline)
                             .opacity(0.85)
                     }
@@ -238,11 +269,17 @@ extension CartoucheSetup {
         return canPlay ? CartoucheText.setupBannerRenewal : CartoucheText.setupBannerTitle
     }
 
-    func bannerDetail(signingInAgain: Bool) -> String {
+    func bannerDetail(signingInAgain: Bool, registeringDevice: Bool = false) -> String {
         if certificateRefused {
             return signingInAgain ? CartoucheText.setupBannerCertificateRenewing : CartoucheText.setupBannerCertificateDetail
         }
+        if signInStep == .unfinished {
+            return signingInAgain ? CartoucheText.setupBannerCertificateRenewing : CartoucheText.setupBannerUnfinishedDetail
+        }
         guard canPlay else { return CartoucheText.setupBannerDetail }
-        return hasPairingFile ? CartoucheText.setupBannerSignInDetail : CartoucheText.setupBannerRenewalDetail
+        guard hasPairingFile else { return CartoucheText.setupBannerRenewalDetail }
+        guard needsDevice else { return CartoucheText.setupBannerSignInDetail }
+        // Signed in, with this iPhone left to register.
+        return registeringDevice ? CartoucheText.setupBannerDeviceWorking : CartoucheText.setupBannerDeviceDetail
     }
 }
