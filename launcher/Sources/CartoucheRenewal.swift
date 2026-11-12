@@ -40,30 +40,66 @@ enum CartoucheRenewal {
 
     static var canRenew: Bool { refreshAllApps != nil }
 
-    /// Renews Cartouche, and every app its SideStore manages, without
-    /// leaving the app. LocalDevVPN has to be connected. A failure says why,
-    /// as SideStore left it.
+    /// Renews Cartouche without leaving the app; its SideStore renews no
+    /// other app (app/patches/sidestore/0017). LocalDevVPN has to be
+    /// connected. A failure says why, as SideStore left it.
+    ///
+    /// SideStore can stop, or iOS end it, as it finishes, before it says how
+    /// the renewal went: Cartouche then reads the signature SideStore
+    /// records for it. Newer than before, the renewal went through;
+    /// otherwise Cartouche asks a new SideStore, once.
     @MainActor
     static func renew(progress: Progress) async throws {
         guard let refresh = refreshAllApps else {
             throw Failure(message: CartoucheText.renewUnavailable, failure: CartoucheFailure(.bridgeMissing, stage: "start"))
         }
-        CartoucheStoreKeychain.remove(CartoucheSideStoreOutcome.account)
         let started = Date()
-        let message: String? = await withCheckedContinuation { continuation in
-            refresh.call(refresh.receiver, refreshSelector, progress) { message in
-                continuation.resume(returning: message.map { $0 as String })
+        var attempt = 1
+        while true {
+            let before = CartoucheSignature.current()
+            CartoucheStoreKeychain.remove(CartoucheSideStoreOutcome.account)
+            let message: String? = await withCheckedContinuation { continuation in
+                refresh.call(refresh.receiver, refreshSelector, progress) { message in
+                    continuation.resume(returning: message.map { $0 as String })
+                }
+            }
+            let outcome = CartoucheStoreKeychain.data(CartoucheSideStoreOutcome.account)
+                .flatMap { CartoucheSideStoreOutcome(data: $0, expecting: .refresh) }
+            CartoucheStoreKeychain.remove(CartoucheSideStoreOutcome.account)
+            let seconds = Date().timeIntervalSince(started)
+            let failure = message.map {
+                CartoucheFailure.sideStore(outcome: outcome, message: $0, fraction: progress.fractionCompleted,
+                                           seconds: seconds, vpn: CartoucheVPN.isConnected, pairing: CartouchePairing.exists)
+            }
+            let renewed = CartoucheSignature.current().isRenewal(of: before)
+            switch CartoucheFailure.renewalEnd(failure: failure, outcome: outcome, renewed: renewed) {
+            case .renewed(let despite):
+                var fields = CartoucheFailure.sideStoreSuccess(outcome: outcome, seconds: seconds)
+                if let despite {
+                    CartoucheReports.note("Renewal: SideStore failed on its way back (\(despite.cause.rawValue)), yet Cartouche is renewed")
+                    fields["recovered"] = .flag(true)
+                    fields["cause"] = .text(despite.cause.rawValue)
+                }
+                if attempt > 1 {
+                    fields["attempts"] = .number(Double(attempt))
+                }
+                CartoucheTelemetry.shared.event("renewal.done", fields: fields)
+                return
+            case .quit where attempt == 1:
+                // A new SideStore starts in a new LiveProcess, LiveContainer's
+                // bridge having let the last one go.
+                CartoucheReports.note("Renewal: SideStore quit before it answered, asking again")
+                attempt += 1
+                progress.completedUnitCount = 0
+                try? await Task.sleep(nanoseconds: 1_000_000_000)
+            case .quit, .failed:
+                guard let message, let failure else {
+                    throw Failure(message: CartoucheText.renewFailed, failure: failure)
+                }
+                // Never Apple's page for an error, as SideStore's words would show it.
+                throw Failure(message: CartoucheText.sideStoreMessage(message, failure: failure), failure: failure)
             }
         }
-        let outcome = CartoucheStoreKeychain.data(CartoucheSideStoreOutcome.account)
-            .flatMap { CartoucheSideStoreOutcome(data: $0, expecting: .refresh) }
-        CartoucheStoreKeychain.remove(CartoucheSideStoreOutcome.account)
-        guard let message else { return }
-        let failure = CartoucheFailure.sideStore(outcome: outcome, message: message, fraction: progress.fractionCompleted,
-                                                 seconds: Date().timeIntervalSince(started),
-                                                 vpn: CartoucheVPN.isConnected, pairing: CartouchePairing.exists)
-        // Never Apple's page for an error, as SideStore's words would show it.
-        throw Failure(message: CartoucheText.sideStoreMessage(message, failure: failure), failure: failure)
     }
 
     // MARK: Warnings before expiry
