@@ -12,7 +12,9 @@
 //    from another thread how long it takes to answer, read out by an
 //    element of the accessibility tree that the tests read
 //    (gallery.watch): a test fails when the main thread was held, even if
-//    the screen came back afterwards;
+//    the screen came back afterwards, but for the time it spent answering
+//    the tests' own accessibility queries, which the watch tells by where
+//    the main thread is (GalleryMainThread.c);
 //  - the main thread held on purpose, once, two seconds after the gallery
 //    became active (-GalleryHoldMainThread 1.5, in seconds), which the
 //    watch must see: a watch that saw nothing would let every test pass;
@@ -104,11 +106,27 @@ enum GalleryTest {
 /// how long it takes to answer, from a second after the gallery became
 /// active: waits before, as the gallery opens, do not count, nor waits while
 /// it is in the background, where iOS may suspend it.
+///
+/// From half a second into a wait, the watch looks twice a second at where
+/// the main thread is (GalleryMainStack). The half seconds it finds the
+/// main thread answering the tests' own questions, the accessibility
+/// queries through which XCUITest reads the screen and waits for the
+/// gallery, do not count: no player asks them, and while the Files picker
+/// is open, one of them can hold the main thread for seconds. The readout
+/// says how long they held it, apart, and gallery-main-thread.txt, in the
+/// gallery's tmp folder, where the main thread was during each wait of a
+/// second or more, which uitests.sh shows.
 final class GalleryWatch: @unchecked Sendable {
     static let shared = GalleryWatch()
 
     /// A wait from which the watch notes a stall, with when it began.
     static let stall: TimeInterval = 0.25
+    /// From how long a wait the watch looks at where the main thread is,
+    /// and how often then: each look stands for that long.
+    private static let lookFrom: TimeInterval = 0.5
+    private static let lookEvery: TimeInterval = 0.5
+    /// From how long a wait where the main thread was is written down.
+    private static let writeFrom: TimeInterval = 1
     private static let interval: DispatchTimeInterval = .milliseconds(100)
     private static var now: TimeInterval { ProcessInfo.processInfo.systemUptime }
 
@@ -118,17 +136,27 @@ final class GalleryWatch: @unchecked Sendable {
     private let started = GalleryWatch.now
     /// When the question still unanswered was asked.
     private var asked: TimeInterval?
+    /// Where the main thread was seen meanwhile, and when to look again.
+    private var looks: [GalleryMainStack] = []
+    private var nextLook: TimeInterval = 0
     private var countsFrom: TimeInterval?
     private var inBackground = false
     private var longest: TimeInterval = 0
     private var stalls: [(at: TimeInterval, wait: TimeInterval)] = []
+    /// The time spent answering the tests' questions alone: the longest
+    /// such wait, and how many held the main thread a quarter of a second or more.
+    private var testsLongest: TimeInterval = 0
+    private var testsStalls = 0
     private var observers: [NSObjectProtocol] = []
     /// How long to hold the main thread, once, on purpose.
     private var hold: TimeInterval?
 
-    /// Starts asking; with HOLDING, holds the main thread once for that many
-    /// seconds, a second after the watch starts counting.
+    /// Starts asking, on the main thread; with HOLDING, holds the main
+    /// thread once for that many seconds, a second after the watch starts
+    /// counting.
     func start(holding: TimeInterval? = nil) {
+        GalleryMainStack.noteMainThread()
+        GalleryMainStack.writeDown("== The gallery started, with " + ProcessInfo.processInfo.arguments.dropFirst().joined(separator: " "))
         let timer = DispatchSource.makeTimerSource(queue: queue)
         timer.schedule(deadline: .now() + Self.interval, repeating: Self.interval, leeway: .milliseconds(10))
         timer.setEventHandler { [weak self] in self?.ask() }
@@ -153,13 +181,22 @@ final class GalleryWatch: @unchecked Sendable {
     }
 
     /// What the tests read: the longest wait in milliseconds, and the
-    /// stalls, each with when it began, in seconds from the start.
+    /// stalls, each with when it began, in seconds from the start; then the
+    /// time spent answering the tests' questions, apart.
     var readout: String {
         lock.withLock {
+            var longest = self.longest
+            // A wait still going on, as the tests read this.
+            if let asked, let countsFrom, asked >= countsFrom {
+                longest = max(longest, Self.ownPart(of: Self.now - asked, looks).own)
+            }
             var text = "longest \(Self.milliseconds(longest)) ms, \(stalls.count) stalls"
             if !stalls.isEmpty {
                 text += ": " + stalls.map { "\(Self.milliseconds($0.wait)) ms at \(String(format: "%.1f", $0.at)) s" }
                     .joined(separator: ", ")
+            }
+            if testsStalls > 0 {
+                text += "; answering the tests' queries: longest \(Self.milliseconds(testsLongest)) ms, \(testsStalls) times"
             }
             if countsFrom == nil { text += ", not counting yet" }
             return text
@@ -167,6 +204,15 @@ final class GalleryWatch: @unchecked Sendable {
     }
 
     private static func milliseconds(_ seconds: TimeInterval) -> Int { Int((seconds * 1000).rounded()) }
+
+    /// Of a wait of WAIT seconds during which the watch saw the main thread
+    /// where LOOKS say: the part that counts, and the part spent answering
+    /// the tests' questions, half a second for each look that found it so.
+    private static func ownPart(of wait: TimeInterval, _ looks: [GalleryMainStack])
+        -> (own: TimeInterval, tests: TimeInterval) {
+        let tests = min(wait, Double(looks.filter(\.answersTheTests).count) * lookEvery)
+        return (wait - tests, tests)
+    }
 
     /// On the main thread, as the gallery becomes active.
     private func becameActive() {
@@ -187,42 +233,212 @@ final class GalleryWatch: @unchecked Sendable {
         lock.withLock {
             inBackground = background
             asked = nil
+            looks = []
         }
     }
 
     /// On the watch's queue: asks the main thread, unless it has yet to
-    /// answer the last question, which then counts as a wait so far.
+    /// answer the last question; then looks at where it is, from half a
+    /// second into the wait.
     private func ask() {
         let now = Self.now
-        lock.lock()
-        defer { lock.unlock() }
-        guard !inBackground else { return }
-        if let asked {
-            note(now - asked, askedAt: asked, answered: false)
-        } else {
-            asked = now
-            DispatchQueue.main.async { [weak self] in self?.answer() }
+        let looking: TimeInterval? = lock.withLock {
+            guard !inBackground else { return nil }
+            guard let pending = asked else {
+                asked = now
+                looks = []
+                nextLook = now + Self.lookFrom
+                DispatchQueue.main.async { [weak self] in self?.answer() }
+                return nil
+            }
+            guard now >= nextLook else { return nil }
+            nextLook = now + Self.lookEvery
+            return pending
+        }
+        guard let looking else { return }
+        // Without the lock, which the main thread may be waiting for, or
+        // hold: stopped, it cannot let go of it.
+        guard let look = GalleryMainStack.take() else { return }
+        lock.withLock {
+            if asked == looking { looks.append(look) }
         }
     }
 
     /// On the main thread: the answer to the last question.
     private func answer() {
         let now = Self.now
-        lock.lock()
-        defer { lock.unlock() }
-        guard let asked else { return }
-        self.asked = nil
-        note(now - asked, askedAt: asked, answered: true)
+        let record: (wait: TimeInterval, at: TimeInterval, looks: [GalleryMainStack])? = lock.withLock {
+            guard let asked else { return nil }
+            self.asked = nil
+            let looks = self.looks
+            self.looks = []
+            guard let countsFrom, asked >= countsFrom else { return nil }
+            let wait = now - asked
+            let part = Self.ownPart(of: wait, looks)
+            longest = max(longest, part.own)
+            if part.own >= Self.stall {
+                stalls.append((at: asked - started, wait: part.own))
+                if stalls.count > 12 { stalls.removeFirst() }
+            }
+            testsLongest = max(testsLongest, part.tests)
+            if part.tests >= Self.stall { testsStalls += 1 }
+            return wait >= Self.stall ? (wait: wait, at: asked - started, looks: looks) : nil
+        }
+        guard let record else { return }
+        let part = Self.ownPart(of: record.wait, record.looks)
+        NSLog("[Gallery] the main thread took %ld ms to answer, %ld ms of them answering the tests' queries",
+              Self.milliseconds(record.wait), Self.milliseconds(part.tests))
+        guard record.wait >= Self.writeFrom, !record.looks.isEmpty else { return }
+        // Written down from the watch's queue, not to hold the main thread.
+        queue.async {
+            var text = String(format: "%@ the main thread took %ld ms to answer, from %.1f s, %ld ms of them answering the tests' queries; where it was, every half second from half a second:",
+                              GalleryMainStack.clock(), Self.milliseconds(record.wait), record.at,
+                              Self.milliseconds(part.tests))
+            text += GalleryMainStack.describe(record.looks)
+            GalleryMainStack.writeDown(text)
+        }
+    }
+}
+
+/// Where the main thread was when the watch looked: each frame of its call
+/// stack, the innermost first, as "image symbol + offset".
+struct GalleryMainStack: Equatable {
+    let frames: [String]
+    /// The outermost frame in iOS's accessibility or XCTest's, if any.
+    let entry: Int?
+    /// Whether the main thread was answering the tests' questions alone:
+    /// in iOS's accessibility or XCTest's, called by the run loop or a
+    /// queue, with none of the gallery's own code above them. iOS's
+    /// accessibility also stands in for some of UIKit's methods, as the
+    /// tests turn it on: there UIKit calls it, and the wait counts.
+    let answersTheTests: Bool
+
+    private static let capacity = 256
+    /// Read into from the watch's queue alone.
+    private static let addresses = UnsafeMutablePointer<UInt>.allocate(capacity: capacity)
+    private static let galleryPath = Bundle.main.bundlePath + "/"
+
+    /// On the main thread, before any look.
+    static func noteMainThread() {
+        if Thread.isMainThread {
+            GalleryMainThreadNote()
+        } else {
+            DispatchQueue.main.async { GalleryMainThreadNote() }
+        }
     }
 
-    /// Under the lock.
-    private func note(_ wait: TimeInterval, askedAt: TimeInterval, answered: Bool) {
-        guard let countsFrom, askedAt >= countsFrom else { return }
-        longest = max(longest, wait)
-        guard answered, wait >= Self.stall else { return }
-        stalls.append((at: askedAt - started, wait: wait))
-        if stalls.count > 12 { stalls.removeFirst() }
-        NSLog("[Gallery] the main thread took %ld ms to answer", Self.milliseconds(wait))
+    /// From the watch's queue: where the main thread is now.
+    static func take() -> GalleryMainStack? {
+        let count = Int(GalleryMainThreadStack(addresses, Int32(capacity)))
+        guard count > 0 else { return nil }
+        var frames: [String] = []
+        var images: [String] = []
+        for index in 0..<count {
+            let address = addresses[index]
+            // Where a caller goes on is just after its call, which may be
+            // the last instruction of its function.
+            let inCall = index == 0 ? address : address &- 1
+            var info = Dl_info()
+            guard dladdr(UnsafeRawPointer(bitPattern: inCall), &info) != 0, let file = info.dli_fname else {
+                images.append("")
+                frames.append(String(format: "0x%lx", address))
+                continue
+            }
+            let image = String(cString: file)
+            images.append(image)
+            let name = (image as NSString).lastPathComponent
+            if let symbol = info.dli_sname, let start = info.dli_saddr {
+                frames.append("\(name) \(String(cString: symbol)) + \(inCall &- UInt(bitPattern: start))")
+            } else {
+                frames.append("\(name) + \(inCall &- UInt(bitPattern: info.dli_fbase))")
+            }
+        }
+        let entry = images.lastIndex(where: isAccessibility)
+        var answers = false
+        if let entry, entry + 1 < images.count {
+            let caller = (images[entry + 1] as NSString).lastPathComponent
+            let gallery = images[..<entry].contains { $0.hasPrefix(galleryPath) }
+            answers = ["CoreFoundation", "Foundation", "libdispatch.dylib", "libxpc.dylib"].contains(caller) && !gallery
+        }
+        return GalleryMainStack(frames: frames, entry: entry, answersTheTests: answers)
+    }
+
+    /// What is written down of it: its innermost frames, then those around
+    /// the outermost in iOS's accessibility or XCTest's, with its callers.
+    var summary: [String] {
+        var upTo = min(frames.count, 24)
+        var lines = Array(frames[..<upTo])
+        if let entry {
+            let from = max(upTo, entry - 2)
+            let to = min(frames.count, entry + 4)
+            if from < to {
+                if from > upTo { lines.append("… \(from - upTo) frames …") }
+                lines += frames[from..<to]
+                upTo = to
+            }
+        }
+        if upTo < frames.count { lines.append("… \(frames.count - upTo) frames more") }
+        return lines
+    }
+
+    /// iOS's accessibility, which answers the tests' queries, and XCTest's
+    /// part in the gallery, which waits for it to settle.
+    private static func isAccessibility(_ image: String) -> Bool {
+        let name = (image as NSString).lastPathComponent
+        return image.contains("Accessibility") || image.contains(".axbundle/")
+            || ["AX", "libAX", "XCT", "libXCT", "XCUI"].contains { name.hasPrefix($0) }
+    }
+
+    /// LOOKS, each but those that saw the same as the one before, eight at
+    /// most.
+    static func describe(_ looks: [GalleryMainStack]) -> String {
+        var text = ""
+        var index = 0
+        var shown = 0
+        while index < looks.count {
+            let look = looks[index]
+            var same = 1
+            while index + same < looks.count, looks[index + same].summary == look.summary,
+                  looks[index + same].answersTheTests == look.answersTheTests {
+                same += 1
+            }
+            guard shown < 8 else {
+                text += "\n  and \(looks.count - index) looks more"
+                break
+            }
+            text += "\n  " + (look.answersTheTests ? "answering the tests' queries" : "counted")
+            text += same > 1 ? ", \(same) looks:" : ":"
+            for line in look.summary { text += "\n    " + line }
+            index += same
+            shown += 1
+        }
+        return text
+    }
+
+    /// "2026-11-12 10:46:09.461Z", in UTC, as xcodebuild's log on the CI
+    /// has it.
+    static func clock() -> String {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.timeZone = TimeZone(identifier: "UTC")
+        formatter.dateFormat = "yyyy-MM-dd HH:mm:ss.SSS'Z'"
+        return formatter.string(from: Date())
+    }
+
+    /// Where the gallery writes down where its main thread was: its tmp
+    /// folder, which the Files picker does not show.
+    static let file = FileManager.default.temporaryDirectory.appendingPathComponent("gallery-main-thread.txt")
+
+    /// Adds TEXT to the file, as a paragraph of its own.
+    static func writeDown(_ text: String) {
+        let data = Data((text + "\n\n").utf8)
+        guard let handle = try? FileHandle(forWritingTo: file) else {
+            try? data.write(to: file)
+            return
+        }
+        defer { try? handle.close() }
+        _ = try? handle.seekToEnd()
+        try? handle.write(contentsOf: data)
     }
 }
 

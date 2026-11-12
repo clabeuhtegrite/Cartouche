@@ -15,7 +15,10 @@
 # and so do the tests when the test runner stops before the first one.
 # OUT keeps the results (UITests.xcresult), with the screen and the
 # accessibility tree of each test that failed, which the log shows too, then
-# what the gallery's Documents and On My iPhone held, and the gallery's log.
+# what the gallery's Documents and On My iPhone held, and where the
+# gallery's main thread was in each wait of a second or more
+# (gallery-main-thread.txt, GalleryWatch in Sources/GalleryTesting.swift),
+# which the log shows when a test failed, and the waits alone else.
 
 set -euo pipefail
 
@@ -152,17 +155,26 @@ fi
 echo "== UI tests: $((SECONDS - started)) s in all"
 xcrun xcresulttool get test-results summary --path "$OUT/UITests.xcresult" 2>/dev/null || true
 echo
+# The tests installed the gallery again, in a container of its own.
+CONTAINER="$(xcrun simctl get_app_container "$UDID" "$BUNDLE" data 2>/dev/null || true)"
+WAITS="$CONTAINER/tmp/gallery-main-thread.txt"
+if [ -n "$CONTAINER" ] && [ -f "$WAITS" ]; then
+  cp "$WAITS" "$OUT/"
+  echo "== The main thread's waits of a second or more"
+  if [ "$status" -ne 0 ]; then
+    head -n 3000 "$WAITS"
+  else
+    grep -E '^(== |[0-9]{4}-)' "$WAITS" | head -n 200 || true
+  fi
+fi
 if [ "$status" -ne 0 ]; then
-  # What the Files picker had to show, and what the gallery said.
+  # What the Files picker had to show.
   echo "== The gallery's Documents"
   (cd "$CONTAINER/Documents" && find . -maxdepth 3 | sort) || true
   if [ -n "$LOCAL" ]; then
     echo "== On My iPhone"
     ls -la "$LOCAL" || true
   fi
-  echo "== The gallery's log"
-  xcrun simctl spawn "$UDID" log show --last 30m --style compact \
-    --predicate 'eventMessage CONTAINS "[Gallery]"' 2>/dev/null | tail -n 80 || true
 fi
 xcrun simctl shutdown "$UDID" 2>/dev/null || true
 if [ "$status" -ne 0 ]; then

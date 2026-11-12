@@ -219,7 +219,9 @@ class ConsoleTestCase: XCTestCase {
     }
 
     /// Fails unless the main thread answered within longestWait every time
-    /// it was asked, since a second after the gallery opened.
+    /// it was asked, since a second after the gallery opened, but for the
+    /// time it spent answering the tests' own queries, which the readout
+    /// gives apart.
     @MainActor
     func expectMainThreadAnswered(_ app: XCUIApplication, file: StaticString = #filePath, line: UInt = #line) {
         guard let reading = mainThread(of: app) else {
@@ -236,34 +238,43 @@ class ConsoleTestCase: XCTestCase {
 }
 
 /// The Files picker, which iOS shows in a process of its own, inside the
-/// gallery's window, in English, as the simulator is.
+/// gallery's window, in English, as the simulator is. It is known by its
+/// own elements, its browser and the tab bar under it, as the console has
+/// buttons of the same names, such as the Cancel of its search. While it
+/// is open, a query of the screen can take seconds, the gallery's main
+/// thread answering it (GalleryWatch), hence the long waits.
 @MainActor
 struct FilesPicker {
     let app: XCUIApplication
     let test: ConsoleTestCase
 
-    /// Its close button, by its names on iOS 18 and after.
+    /// How long the picker may take to come, to go, or to show an item.
+    static let patience: TimeInterval = 60
+
+    /// Its browser, with its places, folders and files, and its tab bar:
+    /// Recents, Shared, Browse.
+    private var own: XCUIElementQuery {
+        app.descendants(matching: .any).matching(NSPredicate(format: "identifier == %@ OR identifier ENDSWITH %@",
+                                                             "DOC.browsingModeTabBar", "(Picker)"))
+    }
+
+    var isShown: Bool { own.firstMatch.exists }
+
+    /// Its close button, by its names on iOS 18 and after, in its browser.
     var closeButton: XCUIElement {
-        app.buttons.matching(NSPredicate(format: "label IN %@", ["Cancel", "Close"])).firstMatch
+        own.buttons.matching(NSPredicate(format: "label IN %@", ["Cancel", "Close"])).firstMatch
     }
 
-    /// Its tabs.
-    var tab: XCUIElement {
-        app.buttons.matching(NSPredicate(format: "label IN %@", ["Browse", "Recents"])).firstMatch
-    }
-
-    var isShown: Bool { closeButton.exists || tab.exists }
-
-    func waitForIt(_ timeout: TimeInterval = 30) -> Bool {
+    func waitForIt(_ timeout: TimeInterval = FilesPicker.patience) -> Bool {
         test.waitUntil(timeout) { isShown }
     }
 
-    func waitForItToGo(_ timeout: TimeInterval = 15) -> Bool {
+    func waitForItToGo(_ timeout: TimeInterval = FilesPicker.patience) -> Bool {
         test.waitUntil(timeout) { !isShown }
     }
 
     func close() {
-        test.tap(closeButton, "Cancel of the Files picker", in: app)
+        test.tap(closeButton, "Cancel of the Files picker", in: app, timeout: Self.patience)
     }
 
     /// An item of the picker, a place, a folder or a file, whose name begins
@@ -293,29 +304,29 @@ struct FilesPicker {
     /// folder there, where the gallery writes it too.
     func pick(_ file: String) {
         let name = (file as NSString).deletingPathExtension
-        if let item = item(name, timeout: 3) {
+        if let item = item(name, timeout: 5) {
             choose(item, file)
             return
         }
         // Browse shows where it was last, and its places once tapped again.
-        let browse = app.buttons["Browse"]
+        let browse = own.buttons["Browse"]
         var place: XCUIElement?
         for _ in 0..<2 where place == nil {
             if browse.exists { browse.tap() }
-            place = item("On My iPhone", among: [app.cells, app.buttons], timeout: 8)
+            place = item("On My iPhone", among: [app.cells, app.buttons], timeout: 20)
         }
         guard let place else {
             test.expect(false, "The Files picker shows no On My iPhone", in: app)
             return
         }
         open(place)
-        if let item = item(name, timeout: 10) {
+        if let item = item(name, timeout: 20) {
             choose(item, file)
             return
         }
-        if let folder = item(GalleryWords.folder, among: [app.cells], timeout: 5) {
+        if let folder = item(GalleryWords.folder, among: [app.cells], timeout: 10) {
             open(folder)
-            if let item = item(name, timeout: 15) {
+            if let item = item(name, timeout: 20) {
                 choose(item, file)
                 return
             }
