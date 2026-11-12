@@ -11,7 +11,8 @@
 # that has one, created should no simulator of it exist. simctl opens the
 # gallery once first, with time: its first launch after the install can take
 # minutes. The import's tests pick an IPA in On My iPhone, which this script
-# puts there. A test that fails runs once more before it counts as failed.
+# puts there. A test that fails runs once more before it counts as failed,
+# and so do the tests when the test runner stops before the first one.
 # OUT keeps the results (UITests.xcresult), with the screen and the
 # accessibility tree of each test that failed, which the log shows too, then
 # what the gallery's Documents and On My iPhone held, and the gallery's log.
@@ -87,9 +88,15 @@ echo "   built in $((SECONDS - started)) s"
 xcrun simctl bootstatus "$UDID" -b >/dev/null
 echo "   booted $((SECONDS - started)) s after the start"
 
+# The Files app sets up the simulator's local storage, what On My iPhone
+# shows, as it first opens: while the gallery installs, well before the
+# tests, which pick an IPA there.
+xcrun simctl launch "$UDID" com.apple.DocumentsApp >/dev/null 2>&1 || true
+
 # The first launch after the install, which can take minutes, before the
 # tests: until the console says it has settled (GalleryApp.swift, Ready).
 xcrun simctl install "$UDID" "$APP"
+xcrun simctl terminate "$UDID" com.apple.DocumentsApp 2>/dev/null || true
 CONTAINER="$(xcrun simctl get_app_container "$UDID" "$BUNDLE" data)"
 READY="$CONTAINER/tmp/ready-warm-up.json"
 rm -f "$READY"
@@ -105,11 +112,8 @@ fi
 xcrun simctl terminate "$UDID" "$BUNDLE" 2>/dev/null || true
 
 # An IPA in On My iPhone, where a player keeps one, for the import's tests
-# to pick (UITests/ConsoleTestCase.swift, FilesPicker): the folder of the
-# simulator's local storage, which the Files app sets up as it first opens.
-xcrun simctl launch "$UDID" com.apple.DocumentsApp >/dev/null 2>&1 || true
-sleep 5
-xcrun simctl terminate "$UDID" com.apple.DocumentsApp 2>/dev/null || true
+# to pick (UITests/ConsoleTestCase.swift, FilesPicker): in the folder of the
+# simulator's local storage.
 LOCAL=""
 for meta in "$HOME/Library/Developer/CoreSimulator/Devices/$UDID"/data/Containers/Shared/AppGroup/*/.com.apple.mobile_container_manager.metadata.plist; do
   [ -f "$meta" ] || continue
@@ -126,14 +130,24 @@ else
   echo "::warning::the simulator has no local storage for On My iPhone: the IPA to pick is in the gallery's folder alone"
 fi
 
-rm -rf "$OUT/UITests.xcresult"
+run_tests() {
+  rm -rf "$OUT/UITests.xcresult"
+  xcodebuild test-without-building -project "$PROJECT" -scheme CartoucheGallery \
+    -destination "platform=iOS Simulator,id=$UDID" -derivedDataPath "$BUILD/DerivedData" \
+    -resultBundlePath "$OUT/UITests.xcresult" \
+    -retry-tests-on-failure -test-iterations 2 \
+    -test-timeouts-enabled YES -default-test-execution-time-allowance 300 -maximum-test-execution-time-allowance 600 \
+    -parallel-testing-enabled NO -collect-test-diagnostics never 2>&1 | tee "$OUT/xcodebuild.log"
+}
 status=0
-xcodebuild test-without-building -project "$PROJECT" -scheme CartoucheGallery \
-  -destination "platform=iOS Simulator,id=$UDID" -derivedDataPath "$BUILD/DerivedData" \
-  -resultBundlePath "$OUT/UITests.xcresult" \
-  -retry-tests-on-failure -test-iterations 2 \
-  -test-timeouts-enabled YES -default-test-execution-time-allowance 300 -maximum-test-execution-time-allowance 600 \
-  -parallel-testing-enabled NO -collect-test-diagnostics never || status=$?
+run_tests || status=$?
+# A test runner that stopped before the first test, as on a Mac too busy
+# for the simulator to answer it, has tested nothing: once more.
+if [ "$status" -ne 0 ] && grep -q "crashed while preparing to run tests\|never began executing tests" "$OUT/xcodebuild.log"; then
+  echo "::warning::the test runner stopped before the first test: once more"
+  status=0
+  run_tests || status=$?
+fi
 
 echo "== UI tests: $((SECONDS - started)) s in all"
 xcrun xcresulttool get test-results summary --path "$OUT/UITests.xcresult" 2>/dev/null || true
