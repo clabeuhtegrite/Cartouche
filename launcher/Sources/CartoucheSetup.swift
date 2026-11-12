@@ -26,7 +26,13 @@
 //    showing itself, registers this iPhone with the account, then renews
 //    Cartouche with it every week. A sign-in that Apple accepted can still
 //    stop at the step that registers the iPhone: that step is left alone,
-//    which Cartouche takes by itself once LocalDevVPN connects.
+//    which Cartouche takes by itself once LocalDevVPN connects. It can also
+//    stop before SideStore takes the certificate, at the team's step or the
+//    certificate's, and SideStore keeps the Apple ID all the same: an Apple
+//    ID without a certificate is a sign-in that stopped before it
+//    (CartoucheSignInStep). The setup says so, and why, and SideStore signs
+//    in again by itself, once, after Cartouche is installed again
+//    (CartoucheAccount.resumeSignIn).
 //  - LocalDevVPN, from the App Store, through which SideStore reaches the
 //    iPhone's own services when it signs in and renews Cartouche.
 //
@@ -284,6 +290,9 @@ final class CartoucheSetup: ObservableObject {
         CartoucheSetupFacts(hasCertificate: hasCertificate, certificateWorks: certificateWorks,
                             hasPairingFile: hasPairingFile, signedIn: appleID != nil)
     }
+    /// Where the sign-in stands: SideStore keeps the Apple ID of a sign-in
+    /// that stopped before the certificate.
+    var signInStep: CartoucheSignInStep { facts.signInStep }
 
     private static let deviceStepKey = "CartoucheDeviceStepLeft"
 
@@ -307,7 +316,7 @@ final class CartoucheSetup: ObservableObject {
         hasPairingFile = CartouchePairing.exists
         #if CARTOUCHE_GALLERY
         // The gallery has no SideStore keychain.
-        appleID = GalleryState.setupDone ? "player@icloud.com" : nil
+        appleID = GalleryState.setupDone || GalleryState.signInUnfinished ? "player@icloud.com" : nil
         #else
         appleID = CartoucheStoreKeychain.string("appleIDEmailAddress")
         #endif
@@ -407,7 +416,9 @@ final class CartoucheSetup: ObservableObject {
 /// Reads the setup again whenever Cartouche comes back to the front, and
 /// looks for the pairing file every two seconds until it is there. While
 /// this iPhone is left to register, looks every two seconds whether
-/// LocalDevVPN has connected: Cartouche then takes that step by itself.
+/// LocalDevVPN has connected: Cartouche then takes that step by itself. A
+/// sign-in that stopped before the certificate, in an earlier installation,
+/// starts again when Cartouche comes to the front.
 @available(iOS 17.0, *)
 @MainActor
 struct CartoucheSetupRefresh: ViewModifier {
@@ -418,10 +429,12 @@ struct CartoucheSetupRefresh: ViewModifier {
             .onAppear {
                 setup.refresh()
                 CartoucheAccount.shared.resumeDeviceStep()
+                CartoucheAccount.shared.resumeSignIn()
             }
             .onReceive(NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification)) { _ in
                 setup.refresh()
                 CartoucheAccount.shared.resumeDeviceStep()
+                CartoucheAccount.shared.resumeSignIn()
             }
             // The pairing step ticks itself once the player has dropped the file.
             .task(id: setup.hasPairingFile) {
