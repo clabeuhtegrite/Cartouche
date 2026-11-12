@@ -312,6 +312,23 @@ esac"""
         self.assertIn("memory pressure warn, 41% of the memory free, swap used 512.25M, load 6.10 4.80 3.50 "
                       "(1, 5 and 15 minutes), 2 job(s) running.", done.stdout)
 
+    def test_reads_the_numbers_of_a_mac_that_writes_commas(self):
+        # As Ad's Mac did on 12 November: "load 14,19 30,59 21,58".
+        sysctl = """case "$2" in
+  kern.memorystatus_vm_pressure_level) echo 1 ;;
+  kern.memorystatus_level) echo 47 ;;
+  vm.swapusage) echo 'total = 2048,00M  used = 512,25M  free = 1535,75M  (encrypted)' ;;
+  vm.loadavg) echo '{ 14,19 30,59 21,58 }' ;;
+esac"""
+        done = self.hook({"sysctl": sysctl, "pgrep": "echo 101", "xcrun": "exit 0"})
+        self.assertIn("swap used 512,25M, load 14,19 30,59 21,58", done.stdout)
+
+    def test_counts_the_jobs_of_every_account(self):
+        # By the process's name: another account's command line (pgrep -f)
+        # is root's to read alone.
+        done = self.hook({"sysctl": "exit 1", "pgrep": '[ "$*" = "-x Runner.Worker" ] && printf "1\\n2\\n"', "xcrun": "exit 0"})
+        self.assertIn("2 job(s) running", done.stdout)
+
     def test_never_fails_the_job(self):
         done = self.hook({"sysctl": "exit 1", "pgrep": "exit 1", "xcrun": "exit 1"})
         self.assertEqual(done.returncode, 0, done.stderr)

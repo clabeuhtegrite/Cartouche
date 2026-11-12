@@ -12,8 +12,11 @@ case "$(sysctl -n kern.memorystatus_vm_pressure_level 2>/dev/null)" in
   *) pressure=unknown ;;
 esac
 free="$(sysctl -n kern.memorystatus_level 2>/dev/null)"
-swap="$(sysctl -n vm.swapusage 2>/dev/null | sed -n 's/.*used = \([0-9.]*[MG]\).*/\1/p')"
+# "used = 512.25M", or "512,25M" where the numbers take commas.
+swap="$(sysctl -n vm.swapusage 2>/dev/null | sed -n 's/.*used = \([0-9.,]*[MG]\).*/\1/p')"
 load="$(sysctl -n vm.loadavg 2>/dev/null | tr -d '{}' | xargs)"
-jobs="$(pgrep -f Runner.Worker | wc -l | tr -d ' ')"
+# By the process's name, which every account sees: macOS shows another
+# account's command lines (pgrep -f) to root alone.
+jobs="$(pgrep -x Runner.Worker | wc -l | tr -d ' ')"
 echo "Ad's Mac at the end of this job: memory pressure $pressure, ${free:-?}% of the memory free, swap used ${swap:-?}, load ${load:-?} (1, 5 and 15 minutes), ${jobs:-?} job(s) running."
 xcrun simctl shutdown all >/dev/null 2>&1 || true
