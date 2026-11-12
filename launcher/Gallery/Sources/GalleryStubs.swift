@@ -113,8 +113,9 @@ final class CartoucheGameActions: ObservableObject {
     func uninstall(_ app: LCAppModel, erasingData: Bool) {}
     func export(_ app: LCAppModel, titleId: String?, then next: (() -> Void)? = nil) {}
     /// A game's saves live in its LiveContainer data folder, which the
-    /// gallery has none of.
-    func saves(of app: LCAppModel) -> CartoucheSaveTarget? { nil }
+    /// gallery has none of, but for the game whose saves a scenario syncs
+    /// (work: saves, GallerySaves).
+    func saves(of app: LCAppModel) -> CartoucheSaveTarget? { GallerySaves.target(of: app) }
     func copySaves(of apps: [LCAppModel]) {}
     /// Nor any folder to measure: the scenario gives each game its size and
     /// play time (CartoucheGameStats.showForGallery).

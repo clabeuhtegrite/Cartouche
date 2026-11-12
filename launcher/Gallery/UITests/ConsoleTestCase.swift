@@ -97,6 +97,12 @@ enum Words {
     static let updateOffer = "Cartouche %@ is available"    // updates.offer.title
     static let update = "Update"                            // updates.now
     static let later = "Later"                              // updates.later
+    static let lastSync = "Last sync"                       // saves.lastSync
+    static let noneYet = "None yet"                         // saves.noCopy
+    static let syncNow = "Sync with %@ now"                 // saves.syncNow
+    static let putBack = "Put back a copy"                  // saves.putBack
+    static let putBackCopy = "Put back the copy of "        // saves.putBack.action
+    static let putBackDone = "The copy of "                 // saves.putBack.done
 }
 
 /// The gallery's own words (GalleryTesting.swift).
@@ -110,6 +116,8 @@ enum GalleryWords {
     /// The stand-in SideStore: a wrong code, and the Apple ID once signed in.
     static let wrongCode = "Incorrect verification code."
     static let signedInAs = "player@icloud.com"
+    /// The folder in Files the saves are kept in (GallerySaves).
+    static let savesFolder = "Gallery saves"
 }
 
 /// The player's games, as nxnative.json names them.
@@ -133,7 +141,8 @@ struct Launch {
     /// game paused behind the console; "installing" or "install-failed",
     /// the game of SHEET; "offline", the NAS out of reach; "mac", the
     /// player's Mac paired; "mac-nearby", "mac-code" or "mac-refused", what
-    /// Add your Mac finds.
+    /// Add your Mac finds; "saves", the first game's saves and a folder in
+    /// Files as the saves folder.
     var work: String?
     /// The game being installed, or whose install failed.
     var sheet: String?
