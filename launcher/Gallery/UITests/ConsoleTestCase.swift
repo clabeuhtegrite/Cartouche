@@ -171,6 +171,35 @@ class ConsoleTestCase: XCTestCase {
         element.tap()
     }
 
+    /// Taps FIELD, waits for it to take the keyboard, then types TEXT into
+    /// it: the first keyboard of a simulator can take seconds to come, and
+    /// a tap that came before the field could take it needs a second one.
+    @MainActor
+    func type(_ text: String, into field: XCUIElement, _ what: String, in app: XCUIApplication,
+              timeout: TimeInterval = 15, file: StaticString = #filePath, line: UInt = #line) {
+        let field = field.firstMatch
+        tap(field, what, in: app, timeout: timeout, file: file, line: line)
+        var focused = waitUntil(20) { hasKeyboardFocus(field, in: app) }
+        if !focused, field.exists {
+            field.tap()
+            focused = waitUntil(20) { hasKeyboardFocus(field, in: app) }
+        }
+        expect(focused, "\(what) did not take the keyboard", in: app, file: file, line: line)
+        field.typeText(text)
+    }
+
+    /// Whether ELEMENT has the keyboard, which typeText needs: as XCTest
+    /// tells it, else by a keyboard on the screen.
+    @MainActor
+    func hasKeyboardFocus(_ element: XCUIElement, in app: XCUIApplication) -> Bool {
+        let key = "hasKeyboardFocus"
+        guard element.exists else { return false }
+        if element.responds(to: NSSelectorFromString(key)) {
+            return (element.value(forKey: key) as? Bool) ?? false
+        }
+        return app.keyboards.firstMatch.exists
+    }
+
     /// Whether CONDITION holds within TIMEOUT seconds, asked twice a second.
     @MainActor
     func waitUntil(_ timeout: TimeInterval, _ condition: () -> Bool) -> Bool {

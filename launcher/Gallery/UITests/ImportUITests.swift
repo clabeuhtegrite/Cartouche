@@ -60,9 +60,7 @@ final class ImportUITests: ConsoleTestCase {
     func testImportFromTheSheetOfAGameNotThePlayers() {
         let app = openConsole()
         tap(element(in: app.buttons, beginningWith: Words.allGames), "All games", in: app)
-        let search = app.searchFields.firstMatch
-        tap(search, "the search of every game (\(Words.search))", in: app)
-        search.typeText("Sentinels")
+        type("Sentinels", into: app.searchFields.firstMatch, "the search of every game (\(Words.search))", in: app)
         tap(element(in: app.buttons, containing: Games.other), "the cover of \(Games.other)", in: app)
         tap(app.buttons[Words.importCopy], "Import my copy on the sheet", in: app)
         let picker = FilesPicker(app: app, test: self)

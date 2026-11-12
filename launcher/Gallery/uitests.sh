@@ -18,7 +18,8 @@
 # what the gallery's Documents and On My iPhone held, and where the
 # gallery's main thread was in each wait of a second or more
 # (gallery-main-thread.txt, GalleryWatch in Sources/GalleryTesting.swift),
-# which the log shows when a test failed, and the waits alone else.
+# which the log shows for the waits that counted a second or more, and for
+# every one once a test failed.
 
 set -euo pipefail
 
@@ -160,12 +161,20 @@ CONTAINER="$(xcrun simctl get_app_container "$UDID" "$BUNDLE" data 2>/dev/null |
 WAITS="$CONTAINER/tmp/gallery-main-thread.txt"
 if [ -n "$CONTAINER" ] && [ -f "$WAITS" ]; then
   cp "$WAITS" "$OUT/"
-  echo "== The main thread's waits of a second or more"
-  if [ "$status" -ne 0 ]; then
-    head -n 3000 "$WAITS"
-  else
-    grep -E '^(== |[0-9]{4}-)' "$WAITS" | head -n 200 || true
-  fi
+  echo "== The main thread's waits of a second or more: where it was, for those that counted a second or more"
+  # Each wait is a paragraph: its first line, then where the main thread
+  # was, which is shown in full for a wait that counted a second or more,
+  # and for every wait once a test failed. Swift's names, demangled.
+  demangle() {
+    if xcrun --find swift-demangle >/dev/null 2>&1; then xcrun swift-demangle --simplified; else cat; fi
+  }
+  awk -v all="$([ "$status" -ne 0 ] && echo 1 || echo 0)" 'BEGIN { RS = ""; FS = "\n" }
+    {
+      counted = 0
+      if (match($1, /[0-9]+ ms counted/)) counted = substr($1, RSTART, RLENGTH) + 0
+      if (all == 1 || counted >= 1000) print $0; else print $1
+      print ""
+    }' "$WAITS" | demangle | head -n 8000 || true
 fi
 if [ "$status" -ne 0 ]; then
   # What the Files picker had to show.

@@ -24,4 +24,9 @@ void GalleryMainThreadNote(void);
 /// GalleryMainThreadNote.
 int GalleryMainThreadStack(uintptr_t *frames, int capacity);
 
+/// The path of the image, the app or a library, whose code ADDRESS is in;
+/// NULL for none. From one thread at a time: it looks in a table of the
+/// images loaded, sorted by address, which it takes again as images load.
+const char *GalleryImagePath(uintptr_t address);
+
 #endif /* GalleryMainThread_h */

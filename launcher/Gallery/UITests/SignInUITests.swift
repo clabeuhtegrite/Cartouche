@@ -75,21 +75,15 @@ final class SignInUITests: ConsoleTestCase {
     /// Types the Apple ID and the password, then Go.
     @MainActor
     private func signIn(in app: XCUIApplication, appleID: String) {
-        let field = app.textFields[Words.appleID]
-        tap(field, "the Apple ID field", in: app)
-        field.typeText(appleID)
-        let password = app.secureTextFields[Words.password]
-        tap(password, "the password field", in: app)
-        password.typeText("not-a-password\n")
+        type(appleID, into: app.textFields[Words.appleID], "the Apple ID field", in: app)
+        type("not-a-password\n", into: app.secureTextFields[Words.password], "the password field", in: app)
     }
 
     /// Types CODE in the field of Apple's request, which sends it at the
     /// sixth digit.
     @MainActor
     private func type(_ code: String, inCodeOf app: XCUIApplication) {
-        let field = app.textFields[Words.code]
-        tap(field, "the field of the verification code", in: app, timeout: 30)
-        field.typeText(code)
+        type(code, into: app.textFields[Words.code], "the field of the verification code", in: app, timeout: 30)
     }
 
     /// From the setup, back to the System page, then Done: the console.

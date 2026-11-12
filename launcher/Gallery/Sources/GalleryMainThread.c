@@ -9,8 +9,12 @@
 
 #include "GalleryMainThread.h"
 
+#include <mach-o/dyld.h>
+#include <mach-o/getsect.h>
+#include <mach-o/loader.h>
 #include <mach/mach.h>
 #include <pthread.h>
+#include <stdlib.h>
 
 static thread_act_t galleryMainThread = MACH_PORT_NULL;
 /// The main thread's stack, from its lowest address to above its highest.
@@ -85,4 +89,67 @@ int GalleryMainThreadStack(uintptr_t *frames, int capacity) {
     }
     thread_resume(thread);
     return taken;
+}
+
+// MARK: Which image an address is in
+
+/// The code of an image loaded, the app or a library: its __TEXT segment.
+typedef struct {
+    uintptr_t start;
+    uintptr_t end;
+    uint32_t index;
+} GalleryImage;
+
+enum { galleryImagesMost = 8192 };
+static GalleryImage galleryImages[galleryImagesMost];
+static uint32_t galleryImagesTaken = 0;
+/// How many images dyld had loaded when the table was taken.
+static uint32_t galleryImagesLoaded = 0;
+
+static int galleryImageOrder(const void *left, const void *right) {
+    uintptr_t a = ((const GalleryImage *)left)->start;
+    uintptr_t b = ((const GalleryImage *)right)->start;
+    return a < b ? -1 : (a > b ? 1 : 0);
+}
+
+static void galleryTakeImages(void) {
+    uint32_t loaded = _dyld_image_count();
+    uint32_t taken = 0;
+    for (uint32_t index = 0; index < loaded && taken < galleryImagesMost; index++) {
+        const struct mach_header *header = _dyld_get_image_header(index);
+        if (header == NULL || header->magic != MH_MAGIC_64) {
+            continue;
+        }
+        unsigned long size = 0;
+        uint8_t *text = getsegmentdata((const struct mach_header_64 *)header, "__TEXT", &size);
+        if (text == NULL || size == 0) {
+            continue;
+        }
+        galleryImages[taken].start = (uintptr_t)text;
+        galleryImages[taken].end = (uintptr_t)text + (uintptr_t)size;
+        galleryImages[taken].index = index;
+        taken++;
+    }
+    qsort(galleryImages, taken, sizeof(GalleryImage), galleryImageOrder);
+    galleryImagesTaken = taken;
+    galleryImagesLoaded = loaded;
+}
+
+const char *GalleryImagePath(uintptr_t address) {
+    if (_dyld_image_count() != galleryImagesLoaded) {
+        galleryTakeImages();
+    }
+    uint32_t low = 0;
+    uint32_t high = galleryImagesTaken;
+    while (low < high) {
+        uint32_t middle = low + (high - low) / 2;
+        if (address < galleryImages[middle].start) {
+            high = middle;
+        } else if (address >= galleryImages[middle].end) {
+            low = middle + 1;
+        } else {
+            return _dyld_get_image_name(galleryImages[middle].index);
+        }
+    }
+    return NULL;
 }

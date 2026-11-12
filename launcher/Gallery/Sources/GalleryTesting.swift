@@ -107,24 +107,24 @@ enum GalleryTest {
 /// active: waits before, as the gallery opens, do not count, nor waits while
 /// it is in the background, where iOS may suspend it.
 ///
-/// From half a second into a wait, the watch looks twice a second at where
-/// the main thread is (GalleryMainStack). The half seconds it finds the
-/// main thread answering the tests' own questions, the accessibility
+/// From a fifth of a second into a wait, the watch also looks at where the
+/// main thread is, ten times a second (GalleryMainStack). The time it finds
+/// the main thread answering the tests' own questions, the accessibility
 /// queries through which XCUITest reads the screen and waits for the
-/// gallery, do not count: no player asks them, and while the Files picker
-/// is open, one of them can hold the main thread for seconds. The readout
-/// says how long they held it, apart, and gallery-main-thread.txt, in the
-/// gallery's tmp folder, where the main thread was during each wait of a
-/// second or more, which uitests.sh shows.
+/// gallery, does not count, each look standing for the time until the next
+/// one: no player asks them, and while the Files picker is open, one of
+/// them can hold the main thread for seconds. The readout says how long
+/// they held it, apart, and gallery-main-thread.txt, in the gallery's tmp
+/// folder, where the main thread was during each wait of a second or more,
+/// which uitests.sh shows.
 final class GalleryWatch: @unchecked Sendable {
     static let shared = GalleryWatch()
 
     /// A wait from which the watch notes a stall, with when it began.
     static let stall: TimeInterval = 0.25
-    /// From how long a wait the watch looks at where the main thread is,
-    /// and how often then: each look stands for that long.
-    private static let lookFrom: TimeInterval = 0.5
-    private static let lookEvery: TimeInterval = 0.5
+    /// From how long a wait the watch looks at where the main thread is, as
+    /// it asks.
+    private static let lookFrom: TimeInterval = 0.2
     /// From how long a wait where the main thread was is written down.
     private static let writeFrom: TimeInterval = 1
     private static let interval: DispatchTimeInterval = .milliseconds(100)
@@ -136,15 +136,15 @@ final class GalleryWatch: @unchecked Sendable {
     private let started = GalleryWatch.now
     /// When the question still unanswered was asked.
     private var asked: TimeInterval?
-    /// Where the main thread was seen meanwhile, and when to look again.
-    private var looks: [GalleryMainStack] = []
-    private var nextLook: TimeInterval = 0
+    /// Where the main thread was seen meanwhile.
+    private var looks: [GalleryLook] = []
     private var countsFrom: TimeInterval?
     private var inBackground = false
     private var longest: TimeInterval = 0
     private var stalls: [(at: TimeInterval, wait: TimeInterval)] = []
-    /// The time spent answering the tests' questions alone: the longest
-    /// such wait, and how many held the main thread a quarter of a second or more.
+    /// The time spent answering the tests' questions: the most in one wait,
+    /// and how many waits it held the main thread a quarter of a second or
+    /// more.
     private var testsLongest: TimeInterval = 0
     private var testsStalls = 0
     private var observers: [NSObjectProtocol] = []
@@ -203,14 +203,18 @@ final class GalleryWatch: @unchecked Sendable {
         }
     }
 
-    private static func milliseconds(_ seconds: TimeInterval) -> Int { Int((seconds * 1000).rounded()) }
+    fileprivate static func milliseconds(_ seconds: TimeInterval) -> Int { Int((seconds * 1000).rounded()) }
 
     /// Of a wait of WAIT seconds during which the watch saw the main thread
     /// where LOOKS say: the part that counts, and the part spent answering
-    /// the tests' questions, half a second for each look that found it so.
-    private static func ownPart(of wait: TimeInterval, _ looks: [GalleryMainStack])
+    /// the tests' questions.
+    private static func ownPart(of wait: TimeInterval, _ looks: [GalleryLook])
         -> (own: TimeInterval, tests: TimeInterval) {
-        let tests = min(wait, Double(looks.filter(\.answersTheTests).count) * lookEvery)
+        var tests: TimeInterval = 0
+        for (index, look) in looks.enumerated() where look.stack.answersTheTests {
+            tests += GalleryLook.span(of: index, in: looks, upTo: wait)
+        }
+        tests = min(tests, wait)
         return (wait - tests, tests)
     }
 
@@ -238,8 +242,8 @@ final class GalleryWatch: @unchecked Sendable {
     }
 
     /// On the watch's queue: asks the main thread, unless it has yet to
-    /// answer the last question; then looks at where it is, from half a
-    /// second into the wait.
+    /// answer the last question; then looks at where it is, from a fifth of
+    /// a second into the wait.
     private func ask() {
         let now = Self.now
         let looking: TimeInterval? = lock.withLock {
@@ -247,27 +251,24 @@ final class GalleryWatch: @unchecked Sendable {
             guard let pending = asked else {
                 asked = now
                 looks = []
-                nextLook = now + Self.lookFrom
                 DispatchQueue.main.async { [weak self] in self?.answer() }
                 return nil
             }
-            guard now >= nextLook else { return nil }
-            nextLook = now + Self.lookEvery
-            return pending
+            return now - pending >= Self.lookFrom ? pending : nil
         }
         guard let looking else { return }
         // Without the lock, which the main thread may be waiting for, or
         // hold: stopped, it cannot let go of it.
-        guard let look = GalleryMainStack.take() else { return }
+        guard let stack = GalleryMainStack.take() else { return }
         lock.withLock {
-            if asked == looking { looks.append(look) }
+            if asked == looking { looks.append(GalleryLook(at: now - looking, stack: stack)) }
         }
     }
 
     /// On the main thread: the answer to the last question.
     private func answer() {
         let now = Self.now
-        let record: (wait: TimeInterval, at: TimeInterval, looks: [GalleryMainStack])? = lock.withLock {
+        let record: (wait: TimeInterval, at: TimeInterval, looks: [GalleryLook])? = lock.withLock {
             guard let asked else { return nil }
             self.asked = nil
             let looks = self.looks
@@ -291,19 +292,77 @@ final class GalleryWatch: @unchecked Sendable {
         guard record.wait >= Self.writeFrom, !record.looks.isEmpty else { return }
         // Written down from the watch's queue, not to hold the main thread.
         queue.async {
-            var text = String(format: "%@ the main thread took %ld ms to answer, from %.1f s, %ld ms of them answering the tests' queries; where it was, every half second from half a second:",
+            var text = String(format: "%@ the main thread took %ld ms to answer, from %.1f s: %ld ms counted, %ld ms answering the tests' queries; where it was:",
                               GalleryMainStack.clock(), Self.milliseconds(record.wait), record.at,
-                              Self.milliseconds(part.tests))
-            text += GalleryMainStack.describe(record.looks)
+                              Self.milliseconds(part.own), Self.milliseconds(part.tests))
+            text += GalleryLook.describe(record.looks, upTo: record.wait)
             GalleryMainStack.writeDown(text)
         }
     }
 }
 
-/// Where the main thread was when the watch looked: each frame of its call
-/// stack, the innermost first, as "image symbol + offset".
+/// Where the watch saw the main thread, AT seconds into a wait.
+struct GalleryLook {
+    let at: TimeInterval
+    let stack: GalleryMainStack
+
+    /// How long the look at INDEX of a wait of WAIT seconds stands for:
+    /// from it to the next one, or to the answer; the first, from the
+    /// question.
+    static func span(of index: Int, in looks: [GalleryLook], upTo wait: TimeInterval) -> TimeInterval {
+        let from = index == 0 ? 0 : min(looks[index].at, wait)
+        let to = index + 1 < looks.count ? min(looks[index + 1].at, wait) : wait
+        return max(0, to - from)
+    }
+
+    /// LOOKS of a wait of WAIT seconds, those in a row that saw the same
+    /// told once, from when, with how long they stand for: of the places
+    /// that count, eight at most, spread over the wait, with their frames;
+    /// of those answering the tests' queries, the longest, more briefly.
+    static func describe(_ looks: [GalleryLook], upTo wait: TimeInterval) -> String {
+        var places: [(stack: GalleryMainStack, from: TimeInterval, looks: Int, seconds: TimeInterval)] = []
+        for (index, look) in looks.enumerated() {
+            let seconds = span(of: index, in: looks, upTo: wait)
+            if let last = places.last, last.stack == look.stack {
+                places[places.count - 1].looks += 1
+                places[places.count - 1].seconds += seconds
+            } else {
+                places.append((stack: look.stack, from: look.at, looks: 1, seconds: seconds))
+            }
+        }
+        let counted = places.filter { !$0.stack.answersTheTests }
+        let answering = places.filter { $0.stack.answersTheTests }
+        let most = 8
+        let shown = counted.count <= most ? Array(counted.indices)
+            : (0..<most).map { $0 * (counted.count - 1) / (most - 1) }
+        var text = ""
+        for index in shown {
+            let place = counted[index]
+            let times = place.looks == 1 ? "1 look" : "\(place.looks) looks"
+            text += "\n  counted, from \(seconds(place.from)) s, \(GalleryWatch.milliseconds(place.seconds)) ms, \(times):"
+            for line in place.stack.summary(most: 64) { text += "\n    " + line }
+        }
+        if counted.count > shown.count {
+            text += "\n  and \(counted.count - shown.count) places more that count, among those above"
+        }
+        if let longest = answering.max(by: { $0.seconds < $1.seconds }) {
+            let all = answering.reduce(TimeInterval(0)) { $0 + $1.seconds }
+            let count = answering.count == 1 ? "1 place" : "\(answering.count) places"
+            text += "\n  answering the tests' queries, \(GalleryWatch.milliseconds(all)) ms in \(count); the longest, "
+                + "from \(seconds(longest.from)) s, \(GalleryWatch.milliseconds(longest.seconds)) ms:"
+            for line in longest.stack.summary(most: 16) { text += "\n    " + line }
+        }
+        return text
+    }
+
+    /// "1.2", for seconds.
+    private static func seconds(_ value: TimeInterval) -> String { String(format: "%.1f", value) }
+}
+
+/// Where the main thread was when the watch looked: an address in the code
+/// of each frame of its call stack, the innermost first.
 struct GalleryMainStack: Equatable {
-    let frames: [String]
+    let addresses: [UInt]
     /// The outermost frame in iOS's accessibility or XCTest's, if any.
     let entry: Int?
     /// Whether the main thread was answering the tests' questions alone:
@@ -315,7 +374,7 @@ struct GalleryMainStack: Equatable {
 
     private static let capacity = 256
     /// Read into from the watch's queue alone.
-    private static let addresses = UnsafeMutablePointer<UInt>.allocate(capacity: capacity)
+    private static let buffer = UnsafeMutablePointer<UInt>.allocate(capacity: capacity)
     private static let galleryPath = Bundle.main.bundlePath + "/"
 
     /// On the main thread, before any look.
@@ -327,31 +386,20 @@ struct GalleryMainStack: Equatable {
         }
     }
 
-    /// From the watch's queue: where the main thread is now.
+    /// From the watch's queue: where the main thread is now, and whether
+    /// it is answering the tests, from the images its frames are in.
     static func take() -> GalleryMainStack? {
-        let count = Int(GalleryMainThreadStack(addresses, Int32(capacity)))
+        let count = Int(GalleryMainThreadStack(buffer, Int32(capacity)))
         guard count > 0 else { return nil }
-        var frames: [String] = []
-        var images: [String] = []
-        for index in 0..<count {
-            let address = addresses[index]
-            // Where a caller goes on is just after its call, which may be
-            // the last instruction of its function.
-            let inCall = index == 0 ? address : address &- 1
+        let addresses = Array(UnsafeBufferPointer(start: buffer, count: count))
+        let images = addresses.indices.map { (index: Int) -> String in
+            let address = inCall(addresses, index)
+            if let path = GalleryImagePath(address) { return String(cString: path) }
+            // Code outside every image's __TEXT, should there be any: dyld
+            // knows, more slowly.
             var info = Dl_info()
-            guard dladdr(UnsafeRawPointer(bitPattern: inCall), &info) != 0, let file = info.dli_fname else {
-                images.append("")
-                frames.append(String(format: "0x%lx", address))
-                continue
-            }
-            let image = String(cString: file)
-            images.append(image)
-            let name = (image as NSString).lastPathComponent
-            if let symbol = info.dli_sname, let start = info.dli_saddr {
-                frames.append("\(name) \(String(cString: symbol)) + \(inCall &- UInt(bitPattern: start))")
-            } else {
-                frames.append("\(name) + \(inCall &- UInt(bitPattern: info.dli_fbase))")
-            }
+            guard dladdr(UnsafeRawPointer(bitPattern: address), &info) != 0, let file = info.dli_fname else { return "" }
+            return String(cString: file)
         }
         let entry = images.lastIndex(where: isAccessibility)
         var answers = false
@@ -360,25 +408,14 @@ struct GalleryMainStack: Equatable {
             let gallery = images[..<entry].contains { $0.hasPrefix(galleryPath) }
             answers = ["CoreFoundation", "Foundation", "libdispatch.dylib", "libxpc.dylib"].contains(caller) && !gallery
         }
-        return GalleryMainStack(frames: frames, entry: entry, answersTheTests: answers)
+        return GalleryMainStack(addresses: addresses, entry: entry, answersTheTests: answers)
     }
 
-    /// What is written down of it: its innermost frames, then those around
-    /// the outermost in iOS's accessibility or XCTest's, with its callers.
-    var summary: [String] {
-        var upTo = min(frames.count, 24)
-        var lines = Array(frames[..<upTo])
-        if let entry {
-            let from = max(upTo, entry - 2)
-            let to = min(frames.count, entry + 4)
-            if from < to {
-                if from > upTo { lines.append("… \(from - upTo) frames …") }
-                lines += frames[from..<to]
-                upTo = to
-            }
-        }
-        if upTo < frames.count { lines.append("… \(frames.count - upTo) frames more") }
-        return lines
+    /// The address of the call frame INDEX is in: where a caller goes on
+    /// is just after its call, which may be the last instruction of its
+    /// function.
+    private static func inCall(_ addresses: [UInt], _ index: Int) -> UInt {
+        index == 0 ? addresses[index] : addresses[index] &- 1
     }
 
     /// iOS's accessibility, which answers the tests' queries, and XCTest's
@@ -389,30 +426,52 @@ struct GalleryMainStack: Equatable {
             || ["AX", "libAX", "XCT", "libXCT", "XCUI"].contains { name.hasPrefix($0) }
     }
 
-    /// LOOKS, each but those that saw the same as the one before, eight at
-    /// most.
-    static func describe(_ looks: [GalleryMainStack]) -> String {
-        var text = ""
-        var index = 0
-        var shown = 0
-        while index < looks.count {
-            let look = looks[index]
-            var same = 1
-            while index + same < looks.count, looks[index + same].summary == look.summary,
-                  looks[index + same].answersTheTests == look.answersTheTests {
-                same += 1
+    /// Each frame as "image symbol + offset", from dyld's symbols, and
+    /// whether it is in the gallery's own code: slower, for what is written
+    /// down.
+    private var frames: [(text: String, gallery: Bool)] {
+        addresses.indices.map { (index: Int) -> (text: String, gallery: Bool) in
+            let address = Self.inCall(addresses, index)
+            var info = Dl_info()
+            guard dladdr(UnsafeRawPointer(bitPattern: address), &info) != 0, let file = info.dli_fname else {
+                return (text: String(format: "0x%lx", addresses[index]), gallery: false)
             }
-            guard shown < 8 else {
-                text += "\n  and \(looks.count - index) looks more"
+            let path = String(cString: file)
+            let name = (path as NSString).lastPathComponent
+            var text = "\(name) + \(address &- UInt(bitPattern: info.dli_fbase))"
+            if let symbol = info.dli_sname, let start = info.dli_saddr {
+                text = "\(name) \(String(cString: symbol)) + \(address &- UInt(bitPattern: start))"
+            }
+            return (text: text, gallery: path.hasPrefix(Self.galleryPath))
+        }
+    }
+
+    /// What is written down of it, in MOST lines or about: every frame, or
+    /// its innermost ones, those of the gallery's own code with their
+    /// neighbours, those around the outermost in iOS's accessibility or
+    /// XCTest's, and the outermost.
+    func summary(most: Int) -> [String] {
+        let frames = self.frames
+        guard frames.count > most else { return frames.map { $0.text } }
+        let last = frames.count - 1
+        var kept = Set(0..<(most / 3))
+        for (index, frame) in frames.enumerated() where frame.gallery {
+            kept.formUnion(max(0, index - 1)...min(last, index + 1))
+        }
+        if let entry { kept.formUnion(max(0, entry - 2)...min(last, entry + 3)) }
+        kept.formUnion(max(0, last - 2)...last)
+        var lines: [String] = []
+        var previous = -1
+        for index in kept.sorted() {
+            if lines.count >= most {
+                lines.append("… and \(last - previous) frames more")
                 break
             }
-            text += "\n  " + (look.answersTheTests ? "answering the tests' queries" : "counted")
-            text += same > 1 ? ", \(same) looks:" : ":"
-            for line in look.summary { text += "\n    " + line }
-            index += same
-            shown += 1
+            if index > previous + 1 { lines.append("… \(index - previous - 1) frames …") }
+            lines.append(frames[index].text)
+            previous = index
         }
-        return text
+        return lines
     }
 
     /// "2026-11-12 10:46:09.461Z", in UTC, as xcodebuild's log on the CI
