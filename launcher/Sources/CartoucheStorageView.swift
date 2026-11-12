@@ -114,6 +114,13 @@ struct CartoucheStorageView: View {
                             Text(verbatim: "\(stored.games.count)")
                         }
                     }
+                    // A game built without its game files, and an image of
+                    // them, each without the other: neither installs a game.
+                    ForEach(Self.gameFilesNotes(stored, folder: place.path), id: \.self) { note in
+                        Text(note)
+                            .font(.footnote)
+                            .foregroundStyle(Color.orange)
+                    }
                     if offline {
                         let away = CartoucheStorageOffline(server)
                         Label(away.localizedDescription, systemImage: away.symbol)
@@ -321,6 +328,21 @@ struct CartoucheStorageView: View {
         case .mac: return "laptopcomputer"
         case .drive: return "g.circle.fill"
         }
+    }
+
+    /// What the games folder at FOLDER lacks for the games nxnative built
+    /// without their game files, and its images of game files that no IPA
+    /// needs (CartoucheRomfs).
+    @MainActor static func gameFilesNotes(_ stored: CartoucheStoredGames, folder: String) -> [String] {
+        let lacking = stored.games.filter(\.lacksGameFiles).map(\.name)
+        let base = CartoucheStoragePath.join(folder)
+        let loose = stored.looseGameFiles.map { path in
+            base.isEmpty || !path.hasPrefix(base + "/") ? path : String(path.dropFirst(base.count + 1))
+        }
+        var notes: [String] = []
+        if !lacking.isEmpty { notes.append(CartoucheText.storageGameFilesMissing(lacking)) }
+        if !loose.isEmpty { notes.append(CartoucheText.storageGameFilesLoose(loose)) }
+        return notes
     }
 
     /// "NAS › Games › Switch", or the server's name alone for its root.

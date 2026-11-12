@@ -40,7 +40,7 @@ Dans Cartouche, **Choisir le dossier des jeux**, dans le guide, ouvre la page du
 - **Sur votre NAS :** ajoutez-le avec son adresse, votre nom d’utilisateur et votre mot de passe, puis choisissez le dossier des jeux. Un serveur SFTP ou FTP, un bucket S3 à vous ou un dossier de Fichiers conviennent aussi, tout comme le Partage de fichiers (SMB) de votre Mac.
 - **Sur votre Google Drive :** choisissez **Ajouter Google Drive**. Cartouche n’a pas de clé Google à lui : vous créez donc une fois, gratuitement, un client à vous dans Google Cloud ; **Créer votre client, pas à pas** ouvre chaque page, avec l’ID de bundle à copier. Collez l’ID client, touchez **Se connecter avec Google**, puis choisissez le dossier des jeux dans Mon Drive. Tant que votre projet Google Cloud est en test, Google met fin à la connexion au bout de 7 jours : **Se reconnecter à Google** ramène le Drive, et vos sauvegardes attendent.
 
-Cartouche y liste vos jeux et propose leurs mises à jour.
+Cartouche y liste vos jeux et propose leurs mises à jour. Un jeu que nxnative a construit sans les fichiers du jeu, comme les gros jeux avec `--romfs separate`, arrive en deux fichiers, une IPA et un `romfs.img` : gardez-les côte à côte dans votre dossier des jeux, quelle que soit la casse de son nom, et Cartouche les installe ensemble. La page du stockage dit quand l’un des deux y est seul.
 
 Pas de dossier des jeux ? Mettez l’IPA dans Fichiers sur l’iPhone, par AirDrop par exemple, et choisissez **Importer plutôt une IPA**.
 

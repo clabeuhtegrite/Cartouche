@@ -202,7 +202,9 @@ enum CartoucheReports {
         if CartoucheGameKeeping.isAvailable {
             let keeping = CartoucheGameKeeping.shared
             let behind = !keeping.keepsConsoleOpen ? "off"
-                : keeping.limitMiB.map { "limit \($0) MiB at the last game" } ?? "not measured yet"
+                : keeping.limitMiB.map {
+                    "limit \($0) MiB at the last game" + (keeping.behindLacksIML ? ", without Increased Memory Limit" : "")
+                } ?? "not measured yet"
             facts.append(.init("Memory behind Cartouche", behind))
         }
         if let free = freeSpace {

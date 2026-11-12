@@ -2251,13 +2251,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Needs a GPU that reads BC-compressed textures."
+            "value" : "nxnative’s games need an iPhone 15 Pro or later, or an iPad with an M1 chip or later: this iPhone’s GPU cannot read their compressed textures, and a game stops there before its first image."
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Nécessite un GPU qui lit les textures compressées en BC."
+            "value" : "Les jeux nxnative demandent un iPhone 15 Pro ou plus récent, ou un iPad avec une puce M1 ou plus récente : le GPU de cet iPhone ne lit pas leurs textures compressées, et un jeu s’y arrête avant sa première image."
           }
         }
       }
@@ -5203,6 +5203,23 @@
         }
       }
     },
+    "sheet.inPlace.iml" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Behind Cartouche, games have only %@ here, without Increased Memory Limit: this game starts in Cartouche’s place, and the console closes while it runs."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Derrière Cartouche, les jeux n’ont ici que %@, sans la mémoire augmentée : ce jeu démarre à la place de Cartouche, et la console se ferme pendant qu’il tourne."
+          }
+        }
+      }
+    },
     "sheet.inPlace.retry" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -7770,6 +7787,74 @@
         }
       }
     },
+    "storage.gameFiles.loose" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@: games’ files, but no IPA here was built to go with them. Put beside each the IPA nxnative built with it, or build the games with Cartouche Builder."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ : les fichiers de jeux, mais aucune IPA d’ici n’a été construite pour aller avec. Mettez à côté de chacun l’IPA que nxnative a construite avec, ou construisez les jeux avec Cartouche Builder."
+          }
+        }
+      }
+    },
+    "storage.gameFiles.loose.one" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@: a game’s files, but no IPA here was built to go with them. Put beside them the IPA nxnative built with them, or build the game with Cartouche Builder."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ : les fichiers d’un jeu, mais aucune IPA d’ici n’a été construite pour aller avec. Mettez à côté l’IPA que nxnative a construite avec, ou construisez le jeu avec Cartouche Builder."
+          }
+        }
+      }
+    },
+    "storage.gameFiles.missing" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ were built without their game files: put each one’s romfs.img beside its IPA, and Cartouche installs the two together."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ ont été construits sans les fichiers du jeu : mettez le romfs.img de chacun à côté de son IPA, et Cartouche installe les deux ensemble."
+          }
+        }
+      }
+    },
+    "storage.gameFiles.missing.one" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ was built without its game files: put its romfs.img beside its IPA, and Cartouche installs the two together."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ a été construit sans les fichiers du jeu : mettez son romfs.img à côté de son IPA, et Cartouche installe les deux ensemble."
+          }
+        }
+      }
+    },
     "storage.games" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -9827,6 +9912,23 @@
         }
       }
     },
+    "system.playing.noIML" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Behind Cartouche, games run without Increased Memory Limit here: they start in Cartouche’s place, with all of its memory, unless their sheet shows they need less."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Derrière Cartouche, les jeux tournent ici sans la mémoire augmentée : ils démarrent à la place de Cartouche, avec toute sa mémoire, sauf si leur fiche montre qu’il leur en faut moins."
+          }
+        }
+      }
+    },
     "system.signature" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -11404,6 +11506,108 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Le jeu n’a pas été installé"
+          }
+        }
+      }
+    },
+    "work.install.gameFiles" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Copying its game files, romfs.img."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Copie des fichiers du jeu, romfs.img."
+          }
+        }
+      }
+    },
+    "work.install.gameFiles.apart" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ was built without its game files. Put this IPA and its romfs.img together in your games folder, then install the game from there."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ a été construit sans les fichiers du jeu. Mettez cette IPA et son romfs.img ensemble dans votre dossier des jeux, puis installez le jeu depuis celui-ci."
+          }
+        }
+      }
+    },
+    "work.install.gameFiles.mismatch" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The romfs.img beside %@ is not the one it was built with. Put the one nxnative wrote with this IPA beside it, then install the game again."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Le romfs.img à côté de %@ n’est pas celui avec lequel il a été construit. Mettez à côté celui que nxnative a écrit avec cette IPA, puis installez le jeu à nouveau."
+          }
+        }
+      }
+    },
+    "work.install.gameFiles.missing" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ was built without its game files, and its romfs.img is not beside its IPA in your games folder. Put it there, as nxnative wrote it, then install the game again."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ a été construit sans les fichiers du jeu, et son romfs.img n’est pas à côté de son IPA dans votre dossier des jeux. Copiez-le à côté d’elle, tel que nxnative l’a écrit, puis installez le jeu à nouveau."
+          }
+        }
+      }
+    },
+    "work.install.gpu" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This iPhone cannot run nxnative’s games"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cet iPhone ne peut pas faire tourner les jeux nxnative"
+          }
+        }
+      }
+    },
+    "work.install.gpu.anyway" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Install anyway"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Installer quand même"
           }
         }
       }

@@ -28,8 +28,8 @@ final class CartoucheSMB: CartoucheRemote {
     /// cuts the connection. One that stopped answering without closing,
     /// after the Wi-Fi changed or the NAS went down, would keep the request
     /// waiting for good; cut, it fails, and an install from the games folder
-    /// connects again (CartoucheResumingSource). A read asks for the
-    /// server's most, 8 MiB or less, about a second on a home network.
+    /// connects again (CartoucheResumingSource). A request asks for 1 MiB at
+    /// most (SMBSource.request), a fraction of a second on a home network.
     static let patience: UInt64 = 60_000_000_000
 
     static func connect(_ server: CartoucheStorageServer, password: String) async throws -> CartoucheSMB {
@@ -208,6 +208,16 @@ final class CartoucheSMB: CartoucheRemote {
 }
 
 private final class SMBSource: CartoucheByteSource {
+    /// The most one request asks for, though Samba would answer 8 MiB.
+    /// SMBClient gathers an answer in copies that grow as it comes, each
+    /// dropped for the next, and macOS takes the memory of copies of several
+    /// MiB back long after they are dropped: on the Mac of the storage
+    /// tests, an install of an IPA past 4 GiB, read in requests of 8 MiB,
+    /// now and then took 286 to 560 MB more than at its start, and up to
+    /// 115 MB more with 4 MiB. With 1 MiB, it took what the install itself
+    /// holds, 37 MB at most, and nothing more as it went.
+    static let request = 1 << 20
+
     let size: UInt64
     private let reader: FileReader
     private let session: Session
@@ -225,15 +235,17 @@ private final class SMBSource: CartoucheByteSource {
 
     func read(at offset: UInt64, count: Int) async throws -> Data {
         guard offset < size, count > 0 else { return Data() }
-        var data = Data()
+        let wanted = Int(min(UInt64(count), size - offset))
         let session = session
-        let most = Int(max(session.maxReadSize, 65_536))
-        // One request at a time, as FileReader sends them.
-        while data.count < count {
-            let wanted = UInt32(min(count - data.count, most))
+        let most = min(Int(max(session.maxReadSize, 65_536)), Self.request)
+        // The read's bytes in one buffer, made once, and one request at a
+        // time, as FileReader sends them.
+        var data = Data(capacity: wanted)
+        while data.count < wanted {
+            let length = UInt32(min(wanted - data.count, most))
             let at = offset + UInt64(data.count)
             let part = try await CartoucheDeadline.within(CartoucheSMB.patience, cut: { session.disconnect() }) {
-                try await reader.read(offset: at, length: wanted)
+                try await reader.read(offset: at, length: length)
             }
             if part.isEmpty { break }
             data.append(part)
