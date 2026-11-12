@@ -50,6 +50,12 @@ jobs:
   app:
     name: App
     uses: ./.github/workflows/app.yml # zizmor: ignore[self-repository]
+    # What its jobs ask for, which GitHub checks before the pass starts: the
+    # watch of a build on Ad's Mac, which the pass skips, its build running
+    # on GitHub's Macs (.github/mac/route.py).
+    permissions:
+      contents: read
+      actions: write
     with:
       full: true
 
@@ -65,9 +71,11 @@ jobs:
     name: Launcher screens
     uses: ./.github/workflows/screens.yml # zizmor: ignore[self-repository]
     # What its jobs ask for, which GitHub checks before the pass starts: the
-    # one that would keep the screenshots on a branch, which the pass skips.
+    # one that would keep the screenshots on a branch, and the watch of Ad's
+    # Mac, which the pass skips.
     permissions:
       contents: write
+      actions: write
     with:
       full: true
 

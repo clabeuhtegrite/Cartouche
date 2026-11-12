@@ -17,6 +17,8 @@ It calls each workflow that tests a part of the project, whole, with `full: true
 | Telemetry | [telemetry.yml](../workflows/telemetry.yml) | the telemetry server, its dashboard, its database and the weekly sum into the game sheets |
 | Showcase site | [site.yml](../workflows/site.yml) | the page, and its download links against the releases as they are |
 
+Its Mac jobs run on GitHub's Macs, never on Ad's: [`route.py`](../mac/route.py) sends there only the runs of App and Launcher screens themselves, which Mac rescue can run again.
+
 Its last job, **Every test passed** ([`verdict.py`](verdict.py)), reads the jobs of the run and fails when one failed, did not end, or was skipped though the pass must run it: only the jobs that publish, push or deploy, and those of pull requests alone, may be. Its summary gives each part's result. The builds, the screenshots and the UI tests' results stay with the run.
 
 ## When it runs
@@ -46,7 +48,7 @@ The pass does not run on pull requests. The Workflow audit checks how it is wire
 
 - add a workflow that runs on pull requests without the pass calling it, unless it tests nothing (`NOT_TESTS`);
 - call a workflow that does not take the boolean input `full` from `workflow_call`, or read an input in a test job that `workflow_call` does not take: in the pass, it is empty;
-- read a secret in a test job that the call does not pass: a called workflow has only the secrets its call passes;
+- read a secret in a test job that the call does not pass: a called workflow has only the secrets its call passes (but `MAC_RUNNER_TOKEN`, which the pass does not need);
 - let a job that writes or deploys run in the pass: its condition has `!inputs.full`;
 - grant a call less than its workflow's jobs ask for, which GitHub checks before it starts the pass, skipped jobs included;
 - keep two artifacts under the same name in the pass's one run;

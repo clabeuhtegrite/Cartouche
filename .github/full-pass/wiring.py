@@ -12,7 +12,8 @@ that would leave a test out of it, stop it from starting, or let it publish:
   and every input its test jobs read is one of its workflow_call inputs: an
   input the pass does not give reads as empty, and would skip a step or a job;
 - every secret its test jobs read is passed by the call, as a called workflow
-  has none of the repository's secrets but those its call passes;
+  has none of the repository's secrets but those its call passes, unless the
+  pass does not need it (UNNEEDED_SECRETS);
 - each job that can write or deploy, which the pass must skip, says so in its
   condition with `!inputs.full`;
 - each call is granted what its workflow's jobs ask for: GitHub checks that,
@@ -43,6 +44,12 @@ NOT_TESTS = {
 # Workflows that do not run on pull requests, yet test a part of the project.
 ALSO_TESTS = {
     "site.yml": "the showcase page with the download links of the releases as they are",
+}
+
+# Secrets that test jobs read, and that the pass need not pass them.
+UNNEEDED_SECRETS = {
+    "MAC_RUNNER_TOKEN": "route.py sends no job of a workflow another calls to Ad's Mac: it picks GitHub's Macs "
+                        "before it reads the token that finds Ad's",
 }
 
 LEVELS = {"none": 0, "read": 1, "write": 2}
@@ -220,7 +227,7 @@ def check(root: Path) -> list[str]:
             problems.append(f"{call.workflow} reads `inputs.{name}`, which its workflow_call does not take: in the pass it is empty")
         passed = call.job.get("secrets")
         if passed != "inherit":
-            for name in sorted(secrets - set(passed or {})):
+            for name in sorted(secrets - set(passed or {}) - set(UNNEEDED_SECRETS)):
                 problems.append(f"{call.workflow} reads `secrets.{name}`, which {PASS} does not pass it: in the pass it is empty")
 
         granted = permissions(call.job.get("permissions", full_pass.get("permissions")))
