@@ -6,7 +6,8 @@ stderr. A command that cannot be done answers {"error": {"kind", "message"}}
 with exit code 3 (2 for a request it does not understand); when the cause
 is not one the builder knows ("engine", "failed", "unexpected"), the error
 also says the exception's class, where the builder's code met it and its
-errno (failure.py), which the app's measurements send. The batches
+errno (failure.py), which the app's measurements send. A full disk is
+"no_space", in the player's words (disks.py). The batches
 themselves run as `cartouche-builder build`, which the app starts and
 follows through status.json (status.py).
 
@@ -40,12 +41,13 @@ import zipfile
 from dataclasses import asdict, fields
 from pathlib import Path
 
-from . import __version__, batch, config as configs, failure, ipa as ipas, schedule, shares, storage, titles, toolchain
+from . import __version__, batch, config as configs, disks, failure, fallback, ipa as ipas, schedule, shares, storage, titles, toolchain
 from . import queue as queues
 from . import status as statuses
 from .engine import Commit, EngineError
 from .i18n import language, t
 from .impact import Matcher, analyze
+from .paths import Paths
 from .state import now_iso
 
 API_VERSION = 1
@@ -113,15 +115,25 @@ def main(argv: list[str]) -> int:
     except batch.Blocked as error:
         return _answer({"error": {"kind": "blocked", "message": str(error)}}, 3)
     except EngineError as error:
+        if disks.is_full(error):
+            return _no_space(error, Paths.default().engine)
         return _answer({"error": {"kind": "engine", "message": str(error), **failure.describe(error)}}, 3)
     except storage.Refused as error:
         return _answer({"error": {"kind": "refused", "message": t("api.refused", path=error)}}, 3)
     except (OSError, ValueError, RuntimeError, zipfile.BadZipFile) as error:
+        if disks.is_full(error):
+            return _no_space(error, Paths.default().root)
         return _answer({"error": {"kind": "failed", "message": f"{type(error).__name__}: {error}", **failure.describe(error)}}, 3)
     except Exception as error:  # noqa: BLE001 - the app reads an answer whatever went wrong
         # Its traceback goes where the app keeps what the engine says.
         traceback.print_exc(file=sys.stderr)
         return _answer({"error": {"kind": "unexpected", "message": f"{type(error).__name__}: {error}", **failure.describe(error)}}, 3)
+
+
+def _no_space(error: BaseException, where: Path) -> int:
+    """A full disk, in the player's words: which disk, and what is left on
+    it. WHERE is what the builder was writing, when the error names nothing."""
+    return _answer({"error": {"kind": "no_space", "message": disks.describe(error, where), **failure.describe(error)}}, 3)
 
 
 def _answer(data: dict, code: int = 0) -> int:
@@ -230,7 +242,13 @@ def engine_info(ctx: batch.Context, head: str | None) -> dict | None:
         when = int(stamp) if stamp.isdigit() else 0
     except EngineError:
         pass
-    return {"head": head, "short": head[:12], "time": when, "subject": subject, "url": ctx.config.engine_url, "branch": ctx.config.engine_branch, "commit_url": commit_url(ctx.config.engine_url)}
+    info = {"head": head, "short": head[:12], "time": when, "subject": subject, "url": ctx.config.engine_url, "branch": ctx.config.engine_branch, "commit_url": commit_url(ctx.config.engine_url)}
+    # The branch's newest commit, when the checkout stays on an older one
+    # because the newest does not build (fallback.py).
+    latest = ctx.engine.latest()
+    if latest and latest != head and latest in fallback.broken(ctx.paths):
+        info.update({"latest": latest, "latest_short": latest[:12], "held": True})
+    return info
 
 
 def commit_url(url: str) -> str:
@@ -439,7 +457,7 @@ def doctor(ctx: batch.Context) -> dict:
 def setup(ctx: batch.Context) -> dict:
     with batch.batch_lock(ctx.paths):
         _say(t("batch.cloning_engine") if not ctx.engine.present else t("batch.updating_engine"))
-        ctx.engine.update()
+        batch.update_engine(ctx)
         toolchain.ensure_python(ctx.paths, ctx.engine.requirements, log=_say)
         toolchain.write_dotnet_lock(ctx.paths)
     return doctor(ctx)

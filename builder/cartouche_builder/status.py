@@ -5,7 +5,11 @@ started it: what it does now (nxnative brought up to date, then the games
 one after the other, those asked for while it runs after the others), each
 game's stage and share done, the games built or failed, and the last lines
 it said. The games it was asked for are there from its start, waiting their
-turn while nxnative moves and the plan is made. The file is written whole
+turn while nxnative moves and the plan is made. A game not built says why
+(its cause, causes.py), after how long, and nxnative's exit code; a game
+says the nxnative commit it was built from, and whether that is an older one
+than the branch's newest, which does not build (fallback.py), as the batch
+does. The file is written whole
 each time (a temporary file renamed over it), at most a few times a second,
 so the app can read it whenever it likes. The batch's own process number
 tells the app whether it still runs.
@@ -51,6 +55,11 @@ class Game:
     log: str = ""
     ipa: str = ""
     duration: float = 0.0
+    commit: str = ""  # the nxnative commit it was built (or tried) from, 12 digits
+    fallback: bool = False  # from an older commit, the newest not building
+    cause: str = ""  # why it was not built (causes.py)
+    exit: int | None = None  # nxnative's exit code, when it ran
+    failure: dict = field(default_factory=dict)  # the exception, where and errno (failure.py)
 
 
 class Status:
@@ -68,6 +77,8 @@ class Status:
             "updated": now_iso(),
             "ended": "",
             "head": "",
+            "latest": "",
+            "fallback": None,
             "message": "",
             "error": "",
             "report": "",
@@ -137,6 +148,14 @@ class Status:
                 self.lines.append(str(value))
                 self.write()
                 return
+            if kind == "engine":
+                # nxnative's commit the games build from, the branch's newest,
+                # and {"from", "to"} when the batch stays on an older one.
+                self.data["head"] = value.get("head") or self.data["head"]
+                self.data["latest"] = value.get("latest") or ""
+                self.data["fallback"] = value.get("fallback")
+                self.write(force=True)
+                return
             if kind == "queued":
                 # Asked for while the batch runs: after the games waiting, even
                 # one built earlier in the batch, asked for again.
@@ -155,6 +174,14 @@ class Status:
                 game.state, game.started = "building", now_iso()
                 game.message = ""
                 self.write(force=True)
+            elif kind == "commit":
+                game.commit, game.fallback = str(value.get("commit") or ""), bool(value.get("fallback"))
+                self.write()
+            elif kind == "cause":
+                game.cause = str(value.get("cause") or "")
+                game.exit = value.get("exit")
+                game.duration = float(value.get("seconds") or 0.0)
+                game.failure = {k: value[k] for k in ("exception", "where", "errno") if value.get(k) is not None}
             elif kind == "progress":
                 game.stage, game.step, game.k, game.n = value.stage, value.step, value.k, value.n
                 game.frac, game.eta, game.note = value.frac, value.eta, value.note
@@ -231,6 +258,11 @@ def _game_json(game: Game) -> dict:
         "log": game.log,
         "ipa": game.ipa,
         "duration": round(game.duration, 1),
+        "commit": game.commit,
+        "fallback": game.fallback,
+        "cause": game.cause,
+        "exit": game.exit,
+        "failure": game.failure,
     }
 
 

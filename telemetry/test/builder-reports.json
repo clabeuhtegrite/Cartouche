@@ -59,6 +59,7 @@
       "cartouche": "0.2.1",
       "device": "Mac16,12",
       "fields": {
+        "fallback": true,
         "ipaMB": 1830,
         "nxnative": "6c3aeb3d70a1",
         "reasons": "named,shared",
@@ -79,11 +80,13 @@
       "cartouche": "0.2.1",
       "device": "Mac16,12",
       "fields": {
+        "cause": "app_build",
+        "exit": 1,
         "nxnative": "6c3aeb3d70a1",
         "reasons": "profile",
         "seconds": 1260,
         "source": "dump",
-        "stage": "shaders"
+        "stage": "app build"
       },
       "game": "010093801237C000",
       "id": "6a1d9e3c-0000-4000-8000-000000000004",
@@ -101,6 +104,7 @@
       "fields": {
         "built": 1,
         "failed": 1,
+        "fallback": true,
         "games": 3,
         "jobs": 1,
         "minutes": 112.5,
@@ -316,6 +320,52 @@
       "name": "builder.imported",
       "schema": 1,
       "seq": 16
+    },
+    {
+      "cartouche": "0.2.1",
+      "device": "Mac16,12",
+      "fields": {
+        "cause": "no_space",
+        "exit": 1,
+        "nxnative": "6c3aeb3d70a1",
+        "reasons": "new",
+        "seconds": 312,
+        "source": "nup",
+        "stage": "unpack v0"
+      },
+      "game": "0100152000022000",
+      "id": "6a1d9e3c-0000-4000-8000-000000000017",
+      "install": "8c1f6c2e-7a2f-4e19-8c3d-2f6a9b0e1d7c",
+      "ios": "26.6",
+      "kind": "event",
+      "language": "fr",
+      "name": "builder.skipped",
+      "schema": 1,
+      "seq": 17
+    },
+    {
+      "cartouche": "0.2.1",
+      "device": "Mac16,12",
+      "fields": {
+        "cause": "builder",
+        "errno": 13,
+        "exception": "PermissionError",
+        "nxnative": "6c3aeb3d70a1",
+        "reasons": "source",
+        "seconds": 2410,
+        "source": "packages",
+        "stage": "deliver",
+        "where": "ipa.deliver"
+      },
+      "game": "010093801237C000",
+      "id": "6a1d9e3c-0000-4000-8000-000000000018",
+      "install": "8c1f6c2e-7a2f-4e19-8c3d-2f6a9b0e1d7c",
+      "ios": "26.6",
+      "kind": "event",
+      "language": "fr",
+      "name": "builder.failed",
+      "schema": 1,
+      "seq": 18
     }
   ]
 }

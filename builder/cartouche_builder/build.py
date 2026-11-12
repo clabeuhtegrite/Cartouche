@@ -5,7 +5,9 @@ describes it (docs/frontends.md): --progress json, the game's own build
 folder (--work-dir) and the IPA's path (-o). It reads the JSON events on
 stdout for the progress it shows, keeps stderr, and writes both to the game's
 log. The exit code says how it ended: 0 built, 1 an error (the last "[RED] "
-message says which), 2 options nxnative refused, 130 stopped.
+message says which), 2 options nxnative refused, 130 stopped. A build that
+did not build says why as a name (causes.py), and where: the stage it was
+at.
 """
 
 from __future__ import annotations
@@ -20,6 +22,7 @@ from collections import deque
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from . import causes
 from .i18n import t
 
 
@@ -59,6 +62,11 @@ class Result:
     warnings: list[str] = field(default_factory=list)
     duration: float = 0.0
     stopped: bool = False
+    started: bool = True  # whether nxnative's script started
+    stage: str = ""  # nxnative's stage when it ended ("app build")
+    said: list[str] = field(default_factory=list)  # its "[RED] " messages
+    stderr: list[str] = field(default_factory=list)  # the last lines of its stderr
+    cause: str = ""  # why it did not build (causes.py)
 
 
 def command(python: Path, script: Path, source: Path, work: Path, out: Path, keys: Path | None, language: str = "", keep_extracted: bool | None = None) -> list[str]:
@@ -118,6 +126,7 @@ def run(
                 start_new_session=True,
             )
         except OSError as error:
+            result.started, result.cause = False, "no_start"
             result.error = t("build.no_start", error=error)
             write(f"! {result.error}")
             return result
@@ -187,6 +196,7 @@ def run(
         result.duration = time.monotonic() - started
         result.stopped = code == 130 or bool(stop and stop.is_set())
         result.ok = code == 0 and not result.stopped
+        result.stage, result.said, result.stderr = progress.stage, red[-10:], list(errors)
         if not result.ok:
             if result.stopped:
                 result.error = t("build.stopped")
@@ -194,6 +204,7 @@ def run(
                 result.error = t("build.refused", error=(list(errors) or [""])[-1])
             else:
                 result.error = red[-1] if red else (list(errors)[-1] if errors else t("build.exit_code", code=code))
+            result.cause = causes.of_build(result)
         write(f"# exit {code} after {result.duration:.0f} s" + (f": {result.error}" if result.error else ""))
     return result
 

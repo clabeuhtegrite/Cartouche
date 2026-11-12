@@ -105,22 +105,40 @@ class Engine:
         self.root.parent.mkdir(parents=True, exist_ok=True)
         self.git("clone", "--filter=blob:none", "--branch", self.branch, self.url, str(self.root), cwd=self.root.parent, timeout=3600)
 
-    def update(self) -> tuple[str | None, str]:
-        """Moves the checkout to the newest commit of the branch: (before, after)."""
+    def update(self, hold=None) -> tuple[str | None, str]:
+        """Moves the checkout to the newest commit of the branch: (before,
+        after). HOLD(newest) may name an older commit to move to instead,
+        one that builds when the newest does not (fallback.py)."""
         before = self.head()
         self.ensure()
         if self.git("remote", "get-url", "origin").strip() != self.url:
             self.git("remote", "set-url", "origin", self.url)
         self.git("fetch", "--prune", "origin", f"+refs/heads/{self.branch}:refs/remotes/origin/{self.branch}", timeout=3600)
-        # --force: what an earlier build left changed in tracked files (the
-        # chain header it may write) does not hold the checkout back.
-        self.git("checkout", "--force", "-B", self.branch, f"origin/{self.branch}", timeout=3600)
+        newest = self.latest()
+        target = (hold(newest) if hold and newest else None) or f"origin/{self.branch}"
+        self.move(target)
         return before, self.head()
+
+    def move(self, commit: str) -> str | None:
+        """Moves the checkout to COMMIT, the branch with it. --force: what an
+        earlier build left changed in tracked files (the chain header it may
+        write) does not hold the checkout back. A commit whose files this
+        partial clone lacks gets them from the remote."""
+        self.git("checkout", "--force", "-B", self.branch, commit, timeout=3600)
+        return self.head()
 
     def head(self) -> str | None:
         if not self.present:
             return None
         out = self.git("rev-parse", "--verify", "--quiet", "HEAD^{commit}", check=False).strip()
+        return out or None
+
+    def latest(self) -> str | None:
+        """The newest commit of the branch, as the last fetch saw it: the
+        checkout's own, unless the builder held it back (fallback.py)."""
+        if not self.present:
+            return None
+        out = self.git("rev-parse", "--verify", "--quiet", f"refs/remotes/origin/{self.branch}^{{commit}}", check=False).strip()
         return out or None
 
     def resolve(self, commit: str) -> str | None:
