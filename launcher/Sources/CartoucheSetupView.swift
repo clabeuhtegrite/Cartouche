@@ -75,22 +75,20 @@ struct CartoucheSetupView: View {
                     title: CartoucheText.setupCertificateTitle,
                     detail: certificateDetail
                 ) {
-                    NavigationLink {
-                        CartoucheSigningView()
-                    } label: {
-                        Label(CartoucheText.signingTitle, systemImage: "signature")
+                    if CartoucheImportedSigning.isImportedInstall {
+                        NavigationLink {
+                            CartoucheSigningView()
+                        } label: {
+                            Label(CartoucheText.signingTitle, systemImage: "signature")
+                        }
+                        .buttonStyle(.bordered)
                     }
-                    .buttonStyle(.bordered)
                     if let problem = setup.signingProblem {
                         Text(problem).font(.footnote).foregroundStyle(.red)
                     }
                     if setup.isImportingSigning { ProgressView(CartoucheText.setupCertificateChecking) }
                     if setup.usesImportedSigning {
                         Text(CartoucheText.signingUpdateOnComputer).font(.footnote).foregroundStyle(.secondary)
-                        if !CartoucheImportedSigning.isImportedInstall {
-                            Button(CartoucheText.signingUseAccount) { setup.useAccountSigning() }
-                                .disabled(setup.isImportingSigning)
-                        }
                     }
                     if !setup.hasCertificate {
                         Button(CartoucheText.setupCheckAgain, systemImage: "arrow.clockwise") {

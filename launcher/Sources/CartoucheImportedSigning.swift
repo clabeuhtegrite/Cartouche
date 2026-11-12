@@ -4,26 +4,18 @@ import Security
 enum CartoucheImportedSigning {
     static let handoffName = "CartoucheSigning.plist"
     private static let account = "Cartouche.importedSigning.material"
-    private static let selectedKey = "Cartouche.importedSigning.selected"
-    static let disabledKey = "Cartouche.accountSigningDisabled"
 
     static var isImportedInstall: Bool {
         Bundle.main.object(forInfoDictionaryKey: "CartoucheImportedSigning") as? Bool == true
     }
     static var isSelected: Bool {
-        isImportedInstall || UserDefaults.standard.bool(forKey: selectedKey)
+        isImportedInstall
     }
-    static var accountSigningDisabled: Bool { isImportedInstall || isSelected }
+    static var accountSigningDisabled: Bool { isImportedInstall }
     static var material: CartoucheSigningMaterial? {
         CartoucheStoreKeychain.data(account).flatMap {
             try? PropertyListDecoder().decode(CartoucheSigningMaterial.self, from: $0)
         }
-    }
-
-    static func selectImported(_ selected: Bool) {
-        UserDefaults.standard.set(selected, forKey: selectedKey)
-        LCUtils.appGroupUserDefault.set(accountSigningDisabled, forKey: disabledKey)
-        LCSharedUtils.setCartoucheSigningCandidate(nil)
     }
 
     /// Update atomically so a keychain failure preserves the previous import.
@@ -41,6 +33,7 @@ enum CartoucheImportedSigning {
 
     @MainActor
     static func importMaterial(_ material: CartoucheSigningMaterial) async throws {
+        guard isImportedInstall else { throw ImportError(message: CartoucheText.signingReinstall) }
         guard CartoucheAccount.shared.phase == nil, CartoucheUpdates.shared.phase == nil else {
             throw ImportError(message: CartoucheText.signingWait)
         }
@@ -79,7 +72,7 @@ enum CartoucheImportedSigning {
         guard save(try PropertyListEncoder().encode(material)) else {
             throw ImportError(message: CartoucheText.signInKeychainFailed)
         }
-        selectImported(true)
+        LCSharedUtils.setCartoucheSigningCandidate(nil)
         // Only a timestamp is persisted in engine preferences. Credentials
         // are read directly from the keychain by the patched accessors.
         LCUtils.appGroupUserDefault.set(Date(), forKey: "LCCertificateUpdateDate")

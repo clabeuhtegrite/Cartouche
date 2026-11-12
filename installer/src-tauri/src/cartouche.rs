@@ -374,20 +374,14 @@ pub async fn install_cartouche_operation(
     if downloaded {
         let _ = tokio::fs::remove_file(&path).await;
     }
-    let (special, bundle_id) = op.fail_if_err("install", installed)?;
+    let special = op.fail_if_err("install", installed)?;
     if special != Some(SpecialApp::SideStoreLc) {
         // isideload gives SideStore's certificate only to an app it takes for
         // a LiveContainer+SideStore: Cartouche, by its SideStore framework.
         warn!("isideload did not take the IPA for a LiveContainer+SideStore: {special:?}");
     }
     op.move_on("install", "pairing")?;
-    let device = op.fail_if_err("pairing", selected_device(&device_state))?;
-    let provider = op.fail_if_err("pairing", get_provider(&device.info).await)?;
-    op.fail_if_err("pairing", place_file(device.pairing, &provider, bundle_id.clone(), PAIRING_PATH.into()).await)?;
-    // A reinstall using the account option explicitly switches back, even
-    // when the previous signing-source choice survived in the app's data.
-    let account_source = b"<?xml version=\"1.0\"?><plist version=\"1.0\"><dict><key>source</key><string>account</string></dict></plist>";
-    op.fail_if_err("pairing", place_file(account_source.to_vec(), &provider, bundle_id, HANDOFF_FILE.into()).await)?;
+    op.fail_if_err("pairing", place_pairing(&device_state).await)?;
     op.complete("pairing")?;
     Ok(())
 }

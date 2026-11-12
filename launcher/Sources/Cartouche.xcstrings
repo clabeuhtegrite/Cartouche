@@ -5730,6 +5730,23 @@
         }
       }
     },
+    "signing.handoffFailed" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The certificate handoff could not be opened. Install Cartouche again with your signing certificate and provisioning profile."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Impossible d’ouvrir le transfert du certificat. Réinstallez Cartouche avec votre certificat de signature et son profil."
+          }
+        }
+      }
+    },
     "signing.how" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -5855,7 +5872,7 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "If this certificate is not allowed by the installed app’s profile, install Cartouche again with the same certificate and profile using the Cartouche Installer. To switch an imported installation to Apple ID signing, reinstall with the installer’s Apple ID option."
+            "value" : "If this certificate is not allowed by the installed app’s profile, install Cartouche again with your signing certificate (.p12) and its provisioning profile using the Cartouche Installer."
           }
         },
         "fr" : {
@@ -5913,23 +5930,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Utiliser ce certificat"
-          }
-        }
-      }
-    },
-    "signing.useAccount" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Use Apple ID signing"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Utiliser la signature par compte Apple"
           }
         }
       }

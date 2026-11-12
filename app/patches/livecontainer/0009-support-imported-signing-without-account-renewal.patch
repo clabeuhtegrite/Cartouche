@@ -11,7 +11,7 @@ Subject: [PATCH] Support imported signing with keychain credentials and no accou
  
  extern NSUserDefaults *lcUserDefaults;
  extern NSString *lcAppUrlScheme;
-@@ -11,7 +12,57 @@
+@@ -11,7 +12,55 @@
  NSString* FBSOpenApplicationOptionKeyActivateAsClassic = @"__ActivateAsClassic";
  NSString* FBSOpenApplicationOptionKeyPayloadURL = @"__PayloadURL";
  
@@ -25,9 +25,7 @@ Subject: [PATCH] Support imported signing with keychain credentials and no accou
 +        if (cartoucheSigningCandidate) return YES;
 +    }
 +    NSBundle *host = lcMainBundle ?: NSBundle.mainBundle;
-+    NSUserDefaults *defaults = lcUserDefaults ?: NSUserDefaults.standardUserDefaults;
-+    return [host.infoDictionary[@"CartoucheImportedSigning"] boolValue]
-+        || [defaults boolForKey:@"Cartouche.importedSigning.selected"];
++    return [host.infoDictionary[@"CartoucheImportedSigning"] boolValue];
 +}
 +
 ++ (void)setCartoucheSigningCandidate:(NSDictionary *)material {
@@ -69,7 +67,7 @@ Subject: [PATCH] Support imported signing with keychain credentials and no accou
  
  + (NSString*) teamIdentifier {
      static NSString* ans = nil;
-@@ -65,6 +116,12 @@
+@@ -65,6 +114,12 @@
      static dispatch_once_t once;
      static NSString *appGroupID = @"Unknown";
      dispatch_once(&once, ^{
@@ -82,7 +80,7 @@ Subject: [PATCH] Support imported signing with keychain credentials and no accou
          NSArray* possibleAppGroups = @[
              [@"group.com.SideStore.SideStore." stringByAppendingString:[self teamIdentifier]]
          ];
-@@ -129,11 +186,20 @@
+@@ -129,11 +184,20 @@
      static dispatch_once_t onceToken;
      dispatch_once(&onceToken, ^{
          appGroupPath = [NSFileManager.defaultManager containerURLForSecurityApplicationGroupIdentifier:[LCSharedUtils appGroupID]];
@@ -127,30 +125,19 @@ Subject: [PATCH] Support imported signing with keychain credentials and no accou
          nud = NSUserDefaults.standardUserDefaults;
 --- a/SideStoreSupport/SideStore.swift
 +++ b/SideStoreSupport/SideStore.swift
-@@ -11,6 +11,13 @@
+@@ -11,6 +11,12 @@
  
  @available(iOS 17.0, *)
  func performIntentRefresh(identifier: String, mangledTypeName: String, intentProgress: Progress) async throws {
 +    // Includes invocations from existing Shortcuts and widgets, not just
 +    // Cartouche's own buttons. Never replace an imported signing identity.
-+    if Bundle.main.object(forInfoDictionaryKey: "CartoucheImportedSigning") as? Bool == true
-+        || UserDefaults(suiteName: LCSharedUtils.appGroupID())?.bool(forKey: "Cartouche.accountSigningDisabled") == true {
++    if Bundle.main.object(forInfoDictionaryKey: "CartoucheImportedSigning") as? Bool == true {
 +        throw NSError(domain: "Cartouche", code: 1, userInfo: [NSLocalizedDescriptionKey:
 +            "Use the Cartouche Installer with your imported certificate to update or renew Cartouche."])
 +    }
      intentProgress.totalUnitCount = 100
      if UserDefaults.isSideStore() {
          try await SideStoreIntentCaller.shared.callRefreshIntent(mangledTypeName: mangledTypeName)
---- a/SideStoreSupport/SideStore-Bridging-Header.h
-+++ b/SideStoreSupport/SideStore-Bridging-Header.h
-@@ -3,6 +3,7 @@
- 
- #include "../LiveContainer/FoundationPrivate.h"
- #include "XPCServer.h"
-+#include "../LiveContainer/LCSharedUtils.h"
- #include "../LiveContainer/utils.h"
- #include "PrivateIntentRunner.h"
- #endif /* SideStore_Bridging_Header_h_h */
 --- a/LiveContainer/LCBootstrap.m
 +++ b/LiveContainer/LCBootstrap.m
 @@ -288,7 +288,7 @@

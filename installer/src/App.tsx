@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import "./App.css";
 import { AppleID } from "./AppleID";
-import { ImportedSigning, ImportedSigningInput } from "./ImportedSigning";
+import { ImportedSigning, ImportedSigningInput, SigningProfileSummary } from "./ImportedSigning";
 import { Device, DeviceInfo } from "./Device";
 import { invoke } from "@tauri-apps/api/core";
 import { open as openFileDialog } from "@tauri-apps/plugin-dialog";
@@ -9,6 +9,8 @@ import { openUrl } from "@tauri-apps/plugin-opener";
 import {
   installCartoucheFromFileOperation,
   installCartoucheOperation,
+  importedInstallCartoucheOperation,
+  importedInstallCartoucheFromFileOperation,
   Operation,
   OperationState,
   OperationUpdate,
@@ -68,10 +70,12 @@ function App() {
     null,
   );
   const [loggedInAs, setLoggedInAs] = useState<string | null>(null);
-  const [signingMode, setSigningMode] = useState<"imported" | "account">("imported");
+  const [signingMode, setSigningMode] = useState<"imported" | "account">("account");
+  const [profileSummary, setProfileSummary] = useState<SigningProfileSummary | null>(null);
   const [importedSigning, setImportedSigning] = useState<ImportedSigningInput>({ p12Path: "", profilePath: "", password: "" });
   const signingReady = signingMode === "imported"
-    ? Boolean(importedSigning.p12Path && importedSigning.profilePath) : loggedInAs !== null;
+    ? Boolean(importedSigning.p12Path && importedSigning.profilePath && profileSummary?.profilePath === importedSigning.profilePath)
+    : loggedInAs !== null;
   const [selectedDevice, setSelectedDevice] = useState<DeviceInfo | null>(null);
   const [openModal, setOpenModal] = useState<
     null | "settings" | "certificates" | "appids"
@@ -229,10 +233,11 @@ function App() {
 
   const install = useCallback(() => {
     if (!ensureReady()) return;
-    startOperation(installCartoucheOperation, { ipaPath: null, importedSigning: signingMode === "imported" ? importedSigning : null }).catch((e) =>
+    startOperation(signingMode === "imported" ? importedInstallCartoucheOperation : installCartoucheOperation,
+      { ipaPath: null, importedSigning: signingMode === "imported" ? { ...importedSigning, profileSha256: profileSummary?.sha256 } : null }).catch((e) =>
       console.error(e?.message ?? e),
     );
-  }, [ensureReady, startOperation, signingMode, importedSigning]);
+  }, [ensureReady, startOperation, signingMode, importedSigning, profileSummary]);
 
   const installFromFile = useCallback(async () => {
     if (!ensureReady()) return;
@@ -241,11 +246,11 @@ function App() {
       filters: [{ name: t("app.ipa_files"), extensions: ["ipa"] }],
     });
     if (!path) return;
-    startOperation(installCartoucheFromFileOperation, {
+    startOperation(signingMode === "imported" ? importedInstallCartoucheFromFileOperation : installCartoucheFromFileOperation, {
       ipaPath: path as string,
-      importedSigning: signingMode === "imported" ? importedSigning : null,
+      importedSigning: signingMode === "imported" ? { ...importedSigning, profileSha256: profileSummary?.sha256 } : null,
     }).catch((e) => console.error(e?.message ?? e));
-  }, [ensureReady, startOperation, t, signingMode, importedSigning]);
+  }, [ensureReady, startOperation, t, signingMode, importedSigning, profileSummary]);
 
   const placePairing = useCallback(() => {
     if (!ensureSelectedDevice()) return;
@@ -337,26 +342,26 @@ function App() {
         <section className="step">
           <StepTitle
             number={2}
-            title={t("signing.title")}
+            title={t("steps.apple_id_title")}
             done={signingReady}
           />
-          <p className="step-hint">{t("signing.choice_hint")}</p>
+          <p className="step-hint">{t("steps.apple_id_hint")}</p>
           <GlassCard className="panel">
-            <div className="action-row">
-              <button aria-pressed={signingMode === "imported"} onClick={() => setSigningMode("imported")}>{t("signing.imported")}</button>
-              <button aria-pressed={signingMode === "account"} onClick={() => setSigningMode("account")}>{t("steps.apple_id_title")}</button>
-            </div>
-            {signingMode === "imported" ? <ImportedSigning value={importedSigning} onChange={setImportedSigning} /> :
+            {signingMode === "imported" ? <ImportedSigning value={importedSigning} onChange={setImportedSigning}
+              summary={profileSummary} onProfileChecked={setProfileSummary} /> :
             <AppleID
               loggedInAs={loggedInAs}
               setLoggedInAs={setLoggedInAs}
               noKeyringAvailable={noKeyringAvailable}
             />}
+            <button className="error-link" onClick={() => setSigningMode(signingMode === "account" ? "imported" : "account")}>
+              {t(signingMode === "account" ? "signing.have_certificate" : "signing.use_account")}
+            </button>
           </GlassCard>
         </section>
         <section className="step">
           <StepTitle number={3} title={t("steps.install_title")} done={upToDate} />
-          <p className="step-hint">{t("steps.install_hint")}</p>
+          <p className="step-hint">{t(signingMode === "imported" ? "signing.install_hint" : "steps.install_hint")}</p>
           <GlassCard className="panel install-panel">
             <div className="install-status">
               {release ? (
@@ -395,14 +400,14 @@ function App() {
                 ? t("install.update_button", { version: release?.version ?? "" })
                 : t("install.button", { version: release?.version ?? "" })}
             </button>
-            {!ready && <p className="step-hint">{t("signing.needs_ready")}</p>}
+            {!ready && <p className="step-hint">{t(signingMode === "imported" ? "signing.needs_ready" : "install.needs_both")}</p>}
             <div className="secondary-actions">
-              <button
+              {signingMode === "account" && <button
                 disabled={selectedDevice === null || installed === null}
                 onClick={placePairing}
               >
                 {t("install.place_pairing")}
-              </button>
+              </button>}
               <button disabled={!ready} onClick={installFromFile}>
                 {t("install.from_file")}
               </button>

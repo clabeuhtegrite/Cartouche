@@ -314,21 +314,23 @@ final class CartoucheSetup: ObservableObject {
     func refresh() {
         guard !isImportingSigning else { return }
         usesImportedSigning = CartoucheImportedSigning.isSelected
-        LCUtils.appGroupUserDefault.set(CartoucheImportedSigning.accountSigningDisabled, forKey: CartoucheImportedSigning.disabledKey)
         let handoff = LCPath.docPath.appendingPathComponent(CartoucheImportedSigning.handoffName)
-        if !tookSigningHandoff && FileManager.default.fileExists(atPath: handoff.path) {
+        if CartoucheImportedSigning.isImportedInstall, !tookSigningHandoff,
+           FileManager.default.fileExists(atPath: handoff.path) {
             tookSigningHandoff = true
             isImportingSigning = true
             Task {
                 do {
-                    let data = try Data(contentsOf: handoff)
-                    let values = try PropertyListSerialization.propertyList(from: data, format: nil) as? [String: Any]
-                    if values?["source"] as? String == "account", !CartoucheImportedSigning.isImportedInstall {
-                        CartoucheImportedSigning.selectImported(false)
-                    } else {
-                        let material = try PropertyListDecoder().decode(CartoucheSigningMaterial.self, from: data)
-                        try await CartoucheImportedSigning.importMaterial(material)
+                    guard let key = Bundle.main.object(forInfoDictionaryKey: "CartoucheSigningHandoffKey") as? Data,
+                          let size = try handoff.resourceValues(forKeys: [.fileSizeKey]).fileSize,
+                          size <= 9 * 1024 * 1024 else {
+                        throw CartoucheImportedSigning.ImportError(message: CartoucheText.signingHandoffFailed)
                     }
+                    let data = try Data(contentsOf: handoff)
+                    let material: CartoucheSigningMaterial
+                    do { material = try CartoucheSigningMaterial.openHandoff(data, key: key) }
+                    catch { throw CartoucheImportedSigning.ImportError(message: CartoucheText.signingHandoffFailed) }
+                    try await CartoucheImportedSigning.importMaterial(material)
                     signingProblem = nil
                 } catch { signingProblem = error.localizedDescription }
                 try? FileManager.default.removeItem(at: handoff)
@@ -381,7 +383,7 @@ final class CartoucheSetup: ObservableObject {
     // MARK: Whether the certificate works
 
     func importSigning(certificate: Data, password: String, profile: Data) async {
-        guard !isImportingSigning else { return }
+        guard CartoucheImportedSigning.isImportedInstall, !isImportingSigning else { return }
         isImportingSigning = true
         do {
             try await CartoucheImportedSigning.importMaterial(.init(certificate: certificate, password: password, profile: profile))
@@ -396,16 +398,6 @@ final class CartoucheSetup: ObservableObject {
         checking = nil
         certificateWorks = nil
         refresh()
-    }
-
-    func useAccountSigning() {
-        guard !isImportingSigning, !CartoucheImportedSigning.isImportedInstall else { return }
-        CartoucheImportedSigning.selectImported(false)
-        for target in [LCUtils.appGroupUserDefault, UserDefaults.standard] {
-            target.removeObject(forKey: "LCCertificateData")
-            target.removeObject(forKey: "LCCertificatePassword")
-        }
-        finishSigningImport()
     }
 
     /// Checks LiveContainer's certificate once per launch, and each time it

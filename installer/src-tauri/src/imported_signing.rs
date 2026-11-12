@@ -1,6 +1,10 @@
 //! Local signing with a supplied identity. This module never contacts Apple's
 //! developer portal and never creates or revokes an account certificate.
 use crate::{cartouche::BUNDLE_ID, error::AppError};
+use aes_gcm::{
+    Aes256Gcm, Nonce,
+    aead::{Aead, Generate, KeyInit, Payload},
+};
 use apple_codesign_quick::{
     BundleSigningSettings, ProvisioningProfile, RustCryptoCmsSigner, sign_bundle,
 };
@@ -10,7 +14,8 @@ use rsa::{
     RsaPrivateKey, RsaPublicKey,
     pkcs8::{DecodePrivateKey, DecodePublicKey},
 };
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
+use sha2::{Digest, Sha256};
 use std::{
     io::Cursor,
     path::{Path, PathBuf},
@@ -22,6 +27,7 @@ use x509_cert::{
 };
 
 pub const HANDOFF_FILE: &str = "CartoucheSigning.plist";
+const HANDOFF_AAD: &[u8] = b"CartoucheSigningHandoff.v1";
 
 // Deliberately not Debug/Serialize: passwords must not reach logs or settings.
 #[derive(Deserialize)]
@@ -30,6 +36,69 @@ pub struct ImportedSigning {
     p12_path: PathBuf,
     profile_path: PathBuf,
     password: String,
+    profile_sha256: String,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SigningProfileSummary {
+    increased_memory_limit: bool,
+    sha256: String,
+}
+
+fn has_increased_memory_limit(entitlements: &Dictionary) -> bool {
+    entitlements
+        .get("com.apple.developer.kernel.increased-memory-limit")
+        .and_then(Value::as_boolean)
+        == Some(true)
+}
+
+fn profile_digest(data: &[u8]) -> String {
+    hex::encode(Sha256::digest(data))
+}
+
+fn verify_profile_review(data: &[u8], reviewed_digest: &str) -> Result<(), AppError> {
+    if reviewed_digest != profile_digest(data) {
+        return Err(invalid(
+            "The provisioning profile changed. Choose it again to review its permissions before installing.",
+        ));
+    }
+    Ok(())
+}
+
+#[tauri::command]
+pub fn inspect_signing_profile(profile_path: PathBuf) -> Result<SigningProfileSummary, AppError> {
+    let data = read_small(&profile_path)?;
+    let profile = ProvisioningProfile::parse(&data)
+        .map_err(|_| invalid("Cannot read this Apple provisioning profile."))?;
+    Ok(SigningProfileSummary {
+        increased_memory_limit: has_increased_memory_limit(profile.entitlements()),
+        sha256: profile_digest(&data),
+    })
+}
+
+fn encrypt_handoff(plaintext: &[u8]) -> Result<(Vec<u8>, Vec<u8>), AppError> {
+    let key = aes_gcm::Key::<Aes256Gcm>::generate();
+    let cipher = Aes256Gcm::new(&key);
+    let nonce = Nonce::generate();
+    let ciphertext = cipher
+        .encrypt(
+            &nonce,
+            Payload {
+                msg: plaintext,
+                aad: HANDOFF_AAD,
+            },
+        )
+        .map_err(|_| invalid("Cannot encrypt the signing handoff."))?;
+    // CryptoKit's combined format: 12-byte nonce, ciphertext, 16-byte tag.
+    let mut combined = nonce.to_vec();
+    combined.extend_from_slice(&ciphertext);
+    Ok((key.to_vec(), combined))
+}
+
+fn local_signing_failure(error: impl std::fmt::Display) -> AppError {
+    tracing::error!(error = %error, "Local signing failed");
+    invalid("Local signing failed. See the installer log for details.")
 }
 
 pub struct SignedImport {
@@ -242,6 +311,7 @@ impl ImportedSigning {
     pub fn sign(&self, ipa: &Path, udid: &str) -> Result<SignedImport, AppError> {
         let p12 = read_small(&self.p12_path)?;
         let profile_data = read_small(&self.profile_path)?;
+        verify_profile_review(&profile_data, &self.profile_sha256)?;
         let identity = read_identity(&p12, &self.password)?;
         let profile = ProvisioningProfile::parse(&profile_data)
             .map_err(|_| invalid("Cannot read this Apple provisioning profile."))?;
@@ -285,6 +355,19 @@ impl ImportedSigning {
             }
         }
         info.insert("CartoucheImportedSigning".into(), true.into());
+        let mut handoff = Dictionary::new();
+        handoff.insert("certificate".into(), Value::Data(p12));
+        handoff.insert("password".into(), self.password.clone().into());
+        handoff.insert("profile".into(), Value::Data(profile_data.clone()));
+        let mut bytes = Cursor::new(Vec::new());
+        Value::Dictionary(handoff)
+            .to_writer_binary(&mut bytes)
+            .map_err(|_| invalid("Cannot prepare the signing handoff."))?;
+        let (handoff_key, handoff) = encrypt_handoff(bytes.get_ref())?;
+        info.insert(
+            "CartoucheSigningHandoffKey".into(),
+            Value::Data(handoff_key),
+        );
         Value::Dictionary(info)
             .to_file_binary(&info_path)
             .map_err(|_| invalid("Cannot prepare Cartouche for imported signing."))?;
@@ -294,20 +377,11 @@ impl ImportedSigning {
         let mut settings =
             BundleSigningSettings::new(profile.team_id(), entitlements, Some(&signer));
         settings.embedded_mobileprovision = Some(&profile_data);
-        sign_bundle(&app_path, &settings)
-            .map_err(|error| invalid(format!("Local signing failed: {error}")))?;
-        let mut handoff = Dictionary::new();
-        handoff.insert("certificate".into(), Value::Data(p12));
-        handoff.insert("password".into(), self.password.clone().into());
-        handoff.insert("profile".into(), Value::Data(profile_data));
-        let mut bytes = Cursor::new(Vec::new());
-        Value::Dictionary(handoff)
-            .to_writer_binary(&mut bytes)
-            .map_err(|_| invalid("Cannot prepare the signing handoff."))?;
+        sign_bundle(&app_path, &settings).map_err(local_signing_failure)?;
         Ok(SignedImport {
             workspace,
             app_path,
-            handoff: bytes.into_inner(),
+            handoff,
         })
     }
 }
@@ -315,6 +389,86 @@ impl ImportedSigning {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn memory_permission_requires_an_explicit_true_entitlement() {
+        let mut entitlements = Dictionary::new();
+        assert!(!has_increased_memory_limit(&entitlements));
+        entitlements.insert(
+            "com.apple.developer.kernel.increased-memory-limit".into(),
+            false.into(),
+        );
+        assert!(!has_increased_memory_limit(&entitlements));
+        entitlements.insert(
+            "com.apple.developer.kernel.increased-memory-limit".into(),
+            true.into(),
+        );
+        assert!(has_increased_memory_limit(&entitlements));
+    }
+
+    #[test]
+    fn changed_profile_requires_a_new_review_before_signing() {
+        assert!(verify_profile_review(b"profile", &profile_digest(b"profile")).is_ok());
+        assert!(verify_profile_review(b"changed", &profile_digest(b"profile")).is_err());
+        assert!(verify_profile_review(b"profile", "").is_err());
+    }
+
+    #[test]
+    fn public_signing_error_does_not_include_local_paths() {
+        let error = local_signing_failure(
+            "cannot sign C:\\Users\\ExamplePlayer\\AppData\\Local\\Temp\\Cartouche.app",
+        );
+        assert_eq!(
+            error.to_string(),
+            "Local signing failed. See the installer log for details."
+        );
+        assert!(!error.to_string().contains("ExamplePlayer"));
+    }
+
+    #[test]
+    fn handoff_is_authenticated_encryption_with_a_fresh_key() {
+        use aes_gcm::{
+            Aes256Gcm, Nonce,
+            aead::{Aead, KeyInit, Payload},
+        };
+        let plaintext = b"private P12 and password";
+        let (key, combined) = encrypt_handoff(plaintext).unwrap();
+        let (other_key, other) = encrypt_handoff(plaintext).unwrap();
+        assert_ne!(key, other_key);
+        assert_ne!(combined, other);
+        assert!(
+            !combined
+                .windows(plaintext.len())
+                .any(|part| part == plaintext)
+        );
+        let cipher = Aes256Gcm::new_from_slice(&key).unwrap();
+        let payload = Payload {
+            msg: &combined[12..],
+            aad: HANDOFF_AAD,
+        };
+        assert_eq!(
+            cipher
+                .decrypt(
+                    &Nonce::from(<[u8; 12]>::try_from(&combined[..12]).unwrap()),
+                    payload
+                )
+                .unwrap(),
+            plaintext
+        );
+        let mut tampered = combined.clone();
+        *tampered.last_mut().unwrap() ^= 1;
+        assert!(
+            cipher
+                .decrypt(
+                    &Nonce::from(<[u8; 12]>::try_from(&tampered[..12]).unwrap()),
+                    Payload {
+                        msg: &tampered[12..],
+                        aad: HANDOFF_AAD
+                    }
+                )
+                .is_err()
+        );
+    }
 
     fn profile() -> plist::Dictionary {
         let mut data = plist::Dictionary::new();
@@ -573,7 +727,13 @@ mod tests {
             p12_path: dir.join("cert.p12"),
             profile_path: dir.join("profile.mobileprovision"),
             password: "test".into(),
+            profile_sha256: profile_digest(
+                &std::fs::read(dir.join("profile.mobileprovision")).unwrap(),
+            ),
         };
+        let summary = inspect_signing_profile(signing.profile_path.clone()).unwrap();
+        assert!(!summary.increased_memory_limit);
+        assert_eq!(summary.sha256, signing.profile_sha256);
         let signed = signing.sign(&ipa, "device").unwrap();
         assert!(!signed.app_path.join("PlugIns").exists());
         assert!(
@@ -591,10 +751,65 @@ mod tests {
             info.as_dictionary().unwrap()["CartoucheImportedSigning"].as_boolean(),
             Some(true)
         );
-        let handoff = Value::from_reader(Cursor::new(signed.handoff)).unwrap();
+        let key = info.as_dictionary().unwrap()["CartoucheSigningHandoffKey"]
+            .as_data()
+            .unwrap();
+        let cipher = Aes256Gcm::new_from_slice(key).unwrap();
+        let nonce = Nonce::from(<[u8; 12]>::try_from(&signed.handoff[..12]).unwrap());
+        let plaintext = cipher
+            .decrypt(
+                &nonce,
+                Payload {
+                    msg: &signed.handoff[12..],
+                    aad: HANDOFF_AAD,
+                },
+            )
+            .unwrap();
+        let handoff = Value::from_reader(Cursor::new(plaintext)).unwrap();
         assert_eq!(
             handoff.as_dictionary().unwrap()["certificate"].as_data(),
             Some(p12.as_slice())
+        );
+        // Check the production Swift reader against the Rust-generated
+        // envelope, including the per-install key read from signed Info.plist.
+        let swift = dir.join("main.swift");
+        std::fs::write(&swift, r#"
+import Foundation
+let info = try PropertyListSerialization.propertyList(from: Data(contentsOf: URL(fileURLWithPath: CommandLine.arguments[1])), format: nil) as! [String: Any]
+let encrypted = try Data(contentsOf: URL(fileURLWithPath: CommandLine.arguments[2]))
+let material = try CartoucheSigningMaterial.openHandoff(encrypted, key: info["CartoucheSigningHandoffKey"] as! Data)
+assert(material.password == "test")
+let expected = try Data(contentsOf: URL(fileURLWithPath: CommandLine.arguments[3]))
+assert(material.certificate == expected)
+"#).unwrap();
+        let model = Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../../launcher/Sources/CartoucheSigningMaterial.swift");
+        let executable = dir.join("handoff-check");
+        let compile = Command::new("xcrun")
+            .arg("swiftc")
+            .arg(&model)
+            .arg(&swift)
+            .arg("-module-cache-path")
+            .arg(dir.join("swift-cache"))
+            .arg("-o")
+            .arg(&executable)
+            .output()
+            .unwrap();
+        assert!(
+            compile.status.success(),
+            "{}",
+            String::from_utf8_lossy(&compile.stderr)
+        );
+        let handoff_file = dir.join("handoff.bin");
+        std::fs::write(&handoff_file, &signed.handoff).unwrap();
+        assert!(
+            Command::new(executable)
+                .arg(signed.app_path.join("Info.plist"))
+                .arg(handoff_file)
+                .arg(&signing.p12_path)
+                .status()
+                .unwrap()
+                .success()
         );
         assert_eq!(std::fs::read(ipa).unwrap(), before);
     }

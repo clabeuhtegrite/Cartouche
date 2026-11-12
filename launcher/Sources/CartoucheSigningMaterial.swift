@@ -1,6 +1,7 @@
 import Foundation
+import CryptoKit
 
-/// The installer handoff and the keychain entry share this format. Keep
+/// The decrypted installer handoff and keychain entry share this format. Keep
 /// credential handling out of logging and reporting code.
 struct CartoucheSigningMaterial: Codable {
     let certificate: Data
@@ -8,6 +9,14 @@ struct CartoucheSigningMaterial: Codable {
     let profile: Data
 
     enum Problem: Error { case invalidProfile, expired, mismatch, reinstall }
+
+    static func openHandoff(_ data: Data, key: Data) throws -> Self {
+        guard key.count == 32, data.count <= 9 * 1024 * 1024 else { throw Problem.invalidProfile }
+        let sealed = try AES.GCM.SealedBox(combined: data)
+        let plaintext = try AES.GCM.open(sealed, using: SymmetricKey(data: key),
+                                        authenticating: Data("CartoucheSigningHandoff.v1".utf8))
+        return try PropertyListDecoder().decode(Self.self, from: plaintext)
+    }
 
     static func profileContents(_ data: Data) throws -> [String: Any] {
         // Apple profiles wrap their XML property list in a CMS envelope.

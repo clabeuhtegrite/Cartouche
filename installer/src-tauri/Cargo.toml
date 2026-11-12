@@ -56,3 +56,4 @@ p12-keystore = { package = "isideload-p12-keystore", version = "=0.3.0-rc4" }
 rsa = "0.9.10"
 x509-cert = "0.2.5"
 tempfile = "3"
+aes-gcm = "=0.11.1"

@@ -47,13 +47,12 @@ impl Drop for SideloaderGuard<'_> {
 /// Signs the IPA at `app_path` with the signed-in Apple ID and installs it on
 /// the selected iPhone, with Increased Memory Limit on its App ID, as iloader
 /// does for every app. `progress` gets the fraction done, from 0 to 1.
-/// Returns the detected special app and the exact installed bundle identifier.
 pub async fn sideload<F, Fut>(
     device_state: &State<'_, DeviceInfoMutex>,
     sideloader_state: &State<'_, SideloaderMutex>,
     app_path: String,
     progress: Option<F>,
-) -> Result<(Option<SpecialApp>, String), AppError>
+) -> Result<Option<SpecialApp>, AppError>
 where
     F: Fn(f32) -> Fut,
     Fut: Future<Output = ()>,
@@ -69,8 +68,6 @@ where
     let provider = get_provider(&device.info).await?;
 
     let mut sideloader = SideloaderGuard::take(sideloader_state)?;
-    let team = sideloader.get_mut().get_team().await?;
-    let installed_bundle_id = format!("{}.{}", crate::cartouche::BUNDLE_ID, team.team_id);
 
     let special = sideloader
         .get_mut()
@@ -83,5 +80,5 @@ where
         )
         .await?;
 
-    Ok((special, installed_bundle_id))
+    Ok(special)
 }

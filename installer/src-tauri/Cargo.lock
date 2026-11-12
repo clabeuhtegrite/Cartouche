@@ -659,6 +659,7 @@ dependencies = [
 name = "cartouche-installer"
 version = "0.1.0"
 dependencies = [
+ "aes-gcm",
  "apple-codesign-quick",
  "chrono",
  "futures",
