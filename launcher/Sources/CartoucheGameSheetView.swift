@@ -6,7 +6,8 @@
 //  Play for the player's own copy, with Game settings and, when the games
 //  folder holds a newer build, Update beside it, or Resume, with Quit, for
 //  the game paused behind the console; Install from the player's
-//  games folder for a copy there; or Import my copy. Under them, the time
+//  games folder for a copy there; or Import my copy. Under them, its
+//  description, the player's or IGDB's (CartoucheGameSummaryView), the time
 //  the player played it and the space it takes (CartoucheGameStats), what
 //  stops the game on this iPhone, if anything (what it needs folds into
 //  one line when this iPhone has it all), the copies of its saves, Edit
@@ -87,6 +88,12 @@ struct CartoucheGameSheetView: View {
                 header
                     .listRowInsets(EdgeInsets())
                     .listRowBackground(Color.clear)
+            }
+
+            if let summary = entry.summary {
+                Section {
+                    CartoucheGameSummaryView(text: summary, isIGDBs: entry.player?.summary == nil)
+                }
             }
 
             CartoucheGameStatsSection(entry: entry)

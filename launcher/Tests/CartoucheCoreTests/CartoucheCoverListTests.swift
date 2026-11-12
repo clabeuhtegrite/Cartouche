@@ -81,6 +81,24 @@ final class CartoucheCoverListTests: XCTestCase {
         XCTAssertNil(try XCTUnwrap(CartoucheCoverList.covers(in: list([kart])))["0400C3F00006E000"]?.genre)
     }
 
+    func testASummaryIsRead() throws {
+        var racing = kart
+        racing["summary"] = "  Race across a world.\u{0007}\n\nTwenty-four racers.  "
+        var empty = ocarina
+        empty["summary"] = " \n "
+        let covers = try XCTUnwrap(CartoucheCoverList.covers(in: list([racing, empty])))
+        // Without its control characters, nor the spaces around it.
+        XCTAssertEqual(covers["0400C3F00006E000"]?.summary, "Race across a world. \n\nTwenty-four racers.")
+        // An empty summary leaves its cover, without it.
+        XCTAssertEqual(covers["0400486024DEC000"]?.cover, "cocv5r")
+        XCTAssertNil(covers["0400486024DEC000"]?.summary)
+        // At most 2,000 characters.
+        XCTAssertEqual(CartoucheCoverList.summary(String(repeating: "🎮", count: 2_100))?.count, CartoucheCoverList.longestSummary)
+        XCTAssertNil(CartoucheCoverList.summary("\u{0007}\n "))
+        // A list from before summaries reads as it did.
+        XCTAssertNil(try XCTUnwrap(CartoucheCoverList.covers(in: list([kart])))["0400C3F00006E000"]?.summary)
+    }
+
     func testIdsAreAsTheSchemaHasThem() {
         XCTAssertTrue(CartoucheCoverList.isImageId("cocv5r"))
         XCTAssertTrue(CartoucheCoverList.isImageId("ak6iozckwj322sjmxqd4"))
@@ -112,7 +130,13 @@ final class CartoucheCoverListTests: XCTestCase {
         let data = try Data(contentsOf: root.appendingPathComponent("catalog/covers.json"))
         let document = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
         let records = try XCTUnwrap(document["covers"] as? [[String: Any]])
-        XCTAssertEqual(CartoucheCoverList.covers(in: data)?.count, records.count)
+        let covers = try XCTUnwrap(CartoucheCoverList.covers(in: data))
+        XCTAssertEqual(covers.count, records.count)
+        // Each summary as igdb_covers.py kept it.
+        for record in records {
+            let titleId = try XCTUnwrap(record["titleId"] as? String)
+            XCTAssertEqual(covers[titleId]?.summary, record["summary"] as? String, titleId)
+        }
     }
 
     // MARK: The newer covers, every day

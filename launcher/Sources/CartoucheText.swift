@@ -274,7 +274,7 @@ enum CartoucheText {
     static var version: String { s("system.cartouche.version", "Version") }
     static var basedOn: String { s("system.cartouche.basedOn", "Based on") }
     static var sheets: String { s("system.cartouche.sheets", "Game sheets") }
-    static var coversCredit: String { s("system.covers.credit", "Covers and artworks of the games: IGDB.com.") }
+    static var coversCredit: String { s("system.covers.credit", "Covers, artworks and descriptions of the games: IGDB.com.") }
 
     // MARK: Cartouche's updates
 

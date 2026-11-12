@@ -22,7 +22,8 @@ CATALOG = {"games": [
 SEARCHES = {
     "Mario Kart World": [
         {"id": 1, "name": "Mario Kart World", "platforms": [508], "cover": {"image_id": "mkw"},
-         "artworks": [{"image_id": "mkw-art"}], "genres": [32, 10]},
+         "artworks": [{"image_id": "mkw-art"}], "genres": [32, 10],
+         "summary": "  Race across\ta world.\r\n\r\n\r\nTwenty-four racers.  "},
         {"id": 2, "name": "Mario Kart 8", "platforms": [41], "cover": {"image_id": "mk8"}},
     ],
     "The Legend of Zelda: Tears of the Kingdom": [
@@ -69,7 +70,7 @@ class IgdbCoversTest(unittest.TestCase):
             {"titleId": "0100F2C0115B6000", "igdb": 4, "name": "The Legend of Zelda: Tears of the Kingdom",
              "cover": "totk"},
             {"titleId": "0400C3F00006E000", "igdb": 1, "name": "Mario Kart World", "cover": "mkw",
-             "artwork": "mkw-art", "genre": "racing"},
+             "artwork": "mkw-art", "genre": "racing", "summary": "Race across a world.\n\nTwenty-four racers."},
         ])
         # The search is limited to the two Switch platforms, by ID.
         self.assertIn("where platforms = (130,508)", asked[1][1])
@@ -160,6 +161,33 @@ class IgdbCoversTest(unittest.TestCase):
         self.assertIsNone(igdb_covers.genre_of([32]))
         self.assertIsNone(igdb_covers.genre_of(None))
         self.assertIsNone(igdb_covers.genre_of([]))
+
+    # The same cases as telemetry/test/worker.test.js's "summaries are kept
+    # as the catalog's tool keeps them".
+    def test_summary(self):
+        self.assertEqual(igdb_covers.LONGEST_SUMMARY, 2000)
+        self.assertEqual(igdb_covers.summary_of(
+            "  Unravel Two is a co-op platformer.\r\n\r\n\r\nTwo Yarnys,\ttied   together.  "),
+            "Unravel Two is a co-op platformer.\n\nTwo Yarnys, tied together.")
+        self.assertEqual(igdb_covers.summary_of("- Play alone\n- Or with a friend\u0007\n"),
+                         "- Play alone\n- Or with a friend")
+        self.assertEqual(igdb_covers.summary_of(
+            "Visit https://example.com/unravel or WWW.example.com, today.\nhttp://x"), "Visit or today.")
+        for none in (None, 7, "", " \n \u00a0 "):
+            self.assertIsNone(igdb_covers.summary_of(none))
+        # Too long: cut after the last word that fits, without its comma,
+        # with an ellipsis.
+        self.assertEqual(igdb_covers.summary_of("Yarny " * 400), ("Yarny " * 333)[:-1] + "…")
+        self.assertEqual(igdb_covers.summary_of("Yarny, " * 300), ("Yarny, " * 285)[:-2] + "…")
+        # A word longer than half of it is cut where it must be. Characters
+        # count, as the server counts them.
+        self.assertEqual(igdb_covers.summary_of("x" * 2100), "x" * 1999 + "…")
+        self.assertEqual(igdb_covers.summary_of("🎮" * 2100), "🎮" * 1999 + "…")
+        self.assertEqual(igdb_covers.summary_of("🎮" * 2000), "🎮" * 2000)
+        # The server keeps them to the same length, and asks IGDB for them.
+        worker = (ROOT / "telemetry/worker.js").read_text(encoding="utf-8")
+        self.assertIn(f"export const LONGEST_SUMMARY = {igdb_covers.LONGEST_SUMMARY};", worker)
+        self.assertIn(igdb_covers.FIELDS, worker)
 
     def test_genres_are_cartouches_and_the_servers(self):
         # Each is a genre the schema and the launcher know.

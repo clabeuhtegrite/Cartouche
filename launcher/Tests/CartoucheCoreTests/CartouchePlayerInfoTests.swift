@@ -63,9 +63,18 @@ final class CartouchePlayerInfoTests: XCTestCase {
         let again = CartouchePlayerInfoStore(folder: folder)
         XCTAssertEqual(again.all, ["title:0100C0FFEE0A0000": CartouchePlayerInfo(name: "Unravel Two", platform: "switch", genre: "puzzle")])
 
+        // A summary of the player's own, without the spaces around it.
+        var written = CartouchePlayerInfo(name: "Unravel Two")
+        written.summary = "\n  Two Yarnys, tied together.\u{0007} \n"
+        try again.set(written, for: "title:0100C0FFEE0A0000")
+        XCTAssertEqual(CartouchePlayerInfoStore(folder: folder).info(for: "title:0100C0FFEE0A0000")?.summary,
+                       "Two Yarnys, tied together.")
+
         // What Cartouche does not know is left out, and nothing left
         // forgets the game.
-        try again.set(CartouchePlayerInfo(name: " ", platform: "wii", genre: "indie"), for: "title:0100C0FFEE0A0000")
+        var blank = CartouchePlayerInfo(name: " ", platform: "wii", genre: "indie")
+        blank.summary = " \n "
+        try again.set(blank, for: "title:0100C0FFEE0A0000")
         XCTAssertNil(again.info(for: "title:0100C0FFEE0A0000"))
         XCTAssertEqual(CartouchePlayerInfoStore(folder: folder).all, [:])
     }
