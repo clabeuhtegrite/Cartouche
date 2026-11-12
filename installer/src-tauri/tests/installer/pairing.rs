@@ -120,8 +120,11 @@ fn pairs_again_when_the_pairing_kept_is_damaged() {
     h.select_device().expect("pairing");
     let key = format!("rppairing1.1_file_{}", h.iphone.udid());
     let kept = h.keychain.password(&h.keyring_service, &key).expect("kept elsewhere than the keychain");
-    // The first bytes only, still base64: a plist cut short.
+    // The first bytes only, in the keychain's own encoding (base64, or the
+    // bytes themselves on Windows): a plist cut short.
     h.keychain.set(&h.keyring_service, &key, kept[..40].as_bytes());
+    // Nothing the window can pick the iPhone by itself on.
+    assert!(!h.has_stored_pairing(), "a pairing cut short taken for one kept");
 
     h.select_device().unwrap_or_else(|e| panic!("{e}\n{}", h.report()));
     assert_eq!(h.iphone.state().pair_setups, 2);
@@ -131,8 +134,9 @@ fn pairs_again_when_the_pairing_kept_is_damaged() {
 
 #[test]
 fn pairs_again_when_the_pairing_kept_does_not_read() {
-    // An entry that is not the installer's encoding at all: picking the
-    // iPhone must not fail on it each time.
+    // Entries another tool left: not base64, which the keychain keeps
+    // elsewhere than on Windows, nor a plist or a host name, which Windows
+    // keeps as they are. Picking the iPhone must not fail on them each time.
     let h = Harness::new();
     h.select_device().expect("pairing");
     let pairing = format!("rppairing1.1_file_{}", h.iphone.udid());
@@ -144,6 +148,26 @@ fn pairs_again_when_the_pairing_kept_does_not_read() {
     h.select_device().unwrap_or_else(|e| panic!("{e}\n{}", h.report()));
     assert_eq!(h.iphone.state().pair_setups, 2);
     assert!(h.has_stored_pairing());
+    let hosts: Vec<String> = h.iphone.state().rp_hosts.iter().map(|host| host.name.clone()).collect();
+    assert!(hosts[1].starts_with("cartouche-"), "named itself {hosts:?}");
+}
+
+#[test]
+fn names_itself_again_when_the_name_kept_is_not_one() {
+    // A host name that reads, base64 for "%%%%" (or those bytes themselves
+    // on Windows), but that the installer never gives itself.
+    let h = Harness::new();
+    h.select_device().expect("pairing");
+    let pairing = format!("rppairing1.1_file_{}", h.iphone.udid());
+    let label = format!("host_label_{}", h.iphone.udid());
+    h.keychain.set(&h.keyring_service, &pairing, b"");
+    h.keychain.set(&h.keyring_service, &label, b"JSUlJQ==");
+
+    h.select_device().unwrap_or_else(|e| panic!("{e}\n{}", h.report()));
+    let hosts: Vec<String> = h.iphone.state().rp_hosts.iter().map(|host| host.name.clone()).collect();
+    assert_eq!(hosts.len(), 2, "{hosts:?}");
+    assert!(hosts[1].starts_with("cartouche-"), "named itself {hosts:?}");
+    assert_ne!(hosts[1], hosts[0]);
 }
 
 #[test]
