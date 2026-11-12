@@ -10,9 +10,11 @@
 # an iPhone 17 Pro, else the newest iPhone Pro, of the newest iOS runtime
 # that has one, created should no simulator of it exist. simctl opens the
 # gallery once first, with time: its first launch after the install can take
-# minutes. A test that fails runs once more before it counts as failed. OUT
-# keeps the results (UITests.xcresult), with the screen and the
-# accessibility tree of each test that failed, which the log shows too.
+# minutes. The import's tests pick an IPA in On My iPhone, which this script
+# puts there. A test that fails runs once more before it counts as failed.
+# OUT keeps the results (UITests.xcresult), with the screen and the
+# accessibility tree of each test that failed, which the log shows too, then
+# what the gallery's Documents and On My iPhone held, and the gallery's log.
 
 set -euo pipefail
 
@@ -102,6 +104,28 @@ else
 fi
 xcrun simctl terminate "$UDID" "$BUNDLE" 2>/dev/null || true
 
+# An IPA in On My iPhone, where a player keeps one, for the import's tests
+# to pick (UITests/ConsoleTestCase.swift, FilesPicker): the folder of the
+# simulator's local storage, which the Files app sets up as it first opens.
+xcrun simctl launch "$UDID" com.apple.DocumentsApp >/dev/null 2>&1 || true
+sleep 5
+xcrun simctl terminate "$UDID" com.apple.DocumentsApp 2>/dev/null || true
+LOCAL=""
+for meta in "$HOME/Library/Developer/CoreSimulator/Devices/$UDID"/data/Containers/Shared/AppGroup/*/.com.apple.mobile_container_manager.metadata.plist; do
+  [ -f "$meta" ] || continue
+  if [ "$(plutil -extract MCMMetadataIdentifier raw -o - "$meta" 2>/dev/null)" = "group.com.apple.FileProvider.LocalStorage" ]; then
+    LOCAL="$(dirname "$meta")/File Provider Storage"
+  fi
+done
+if [ -n "$LOCAL" ]; then
+  mkdir -p "$LOCAL"
+  # An empty zip archive: the gallery's install reads none of it.
+  { printf 'PK\005\006'; head -c 18 /dev/zero; } >"$LOCAL/Test Game.ipa"
+  echo "   Test Game.ipa in On My iPhone"
+else
+  echo "::warning::the simulator has no local storage for On My iPhone: the IPA to pick is in the gallery's folder alone"
+fi
+
 rm -rf "$OUT/UITests.xcresult"
 status=0
 xcodebuild test-without-building -project "$PROJECT" -scheme CartoucheGallery \
@@ -114,6 +138,18 @@ xcodebuild test-without-building -project "$PROJECT" -scheme CartoucheGallery \
 echo "== UI tests: $((SECONDS - started)) s in all"
 xcrun xcresulttool get test-results summary --path "$OUT/UITests.xcresult" 2>/dev/null || true
 echo
+if [ "$status" -ne 0 ]; then
+  # What the Files picker had to show, and what the gallery said.
+  echo "== The gallery's Documents"
+  (cd "$CONTAINER/Documents" && find . -maxdepth 3 | sort) || true
+  if [ -n "$LOCAL" ]; then
+    echo "== On My iPhone"
+    ls -la "$LOCAL" || true
+  fi
+  echo "== The gallery's log"
+  xcrun simctl spawn "$UDID" log show --last 30m --style compact \
+    --predicate 'eventMessage CONTAINS "[Gallery]"' 2>/dev/null | tail -n 80 || true
+fi
 xcrun simctl shutdown "$UDID" 2>/dev/null || true
 if [ "$status" -ne 0 ]; then
   echo "::error::UI tests failed: the log above shows what each failed test found on the screen; launcher-ui-tests keeps the results"

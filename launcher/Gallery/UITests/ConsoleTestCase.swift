@@ -267,11 +267,12 @@ struct FilesPicker {
     }
 
     /// An item of the picker, a place, a folder or a file, whose name begins
-    /// with NAME, within TIMEOUT seconds.
-    func item(_ name: String, timeout: TimeInterval) -> XCUIElement? {
+    /// with NAME, among cells, buttons and texts, within TIMEOUT seconds.
+    func item(_ name: String, among queries: [XCUIElementQuery]? = nil, timeout: TimeInterval) -> XCUIElement? {
+        let queries = queries ?? [app.cells, app.buttons, app.staticTexts]
         var found: XCUIElement?
         _ = test.waitUntil(timeout) {
-            found = [app.cells, app.buttons, app.staticTexts].lazy
+            found = queries.lazy
                 .map { test.element(in: $0, beginningWith: name) }
                 .first { $0.exists }
             return found != nil
@@ -279,31 +280,55 @@ struct FilesPicker {
         return found
     }
 
-    /// Picks FILE in the gallery's Documents: Browse, On My iPhone, the
-    /// gallery's folder, then the file, which the picker opens at once. The
-    /// picker may show the file without its extension.
+    /// Taps ITEM where a player would: on its icon in the picker's icon
+    /// view, whose name under the icon does not open it; else on the item.
+    func open(_ item: XCUIElement) {
+        let icon = item.images.firstMatch
+        (icon.exists ? icon : item).tap()
+    }
+
+    /// Picks FILE, which the picker may show without its extension: where
+    /// the picker opened, as after an earlier pick, else in On My iPhone,
+    /// where uitests.sh puts it, from Browse, else in the gallery's own
+    /// folder there, where the gallery writes it too.
     func pick(_ file: String) {
-        let file = (file as NSString).deletingPathExtension
-        if let item = item(file, timeout: 3) {
-            item.tap()
+        let name = (file as NSString).deletingPathExtension
+        if let item = item(name, timeout: 3) {
+            choose(item, file)
             return
         }
+        // Browse shows where it was last, and its places once tapped again.
         let browse = app.buttons["Browse"]
-        if browse.exists { browse.tap() }
-        guard let place = item("On My iPhone", timeout: 15) else {
+        var place: XCUIElement?
+        for _ in 0..<2 where place == nil {
+            if browse.exists { browse.tap() }
+            place = item("On My iPhone", among: [app.cells, app.buttons], timeout: 8)
+        }
+        guard let place else {
             test.expect(false, "The Files picker shows no On My iPhone", in: app)
             return
         }
-        place.tap()
-        guard let folder = item(GalleryWords.folder, timeout: 15) else {
-            test.expect(false, "On My iPhone shows no \(GalleryWords.folder) folder", in: app)
+        open(place)
+        if let item = item(name, timeout: 10) {
+            choose(item, file)
             return
         }
-        folder.tap()
-        guard let item = item(file, timeout: 15) else {
-            test.expect(false, "The \(GalleryWords.folder) folder shows no \(file)", in: app)
-            return
+        if let folder = item(GalleryWords.folder, among: [app.cells], timeout: 5) {
+            open(folder)
+            if let item = item(name, timeout: 15) {
+                choose(item, file)
+                return
+            }
         }
-        item.tap()
+        let empty = app.staticTexts["Folder is Empty"].exists ? ", the folder shown is empty" : ""
+        test.expect(false, "The Files picker shows no \(file) in On My iPhone or its \(GalleryWords.folder) folder\(empty)",
+                    in: app)
+    }
+
+    /// Picks ITEM, unless the picker shows it greyed out: of a type the
+    /// import does not take.
+    private func choose(_ item: XCUIElement, _ file: String) {
+        test.expect(item.isEnabled, "The Files picker shows \(file) greyed out: \(item.debugDescription)", in: app)
+        open(item)
     }
 }

@@ -17,8 +17,9 @@
 //    became active (-GalleryHoldMainThread 1.5, in seconds), which the
 //    watch must see: a watch that saw nothing would let every test pass;
 //  - an IPA to pick, Test Game.ipa in the gallery's Documents, which the
-//    Files picker shows under On My iPhone › Gallery: the stand-in install
-//    says over the console which file it was given (GalleryStubs.swift);
+//    Files picker shows under On My iPhone › Gallery, as uitests.sh puts
+//    one in On My iPhone: the stand-in install says over the console which
+//    file it was given (GalleryStubs.swift);
 //  - the pairing file in place without the rest of the setup
 //    (-GalleryPairing 1), so that the Apple ID can be signed in;
 //  - the built-in SideStore's sign-in, stood in for (GallerySideStore
@@ -27,6 +28,7 @@
 
 import SwiftUI
 import UIKit
+import UniformTypeIdentifiers
 
 enum GalleryTest {
     private static var defaults: UserDefaults { .standard }
@@ -59,6 +61,9 @@ enum GalleryTest {
             try? Data("gallery".utf8).write(to: folder.appendingPathComponent(CartouchePairing.importName))
             CartoucheSetup.shared.refresh()
         }
+        // Whether iOS knows the IPA's type, or makes one up from its
+        // extension, which the Files picker may then not take.
+        NSLog("[Gallery] the type of an IPA: %@", UTType(filenameExtension: "ipa")?.identifier ?? "none")
         // An empty ZIP archive: the stand-in install reads none of it.
         let documents = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
         let empty = Data([0x50, 0x4B, 0x05, 0x06] + [UInt8](repeating: 0, count: 18))
