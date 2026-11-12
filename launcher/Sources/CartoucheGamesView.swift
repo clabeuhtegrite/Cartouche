@@ -35,7 +35,8 @@
 //  copied to the saves folder whenever Cartouche comes back, after a game
 //  (CartoucheSaveBackups), when the games' play times are read again too
 //  (CartoucheGameStats). A step that fails says why, with the report the
-//  player can copy (CartoucheReporting.swift).
+//  player can copy (CartoucheReporting.swift). On an iPhone whose GPU
+//  nxnative refuses, an install asks first whether to go on.
 //
 //  A game of the player's that Cartouche does not know has what IGDB has
 //  of it by its name, which Cartouche asks its server about when the game
@@ -120,7 +121,7 @@ struct CartoucheGamesView: View {
     private var nothingOverConsole: Bool {
         sheetID == nil && !showingSetup && !showingGuide && !importPicker.isShowing && uninstalling == nil
             && editingInfo == nil && actions.work == nil && actions.notice == nil && !showsUpdate
-            && actions.switching == nil && actions.quitQuestion == nil
+            && actions.switching == nil && actions.quitQuestion == nil && actions.installQuestion == nil
     }
     /// Nothing over the console or beside it that takes the controller.
     private var nothingOver: Bool { nothingOverConsole && gameSettings == nil }
@@ -130,6 +131,7 @@ struct CartoucheGamesView: View {
         updates.isShowing && onGames && sheetID == nil && !showingSetup && !showingGuide && !importPicker.isShowing
             && uninstalling == nil && editingInfo == nil && actions.work == nil && actions.notice == nil
             && actions.running == nil && actions.switching == nil && actions.quitQuestion == nil
+            && actions.installQuestion == nil
     }
 
     var body: some View {
@@ -269,6 +271,13 @@ struct CartoucheGamesView: View {
             }
         } message: { notice in
             Text(notice.message)
+        }
+        // On an iPhone whose GPU nxnative refuses, an install asks first.
+        .alert(CartoucheText.installGPUTitle, isPresented: installAsked, presenting: actions.installQuestion) { question in
+            Button(CartoucheText.installAnyway) { actions.installAnyway(question) }
+            Button(CartoucheText.cancel, role: .cancel) { actions.dropInstall(question) }
+        } message: { _ in
+            Text(CartoucheText.reasonGPU)
         }
         // A controller answers the alert: A or B closes it, Y copies the
         // report. It closes once every view has had the input, so that the
@@ -561,6 +570,15 @@ struct CartoucheGamesView: View {
             get: { actions.notice != nil },
             set: { shown in
                 if !shown { actions.notice = nil }
+            })
+    }
+
+    /// The question goes as the alert closes; its buttons answer it.
+    private var installAsked: Binding<Bool> {
+        Binding(
+            get: { actions.installQuestion != nil },
+            set: { shown in
+                if !shown { actions.closeInstallQuestion() }
             })
     }
 

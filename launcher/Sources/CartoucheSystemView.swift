@@ -229,6 +229,19 @@ struct CartoucheSystemView: View {
                     LabeledContent(CartoucheText.behindLimit,
                                    value: keeping.limitMiB.map { CartoucheText.memoryAmount(mebibytes: $0) }
                                        ?? CartoucheText.behindLimitUnknown)
+                    // The games' process there ran without Increased Memory
+                    // Limit, while Cartouche has more: games start in its
+                    // place, until the player tries again.
+                    if keeping.sendsGamesInPlace(ownLimitMiB: memory?.limitMiB) {
+                        VStack(alignment: .leading, spacing: 8) {
+                            Label(CartoucheText.behindWithoutIML, systemImage: "exclamationmark.triangle.fill")
+                                .font(.subheadline)
+                                .foregroundStyle(Color.orange)
+                            Button(CartoucheText.tryBehindAgain) { keeping.tryBehindAgain() }
+                                .font(.subheadline.weight(.semibold))
+                        }
+                        .padding(.vertical, 2)
+                    }
                 }
             } header: {
                 Text(CartoucheText.playingTitle)
@@ -358,7 +371,7 @@ struct CartoucheSystemView: View {
 
     private var deviceSection: some View {
         let device = catalog.device(CartoucheDevice.modelIdentifier)
-        return Section(CartoucheText.thisIPhone) {
+        return Section {
             LabeledContent(CartoucheText.model, value: CartoucheDevice.modelIdentifier)
             if let device {
                 LabeledContent(CartoucheText.chip, value: device.chip)
@@ -370,6 +383,13 @@ struct CartoucheSystemView: View {
             LabeledContent("iOS", value: CartoucheDevice.iOSVersion)
             LabeledContent(CartoucheText.bcRequirement,
                            value: CartoucheDevice.supportsBCTextureCompression ? CartoucheText.gpuSupported : CartoucheText.gpuUnsupported)
+        } header: {
+            Text(CartoucheText.thisIPhone)
+        } footer: {
+            // nxnative refuses this GPU for every game.
+            if !CartoucheDevice.supportsBCTextureCompression {
+                Text(CartoucheText.reasonGPU)
+            }
         }
     }
 
