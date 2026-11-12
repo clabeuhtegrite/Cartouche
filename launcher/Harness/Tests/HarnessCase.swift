@@ -22,13 +22,16 @@ class HarnessCase: XCTestCase {
     /// The longest the main thread may be held up during a test.
     var mainThreadLimit: TimeInterval = 1.5
     private var watchdog: HarnessWatchdog?
+    /// What took the test's time, said in the log when it takes long.
+    private var timings = HarnessTimings()
 
     var actions: CartoucheGameActions { CartoucheGameActions.shared }
     var model: SharedModel { DataManager.shared.model }
 
     override func setUp() async throws {
+        timings = HarnessTimings()
         try await super.setUp()
-        try await settle()
+        timings.settledBefore = try await settle()
         HarnessLC.reset()
         resetLauncher()
         // A new certificate for each test: Cartouche checks each one once.
@@ -37,23 +40,41 @@ class HarnessCase: XCTestCase {
         let watchdog = HarnessWatchdog()
         watchdog.start()
         self.watchdog = watchdog
+        timings.setUp = Date().timeIntervalSince(timings.began)
+        timings.bodyBegan = Date()
     }
 
     override func tearDown() async throws {
+        let body = Date().timeIntervalSince(timings.bodyBegan)
         if let watchdog {
-            let (worst, during) = watchdog.stop()
-            if worst > mainThreadLimit {
-                XCTFail(String(format: "The main thread was held up %.2f s, %@", worst, during))
+            let hold = watchdog.stop()
+            if hold.seconds > mainThreadLimit {
+                XCTFail(String(format: "The main thread was held up %.2f s, from %@ to %@; %@", hold.seconds, hold.from, hold.to,
+                               hold.stack.isEmpty ? "no sample of it" : "a second in, it was in: " + hold.stack.prefix(30).joined(separator: " < ")))
             }
         }
         watchdog = nil
-        try await settle()
+        let settled = try await settle()
         try await super.tearDown()
+        let total = Date().timeIntervalSince(timings.began)
+        // A test takes a few seconds: one that takes far longer waited on
+        // something, which the log says, for the results cannot be read
+        // from the pull request.
+        if total > 20 {
+            print(String(format: "harness: %@ took %.1f s: set up %.1f s (waiting for the test before %.1f s), "
+                         + "its steps %.1f s (the longest wait %.1f s, for %@), cleaning up %.1f s (waiting %.1f s)",
+                         name, total, timings.setUp, timings.settledBefore, body, timings.longestWait.seconds,
+                         timings.longestWait.what.isEmpty ? "nothing" : "\"\(timings.longestWait.what)\"",
+                         total - timings.setUp - body, settled))
+        }
     }
 
     /// Waits for what the last test left under way, quits the game it left
-    /// behind the console, and waits for the saves that go after it.
-    private func settle() async throws {
+    /// behind the console, and waits for the saves that go after it. How
+    /// long it waited.
+    @discardableResult
+    private func settle() async throws -> TimeInterval {
+        let began = Date()
         let actions = CartoucheGameActions.shared
         let deadline = Date().addingTimeInterval(20)
         while actions.work != nil || actions.running != nil {
@@ -67,6 +88,7 @@ class HarnessCase: XCTestCase {
             try await Task.sleep(nanoseconds: 50_000_000)
         }
         await CartoucheSaveBackups.shared.finish()
+        return Date().timeIntervalSince(began)
     }
 
     /// The launcher's own state, as on a new install.
@@ -108,7 +130,14 @@ class HarnessCase: XCTestCase {
     /// TIMEOUT seconds, the main thread free meanwhile.
     func waitUntil(_ what: String, timeout: TimeInterval = 20, file: StaticString = #filePath, line: UInt = #line,
                    _ condition: () -> Bool) async throws {
-        let deadline = Date().addingTimeInterval(timeout)
+        let began = Date()
+        defer {
+            let waited = Date().timeIntervalSince(began)
+            if waited > timings.longestWait.seconds {
+                timings.longestWait = (what, waited)
+            }
+        }
+        let deadline = began.addingTimeInterval(timeout)
         while !condition() {
             guard Date() < deadline else {
                 XCTFail("Waited \(Int(timeout)) s, yet not \(what)", file: file, line: line)
@@ -265,19 +294,47 @@ final class HarnessBox<Value>: @unchecked Sendable {
     }
 }
 
+/// What took a test's time.
+struct HarnessTimings {
+    let began = Date()
+    /// Setting up, and of it, waiting for what the test before left.
+    var setUp: TimeInterval = 0
+    var settledBefore: TimeInterval = 0
+    var bodyBegan = Date()
+    /// The test's longest wait, and what it waited for.
+    var longestWait: (what: String, seconds: TimeInterval) = ("", 0)
+}
+
 /// Watches the main thread from another one: how long a block sent to it
-/// waits, at worst, and what the launcher was doing then.
+/// waits, at worst, what the launcher was doing as the wait began and as
+/// it ended, and where the main thread was a second into it.
 final class HarnessWatchdog: @unchecked Sendable {
+    struct Hold {
+        var seconds: TimeInterval = 0
+        var from = ""
+        var to = ""
+        var stack: [String] = []
+    }
+
     private let lock = NSLock()
     private var watching = false
-    private var worst: TimeInterval = 0
-    private var worstAt = ""
+    private var worst = Hold()
 
+    /// What the launcher is doing, on the main thread.
+    @MainActor
+    private static func step() -> String {
+        CartoucheGameActions.shared.work.map { "\($0.kind) \($0.stage)" } ?? "no step under way"
+    }
+
+    /// From the main thread.
     func start() {
+        precondition(Thread.isMainThread)
+        let main = pthread_self()
         lock.lock()
         watching = true
         lock.unlock()
         let thread = Thread { [self] in
+            var last = "no step under way"
             while true {
                 lock.lock()
                 let goOn = watching
@@ -287,19 +344,21 @@ final class HarnessWatchdog: @unchecked Sendable {
                 let answered = DispatchSemaphore(value: 0)
                 let stage = HarnessBox("")
                 DispatchQueue.main.async {
-                    stage.value = MainActor.assumeIsolated {
-                        CartoucheGameActions.shared.work.map { "\($0.kind) \($0.stage)" } ?? "no step under way"
-                    }
+                    stage.value = MainActor.assumeIsolated { Self.step() }
                     answered.signal()
                 }
-                answered.wait()
+                var stack: [String] = []
+                if answered.wait(timeout: .now() + 1) == .timedOut {
+                    stack = HarnessMainThread.sample(main)
+                    answered.wait()
+                }
                 let waited = Date().timeIntervalSince(sent)
                 lock.lock()
-                if waited > worst {
-                    worst = waited
-                    worstAt = "then: " + stage.value
+                if waited > worst.seconds {
+                    worst = Hold(seconds: waited, from: last, to: stage.value, stack: stack)
                 }
                 lock.unlock()
+                last = stage.value
                 Thread.sleep(forTimeInterval: 0.05)
             }
         }
@@ -307,11 +366,87 @@ final class HarnessWatchdog: @unchecked Sendable {
         thread.start()
     }
 
-    /// The longest wait, and what was under way as it ended.
-    func stop() -> (TimeInterval, String) {
+    /// The longest wait.
+    func stop() -> Hold {
         lock.lock()
         defer { lock.unlock() }
         watching = false
-        return (worst, worstAt)
+        return worst
     }
 }
+
+/// Where a thread is, from another: its frames, as the debugger would list
+/// them, read while it stands still for an instant. Only the registers and
+/// the thread's own stack are read meanwhile, into memory set aside before,
+/// for the thread may hold a lock any other call would wait for; the names
+/// come once it goes on.
+enum HarnessMainThread {
+    private static let capacity = 64
+    private static let frames = UnsafeMutablePointer<UInt>.allocate(capacity: capacity)
+    /// The registers, as thread_get_state gives ARM_THREAD_STATE64: x0 to
+    /// x28, then fp, lr, sp and pc, 8 bytes each, cpsr and a pad, 4 each.
+    private static let registers = UnsafeMutablePointer<natural_t>.allocate(capacity: 68)
+
+    /// THREAD's frames, the innermost first; none where the harness cannot
+    /// tell, as on an Intel Mac.
+    static func sample(_ thread: pthread_t) -> [String] {
+        #if arch(arm64)
+        // All it needs, before the thread stands still: memory set aside
+        // now, not as the thread may hold the lock of malloc.
+        let frames = self.frames, registers = self.registers, capacity = self.capacity
+        let port = pthread_mach_thread_np(thread)
+        let top = UInt(bitPattern: pthread_get_stackaddr_np(thread))
+        let bottom = top - UInt(pthread_get_stacksize_np(thread))
+        var count = mach_msg_type_number_t(68)
+        var found = 0
+        guard thread_suspend(port) == KERN_SUCCESS else { return [] }
+        if thread_get_state(port, thread_state_flavor_t(6), registers, &count) == KERN_SUCCESS, count >= 66 {
+            let words = UnsafeRawPointer(registers)
+            let fp = UInt(words.loadUnaligned(fromByteOffset: 232, as: UInt64.self))
+            let lr = UInt(words.loadUnaligned(fromByteOffset: 240, as: UInt64.self))
+            let pc = UInt(words.loadUnaligned(fromByteOffset: 256, as: UInt64.self))
+            frames[0] = pc
+            frames[1] = lr
+            found = 2
+            var frame = fp
+            while found < capacity, frame >= bottom, frame <= top - 16, frame % 16 == 0,
+                  let pointer = UnsafePointer<UInt>(bitPattern: frame) {
+                let next = pointer[0]
+                frames[found] = pointer[1]
+                found += 1
+                guard next > frame else { break }
+                frame = next
+            }
+        }
+        thread_resume(port)
+        return (0..<found).map { name(of: frames[$0]) }
+        #else
+        return []
+        #endif
+    }
+
+    /// The function at ADDRESS, by its image and its name.
+    private static func name(of address: UInt) -> String {
+        // Without the bits the system signs return addresses with, above
+        // the 47 of an address.
+        let code = address & 0x0000_7FFF_FFFF_FFFF
+        var info = Dl_info()
+        guard let pointer = UnsafeRawPointer(bitPattern: code), dladdr(pointer, &info) != 0 else {
+            return String(format: "0x%lx", code)
+        }
+        let image = info.dli_fname.map { (String(cString: $0) as NSString).lastPathComponent } ?? "?"
+        guard let symbol = info.dli_sname else { return image }
+        return image + " " + demangled(symbol)
+    }
+
+    private static func demangled(_ symbol: UnsafePointer<CChar>) -> String {
+        guard let readable = harnessSwiftDemangle(symbol, strlen(symbol), nil, nil, 0) else { return String(cString: symbol) }
+        defer { free(readable) }
+        return String(cString: readable)
+    }
+}
+
+/// The Swift runtime's demangler, which the debugger uses too.
+@_silgen_name("swift_demangle")
+private func harnessSwiftDemangle(_ mangled: UnsafePointer<CChar>?, _ length: Int, _ output: UnsafeMutablePointer<CChar>?,
+                                  _ outputSize: UnsafeMutablePointer<Int>?, _ flags: UInt32) -> UnsafeMutablePointer<CChar>?

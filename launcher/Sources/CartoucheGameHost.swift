@@ -324,7 +324,10 @@ final class CartoucheGameHost {
         consoleWindow?.makeKey()
         consoleWindow?.rootViewController?.setNeedsUpdateOfSupportedInterfaceOrientations()
         consoleWindow?.rootViewController?.setNeedsStatusBarAppearanceUpdate()
-        if CartoucheGameActions.shared.work == nil {
+        // The iPhone may lock again, unless an install or a copy keeps it
+        // awake: a start that did not go through here, which goes on in
+        // Cartouche's place or stops, leaves it as before.
+        if !CartoucheGameActions.shared.isTransferring {
             UIApplication.shared.isIdleTimerDisabled = false
         }
     }

@@ -42,8 +42,8 @@ final class GameFilesApartTests: HarnessCase {
         let top = "Payload/" + game.bundleName + "/"
         for entry in game.files where entry.kind == .file {
             let path = String(entry.name.dropFirst(top.count))
-            let data = try? Data(contentsOf: bundle.appendingPathComponent(path))
-            XCTAssertTrue(data == entry.data, "\(path) is in the installed game as in its IPA", file: file, line: line)
+            XCTAssertTrue(installedFile(bundle.appendingPathComponent(path), holds: entry.data),
+                          "\(path) is in the installed game as in its IPA", file: file, line: line)
         }
         let image = try? Data(contentsOf: bundle.appendingPathComponent("romfs.img"))
         XCTAssertTrue(image == game.romfsImage, "romfs.img, the image of its files, whole", file: file, line: line)

@@ -604,6 +604,20 @@ enum HarnessRomFS {
 // MARK: What the tests read of an installed game
 
 extension XCTestCase {
+    /// Whether the file at URL holds DATA, as the game's IPA has it: the
+    /// same bytes, or, for its Info.plist, the same property list, which
+    /// LiveContainer writes again in binary as a new copy of the game takes
+    /// the place of the installed one (setDoUseLCBundleId).
+    func installedFile(_ url: URL, holds data: Data) -> Bool {
+        guard let found = try? Data(contentsOf: url) else { return false }
+        if found == data { return true }
+        guard url.lastPathComponent == "Info.plist",
+              let installed = try? PropertyListSerialization.propertyList(from: found, format: nil) as? NSDictionary,
+              let original = try? PropertyListSerialization.propertyList(from: data, format: nil) as? NSDictionary
+        else { return false }
+        return installed.isEqual(original)
+    }
+
     /// The files of the folder at URL, by their path in it, folders ending
     /// with "/".
     func listing(of url: URL) -> [String] {

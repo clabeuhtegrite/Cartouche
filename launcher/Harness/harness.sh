@@ -109,8 +109,9 @@ done
 
 echo "== building the harness and running its tests"
 rm -rf "$OUT/CartoucheHarness.xcresult"
-# xcodebuild's whole log goes to test.log, its errors and the tests' results
-# to the screen. Its own status is the script's.
+# xcodebuild's whole log goes to test.log, its errors, the tests' results and
+# what the harness says of a test that took long to the screen. Its own
+# status is the script's.
 set +e
 xcodebuild test \
   -project "$HERE/CartoucheHarness.xcodeproj" \
@@ -125,7 +126,7 @@ xcodebuild test \
   ${ONLY[@]+"${ONLY[@]}"} \
   MARKETING_VERSION="$VERSION" \
   2>&1 | tee "$OUT/test.log" | grep -E --line-buffered \
-    "error:|Test Case .* (passed|failed)|Executed [0-9]+ test|\*\* (BUILD|TEST) "
+    "error:|Test Case .* (passed|failed)|Executed [0-9]+ test|\*\* (BUILD|TEST) |harness: -\[[^]]+\] took "
 STATUSES=("${PIPESTATUS[@]}")
 set -e
 STATUS="${STATUSES[0]}"

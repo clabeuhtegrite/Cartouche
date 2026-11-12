@@ -12,7 +12,7 @@ Your Apple ID and its password stay in the keychain Cartouche shares with its bu
 
 ## Game measurements
 
-Cartouche sends what your games measured as they ran, so that they can be made to run better on iPhones. It does so unless you turn it off: **System › Game measurements › Send game measurements**. Off, Cartouche sends nothing more and drops the reports it had not sent yet; on again, it reports only the sessions that come after.
+Cartouche sends what your games measured as they ran, so that they can be made to run better on iPhones. It does so unless you turn it off: **System › Game measurements › Send game measurements**. Off, Cartouche sends nothing more and drops the reports it had not sent yet, those on their way too; on again, it reports only the sessions that come after.
 
 ### What is sent
 

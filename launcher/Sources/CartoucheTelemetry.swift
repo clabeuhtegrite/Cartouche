@@ -107,6 +107,8 @@ final class CartoucheTelemetry: ObservableObject {
     private var collecting = false
     private var collectAgain = false
     private var sending = false
+    /// The batch on its way, which the player's switch stops.
+    private var sendingBatch: Task<Void, Never>?
     private var observers: Set<AnyCancellable> = []
     /// How the games that ran behind the console ended, by their data
     /// folder, since Cartouche opened: whether the player quit them.
@@ -202,6 +204,8 @@ final class CartoucheTelemetry: ObservableObject {
             collect(reporting: false)
         } else {
             state.queue.removeAll()
+            // Not even the batch on its way, made before the switch.
+            sendingBatch?.cancel()
         }
         save()
     }
@@ -492,10 +496,13 @@ final class CartoucheTelemetry: ObservableObject {
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.httpBody = Data(CartoucheTelemetryFormat.batch(batch.map(\.body)).utf8)
-        Task {
+        sendingBatch = Task {
             let ids = Set(batch.map(\.id))
             var again = false
             do {
+                // The player may have turned it off since the batch was
+                // made: it is dropped with the rest.
+                try Task.checkCancellation()
                 let (_, response) = try await Self.session.data(for: request)
                 let http = response as? HTTPURLResponse
                 switch http?.statusCode ?? 0 {
@@ -514,9 +521,16 @@ final class CartoucheTelemetry: ObservableObject {
                     state.queue.failed(now: Date(), serverWait: wait)
                 }
             } catch {
-                state.queue.failed(now: Date())
+                if Task.isCancelled {
+                    // Stopped by the switch, it did not fail: what was made
+                    // once it was on again goes now.
+                    again = true
+                } else {
+                    state.queue.failed(now: Date())
+                }
             }
             sending = false
+            sendingBatch = nil
             save()
             if again, state.isOn { send() }
         }

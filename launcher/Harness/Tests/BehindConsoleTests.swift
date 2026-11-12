@@ -170,6 +170,28 @@ final class BehindConsoleTests: HarnessCase {
         XCTAssertEqual(actions.notice?.message, CartoucheText.gameStoppedPaused)
     }
 
+    func testAnInstallKeepsTheIPhoneAwakeAsThePausedGameEnds() async throws {
+        let (_, scene) = try await started(.plain(0))
+        try await pause(0.7)
+        scene.pressControllerHome()
+        try await waitUntil("the console shows") { actions.running?.isInFront == false }
+        XCTAssertFalse(UIApplication.shared.isIdleTimerDisabled, "the console over the paused game lets the iPhone lock")
+
+        // Another game installs from the console meanwhile, and iOS ends the
+        // paused one on the way.
+        HarnessLC.signingTime = 2
+        let installing = Task { try await self.install(try HarnessIPA.game(.plain(1))) }
+        try await waitUntil("the install is on its way") { actions.isTransferring }
+        XCTAssertTrue(UIApplication.shared.isIdleTimerDisabled, "the install keeps the iPhone awake")
+        scene.kill()
+        try await waitUntil("the game has ended") { actions.running == nil }
+        XCTAssertTrue(actions.isTransferring, "the install goes on")
+        XCTAssertTrue(UIApplication.shared.isIdleTimerDisabled, "still awake, for the install")
+        let installed = try await installing.value
+        XCTAssertNotNil(installed)
+        XCTAssertFalse(UIApplication.shared.isIdleTimerDisabled, "the install over, the iPhone may lock")
+    }
+
     func testAGameThatCrashesAsItStartsSaysItStopped() async throws {
         HarnessLC.nextGameStart = .crashes
         let app = try await installed(.plain())
@@ -309,6 +331,7 @@ final class BehindConsoleTests: HarnessCase {
         XCTAssertNil(actions.running)
         XCTAssertNil(actions.notice)
         XCTAssertEqual(HarnessLC.launches.count, 1)
+        XCTAssertFalse(UIApplication.shared.isIdleTimerDisabled, "nothing left of the start behind the console")
     }
 
     func testAGameStartsInCartouchesPlaceWhenLiveProcessRefusesIt() async throws {
@@ -319,7 +342,7 @@ final class BehindConsoleTests: HarnessCase {
         XCTAssertNil(actions.running)
         XCTAssertNil(actions.notice)
         XCTAssertEqual(HarnessLC.launches.count, 1)
-        XCTAssertFalse(UIApplication.shared.isIdleTimerDisabled)
+        XCTAssertFalse(UIApplication.shared.isIdleTimerDisabled, "nothing left of the start behind the console")
     }
 
     func testTheConsoleKeptClosedStartsEveryGameInCartouchesPlace() async throws {

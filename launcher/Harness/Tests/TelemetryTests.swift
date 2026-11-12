@@ -41,8 +41,10 @@ final class TelemetryTests: HarnessCase {
         reports.last { $0["name"] as? String == name }
     }
 
+    /// The number of this copy of Cartouche a report gives, with what it
+    /// says of the iPhone, beside the report's own keys.
     private func install(of report: [String: Any]?) -> String? {
-        (report?["context"] as? [String: Any])?["install"] as? String
+        report?["install"] as? String
     }
 
     private func answer(_ status: Int, headers: [String: String] = [:]) {
@@ -72,9 +74,11 @@ final class TelemetryTests: HarnessCase {
         XCTAssertEqual(fields["step"] as? String, "one")
         XCTAssertEqual(fields["count"] as? Double, 2)
         XCTAssertEqual(fields["ok"] as? Bool, true)
-        let context = try XCTUnwrap(report["context"] as? [String: Any])
-        XCTAssertEqual(context["cartouche"] as? String, CartoucheUpdates.runningVersion)
-        XCTAssertNotNil(UUID(uuidString: try XCTUnwrap(context["install"] as? String)), "a random number, nothing else")
+        // What it says of the copy and the iPhone, beside its own keys.
+        XCTAssertEqual(report["cartouche"] as? String, CartoucheUpdates.runningVersion)
+        XCTAssertNotNil(UUID(uuidString: try XCTUnwrap(install(of: report))), "a random number, nothing else")
+        XCTAssertEqual(report["device"] as? String, CartoucheDevice.modelIdentifier)
+        XCTAssertNil(report["context"], "no context of its own")
         // Never the iPhone's name.
         let text = String(decoding: request.body, as: UTF8.self)
         if let name = ProcessInfo.processInfo.environment["SIMULATOR_DEVICE_NAME"], !name.isEmpty {
@@ -153,22 +157,30 @@ final class TelemetryTests: HarnessCase {
     // MARK: The player's switch
 
     func testTurnedOffNothingIsKeptNorSent() async throws {
+        answer(200)
+        // The report is on its way as the player turns telemetry off: not
+        // even the batch made before the switch goes.
         telemetry.event("harness.before")
         XCTAssertEqual(telemetry.waiting, 1)
         telemetry.setOn(false)
         XCTAssertFalse(telemetry.isOn)
         XCTAssertEqual(telemetry.waiting, 0)
 
-        answer(200)
-        let asked = HarnessNetwork.requests.count
         telemetry.event("harness.off")
         telemetry.send()
-        try await pause(0.3)
+        try await pause(0.5)
         XCTAssertEqual(telemetry.waiting, 0)
-        XCTAssertEqual(HarnessNetwork.requests.count, asked)
+        XCTAssertNil(report(named: "harness.before"), "the batch on its way did not go")
+        XCTAssertNil(report(named: "harness.off"))
+        XCTAssertFalse(HarnessNetwork.requests.contains { $0.url.path == "/v1/reports" }, "no report asked of the server")
 
+        // On again, the next report goes at once: the batch the switch
+        // stopped did not fail.
         telemetry.setOn(true)
         XCTAssertTrue(telemetry.isOn)
+        telemetry.event("harness.on")
+        try await waitUntil("the server took it", timeout: 5) { self.report(named: "harness.on") != nil }
+        XCTAssertNil(report(named: "harness.before"))
     }
 
     // MARK: Erasing
@@ -199,7 +211,7 @@ final class TelemetryTests: HarnessCase {
         answer(200)
         telemetry.event("harness.before")
         try await waitUntil("the server took it") { telemetry.waiting == 0 }
-        let before = install(of: report(named: "harness.before"))
+        let before = try XCTUnwrap(install(of: report(named: "harness.before")))
 
         HarnessNetwork.answer(nil)
         let erased = await telemetry.erase()

@@ -42,8 +42,8 @@ final class StorageTests: HarnessCase {
         let bundle = try bundle(of: app)
         XCTAssertEqual(app.appInfo.bundleIdentifier(), game.bundleIdentifier, file: file, line: line)
         for (path, entry) in bundleFiles(of: game) {
-            let data = try? Data(contentsOf: bundle.appendingPathComponent(path))
-            XCTAssertTrue(data == entry.data, "\(path) is in the installed game as in its IPA", file: file, line: line)
+            XCTAssertTrue(installedFile(bundle.appendingPathComponent(path), holds: entry.data),
+                          "\(path) is in the installed game as in its IPA", file: file, line: line)
             let attributes = try? FileManager.default.attributesOfItem(atPath: bundle.appendingPathComponent(path).path)
             XCTAssertEqual((attributes?[.posixPermissions] as? NSNumber)?.intValue, Int(entry.mode), "\(path)'s mode",
                            file: file, line: line)

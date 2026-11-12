@@ -151,6 +151,9 @@ final class CartoucheGameActions: ObservableObject {
     /// The install or the copy under way, which a stop from outside
     /// Cartouche cancels (CartoucheContinuedWork).
     private var transfer: Task<Void, Never>?
+    /// Whether an install or a copy is on its way, which keeps the iPhone
+    /// from locking until it is over (beginTransfer).
+    var isTransferring: Bool { transfer != nil }
     /// Whether the player, or iOS, stopped it from outside Cartouche.
     private var stopped = false
     /// The game to start once the running one has ended.
