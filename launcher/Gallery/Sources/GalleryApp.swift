@@ -63,7 +63,11 @@
 //                                        No thanks said to the guide's Mac
 //                                        step; own-cover: the sheet's game,
 //                                        or the first of the player's, with
-//                                        a cover of the player's own
+//                                        a cover of the player's own; saves:
+//                                        that game's saves, and a folder in
+//                                        Files as the saves folder, which
+//                                        Cartouche's own sync uses
+//                                        (GallerySaves)
 //      -GalleryOrientation landscape     the gallery turns itself sideways,
 //                                        as a game does; the simulator
 //                                        stays upright
@@ -73,6 +77,25 @@
 //                                        container (Ready below)
 //      -GalleryCategory Controls         the settings page's category, one
 //                                        of nxnative's sections
+//
+//  The UI tests (launcher/Gallery/UITests) open the whole console, as
+//  Cartouche shows it, and drive it (GalleryTesting.swift):
+//
+//      -GalleryScreen root               the console with the System page
+//                                        over it, as Cartouche's root view
+//      -GalleryTest 1                    a clean start, the IPA the Files
+//                                        picker offers, and the watch on
+//                                        the main thread
+//      -GalleryPairing 1                 the pairing file without the rest
+//                                        of the setup, to sign in
+//      -GalleryHoldMainThread 1.5        the main thread held once, for
+//                                        that many seconds, which the
+//                                        watch must see
+//      -GalleryKeyboard 1                for a test that types: the
+//                                        keyboard shown and put away once,
+//                                        before the watch counts
+//      -GalleryTestName <name>           the test's, which the watch writes
+//                                        down as the gallery starts
 //
 
 import Network
@@ -224,6 +247,9 @@ struct GalleryScenario {
                 if work == "mac-code" {
                     CartoucheMacPairing.gallery = (mac: GalleryMac.nearby[0], code: "482915")
                 }
+            }
+            if work == "saves", let titleId = sheet ?? ownedTitles.first {
+                GallerySaves.prepare(titleId: titleId)
             }
             if work == "mac" || work == "mac-offline" {
                 // The player's Mac, paired, with the games Cartouche Builder
@@ -411,8 +437,10 @@ struct CartoucheGalleryApp: App {
     @StateObject private var model = SharedModel()
 
     init() {
+        GalleryTest.start()
         scenario = GalleryScenario.fromArguments()
         scenario.prepare()
+        MainActor.assumeIsolated { GalleryTest.prepared() }
     }
 
     var body: some Scene {
@@ -420,6 +448,13 @@ struct CartoucheGalleryApp: App {
             content
                 .environmentObject(model)
                 .preferredColorScheme(.dark)
+                .overlay(alignment: .bottomLeading) {
+                    if GalleryTest.isOn {
+                        GalleryWatchReadout()
+                            .frame(width: 2, height: 2)
+                            .allowsHitTesting(false)
+                    }
+                }
                 .onAppear {
                     model.apps = scenario.apps()
                     scenario.pause(among: model.apps)
@@ -521,6 +556,8 @@ struct CartoucheGalleryApp: App {
             NavigationStack {
                 CartoucheReportView()
             }
+        case "root":
+            CartoucheRootView()
         default:
             CartoucheGamesView()
         }
@@ -553,5 +590,59 @@ enum GalleryMac {
 
     private static func service(_ name: String) -> NWEndpoint {
         .service(name: name, type: CartoucheBridge.serviceType, domain: "local.", interface: nil)
+    }
+}
+
+/// The saves of a game of the player's and the saves folder they are kept
+/// in step with, a folder in Files as the player picks one, both in the
+/// gallery's Application Support (work: saves): Cartouche's own sync and
+/// copies run on them, as on an iPhone, with nothing stood in for but the
+/// game's data folder, which LiveContainer gives a game.
+enum GallerySaves {
+    /// The folder's name, as the Storage page and the sheet show it.
+    static let folderName = "Gallery saves"
+    /// The game whose saves these are, once the scenario has them.
+    @MainActor private static var titleId: String?
+
+    private static var root: URL {
+        FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent("GallerySaves", isDirectory: true)
+    }
+
+    /// The game's Documents, where nxnative keeps its saves.
+    private static var documents: URL { root.appendingPathComponent("Game/Documents", isDirectory: true) }
+
+    /// Puts a save in the Documents of the game of TITLEID, as nxnative
+    /// writes one, and the folder in Files in its place as the saves folder,
+    /// with nothing in it yet.
+    @MainActor
+    static func prepare(titleId: String) {
+        let manager = FileManager.default
+        try? manager.removeItem(at: root)
+        let save = documents.appendingPathComponent("save/0000000000000001", isDirectory: true)
+        let folder = root.appendingPathComponent(folderName, isDirectory: true)
+        do {
+            try manager.createDirectory(at: save, withIntermediateDirectories: true)
+            try manager.createDirectory(at: folder.appendingPathComponent("Saves", isDirectory: true),
+                                        withIntermediateDirectories: true)
+            // Two MiB of a game's progress, which compresses as little as a
+            // real save.
+            var progress = Data(count: 2 << 20)
+            progress.withUnsafeMutableBytes { arc4random_buf($0.baseAddress, $0.count) }
+            try progress.write(to: save.appendingPathComponent("progress.bin"))
+            let server = CartoucheStorageServer(kind: .folder, name: folderName, bookmark: try CartoucheFolder.bookmark(of: folder))
+            CartoucheStorageSettings.shared.showForGallery(server, games: "", saves: "Saves")
+            self.titleId = titleId
+        } catch {
+            NSLog("[Gallery] cannot make the saves and their folder: %@", String(describing: error))
+        }
+    }
+
+    /// The saves of APP, if it is the scenario's game.
+    @MainActor
+    static func target(of app: LCAppModel) -> CartoucheSaveTarget? {
+        guard let titleId, app.appInfo.relativeBundlePath == titleId + ".app",
+              let bundleId = app.appInfo.bundleIdentifier() else { return nil }
+        return CartoucheSaveTarget(key: bundleId + "|gallery", name: app.displayName, titleId: titleId, documents: documents)
     }
 }

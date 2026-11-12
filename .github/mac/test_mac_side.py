@@ -25,6 +25,7 @@ sys.path.insert(0, str(HERE))
 
 import simulators  # noqa: E402
 import supervisor  # noqa: E402
+import watch  # noqa: E402
 from supervisor import Facts, decide  # noqa: E402
 
 try:
@@ -547,6 +548,11 @@ class WorkflowTests(unittest.TestCase):
             self.assertEqual(steps[-1]["env"]["MAC_LABELS"], labels)
             self.assertEqual(steps[-1]["env"]["RUNNERS_TOKEN"], "${{ secrets.MAC_RUNNER_TOKEN }}")
         self.assertEqual(jobs["watch"]["permissions"]["actions"], "write")
+        # The watch sees the job to its end, its wait for the Mac included,
+        # and its own job outlasts it.
+        queue = float(jobs["watch"]["steps"][-1]["env"].get("MAC_QUEUE_MINUTES", watch.QUEUE_MINUTES))
+        self.assertLessEqual(queue + mac["timeout-minutes"], watch.LONGEST_MINUTES)
+        self.assertGreater(jobs["watch"]["timeout-minutes"], watch.LONGEST_MINUTES)
         self.assertEqual(jobs["route"]["permissions"]["actions"], "read")
         # What needs sudo or Homebrew runs on GitHub's Macs only.
         for step in mac["steps"]:
@@ -557,7 +563,7 @@ class WorkflowTests(unittest.TestCase):
         self.check("app.yml", "build", "Build Cartouche.ipa", "cartouche-build,xcode-${{ env.XCODE_VERSION }}")
 
     def test_the_screenshots(self):
-        self.check("screens.yml", "screens", "Screenshots",
+        self.check("screens.yml", "screens", "UI tests and screenshots",
                    "cartouche-screens,xcode-${{ env.XCODE_VERSION }},ios-sim-${{ env.XCODE_VERSION }}")
 
     def test_the_labels_the_installer_gives(self):

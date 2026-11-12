@@ -8,7 +8,9 @@ The run goes back to GitHub's Macs:
 - when Ad's Mac is offline at 3 checks in a row, a minute, while its job
   waits for it or runs: it went to sleep, lost the network, or its
   supervisor stopped it;
-- when the job has waited 20 minutes for the Mac (QUEUE_MINUTES).
+- when the job has waited 20 minutes for the Mac (QUEUE_MINUTES), or as
+  long as MAC_QUEUE_MINUTES says: the UI tests and screenshots wait 45, as
+  long as the job before them takes on the Mac.
 
 For that, it asks Mac rescue (mac-rescue.yml, from main) to run this run
 again once it has ended, then cancels it: a run again goes to GitHub's Macs
@@ -17,10 +19,10 @@ again once it has ended, then cancels it: a run again goes to GitHub's Macs
 It ends with the job, and does nothing else: a job that fails on the Mac
 fails, as it would on GitHub's.
 
-Environment: MAC_JOB (the job's name), MAC_LABELS, RUNNERS_TOKEN
-(MAC_RUNNER_TOKEN, which reads the runners), GH_TOKEN (the run's token, which
-reads its jobs, cancels it and starts Mac rescue), DEFAULT_BRANCH, and the
-run's GITHUB_* variables.
+Environment: MAC_JOB (the job's name), MAC_LABELS, MAC_QUEUE_MINUTES
+(optional), RUNNERS_TOKEN (MAC_RUNNER_TOKEN, which reads the runners),
+GH_TOKEN (the run's token, which reads its jobs, cancels it and starts Mac
+rescue), DEFAULT_BRANCH, and the run's GITHUB_* variables.
 """
 
 from __future__ import annotations
@@ -38,7 +40,9 @@ import api  # noqa: E402
 CHECK_SECONDS = 20
 OFFLINE_CHECKS = 3
 QUEUE_MINUTES = 20
-LONGEST_MINUTES = 110
+# The longest wait for the Mac and the job's timeout-minutes, together; the
+# watch's job has a few minutes more (test_mac_side.py, WorkflowTests).
+LONGEST_MINUTES = 150
 # The Mac's job needs what the watch needs: it is in the run by the time the
 # watch starts, unless the workflow names it otherwise than MAC_JOB.
 MISSING_MINUTES = 5
@@ -95,6 +99,7 @@ def watch(env: dict, clock=time.time, sleep=time.sleep) -> str:
     attempt = env.get("GITHUB_RUN_ATTEMPT", "1")
     name = env.get("MAC_JOB", "")
     wanted = {label.strip() for label in env.get("MAC_LABELS", "").split(",") if label.strip()} | {"cartouche-mac"}
+    queue_minutes = float(env.get("MAC_QUEUE_MINUTES") or QUEUE_MINUTES)
     started = clock()
     offline = 0
     said = ""
@@ -109,7 +114,7 @@ def watch(env: dict, clock=time.time, sleep=time.sleep) -> str:
             if job is not None and job.get("status") != "completed" and env.get("RUNNERS_TOKEN"):
                 up = online(api.runners(repository, env["RUNNERS_TOKEN"]), job, wanted)
                 offline = 0 if up else offline + 1
-            action, why = verdict(job, offline, clock())
+            action, why = verdict(job, offline, clock(), queue_minutes)
         except (api.Error, KeyError, ValueError) as error:
             action, why = "wait", f"GitHub did not answer ({error})"
         if why != said:

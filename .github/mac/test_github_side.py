@@ -282,6 +282,23 @@ class WatchTests(unittest.TestCase):
                                  [[runner(status="offline")]], dispatch_fails=True)
         self.assertNotIn(f"/repos/{REPOSITORY}/actions/runs/500/cancel", [p for _, p, _ in posts])
 
+    def test_waits_for_the_mac_as_long_as_the_workflow_says(self):
+        # The UI tests and screenshots wait 45 minutes, as long as the job
+        # before them takes on the Mac; the builds 20.
+        for extra, minutes in (({}, 20), ({"MAC_QUEUE_MINUTES": "45"}, 45)):
+            with self.subTest(minutes=minutes):
+                clock = Clock(NOON + 30 * 60)
+
+                def call(method, path, token, body=None):
+                    return None if method == "POST" else {"jobs": [job("queued")]}
+
+                with mock.patch.object(api, "call", side_effect=call), \
+                        mock.patch.object(api, "runners", return_value=[runner(busy=True)]), \
+                        redirect_stdout(io.StringIO()):
+                    said = watch.watch(run_env(DEFAULT_BRANCH="main", **extra), clock=clock.time, sleep=clock.sleep)
+                self.assertIn(f"did not take the job in {minutes} minutes", said)
+                self.assertLess(clock.now - NOON, max(minutes, 30) * 60 + 60)
+
     def test_a_job_that_was_skipped_ends_the_watch(self):
         said, posts = self.watch([[job("completed", conclusion="skipped")]], [[runner()]])
         self.assertIn("skipped", said)
