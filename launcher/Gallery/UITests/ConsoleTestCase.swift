@@ -45,6 +45,58 @@ enum Words {
     static let tryAgainIn = "Try again in "                 // signIn.wait
     static let copyReport = "Copy the report"               // errorReport.copy
     static let reportCopied = "Report copied"               // errorReport.copied
+    static let guide = "Your first game"                    // guide.title
+    static let guideCard = "Step %1$lld of %2$lld: %3$@"    // guide.card.detail
+    static let guideHide = "Hide the guide"                 // guide.hide
+    static let stepDone = "%@, done"                        // guide.step.done
+    static let stepSkipped = "%@, skipped"                  // guide.step.skipped
+    static let vpnStep = "Connect LocalDevVPN"              // guide.vpn.title
+    static let getVPN = "Get LocalDevVPN"                   // guide.vpn.get
+    static let accountStep = "Sign in with your Apple ID"   // guide.account.title
+    static let noPairingFile = "The pairing file is missing." // guide.account.noPairing
+    static let openSetup = "Open the setup"                 // guide.openSetup
+    static let buildStep = "Build your game on a Mac"       // guide.build.title
+    static let noThanks = "No thanks"                       // guide.build.skip
+    static let folderStep = "Choose your games folder"      // guide.folder.title
+    static let chooseGamesFolder = "Choose the games folder" // guide.folder.choose
+    static let importInstead = "Import an IPA instead"      // guide.folder.import
+    static let playStep = "Install your game and play"      // guide.play.title
+    static let telemetry = "Game measurements"              // telemetry.title
+    static let sendMeasurements = "Send game measurements"  // telemetry.send
+    static let report = "Report a problem"                  // report.title
+    static let renewEveryNight = "Renew every night"        // system.auto.daily
+    static let openShortcuts = "Open Shortcuts"             // daily.openShortcuts
+    static let storageIntro = "Your games and saves on your own storage" // storage.intro
+    static let addFirst = "First add your Mac"              // storage.addFirst
+    static let addMac = "Add your Mac (Cartouche Builder)"  // storage.mac.add
+    static let addS3 = "Add S3 storage"                     // storage.addS3
+    static let addFTP = "Add an FTP server"                 // storage.addFTP
+    static let addFolder = "Add a folder in Files"          // storage.addFolder
+    static let offline = "%@ does not answer on this network." // storage.offline
+    static let offlineShort = "%@ offline"                  // storage.offline.short
+    static let tryAgain = "Try again"                       // storage.tryAgain
+    static let savesWaiting = "%lld games’ saves are waiting" // saves.waiting.many
+    static let yourMac = "Your Mac"                         // storage.mac.title
+    static let macsNearby = "Macs nearby"                   // storage.mac.nearby
+    static let pairingWith = "Pairing with %@"              // storage.mac.pairing
+    static let checkDigits = "Check that your Mac shows the same digits" // storage.mac.checkCode
+    static let noLocalNetwork = "iOS does not let Cartouche look for your Mac" // storage.mac.localNetwork
+    static let editInfo = "Edit the game’s info"            // gameInfo.edit
+    static let gameInfo = "Game info"                       // gameInfo.title
+    static let save = "Save"                                // gameInfo.save
+    static let backToCartouchesInfo = "Back to Cartouche’s info" // gameInfo.reset
+    static let resume = "Resume"                            // action.resume
+    static let quit = "Quit"                                // action.quit
+    static let quitQuestion = "Quit %@?"                    // running.quit.question
+    static let quitGame = "Quit the game"                   // running.quit.confirm
+    static let paused = "Paused behind Cartouche"           // running.paused
+    static let installing = "Installing %@"                 // work.install.title
+    static let unpacking = "Unpacking the IPA."             // work.install.unpacking
+    static let canLeave = "You can leave Cartouche"         // work.canLeave
+    static let installFailed = "The game was not installed" // work.install.failed
+    static let updateOffer = "Cartouche %@ is available"    // updates.offer.title
+    static let update = "Update"                            // updates.now
+    static let later = "Later"                              // updates.later
 }
 
 /// The gallery's own words (GalleryTesting.swift).
@@ -74,6 +126,17 @@ struct Launch {
     var setupDone = true
     /// The pairing file alone, so that the Apple ID can be signed in.
     var pairingOnly = false
+    /// The player's games, installed: none for a player new to Cartouche.
+    var owned = Games.owned
+    /// What goes on as the gallery opens (-GalleryWork, GalleryApp.swift):
+    /// "update", a new version of Cartouche on offer; "paused", the first
+    /// game paused behind the console; "installing" or "install-failed",
+    /// the game of SHEET; "offline", the NAS out of reach; "mac", the
+    /// player's Mac paired; "mac-nearby", "mac-code" or "mac-refused", what
+    /// Add your Mac finds.
+    var work: String?
+    /// The game being installed, or whose install failed.
+    var sheet: String?
     /// The main thread held once, for that many seconds, which the watch
     /// must see.
     var holdMainThread: Double?
@@ -81,9 +144,11 @@ struct Launch {
     var arguments: [String] {
         var arguments = ["-AppleLanguages", "(en)", "-AppleLocale", "en_US",
                          "-GalleryScreen", "root", "-GalleryTest", "1",
-                         "-GallerySetup", setupDone ? "1" : "0",
-                         "-GalleryOwned", Games.owned.joined(separator: ",")]
+                         "-GallerySetup", setupDone ? "1" : "0"]
+        if !owned.isEmpty { arguments += ["-GalleryOwned", owned.joined(separator: ",")] }
         if pairingOnly { arguments += ["-GalleryPairing", "1"] }
+        if let work { arguments += ["-GalleryWork", work] }
+        if let sheet { arguments += ["-GallerySheet", sheet] }
         if let holdMainThread { arguments += ["-GalleryHoldMainThread", String(holdMainThread)] }
         return arguments
     }
@@ -124,12 +189,24 @@ class ConsoleTestCase: XCTestCase {
     /// Opens the gallery on the console and waits for its dock.
     @MainActor
     func openConsole(_ launch: Launch = Launch()) -> XCUIApplication {
+        let app = launchGallery(launch)
+        expect(app.buttons[Words.system].waitForExistence(timeout: Self.firstLaunch), "The console did not come up", in: app)
+        return app
+    }
+
+    /// How long the gallery may take to come up: its first launch after
+    /// the install can take a while.
+    static let firstLaunch: TimeInterval = 90
+
+    /// Opens the gallery, without waiting for the console: for a test that
+    /// waits for what shows over it, such as an alert, which hides the
+    /// console from the accessibility tree.
+    @MainActor
+    func launchGallery(_ launch: Launch) -> XCUIApplication {
         continueAfterFailure = false
         let app = XCUIApplication()
         app.launchArguments = launch.arguments
         app.launch()
-        // The first launch after the install can take a while.
-        expect(app.buttons[Words.system].waitForExistence(timeout: 90), "The console did not come up", in: app)
         return app
     }
 
@@ -179,13 +256,35 @@ class ConsoleTestCase: XCTestCase {
               timeout: TimeInterval = 15, file: StaticString = #filePath, line: UInt = #line) {
         let field = field.firstMatch
         tap(field, what, in: app, timeout: timeout, file: file, line: line)
+        focus(field, what, in: app, again: { field.tap() }, file: file, line: line)
+        field.typeText(text)
+    }
+
+    /// Puts TEXT in FIELD in place of what it holds: a tap at its end, where
+    /// the cursor then is, and a delete for each character before it.
+    @MainActor
+    func replaceText(in field: XCUIElement, with text: String, _ what: String, in app: XCUIApplication,
+                     file: StaticString = #filePath, line: UInt = #line) {
+        let field = field.firstMatch
+        expect(field.waitForExistence(timeout: 15), "No \(what)", in: app, file: file, line: line)
+        let end = field.coordinate(withNormalizedOffset: CGVector(dx: 0.96, dy: 0.5))
+        end.tap()
+        focus(field, what, in: app, again: { end.tap() }, file: file, line: line)
+        let held = (field.value as? String) ?? ""
+        field.typeText(String(repeating: XCUIKeyboardKey.delete.rawValue, count: held.count + 2) + text)
+    }
+
+    /// Waits for FIELD, just tapped, to take the keyboard, tapping it AGAIN
+    /// once should it not.
+    @MainActor
+    private func focus(_ field: XCUIElement, _ what: String, in app: XCUIApplication, again: () -> Void,
+                       file: StaticString, line: UInt) {
         var focused = waitUntil(20) { hasKeyboardFocus(field, in: app) }
         if !focused, field.exists {
-            field.tap()
+            again()
             focused = waitUntil(20) { hasKeyboardFocus(field, in: app) }
         }
         expect(focused, "\(what) did not take the keyboard", in: app, file: file, line: line)
-        field.typeText(text)
     }
 
     /// Whether ELEMENT has the keyboard, which typeText needs: as XCTest
@@ -227,6 +326,92 @@ class ConsoleTestCase: XCTestCase {
     @MainActor
     func element(in query: XCUIElementQuery, containing text: String) -> XCUIElement {
         query.matching(NSPredicate(format: "label CONTAINS %@", text)).firstMatch
+    }
+
+    /// The first element of any kind whose label is TEXT.
+    @MainActor
+    func element(labelled text: String, in app: XCUIApplication) -> XCUIElement {
+        app.descendants(matching: .any).matching(NSPredicate(format: "label == %@", text)).firstMatch
+    }
+
+    /// The first element of any kind whose label begins with TEXT.
+    @MainActor
+    func element(beginningWith text: String, in app: XCUIApplication) -> XCUIElement {
+        element(in: app.descendants(matching: .any), beginningWith: text)
+    }
+
+    /// The first element of any kind whose label holds TEXT: for a view
+    /// that reads as one element, whose label joins its lines, such as the
+    /// install over the console.
+    @MainActor
+    func element(containing text: String, in app: XCUIApplication) -> XCUIElement {
+        element(in: app.descendants(matching: .any), containing: text)
+    }
+
+    /// The button labelled LABEL that can be tapped, within TIMEOUT seconds;
+    /// of several, the last: a sheet leaves the buttons of the page under it
+    /// in the accessibility tree, such as the home's Resume under the sheet
+    /// of the game paused, and comes after them.
+    @MainActor
+    func buttonOnTop(_ label: String, in app: XCUIApplication, timeout: TimeInterval = 15) -> XCUIElement? {
+        let buttons = app.buttons.matching(NSPredicate(format: "label == %@", label))
+        var found: XCUIElement?
+        _ = waitUntil(timeout) {
+            found = buttons.allElementsBoundByIndex.last { $0.exists && $0.isHittable }
+            return found != nil
+        }
+        return found
+    }
+
+    /// Taps the button labelled LABEL on top (buttonOnTop).
+    @MainActor
+    func tapButtonOnTop(_ label: String, _ what: String, in app: XCUIApplication, timeout: TimeInterval = 15,
+                        file: StaticString = #filePath, line: UInt = #line) {
+        guard let button = buttonOnTop(label, in: app, timeout: timeout) else {
+            expect(false, app.buttons[label].exists ? "\(what) is there, but cannot be tapped" : "No \(what) to tap",
+                   in: app, file: file, line: line)
+            return
+        }
+        button.tap()
+    }
+
+    /// Swipes the page up, slowly, until ELEMENT can be tapped: a list draws
+    /// its rows only as they come on the screen.
+    @MainActor
+    func scrollTo(_ element: XCUIElement, _ what: String, in app: XCUIApplication, swipes: Int = 10,
+                  file: StaticString = #filePath, line: UInt = #line) {
+        let element = element.firstMatch
+        for _ in 0..<swipes {
+            if element.exists && element.isHittable { return }
+            app.swipeUp(velocity: .slow)
+        }
+        expect(element.exists && element.isHittable, "No \(what), even after scrolling", in: app, file: file, line: line)
+    }
+
+    /// Back from the page titled TITLE, by the first button of its
+    /// navigation bar.
+    @MainActor
+    func back(from title: String, in app: XCUIApplication, file: StaticString = #filePath, line: UInt = #line) {
+        let bar = app.navigationBars[title]
+        expect(bar.waitForExistence(timeout: 15), "No page \(title) to go back from", in: app, file: file, line: line)
+        tap(bar.buttons.element(boundBy: 0), "Back from \(title)", in: app, file: file, line: line)
+        expect(waitForGone(bar), "\(title) stayed once Back was tapped", in: app, file: file, line: line)
+    }
+
+    /// The gallery's install of IPA, the first since it opened, says so over
+    /// the console; Done closes it, and no second one follows.
+    @MainActor
+    func expectInstall(of ipa: String, in app: XCUIApplication, file: StaticString = #filePath, line: UInt = #line) {
+        let alert = app.alerts[GalleryWords.install]
+        expect(alert.waitForExistence(timeout: 20), "No install of the IPA picked", in: app, file: file, line: line)
+        let message = "Install 1: \(ipa)"
+        expect(alert.staticTexts[message].exists, "The install was not the first, of \(ipa): \(alert.debugDescription)",
+               in: app, file: file, line: line)
+        tap(alert.buttons[Words.done], "Done of the install", in: app, file: file, line: line)
+        expect(waitForGone(alert), "The install's alert stayed", in: app, file: file, line: line)
+        // The install happens once.
+        Thread.sleep(forTimeInterval: 2)
+        expect(!app.alerts[GalleryWords.install].exists, "A second install followed the first", in: app, file: file, line: line)
     }
 
     /// Whether the console is back, with nothing over it: its dock can be

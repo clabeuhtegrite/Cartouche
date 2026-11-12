@@ -73,20 +73,4 @@ final class ImportUITests: ConsoleTestCase {
         expect(app.searchFields.firstMatch.exists, "Every game went with the sheet", in: app)
         expectMainThreadAnswered(app)
     }
-
-    /// The gallery's install of IPA, the first since it opened, says so over
-    /// the console; Done closes it, and no second one follows.
-    @MainActor
-    private func expectInstall(of ipa: String, in app: XCUIApplication) {
-        let alert = app.alerts[GalleryWords.install]
-        expect(alert.waitForExistence(timeout: 20), "No install of the IPA picked", in: app)
-        let message = "Install 1: \(ipa)"
-        expect(alert.staticTexts[message].exists, "The install was not the first, of \(ipa): \(alert.debugDescription)",
-               in: app)
-        tap(alert.buttons[Words.done], "Done of the install", in: app)
-        expect(waitForGone(alert), "The install's alert stayed", in: app)
-        // The install happens once.
-        Thread.sleep(forTimeInterval: 2)
-        expect(!app.alerts[GalleryWords.install].exists, "A second install followed the first", in: app)
-    }
 }

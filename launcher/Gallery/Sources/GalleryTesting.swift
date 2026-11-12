@@ -7,7 +7,9 @@
 //  (-GalleryScreen root) and drive with taps:
 //
 //  - a clean start (-GalleryTest 1): what an earlier test left in the
-//    gallery's defaults goes, such as a wait Apple asked for;
+//    gallery's defaults and its Application Support goes, such as a wait
+//    Apple asked for or a game renamed; the first game's guide opens by
+//    itself, as on a new install (CartoucheGamesView);
 //  - a watch on the main thread (GalleryWatch), asked ten times a second
 //    from another thread how long it takes to answer, read out by an
 //    element of the accessibility tree that the tests read
@@ -48,6 +50,10 @@ enum GalleryTest {
         if let bundleIdentifier = Bundle.main.bundleIdentifier {
             defaults.removePersistentDomain(forName: bundleIdentifier)
         }
+        // And what the launcher keeps in files: the info the player gave a
+        // game, the play times, the reports.
+        let support = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+        try? FileManager.default.removeItem(at: support)
         let hold = defaults.double(forKey: "GalleryHoldMainThread")
         GalleryWatch.shared.start(holding: hold > 0 ? hold : nil)
     }
