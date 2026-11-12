@@ -20,7 +20,7 @@ final class GameUITests: ConsoleTestCase {
     /// on the home; Back to Cartouche's info puts the old one back.
     @MainActor
     func testTheInfoOfAGameChangesAndGoesBack() {
-        let app = openConsole()
+        let app = openConsole(Launch(typing: true))
         let name = "My Kart"
         editInfo(of: game, in: app)
         replaceText(in: app.textFields.firstMatch, with: name, "the game's name", in: app)

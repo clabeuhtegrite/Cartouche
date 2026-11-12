@@ -17,7 +17,7 @@ final class SignInUITests: ConsoleTestCase {
     /// player in, and the setup shows the Apple ID.
     @MainActor
     func testSignInWithAVerificationCode() {
-        let app = openConsole(Launch(setupDone: false, pairingOnly: true))
+        let app = openConsole(Launch(setupDone: false, pairingOnly: true, typing: true))
         openSignIn(in: app)
         signIn(in: app, appleID: "code@example.com")
 
@@ -39,7 +39,7 @@ final class SignInUITests: ConsoleTestCase {
     /// copied.
     @MainActor
     func testSignInRefusedForTooManyRequests() {
-        let app = openConsole(Launch(setupDone: false, pairingOnly: true))
+        let app = openConsole(Launch(setupDone: false, pairingOnly: true, typing: true))
         openSignIn(in: app)
         signIn(in: app, appleID: "limit@example.com")
 

@@ -149,6 +149,11 @@ struct Launch {
     /// The main thread held once, for that many seconds, which the watch
     /// must see.
     var holdMainThread: Double?
+    /// A test that types: the keyboard shown once and put away as the
+    /// gallery opens, before the watch counts, as its first showing in a
+    /// process holds the main thread for seconds on a CI Mac
+    /// (GalleryKeyboard, GalleryTesting.swift).
+    var typing = false
 
     var arguments: [String] {
         var arguments = ["-AppleLanguages", "(en)", "-AppleLocale", "en_US",
@@ -159,6 +164,7 @@ struct Launch {
         if let work { arguments += ["-GalleryWork", work] }
         if let sheet { arguments += ["-GallerySheet", sheet] }
         if let holdMainThread { arguments += ["-GalleryHoldMainThread", String(holdMainThread)] }
+        if typing { arguments += ["-GalleryKeyboard", "1"] }
         return arguments
     }
 }
@@ -195,11 +201,18 @@ class ConsoleTestCase: XCTestCase {
 
     // MARK: Opening the console
 
-    /// Opens the gallery on the console and waits for its dock.
+    /// Opens the gallery on the console and waits for its dock; for a test
+    /// that types, also for the keyboard to have been shown and put away,
+    /// once the watch counts.
     @MainActor
     func openConsole(_ launch: Launch = Launch()) -> XCUIApplication {
         let app = launchGallery(launch)
         expect(app.buttons[Words.system].waitForExistence(timeout: Self.firstLaunch), "The console did not come up", in: app)
+        if launch.typing {
+            expect(waitUntil(30) { mainThread(of: app)?.counting == true },
+                   "The keyboard was not shown and put away as the gallery opened: \(mainThread(of: app)?.text ?? "no watch")",
+                   in: app)
+        }
         return app
     }
 

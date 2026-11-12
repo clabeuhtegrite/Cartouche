@@ -58,7 +58,7 @@ final class ImportUITests: ConsoleTestCase {
     /// goes to the install.
     @MainActor
     func testImportFromTheSheetOfAGameNotThePlayers() {
-        let app = openConsole()
+        let app = openConsole(Launch(typing: true))
         tap(element(in: app.buttons, beginningWith: Words.allGames), "All games", in: app)
         type("Sentinels", into: app.searchFields.firstMatch, "the search of every game (\(Words.search))", in: app)
         tap(element(in: app.buttons, containing: Games.other), "the cover of \(Games.other)", in: app)

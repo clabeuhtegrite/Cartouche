@@ -17,9 +17,14 @@
 //    the screen came back afterwards, but for the time it spent answering
 //    the tests' own accessibility queries, which the watch tells by where
 //    the main thread is (GalleryMainThread.c);
-//  - the main thread held on purpose, once, two seconds after the gallery
-//    became active (-GalleryHoldMainThread 1.5, in seconds), which the
+//  - the main thread held on purpose, once, a second after the watch
+//    starts counting (-GalleryHoldMainThread 1.5, in seconds), which the
 //    watch must see: a watch that saw nothing would let every test pass;
+//  - for a test that types, the keyboard shown once and put away as the
+//    gallery opens, before the watch counts (-GalleryKeyboard 1,
+//    GalleryKeyboard below): its first showing in a process holds the
+//    main thread for seconds on a simulator of a CI Mac, as iOS loads it,
+//    which says nothing of Cartouche's own code;
 //  - an IPA to pick, Test Game.ipa in the gallery's Documents, which the
 //    Files picker shows under On My iPhone › Gallery, as uitests.sh puts
 //    one in On My iPhone: the stand-in install says over the console which
@@ -110,8 +115,10 @@ enum GalleryTest {
 /// Cartouche's main thread, which takes every touch, draws every frame and
 /// answers the Files picker, asked from another thread ten times a second
 /// how long it takes to answer, from a second after the gallery became
-/// active: waits before, as the gallery opens, do not count, nor waits while
-/// it is in the background, where iOS may suspend it.
+/// active, or, for a test that types, from half a second after the keyboard
+/// was shown and put away (GalleryKeyboard): waits before, as the gallery
+/// opens, do not count, nor waits while it is in the background, where iOS
+/// may suspend it.
 ///
 /// From a fifth of a second into a wait, the watch also looks at where the
 /// main thread is, ten times a second (GalleryMainStack). The time it finds
@@ -145,6 +152,8 @@ final class GalleryWatch: @unchecked Sendable {
     /// Where the main thread was seen meanwhile.
     private var looks: [GalleryLook] = []
     private var countsFrom: TimeInterval?
+    /// Whether the gallery has become active, once.
+    private var wasActive = false
     private var inBackground = false
     private var longest: TimeInterval = 0
     private var stalls: [(at: TimeInterval, wait: TimeInterval)] = []
@@ -224,16 +233,35 @@ final class GalleryWatch: @unchecked Sendable {
         return (wait - tests, tests)
     }
 
-    /// On the main thread, as the gallery becomes active.
+    /// On the main thread, as the gallery becomes active: counts from a
+    /// second later, or, for a test that types, once the keyboard has been
+    /// shown and put away.
     private func becameActive() {
+        let first: Bool = lock.withLock {
+            defer { wasActive = true }
+            return !wasActive
+        }
+        guard first else { return }
+        guard GalleryKeyboard.isAsked else {
+            startCounting(in: 1)
+            return
+        }
+        Task { @MainActor in
+            await GalleryKeyboard.showOnce()
+            self.startCounting(in: 0.5)
+        }
+    }
+
+    /// On the main thread: counts the waits from DELAY seconds from now, and
+    /// holds the main thread a second later, if asked.
+    private func startCounting(in delay: TimeInterval) {
         let hold: TimeInterval? = lock.withLock {
-            guard countsFrom == nil else { return nil }
-            countsFrom = Self.now + 1
+            countsFrom = Self.now + delay
             defer { self.hold = nil }
             return self.hold
         }
         guard let hold else { return }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
+        DispatchQueue.main.asyncAfter(deadline: .now() + delay + 1) {
             NSLog("[Gallery] holding the main thread for %.1f s, as asked", hold)
             Thread.sleep(forTimeInterval: hold)
         }
@@ -304,6 +332,80 @@ final class GalleryWatch: @unchecked Sendable {
             text += GalleryLook.describe(record.looks, upTo: record.wait)
             GalleryMainStack.writeDown(text)
         }
+    }
+}
+
+/// The keyboard shown once and put away as the gallery opens, for a test
+/// that types (-GalleryKeyboard 1), before the watch counts. Its first
+/// showing in a process holds the main thread while iOS loads it: on a
+/// simulator of a CI Mac, 3.2 s when the search of every game took the
+/// keyboard, 1.8 s of them waiting for the keyboard's task queue
+/// (-[UIKeyboardTaskQueue _lockWhenReadyForMainThread]), the rest finding
+/// SwiftUI's focus, AutoFill and the predictions (Launcher screens, run
+/// 170). A player pays it once, and none of it is Cartouche's own code:
+/// what is left of it as a field of Cartouche takes the keyboard, and all
+/// that Cartouche does then, still counts.
+@MainActor
+enum GalleryKeyboard {
+    /// Read from the watch, on whichever thread.
+    nonisolated static var isAsked: Bool { UserDefaults.standard.bool(forKey: "GalleryKeyboard") }
+
+    /// From a text field out of sight, over the console: the keyboard shown,
+    /// then put away. Each step gives up after a while, as no keyboard shows
+    /// when the simulator has a hardware one.
+    static func showOnce() async {
+        guard let window = await keyWindow() else {
+            NSLog("[Gallery] no window to show the keyboard from")
+            return
+        }
+        let started = ProcessInfo.processInfo.systemUptime
+        let field = UITextField(frame: CGRect(x: -400, y: -400, width: 200, height: 44))
+        field.isAccessibilityElement = false
+        window.addSubview(field)
+        let shown = await wait(for: UIResponder.keyboardDidShowNotification, atMost: 15) { _ = field.becomeFirstResponder() }
+        let hidden = await wait(for: UIResponder.keyboardDidHideNotification, atMost: 5) { _ = field.resignFirstResponder() }
+        field.removeFromSuperview()
+        NSLog("[Gallery] the keyboard %@ and %@, in %.1f s, before the watch counts", shown ? "shown" : "not shown",
+              hidden ? "put away" : "not seen to go", ProcessInfo.processInfo.systemUptime - started)
+    }
+
+    /// The gallery's window, once its scene has one.
+    private static func keyWindow() async -> UIWindow? {
+        for _ in 0..<50 {
+            let windows = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.flatMap(\.windows)
+            if let window = windows.first(where: \.isKeyWindow) { return window }
+            try? await Task.sleep(for: .milliseconds(100))
+        }
+        return nil
+    }
+
+    /// Does ACTION, then waits for NAME, SECONDS at most: whether it came.
+    private static func wait(for name: Notification.Name, atMost seconds: TimeInterval,
+                             after action: () -> Void) async -> Bool {
+        await withCheckedContinuation { (continuation: CheckedContinuation<Bool, Never>) in
+            let once = GalleryOnce(continuation)
+            once.observer = NotificationCenter.default.addObserver(forName: name, object: nil, queue: .main) { _ in
+                once.resume(true)
+            }
+            action()
+            DispatchQueue.main.asyncAfter(deadline: .now() + seconds) { once.resume(false) }
+        }
+    }
+}
+
+/// A continuation of GalleryKeyboard resumed once, on the main queue: by
+/// the notification it waits for, or by its time out.
+private final class GalleryOnce: @unchecked Sendable {
+    private var continuation: CheckedContinuation<Bool, Never>?
+    var observer: NSObjectProtocol?
+
+    init(_ continuation: CheckedContinuation<Bool, Never>) { self.continuation = continuation }
+
+    func resume(_ came: Bool) {
+        if let observer { NotificationCenter.default.removeObserver(observer) }
+        observer = nil
+        continuation?.resume(returning: came)
+        continuation = nil
     }
 }
 
