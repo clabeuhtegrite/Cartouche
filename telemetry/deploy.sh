@@ -13,7 +13,9 @@
 #    with: the private repository CARTOUCHE_REPORTS_REPOSITORY and the token
 #    CARTOUCHE_REPORTS_TOKEN, when they are set; without them, or with a
 #    public repository, the Worker keeps the problems until a deploy with
-#    them;
+#    them. With IGDB_CLIENT_ID and IGDB_CLIENT_SECRET, a Twitch
+#    application's, it finds on IGDB the covers of the games Cartouche does
+#    not know; the dashboard never gets them;
 # 4. its workers.dev address, on the account's workers.dev subdomain,
 #    which is created when the account has none;
 # 5. its daily run, which deletes the reports older than 25 months;
@@ -132,11 +134,30 @@ case "$problems" in
   *) echo "::warning::Problems: $problems." ;;
 esac
 
+# The Twitch application the server asks IGDB with, for the games Cartouche
+# does not know (worker.js, POST /v1/games): in files too, for the server
+# alone.
+echo '[]' >"$WORK/igdb.json"
+if [ -n "${IGDB_CLIENT_ID:-}" ] && [ -n "${IGDB_CLIENT_SECRET:-}" ]; then
+  printf '%s' "$IGDB_CLIENT_ID" >"$WORK/igdb-client"
+  printf '%s' "$IGDB_CLIENT_SECRET" >"$WORK/igdb-secret"
+  jq -n --rawfile client "$WORK/igdb-client" --rawfile secret "$WORK/igdb-secret" '[
+    {type: "secret_text", name: "IGDB_CLIENT_ID", text: $client},
+    {type: "secret_text", name: "IGDB_CLIENT_SECRET", text: $secret}
+  ]' >"$WORK/igdb.json"
+  igdb="the server finds on IGDB the covers of the games Cartouche does not know"
+  echo "IGDB: $igdb"
+else
+  igdb="there is no IGDB_CLIENT_ID or IGDB_CLIENT_SECRET: the server cannot find the covers of the games Cartouche does not know"
+  echo "::warning::IGDB: $igdb."
+fi
+
 echo "Uploading the Worker $NAME"
-jq -n --arg date "$COMPATIBILITY_DATE" --arg database "$database" --slurpfile problems "$WORK/problems.json" '{
+jq -n --arg date "$COMPATIBILITY_DATE" --arg database "$database" --slurpfile problems "$WORK/problems.json" \
+  --slurpfile igdb "$WORK/igdb.json" '{
   main_module: "worker.js",
   compatibility_date: $date,
-  bindings: ([{type: "d1", name: "DB", id: $database}] + $problems[0]),
+  bindings: ([{type: "d1", name: "DB", id: $database}] + $problems[0] + $igdb[0]),
   observability: {enabled: false}
 }' >"$WORK/metadata.json"
 call PUT "/workers/scripts/$NAME" \
@@ -265,6 +286,7 @@ if [ -n "${GITHUB_STEP_SUMMARY:-}" ]; then
     if [ "$answered" = access ]; then echo "**$server.**"; fi
     echo "The telemetry server is at $URL: \`CARTOUCHE_TELEMETRY_URL=$URL\` in app/config.env."
     echo "Problems: $problems."
+    echo "IGDB: $igdb."
     echo "Dashboard: $dashboard."
   } >>"$GITHUB_STEP_SUMMARY"
 fi

@@ -6,7 +6,9 @@ the Worker makes (telemetry/worker.js), on SQLite, which D1 is.
   total back, a report sent again is kept once, and forgetting a copy of
   Cartouche or expiring old reports deletes what it should and nothing else;
 - a problem a player sends is kept once, counted with its day, waits until
-  it is filed, and then keeps only its day and its issue, until it goes.
+  it is filed, and then keeps only its day and its issue, until it goes;
+- what IGDB has of a game Cartouche does not know is kept once by its name,
+  answered again with its day, counted by day, and goes after 30 days.
 
 Node reads the statements out of worker.js.
 
@@ -69,8 +71,9 @@ class SchemaTest(unittest.TestCase):
 
     def test_the_worker_makes_these_statements_only(self):
         self.assertEqual(sorted(self.sql),
-                         ["count", "expireDaily", "expireProblems", "expireReports", "forgetDaily", "forgetReports", "insert",
-                          "keepProblem", "problem", "problemFiled", "problemsOfDay", "waitingProblems"])
+                         ["count", "expireDaily", "expireLookups", "expireProblems", "expireReports", "forgetDaily",
+                          "forgetReports", "insert", "keepLookup", "keepProblem", "lookup", "lookupsOfDay", "problem",
+                          "problemFiled", "problemsOfDay", "waitingProblems"])
 
     def test_the_schema_runs_again_without_harm(self):
         self.insert("a")
@@ -139,6 +142,19 @@ class SchemaTest(unittest.TestCase):
         self.db.execute(self.sql["problemFiled"], ("filed-yesterday", 2))
         self.db.execute(self.sql["expireProblems"], ("2026-11-08", "2024-10-10"))
         self.assertEqual(self.rows("problems", "id"), ["filed-yesterday", "waiting"])
+
+
+    def test_a_game_looked_up_is_kept_once_by_its_name(self):
+        self.db.execute(self.sql["keepLookup"], ("switch:unravel two", "2026-10-01", ""))
+        self.db.execute(self.sql["keepLookup"], (":celeste", "2026-11-10", '{"igdb": 1}'))
+        # Asked again after 30 days: the new answer, with its day.
+        self.db.execute(self.sql["keepLookup"], ("switch:unravel two", "2026-11-10", '{"igdb": 103281}'))
+        self.assertEqual(self.db.execute(self.sql["lookup"], ("switch:unravel two",)).fetchone(), ("2026-11-10", '{"igdb": 103281}'))
+        self.assertIsNone(self.db.execute(self.sql["lookup"], ("switch2:unravel two",)).fetchone())
+        self.assertEqual(self.db.execute(self.sql["lookupsOfDay"], ("2026-11-10",)).fetchone()[0], 2)
+        self.db.execute(self.sql["keepLookup"], (":old", "2026-10-10", ""))
+        self.db.execute(self.sql["expireLookups"], ("2026-10-11",))
+        self.assertEqual(self.rows("lookups", "name"), [":celeste", "switch:unravel two"])
 
 
 if __name__ == "__main__":
