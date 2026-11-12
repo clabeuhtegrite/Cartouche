@@ -39,7 +39,7 @@ In Cartouche, the guide's **Choose the games folder** opens the storage page. Yo
 - **On your Mac:** choose **Add your Mac (Cartouche Builder)**, then your Mac under **Macs nearby**; the first time, allow Cartouche to find devices on your local network. Both screens show six digits: when they are the same, click **Allow** on the Mac. Cartouche then installs your games from the Mac and keeps your saves there, encrypted on the way. The iPhone finds the Mac on your Wi-Fi, or through your VPN at the address it last reached it at.
 - **On your NAS:** add it with its address, your user name and password, then choose the games folder. An SFTP or FTP server, an S3 bucket of yours or a folder in Files will do too, and so does your Mac's own File Sharing (SMB).
 
-Cartouche lists your games from there and offers their updates.
+Cartouche lists your games from there and offers their updates. A game nxnative built without its game files, as big games are with `--romfs separate`, comes as an IPA and a `romfs.img`: keep the two side by side in your games folder, whatever the letter case of its name, and Cartouche installs them together. The storage page says when one of them is there alone.
 
 No games folder? Put the IPA in Files on the iPhone, by AirDrop for instance, and choose **Import an IPA instead**.
 

@@ -82,6 +82,9 @@ struct SetupAssistant: View {
     /// The place chosen for the dumps and for the games, before a folder is.
     @State private var places: [SetupStep: FolderPlace] = [:]
     @State private var sourcesCount: Int?
+    /// Whether the dumps folder, with no game in it, holds what nxnative
+    /// built already: IPAs, or images of game files (romfs.img).
+    @State private var sourcesBuilt = false
     @State private var problem: String?
 
     nonisolated static let size = CGSize(width: 820, height: 580)
@@ -285,6 +288,9 @@ struct SetupAssistant: View {
     private var sourcesDetail: String? {
         guard !config.sources.isEmpty, let count = sourcesCount else { return nil }
         switch count {
+        case 0 where sourcesBuilt:
+            return tr("No dump in it, but games nxnative built: their IPAs, with the romfs.img of those built without their game files, go in your games folder, the next step.",
+                      "Aucun dump dedans, mais des jeux construits par nxnative : leurs IPA, avec le romfs.img de celles construites sans les fichiers du jeu, vont dans votre dossier des jeux, l’étape suivante.")
         case 0: return tr("No game in it for now.", "Aucun jeu dedans pour l’instant.")
         case 1: return tr("1 game found", "1 jeu trouvé")
         default: return tr("\(count) games found", "\(count) jeux trouvés")
@@ -533,12 +539,15 @@ struct SetupAssistant: View {
 
     private func countSources() async {
         sourcesCount = nil
+        sourcesBuilt = false
         let path = config.sources
         guard !path.isEmpty else { return }
         if model.sample {
             sourcesCount = model.library?.games.filter { $0.source != nil }.count
         } else {
-            sourcesCount = await SetupFiles.countGames(at: path)
+            let count = await SetupFiles.countGames(at: path)
+            if count == 0 { sourcesBuilt = await SetupFiles.holdsBuilt(at: path) }
+            sourcesCount = count
         }
     }
 }
@@ -744,6 +753,7 @@ struct ChosenFolder: View {
                         Text(detail)
                             .font(.caption.weight(.medium))
                             .foregroundStyle(Theme.indigo)
+                            .fixedSize(horizontal: false, vertical: true)
                     }
                 }
                 Spacer(minLength: 8)
@@ -942,94 +952,6 @@ struct SummaryRow: View {
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 9)
-    }
-}
-
-/// The files the assistant looks at, away from the main thread.
-enum SetupFiles {
-    static let packageExtensions: Set<String> = ["nsp", "xci", "nsz", "xcz"]
-    /// How deep games are looked for, as the engine does (library.py).
-    static let depth = 4
-
-    /// How many games the dumps folder at PATH holds, as the engine finds
-    /// them (library.py), loose or in folders of folders: each .nup, each
-    /// dump folder and zipped dump, and the packages of each game, known by
-    /// the title ID in their names or their folder's; nil when it cannot be
-    /// read. The engine reads a file named without its ID in the file
-    /// itself: here each counts as a game.
-    static func countGames(at path: String) async -> Int? {
-        let url = URL(fileURLWithPath: path, isDirectory: true)
-        return await Task.detached(priority: .utility) { () -> Int? in
-            guard (try? FileManager.default.contentsOfDirectory(atPath: url.path)) != nil else { return nil }
-            var named = Set<String>()
-            var unnamed = 0
-            SetupFiles.count(url, top: true, depth: 0, named: &named, unnamed: &unnamed)
-            return named.count + unnamed
-        }.value
-    }
-
-    private static func count(_ folder: URL, top: Bool, depth: Int, named: inout Set<String>, unnamed: inout Int) {
-        guard let items = try? FileManager.default.contentsOfDirectory(at: folder, includingPropertiesForKeys: [.isDirectoryKey],
-                                                                       options: [.skipsHiddenFiles]) else { return }
-        var files: [URL] = [], folders: [URL] = []
-        for item in items.sorted(by: { $0.lastPathComponent < $1.lastPathComponent }) {
-            if (try? item.resourceValues(forKeys: [.isDirectoryKey]))?.isDirectory == true {
-                let name = item.lastPathComponent
-                if !(name.lowercased().hasSuffix("_build") || name.lowercased().hasSuffix("_dump") || name == "__MACOSX") { folders.append(item) }
-            } else {
-                files.append(item)
-            }
-        }
-        let packages = files.filter { SetupFiles.packageExtensions.contains($0.pathExtension.lowercased()) }
-        let nups = files.filter { $0.pathExtension.lowercased() == "nup" }
-        if !packages.isEmpty {
-            let folderID = top ? nil : SetupFiles.baseTitleID(in: folder.lastPathComponent)
-            let ids = Set(packages.compactMap { SetupFiles.baseTitleID(in: $0.lastPathComponent) })
-            if !top, let id = folderID ?? (ids.count == 1 ? ids.first : nil), ids.isSubset(of: [id]) {
-                named.insert(id)
-            } else {
-                named.formUnion(ids)
-                unnamed += packages.filter { SetupFiles.baseTitleID(in: $0.lastPathComponent) == nil }.count
-            }
-        }
-        for nup in nups {
-            if let id = SetupFiles.baseTitleID(in: nup.lastPathComponent) ?? (nups.count == 1 && packages.isEmpty && !top ? SetupFiles.baseTitleID(in: folder.lastPathComponent) : nil) {
-                named.insert(id)
-            } else {
-                unnamed += 1
-            }
-        }
-        if packages.isEmpty && nups.isEmpty {
-            if SetupFiles.isDump(folder) {
-                unnamed += 1
-                return
-            }
-            unnamed += files.filter { $0.pathExtension.lowercased() == "zip" }.count
-        }
-        guard depth < SetupFiles.depth else { return }
-        for sub in folders { SetupFiles.count(sub, top: false, depth: depth + 1, named: &named, unnamed: &unnamed) }
-    }
-
-    /// Whether FOLDER is laid out as nxnative takes a dump (library.is_dump).
-    private static func isDump(_ folder: URL) -> Bool {
-        let manager = FileManager.default
-        let has = { (path: String) in manager.fileExists(atPath: folder.appendingPathComponent(path).path) }
-        let versions = ((try? manager.contentsOfDirectory(atPath: folder.appendingPathComponent("updates").path)) ?? []).filter { Int($0) != nil }
-        if has("base/exefs/main.npdm") {
-            return has("base/romfs") || versions.contains { has("updates/\($0)/romfs") }
-        }
-        if has("exefs/main.npdm") && has("romfs") { return true }
-        return versions.contains { has("updates/\($0)/exefs/main.npdm") && has("updates/\($0)/romfs") }
-    }
-
-    /// The base game of the first title ID a name carries, as the engine
-    /// reads it (titles.py): an update's or a DLC's ID gives its game's.
-    static func baseTitleID(in name: String) -> String? {
-        guard let match = name.range(of: "(?<![0-9A-Fa-f])[0-9A-Fa-f]{16}(?![0-9A-Fa-f])", options: .regularExpression),
-              let value = UInt64(name[match], radix: 16) else { return nil }
-        let low = value & 0xFFF
-        let base = low == 0 ? value : low == 0x800 ? value & ~0xFFF : (value & ~0xFFF) &- 0x1000
-        return String(format: "%016llX", base)
     }
 }
 
