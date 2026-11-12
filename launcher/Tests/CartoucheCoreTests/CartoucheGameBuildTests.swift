@@ -27,6 +27,56 @@ final class CartoucheGameBuildTests: XCTestCase {
         XCTAssertNil(CartoucheGameBuild(info: [:], builtAt: nil).version)
     }
 
+    /// The installed game's build is in the Info.plist of its bundle, binary
+    /// once LiveContainer has written it again, not in LCAppInfo.plist.
+    func testReadsTheBuildOfAnInstalledGameFromItsInfoPlist() throws {
+        let bundle = FileManager.default.temporaryDirectory
+            .appendingPathComponent("CartoucheGameBuildTests-\(UUID().uuidString)/Game.app", isDirectory: true)
+        try FileManager.default.createDirectory(at: bundle, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: bundle.deletingLastPathComponent()) }
+        XCTAssertNil(CartoucheGameBuild.installed(atBundle: bundle))
+
+        let settings = try PropertyListSerialization.data(fromPropertyList: ["LCDataUUID": "A1B2"], format: .xml, options: 0)
+        try settings.write(to: bundle.appendingPathComponent("LCAppInfo.plist"))
+        let info: [String: Any] = ["CFBundleShortVersionString": "1.2.0", "DMCommit": "52124866A1B2", "DMChain": "844bf1a5ea8f",
+                                   "CFBundleIdentifier": "com.example.game"]
+        let data = try PropertyListSerialization.data(fromPropertyList: info, format: .binary, options: 0)
+        try data.write(to: bundle.appendingPathComponent("Info.plist"))
+        let build = try XCTUnwrap(CartoucheGameBuild.installed(atBundle: bundle))
+        XCTAssertEqual(build, CartoucheGameBuild(version: "1.2.0", commit: "52124866a1b2", chain: "844bf1a5ea8f"))
+        XCTAssertNil(build.builtAt)
+
+        try Data("not a property list".utf8).write(to: bundle.appendingPathComponent("Info.plist"))
+        XCTAssertNil(CartoucheGameBuild.installed(atBundle: bundle))
+    }
+
+    /// The record Cartouche writes of an install goes with the build
+    /// installed, and keeps when that build was made.
+    func testARecordIsOfTheBuildInstalled() {
+        let installed = CartoucheGameBuild(version: "1.2.0", commit: "52124866a1b2", chain: "844bf1a5ea8f")
+        let recorded = CartoucheGameBuild(version: "1.2.0", commit: "52124866a1b2", chain: "844bf1a5ea8f", builtAt: night)
+        XCTAssertEqual(CartoucheGameBuild.record(recorded, of: installed), recorded)
+        // A record of the build before, once the game is updated by other means.
+        XCTAssertNil(CartoucheGameBuild.record(CartoucheGameBuild(version: "1.1.0", commit: "52124866a1b2", builtAt: night),
+                                               of: installed))
+        XCTAssertNil(CartoucheGameBuild.record(CartoucheGameBuild(version: "1.2.0", commit: "aaaaaaaaaaaa", builtAt: night),
+                                               of: installed))
+    }
+
+    /// Cartouche 0.9.0 to 0.11.2 recorded an install with no version, commit
+    /// nor chain, read from LiveContainer's settings for the game: such a
+    /// record is of the build installed then, and keeps its date.
+    func testARecordOfAnOlderCartoucheTakesTheBuildInstalled() {
+        let installed = CartoucheGameBuild(version: "1.2.0", commit: "52124866a1b2", chain: "844bf1a5ea8f")
+        let recorded = CartoucheGameBuild(builtAt: night)
+        XCTAssertEqual(CartoucheGameBuild.record(recorded, of: installed),
+                       CartoucheGameBuild(version: "1.2.0", commit: "52124866a1b2", chain: "844bf1a5ea8f", builtAt: night))
+        // The build that game was made from can then be told newer or not.
+        let rebuilt = CartoucheGameBuild(version: "1.2.0", commit: "bbbbbbbbbbbb", builtAt: night + 3_600)
+        XCTAssertTrue(rebuilt.isNewer(than: CartoucheGameBuild.record(recorded, of: installed) ?? installed))
+        XCTAssertFalse(rebuilt.isNewer(than: installed))
+    }
+
     func testALaterVersionIsNewer() {
         let installed = CartoucheGameBuild(version: "1.0.0", commit: "aaaaaaaaaaaa", builtAt: night)
         XCTAssertTrue(CartoucheGameBuild(version: "1.1.0", commit: "aaaaaaaaaaaa", builtAt: night).isNewer(than: installed))
