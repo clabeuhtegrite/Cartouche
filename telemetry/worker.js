@@ -414,23 +414,24 @@ export const IGDB = {
 
 // IGDB's genres, by their IDs, as Cartouche's own (CartoucheText.genre in
 // launcher/Sources/CartoucheText.swift), in the order they win when a game
-// has several: the more a genre tells of a game, the earlier. IGDB's Indie
-// tells nothing of the kind. catalog/tools/igdb_covers.py has the same
-// list, which its tests check.
+// has several: the more a genre tells of a game, the earlier. Tactical says
+// Fire Emblem, where Turn-based strategy also goes to Pokémon, a
+// role-playing game. IGDB's Indie tells nothing of the kind.
+// catalog/tools/igdb_covers.py has the same list, which its tests check.
 export const IGDB_GENRES = [
   [10, "racing"], // Racing
   [14, "sports"], // Sport
   [7, "music"], // Music
   [4, "action"], // Fighting
   [5, "action"], // Shooter
-  [13, "simulation"], // Simulator
   [11, "strategy"], // Real Time Strategy (RTS)
-  [15, "strategy"], // Strategy
-  [16, "strategy"], // Turn-based strategy (TBS)
   [24, "strategy"], // Tactical
   [36, "strategy"], // MOBA
-  [35, "board"], // Card & Board Game
+  [13, "simulation"], // Simulator
   [12, "rpg"], // Role-playing (RPG)
+  [15, "strategy"], // Strategy
+  [16, "strategy"], // Turn-based strategy (TBS)
+  [35, "board"], // Card & Board Game
   [9, "puzzle"], // Puzzle
   [26, "puzzle"], // Quiz/Trivia
   [8, "action"], // Platform

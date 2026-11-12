@@ -10,7 +10,9 @@ launcher builds the images' addresses on images.igdb.com itself, and loads
 them on the player's iPhone. A game IGDB does not know, or names too
 differently, is left out and keeps the label the launcher draws; MATCHES
 pins a game to its IGDB entry by hand. The genre is one of Cartouche's own,
-from IGDB's genres (GENRES), for the games whose nxnative profile says none.
+from IGDB's genres (GENRES), for the games whose nxnative profile says none;
+GENRE_PINS gives a game the genre players know it by when IGDB's says
+another.
 
 The search needs a Twitch application's credentials (dev.twitch.tv/console)
 in IGDB_CLIENT_ID and IGDB_CLIENT_SECRET; the Covers and Live covers
@@ -53,26 +55,33 @@ LIKENESS = 0.9
 # Games the search does not find by name: title ID -> IGDB game ID.
 MATCHES: dict[str, int] = {}
 
+# Games whose genres on IGDB give another than the one players know them
+# by: title ID -> Cartouche's genre.
+GENRE_PINS: dict[str, str] = {
+    "01002DA013484000": "adventure",  # The Legend of Zelda: Skyward Sword HD, a puzzle game on IGDB
+}
+
 # IGDB's genres, by their IDs, as Cartouche's own (CartoucheText.genre in
 # launcher/Sources/CartoucheText.swift), in the order they win when a game
-# has several: the more a genre tells of a game, the earlier. IGDB's Indie
-# tells nothing of the kind. The telemetry server finds the genre of a game
-# Cartouche does not know with the same list (IGDB_GENRES in
-# telemetry/worker.js), which the tests check.
+# has several: the more a genre tells of a game, the earlier. Tactical says
+# Fire Emblem, where Turn-based strategy also goes to Pokémon, a
+# role-playing game. IGDB's Indie tells nothing of the kind. The telemetry
+# server finds the genre of a game Cartouche does not know with the same
+# list (IGDB_GENRES in telemetry/worker.js), which the tests check.
 GENRES: list[tuple[int, str]] = [
     (10, "racing"),  # Racing
     (14, "sports"),  # Sport
     (7, "music"),  # Music
     (4, "action"),  # Fighting
     (5, "action"),  # Shooter
-    (13, "simulation"),  # Simulator
     (11, "strategy"),  # Real Time Strategy (RTS)
-    (15, "strategy"),  # Strategy
-    (16, "strategy"),  # Turn-based strategy (TBS)
     (24, "strategy"),  # Tactical
     (36, "strategy"),  # MOBA
-    (35, "board"),  # Card & Board Game
+    (13, "simulation"),  # Simulator
     (12, "rpg"),  # Role-playing (RPG)
+    (15, "strategy"),  # Strategy
+    (16, "strategy"),  # Turn-based strategy (TBS)
+    (35, "board"),  # Card & Board Game
     (9, "puzzle"),  # Puzzle
     (26, "puzzle"),  # Quiz/Trivia
     (8, "action"),  # Platform
@@ -183,7 +192,7 @@ def covers(catalog: dict, ask: Ask, log=sys.stderr) -> list[dict]:
         artworks = [a["image_id"] for a in entry.get("artworks", []) if a.get("image_id")]
         if artworks:
             record["artwork"] = artworks[0]
-        genre = genre_of(entry.get("genres"))
+        genre = GENRE_PINS.get(game["titleId"]) or genre_of(entry.get("genres"))
         if genre:
             record["genre"] = genre
         if plain(entry["name"]) != plain(game["name"]):

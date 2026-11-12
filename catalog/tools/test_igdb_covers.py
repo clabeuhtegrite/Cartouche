@@ -126,6 +126,14 @@ class IgdbCoversTest(unittest.TestCase):
         self.assertEqual(records[0]["igdb"], 6)
         self.assertFalse(any(query.startswith("search") for query in asked))
 
+    def test_a_genre_pinned(self):
+        igdb_covers.GENRE_PINS["0400C3F00006E000"] = "family"
+        try:
+            records = igdb_covers.covers({"games": [CATALOG["games"][0]]}, stand_in([]), log=io.StringIO())
+        finally:
+            del igdb_covers.GENRE_PINS["0400C3F00006E000"]
+        self.assertEqual(records[0]["genre"], "family")
+
     def test_several_lists_are_searched_a_title_once(self):
         # The pinned list, then nxnative's main branch: a game both list is
         # searched once, as the pinned list has it; a newer game joins.
@@ -143,6 +151,11 @@ class IgdbCoversTest(unittest.TestCase):
         self.assertEqual(igdb_covers.genre_of([31, 8, 9, 32]), "puzzle")
         self.assertEqual(igdb_covers.genre_of([12, 31]), "rpg")
         self.assertEqual(igdb_covers.genre_of([4]), "action")
+        # Pokémon, a role-playing game with turns; Fire Emblem, tactical.
+        self.assertEqual(igdb_covers.genre_of([12, 16, 31]), "rpg")
+        self.assertEqual(igdb_covers.genre_of([12, 15, 16, 24]), "strategy")
+        self.assertEqual(igdb_covers.genre_of([12, 13, 15, 16, 24]), "strategy")
+        self.assertEqual(igdb_covers.genre_of([12, 13, 31]), "simulation")
         # Indie alone, or nothing, is no genre.
         self.assertIsNone(igdb_covers.genre_of([32]))
         self.assertIsNone(igdb_covers.genre_of(None))
@@ -153,6 +166,7 @@ class IgdbCoversTest(unittest.TestCase):
         schema = json.loads((ROOT / "catalog/schema/covers.schema.json").read_text(encoding="utf-8"))
         known = schema["$defs"]["cover"]["properties"]["genre"]["enum"]
         self.assertTrue({genre for _, genre in igdb_covers.GENRES} <= set(known))
+        self.assertTrue(set(igdb_covers.GENRE_PINS.values()) <= set(known))
         text = (ROOT / "launcher/Sources/CartoucheText.swift").read_text(encoding="utf-8")
         self.assertEqual(sorted(known), sorted(re.findall(r'case "(\w+)": return s\("genre\.', text)))
         # The telemetry server finds the genre of a game Cartouche does not
