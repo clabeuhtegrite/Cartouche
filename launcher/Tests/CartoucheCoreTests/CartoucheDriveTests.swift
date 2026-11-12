@@ -327,6 +327,15 @@ final class CartoucheDriveTests: XCTestCase {
         XCTAssertEqual(CartoucheDriveListing.fields, "nextPageToken,files(id,name,mimeType,size,modifiedTime)")
     }
 
+    /// A name with an accent has two spellings, which Swift's == takes for
+    /// one: Cartouche asks Drive for both, the composed one first.
+    func testSpellsANameAsAMacMayHave() {
+        let spellings = CartoucheDriveQuery.spellings("Partie enregistre\u{301}e")
+        XCTAssertEqual(spellings.map { Array($0.unicodeScalars) },
+                       [Array("Partie enregistr\u{E9}e".unicodeScalars), Array("Partie enregistre\u{301}e".unicodeScalars)])
+        XCTAssertEqual(CartoucheDriveQuery.spellings("Jeux").map { Array($0.unicodeScalars) }, [Array("Jeux".unicodeScalars)])
+    }
+
     func testTheRangesOfTheResumableUpload() {
         XCTAssertEqual(CartoucheDriveUpload.granule, 262_144)
         XCTAssertEqual(CartoucheDriveUpload.range(offset: 0, count: 8 << 20, total: nil), "bytes 0-8388607/*")

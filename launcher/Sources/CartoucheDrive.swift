@@ -611,6 +611,16 @@ enum CartoucheDriveQuery {
         "name = '\(escape(name))' and " + children(of: folder)
     }
 
+    /// The ways NAME may be spelled on the Drive: composed, as Cartouche
+    /// names files, and decomposed, as a Mac may have named it, when that
+    /// is another spelling. Swift's == takes the two for one, as Unicode
+    /// does; Drive's queries match a name's characters one by one.
+    static func spellings(_ name: String) -> [String] {
+        let composed = name.precomposedStringWithCanonicalMapping
+        let decomposed = name.decomposedStringWithCanonicalMapping
+        return composed.unicodeScalars.elementsEqual(decomposed.unicodeScalars) ? [composed] : [composed, decomposed]
+    }
+
     /// TEXT between single quotes, as a query takes it: \ and ' escaped.
     static func escape(_ text: String) -> String {
         text.replacingOccurrences(of: "\\", with: "\\\\").replacingOccurrences(of: "'", with: "\\'")

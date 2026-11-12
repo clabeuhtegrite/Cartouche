@@ -399,12 +399,7 @@ final class CartoucheDrive: CartoucheRemote {
     /// fits FOLDER: by its name as Cartouche has it, composed, or
     /// decomposed, as a Mac may have named it.
     private func child(_ name: String, in parent: String, folder wanted: Bool?) async throws -> CartoucheDriveFile? {
-        var names = [name]
-        let decomposed = name.decomposedStringWithCanonicalMapping
-        if decomposed != name {
-            names.append(decomposed)
-        }
-        for candidate in names {
+        for candidate in CartoucheDriveQuery.spellings(name) {
             let found = try await listAll(CartoucheDriveQuery.named(candidate, in: parent))
                 .filter { Self.fits($0, wanted) }
                 .sorted(by: CartoucheDriveFile.newestFirst)
@@ -628,12 +623,18 @@ final class CartoucheDrive: CartoucheRemote {
     }
 
     /// FILE, just written at PATH to the folder of ID PARENT, in place: the
-    /// others of its name there go, as a file written over another.
+    /// other files of its name there go, however a Mac spelled it, as a
+    /// file written over another. Never a folder, a Google Doc or a
+    /// shortcut, which Cartouche did not write.
     fileprivate func place(_ file: CartoucheDriveFile, at path: String, in parent: String) async {
         state.forget(Self.key(path))
         state.keep(file, at: Self.key(path))
-        guard let others = try? await listAll(CartoucheDriveQuery.named(file.name, in: parent)) else { return }
-        for other in others where other.id != file.id && !other.isFolder {
+        var others: [CartoucheDriveFile] = []
+        for spelling in CartoucheDriveQuery.spellings(file.name) {
+            guard let found = try? await listAll(CartoucheDriveQuery.named(spelling, in: parent)) else { return }
+            others += found
+        }
+        for other in others where other.id != file.id && other.isBinary {
             do {
                 try await remove(other.id)
             } catch {
