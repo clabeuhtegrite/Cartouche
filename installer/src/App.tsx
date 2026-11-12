@@ -74,7 +74,7 @@ function App() {
   const [profileSummary, setProfileSummary] = useState<SigningProfileSummary | null>(null);
   const [importedSigning, setImportedSigning] = useState<ImportedSigningInput>({ p12Path: "", profilePath: "", password: "" });
   const signingReady = signingMode === "imported"
-    ? Boolean(importedSigning.p12Path && importedSigning.profilePath && profileSummary?.profilePath === importedSigning.profilePath)
+    ? Boolean(importedSigning.p12Path && importedSigning.profilePath && profileSummary?.profilePath === importedSigning.profilePath && !profileSummary.otherApp)
     : loggedInAs !== null;
   const [selectedDevice, setSelectedDevice] = useState<DeviceInfo | null>(null);
   const [openModal, setOpenModal] = useState<

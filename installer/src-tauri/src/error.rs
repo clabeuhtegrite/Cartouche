@@ -57,6 +57,8 @@ pub enum AppError {
     NotCartouche(String),
     #[error("{0}")]
     CartoucheMissing(String),
+    #[error("This provisioning profile is for {0}, not Cartouche")]
+    ProfileForAnotherApp(String),
 }
 
 impl Serialize for AppError {

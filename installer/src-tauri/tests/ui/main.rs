@@ -594,9 +594,10 @@ fn without_a_keychain(ui: &Ui, f: &Fakes) {
 }
 
 /// A player with a signing certificate of their own: picks the iPhone, then
-/// "I have a signing certificate (.p12)", the .p12 and its profile, which
-/// the window checks and says has no Increased Memory Limit, types its
-/// password, and installs, without an Apple ID.
+/// "I have a signing certificate (.p12)", the .p12 and a profile made for
+/// another app, which the window names at once, then the right profile,
+/// which it says has no Increased Memory Limit, types its password, and
+/// installs, without an Apple ID.
 fn own_certificate(ui: &Ui, f: &Fakes) {
     let version = VERSION;
     let name = f.iphone.config().name.clone();
@@ -606,6 +607,11 @@ fn own_certificate(ui: &Ui, f: &Fakes) {
     let dir = ui.handle.path().app_data_dir().expect("data folder").join("own-certificate");
     std::fs::create_dir_all(&dir).expect("folder");
     let files = own.write(&dir);
+    let other_app = "com.example.othergame";
+    let mut other = f.apple.own_signing(&[f.iphone.udid()]);
+    let app_id = format!("{}.{other_app}", other.team_id);
+    other.entitlements().insert("application-identifier".into(), app_id.into());
+    let other = other.write(&dir);
     let file_name = |path: &std::path::Path| path.file_name().unwrap().to_string_lossy().to_string();
 
     ui.wait_text(&name);
@@ -615,11 +621,18 @@ fn own_certificate(ui: &Ui, f: &Fakes) {
     ui.wait_text(&ui.t("signing.hint"));
     ui.wait_text(&ui.t("signing.install_hint"));
     ui.wait_text(&ui.t("signing.needs_ready"));
-    ui.choose_files(&[&files.p12, &files.profile]);
+    ui.choose_files(&[&files.p12, &other.profile, &files.profile]);
     ui.click(&ui.t("signing.choose_p12"));
     ui.wait_text(&file_name(&files.p12));
+    // Another app's profile: named at once, and Install stays off.
+    ui.click(&ui.t("signing.choose_profile"));
+    ui.wait_text(&file_name(&other.profile));
+    let named = ui.t_with("signing.profile_other_app", &[("app", other_app)]);
+    ui.wait_text(&named);
+    ui.wait_text(&ui.t("signing.needs_ready"));
     ui.click(&ui.t("signing.choose_profile"));
     ui.wait_text(&file_name(&files.profile));
+    assert!(!ui.has_text(&named), "another app's profile still named");
     ui.wait_text(&ui.t("signing.no_memory_limit"));
     assert!(!ui.has_text(&ui.t("signing.needs_ready")), "not ready with an iPhone, a certificate and a profile");
     ui.type_into("password", &files.password);

@@ -209,6 +209,9 @@
       "cartouche_missing": [
         "Installez d’abord Cartouche, avec le bouton de l’étape 3."
       ],
+      "profile_for_another_app": [
+        "Choisissez un profil joker (son App ID finit par *), ou un profil fait pour io.github.clabeuhtegrite.cartouche, puis réinstallez."
+      ],
       "house_arrest": [
         "[ios::26.3]Vérifiez que l’iPhone n’est pas sur une bêta développeur d’iOS 26.3, qui a un défaut avec house arrest."
       ],
@@ -276,6 +279,7 @@
     "profile_checking": "Vérification du profil…",
     "profile_invalid": "Impossible de lire ce profil. Choisissez un fichier .mobileprovision valide.",
     "no_memory_limit": "Ce profil n’a pas la mémoire augmentée : la plupart des jeux ne démarreront pas. Sans elle, l’app n’a qu’environ 3 Go de mémoire.",
+    "profile_other_app": "Ce profil est pour {{app}}, pas pour Cartouche : iOS ne l’installerait pas. Choisissez un profil joker (son App ID finit par *), ou un profil fait pour io.github.clabeuhtegrite.cartouche.",
     "install_hint": "Cartouche signée avec votre certificat et les droits que donne son profil.",
     "step_install": "La signer avec votre certificat et l’installer",
     "step_handoff": "Mettre votre certificat, chiffré, dans Cartouche",

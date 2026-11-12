@@ -209,6 +209,9 @@
       "cartouche_missing": [
         "Install Cartouche first, with the button of step 3."
       ],
+      "profile_for_another_app": [
+        "Choose a wildcard profile (its App ID ends with *), or one made for io.github.clabeuhtegrite.cartouche, then install again."
+      ],
       "house_arrest": [
         "[ios::26.3]Make sure the iPhone is not on a developer beta of iOS 26.3, which has a bug with house arrest."
       ],
@@ -276,6 +279,7 @@
     "profile_checking": "Checking the provisioning profile…",
     "profile_invalid": "Cannot read this provisioning profile. Choose a valid .mobileprovision file.",
     "no_memory_limit": "This profile has no Increased Memory Limit: most games will not start. Without it, the app has about 3 GB of memory.",
+    "profile_other_app": "This profile is for {{app}}, not Cartouche: iOS would not install it. Choose a wildcard profile (its App ID ends with *), or one made for io.github.clabeuhtegrite.cartouche.",
     "install_hint": "Cartouche signed with your certificate and the permissions your provisioning profile grants.",
     "step_install": "Sign it with your certificate and install it",
     "step_handoff": "Put your certificate in Cartouche, encrypted",

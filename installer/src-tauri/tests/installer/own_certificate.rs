@@ -126,6 +126,7 @@ fn installs_with_the_players_own_certificate_without_an_apple_id() {
     // whether it has Increased Memory Limit.
     let checked = h.check_profile(&files).unwrap_or_else(|e| panic!("{e}\n{}", h.report()));
     assert_eq!(checked["increasedMemoryLimit"], true);
+    assert_eq!(checked["otherApp"], Value::Null);
     let profile_bytes = std::fs::read(&files.profile).expect("profile");
     assert_eq!(checked["sha256"], hex::encode(Sha256::digest(&profile_bytes)));
 
@@ -340,7 +341,9 @@ fn installs_with_an_enterprise_profile_or_one_made_for_cartouche_alone() {
     let mut own = h.own_signing();
     let app_id = format!("{}.{BUNDLE_ID}", own.team_id);
     own.entitlements().insert("application-identifier".into(), app_id.clone().into());
-    h.install_own(&own.write(&h.dir)).unwrap_or_else(|e| panic!("{e}\n{}", h.report()));
+    let files = own.write(&h.dir);
+    assert_eq!(h.check_profile(&files).expect("checked")["otherApp"], Value::Null);
+    h.install_own(&files).unwrap_or_else(|e| panic!("{e}\n{}", h.report()));
     let app = h.iphone.app(BUNDLE_ID).expect("installed");
     assert_eq!(app.signature.team_id, own.team_id);
     assert_eq!(app.signature.entitlements.get("application-identifier"), Some(&app_id.into()));
@@ -348,20 +351,28 @@ fn installs_with_an_enterprise_profile_or_one_made_for_cartouche_alone() {
 }
 
 #[test]
-fn a_profile_for_another_app_is_refused_by_the_iphone_and_leaves_nothing_behind() {
+fn says_a_profile_is_for_another_app_as_soon_as_it_is_chosen() {
     let h = Harness::new();
     let version = h.publish_cartouche();
     h.select_device().unwrap_or_else(|e| panic!("{e}\n{}", h.report()));
-    let mut own = h.own_signing();
-    let other = format!("{}.com.example.othergame", own.team_id);
-    own.entitlements().insert("application-identifier".into(), other.into());
-
-    h.install_own(&own.write(&h.dir)).expect_err("installed with another app's profile");
-    let (step, error) = last_failure(&h);
-    assert_eq!(step, "install", "{error}");
+    // The App ID of another app, and a wildcard of other apps: iOS would
+    // install Cartouche under neither.
+    for app in ["com.example.othergame", "com.example.*"] {
+        let mut own = h.own_signing();
+        let app_id = format!("{}.{app}", own.team_id);
+        own.entitlements().insert("application-identifier".into(), app_id.into());
+        let files = own.write(&h.dir);
+        let checked = h.check_profile(&files).expect("checked");
+        assert_eq!(checked["otherApp"], app, "{checked}");
+        let error = h.install_checked(&files, &checked, None).expect_err("installed with another app's profile");
+        assert_eq!(error_type(&error), "profile_for_another_app", "{error}");
+        assert_eq!(error["message"], format!("This provisioning profile is for {app}, not Cartouche"));
+        assert_eq!(last_failure(&h).0, "install");
+    }
+    // Refused before anything reached the iPhone, and nothing left behind.
+    let log = h.iphone.log();
+    assert!(!log.iter().any(|line| line.starts_with("installation_proxy: install")), "{log:#?}");
     assert!(h.iphone.app(BUNDLE_ID).is_none());
-    let refused = h.iphone.log().iter().any(|line| line.contains("com.example.othergame"));
-    assert!(refused, "the iPhone did not refuse it\n{}", h.report());
     assert_eq!(leftovers(&version), Vec::<PathBuf>::new());
 }
 
