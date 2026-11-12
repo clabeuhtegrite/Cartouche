@@ -98,7 +98,7 @@ jobs:
         id: route
         env:
           MAC_JOB: Screenshots
-          MAC_LABELS: xcode-${{ env.XCODE_VERSION }},ios-sim-${{ env.XCODE_VERSION }}
+          MAC_LABELS: cartouche-screens,xcode-${{ env.XCODE_VERSION }},ios-sim-${{ env.XCODE_VERSION }}
           RUNNERS_TOKEN: ${{ secrets.MAC_RUNNER_TOKEN }}
           GH_TOKEN: ${{ github.token }}
         run: python3 .github/mac/route.py
@@ -179,7 +179,7 @@ jobs:
       - name: Watch the screenshots on Ad's Mac
         env:
           MAC_JOB: Screenshots
-          MAC_LABELS: xcode-${{ env.XCODE_VERSION }},ios-sim-${{ env.XCODE_VERSION }}
+          MAC_LABELS: cartouche-screens,xcode-${{ env.XCODE_VERSION }},ios-sim-${{ env.XCODE_VERSION }}
           RUNNERS_TOKEN: ${{ secrets.MAC_RUNNER_TOKEN }}
           GH_TOKEN: ${{ github.token }}
           DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}

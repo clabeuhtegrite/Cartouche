@@ -14,8 +14,10 @@ Ad's Mac takes the job when:
 - MAC_RUNNER_TOKEN, which reads the repository's runners, is set;
 - the run is at its first attempt: a run again, which the job's watch asks
   for when the Mac lost the job (watch.py), goes to GitHub;
-- a runner with all the labels of MAC_LABELS (the Mac, its Xcode, its
-  simulators) is online, and idle, or busy with no other job waiting for it.
+- a runner with all the labels of MAC_LABELS (the Mac's runner of builds
+  or of screenshots, its Xcode, its simulators) is online, and idle, or busy
+  with no other job waiting for it: on each, one job runs and one waits, at
+  most.
 
 Anything else, an error of GitHub's API included, sends the job to GitHub's
 Macs, where it ran before Ad's Mac.
@@ -57,7 +59,7 @@ def pick(found: list[dict], wanted: set[str], waiting_for_mac: Callable[[], int]
     matching = [runner for runner in macs if wanted <= api.labels(runner)]
     if not matching:
         if macs:
-            missing = sorted(wanted - api.labels(macs[0]))
+            missing = min((sorted(wanted - api.labels(runner)) for runner in macs), key=len)
             return None, f"Ad's Mac has no {', '.join(missing)}: install it there, then run install.sh again"
         return None, "no runner of Ad's Mac is registered"
     online = [runner for runner in matching if runner.get("status") == "online"]
@@ -72,15 +74,16 @@ def pick(found: list[dict], wanted: set[str], waiting_for_mac: Callable[[], int]
     return None, f"Ad's Mac is busy, with {waiting} more job{'s' if waiting > 1 else ''} waiting for it"
 
 
-def waiting_for_mac(repository: str, token: str) -> int:
-    """The jobs of the repository's runs that wait for Ad's Mac."""
+def waiting_for_mac(repository: str, token: str, wanted: frozenset = frozenset({"cartouche-mac"})) -> int:
+    """The jobs of the repository's runs that wait for a runner of Ad's Mac
+    with all the labels WANTED: the builds' or the screenshots'."""
     count = 0
     for status in ("queued", "in_progress"):
         runs = api.call("GET", f"/repos/{repository}/actions/runs?status={status}&per_page=30", token)
         for run in runs.get("workflow_runs", []):
             jobs = api.call("GET", f"/repos/{repository}/actions/runs/{run['id']}/jobs?per_page=100", token)
             count += sum(1 for job in jobs.get("jobs", [])
-                         if job.get("status") in WAITING and "cartouche-mac" in job.get("labels", []))
+                         if job.get("status") in WAITING and set(wanted) <= set(job.get("labels", [])))
     return count
 
 
@@ -101,7 +104,8 @@ def route(env: dict, event: dict) -> tuple[dict | None, str]:
         return None, "a run again goes to GitHub's Macs"
     wanted = {label.strip() for label in env.get("MAC_LABELS", "").split(",") if label.strip()}
     found = api.runners(repository, env["RUNNERS_TOKEN"])
-    return pick(found, wanted | {"cartouche-mac"}, lambda: waiting_for_mac(repository, env.get("GH_TOKEN", "")))
+    wanted |= {"cartouche-mac"}
+    return pick(found, wanted, lambda: waiting_for_mac(repository, env.get("GH_TOKEN", ""), frozenset(wanted)))
 
 
 def main() -> int:

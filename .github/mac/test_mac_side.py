@@ -1,7 +1,8 @@
 """Tests of what install.sh puts on Ad's Mac: the supervisor (supervisor.py),
-which keeps the runner online only when the Mac can take a job, and how the
+which keeps the runners online only when the Mac can take a job, and how the
 pieces meet: the paths the hooks, the installer and cartouche-ci share, the
-labels the workflows ask for and the installer gives."""
+runners the installer makes and the others read, the labels the workflows
+ask for and the installer gives."""
 
 from __future__ import annotations
 
@@ -9,6 +10,7 @@ import io
 import json
 import os
 import re
+import subprocess
 import sys
 import tempfile
 import time
@@ -86,13 +88,10 @@ class DecideTests(unittest.TestCase):
 
 
 class ExitsTests(unittest.TestCase):
-    """How the supervisor counts the times the runner stopped by itself."""
+    """How the supervisor counts the times a runner stopped by itself."""
 
-    def supervisor(self) -> supervisor.Supervisor:
-        with mock.patch.object(supervisor.Supervisor, "__init__", lambda self: None):
-            made = supervisor.Supervisor()
-        made.started, made.stops = False, []
-        return made
+    def supervisor(self) -> supervisor.Watched:
+        return supervisor.Watched(supervisor.FIRST)
 
     def test_counts_only_what_it_started(self):
         made = self.supervisor()
@@ -119,26 +118,203 @@ class ExitsTests(unittest.TestCase):
         self.assertEqual(made.exits(running=False, now=41 * 60), 2)
 
 
+SCREENS = supervisor.Runner("ad-mac-screens", "cartouche-ci-screens", "fr.cartouche.ci.runner-screens")
+
+
 class RoundTests(unittest.TestCase):
-    def test_keeps_the_mac_awake_during_a_job_on_the_battery_too(self):
+    def supervisor(self, *runners: supervisor.Runner) -> supervisor.Supervisor:
         with mock.patch.object(supervisor.Supervisor, "__init__", lambda self: None):
             made = supervisor.Supervisor()
-        made.config, made.home, made.caffeinate, made.said = {}, Path("/nowhere"), None, ""
-        made.cleaned, made.started, made.stops = 0.0, True, []
-        seen = facts(power="battery", battery=80, running=True, jobs=[42])
+        made.config, made.cleaned = {}, 0.0
+        made.watched = [supervisor.Watched(runner) for runner in runners]
+        return made
+
+    def round(self, made: supervisor.Supervisor, seen: dict) -> tuple[dict, list, mock.Mock]:
+        """One round where each runner is as SEEN says: the state it wrote,
+        the commands it ran, and caffeinate's Popen."""
+        ran = []
+
+        def run(*args, timeout=30):
+            ran.append(args)
+            return subprocess.CompletedProcess(args, 0, "", "")
+
         with tempfile.TemporaryDirectory() as folder, \
-                mock.patch.object(supervisor, "facts", return_value=seen), \
+                mock.patch.object(supervisor, "facts", side_effect=lambda config, runner: seen[runner.name]), \
+                mock.patch.object(supervisor, "run", side_effect=run), \
                 mock.patch.object(supervisor, "STATE", Path(folder) / "state.json"), \
                 mock.patch.object(supervisor, "log"), \
                 mock.patch.object(supervisor.subprocess, "Popen") as popen:
             made.round()
             state = json.loads((Path(folder) / "state.json").read_text())
+        return state, ran, popen
+
+    def test_keeps_the_mac_awake_during_a_job_on_the_battery_too(self):
+        made = self.supervisor(supervisor.FIRST)
+        made.watched[0].started = True
+        state, ran, popen = self.round(made, {"ad-mac": facts(power="battery", battery=80, running=True, jobs=[42])})
         command = popen.call_args.args[0]
         self.assertEqual(command[0], "caffeinate")
         self.assertIn("-i", command, "caffeinate -s alone holds on mains power only")
         self.assertEqual(command[-2:], ["-w", "42"])
-        self.assertEqual(state["runner"], "running")
-        self.assertEqual(state["facts"]["battery"], 80)
+        self.assertEqual(state["runners"][0]["runner"], "running")
+        self.assertEqual(state["runners"][0]["facts"]["battery"], 80)
+
+    def test_drives_each_runner_by_its_own_service(self):
+        # Ad, 12 November: a runner for the builds, one for the screenshots.
+        made = self.supervisor(supervisor.FIRST, SCREENS)
+        state, ran, popen = self.round(made, {"ad-mac": facts(), "ad-mac-screens": facts(running=True, jobs=[42])})
+        self.assertIn(("launchctl", "kickstart", "system/fr.cartouche.ci.runner"), ran)
+        self.assertNotIn(("launchctl", "kickstart", "system/fr.cartouche.ci.runner-screens"), ran)
+        self.assertEqual(popen.call_count, 1, "awake for the screenshots' job")
+        self.assertEqual(popen.call_args.args[0][-2:], ["-w", "42"])
+        rows = {row["name"]: row for row in state["runners"]}
+        self.assertEqual(sorted(rows), ["ad-mac", "ad-mac-screens"])
+        self.assertEqual(rows["ad-mac"]["account"], "cartouche-ci")
+        self.assertEqual((rows["ad-mac"]["runner"], rows["ad-mac"]["job"]), ("running", False))
+        self.assertEqual((rows["ad-mac-screens"]["runner"], rows["ad-mac-screens"]["job"]), ("running", True))
+
+    def test_stops_one_runner_and_keeps_the_other(self):
+        made = self.supervisor(supervisor.FIRST, SCREENS)
+        seen = {"ad-mac": facts(running=True, missing_xcode=["27.2"]), "ad-mac-screens": facts(running=True)}
+        state, ran, popen = self.round(made, seen)
+        self.assertIn(("launchctl", "kill", "SIGTERM", "system/fr.cartouche.ci.runner"), ran)
+        self.assertNotIn(("launchctl", "kill", "SIGTERM", "system/fr.cartouche.ci.runner-screens"), ran)
+
+    def test_cleans_every_account_only_while_no_job_runs(self):
+        made = self.supervisor(supervisor.FIRST, SCREENS)
+        with mock.patch.object(supervisor.Supervisor, "clean") as clean:
+            self.round(made, {"ad-mac": facts(running=True), "ad-mac-screens": facts(running=True, jobs=[42])})
+            self.assertEqual(clean.call_count, 0, "a job runs")
+            self.round(made, {"ad-mac": facts(running=True), "ad-mac-screens": facts(running=True)})
+            self.assertEqual([c.args[0].account for c in clean.call_args_list], ["cartouche-ci", "cartouche-ci-screens"])
+
+
+class RunnersTests(unittest.TestCase):
+    """The runners the supervisor and cartouche-ci read from config.json."""
+
+    CONFIG = {"runners": [
+        {"name": "ad-mac", "account": "cartouche-ci", "label": "fr.cartouche.ci.runner",
+         "labels": ["cartouche-mac", "cartouche-build", "xcode-27.2"]},
+        {"name": "ad-mac-screens", "account": "cartouche-ci-screens", "label": "fr.cartouche.ci.runner-screens",
+         "labels": ["cartouche-mac", "cartouche-screens", "xcode-27.2", "ios-sim-27.2"]},
+    ]}
+
+    def test_reads_the_runners_the_installer_lists(self):
+        runners = supervisor.runners_of(self.CONFIG)
+        self.assertEqual(runners, [supervisor.FIRST, SCREENS])
+        self.assertEqual(runners[1].service, "system/fr.cartouche.ci.runner-screens")
+        self.assertEqual(runners[1].plist, Path("/Library/LaunchDaemons/fr.cartouche.ci.runner-screens.plist"))
+
+    def test_the_mac_s_first_runner_alone_before_the_installer_listed_them(self):
+        self.assertEqual(supervisor.runners_of({"labels": ["cartouche-mac", "xcode-27.2"]}), [supervisor.FIRST])
+
+    def snippet(self, name: str, pattern: str) -> str:
+        return re.search(pattern, (HERE / name).read_text(), re.S).group(1)
+
+    def test_the_supervisor_reads_the_runners_the_installer_writes(self):
+        writer = self.snippet("install.sh", r"python3 -I - \"\$SUPPORT/config\.json\"[^\n]*<<'PY'\n(.*?)\nPY\n")
+        listed = " ad-mac:cartouche-ci:fr.cartouche.ci.runner:cartouche-mac,cartouche-build,xcode-27.2" \
+                 " ad-mac-screens:cartouche-ci-screens:fr.cartouche.ci.runner-screens:" \
+                 "cartouche-mac,cartouche-screens,xcode-27.2,ios-sim-27.2"
+        with tempfile.TemporaryDirectory() as folder:
+            path = Path(folder) / "config.json"
+            subprocess.run([sys.executable, "-I", "-", str(path), "clabeuhtegrite/Cartouche", "clabeuhtegrite", listed,
+                            "27.2", "abc123", "/Users/ad", "/Users/cartouche-ci"], input=writer, text=True, check=True)
+            config = json.loads(path.read_text())
+            self.assertEqual(config, {**self.CONFIG, "repository": "clabeuhtegrite/Cartouche", "owners": ["clabeuhtegrite"],
+                                      "xcode": ["27.2"], "homes": ["/Users/ad", "/Users/cartouche-ci"], "ref": "abc123"})
+            self.assertEqual(supervisor.runners_of(config), [supervisor.FIRST, SCREENS])
+            # cartouche-ci's list of the runners, from the same file.
+            lister = self.snippet("cartouche-ci", r"runners\(\) \{\n  /usr/bin/python3 -I -c '\n(.*?)\n' \"\$SUPPORT")
+            printed = subprocess.run([sys.executable, "-I", "-c", lister, str(path)], capture_output=True, text=True, check=True)
+            self.assertEqual(printed.stdout.splitlines(), ["ad-mac cartouche-ci fr.cartouche.ci.runner",
+                                                            "ad-mac-screens cartouche-ci-screens fr.cartouche.ci.runner-screens"])
+
+    def test_the_installer_reads_what_each_runner_was_registered_with(self):
+        reader = self.snippet("install.sh", r"registered\(\) \{\n  /usr/bin/python3 -I -c '\n(.*?)\n' \"\$SUPPORT")
+        with tempfile.TemporaryDirectory() as folder:
+            path = Path(folder) / "config.json"
+
+            def registered(config: dict, name: str) -> str:
+                path.write_text(json.dumps(config))
+                return subprocess.run([sys.executable, "-I", "-c", reader, str(path), name],
+                                      capture_output=True, text=True, check=True).stdout.strip()
+
+            self.assertEqual(registered(self.CONFIG, "ad-mac-screens"), "cartouche-mac,cartouche-screens,xcode-27.2,ios-sim-27.2")
+            self.assertEqual(registered(self.CONFIG, "ad-mac"), "cartouche-mac,cartouche-build,xcode-27.2")
+            # The Mac's runner alone, as the installer of 12 November made it:
+            # its labels change, so it registers again; the other is new.
+            alone = {"labels": ["cartouche-mac", "xcode-27.2", "ios-sim-27.2"]}
+            self.assertEqual(registered(alone, "ad-mac"), "cartouche-mac,xcode-27.2,ios-sim-27.2")
+            self.assertEqual(registered(alone, "ad-mac-screens"), "")
+
+
+class UninstallTests(unittest.TestCase):
+    """What cartouche-ci uninstall removes: every runner install.sh made,
+    and nothing else."""
+
+    def made(self, config: dict, accounts: set) -> list:
+        """What made() lists, with config.json and the accounts of the Mac."""
+        script = (HERE / "cartouche-ci").read_text()
+        functions = script[script.index("runners() {"):script.index('case "${1:-status}" in')]
+        with tempfile.TemporaryDirectory() as folder:
+            Path(folder, "config.json").write_text(json.dumps(config))
+            dscl = Path(folder, "dscl")
+            dscl.write_text("#!/bin/bash\ncase \"$3\" in " + "|".join(f"/Users/{a}" for a in accounts or {"none"}) + ") exit 0 ;; esac\nexit 1\n")
+            dscl.chmod(0o755)
+            printed = subprocess.run(["bash", "-c", f'SUPPORT="$1"\n{functions}\nmade', "bash", folder], capture_output=True,
+                                     text=True, check=True, env={"PATH": f"{folder}:/usr/bin:/bin"})
+        return printed.stdout.splitlines()
+
+    def test_finds_the_runner_of_screenshots_config_json_no_longer_lists(self):
+        # install.sh lists only the builds' runner once no Xcode of the Mac
+        # runs the screenshots' simulators: the account stays until uninstall.
+        alone = {"runners": [{"name": "ad-mac", "account": "cartouche-ci", "label": "fr.cartouche.ci.runner"}]}
+        self.assertEqual(self.made(alone, {"cartouche-ci", "cartouche-ci-screens"}), [
+            "ad-mac cartouche-ci fr.cartouche.ci.runner",
+            "ad-mac-screens cartouche-ci-screens fr.cartouche.ci.runner-screens"])
+        self.assertEqual(self.made(alone, set()), [], "nothing left to remove")
+
+    def test_removes_only_the_accounts_the_installer_makes(self):
+        script = (HERE / "cartouche-ci").read_text()
+        accounts = re.search(r'case "\$account" in ([^)]+)\) ;;', script).group(1).split("|")
+        labels = re.search(r'case "\$label" in ([^)]+)\) ;;', script).group(1).split("|")
+        self.assertEqual(sorted(accounts), sorted([supervisor.FIRST.account, SCREENS.account]))
+        self.assertEqual(sorted(labels), sorted([supervisor.FIRST.label, SCREENS.label]))
+        self.assertIn('sudo rm -rf "/Users/$account"', script)
+        self.assertLess(script.index('case "$account" in'), script.index('sudo rm -rf "/Users/$account"'))
+
+
+class JobCompletedTests(unittest.TestCase):
+    """The job completed hook, which the runner runs with bash -e -o
+    pipefail: what it says of the Mac, and that nothing in it fails a job."""
+
+    def hook(self, commands: dict) -> subprocess.CompletedProcess:
+        with tempfile.TemporaryDirectory() as folder:
+            for name, script in commands.items():
+                tool = Path(folder) / name
+                tool.write_text("#!/bin/bash\n" + script + "\n")
+                tool.chmod(0o755)
+            env = {"PATH": f"{folder}:/usr/bin:/bin", "LANG": "C"}
+            return subprocess.run(["bash", "--noprofile", "--norc", "-e", "-o", "pipefail", str(HERE / "job-completed.sh")],
+                                  capture_output=True, text=True, env=env)
+
+    def test_says_how_the_mac_was_doing(self):
+        sysctl = """case "$2" in
+  kern.memorystatus_vm_pressure_level) echo 2 ;;
+  kern.memorystatus_level) echo 41 ;;
+  vm.swapusage) echo 'total = 2048.00M  used = 512.25M  free = 1535.75M  (encrypted)' ;;
+  vm.loadavg) echo '{ 6.10 4.80 3.50 }' ;;
+esac"""
+        done = self.hook({"sysctl": sysctl, "pgrep": "printf '101\\n202\\n'", "xcrun": "exit 0"})
+        self.assertEqual(done.returncode, 0, done.stderr)
+        self.assertIn("memory pressure warn, 41% of the memory free, swap used 512.25M, load 6.10 4.80 3.50 "
+                      "(1, 5 and 15 minutes), 2 job(s) running.", done.stdout)
+
+    def test_never_fails_the_job(self):
+        done = self.hook({"sysctl": "exit 1", "pgrep": "exit 1", "xcrun": "exit 1"})
+        self.assertEqual(done.returncode, 0, done.stderr)
+        self.assertIn("memory pressure unknown", done.stdout)
 
 
 class ReadingTests(unittest.TestCase):
@@ -272,15 +448,47 @@ class PiecesTests(unittest.TestCase):
         for name in installed:
             self.assertTrue((HERE / name).exists(), name)
 
-    def test_the_runner_s_service_is_the_one_the_supervisor_drives(self):
+    def test_the_runners_services_are_the_ones_the_supervisor_drives(self):
         install = self.read("install.sh")
-        self.assertIn(f"<string>{supervisor.SERVICE.split('/')[1]}</string>", install)
-        self.assertIn(str(supervisor.PLIST), install.replace("$SUPPORT", str(supervisor.SUPPORT)).replace("fr.cartouche.ci.$job", "fr.cartouche.ci.runner"))
-        self.assertIn(f"ACCOUNT={supervisor.ACCOUNT}\n", install)
+        first, screens = supervisor.FIRST, SCREENS
+        for role, runner in (("build", first), ("screens", screens)):
+            with self.subTest(role=role):
+                self.assertIn(f"{role}) ACCOUNT={runner.account} NAME={runner.name} SERVICE={runner.label} ", install)
+        self.assertIn('cat >"/Library/LaunchDaemons/$SERVICE.plist"', install)
+        self.assertEqual(first.plist, Path(f"/Library/LaunchDaemons/{first.label}.plist"))
+        self.assertIn("<key>Label</key><string>$SERVICE</string>", install)
+        self.assertIn("<key>UserName</key><string>$ACCOUNT</string>", install)
+        # Before config.json listed the runners, there was the first alone.
+        self.assertIn(f'"name": "{first.name}", "account": "{first.account}", "label": "{first.label}"', self.read("cartouche-ci"))
+        self.assertIn(f'echo "{first.name} {first.account} {first.label}"', self.read("cartouche-ci"))
+
+    def test_the_screenshots_give_way_to_the_builds(self):
+        # Ad, 12 November: the screenshots take all the cores, the builds few.
+        install = self.read("install.sh")
+        nice = dict(re.findall(r"^    (build|screens)\) .*\bNICE=(\d+) ", install, re.M))
+        self.assertLess(int(nice["build"]), int(nice["screens"]))
+        self.assertIn("<key>Nice</key><integer>$NICE</integer>", install)
+
+    def test_the_token_is_asked_once_for_both_runners(self):
+        install = self.read("install.sh")
+        self.assertEqual(install.count("read -r -s -p \"Registration token"), 1)
+        self.assertIn('if [ -z "${TOKEN+set}" ]; then', install)
+
+    def test_the_supervisor_rests_while_the_runners_register(self):
+        # Else it starts again the runner the installer stopped to register it.
+        install = self.read("install.sh")
+        self.assertLess(install.index("launchctl bootout system/fr.cartouche.ci.supervisor"), install.index("./config.sh --unattended"))
+        self.assertRegex(install, r"\ntrap '[^']*launchctl bootstrap system \"\$SUPERVISOR\"[^']*' EXIT\n")
+
+    def test_the_daemons_start_with_the_runners_and_the_supervisor_last(self):
+        install = self.read("install.sh")
+        self.assertLess(install.index('DAEMONS="$DAEMONS $SERVICE"'), install.index('DAEMONS="$DAEMONS fr.cartouche.ci.supervisor"'))
 
     def test_uninstall_removes_the_acl_the_installer_adds(self):
-        acl = re.search(r'^ACL="user:\$ACCOUNT (deny [^"]+)"', self.read("install.sh"), re.M).group(1)
-        self.assertIn(f'"user:$ACCOUNT {acl}"', self.read("cartouche-ci"))
+        deny = re.search(r'^DENY="(deny [^"]+)"$', self.read("install.sh"), re.M).group(1)
+        self.assertIn(f'DENY="{deny}"\n', self.read("cartouche-ci"))
+        self.assertIn('chmod +a "user:$ACCOUNT $DENY" "$home"', self.read("install.sh"))
+        self.assertIn('chmod -a "user:$account $DENY" "$home"', self.read("cartouche-ci"))
 
     def test_the_duo_s_runtime_is_pinned(self):
         self.assertRegex(self.read("install.sh"), r"\nDUO_RUNTIME=[0-9]{2}[A-Z][0-9]+[a-z]?\n")
@@ -346,15 +554,22 @@ class WorkflowTests(unittest.TestCase):
                 self.assertEqual(step.get("if"), "${{ runner.environment == 'github-hosted' }}", step["name"])
 
     def test_the_app_s_build(self):
-        self.check("app.yml", "build", "Build Cartouche.ipa", "xcode-${{ env.XCODE_VERSION }}")
+        self.check("app.yml", "build", "Build Cartouche.ipa", "cartouche-build,xcode-${{ env.XCODE_VERSION }}")
 
     def test_the_screenshots(self):
-        self.check("screens.yml", "screens", "Screenshots", "xcode-${{ env.XCODE_VERSION }},ios-sim-${{ env.XCODE_VERSION }}")
+        self.check("screens.yml", "screens", "Screenshots",
+                   "cartouche-screens,xcode-${{ env.XCODE_VERSION }},ios-sim-${{ env.XCODE_VERSION }}")
 
     def test_the_labels_the_installer_gives(self):
+        # Each job's runner alone has the label of its role: a build never
+        # waits behind the screenshots, nor the screenshots behind a build.
         install = (HERE / "install.sh").read_text()
-        self.assertIn('LABELS="$LABELS,xcode-$version"', install)
-        self.assertIn('LABELS="$LABELS,ios-sim-$version"', install)
+        self.assertIn('BUILD_LABELS="cartouche-mac,cartouche-build"\n', install)
+        self.assertIn('SCREENS_LABELS="cartouche-mac,cartouche-screens"\n', install)
+        self.assertIn('BUILD_LABELS="$BUILD_LABELS,xcode-$version"', install)
+        self.assertIn('SCREENS_LABELS="$SCREENS_LABELS,xcode-$version,ios-sim-$version"', install)
+        self.assertIn('build) ACCOUNT=cartouche-ci NAME=ad-mac SERVICE=fr.cartouche.ci.runner NICE=5 LABELS="$BUILD_LABELS"', install)
+        self.assertIn('LABELS="$SCREENS_LABELS" ;;', install)
 
     def test_mac_rescue_runs_the_run_again_from_main(self):
         rescue = self.workflow("mac-rescue.yml")

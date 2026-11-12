@@ -23,11 +23,16 @@ import watch  # noqa: E402
 
 REPOSITORY = "clabeuhtegrite/Cartouche"
 OWNER = "clabeuhtegrite"
-MAC = {"cartouche-mac", "xcode-27.2"}
+# The labels of the Mac's two runners, as install.sh gives them, and what
+# the jobs of each ask for (MAC_LABELS, with cartouche-mac).
+BUILDS = ("self-hosted", "macOS", "cartouche-mac", "cartouche-build", "xcode-27.2")
+SCREENS = ("self-hosted", "macOS", "cartouche-mac", "cartouche-screens", "xcode-27.2", "ios-sim-27.2")
+MAC = {"cartouche-mac", "cartouche-build", "xcode-27.2"}
+SCREENSHOTS = {"cartouche-mac", "cartouche-screens", "xcode-27.2", "ios-sim-27.2"}
 
 
-def runner(status: str = "online", busy: bool = False, labels=("self-hosted", "macOS", "cartouche-mac", "xcode-27.2", "ios-sim-27.2")) -> dict:
-    return {"id": 1, "name": "ad-mac", "status": status, "busy": busy, "labels": [{"name": n} for n in labels]}
+def runner(status: str = "online", busy: bool = False, labels=BUILDS, name: str = "ad-mac") -> dict:
+    return {"id": 1, "name": name, "status": status, "busy": busy, "labels": [{"name": n} for n in labels]}
 
 
 def pull_event(head: str = REPOSITORY) -> dict:
@@ -44,7 +49,7 @@ def run_env(**extra: str) -> dict:
             "GITHUB_ACTOR": OWNER, "GITHUB_TRIGGERING_ACTOR": OWNER, "GITHUB_RUN_ATTEMPT": "1",
             "GITHUB_RUN_ID": "500", "RUNNERS_TOKEN": "secret", "GH_TOKEN": "token",
             "GITHUB_WORKFLOW_REF": f"{REPOSITORY}/.github/workflows/app.yml@refs/pull/1/merge",
-            "MAC_LABELS": "xcode-27.2", "MAC_JOB": "Build Cartouche.ipa", **extra}
+            "MAC_LABELS": "cartouche-build,xcode-27.2", "MAC_JOB": "Build Cartouche.ipa", **extra}
 
 
 class PickTests(unittest.TestCase):
@@ -71,6 +76,26 @@ class PickTests(unittest.TestCase):
     def test_sends_to_github_without_a_runner_of_the_mac(self):
         self.assertIsNone(route.pick([runner(labels=("self-hosted", "xcode-27.2"))], MAC, lambda: 0)[0])
         self.assertIsNone(route.pick([], MAC, lambda: 0)[0])
+
+    def test_the_screenshots_take_their_own_runner_while_a_build_runs(self):
+        found = [runner(busy=True), runner(labels=SCREENS, name="ad-mac-screens")]
+        chosen, why = route.pick(found, SCREENSHOTS, lambda: self.fail("no need to count"))
+        self.assertEqual(chosen["name"], "ad-mac-screens")
+
+    def test_a_build_never_goes_to_the_screenshots_runner(self):
+        # Ad, 12 November: one job runs and one waits on each runner, at most.
+        found = [runner(busy=True), runner(labels=SCREENS, name="ad-mac-screens")]
+        self.assertEqual(route.pick(found, MAC, lambda: 0)[0]["name"], "ad-mac", "next, behind the build")
+        chosen, why = route.pick(found, MAC, lambda: 1)
+        self.assertIsNone(chosen)
+        self.assertIn("1 more job waiting", why)
+
+    def test_says_what_the_closest_runner_lacks(self):
+        found = [runner(labels=("cartouche-mac", "cartouche-screens", "xcode-27.1")),
+                 runner(labels=("cartouche-mac", "cartouche-build", "xcode-27.1"), name="ad-mac-2")]
+        chosen, why = route.pick(found, MAC, lambda: 0)
+        self.assertIsNone(chosen)
+        self.assertIn("has no xcode-27.2:", why)
 
 
 class RouteTests(unittest.TestCase):
@@ -118,6 +143,28 @@ class RouteTests(unittest.TestCase):
         with mock.patch.object(api, "call", side_effect=lambda method, path, token, body=None: answers[path]):
             self.assertEqual(route.waiting_for_mac(REPOSITORY, "token"), 2)
 
+    def test_counts_only_the_jobs_waiting_for_the_same_runner(self):
+        build = ["self-hosted", "cartouche-build", "cartouche-mac", "xcode-27.2"]
+        screens = ["self-hosted", "cartouche-mac", "cartouche-screens", "ios-sim-27.2", "xcode-27.2"]
+        answers = {
+            f"/repos/{REPOSITORY}/actions/runs?status=queued&per_page=30": {"workflow_runs": [{"id": 1}]},
+            f"/repos/{REPOSITORY}/actions/runs?status=in_progress&per_page=30": {"workflow_runs": [{"id": 2}]},
+            f"/repos/{REPOSITORY}/actions/runs/1/jobs?per_page=100": {"jobs": [
+                {"status": "queued", "labels": build}, {"status": "queued", "labels": screens}]},
+            f"/repos/{REPOSITORY}/actions/runs/2/jobs?per_page=100": {"jobs": [
+                {"status": "in_progress", "labels": build}, {"status": "waiting", "labels": screens}]},
+        }
+        with mock.patch.object(api, "call", side_effect=lambda method, path, token, body=None: answers[path]):
+            self.assertEqual(route.waiting_for_mac(REPOSITORY, "token", frozenset(MAC)), 1)
+            self.assertEqual(route.waiting_for_mac(REPOSITORY, "token", frozenset(SCREENSHOTS)), 2)
+
+    def test_counts_the_jobs_waiting_for_the_runner_the_job_asks_for(self):
+        found = [runner(busy=True), runner(labels=SCREENS, name="ad-mac-screens")]
+        with mock.patch.object(route, "waiting_for_mac", return_value=1) as counted:
+            chosen, why = self.route(run_env(), pull_event(), found)
+        self.assertIsNone(chosen)
+        self.assertEqual(counted.call_args.args[2], frozenset(MAC))
+
 
 class RouteMainTests(unittest.TestCase):
     def main(self, env: dict, runners: list | None = None, error: Exception | None = None) -> dict:
@@ -133,7 +180,7 @@ class RouteMainTests(unittest.TestCase):
 
     def test_gives_the_mac_s_labels_to_runs_on(self):
         outputs = self.main(run_env())
-        self.assertEqual(json.loads(outputs["runner"]), ["self-hosted", "cartouche-mac", "xcode-27.2"])
+        self.assertEqual(json.loads(outputs["runner"]), ["self-hosted", "cartouche-build", "cartouche-mac", "xcode-27.2"])
         self.assertEqual(outputs["mac"], "true")
 
     def test_gives_github_s_macs_otherwise(self):

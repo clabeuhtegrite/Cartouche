@@ -1,9 +1,11 @@
 #!/usr/bin/python3
-"""Keeps the runner of Ad's Mac online only while the Mac can take a job
+"""Keeps the runners of Ad's Mac online only while the Mac can take a job
 without getting in Ad's way (.github/mac/README.md). launchd runs it as root,
-and every 15 seconds it starts or stops the runner's service.
+and every 15 seconds it starts or stops each runner's service: the app's
+builds' and the screenshots' (config.json, which install.sh writes), each
+in an account of its own.
 
-The runner runs:
+A runner runs:
 
 - on mains power, or on the battery at 30% or more: below 30% it stops once
   the job it runs ends, below 20% at once;
@@ -16,13 +18,13 @@ The runner runs:
   it after 14 days offline: it tries again an hour later, and cartouche-ci
   logs says why.
 
-A stopped runner is offline: route.py sends the jobs to GitHub's Macs. While
+A stopped runner is offline: route.py sends its jobs to GitHub's Macs. While
 a job runs, the Mac does not go to sleep by itself, on the battery too
 (caffeinate -i: -s alone holds on mains power only); closing the lid still
 puts it to sleep, and the job's watch (watch.py) sends it back to GitHub.
 
-Once a day, between two jobs, it removes what the jobs leave behind, as the
-runner's account: Xcode's builds left for three days, the SideStores beyond
+Once a day, while no job runs, it removes what the jobs leave behind, as
+each runner's account: Xcode's builds left for three days, the SideStores beyond
 the four newest, simulators of runtimes no longer installed, the runner's
 logs of more than a week.
 
@@ -31,7 +33,7 @@ What it saw and did goes to state.json, which cartouche-ci prints, and to
 
 usage: supervisor.py            the loop launchd keeps running
        supervisor.py once       one round, for the installer
-       supervisor.py clean      the daily cleanup, as the runner's account
+       supervisor.py clean      the daily cleanup, as a runner's account
 """
 
 from __future__ import annotations
@@ -54,9 +56,6 @@ CONFIG = SUPPORT / "config.json"
 STATE = SUPPORT / "state.json"
 PAUSED = SUPPORT / "paused"
 LOG = Path("/Library/Logs/CartoucheCI/supervisor.log")
-SERVICE = "system/fr.cartouche.ci.runner"
-PLIST = Path("/Library/LaunchDaemons/fr.cartouche.ci.runner.plist")
-ACCOUNT = "cartouche-ci"
 
 START_GB = 30
 STOP_GB = 15
@@ -74,6 +73,33 @@ REST_MINUTES = 60  # ...for so long
 KEEP_BUILDS_DAYS = 3
 KEEP_SIDESTORES = 4
 KEEP_LOGS_DAYS = 7
+
+
+@dataclass(frozen=True)
+class Runner:
+    name: str  # on GitHub
+    account: str  # which runs its jobs
+    label: str  # of its LaunchDaemon
+
+    @property
+    def service(self) -> str:
+        return f"system/{self.label}"
+
+    @property
+    def plist(self) -> Path:
+        return Path(f"/Library/LaunchDaemons/{self.label}.plist")
+
+
+# The runner of the app's builds, which keeps the names the Mac's runner had
+# alone (install.sh, runner()).
+FIRST = Runner("ad-mac", "cartouche-ci", "fr.cartouche.ci.runner")
+
+
+def runners_of(config: dict) -> list:
+    """The runners install.sh made (config.json): the first alone, before it
+    listed them."""
+    listed = [Runner(r["name"], r["account"], r["label"]) for r in config.get("runners", [])]
+    return listed or [FIRST]
 
 
 @dataclass
@@ -160,13 +186,20 @@ def xcode_versions() -> dict:
     return found
 
 
-def facts(config: dict, home: Path) -> Facts:
+def home_of(account: str) -> Path:
     try:
-        free_gb = shutil.disk_usage(home).free / 1e9
+        return Path(pwd.getpwnam(account).pw_dir)
+    except KeyError:
+        return Path("/Users") / account
+
+
+def facts(config: dict, runner: Runner) -> Facts:
+    try:
+        free_gb = shutil.disk_usage(home_of(runner.account)).free / 1e9
     except OSError:
         free_gb = 0.0
-    service = run("launchctl", "print", SERVICE)
-    jobs = run("pgrep", "-U", ACCOUNT, "-f", "Runner.Worker")
+    service = run("launchctl", "print", runner.service)
+    jobs = run("pgrep", "-U", runner.account, "-f", "Runner.Worker")
     present = xcode_versions()
     pmset = run("pmset", "-g", "batt").stdout
     return Facts(
@@ -205,15 +238,15 @@ def runner_log(home: Path) -> str:
         return ""
 
 
-class Supervisor:
-    def __init__(self) -> None:
-        self.config = json.loads(CONFIG.read_text())
-        self.home = Path(pwd.getpwnam(ACCOUNT).pw_dir)
-        self.caffeinate = None
-        self.said = ""
-        self.cleaned = 0.0
+class Watched:
+    """What the supervisor keeps of one runner between rounds."""
+
+    def __init__(self, runner: Runner) -> None:
+        self.runner = runner
         self.started = False  # it started the runner, and has not stopped it since
         self.stops = []  # when the runner it started stopped by itself
+        self.caffeinate = None
+        self.said = ""
 
     def exits(self, running: bool, now: float) -> int:
         """How many times the runner it started stopped by itself in the
@@ -228,48 +261,66 @@ class Supervisor:
         self.stops = [t for t in self.stops if t > now - EXITS_MINUTES * 60]
         return len(self.stops)
 
-    def round(self) -> None:
-        seen = facts(self.config, self.home)
-        seen.exits = self.exits(seen.running, time.time())
-        action, why = decide(seen)
-        if action == "start":
-            if run("launchctl", "print", SERVICE).returncode != 0:
-                run("launchctl", "bootstrap", "system", str(PLIST))
-            done = run("launchctl", "kickstart", SERVICE)
-            why += "" if done.returncode == 0 else f" (launchctl kickstart: {done.stderr.strip()})"
-            self.started = done.returncode == 0
-        elif action == "stop":
-            run("launchctl", "kill", "SIGTERM", SERVICE)
-            self.started = False
-        elif seen.running and not self.started:
-            self.started = True  # started before this supervisor
-        if seen.jobs and (self.caffeinate is None or self.caffeinate.poll() is not None):
-            self.caffeinate = subprocess.Popen([*CAFFEINATE, "-w", str(seen.jobs[0])])
-        if not seen.jobs and time.time() - self.cleaned > CLEAN_EVERY:
-            self.cleaned = time.time()
-            self.clean()
-        said = f"{action}: {why}" if action != "keep" else why
-        if said != self.said:
-            log(said)
-            self.said = said
-        state = {
-            "time": datetime.datetime.now().isoformat(timespec="seconds"),
-            "runner": "running" if seen.running or action == "start" else "stopped",
-            "job": bool(seen.jobs),
-            "why": why,
-            "facts": asdict(seen),
-            "last_jobs": last_jobs(runner_log(self.home)),
-        }
-        STATE.write_text(json.dumps(state, indent=2) + "\n")
 
-    def clean(self) -> None:
+class Supervisor:
+    def __init__(self) -> None:
+        self.config = json.loads(CONFIG.read_text())
+        self.watched = [Watched(runner) for runner in runners_of(self.config)]
+        self.cleaned = 0.0
+
+    def round(self) -> None:
+        rows, busy = [], False
+        for watched in self.watched:
+            runner = watched.runner
+            seen = facts(self.config, runner)
+            seen.exits = watched.exits(seen.running, time.time())
+            action, why = decide(seen)
+            if action == "start":
+                if run("launchctl", "print", runner.service).returncode != 0:
+                    run("launchctl", "bootstrap", "system", str(runner.plist))
+                done = run("launchctl", "kickstart", runner.service)
+                why += "" if done.returncode == 0 else f" (launchctl kickstart: {done.stderr.strip()})"
+                watched.started = done.returncode == 0
+            elif action == "stop":
+                run("launchctl", "kill", "SIGTERM", runner.service)
+                watched.started = False
+            elif seen.running and not watched.started:
+                watched.started = True  # started before this supervisor
+            if seen.jobs and (watched.caffeinate is None or watched.caffeinate.poll() is not None):
+                watched.caffeinate = subprocess.Popen([*CAFFEINATE, "-w", str(seen.jobs[0])])
+            busy = busy or bool(seen.jobs)
+            said = f"{action}: {why}" if action != "keep" else why
+            if said != watched.said:
+                log(f"{runner.name}: {said}")
+                watched.said = said
+            rows.append({
+                "name": runner.name,
+                "account": runner.account,
+                "runner": "running" if seen.running or action == "start" else "stopped",
+                "job": bool(seen.jobs),
+                "why": why,
+                "facts": asdict(seen),
+                "last_jobs": last_jobs(runner_log(home_of(runner.account))),
+            })
+        if not busy and time.time() - self.cleaned > CLEAN_EVERY:
+            self.cleaned = time.time()
+            for watched in self.watched:
+                self.clean(watched.runner)
+        state = {"time": datetime.datetime.now().isoformat(timespec="seconds"), "runners": rows}
+        STATE.write_text(json.dumps(state, indent=2) + "\n")
+        os.chmod(STATE, 0o644)  # cartouche-ci reads it as Ad
+
+    def clean(self, runner: Runner) -> None:
         """clean(), as the runner's account, which owns what it removes."""
-        account = pwd.getpwnam(ACCOUNT)
+        try:
+            account = pwd.getpwnam(runner.account)
+        except KeyError:
+            return
         result = subprocess.run(
             [sys.executable, "-I", __file__, "clean"], capture_output=True, text=True, timeout=1800,
             user=account.pw_uid, group=account.pw_gid, extra_groups=[],
             env={"HOME": account.pw_dir, "PATH": "/usr/bin:/bin:/usr/sbin:/sbin", "LANG": "en_US.UTF-8"})
-        log(f"cleaned: {(result.stdout + result.stderr).strip() or 'nothing to remove'}")
+        log(f"{runner.name}: cleaned: {(result.stdout + result.stderr).strip() or 'nothing to remove'}")
 
 
 def clean(home: Path, now: float) -> list:

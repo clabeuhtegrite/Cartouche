@@ -1,11 +1,11 @@
 #!/bin/bash
-# The runner of Cartouche's CI on Ad's Mac (.github/mac/README.md), for Ad:
+# The runners of Cartouche's CI on Ad's Mac (.github/mac/README.md), for Ad:
 #
-#     cartouche-ci              what it does now, and its last jobs
-#     cartouche-ci pause        stops it now, until cartouche-ci resume
+#     cartouche-ci              what they do now, and their last jobs
+#     cartouche-ci pause        stops them now, until cartouche-ci resume
 #     cartouche-ci resume
-#     cartouche-ci logs         the supervisor's log and the runner's
-#     cartouche-ci uninstall    removes it all, its account included
+#     cartouche-ci logs         the supervisor's log and the runners'
+#     cartouche-ci uninstall    removes it all, their accounts included
 #
 # install.sh puts it in /usr/local/bin. pause, resume, logs and uninstall
 # ask for the Mac's password (sudo).
@@ -13,7 +13,31 @@
 set -euo pipefail
 
 SUPPORT=/Library/CartoucheCI
-ACCOUNT=cartouche-ci
+# What install.sh refused each runner's account in the other homes.
+DENY="deny list,search,add_file,add_subdirectory,delete_child,readattr,writeattr,readextattr,writeextattr,readsecurity,writesecurity,chown"
+
+# "name account label" of each runner, from config.json.
+runners() {
+  /usr/bin/python3 -I -c '
+import json, sys
+config = json.load(open(sys.argv[1]))
+for r in config.get("runners") or [{"name": "ad-mac", "account": "cartouche-ci", "label": "fr.cartouche.ci.runner"}]:
+    print(r["name"], r["account"], r["label"])
+' "$SUPPORT/config.json" 2>/dev/null || echo "ad-mac cartouche-ci fr.cartouche.ci.runner"
+}
+
+# ...and of each runner install.sh ever made, which config.json no longer
+# lists once the Mac stops taking its jobs, while its account is still there.
+made() {
+  { runners
+    echo "ad-mac cartouche-ci fr.cartouche.ci.runner"
+    echo "ad-mac-screens cartouche-ci-screens fr.cartouche.ci.runner-screens"
+  } | awk '!seen[$1]++' | while read -r name account label; do
+    if dscl . -read "/Users/$account" UniqueID >/dev/null 2>&1 || [ -f "/Library/LaunchDaemons/$label.plist" ]; then
+      echo "$name $account $label"
+    fi
+  done
+}
 
 case "${1:-status}" in
   status)
@@ -22,53 +46,72 @@ import json, sys
 try:
     state = json.load(open(sys.argv[1]))
 except OSError:
-    sys.exit("The runner's supervisor has not run yet: sudo launchctl kickstart system/fr.cartouche.ci.supervisor")
-facts = state.get("facts", {})
-running = state.get("runner") == "running"
-print(f"Runner: {'online' if running else 'stopped'}{', a job runs now' if state.get('job') else ''} ({state.get('time')})")
-print(f"Why: {state.get('why')}")
-power = {"ac": "mains power", "battery": "battery"}.get(facts.get("power"), "unknown")
-if facts.get("battery") is not None:
-    power = f"{power}, charged at {facts['battery']}%"
-print(f"Power: {power}, {facts.get('free_gb', 0):.0f} GB free, paused: {'yes' if facts.get('paused') else 'no'}")
-jobs = state.get("last_jobs") or []
-print("Last jobs:" if jobs else "No job yet.")
-for job in jobs:
-    print(f"  {job}")
+    sys.exit("The runners' supervisor has not run yet: sudo launchctl kickstart system/fr.cartouche.ci.supervisor")
+rows = state.get("runners") or []
+print(f"At {state.get('time')}:")
+if rows:
+    facts = rows[0].get("facts", {})
+    power = {"ac": "mains power", "battery": "battery"}.get(facts.get("power"), "unknown")
+    if facts.get("battery") is not None:
+        power = f"{power}, charged at {facts['battery']}%"
+    print(f"Power: {power}, {facts.get('free_gb', 0):.0f} GB free, paused: {'yes' if facts.get('paused') else 'no'}")
+for row in rows:
+    running = row.get("runner") == "running"
+    print()
+    print(f"{row.get('name')} ({row.get('account')}): {'online' if running else 'stopped'}{', a job runs now' if row.get('job') else ''}")
+    print(f"  Why: {row.get('why')}")
+    jobs = row.get("last_jobs") or []
+    print("  Last jobs:" if jobs else "  No job yet.")
+    for job in jobs:
+        print(f"    {job}")
 PY
     ;;
   pause)
     sudo touch "$SUPPORT/paused"
     sudo launchctl kickstart -k system/fr.cartouche.ci.supervisor
-    echo "Paused: the runner stops now, and its jobs go to GitHub's Macs until cartouche-ci resume."
+    echo "Paused: the runners stop now, and their jobs go to GitHub's Macs until cartouche-ci resume."
     ;;
   resume)
     sudo rm -f "$SUPPORT/paused"
     sudo launchctl kickstart -k system/fr.cartouche.ci.supervisor
-    echo "Resumed: the runner starts again within a few seconds when the Mac is on mains power or its battery at 30% or more."
+    echo "Resumed: the runners start again within a few seconds when the Mac is on mains power or its battery at 30% or more."
     ;;
   logs)
-    sudo tail -n 40 /Library/Logs/CartoucheCI/supervisor.log "/Users/$ACCOUNT/logs/runner.log"
+    files=(/Library/Logs/CartoucheCI/supervisor.log)
+    while read -r _ account _; do
+      files+=("/Users/$account/logs/runner.log")
+    done < <(runners)
+    sudo tail -n 40 "${files[@]}"
     ;;
   uninstall)
-    read -r -p "Remove the runner, its account $ACCOUNT and all it built? [y/N] " answer </dev/tty
+    list="$(made)"
+    accounts="$(echo "$list" | awk '{print $2}' | paste -sd ' ' -)"
+    read -r -p "Remove the runners, their accounts ($accounts) and all they built? [y/N] " answer </dev/tty
     case "$answer" in y|Y|yes|oui) ;; *) echo "Nothing removed."; exit 0 ;; esac
     homes="$(/usr/bin/python3 -I -c 'import json,sys; print("\n".join(json.load(open(sys.argv[1])).get("homes", [])))' "$SUPPORT/config.json" 2>/dev/null || true)"
     sudo launchctl bootout system/fr.cartouche.ci.supervisor 2>/dev/null || true
-    sudo launchctl bootout system/fr.cartouche.ci.runner 2>/dev/null || true
-    # The ACL by which install.sh refused the account the other homes, before
-    # the account goes: the ACL names it.
-    while IFS= read -r home; do
-      [ -n "$home" ] && [ -d "$home" ] || continue
-      sudo chmod -a "user:$ACCOUNT deny list,search,add_file,add_subdirectory,delete_child,readattr,writeattr,readextattr,writeextattr,readsecurity,writesecurity,chown" "$home" 2>/dev/null || true
-    done <<<"$homes"
-    sudo dseditgroup -o edit -d "$ACCOUNT" -t user _developer 2>/dev/null || true
-    sudo dscl . -delete "/Users/$ACCOUNT" 2>/dev/null || true
-    sudo dscl . -delete "/Groups/$ACCOUNT" 2>/dev/null || true
-    sudo rm -rf "/Users/$ACCOUNT" /Library/LaunchDaemons/fr.cartouche.ci.supervisor.plist \
-      /Library/LaunchDaemons/fr.cartouche.ci.runner.plist /Library/Logs/CartoucheCI "$SUPPORT"
+    while read -r name account label; do
+      # Only the accounts install.sh makes, never a home of Ad's, nor /Users
+      # itself when the list is empty.
+      case "$account" in cartouche-ci|cartouche-ci-screens) ;; *) continue ;; esac
+      case "$label" in fr.cartouche.ci.runner|fr.cartouche.ci.runner-screens) ;; *) continue ;; esac
+      sudo launchctl bootout "system/$label" 2>/dev/null || true
+      sudo rm -f "/Library/LaunchDaemons/$label.plist"
+      # The ACL by which install.sh refused the account the other homes,
+      # before the account goes: the ACL names it.
+      while IFS= read -r home; do
+        [ -n "$home" ] && [ -d "$home" ] || continue
+        sudo chmod -a "user:$account $DENY" "$home" 2>/dev/null || true
+      done <<<"$homes"
+      sudo dseditgroup -o edit -d "$account" -t user _developer 2>/dev/null || true
+      sudo dscl . -delete "/Users/$account" 2>/dev/null || true
+      sudo dscl . -delete "/Groups/$account" 2>/dev/null || true
+      sudo rm -rf "/Users/$account"
+      echo "Removed $name and its account $account."
+    done <<<"$list"
+    sudo rm -rf /Library/LaunchDaemons/fr.cartouche.ci.supervisor.plist /Library/Logs/CartoucheCI "$SUPPORT"
     sudo rm -f /usr/local/bin/cartouche-ci
-    echo "Removed. GitHub forgets the runner ad-mac after 14 days offline, or at once in"
+    echo "GitHub forgets the runners after 14 days offline, or at once in"
     echo "Settings › Actions › Runners. The simulators' iOS runtimes stay, for Xcode."
     ;;
   *)
