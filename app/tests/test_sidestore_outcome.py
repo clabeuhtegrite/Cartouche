@@ -268,7 +268,7 @@ class SideStoreOutcomeTest(unittest.TestCase):
         # And those Cartouche tells the player's next step by.
         read = set(re.findall(r'failure\.stage == "(\w+)"', message))
         words = (LAUNCHER / "CartoucheTextSideStore.swift").read_text(encoding="utf-8")
-        read |= set(re.findall(r'case "(\w+)":', block(words, "static func sideStoreMessage(", "sideStoreMessage")))
+        read |= set(re.findall(r'case "(\w+)"\??:', block(words, "static func sideStoreMessage(", "sideStoreMessage")))
         self.assertEqual(read, {"deviceCheck", "device", "account"})
         self.assertLessEqual(read, set(order))
 
