@@ -139,6 +139,20 @@ public struct StorageAnswer: Decodable { public var storage: StorageReport }
 public struct CleanAnswer: Decodable { public var cleaned: Cleaned }
 public struct FollowAnswer: Decodable { public var followed: Bool }
 public struct MountAnswer: Decodable { public var folders: Folders }
+public struct BundleIPAAnswer: Decodable {
+    /// Where the complete IPA was published.
+    public var ipa: String
+    /// For the measurements: the game, the nxnative its IPA was built with
+    /// and the complete IPA's size.
+    public var titleID: String?
+    public var nxnative: String?
+    public var bytes: Int64?
+
+    private enum CodingKeys: String, CodingKey {
+        case ipa, nxnative, bytes
+        case titleID = "title_id"
+    }
+}
 public struct QueueAnswer: Decodable {
     /// For an add: false when no batch runs, and nothing was kept.
     public var queued: Bool?
@@ -281,9 +295,16 @@ public final class Engine: @unchecked Sendable {
 
     // MARK: Batches
 
+    /// Adds a matching external ROMFS to an existing IPA, without nxnative.
+    public func bundleROMFS(ipa: URL, image: URL, line: (@Sendable (String) -> Void)? = nil) async throws -> BundleIPAAnswer {
+        try await api(BundleIPAAnswer.self, ["bundle-romfs", "--ipa", ipa.path, "--romfs", image.path],
+                      timeout: 24 * 3600, line: line)
+    }
+
     /// Starts a batch that builds GAMES (all that are due when empty), again
     /// even if up to date with FORCE, kept awake by caffeinate. It goes on
-    /// when the app quits; status.json says how it goes.
+    /// when the app quits; status.json says how it goes. While the engine's
+    /// look at nxnative holds the batch lock, it waits for it first.
     @discardableResult
     public func startBatch(games: [String] = [], force: Bool = false) throws -> Process {
         let process = Process()
@@ -342,6 +363,16 @@ public final class Engine: @unchecked Sendable {
     public static func stopBatch(_ status: BatchStatus?) {
         guard let pid = status?.pid, pid > 1 else { return }
         kill(pid_t(pid), SIGTERM)
+    }
+
+    /// Stops a batch startBatch began that does not run yet, as it waits for
+    /// the lock. caffeinate becomes the engine in the process startBatch
+    /// started, keeping the Mac awake from a child of its own that ends with
+    /// it: the engine takes SIGTERM as its Stop and ends without building
+    /// (cli._build).
+    public static func stopStarting(_ process: Process) {
+        guard process.isRunning else { return }
+        process.terminate()
     }
 
     public static func alive(_ pid: Int) -> Bool {

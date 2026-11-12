@@ -444,7 +444,7 @@ struct CartoucheSideStoreOutcome: Equatable, Sendable {
     var kind: String?
     var codes: String?
     /// Apple's code, the HTTP status, the URL error's code, and what the
-    /// server it could not reach is ("apple", "sideStore", "device").
+    /// server it could not reach is ("apple", "anisette", "sideStore", "device").
     var apple: Int?
     var http: Int?
     var network: Int?
@@ -600,8 +600,10 @@ struct CartoucheSideStoreOutcome: Equatable, Sendable {
         case "cancelled":
             return .cancelled
         case "network":
-            if host == "sideStore" { return .anisette }
+            // An iPhone without a connection cannot reach any server, the
+            // anisette ones first.
             if let network, [-1009, -1018, -1020].contains(network) { return .offline }
+            if host == "anisette" || host == "sideStore" { return .anisette }
             return .network
         default:
             return .other

@@ -10303,6 +10303,23 @@
         }
       }
     },
+    "work.canLeave" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "You can leave Cartouche: the Lock Screen and the Dynamic Island then show how far it has gone."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vous pouvez quitter Cartouche : l’avancement s’affiche alors sur l’écran verrouillé et dans la Dynamic Island."
+          }
+        }
+      }
+    },
     "work.export.failed" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -10360,13 +10377,30 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Copying it to %@. Keep Cartouche open: a large game takes several minutes."
+            "value" : "Copying it to %@."
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Copie vers %@. Gardez Cartouche ouvert : un gros jeu prend plusieurs minutes."
+            "value" : "Copie vers %@."
+          }
+        }
+      }
+    },
+    "work.export.stopped" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The copy stopped"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "La copie s’est arrêtée"
           }
         }
       }
@@ -10490,19 +10524,36 @@
         }
       }
     },
+    "work.install.stopped" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The install stopped"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "L’installation s’est arrêtée"
+          }
+        }
+      }
+    },
     "work.install.stored" : {
       "extractionState" : "manual",
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Unpacking it from %@ as it arrives. Keep Cartouche open: a large game takes several minutes."
+            "value" : "Unpacking it from %@ as it arrives."
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Cartouche le décompresse depuis %@, à mesure qu’il arrive. Gardez Cartouche ouvert : un gros jeu prend plusieurs minutes."
+            "value" : "Cartouche le décompresse depuis %@, à mesure qu’il arrive."
           }
         }
       }
@@ -10581,13 +10632,132 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Unpacking the IPA. Keep Cartouche open: a large game takes a few minutes."
+            "value" : "Unpacking the IPA."
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Décompression de l’IPA. Gardez Cartouche ouvert : un gros jeu prend quelques minutes."
+            "value" : "Décompression de l’IPA."
+          }
+        }
+      }
+    },
+    "work.keepOpen" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Keep Cartouche open: a large game takes several minutes."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Gardez Cartouche ouvert : un gros jeu prend plusieurs minutes."
+          }
+        }
+      }
+    },
+    "work.outside.from" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "From %@"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Depuis %@"
+          }
+        }
+      }
+    },
+    "work.outside.fromPercent" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ · from %2$@"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ · depuis %2$@"
+          }
+        }
+      }
+    },
+    "work.outside.reconnecting" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Connecting to %@ again"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Reconnexion à %@"
+          }
+        }
+      }
+    },
+    "work.outside.to" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "To %@"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vers %@"
+          }
+        }
+      }
+    },
+    "work.outside.toPercent" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ · to %2$@"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ · vers %2$@"
+          }
+        }
+      }
+    },
+    "work.outside.unpacking" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ · unpacking"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ · décompression"
           }
         }
       }
@@ -10724,6 +10894,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Lancement de %@"
+          }
+        }
+      }
+    },
+    "work.stopped.message" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "It was stopped outside Cartouche: from the Lock Screen or the Dynamic Island, or by iOS. Start it again whenever you like."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Elle a été arrêtée hors de Cartouche : depuis l’écran verrouillé ou la Dynamic Island, ou par iOS. Relancez-la quand vous voulez."
           }
         }
       }

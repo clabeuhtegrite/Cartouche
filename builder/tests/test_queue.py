@@ -9,6 +9,7 @@ import sys
 import threading
 import time
 from pathlib import Path
+from unittest import mock
 
 from cartouche_builder import api, batch, cli, config as configs
 from cartouche_builder import queue as queues
@@ -208,6 +209,17 @@ class Queue(Home):
         self.assertEqual(code, 0)
         self.assertIn("the game is added to it", out.getvalue())
         self.assertEqual([(g["title_id"], g["force"]) for g in queues.read(self.paths)["games"]], [(ODYSSEY, True)])
+
+    def test_build_in_terminal_waits_for_the_lock_and_stops_when_asked(self):
+        # What the app starts waits for its own look at nxnative to end; a
+        # Stop meanwhile ends it without building.
+        with mock.patch.object(batch, "run_due", side_effect=batch.Cancelled()) as run_due:
+            out = io.StringIO()
+            with contextlib.redirect_stdout(out), contextlib.redirect_stderr(io.StringIO()):
+                code = cli.main(["build", ODYSSEY])
+        self.assertEqual(code, 130)
+        self.assertIn("Stopped before it started", out.getvalue())
+        self.assertEqual(run_due.call_args.kwargs["wait"], batch.LOCK_WAIT)
 
 
 if __name__ == "__main__":

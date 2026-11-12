@@ -15,6 +15,10 @@
 //    settings and saves, as LiveContainer's Replace does;
 //  - an installed game can be copied to the games folder as an IPA, before
 //    it is uninstalled for one;
+//  - an install or a copy goes on once the player leaves Cartouche, for the
+//    half-minute iOS gives any app and, from iOS 26, until it is over, with
+//    how far it has gone in a Live Activity whose stop button stops it
+//    (CartoucheContinuedWork);
 //  - an uninstalled game leaves its data folder, saves inside, unless the
 //    player erases them too, and the game's next install takes it back;
 //  - Play starts the game at once. nxnative shows its settings screen
@@ -78,6 +82,7 @@ final class CartoucheGameActions: ObservableObject {
         didSet {
             if oldValue == nil { workFailed = false }
             CartoucheReports.noteWork(from: oldValue, to: work, failed: workFailed)
+            if let work { CartoucheContinuedWork.shared.update(work) }
         }
     }
     /// Why the last step failed, or what the player should know of it.
@@ -102,6 +107,11 @@ final class CartoucheGameActions: ObservableObject {
     /// The time iOS gives a step that is on its way when the player leaves
     /// Cartouche.
     private var background: UIBackgroundTaskIdentifier = .invalid
+    /// The install or the copy under way, which a stop from outside
+    /// Cartouche cancels (CartoucheContinuedWork).
+    private var transfer: Task<Void, Never>?
+    /// Whether the player, or iOS, stopped it from outside Cartouche.
+    private var stopped = false
     /// The game to start once the running one has ended.
     private var pendingStart: (app: LCAppModel, showingSettings: Bool)?
     /// The running game opened on nxnative's settings screen.
@@ -148,29 +158,36 @@ final class CartoucheGameActions: ObservableObject {
 
         work = CartoucheGameWork(kind: .installing, name: url.deletingPathExtension().lastPathComponent,
                                  step: CartoucheText.installUnpacking, fraction: 0, stage: "unpacking")
-        // A large game takes minutes to unpack: the iPhone must not lock
-        // meanwhile, which would pause Cartouche.
-        UIApplication.shared.isIdleTimerDisabled = true
-        beginBackground()
-        Task {
+        beginTransfer()
+        transfer = Task {
             do {
                 let builtAt = await Self.builtAt(ofIPA: url)
                 let (app, warning) = try await installUnpacked(into: model, builtAt: builtAt) { folder, progress in
-                    guard await Self.unpack(url.path, into: folder.path, progress) == 0 else {
+                    // A stop from outside Cartouche cancels the unpacking,
+                    // which ends between two blocks of a file (LiveContainer
+                    // patch 0009).
+                    let unpacked = await withTaskCancellationHandler {
+                        await Self.unpack(url.path, into: folder.path, progress)
+                    } onCancel: {
+                        progress.cancel()
+                    }
+                    try Task.checkCancellation()
+                    guard unpacked == 0 else {
                         throw CartoucheInstallError(.notAnIPA)
                     }
                 }
                 await fetchSaves(of: app)
                 finishInstall(app, warning: warning)
             } catch {
-                fail(.install, CartoucheText.installFailed, error: error)
+                if stopped {
+                    tellStopped()
+                } else {
+                    fail(.install, CartoucheText.installFailed, error: error)
+                }
             }
             if accessing { url.stopAccessingSecurityScopedResource() }
             Self.removeIfInbox(url)
-            progressObservation = nil
-            UIApplication.shared.isIdleTimerDisabled = false
-            endBackground()
-            work = nil
+            endTransfer()
         }
     }
 
@@ -190,10 +207,10 @@ final class CartoucheGameActions: ObservableObject {
         }
         let server = location.server
         let step = CartoucheText.installFromStorageStep(server.name)
-        work = CartoucheGameWork(kind: .installing, name: game.name, step: step, fraction: nil, stage: "reading")
-        UIApplication.shared.isIdleTimerDisabled = true
-        beginBackground()
-        Task {
+        work = CartoucheGameWork(kind: .installing, name: game.name, step: step, fraction: nil, stage: "reading",
+                                 place: server.name)
+        beginTransfer()
+        transfer = Task {
             var file: CartoucheResumingSource?
             do {
                 let source = try await CartoucheResumingSource.open {
@@ -236,28 +253,76 @@ final class CartoucheGameActions: ObservableObject {
                 }
                 await fetchSaves(of: app)
                 finishInstall(app, warning: warning)
-            } catch let lost as CartoucheResumingSource.Lost {
+            } catch let lost as CartoucheResumingSource.Lost where !stopped {
                 facts.append(.init("Connection", "lost after \(lost.attempts) failed attempts, "
                                        + "the file opened again \(file?.reopened ?? 0) times before"))
                 fail(.install, CartoucheText.installFailed,
                      message: CartoucheText.installFromStorageLost(server.name, lost.localizedDescription), error: lost.last)
-            } catch let offline as CartoucheStorageOffline {
+            } catch let offline as CartoucheStorageOffline where !stopped {
                 tellOffline(offline)
             } catch {
-                if let reopened = file?.reopened, reopened > 0 {
-                    facts.append(.init("Connection", "the file opened again \(reopened) times"))
+                if stopped {
+                    tellStopped()
+                } else {
+                    if let reopened = file?.reopened, reopened > 0 {
+                        facts.append(.init("Connection", "the file opened again \(reopened) times"))
+                    }
+                    fail(.install, CartoucheText.installFailed, error: error)
                 }
-                fail(.install, CartoucheText.installFailed, error: error)
             }
-            progressObservation = nil
-            UIApplication.shared.isIdleTimerDisabled = false
-            endBackground()
-            work = nil
+            endTransfer()
             // Last: a server that stopped answering keeps a goodbye waiting
             // a few seconds (CartoucheSMB.disconnect).
             await file?.close()
         }
     }
+
+    /// An install or a copy is on its way: iOS goes on with it once the
+    /// player leaves Cartouche, for half a minute or, from iOS 26, until it
+    /// is over, with how far it has gone on the Lock Screen and in the
+    /// Dynamic Island (CartoucheContinuedWork).
+    private func beginTransfer() {
+        stopped = false
+        // A large game takes minutes: the iPhone must not lock meanwhile
+        // while Cartouche is in front, which would pause it.
+        UIApplication.shared.isIdleTimerDisabled = true
+        beginBackground()
+        guard let work else { return }
+        CartoucheContinuedWork.shared.begin(work, outside: { outside in
+            CartoucheGameActions.shared.work?.outside = outside
+        }, stop: {
+            CartoucheGameActions.shared.stopFromOutside()
+        })
+    }
+
+    /// The install or the copy is over, whether it went through or not.
+    private func endTransfer() {
+        progressObservation = nil
+        transfer = nil
+        UIApplication.shared.isIdleTimerDisabled = false
+        CartoucheContinuedWork.shared.end(success: !workFailed)
+        endBackground()
+        work = nil
+    }
+
+    /// The player stopped the install or the copy from the Live Activity,
+    /// or iOS did, while Cartouche was in the background: it stops, unless
+    /// the game is in place already, once it is being signed, and its
+    /// install finishes.
+    private func stopFromOutside() {
+        guard let work, transfer != nil, !stopped else { return }
+        self.work?.outside = false
+        if Self.finishing.contains(work.stage) {
+            CartoucheReports.note(work.title + ": the game is in place already, and its install goes on")
+            return
+        }
+        stopped = true
+        transfer?.cancel()
+    }
+
+    /// The stages of an install where the game is in place already: it is
+    /// signed, then its saves come.
+    private static let finishing: Set<String> = ["signing", "savesSync"]
 
     /// The half-minute iOS gives a step on its way when the player leaves
     /// Cartouche, so that a short absence does not pause it.
@@ -491,10 +556,10 @@ final class CartoucheGameActions: ObservableObject {
         let builtAt = build.builtAt
         facts = [.init("To", CartoucheReports.place(.games))] + Self.buildFacts(build)
         work = CartoucheGameWork(kind: .exporting, name: app.displayName,
-                                 step: CartoucheText.exportStep(location.server.name), fraction: 0, stage: "exporting")
-        UIApplication.shared.isIdleTimerDisabled = true
-        beginBackground()
-        Task {
+                                 step: CartoucheText.exportStep(location.server.name), fraction: 0, stage: "exporting",
+                                 place: location.server.name)
+        beginTransfer()
+        transfer = Task {
             var remote: CartoucheRemote?
             var copied = false
             do {
@@ -524,22 +589,28 @@ final class CartoucheGameActions: ObservableObject {
                     try await Self.writeIPA(items, to: upload, total: total)
                     try await upload.finish()
                 } catch {
-                    await upload.cancel()
+                    // Out of the stopped copy's task, whose cancellation
+                    // would leave what it wrote there.
+                    await Task { await upload.cancel() }.value
                     throw error
                 }
                 copied = true
-            } catch let offline as CartoucheStorageOffline {
+            } catch let offline as CartoucheStorageOffline where !stopped {
                 tellOffline(offline)
             } catch {
-                fail(.export, CartoucheText.exportFailed, error: error)
+                if stopped {
+                    tellStopped()
+                } else {
+                    fail(.export, CartoucheText.exportFailed, error: error)
+                }
             }
             await remote?.disconnect()
-            UIApplication.shared.isIdleTimerDisabled = false
-            endBackground()
-            work = nil
+            let wasStopped = stopped
+            endTransfer()
             if copied {
                 await CartoucheStoredGames.shared.reload()
-                next?()
+                // A stop as the copy ended stops what came next too.
+                if !wasStopped { next?() }
             }
         }
     }
@@ -1031,6 +1102,15 @@ final class CartoucheGameActions: ObservableObject {
         CartoucheReports.note((work.map { $0.title + ": " } ?? "") + "not started, the server is offline from this network")
         workFailed = true
         notice = CartoucheGameNotice(title: CartoucheText.storageOfflineTitle(offline.name), message: offline.localizedDescription)
+    }
+
+    /// Tells the player that the install or the copy stopped from outside
+    /// Cartouche: without a report, since nothing went wrong in Cartouche.
+    private func tellStopped() {
+        guard let work else { return }
+        workFailed = true
+        notice = CartoucheGameNotice(title: work.kind == .exporting ? CartoucheText.exportStopped : CartoucheText.installStopped,
+                                     message: CartoucheText.workStoppedOutside)
     }
 
     /// Tells the player that the step failed, with the report they can copy:

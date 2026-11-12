@@ -6,18 +6,25 @@
 //  as the player opens it, on sample games whose nxnative commits are as
 //  long as nxnative's own, taken through what the player does: a game
 //  chosen and its sheet beside, nxnative checked, a message above the page,
-//  the window from wide to its smallest, the sidebar hidden and shown, each
-//  page. After each step every scrolling column must lie in the window and
-//  the sidebar must list its pages. Any exception AppKit raises ends the
-//  app (NSApplicationCrashOnExceptions), as one did on a player's Mac on
+//  of one line and of several, the window from wide to its smallest, the
+//  sidebar hidden and shown, each page, the pages chosen with the arrow
+//  keys, a build asked for while nxnative is checked. After each step every
+//  scrolling column must lie in the window, across and down, and the
+//  sidebar must list its pages. Any exception AppKit raises ends the app
+//  (NSApplicationCrashOnExceptions), as one did on a player's Mac on
 //  11 November: the game's sheet, then the system's inspector, made the
 //  page wider than the window at each update, until AppKit's constraint
-//  passes went round in a loop. Nothing of the Mac's is read or kept: no
-//  engine, no bridge, no settings written.
+//  passes went round in a loop. The same day a message above the page made
+//  the pages three times the window's height, their tops out of reach, which
+//  this check did not look at. And SwiftUI must never have said that a
+//  change was published while it updated the window, after which its
+//  behaviour is undefined: the sidebar did, at each page chosen. Nothing of
+//  the Mac's is read or kept: no engine, no bridge, no settings written.
 //
 
 import AppKit
 import BuilderKit
+import OSLog
 import SwiftUI
 
 @MainActor
@@ -55,6 +62,7 @@ enum LayoutCheck {
             exit(1)
         }
         var library = samples.library
+        library.issues = Gallery.issues
         let more = ["Hades II", "Luigi’s Mansion 3", "Donkey Kong Bananza", "Mario Kart World", "Mario Tennis Fever",
                     "Pokémon Pokopia", "Splatoon Raiders", "Star Fox", "Super Mario Party Jamboree"]
         let model = library.games[0]
@@ -124,6 +132,7 @@ enum LayoutCheck {
 
     private static func run() async -> Int {
         let model = AppModel.shared
+        let began = Date()
         guard let window = await mainWindow() else {
             say("✗ the window never opened; windows: " + NSApp.windows.map { "\($0.title) [\($0.identifier?.rawValue ?? "")]" }.joined(separator: ", "))
             return 1
@@ -156,6 +165,13 @@ enum LayoutCheck {
             model.banner = Banner(kind: .error, text: "La vérification de nxnative a échoué : fatal: unable to access 'https://github.com/seedds/nxnative/': Could not resolve host: github.com. Cartouche Builder réessaiera dans six heures.")
         }
         await step("the message closed") { model.banner = nil }
+        // A build that did not start, as the app says it: the last lines of
+        // its log, one under the other.
+        await step("a message of several lines above the page") {
+            model.banner = Banner(kind: .error, text: "La construction n’a pas démarré : Un lot tourne déjà sur ce Mac (la fenêtre ou le lancement de la nuit).\n"
+                                  + "Un lot tourne déjà sur ce Mac (la fenêtre ou le lancement de la nuit).\nUn lot tourne déjà sur ce Mac (la fenêtre ou le lancement de la nuit).")
+        }
+        await step("that message closed") { model.banner = nil }
         for width in widths {
             await step("the window at \(Int(width)) points, with the game's sheet") { resize(width) }
         }
@@ -171,12 +187,68 @@ enum LayoutCheck {
             await step("the page \(section.rawValue)") { model.section = section }
         }
         await step("the library again") { model.section = .library }
+        for (down, name) in [(true, "down"), (false, "up")] {
+            for _ in 1..<AppSection.allCases.count {
+                await step("the next page with the \(name) arrow key") { arrowKey(window, down: down) }
+                if let problem = followed(window, model) {
+                    say("    ✗ \(problem)")
+                    failures += 1
+                }
+            }
+        }
         await step("the sheet closed") { model.selection = nil }
         await step("the sheet opened at the smallest width") { model.selection = chosen }
+        // The game asked for waits its turn while nxnative is checked, on its
+        // sheet and on the builds' page, until the batch runs.
+        await step("a build asked for while nxnative is checked") { model.preview(starting: [chosen].compactMap { $0 }, checking: true) }
+        await step("the builds' page meanwhile") { model.section = .activity }
+        await step("the library again meanwhile") { model.section = .library }
+        await step("nxnative checked, the batch gone") { model.preview(starting: [], checking: false) }
         for width in widths.reversed() {
             await step("the window at \(Int(width)) points again") { resize(width) }
         }
+        let published = publishedInUpdates(since: began)
+        if let published, published > 0 {
+            say("✗ SwiftUI said \(published) time\(published == 1 ? "" : "s") that a change was published while it updated the window")
+            failures += 1
+        } else {
+            say(published == nil ? "· SwiftUI's warnings could not be read from the log" : "✓ no change published while SwiftUI updated the window")
+        }
         return failures
+    }
+
+    /// An arrow key in the sidebar, as the player presses it: the window
+    /// sends it to the list, which SwiftUI follows.
+    private static func arrowKey(_ window: NSWindow, down: Bool) {
+        guard let root = window.contentView, let list = descendants(of: root).compactMap({ $0 as? NSOutlineView }).first else { return }
+        window.makeFirstResponder(list)
+        let character = down ? String(UnicodeScalar(NSDownArrowFunctionKey)!) : String(UnicodeScalar(NSUpArrowFunctionKey)!)
+        guard let event = NSEvent.keyEvent(with: .keyDown, location: .zero, modifierFlags: [.numericPad, .function],
+                                           timestamp: ProcessInfo.processInfo.systemUptime, windowNumber: window.windowNumber, context: nil,
+                                           characters: character, charactersIgnoringModifiers: character, isARepeat: false,
+                                           keyCode: down ? 125 : 126) else { return }
+        window.sendEvent(event)
+    }
+
+    /// What is wrong when the page shown is not the one the sidebar chose.
+    private static func followed(_ window: NSWindow, _ model: AppModel) -> String? {
+        guard let root = window.contentView, let list = descendants(of: root).compactMap({ $0 as? NSOutlineView }).first else {
+            return "the sidebar has no list"
+        }
+        let row = list.selectedRow
+        guard AppSection.allCases.indices.contains(row) else { return "the sidebar chose no page (row \(row))" }
+        let chosen = AppSection.allCases[row]
+        return chosen == model.section ? nil : "the sidebar chose \(chosen.rawValue), the page shown is \(model.section.rawValue)"
+    }
+
+    /// How many times SwiftUI wrote in this process's log, since BEGAN, that
+    /// a change was published while it updated the views; nil when the log
+    /// cannot be read.
+    private static func publishedInUpdates(since began: Date) -> Int? {
+        guard let store = try? OSLogStore(scope: .currentProcessIdentifier),
+              let entries = try? store.getEntries(at: store.position(date: began),
+                                                  matching: NSPredicate(format: "subsystem == %@", "com.apple.runtime-issues")) else { return nil }
+        return entries.compactMap { $0 as? OSLogEntryLog }.filter { $0.composedMessage.contains("from within view updates") }.count
     }
 
     /// The window the app opens, once it is on the screen.
@@ -199,10 +271,14 @@ enum LayoutCheck {
         guard let root = window.contentView else { return ["the window has no content"] }
         var found: [String] = []
         let width = root.bounds.width
+        let height = root.bounds.height
         for scroll in descendants(of: root).compactMap({ $0 as? NSScrollView }) where !scroll.isHiddenOrHasHiddenAncestor && scroll.bounds.width > 0 {
             let frame = scroll.convert(scroll.bounds, to: root)
             if frame.minX < -1 || frame.maxX > width + 1 {
                 found.append("\(name(scroll)) spans \(Int(frame.minX))…\(Int(frame.maxX)), out of the window's 0…\(Int(width))")
+            }
+            if frame.minY < -1 || frame.maxY > height + 1 {
+                found.append("\(name(scroll)) spans \(Int(frame.minY))…\(Int(frame.maxY)) in height, out of the window's 0…\(Int(height))")
             }
         }
         if let sidebar = splitController(window)?.splitViewItems.first, sidebar.behavior == .sidebar, !sidebar.isCollapsed {

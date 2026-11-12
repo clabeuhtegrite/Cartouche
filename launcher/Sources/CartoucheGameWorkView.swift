@@ -5,7 +5,8 @@
 //  What Cartouche is doing with a game (CartoucheGameActions), over the
 //  console: installing the player's copy, from Files or from the player's
 //  games folder, starting a game, uninstalling one or copying it to the
-//  games folder, and how far it has gone.
+//  games folder, how far it has gone, and whether the player can leave
+//  Cartouche meanwhile.
 //
 
 import SwiftUI
@@ -26,6 +27,13 @@ struct CartoucheGameWork: Equatable {
     /// What happens now, as a key that stays the same in every language,
     /// for the measurements: "unpacking", "signing".
     var stage = ""
+    /// The name of the server the game comes from or goes to; nil for a
+    /// file on this iPhone.
+    var place: String? = nil
+    /// Whether iOS goes on with it once the player leaves Cartouche, and
+    /// shows how far it has gone on the Lock Screen and in the Dynamic
+    /// Island (CartoucheContinuedWork).
+    var outside = false
     /// When it started.
     var started = Date()
 
@@ -36,6 +44,16 @@ struct CartoucheGameWork: Equatable {
         case .starting: return CartoucheText.startTitle(name)
         case .uninstalling: return CartoucheText.uninstallTitle(name)
         case .exporting: return CartoucheText.exportTitle(name)
+        }
+    }
+
+    /// What the player may do meanwhile, for a step that takes minutes:
+    /// leave Cartouche, once iOS goes on with it outside, or else keep it
+    /// open.
+    var advice: String? {
+        switch kind {
+        case .installing, .exporting: return outside ? CartoucheText.workCanLeave : CartoucheText.workKeepOpen
+        case .starting, .uninstalling: return nil
         }
     }
 }
@@ -89,6 +107,14 @@ struct CartoucheGameWorkView: View {
                         .foregroundStyle(CartoucheTheme.secondaryText)
                         .multilineTextAlignment(.center)
                         .fixedSize(horizontal: false, vertical: true)
+                    if let advice = work.advice {
+                        Label(advice, systemImage: work.outside ? "lock.iphone" : "iphone")
+                            .font(.footnote)
+                            .foregroundStyle(work.outside ? Color.white : CartoucheTheme.secondaryText)
+                            .multilineTextAlignment(.center)
+                            .fixedSize(horizontal: false, vertical: true)
+                            .padding(.top, 4)
+                    }
                 }
                 if let fraction = work.fraction {
                     VStack(spacing: 6) {

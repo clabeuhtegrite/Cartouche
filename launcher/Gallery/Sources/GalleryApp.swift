@@ -132,8 +132,10 @@ struct GalleryScenario {
             showStats()
             if work == "installing" {
                 let name = sheet.flatMap { CartoucheCatalog.shared.game(titleId: $0)?.name } ?? "Game"
+                // As from iOS 26, which goes on with it outside Cartouche.
                 CartoucheGameActions.shared.work = CartoucheGameWork(kind: .installing, name: name,
-                                                                     step: CartoucheText.installUnpacking, fraction: 0.42)
+                                                                     step: CartoucheText.installUnpacking, fraction: 0.42,
+                                                                     outside: true)
             }
             if work == "install-failed" {
                 // An install the network dropped halfway, with its report.

@@ -286,6 +286,7 @@ enum Gallery {
         func model(for page: Page) -> AppModel {
             let building = page == .activity || page == .menubarBuilding || page == .gameQueue
             var library = self.library
+            library.issues = Gallery.issues
             if page == .gameNarrow, let index = library.games.firstIndex(where: { $0.titleID == "0100152000022000" }) {
                 LayoutCheck.lengthen(&library.games[index])
             }
@@ -377,6 +378,15 @@ enum Gallery {
     }
 
     static let head = "6c3aeb3d70a1c2b94f5e8d7a6b5c4d3e2f1a0b9c"
+
+    /// What the engine left aside in the sample sources folder, in the
+    /// language of the page, as the engine says it (texts.py).
+    static var issues: [String] {
+        [tr("Splatoon 3 (copy): the same game (0100C2500FC20000) as Splatoon 3; only Splatoon 3 is built.",
+            "Splatoon 3 (copie) : le même jeu (0100C2500FC20000) que Splatoon 3 ; seul Splatoon 3 est construit."),
+         tr("Downloads/Pikmin 4.nsp: not a game Cartouche Builder can read (the file is incomplete: copied or downloaded in part?).",
+            "Téléchargements/Pikmin 4.nsp : pas un jeu que Cartouche Builder sait lire (le fichier est incomplet : copié ou téléchargé en partie ?).")]
+    }
 
     static let libraryJSON = """
     {
