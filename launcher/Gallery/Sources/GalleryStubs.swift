@@ -17,6 +17,9 @@ enum GalleryState {
     static var setupDone = false
     /// iOS no longer accepts the certificate (work: certificate).
     static var certificateRefused = false
+    /// SideStore keeps the Apple ID of a sign-in that stopped before the
+    /// certificate (work: sign-in-unfinished).
+    static var signInUnfinished = false
 
     static let documents: URL = {
         let url = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
@@ -37,8 +40,15 @@ final class LCAppInfo {
     private let identifier: String
     private let folder: String
     private let icon: UIImage?
-    /// The app's Info.plist, when the scenario gives it one.
-    var infoPlist: NSMutableDictionary?
+    /// The app's Info.plist, when the scenario gives it one: in the app's
+    /// bundle, where LiveContainer leaves it and the launcher reads it.
+    var infoPlist: NSMutableDictionary? {
+        didSet {
+            guard let infoPlist else { return }
+            try? FileManager.default.createDirectory(at: bundle, withIntermediateDirectories: true)
+            try? infoPlist.write(to: bundle.appendingPathComponent("Info.plist"))
+        }
+    }
     var installationDate: Date?
 
     init(name: String, identifier: String, folder: String, icon: UIImage?) {
@@ -51,8 +61,14 @@ final class LCAppInfo {
     var relativeBundlePath: String? { folder }
     func displayName() -> String? { name }
     func bundleIdentifier() -> String? { identifier }
-    func info() -> NSMutableDictionary? { infoPlist }
-    func bundlePath() -> String? { nil }
+    /// LiveContainer's own settings for the app (LCAppInfo.plist), never its
+    /// Info.plist: the gallery's apps have none.
+    func info() -> NSMutableDictionary? { nil }
+    func bundlePath() -> String? { infoPlist == nil ? nil : bundle.path }
+    private var bundle: URL {
+        GalleryState.documents.appendingPathComponent("Applications", isDirectory: true)
+            .appendingPathComponent(folder, isDirectory: true)
+    }
     func iconIsDarkIcon(_ isDark: Bool) -> UIImage? { icon }
 }
 
@@ -71,7 +87,9 @@ final class LCAppModel: ObservableObject, Identifiable, Equatable {
 /// CartoucheGameActions.swift, which installs, starts, uninstalls and copies
 /// games with LiveContainer and opens their preferences, as the gallery
 /// stands it in: nothing happens, a scenario can show a step in progress,
-/// and every game has the settings of GallerySettings, kept in memory.
+/// every game has the settings of GallerySettings, kept in memory, and an
+/// install says, for the UI tests, which IPA it was given
+/// (GalleryTesting.swift).
 @MainActor
 final class CartoucheGameActions: ObservableObject {
     static let shared = CartoucheGameActions()
@@ -86,7 +104,7 @@ final class CartoucheGameActions: ObservableObject {
     @Published var installQuestion: CartoucheInstallQuestion?
 
     nonisolated static func takes(_ url: URL) -> Bool { false }
-    func install(_ url: URL) {}
+    func install(_ url: URL) { GalleryTest.install(url, with: self) }
     func install(stored game: CartoucheStoredGame) {}
     func installAnyway(_ question: CartoucheInstallQuestion) { installQuestion = nil }
     func dropInstall(_ question: CartoucheInstallQuestion) { installQuestion = nil }
@@ -111,8 +129,9 @@ final class CartoucheGameActions: ObservableObject {
     func uninstall(_ app: LCAppModel, erasingData: Bool) {}
     func export(_ app: LCAppModel, titleId: String?, then next: (() -> Void)? = nil) {}
     /// A game's saves live in its LiveContainer data folder, which the
-    /// gallery has none of.
-    func saves(of app: LCAppModel) -> CartoucheSaveTarget? { nil }
+    /// gallery has none of, but for the game whose saves a scenario syncs
+    /// (work: saves, GallerySaves).
+    func saves(of app: LCAppModel) -> CartoucheSaveTarget? { GallerySaves.target(of: app) }
     func copySaves(of apps: [LCAppModel]) {}
     /// Nor any folder to measure: the scenario gives each game its size and
     /// play time (CartoucheGameStats.showForGallery).

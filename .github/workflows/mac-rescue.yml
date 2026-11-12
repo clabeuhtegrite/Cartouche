@@ -1,0 +1,37 @@
+name: Mac rescue
+
+# Runs again, on GitHub's Macs, a run of App or Launcher screens whose job
+# Ad's Mac lost or did not take in time (.github/mac/README.md). The job
+# that watched it (watch.py) starts this workflow, from main, with the run's
+# ID, then cancels the run; this waits for the run to end and runs it again,
+# and a run again goes to GitHub's Macs (route.py). It runs nothing again
+# that a newer run of the same branch replaced (rescue.py).
+
+on:
+  workflow_dispatch:
+    inputs:
+      run:
+        description: The ID of the run to run again on GitHub's Macs
+        required: true
+        type: string
+
+permissions: {}
+
+jobs:
+  rerun:
+    name: Run it again on GitHub's Macs
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      actions: write # runs the run again
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          sparse-checkout: .github/mac
+          persist-credentials: false
+      - name: Wait for the run to end, then run it again
+        env:
+          RUN: ${{ inputs.run }}
+          GH_TOKEN: ${{ github.token }}
+        run: python3 .github/mac/rescue.py

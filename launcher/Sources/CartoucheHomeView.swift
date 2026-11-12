@@ -13,6 +13,7 @@
 //  does the main action of the game in focus, X opens its sheet, Y every
 //  game and Menu the system page. While a controller is connected, the
 //  buttons on screen show the controller's button that does the same.
+//  VoiceOver says which cover, or which item of the dock, is in focus.
 //
 //  The layout follows the space the screen gives it, never the iPhone
 //  model: one column when the screen is taller than wide (an iPhone, the
@@ -352,8 +353,12 @@ struct CartoucheHomeView: View {
                 ScrollView(.horizontal) {
                     LazyHStack(alignment: .top, spacing: max(10, width * 0.12)) {
                         ForEach(Array(items.enumerated()), id: \.element) { column, item in
-                            tile(item, width: width, isFocused: row == index && columns[index] == column)
+                            let isFocused = row == index && columns[index] == column
+                            tile(item, width: width, isFocused: isFocused)
                                 .id(item)
+                                // VoiceOver says which cover is in focus: the
+                                // one A, Play and Details act on.
+                                .accessibilityAddTraits(isFocused ? .isSelected : [])
                                 .onTapGesture { tapped(item, row: index, column: column) }
                         }
                     }
@@ -602,14 +607,16 @@ struct CartoucheHomeView: View {
     private func dock(compact: Bool, labels: Bool) -> some View {
         HStack(spacing: compact ? 2 : 4) {
             ForEach(Array(Dock.allCases.enumerated()), id: \.element) { column, item in
+                let isFocused = row == Self.dockRow && columns[Self.dockRow] == column
                 Button {
                     activate(.dock(item))
                 } label: {
-                    dockLabel(item, compact: compact, labels: labels,
-                              isFocused: row == Self.dockRow && columns[Self.dockRow] == column)
+                    dockLabel(item, compact: compact, labels: labels, isFocused: isFocused)
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel(Text(Self.title(item)))
+                // As on the shelf: the one in focus, which A opens.
+                .accessibilityAddTraits(isFocused ? .isSelected : [])
             }
         }
         .padding(compact ? 3 : 5)
@@ -946,7 +953,8 @@ struct CartoucheHomeSetupBanner: View {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(setup.bannerTitle)
                         .font(.headline)
-                    Text(setup.bannerDetail(signingInAgain: account.isAutomatic))
+                    Text(setup.bannerDetail(signingInAgain: account.isAutomatic,
+                                            registeringDevice: account.phase == .registeringDevice))
                         .font(.subheadline)
                         .opacity(0.85)
                 }

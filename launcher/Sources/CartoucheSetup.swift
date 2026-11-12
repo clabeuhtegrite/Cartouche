@@ -23,7 +23,16 @@
 //    lists by name, and Cartouche is not one (app/README.md says why).
 //  - The Apple ID, which the player gives on Cartouche's own screen
 //    (CartoucheAccount): the built-in SideStore signs in with it, without
-//    showing itself, then renews Cartouche with it every week.
+//    showing itself, registers this iPhone with the account, then renews
+//    Cartouche with it every week. A sign-in that Apple accepted can still
+//    stop at the step that registers the iPhone: that step is left alone,
+//    which Cartouche takes by itself once LocalDevVPN connects. It can also
+//    stop before SideStore takes the certificate, at the team's step or the
+//    certificate's, and SideStore keeps the Apple ID all the same: an Apple
+//    ID without a certificate is a sign-in that stopped before it
+//    (CartoucheSignInStep). The setup says so, and why, and SideStore signs
+//    in again by itself, once, after Cartouche is installed again
+//    (CartoucheAccount.resumeSignIn).
 //  - LocalDevVPN, from the App Store, through which SideStore reaches the
 //    iPhone's own services when it signs in and renews Cartouche.
 //
@@ -251,6 +260,10 @@ final class CartoucheSetup: ObservableObject {
     @Published private(set) var certificateWorks: Bool?
     @Published private(set) var hasPairingFile = false
     @Published private(set) var appleID: String?
+    /// Whether a sign-in that Apple accepted stopped at the step that
+    /// registers this iPhone with the account, which is left alone
+    /// (CartoucheAccount.registerDevice). Kept across launches.
+    @Published private(set) var deviceStepLeft = UserDefaults.standard.bool(forKey: CartoucheSetup.deviceStepKey)
     /// Why the last pairing file given to Cartouche was refused, and the
     /// report on it.
     @Published private(set) var pairingReport: CartoucheReport?
@@ -267,9 +280,21 @@ final class CartoucheSetup: ObservableObject {
     /// pairing file and is signed in, and the certificate is known to work:
     /// an update signed with a revoked one would not open.
     var isComplete: Bool { hasCertificate && certificateWorks == true && hasPairingFile && appleID != nil }
+    /// Signed in, with this iPhone left to register.
+    var needsDevice: Bool { deviceStepLeft && appleID != nil }
     /// Whether the setup has something left for the player: a certificate
     /// still being checked does not show it.
-    var needsSetup: Bool { !(canPlay && hasPairingFile && appleID != nil) }
+    var needsSetup: Bool { !(canPlay && hasPairingFile && appleID != nil) || needsDevice }
+    /// What the measurements say of the installation (CartoucheSetupFacts.swift).
+    var facts: CartoucheSetupFacts {
+        CartoucheSetupFacts(hasCertificate: hasCertificate, certificateWorks: certificateWorks,
+                            hasPairingFile: hasPairingFile, signedIn: appleID != nil)
+    }
+    /// Where the sign-in stands: SideStore keeps the Apple ID of a sign-in
+    /// that stopped before the certificate.
+    var signInStep: CartoucheSignInStep { facts.signInStep }
+
+    private static let deviceStepKey = "CartoucheDeviceStepLeft"
 
     /// What Cartouche found of each certificate, for this launch.
     private var checked: [Data: Bool] = [:]
@@ -291,11 +316,28 @@ final class CartoucheSetup: ObservableObject {
         hasPairingFile = CartouchePairing.exists
         #if CARTOUCHE_GALLERY
         // The gallery has no SideStore keychain.
-        appleID = GalleryState.setupDone ? "player@icloud.com" : nil
+        appleID = GalleryState.setupDone || GalleryState.signInUnfinished ? "player@icloud.com" : nil
         #else
         appleID = CartoucheStoreKeychain.string("appleIDEmailAddress")
         #endif
     }
+
+    /// Notes whether the step that registers this iPhone is left.
+    func noteDeviceStep(left: Bool) {
+        if deviceStepLeft != left { deviceStepLeft = left }
+        if left {
+            UserDefaults.standard.set(true, forKey: Self.deviceStepKey)
+        } else {
+            UserDefaults.standard.removeObject(forKey: Self.deviceStepKey)
+        }
+    }
+
+    #if CARTOUCHE_GALLERY
+    /// That step left, for the gallery's screens, without keeping it.
+    func showDeviceStepForGallery() {
+        deviceStepLeft = true
+    }
+    #endif
 
     /// The player can drop the pairing file on Cartouche while it is open.
     func refreshPairingFile() {
@@ -361,16 +403,22 @@ final class CartoucheSetup: ObservableObject {
         if certificateWorks != works { certificateWorks = works }
         // SideStore signs in again with the Apple ID it keeps, and takes the
         // certificate that signs Cartouche: the player only steps in should
-        // Apple ask for a code, or the sign-in fail.
+        // Apple ask for a code, or the sign-in fail. Once per certificate;
+        // until LocalDevVPN is connected, each time Cartouche comes back.
         if !works, !replacing.contains(certificate) {
-            replacing.insert(certificate)
-            if #available(iOS 17.0, *) { CartoucheAccount.shared.signInAgain() }
+            if #available(iOS 17.0, *), CartoucheAccount.shared.signInAgain() {
+                replacing.insert(certificate)
+            }
         }
     }
 }
 
 /// Reads the setup again whenever Cartouche comes back to the front, and
-/// looks for the pairing file every two seconds until it is there.
+/// looks for the pairing file every two seconds until it is there. While
+/// this iPhone is left to register, looks every two seconds whether
+/// LocalDevVPN has connected: Cartouche then takes that step by itself. A
+/// sign-in that stopped before the certificate, in an earlier installation,
+/// starts again when Cartouche comes to the front.
 @available(iOS 17.0, *)
 @MainActor
 struct CartoucheSetupRefresh: ViewModifier {
@@ -378,15 +426,27 @@ struct CartoucheSetupRefresh: ViewModifier {
 
     func body(content: Content) -> some View {
         content
-            .onAppear { setup.refresh() }
+            .onAppear {
+                setup.refresh()
+                CartoucheAccount.shared.resumeDeviceStep()
+                CartoucheAccount.shared.resumeSignIn()
+            }
             .onReceive(NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification)) { _ in
                 setup.refresh()
+                CartoucheAccount.shared.resumeDeviceStep()
+                CartoucheAccount.shared.resumeSignIn()
             }
             // The pairing step ticks itself once the player has dropped the file.
             .task(id: setup.hasPairingFile) {
                 while !setup.hasPairingFile && !Task.isCancelled {
                     try? await Task.sleep(for: .seconds(2))
                     setup.refreshPairingFile()
+                }
+            }
+            .task(id: setup.needsDevice) {
+                while setup.needsDevice && !Task.isCancelled {
+                    try? await Task.sleep(for: .seconds(2))
+                    CartoucheAccount.shared.resumeDeviceStep()
                 }
             }
     }

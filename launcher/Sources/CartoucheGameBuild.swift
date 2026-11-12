@@ -44,6 +44,30 @@ struct CartoucheGameBuild: Codable, Hashable {
                   chain: info["DMChain"] as? String, builtAt: builtAt)
     }
 
+    /// The build of the app installed at BUNDLE, as the Info.plist in it
+    /// says, without when it was built; nil when it has none to read.
+    static func installed(atBundle bundle: URL) -> CartoucheGameBuild? {
+        guard let data = try? Data(contentsOf: bundle.appendingPathComponent("Info.plist")),
+              let info = try? PropertyListSerialization.propertyList(from: data, format: nil) as? [String: Any]
+        else { return nil }
+        return CartoucheGameBuild(info: info, builtAt: nil)
+    }
+
+    /// The record Cartouche wrote of a game's install, RECORDED, when it is
+    /// of the build INSTALLED, with when that build was made; nil for a
+    /// record of another build. Cartouche 0.9.0 to 0.11.2 recorded no
+    /// version, commit nor chain, as it read them from LiveContainer's
+    /// settings for the game: such a record, of the build installed then,
+    /// takes them from the game's Info.plist and keeps when it was built.
+    static func record(_ recorded: CartoucheGameBuild, of installed: CartoucheGameBuild) -> CartoucheGameBuild? {
+        if recorded.version == nil, recorded.commit == nil, recorded.chain == nil {
+            return CartoucheGameBuild(version: installed.version, commit: installed.commit, chain: installed.chain,
+                                      builtAt: recorded.builtAt)
+        }
+        guard recorded.version == installed.version, recorded.commit == installed.commit else { return nil }
+        return recorded
+    }
+
     /// Whether nxnative says it was built from changed files, so that its
     /// commit does not tell what it holds.
     var isDirty: Bool { commit?.hasSuffix("+dirty") ?? false }

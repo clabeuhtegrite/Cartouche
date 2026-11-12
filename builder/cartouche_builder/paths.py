@@ -49,6 +49,11 @@ class Paths:
         return self.root / "nxnative"
 
     @property
+    def engine_state(self) -> Path:
+        """The nxnative commits whose app build failed where an older one built (fallback.py)."""
+        return self.root / "nxnative.json"
+
+    @property
     def python(self) -> Path:
         """The virtual environment nxnative's scripts run in."""
         return self.root / "python"
