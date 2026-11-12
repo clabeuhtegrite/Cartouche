@@ -475,6 +475,22 @@
       ]
     },
     {
+      "name": "iphone-setup-iphone-step",
+      "screen": "setup",
+      "work": "iphone-step",
+      "owned": [],
+      "setup": true,
+      "controller": false,
+      "width": 402,
+      "height": 874,
+      "insets": [
+        62,
+        0,
+        34,
+        0
+      ]
+    },
+    {
       "name": "iphone-sign-in",
       "screen": "signin",
       "owned": [],
@@ -495,6 +511,38 @@
       "work": "too-many",
       "owned": [],
       "setup": false,
+      "controller": false,
+      "width": 402,
+      "height": 874,
+      "insets": [
+        62,
+        0,
+        34,
+        0
+      ]
+    },
+    {
+      "name": "iphone-sign-in-vpn-wait",
+      "screen": "signin",
+      "work": "vpn-wait",
+      "owned": [],
+      "setup": true,
+      "controller": false,
+      "width": 402,
+      "height": 874,
+      "insets": [
+        62,
+        0,
+        34,
+        0
+      ]
+    },
+    {
+      "name": "iphone-sign-in-iphone-step",
+      "screen": "signin",
+      "work": "iphone-step",
+      "owned": [],
+      "setup": true,
       "controller": false,
       "width": 402,
       "height": 874,
