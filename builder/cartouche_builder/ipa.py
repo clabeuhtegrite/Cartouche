@@ -270,7 +270,9 @@ def deliver(source: Path, folder: Path, name: str, stop=None, progress=None) -> 
 
     It is written as a hidden file first and renamed over the old one only
     once whole, so Cartouche never lists half an IPA and the old one stays
-    playable until then. On the same Mac volume the copy is an APFS clone.
+    playable until then. On the same Mac volume the copy is an APFS clone,
+    whole at once: PROGRESS hears of it in one step, and a STOP before the
+    rename keeps the old one, as it does during a copy.
     """
     target = folder / name
     partial = folder / f".{name}{PARTIAL_SUFFIX}"
@@ -278,10 +280,15 @@ def deliver(source: Path, folder: Path, name: str, stop=None, progress=None) -> 
         partial.unlink()
     size = source.stat().st_size
     try:
-        if not _clone(source, partial):
+        _check(stop)
+        if _clone(source, partial):
+            if progress and size:
+                progress(size, size)
+        else:
             _copy(source, partial, size, stop, progress)
         if partial.stat().st_size != size:
             raise OSError(f"{partial}: {partial.stat().st_size} bytes written of {size}")
+        _check(stop)
         os.replace(partial, target)
     except BaseException:
         try:
@@ -290,6 +297,11 @@ def deliver(source: Path, folder: Path, name: str, stop=None, progress=None) -> 
             pass
         raise
     return target
+
+
+def _check(stop) -> None:
+    if stop is not None and stop.is_set():
+        raise InterruptedError("stopped")
 
 
 def _clone(source: Path, target: Path) -> bool:
@@ -314,8 +326,7 @@ def _copy(source: Path, target: Path, size: int, stop, progress) -> None:
     done = 0
     with open(source, "rb") as reader, open(target, "xb") as writer:
         while block := reader.read(8 << 20):
-            if stop is not None and stop.is_set():
-                raise InterruptedError("stopped")
+            _check(stop)
             writer.write(block)
             done += len(block)
             if progress:
