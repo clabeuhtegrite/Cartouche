@@ -11,6 +11,10 @@
 //  update of the game, is a newer build of it, which the console offers to
 //  install over the one on the iPhone.
 //
+//  The same Info.plist says whether an IPA of the games folder is one of
+//  nxnative's games at all (CartoucheNxnativeApp), whatever its bundle ID
+//  and its name.
+//
 //  Platform-independent: tested on its own by launcher/Package.swift.
 //
 
@@ -123,5 +127,35 @@ struct CartoucheGameBuild: Codable, Hashable {
     private static func text(_ value: String?) -> String? {
         guard let value = value?.trimmingCharacters(in: .whitespacesAndNewlines), !value.isEmpty else { return nil }
         return value
+    }
+}
+
+/// What nxnative writes in the Info.plist of the apps it builds: it tells
+/// one of its games from another app, built with any bundle ID, under a
+/// name the catalog does not know.
+enum CartoucheNxnativeApp {
+    /// The keys nxnative writes, any one of which makes the app its own.
+    static let infoKeys = ["DMLanguage", "DMTitleID", "DMCommit"]
+
+    /// Whether INFO, an app's Info.plist, is one nxnative wrote.
+    static func isNxnative(_ info: [String: Any]) -> Bool {
+        infoKeys.contains { info[$0] != nil }
+    }
+
+    /// The game's title ID as DMTitleID gives it, as Cartouche Builder reads
+    /// it: for an app built with another bundle ID than
+    /// org.nxnative.<title ID>.
+    static func titleId(in info: [String: Any]) -> String? {
+        guard let value = info["DMTitleID"] as? String else { return nil }
+        let text = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard text.count == 16, text.allSatisfy(\.isHexDigit) else { return nil }
+        return text.uppercased()
+    }
+
+    /// Whether an IPA of INFO is a game: one whose title ID Cartouche found
+    /// (TITLEID), one nxnative built, or one built without its game files,
+    /// whose romfs.id names their image (NEEDSGAMEFILES).
+    static func isGame(info: [String: Any], titleId: String?, needsGameFiles: Bool) -> Bool {
+        titleId != nil || isNxnative(info) || needsGameFiles
     }
 }
