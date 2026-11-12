@@ -186,17 +186,25 @@ fn entitlements_for(
         .get("application-identifier")
         .and_then(Value::as_string)
         .ok_or_else(|| invalid("The profile has no application identifier."))?;
-    let prefix = pattern
+    let (prefix, suffix) = pattern
         .split_once('.')
-        .map(|(prefix, _)| prefix)
-        .filter(|prefix| !prefix.is_empty())
+        .filter(|(prefix, suffix)| !prefix.is_empty() && !suffix.is_empty())
         .ok_or_else(|| invalid("Invalid profile application identifier."))?;
-    let app_id = format!("{prefix}.{bundle}");
-    if !identifier_matches(pattern, &app_id) {
-        return Err(invalid(format!(
-            "This profile cannot sign {bundle}. Use a profile for Cartouche or a wildcard profile."
-        )));
-    }
+    let app_id = if suffix.contains('*') {
+        let expanded = format!("{prefix}.{bundle}");
+        if !identifier_matches(pattern, &expanded) {
+            return Err(invalid(
+                "The profile's wildcard application identifier cannot be expanded for Cartouche.",
+            ));
+        }
+        expanded
+    } else {
+        // A fixed profile identifier is a signing entitlement, not a request
+        // to rename the app. Preserve it exactly, as generic local signers
+        // do; iOS decides whether to accept the resulting installation.
+        // This also avoids replacing another app that uses the fixed ID.
+        pattern.to_string()
+    };
     if allowed
         .get("com.apple.developer.team-identifier")
         .and_then(Value::as_string)
@@ -540,6 +548,12 @@ mod tests {
         assert!(!entitlements.contains_key("com.apple.security.application-groups"));
         assert!(!entitlements.contains_key("com.apple.developer.kernel.increased-memory-limit"));
         allowed.insert("application-identifier".into(), "PREFIX.other".into());
+        let fixed = entitlements_for(&allowed, "TEAM", "io.github.cartouche").unwrap();
+        assert_eq!(
+            fixed["application-identifier"].as_string(),
+            Some("PREFIX.other")
+        );
+        allowed.insert("application-identifier".into(), "PREFIX.a*b".into());
         assert!(entitlements_for(&allowed, "TEAM", "io.github.cartouche").is_err());
     }
 
@@ -674,7 +688,10 @@ mod tests {
             vec![Value::String("TEAM".into())].into(),
         );
         let mut entitlements = Dictionary::new();
-        entitlements.insert("application-identifier".into(), "TEAM.*".into());
+        entitlements.insert(
+            "application-identifier".into(),
+            "TEAM.fixed-profile-app".into(),
+        );
         entitlements.insert(
             "keychain-access-groups".into(),
             vec![Value::String("TEAM.*".into())].into(),
@@ -747,6 +764,10 @@ mod tests {
             std::fs::read(&signing.profile_path).unwrap()
         );
         let info = Value::from_file(signed.app_path.join("Info.plist")).unwrap();
+        assert_eq!(
+            info.as_dictionary().unwrap()["CFBundleIdentifier"].as_string(),
+            Some(BUNDLE_ID)
+        );
         assert_eq!(
             info.as_dictionary().unwrap()["CartoucheImportedSigning"].as_boolean(),
             Some(true)
