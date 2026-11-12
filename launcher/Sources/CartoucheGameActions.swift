@@ -11,6 +11,9 @@
 //  - an IPA comes from the Files picker, read in place, or from the player's
 //    games folder (CartoucheStoredGames), unpacked as it arrives, so that
 //    the iPhone never holds the IPA and the game at once;
+//  - on an iPhone whose GPU nxnative refuses, the A16's and older, the
+//    console asks first whether to install the game anyway: it would stop
+//    there before its first image;
 //  - the IPA of a game already installed replaces it in place, with its
 //    settings and saves, as LiveContainer's Replace does;
 //  - an IPA nxnative built without its game files comes with their image,
@@ -35,7 +38,9 @@
 //    the Home button brings the player back to Cartouche without ending it
 //    (CartoucheGameHost); one game at a time, and Quit ends it. A game that
 //    needs more memory than it gets there starts in Cartouche's place, as
-//    LiveContainer's Run does (CartoucheGameKeeping).
+//    LiveContainer's Run does (CartoucheGameKeeping), and so does a game
+//    that iOS stopped there within seconds, its process without Increased
+//    Memory Limit, at once.
 //
 //  Each step goes into Cartouche's journal, and a step that fails tells the
 //  player why with a report they can copy (CartoucheReporting.swift).
@@ -122,6 +127,11 @@ final class CartoucheGameActions: ObservableObject {
     @Published var switching: CartoucheGameSwitch?
     /// The running game the player asked to quit: the console asks first.
     @Published var quitQuestion: CartoucheRunningGame?
+    /// The installs the console asks about first, on an iPhone whose GPU
+    /// nxnative refuses (CartoucheInstallQuestions).
+    @Published private var installQuestions = CartoucheInstallQuestions<CartoucheInstallQuestion>()
+    /// The one on screen: whether to install the game anyway.
+    var installQuestion: CartoucheInstallQuestion? { installQuestions.asked }
 
     /// What a report on the step under way says of it, such as its sizes.
     private var facts: [CartoucheReport.Fact] = []
@@ -152,11 +162,53 @@ final class CartoucheGameActions: ObservableObject {
 
     // MARK: Install
 
+    /// Whether the install of QUESTION's file or game starts now: nxnative
+    /// refuses a GPU that cannot read BC-compressed textures, the A16's and
+    /// older, for every game, which stops before its first image
+    /// (dm/ios/Sources/main.m), so on such a GPU the console asks first,
+    /// unless the player ANSWERED Install anyway. A question it takes the
+    /// place of goes unanswered, as Cancel leaves it
+    /// (CartoucheInstallQuestions).
+    private func startsNow(_ question: CartoucheInstallQuestion, answered: Bool) -> Bool {
+        let (starts, dropped) = installQuestions.install(
+            question, readsBCTextures: CartoucheDevice.supportsBCTextureCompression, answered: answered)
+        if let dropped { dropInstall(dropped) }
+        if !starts {
+            CartoucheReports.note(question.name + ": asked before its install, this iPhone's GPU cannot read BC-compressed textures")
+        }
+        return starts
+    }
+
+    /// The player's answer: the game installs all the same.
+    func installAnyway(_ question: CartoucheInstallQuestion) {
+        installQuestions.close(question)
+        CartoucheReports.note(question.name + ": installs all the same")
+        switch question.source {
+        case .file(let url): install(url, asked: true)
+        case .stored(let game): install(stored: game, asked: true)
+        }
+    }
+
+    /// The player's answer: no install. The copy of a file another app
+    /// opened Cartouche with goes, as after an install.
+    func dropInstall(_ question: CartoucheInstallQuestion) {
+        installQuestions.close(question)
+        CartoucheReports.note(question.name + ": not installed")
+        if case .file(let url) = question.source { Self.removeIfInbox(url) }
+    }
+
+    /// The question's alert closed: the question leaves the screen, which
+    /// its buttons answer.
+    func closeInstallQuestion() {
+        if let asked = installQuestions.asked { installQuestions.close(asked) }
+    }
+
     /// Installs the IPA the player picked or opened Cartouche with, read in
     /// place: a game's IPA is too large to copy first, so the access the
-    /// picker granted stays open until the end.
-    func install(_ url: URL) {
-        guard work == nil else { return }
+    /// picker granted stays open until the end. ASKED: the player said to
+    /// install it on an iPhone whose GPU nxnative refuses.
+    func install(_ url: URL, asked: Bool = false) {
+        guard work == nil, startsNow(CartoucheInstallQuestion(source: .file(url)), answered: asked) else { return }
         facts = [.init("IPA", url.lastPathComponent), .init("From", "a file on this iPhone")]
         let model = DataManager.shared.model
         guard model.multiLCStatus != 2 else {
@@ -257,9 +309,10 @@ final class CartoucheGameActions: ObservableObject {
     /// each file is unpacked as it arrives, so that the iPhone needs room for
     /// the game only, not for its IPA too. A connection that drops on the
     /// way, or stops answering, is made again, and the install reads on
-    /// from where it stopped (CartoucheResumingSource).
-    func install(stored game: CartoucheStoredGame) {
-        guard work == nil, let location = CartoucheStorageSettings.shared.location(.games) else { return }
+    /// from where it stopped (CartoucheResumingSource). ASKED, as above.
+    func install(stored game: CartoucheStoredGame, asked: Bool = false) {
+        guard work == nil, let location = CartoucheStorageSettings.shared.location(.games),
+              startsNow(CartoucheInstallQuestion(source: .stored(game)), answered: asked) else { return }
         facts = [.init("IPA", game.fileName), .init("IPA size", CartoucheReport.bytes(Int64(clamping: game.size))),
                  .init("From", CartoucheReports.place(.games))] + Self.buildFacts(game.build)
         let model = DataManager.shared.model
@@ -1032,10 +1085,16 @@ final class CartoucheGameActions: ObservableObject {
     /// limit measured there: unless it needs more, and Cartouche's place
     /// has more.
     private func fitsBehindConsole(_ app: LCAppModel, limitMiB: Int?) -> Bool {
-        let sheet = CartoucheCatalog.shared.entries(for: [app]).owned.first?.sheet
-        return CartoucheGameKeeping.shared.fitsBehind(needsIML: sheet?.requirements.increasedMemoryLimit ?? false,
-                                                      peakMiB: sheet?.peakMemoryMiB, limitMiB: limitMiB,
+        let needs = sheetNeeds(of: app)
+        return CartoucheGameKeeping.shared.fitsBehind(needsIML: needs.iml, peakMiB: needs.peakMiB, limitMiB: limitMiB,
                                                       ownLimitMiB: CartoucheMemoryReading.now()?.limitMiB)
+    }
+
+    /// What the game's sheet says it needs: Increased Memory Limit, and its
+    /// peak; nothing for a game without a sheet.
+    private func sheetNeeds(of app: LCAppModel) -> (iml: Bool, peakMiB: Int?) {
+        let sheet = CartoucheCatalog.shared.entries(for: [app]).owned.first?.sheet
+        return (sheet?.requirements.increasedMemoryLimit ?? false, sheet?.peakMemoryMiB)
     }
 
     // MARK: The game behind the console
@@ -1077,16 +1136,26 @@ final class CartoucheGameActions: ObservableObject {
     }
 
     /// The first reading of the running game's memory: the limit iOS set
-    /// behind the console. A game that needs more starts again in
-    /// Cartouche's place at once, before the player is into it, when that
-    /// place has more.
+    /// behind the console, and whether the game's process has Increased
+    /// Memory Limit. A game that needs more starts again in Cartouche's
+    /// place at once, before the player is into it, when that place has
+    /// more: from then on, for its own needs; for the capability missing
+    /// there, with every game whose peak does not fit there
+    /// (CartoucheGamePlace.afterMeasure).
     func gameMeasured(_ app: LCAppModel, reading: CartoucheGameMemoryReading) {
-        CartoucheGameKeeping.shared.measured(limitMiB: reading.limitMiB)
-        guard running?.app === app, pendingStart == nil, let bundleId = app.appInfo.bundleIdentifier(),
-              !fitsBehindConsole(app, limitMiB: reading.limitMiB) else { return }
-        NSLog("[Cartouche] %@ needs more memory than the %lld MiB it has behind the console: it starts in Cartouche's place",
-              app.displayName, reading.limitMiB)
-        CartoucheGameKeeping.shared.startInPlace(bundleId: bundleId)
+        let keeping = CartoucheGameKeeping.shared
+        keeping.measured(reading)
+        guard running?.app === app, pendingStart == nil, let bundleId = app.appInfo.bundleIdentifier() else { return }
+        let needs = sheetNeeds(of: app)
+        let after = CartoucheGamePlace.afterMeasure(limitMiB: reading.limitMiB, needsIML: needs.iml, peakMiB: needs.peakMiB,
+                                                    behindLacksIML: keeping.behindLacksIML,
+                                                    ownMiB: CartoucheMemoryReading.now()?.limitMiB)
+        guard case .startsAgainInPlace(let fromNowOn) = after else { return }
+        NSLog("[Cartouche] %@ needs more memory than the %lld MiB it has behind the console%@: it starts in Cartouche's place",
+              app.displayName, reading.limitMiB, keeping.behindLacksIML ? ", without Increased Memory Limit" : "")
+        if fromNowOn {
+            keeping.startInPlace(bundleId: bundleId)
+        }
         pendingStart = (app, runningShowsSettings)
         quitRunningGame()
     }
@@ -1095,27 +1164,47 @@ final class CartoucheGameActions: ObservableObject {
     /// and then the console says so. A game iOS stopped close to its memory
     /// limit starts in Cartouche's place from then on, when that place has
     /// more; otherwise it stays behind the console, where it has as much.
+    /// One that iOS stopped before its first measurement, on screen, its
+    /// process without Increased Memory Limit, starts again in Cartouche's
+    /// place at once, as gameMeasured would have started it: Donkey Kong
+    /// Bananza lasted two seconds there (CartoucheGamePlace.afterStop).
     func gameDidEnd(_ app: LCAppModel, quit: Bool, wasInFront: Bool, reading: CartoucheGameMemoryReading?) {
         guard let ended = running, ended.app === app else { return }
         running = nil
         quitQuestion = nil
         switching = nil
+        let keeping = CartoucheGameKeeping.shared
+        // The last reading of a game that ended early is its only one.
+        if let reading { keeping.measured(reading) }
         NotificationCenter.default.post(name: .cartoucheGameDidEnd, object: app,
                                         userInfo: ["quit": quit, "dataFolder": ended.dataFolder])
         if !quit {
             let title = CartoucheText.gameStoppedTitle(app.displayName)
-            if wasInFront, let reading, reading.wasNearLimit,
-               !CartoucheGamePlace.cartoucheHasMore(than: reading.limitMiB, ownMiB: CartoucheMemoryReading.now()?.limitMiB) {
-                // It stays behind the console, where it has as much.
-                notice = CartoucheGameNotice(title: title, message: CartoucheText.gameStoppedMemoryBehind(
-                    CartoucheText.memoryAmount(mebibytes: reading.limitMiB)))
-            } else if wasInFront, let reading, reading.wasNearLimit, let bundleId = app.appInfo.bundleIdentifier() {
-                CartoucheGameKeeping.shared.startInPlace(bundleId: bundleId)
-                notice = CartoucheGameNotice(title: title, message: CartoucheText.gameStoppedMemory(
-                    CartoucheText.memoryAmount(mebibytes: reading.limitMiB)))
-            } else {
-                notice = CartoucheGameNotice(title: title,
-                                             message: wasInFront ? CartoucheText.gameStopped : CartoucheText.gameStoppedPaused)
+            let needs = sheetNeeds(of: app)
+            let after = CartoucheGamePlace.afterStop(limitMiB: reading?.limitMiB, nearLimit: reading?.wasNearLimit ?? false,
+                                                     wasInFront: wasInFront, startPending: pendingStart != nil,
+                                                     needsIML: needs.iml, peakMiB: needs.peakMiB,
+                                                     behindLacksIML: keeping.behindLacksIML,
+                                                     ownMiB: CartoucheMemoryReading.now()?.limitMiB)
+            let limit = CartoucheText.memoryAmount(mebibytes: reading?.limitMiB ?? 0)
+            let stopped = CartoucheGameNotice(title: title,
+                                              message: wasInFront ? CartoucheText.gameStopped : CartoucheText.gameStoppedPaused)
+            switch after {
+            case .startsAgainInPlace:
+                NSLog("[Cartouche] %@ ended behind the console, with %lld MiB and without Increased Memory Limit: it starts again in Cartouche's place",
+                      app.displayName, reading?.limitMiB ?? 0)
+                pendingStart = (app, runningShowsSettings)
+            case .staysBehind:
+                notice = CartoucheGameNotice(title: title, message: CartoucheText.gameStoppedMemoryBehind(limit))
+            case .startsInPlaceFromNowOn:
+                if let bundleId = app.appInfo.bundleIdentifier() {
+                    keeping.startInPlace(bundleId: bundleId)
+                    notice = CartoucheGameNotice(title: title, message: CartoucheText.gameStoppedMemory(limit))
+                } else {
+                    notice = stopped
+                }
+            case .stopped:
+                notice = stopped
             }
         }
         copySaves(of: [app])

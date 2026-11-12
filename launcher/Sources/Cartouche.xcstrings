@@ -2251,13 +2251,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Needs a GPU that reads BC-compressed textures."
+            "value" : "nxnative’s games need an iPhone 15 Pro or later, or an iPad with an M1 chip or later: this iPhone’s GPU cannot read their compressed textures, and a game stops there before its first image."
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Nécessite un GPU qui lit les textures compressées en BC."
+            "value" : "Les jeux nxnative demandent un iPhone 15 Pro ou plus récent, ou un iPad avec une puce M1 ou plus récente : le GPU de cet iPhone ne lit pas leurs textures compressées, et un jeu s’y arrête avant sa première image."
           }
         }
       }
@@ -5199,6 +5199,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Derrière Cartouche, ce jeu manquerait de mémoire : il démarre à la place de Cartouche, et la console se ferme pendant qu’il tourne."
+          }
+        }
+      }
+    },
+    "sheet.inPlace.iml" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Behind Cartouche, games have only %@ here, without Increased Memory Limit: this game starts in Cartouche’s place, and the console closes while it runs."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Derrière Cartouche, les jeux n’ont ici que %@, sans la mémoire augmentée : ce jeu démarre à la place de Cartouche, et la console se ferme pendant qu’il tourne."
           }
         }
       }
@@ -9079,6 +9096,23 @@
         }
       }
     },
+    "system.playing.noIML" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Behind Cartouche, games run without Increased Memory Limit here: they start in Cartouche’s place, with all of its memory, unless their sheet shows they need less."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Derrière Cartouche, les jeux tournent ici sans la mémoire augmentée : ils démarrent à la place de Cartouche, avec toute sa mémoire, sauf si leur fiche montre qu’il leur en faut moins."
+          }
+        }
+      }
+    },
     "system.signature" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -10724,6 +10758,40 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "%@ a été construit sans les fichiers du jeu, et son romfs.img n’est pas à côté de son IPA dans votre dossier des jeux. Copiez-le à côté d’elle, tel que nxnative l’a écrit, puis installez le jeu à nouveau."
+          }
+        }
+      }
+    },
+    "work.install.gpu" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This iPhone cannot run nxnative’s games"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cet iPhone ne peut pas faire tourner les jeux nxnative"
+          }
+        }
+      }
+    },
+    "work.install.gpu.anyway" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Install anyway"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Installer quand même"
           }
         }
       }

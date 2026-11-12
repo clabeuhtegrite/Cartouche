@@ -86,6 +86,9 @@ struct CartoucheGameMemoryReading {
     let availableBytes: UInt64
     /// The limit iOS set for the game's process.
     let limitBytes: UInt64
+    /// Whether the game's process has Increased Memory Limit, as its
+    /// signature gives it; nil when it could not tell.
+    let hasIncreasedMemoryLimit: Bool?
     /// Each size its screen took, the first one included: the last 100.
     let sizes: [Size]
 
@@ -132,6 +135,7 @@ struct CartoucheGameMemoryReading {
         availableBytes = available
         peakBytes = max(bytes("peak") ?? footprint, footprint)
         limitBytes = bytes("limit") ?? footprint + available
+        hasIncreasedMemoryLimit = (plist["increasedMemoryLimit"] as? NSNumber)?.boolValue
         sizes = (plist["sizes"] as? [[String: Any]] ?? []).compactMap { size in
             guard let time = size["time"] as? Date, let width = (size["width"] as? NSNumber)?.doubleValue,
                   let height = (size["height"] as? NSNumber)?.doubleValue else { return nil }
@@ -150,9 +154,12 @@ struct CartoucheGameMemoryReading {
 /// needs more than that process has starts in Cartouche's place, with all
 /// of Cartouche's memory: one whose peak leaves it too little room there,
 /// one that needs Increased Memory Limit when its sheet has no peak, and
-/// one iOS stopped there near its limit. When that process has as much as
-/// Cartouche or more, every game goes behind the console
-/// (CartoucheGamePlace.swift).
+/// one iOS stopped there near its limit. When that process ran without
+/// Increased Memory Limit, with 3,376 MiB, every game but one whose peak
+/// fits there starts in Cartouche's place, until another install of
+/// Cartouche signs that process again or the player tries again. When
+/// that process has as much as Cartouche or more, every game goes behind
+/// the console (CartoucheGamePlace.swift).
 @MainActor
 final class CartoucheGameKeeping: ObservableObject {
     static let shared = CartoucheGameKeeping()
@@ -160,6 +167,9 @@ final class CartoucheGameKeeping: ObservableObject {
     private static let keepsKey = "Cartouche.keepConsoleOpen"
     private static let inPlaceKey = "Cartouche.keepConsoleOpen.inPlace"
     private static let limitKey = "Cartouche.keepConsoleOpen.limitMiB"
+    /// Whether the game's process ran without Increased Memory Limit, kept
+    /// with this install of Cartouche.
+    private let imlRecord: CartoucheBehindIMLRecord
 
     /// Whether games can run behind the console here: with iOS 18 or later,
     /// whose scene hosting shows the game's scene in Cartouche's window, and
@@ -181,6 +191,9 @@ final class CartoucheGameKeeping: ObservableObject {
     @Published private(set) var inPlace: Set<String>
     /// The limit iOS set for the last game behind the console.
     @Published private(set) var limitMiB: Int?
+    /// Whether the last game behind the console ran without Increased
+    /// Memory Limit, as its process said, with this install of Cartouche.
+    @Published private(set) var behindLacksIML: Bool
 
     private init() {
         let defaults = UserDefaults.standard
@@ -188,6 +201,20 @@ final class CartoucheGameKeeping: ObservableObject {
         inPlace = Set(defaults.stringArray(forKey: Self.inPlaceKey) ?? [])
         let limit = defaults.integer(forKey: Self.limitKey)
         limitMiB = limit > 0 ? limit : nil
+        // After another install, which signed the game's process again, the
+        // next game tries behind the console, and says whether it has the
+        // capability.
+        imlRecord = CartoucheBehindIMLRecord(defaults: defaults, install: Self.install)
+        behindLacksIML = imlRecord.load()
+    }
+
+    /// This install of Cartouche, which signed the games' process with the
+    /// rest of Cartouche: its version, its build and its bundle folder,
+    /// which iOS moves at each install.
+    private static var install: String {
+        let info = Bundle.main.infoDictionary ?? [:]
+        let version = [info["CFBundleShortVersionString"], info["CFBundleVersion"]].compactMap { $0 as? String }
+        return (version + [Bundle.main.bundleURL.path]).joined(separator: " ")
     }
 
     /// Whether the game with BUNDLEID starts in Cartouche's place: it ran
@@ -220,10 +247,31 @@ final class CartoucheGameKeeping: ObservableObject {
         UserDefaults.standard.set(Array(inPlace).sorted(), forKey: Self.inPlaceKey)
     }
 
-    func measured(limitMiB limit: Int) {
-        guard limit > 0, limit != limitMiB else { return }
-        limitMiB = limit
-        UserDefaults.standard.set(limit, forKey: Self.limitKey)
+    /// What the game's process wrote of its memory: the limit iOS set
+    /// there, and whether that process has Increased Memory Limit.
+    func measured(_ reading: CartoucheGameMemoryReading) {
+        let limit = reading.limitMiB
+        if limit > 0, limit != limitMiB {
+            limitMiB = limit
+            UserDefaults.standard.set(limit, forKey: Self.limitKey)
+        }
+        let lacks = imlRecord.record(has: reading.hasIncreasedMemoryLimit, lacked: behindLacksIML)
+        if lacks != behindLacksIML { behindLacksIML = lacks }
+    }
+
+    /// Whether every game starts in Cartouche's place, but one whose peak
+    /// fits behind the console: the process there ran without Increased
+    /// Memory Limit, and Cartouche's place has more, by its own limit,
+    /// OWNLIMITMIB.
+    func sendsGamesInPlace(ownLimitMiB: Int?) -> Bool {
+        CartoucheGamePlace.sendsGamesInPlace(behindMiB: limitMiB, behindLacksIML: behindLacksIML, ownMiB: ownLimitMiB)
+    }
+
+    /// The games try behind the console again, where the next one says
+    /// whether its process has Increased Memory Limit now.
+    func tryBehindAgain() {
+        behindLacksIML = false
+        imlRecord.clear()
     }
 
     /// Whether a game that needs NEEDSIML, or PEAKMIB at its most, starts
@@ -231,7 +279,8 @@ final class CartoucheGameKeeping: ObservableObject {
     /// one, against Cartouche's own, OWNLIMITMIB: unless it needs more memory
     /// than it has there, and Cartouche's place has more.
     func fitsBehind(needsIML: Bool, peakMiB: Int?, limitMiB limit: Int? = nil, ownLimitMiB: Int?) -> Bool {
-        CartoucheGamePlace.startsBehind(needsIML: needsIML, peakMiB: peakMiB, behindMiB: limit ?? limitMiB, ownMiB: ownLimitMiB)
+        CartoucheGamePlace.startsBehind(needsIML: needsIML, peakMiB: peakMiB, behindMiB: limit ?? limitMiB,
+                                        behindLacksIML: behindLacksIML, ownMiB: ownLimitMiB)
     }
 }
 
