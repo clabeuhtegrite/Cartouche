@@ -452,6 +452,20 @@ public struct GameProgress: Codable, Equatable {
     }
 
     public var startedDate: Date? { started.flatMap(ISODate.parse) }
+
+    /// Why it was not built, as the activity shows it: the error of a game
+    /// that failed, or was skipped (a full disk, no room, no keys).
+    public var shownError: String? {
+        guard let error, !error.isEmpty, state == "failed" || state == "skipped" else { return nil }
+        return error
+    }
+
+    /// The older nxnative commit it was built from, or builds from, while
+    /// the branch's newest does not build (cartouche_builder/fallback.py).
+    public var fallbackCommit: String? {
+        guard fallback == true, let commit, !commit.isEmpty, state == "built" || state == "building" else { return nil }
+        return commit
+    }
 }
 
 /// A batch on an older nxnative commit (TO) than the branch's newest

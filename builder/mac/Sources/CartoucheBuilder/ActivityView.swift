@@ -314,13 +314,13 @@ struct GameList: View {
                 Text(game.name)
                     .font(.callout.weight(.medium))
                 // Why it failed, or was skipped (a full disk, no room, no keys).
-                if let error = game.error, !error.isEmpty, ["failed", "skipped"].contains(game.state) {
+                if let error = game.shownError {
                     Text(error)
                         .font(.caption)
                         .foregroundStyle(.secondary)
                         .lineLimit(3)
                 }
-                if game.fallback == true, let commit = game.commit, !commit.isEmpty, game.state != "failed" {
+                if let commit = game.fallbackCommit {
                     Text(tr("From nxnative \(commit.prefix(8)), the last commit that built: the newest does not build for now",
                             "Avec nxnative \(commit.prefix(8)), le dernier commit qui a construit : le plus récent ne construit pas pour l’instant"))
                         .font(.caption)

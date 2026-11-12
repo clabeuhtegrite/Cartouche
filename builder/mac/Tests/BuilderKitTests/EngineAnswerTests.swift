@@ -131,15 +131,24 @@ final class EngineAnswerTests: XCTestCase {
             {"state": "done", "head": "6da69001c0ffee00", "latest": "7867152deadbeef0",
              "fallback": {"from": "7867152deadbeef0", "to": "6da69001c0ffee00"},
              "games": [{"title_id": "0100152000022000", "name": "A game", "state": "built", "commit": "6da69001c0ff", "fallback": true},
-                       {"title_id": "010093801237C000", "name": "Another", "state": "skipped", "cause": "no_space", "exit": 1, "failure": {}}]}
+                       {"title_id": "01007EF00011E000", "name": "A third", "state": "failed", "commit": "6da69001c0ff", "fallback": true,
+                        "cause": "app_build", "exit": 1, "error": "xcodebuild failed (exit 65)"},
+                       {"title_id": "010093801237C000", "name": "Another", "state": "skipped", "cause": "no_space", "exit": 1, "failure": {},
+                        "commit": "6da69001c0ff", "fallback": true, "error": "Your Mac's disk is full (0.4 GB left)."}]}
             """#
         let status = try JSONDecoder().decode(BatchStatus.self, from: Data(json.utf8))
         XCTAssertEqual(status.fallback, BatchFallback(from: "7867152deadbeef0", to: "6da69001c0ffee00"))
         XCTAssertEqual(status.latest, "7867152deadbeef0")
+        XCTAssertEqual(status.games.count, 3)
         XCTAssertEqual(status.games.first?.fallback, true)
         XCTAssertEqual(status.games.first?.commit, "6da69001c0ff")
         XCTAssertEqual(status.games.last?.cause, "no_space")
         XCTAssertEqual(status.games.last?.failure, FailureDetails())
+        // What the activity shows of each: the commit a game was built from
+        // while the newest does not build, and why a game failed, or was
+        // skipped.
+        XCTAssertEqual(status.games.map(\.fallbackCommit), ["6da69001c0ff", nil, nil])
+        XCTAssertEqual(status.games.map(\.shownError), [nil, "xcodebuild failed (exit 65)", "Your Mac's disk is full (0.4 GB left)."])
         // What an older engine wrote still reads.
         let older = try JSONDecoder().decode(BatchStatus.self, from: Data(#"{"state": "done", "fallback": "not one", "games": []}"#.utf8))
         XCTAssertNil(older.fallback)
@@ -171,6 +180,15 @@ final class EngineAnswerTests: XCTestCase {
         XCTAssertEqual(DiskSpace.amount(12_400_000_000), "12 GB")
         XCTAssertEqual(DiskSpace.message(free: nil), "Your Mac's disk is full. Free some room, on the Storage page for example, then try again.")
         XCTAssertNotNil(DiskSpace.free(at: URL(fileURLWithPath: NSTemporaryDirectory())))
+        // What the app shows of an error: a full disk in these words, not
+        // Cocoa's; the engine's own words; another error's.
+        let temporary = URL(fileURLWithPath: NSTemporaryDirectory())
+        XCTAssertTrue(DiskSpace.words(for: posix, at: temporary).hasPrefix("Your Mac's disk is full ("), DiskSpace.words(for: posix, at: temporary))
+        XCTAssertTrue(DiskSpace.words(for: NSError(domain: NSCocoaErrorDomain, code: NSFileWriteOutOfSpaceError), at: temporary).hasPrefix("Your Mac's disk is full ("))
+        XCTAssertEqual(DiskSpace.words(for: EngineFailure(kind: "no_space", message: "The disk “NAS” is full. Free some room on it, then try again.")),
+                       "The disk “NAS” is full. Free some room on it, then try again.")
+        let denied = NSError(domain: NSCocoaErrorDomain, code: NSFileWriteNoPermissionError)
+        XCTAssertEqual(DiskSpace.words(for: denied), denied.localizedDescription)
     }
 
     func testTheQueue() throws {

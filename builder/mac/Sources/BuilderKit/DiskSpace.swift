@@ -38,6 +38,14 @@ public enum DiskSpace {
         return L10n.french ? text.replacingOccurrences(of: ".", with: ",") + " Go" : text + " GB"
     }
 
+    /// What the app says of ERROR: for a full disk, which and what is left
+    /// on it (the disk of URL, the Mac's), rather than Cocoa's words; for
+    /// another error, its own.
+    public static func words(for error: Error, at url: URL = URL(fileURLWithPath: NSHomeDirectory())) -> String {
+        if isFull(error) { return message(free: free(at: url)) }
+        return (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+    }
+
     /// The player's words for the Mac's disk, full, with FREE left on it.
     public static func message(free: Int64?) -> String {
         guard let free else {

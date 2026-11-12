@@ -115,6 +115,50 @@ final class TelemetryTests: XCTestCase {
         }
     }
 
+    /// What the app sends at a batch's end (BuilderTelemetry.batchEvents):
+    /// why each game was not built as names and numbers, the nxnative
+    /// commit it was built from, a game skipped once tried (a full disk),
+    /// and the batch on an older commit; never a name, an error or a path.
+    func testTheEventsOfABatch() throws {
+        let json = #"""
+            {"state": "done", "scheduled": true, "head": "6da69001c0ffee00", "latest": "7867152deadbeef0",
+             "started": "2026-11-11T20:00:00+00:00", "ended": "2026-11-11T21:30:00+00:00",
+             "fallback": {"from": "7867152deadbeef0", "to": "6da69001c0ffee00"},
+             "games": [
+               {"title_id": "0100152000022000", "name": "Mario Kart World", "state": "built", "reasons": ["named"], "duration": 5412.4,
+                "commit": "6da69001c0ff", "fallback": true},
+               {"title_id": "01007EF00011E000", "name": "Zelda", "state": "failed", "reasons": ["profile"], "duration": 1260, "stage": "app build",
+                "commit": "7867152deadb", "fallback": false, "cause": "app_build", "exit": 1, "error": "xcodebuild failed in /Users/player/x"},
+               {"title_id": "010093801237C000", "name": "Another", "state": "skipped", "reasons": ["new"], "duration": 312, "stage": "unpack v0",
+                "commit": "6da69001c0ff", "fallback": true, "cause": "no_space", "exit": 1, "failure": {}, "error": "Your Mac's disk is full"},
+               {"title_id": "010028600EBDA000", "name": "Not reached", "state": "skipped"},
+               {"title_id": "0100000000010000", "name": "Stopped", "state": "stopped", "cause": "stopped", "error": "stopped"},
+               {"title_id": "01006A800016E000", "name": "Its own error", "state": "failed", "reasons": ["source"], "duration": 2410, "stage": "deliver",
+                "commit": "not a commit", "cause": "builder", "failure": {"exception": "PermissionError", "where": "ipa.deliver", "errno": 13}}]}
+            """#
+        let status = try JSONDecoder().decode(BatchStatus.self, from: Data(json.utf8))
+        let events = BuilderTelemetry.batchEvents(status, library: nil, jobs: 2)
+        XCTAssertEqual(events.map(\.name), ["builder.built", "builder.failed", "builder.skipped", "builder.failed", "builder.batch"])
+        XCTAssertEqual(events.map(\.game), ["0100152000022000", "01007EF00011E000", "010093801237C000", "01006A800016E000", nil])
+        XCTAssertEqual(events[0].fields, ["fallback": .flag(true), "nxnative": .text("6da69001c0ff"), "reasons": .text("named"), "seconds": .number(5412)])
+        XCTAssertEqual(events[1].fields, ["cause": .text("app_build"), "exit": .count(1), "nxnative": .text("7867152deadb"), "reasons": .text("profile"),
+                                          "seconds": .number(1260), "stage": .text("app build")])
+        XCTAssertEqual(events[2].fields, ["cause": .text("no_space"), "exit": .count(1), "fallback": .flag(true), "nxnative": .text("6da69001c0ff"),
+                                          "reasons": .text("new"), "seconds": .number(312), "stage": .text("unpack v0")])
+        // A commit that is not one is not sent: the batch's is.
+        XCTAssertEqual(events[3].fields, ["cause": .text("builder"), "errno": .count(13), "exception": .text("PermissionError"),
+                                          "nxnative": .text("6da69001c0ff"), "reasons": .text("source"), "seconds": .number(2410),
+                                          "stage": .text("deliver"), "where": .text("ipa.deliver")])
+        XCTAssertEqual(events[4].fields, ["built": .count(1), "failed": .count(2), "fallback": .flag(true), "games": .count(6), "jobs": .count(2),
+                                          "minutes": .number(90), "nxnative": .text("6da69001c0ff"), "scheduled": .flag(true),
+                                          "skipped": .count(2), "state": .text("done"), "stopped": .count(1)])
+        // Each is an event the server takes.
+        for (index, event) in events.enumerated() {
+            XCTAssertNotNil(TelemetryEvent(id: "6a1d9e3c-0000-4000-8000-00000000010\(index)", seq: index + 1, context: context,
+                                           name: event.name, game: event.game, fields: event.fields), event.name)
+        }
+    }
+
     func testAReportHasTheFieldsEveryReportNeeds() throws {
         let event = try XCTUnwrap(TelemetryEvent(id: "6a1d9e3c-0000-4000-8000-000000000001", seq: 1, context: context, name: "builder.paired",
                                                  fields: ["allowed": .flag(true)]))

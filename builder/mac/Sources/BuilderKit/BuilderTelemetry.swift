@@ -247,6 +247,20 @@ public struct TelemetryQueue: Codable, Equatable, Sendable {
     }
 }
 
+/// An event the app sends: its name, the game it is of, its fields
+/// (BuilderTelemetry.batchEvents).
+public struct BatchEvent: Equatable, Sendable {
+    public var name: String
+    public var game: String?
+    public var fields: [String: TelemetryValue]
+
+    public init(_ name: String, game: String? = nil, fields: [String: TelemetryValue] = [:]) {
+        self.name = name
+        self.game = game
+        self.fields = fields
+    }
+}
+
 /// The app's telemetry: its switch, its queue and its sending.
 @MainActor
 public final class BuilderTelemetry: ObservableObject {
@@ -445,6 +459,55 @@ public final class BuilderTelemetry: ObservableObject {
         let digits = text.lowercased()
         guard (7...40).contains(digits.count), digits.unicodeScalars.allSatisfy({ ("0"..."9").contains($0) || ("a"..."f").contains($0) }) else { return nil }
         return String(digits.prefix(12))
+    }
+
+    /// What the app sends at a batch's end: an event for each game built,
+    /// failed, or skipped once tried (a full disk, no room, no keys), with
+    /// why as names and numbers and the nxnative commit it was built from,
+    /// then one for the batch; never a name, a message or a path. LIBRARY
+    /// says each game's kind and its IPA's size, JOBS how many games the
+    /// settings build at once.
+    public nonisolated static func batchEvents(_ status: BatchStatus, library: Library?, jobs: Int) -> [BatchEvent] {
+        let head = status.head.map { String($0.prefix(12)) }
+        var events: [BatchEvent] = []
+        // A game skipped says why only when it was tried, not one the batch
+        // ended before.
+        for game in status.games where ["built", "failed"].contains(game.state) || (game.state == "skipped" && !(game.cause ?? "").isEmpty) {
+            var fields: [String: TelemetryValue] = [:]
+            if let reasons = game.reasons, !reasons.isEmpty { fields["reasons"] = .text(reasons.joined(separator: ",")) }
+            if let duration = game.duration { fields["seconds"] = .number(duration.rounded()) }
+            if let kind = library?.game(game.titleID)?.kind { fields["source"] = .text(kind) }
+            if let built = game.commit.flatMap(BuilderTelemetry.commit) ?? head { fields["nxnative"] = .text(built) }
+            if game.fallback == true { fields["fallback"] = .flag(true) }
+            if game.state == "built" {
+                if let size = library?.game(game.titleID)?.ipa?.size, size > 0 {
+                    fields["ipaMB"] = .number((Double(size) / 1_000_000).rounded())
+                }
+                events.append(BatchEvent("builder.built", game: game.titleID, fields: fields))
+            } else {
+                fields["stage"] = .text(game.stage ?? "")
+                fields.merge(BuilderTelemetry.fields(cause: game.cause, exit: game.exit, failure: game.failure)) { _, new in new }
+                events.append(BatchEvent(game.state == "failed" ? "builder.failed" : "builder.skipped", game: game.titleID, fields: fields))
+            }
+        }
+        var fields: [String: TelemetryValue] = [
+            "state": .text(status.state),
+            "games": .count(status.games.count),
+            "built": .count(status.games.filter { $0.state == "built" }.count),
+            "failed": .count(status.games.filter { $0.state == "failed" }.count),
+            "skipped": .count(status.games.filter { $0.state == "skipped" }.count),
+            "stopped": .count(status.games.filter { $0.state == "stopped" }.count),
+            "scheduled": .flag(status.scheduled ?? false),
+            "jobs": .count(jobs),
+        ]
+        if let started = status.startedDate, let ended = status.endedDate {
+            fields["minutes"] = .number((ended.timeIntervalSince(started) / 60 * 10).rounded() / 10)
+        }
+        if let head { fields["nxnative"] = .text(head) }
+        if status.fallback != nil { fields["fallback"] = .flag(true) }
+        if let failure = status.failure { fields.merge(BuilderTelemetry.fields(of: failure)) { _, new in new } }
+        events.append(BatchEvent("builder.batch", fields: fields))
+        return events
     }
 
     /// "NSCocoaErrorDomain 640 < NSPOSIXErrorDomain 28": an error and the

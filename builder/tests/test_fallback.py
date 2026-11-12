@@ -8,6 +8,7 @@ import io
 import json
 import os
 import sys
+from dataclasses import asdict
 from pathlib import Path
 from unittest import mock
 
@@ -15,8 +16,9 @@ from cartouche_builder import api, batch, config as configs, fallback
 from cartouche_builder import status as statuses
 from cartouche_builder.engine import EngineError
 from cartouche_builder.paths import Paths
+from cartouche_builder.state import Build, Record
 
-from support import MKW, ODYSSEY, Home, commit, make_dump, make_engine_remote
+from support import HOLLOW, MKW, ODYSSEY, Home, commit, git, make_dump, make_engine_remote
 
 NAMES = {MKW: "Mario Kart World", ODYSSEY: "Super Mario Odyssey"}
 PYTHON = Path(sys.executable)
@@ -80,6 +82,10 @@ class Fallback(Base):
         self.assertTrue(any("does not build for now" in line for line in said), said)
         engine = self.api("library")["engine"]
         self.assertEqual((engine["head"], engine["latest"], engine["latest_short"], engine["held"]), (good, broken, broken[:12], True))
+        # A game built while the builder stays there says so, as its batch does.
+        plan, summary = self.run_due(force={MKW})
+        self.assertEqual(statuses.read(batch.context().paths)["fallback"], {"from": broken, "to": good})
+        self.assertEqual((self.game(MKW)["state"], self.game(MKW)["commit"], self.game(MKW)["fallback"]), ("built", good[:12], True))
 
         # A newer commit is tried, and builds.
         fixed = commit(self.remote, "Mario Kart World: link the probes again (PR #1522)", {"BROKEN": None})
@@ -159,6 +165,68 @@ class Fallback(Base):
         plan, summary = self.run_due()
         self.assertEqual(plan.to_build, [])
 
+    def test_a_game_waiting_its_turn_builds_after_the_trial(self):
+        commit(self.remote, "Hollow Knight's profile", {f"dm/games/{HOLLOW}/game.tsv": f"title_id\t{HOLLOW}\nname\tHollow Knight\n"})
+        make_dump(self.sources / "Hollow Knight", HOLLOW)
+        paths = Paths.default()
+        config = configs.load(paths)
+        config.jobs = 2
+        configs.save(paths, config)
+        self.run_due()
+        good = batch.context().engine.head()
+        commit(self.remote, "Link the probes (PR #1520)", {"BROKEN": "x\n"})
+        plan, summary = self.run_due(force={MKW, ODYSSEY, HOLLOW})
+        third = plan.to_build[2].title_id
+        # Two games build at once, and fail at the newest commit; the third,
+        # waiting its turn, waits for the trial, then builds from the commit
+        # it confirmed, as the batch says.
+        self.assertEqual(batch.context().engine.head(), good)
+        failed = [entry.title_id for entry, _, _ in summary.failed]
+        self.assertLessEqual(len(failed), 1)
+        self.assertNotIn(third, failed)
+        game = self.game(third)
+        self.assertEqual((game["state"], game["commit"], game["fallback"]), ("built", good[:12], True))
+
+    def test_the_last_commit_that_built_is_the_builders_own_on_the_branch(self):
+        ctx = batch.context()
+        ctx.engine.update()
+        first = ctx.engine.head()
+        older = commit(self.remote, "One", {"dm/host/one.c": "1"})
+        dirty = commit(self.remote, "Two", {"dm/host/two.c": "2"})
+        read = commit(self.remote, "Three", {"dm/host/three.c": "3"})
+        newest = commit(self.remote, "Link the probes (PR #1520)", {"BROKEN": "x\n"})
+        ctx.engine.update()
+        git(ctx.engine.root, "checkout", "-q", "-b", "fork", older)
+        fork = commit(ctx.engine.root, "A fork's own commit", {"dm/host/fork.c": "fork"})
+        ctx.engine.move(newest)
+
+        def built(sha: str, day: int, **fields) -> dict:
+            return asdict(Build(commit=sha[:12], built_at=f"2026-11-{day:02d}T08:00:00+00:00", **fields))
+
+        # Newest first: a build from a fork's commit, an IPA's the builder
+        # read, one from a checkout with changes, then the builder's own.
+        ctx.store.save(Record(MKW, build=Build(commit=fork[:12], built_at="2026-11-11T20:00:00+00:00"),
+                              history=[built(read, 11, origin="ipa"), built(dirty, 10, dirty=True), built(older, 9), built(first, 8)]))
+        self.assertEqual(fallback.good(ctx.engine, ctx.store, ctx.paths, newest), older)
+        # Not a commit marked broken, nor the newest or one after it.
+        fallback.mark_broken(ctx.paths, older, first)
+        self.assertEqual(fallback.good(ctx.engine, ctx.store, ctx.paths, newest), first)
+        self.assertIsNone(fallback.good(ctx.engine, ctx.store, ctx.paths, first))
+        # The checkout stays on the good commit a broken one was marked with,
+        # while it has it.
+        self.assertIsNone(fallback.held(ctx.engine, ctx.paths, newest))
+        fallback.mark_broken(ctx.paths, newest, first)
+        self.assertEqual(fallback.held(ctx.engine, ctx.paths, newest), first)
+        fallback.mark_broken(ctx.paths, newest, "f" * 40)
+        self.assertIsNone(fallback.held(ctx.engine, ctx.paths, newest))
+        # The last broken commits are kept, not every one.
+        for number in range(fallback.KEPT + 1):
+            fallback.mark_broken(ctx.paths, f"{number:040x}", first)
+        marks = fallback.broken(ctx.paths)
+        self.assertEqual(len(marks), fallback.KEPT)
+        self.assertNotIn(f"{0:040x}", marks)
+        self.assertIn(f"{fallback.KEPT:040x}", marks)
+
 
 class Causes(Base):
     def test_a_full_disk_is_said_and_tried_again(self):
@@ -198,6 +266,21 @@ class Causes(Base):
         plan, summary = self.run_due(only={MKW})
         game = self.game(MKW)
         self.assertEqual((game["cause"], game["exit"], game["failure"], game["error"]), ("crashed", 1, {"exception": "KeyError"}, "KeyError: 'icon'"))
+
+    def test_a_batch_that_fills_the_disk_says_so(self):
+        full = OSError(errno.ENOSPC, "No space left on device")
+        with mock.patch.object(batch, "survey", side_effect=full), self.assertRaises(OSError):
+            self.run_due()
+        status = statuses.read(Paths.default())
+        self.assertEqual(status["state"], "failed")
+        self.assertRegex(status["error"], r"^Your Mac's disk is full \([\d.]+ GB left\)\. ")
+        self.assertEqual((status["failure"]["exception"], status["failure"]["errno"]), ("OSError", 28))
+
+    def test_nxnative_that_does_not_start(self):
+        plan, summary = batch.run_due(batch.context(), python=self.tmp / "no python" / "python3", check_tools=False, only={MKW})
+        self.assertTrue(summary.failed[0][1].startswith("nxnative's build script did not start: "), summary.failed[0][1])
+        game = self.game(MKW)
+        self.assertEqual((game["state"], game["cause"], game["exit"]), ("failed", "no_start", None))
 
     def test_the_apps_commands_say_a_full_disk(self):
         with mock.patch.object(api.configs, "save", side_effect=OSError(errno.ENOSPC, "No space left on device")):
