@@ -73,6 +73,7 @@ class Fallback(Base):
                          {MKW: ("built", good[:12], True), ODYSSEY: ("built", good[:12], True)})
         self.assertTrue(any("is broken for now" in line for line in status["lines"]), status["lines"])
         self.assertIn(good[:12], summary.report.read_text())
+        self.assertEqual(summary.head, good)
 
         # The next batches stay on it while the newest is the broken one.
         said = []
