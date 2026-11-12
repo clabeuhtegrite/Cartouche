@@ -7,6 +7,7 @@
 //  widths are in Columns (Theme.swift).
 //
 
+import AppKit
 import BuilderKit
 import SwiftUI
 
@@ -39,6 +40,11 @@ struct ContentView: View {
                 .environmentObject(model)
                 .environmentObject(setup)
                 .environmentObject(bridge)
+        }
+        // Back from the Finder, where a game may have gone into the dumps or
+        // the games folder: it shows at once.
+        .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
+            model.playerCameBack()
         }
     }
 

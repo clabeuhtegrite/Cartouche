@@ -18,8 +18,10 @@ prod.keys the header of its NCAs). The packages of one game in several
 folders, or beside another game's, are built from a folder of links to them
 alone (batch.py); a game's folder that holds only its own packages is given
 to nxnative as it is. What keeps a file or a folder out is said in plain
-words (Discovery.issues), and the app shows it. The sources are only read,
-never written.
+words (Discovery.issues), and the app shows it: also what nxnative built
+already, an IPA, the image of a game's files (romfs.img) or the folder it
+builds in, which are no dumps and go in the games folder, where Cartouche
+installs them from. The sources are only read, never written.
 """
 
 from __future__ import annotations
@@ -178,7 +180,7 @@ class _Look:
         # A game's files, as nxnative lists them: any letter case, none of the
         # hidden ones (the AppleDouble "._" file a non-Apple drive keeps
         # beside each).
-        files, folders = [], []
+        files, folders, builds = [], [], []
         for entry in entries:
             if entry.name.startswith("."):
                 continue
@@ -187,6 +189,8 @@ class _Look:
                     files.append(entry)
                 elif entry.is_dir() and not NOT_GAMES.fullmatch(entry.name):
                     folders.append(entry)
+                elif entry.is_dir() and entry.name.lower().endswith("_build"):
+                    builds.append(entry)
             except OSError:
                 continue
         packages = [p for p in files if p.suffix.lower() in PACKAGE_SUFFIXES]
@@ -203,6 +207,8 @@ class _Look:
             zips = [p for p in files if p.suffix.lower() == ZIP_SUFFIX]
             for path in zips:
                 self._zip(folder, path, alone=not top and len(zips) == 1)
+            if not zips:
+                self._built(files, builds)
         if depth >= MAX_DEPTH:
             return
         for sub in folders:
@@ -286,6 +292,20 @@ class _Look:
             return
         size = sum(p.stat().st_size for p in folder.rglob("*") if p.is_file())
         self.games.append(Game(title_id, folder, "dump", [folder], size, titles.label(folder.name)))
+
+    def _built(self, files: list[Path], builds: list[Path]) -> None:
+        """What nxnative built already, in a folder that holds no game: an
+        IPA, the image of a game's files, the folder it builds a game in.
+        Beside a game they are the player's to keep; alone they are why no
+        game is found."""
+        for path in files:
+            name = path.name.lower()
+            if name.endswith(".ipa"):
+                self.issues.append(t("library.built_ipa", name=self.shown(path)))
+            elif name.endswith("romfs.img"):
+                self.issues.append(t("library.romfs_image", name=self.shown(path)))
+        for path in builds:
+            self.issues.append(t("library.build_folder", name=self.shown(path)))
 
     def _zip(self, folder: Path, path: Path, alone: bool) -> None:
         try:

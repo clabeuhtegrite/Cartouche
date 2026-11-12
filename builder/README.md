@@ -53,11 +53,17 @@ Refresh Cartouche on the iPhone to install the complete IPA. Cartouche signs
 the app at installation; no separate ROMFS transfer is needed. On a NAS,
 the game remains available while the Mac is off.
 
+Cartouche also installs the two as they are: the IPA and its `romfs.img`,
+side by side in the games folder, are installed together, the image checked
+against `romfs.id` the same way. An IPA, a `romfs.img` or a folder nxnative
+built a game in (`<title ID>_build`), left in the sources folder where no
+dump is, is no game for the builder, and the library says where it goes.
+
 ### While a batch builds
 
 A game asked for while a batch builds, with **Add to the queue** on its sheet or its card's menu, or **Add them to the queue** for the games nxnative improved, waits its turn at the end of the batch: it is built after the batch's own games and those asked for before it, in the same batch, with one report and one notification at the end. **Builds** lists the queue in its order, with a button that takes a game out of it. **Stop this game**, there or on its sheet, stops only the game building, and the batch goes on with the next; **Stop all** stops the batch and empties its queue. In the Terminal, `cartouche-builder build ID`, while a batch builds, adds the games to it in the same way.
 
-The app looks at nxnative and your games when it opens, if it last did more than six hours before, then every six hours and when you ask: a few seconds, or a minute over a NAS, while the spinner turns under the sidebar. A build asked for meanwhile waits for that look to end, as does one asked for while the builder frees space, and starts on its own: its games wait their turn on their sheets and in **Builds** from your click on, and **Stop** there ends it before it starts. The nightly run waits in the same way.
+The app looks at nxnative and your games when it opens, if it last did more than six hours before, then every six hours and when you ask: a few seconds, or a minute over a NAS, while the spinner turns under the sidebar. It also reads your dumps and your games folder again each time you come back to it, at most once in ten seconds, so that a game you just put there from the Finder shows at once. A build asked for meanwhile waits for that look to end, as does one asked for while the builder frees space, and starts on its own: its games wait their turn on their sheets and in **Builds** from your click on, and **Stop** there ends it before it starts. The nightly run waits in the same way.
 
 ### Your folders
 
@@ -134,7 +140,7 @@ It never downloads, shares or uploads a game, a key or an IPA: it builds the gam
 
 The builder has two parts. Its engine, the Python package `cartouche_builder`, needs only Python's standard library: `library.py` finds the games, `engine.py` keeps nxnative's copy and reads its history, `impact.py` decides which commits touch a game, `planner.py` makes the plan, `build.py` runs and follows one build, `causes.py` names why one did not go through, `disks.py` words a full disk, `fallback.py` keeps the last nxnative commit that built while the newest does not, `batch.py` runs a batch, `queue.py` keeps the games asked for while one runs, `status.py` writes what a batch is doing, `storage.py` measures and frees what the builder keeps, `ipa.py` reads and delivers IPAs, `shares.py` connects the network folders again, `toolchain.py` checks the Mac's tools, `schedule.py` is the nightly run, `cli.py` the commands, `api.py` the app's commands (`cartouche-builder api <command>`, one JSON answer each) and `texts.py` every text in English and French.
 
-The Mac app, `mac/`, is a Swift package that runs the engine and shows what it answers. `mac/Sources/BuilderKit` is what the app does without its window: the engine's answers (`Engine.swift`, `Models.swift`), this Mac's tools and their installs (`MacSetup.swift`), the bridge with Cartouche (`BridgeServer.swift`, `BridgeDevices.swift`), the updates (`Updater.swift`) and the measures (`BuilderTelemetry.swift`). `mac/Sources/CartoucheBuilder` is its window, its settings and its menu bar.
+The Mac app, `mac/`, is a Swift package that runs the engine and shows what it answers. `mac/Sources/BuilderKit` is what the app does without its window: the engine's answers (`Engine.swift`, `Models.swift`), this Mac's tools and their installs (`MacSetup.swift`), the bridge with Cartouche (`BridgeServer.swift`, `BridgeDevices.swift`), the updates (`Updater.swift`), the measures (`BuilderTelemetry.swift`), what the setup assistant finds in the dumps folder (`SetupFiles.swift`) and when the library is read again as the player comes back (`ComebackReads.swift`). `mac/Sources/CartoucheBuilder` is its window, its settings and its menu bar.
 
 The engine's tests run a fake nxnative (a git repository whose build script writes an IPA of a few bytes) and fake dumps of a few bytes. From this folder:
 

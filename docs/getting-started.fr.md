@@ -39,7 +39,7 @@ Dans Cartouche, **Choisir le dossier des jeux**, dans le guide, ouvre la page du
 - **Sur votre Mac :** choisissez **Ajouter votre Mac (Cartouche Builder)**, puis votre Mac sous **Macs à proximité** ; la première fois, autorisez Cartouche à trouver les appareils de votre réseau local. Les deux écrans affichent six chiffres : s’ils sont les mêmes, cliquez sur **Autoriser** sur le Mac. Cartouche installe alors vos jeux depuis le Mac et y garde vos sauvegardes, chiffrées en chemin. L’iPhone trouve le Mac sur votre Wi-Fi, ou par votre VPN à l’adresse où il l’a joint la dernière fois.
 - **Sur votre NAS :** ajoutez-le avec son adresse, votre nom d’utilisateur et votre mot de passe, puis choisissez le dossier des jeux. Un serveur SFTP ou FTP, un bucket S3 à vous ou un dossier de Fichiers conviennent aussi, tout comme le Partage de fichiers (SMB) de votre Mac.
 
-Cartouche y liste vos jeux et propose leurs mises à jour.
+Cartouche y liste vos jeux et propose leurs mises à jour. Un jeu que nxnative a construit sans les fichiers du jeu, comme les gros jeux avec `--romfs separate`, arrive en deux fichiers, une IPA et un `romfs.img` : gardez-les côte à côte dans votre dossier des jeux, quelle que soit la casse de son nom, et Cartouche les installe ensemble. La page du stockage dit quand l’un des deux y est seul.
 
 Pas de dossier des jeux ? Mettez l’IPA dans Fichiers sur l’iPhone, par AirDrop par exemple, et choisissez **Importer plutôt une IPA**.
 
