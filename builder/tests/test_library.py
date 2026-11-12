@@ -155,6 +155,38 @@ class NamedWithoutTheirId(Home):
         self.assertEqual({g.title_id: g.folder for g in found.games}, {ZELDA: self.root / "Switch" / "Zelda", MKW: self.root / "Switch 2" / "Dumps" / "Mario Kart World"})
         self.assertEqual(found.issues, ["Covers: no game in it (packages, .nup, dump or zipped dump)."])
 
+    def test_what_nxnative_built_is_no_dump(self):
+        # A player's report: "I have an existing romfs.img but it says 0
+        # games found". What nxnative built goes in the games folder.
+        (self.root / "Mario Kart World").mkdir(parents=True)
+        (self.root / "Mario Kart World" / "Mario Kart World.ipa").write_bytes(b"PK")
+        (self.root / "Mario Kart World" / "RomFS.img").write_bytes(b"DMROMFS1")
+        (self.root / "romfs.img").write_bytes(b"DMROMFS1")
+        (self.root / f"{MKW}_build" / "extract").mkdir(parents=True)
+        found = self.discover()
+        self.assertEqual(found.games, [])
+        self.assertEqual(found.issues, [
+            "romfs.img: a game’s files (its RomFS image), not a dump. They go in your games folder, "
+            "beside the IPA nxnative built without them, where Cartouche installs the two together.",
+            f"{MKW}_build: a folder nxnative builds a game in, which Cartouche Builder leaves alone. "
+            "An IPA nxnative made goes in your games folder, with its romfs.img if it has one.",
+            "Mario Kart World/Mario Kart World.ipa: an IPA built already, not a dump. It goes in your games folder, "
+            "where Cartouche installs it from, with its romfs.img if it was built without its game files.",
+            "Mario Kart World/RomFS.img: a game’s files (its RomFS image), not a dump. They go in your games folder, "
+            "beside the IPA nxnative built without them, where Cartouche installs the two together.",
+        ])
+
+    def test_what_nxnative_built_beside_a_game_is_the_players(self):
+        make_xci(self.root / "Zelda" / "zelda.xci", [ZELDA])
+        (self.root / "Zelda" / "Zelda.ipa").write_bytes(b"PK")
+        (self.root / "Zelda" / "romfs.img").write_bytes(b"DMROMFS1")
+        (self.root / "Zelda" / f"{ZELDA}_build").mkdir()
+        make_dump(self.root / "Mario Kart World", MKW)
+        (self.root / "Mario Kart World" / "romfs.img").write_bytes(b"DMROMFS1")
+        found = self.discover()
+        self.assertEqual({g.title_id for g in found.games}, {ZELDA, MKW})
+        self.assertEqual(found.issues, [])
+
     def test_update_in_a_folder_of_its_own(self):
         make_xci(self.root / "Zelda" / "zelda.xci", [ZELDA])
         make_nsp(self.root / "Zelda" / "Update" / "v1.2.nsp", [(f"{ZELDA[:13]}800" + "0" * 15 + "5.tik", b"t")])

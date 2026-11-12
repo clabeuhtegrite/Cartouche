@@ -23,6 +23,9 @@ TEXTS: dict[str, tuple[str, str]] = {
     "library.dump_without_id": ("{name}: a dump whose main.npdm has no title ID.", "{name} : un dump dont le main.npdm n'a pas d'ID de titre."),
     "library.nothing": ("{name}: no game in it (packages, .nup, dump or zipped dump).", "{name} : aucun jeu dedans (paquets, .nup, dump ou dump zippé)."),
     "library.bad_zip": ("{name}: not a dump nxnative can take ({error}).", "{name} : pas un dump que nxnative peut prendre ({error})."),
+    "library.built_ipa": ("{name}: an IPA built already, not a dump. It goes in your games folder, where Cartouche installs it from, with its romfs.img if it was built without its game files.", "{name} : une IPA déjà construite, pas un dump. Elle va dans votre dossier des jeux, d’où Cartouche l’installe, avec son romfs.img si elle a été construite sans les fichiers du jeu."),
+    "library.romfs_image": ("{name}: a game’s files (its RomFS image), not a dump. They go in your games folder, beside the IPA nxnative built without them, where Cartouche installs the two together.", "{name} : les fichiers d’un jeu (son image RomFS), pas un dump. Ils vont dans votre dossier des jeux, à côté de l’IPA que nxnative a construite sans eux, d’où Cartouche installe les deux ensemble."),
+    "library.build_folder": ("{name}: a folder nxnative builds a game in, which Cartouche Builder leaves alone. An IPA nxnative made goes in your games folder, with its romfs.img if it has one.", "{name} : un dossier où nxnative construit un jeu, que Cartouche Builder laisse de côté. Une IPA faite par nxnative va dans votre dossier des jeux, avec son romfs.img si elle en a un."),
     # ---- What a file holds (identify.py)
     "identify.not_nup": ("not a NUP", "pas un NUP"),
     "identify.nup_version": ("a NUP of format version {version}, which this version does not read", "un NUP au format version {version}, que cette version ne lit pas"),
