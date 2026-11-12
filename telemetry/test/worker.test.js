@@ -10,6 +10,7 @@ import { beforeEach, test } from "node:test";
 import worker, {
   IGDB_GENRES,
   LIMITS,
+  LONGEST_SUMMARY,
   SQL,
   chooseGame,
   clean,
@@ -22,6 +23,7 @@ import worker, {
   ratio,
   resetIGDB,
   resetThrottle,
+  summaryOf,
 } from "../worker.js";
 
 class FakeD1 {
@@ -637,6 +639,7 @@ const UNRAVEL = {
   genres: [8, 9, 31, 32],
   cover: { image_id: "co1yxz" },
   artworks: [{ image_id: "ar7k2" }, { image_id: "ar7k3" }],
+  summary: "Two Yarnys,\ttied together.\r\n\r\n\r\nA co-op adventure.  ",
 };
 
 let igdb;
@@ -667,12 +670,14 @@ test("finds a game Cartouche does not know on IGDB, and keeps the answer for its
       cover: "co1yxz",
       artwork: "ar7k2",
       genre: "puzzle",
+      summary: "Two Yarnys, tied together.\n\nA co-op adventure.",
       platform: "switch",
     });
     // Among the two Switch platforms, by IGDB's IDs, asked once.
     assert.deepEqual(igdb.queries[0], ["platforms", 'fields id,name; where name = "Nintendo Switch" | name = "Nintendo Switch 2"; limit 10;']);
     assert.ok(igdb.queries[1][1].endsWith("where platforms = (130,508); limit 20;"));
     assert.ok(igdb.queries[1][1].includes("genres"));
+    assert.ok(igdb.queries[1][1].includes("summary"));
     // Kept by the name made plain, never who asked.
     assert.deepEqual([...db.lookups.keys()], ["switch:unravel two"]);
     assert.equal(db.lookups.get("switch:unravel two").day, "2026-11-10");
@@ -842,4 +847,22 @@ test("names compare as the catalog's tool compares them", () => {
   // Every genre is one of Cartouche's.
   const known = ["action", "adventure", "rpg", "puzzle", "strategy", "simulation", "racing", "sports", "board", "card", "family", "music"];
   for (const [, genre] of IGDB_GENRES) assert.ok(known.includes(genre), genre);
+});
+
+// The same cases as catalog/tools/test_igdb_covers.py's test_summary.
+test("summaries are kept as the catalog's tool keeps them", () => {
+  assert.equal(LONGEST_SUMMARY, 2000);
+  assert.equal(summaryOf("  Unravel Two is a co-op platformer.\r\n\r\n\r\nTwo Yarnys,\ttied   together.  "),
+    "Unravel Two is a co-op platformer.\n\nTwo Yarnys, tied together.");
+  assert.equal(summaryOf("- Play alone\n- Or with a friend\u0007\n"), "- Play alone\n- Or with a friend");
+  assert.equal(summaryOf("Visit https://example.com/unravel or WWW.example.com, today.\nhttp://x"), "Visit or today.");
+  for (const none of [undefined, null, 7, "", " \n \u00a0 "]) assert.equal(summaryOf(none), undefined);
+  // Too long: cut after the last word that fits, without its comma, with an ellipsis.
+  assert.equal(summaryOf("Yarny ".repeat(400)), "Yarny ".repeat(333).slice(0, -1) + "…");
+  assert.equal(summaryOf("Yarny, ".repeat(300)), "Yarny, ".repeat(285).slice(0, -2) + "…");
+  // A word longer than half of it is cut where it must be. Characters
+  // count, not UTF-16 units.
+  assert.equal(summaryOf("x".repeat(2100)), "x".repeat(1999) + "…");
+  assert.equal(summaryOf("🎮".repeat(2100)), "🎮".repeat(1999) + "…");
+  assert.equal(summaryOf("🎮".repeat(2000)), "🎮".repeat(2000));
 });
