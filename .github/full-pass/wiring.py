@@ -11,6 +11,8 @@ that would leave a test out of it, stop it from starting, or let it publish:
 - each workflow it calls takes the boolean input `full` from `workflow_call`,
   and every input its test jobs read is one of its workflow_call inputs: an
   input the pass does not give reads as empty, and would skip a step or a job;
+- every secret its test jobs read is passed by the call, as a called workflow
+  has none of the repository's secrets but those its call passes;
 - each job that can write or deploy, which the pass must skip, says so in its
   condition with `!inputs.full`;
 - each call is granted what its workflow's jobs ask for: GitHub checks that,
@@ -47,6 +49,7 @@ LEVELS = {"none": 0, "read": 1, "write": 2}
 LEVEL_NAMES = {value: name for name, value in LEVELS.items()}
 
 INPUT = re.compile(r"\binputs\.([A-Za-z_][A-Za-z0-9_-]*)")
+SECRET = re.compile(r"\bsecrets\.([A-Za-z_][A-Za-z0-9_]*)")
 
 
 def load_yaml(path: Path):
@@ -110,6 +113,11 @@ def strings(value):
 
 def inputs_read(value) -> set[str]:
     return {match for text in strings(value) for match in INPUT.findall(text)}
+
+
+def secrets_read(value) -> set[str]:
+    """The secrets a value reads, but the token every workflow has."""
+    return {match for text in strings(value) for match in SECRET.findall(text)} - {"GITHUB_TOKEN"}
 
 
 def call_inputs(workflow: dict) -> dict:
@@ -194,12 +202,14 @@ def check(root: Path) -> list[str]:
             problems.append(f"{PASS} gives {call.workflow} the input `{key}`, which its workflow_call does not take")
 
         # What the pass evaluates for the whole workflow, then for each job it runs.
-        read = inputs_read({key: workflow.get(key) for key in ("concurrency", "env", "defaults")})
+        whole = {key: workflow.get(key) for key in ("concurrency", "env", "defaults")}
+        read, secrets = inputs_read(whole), secrets_read(whole)
         for key, job in (workflow.get("jobs") or {}).items():
             if writes(job) and "!inputs.full" not in condition(job):
                 problems.append(f"{call.workflow}: the job {key} can write or deploy, and its condition lacks `!inputs.full`")
             if not may_skip(job):
                 read |= inputs_read(job)
+                secrets |= secrets_read(job)
             for step in job.get("steps") or []:
                 if str(step.get("uses", "")).startswith("actions/upload-artifact@"):
                     artifact = str((step.get("with") or {}).get("name", ""))
@@ -208,6 +218,10 @@ def check(root: Path) -> list[str]:
                         problems.append(f"{owner} and {call.workflow} both keep an artifact named {artifact!r}, in the pass's one run")
         for name in sorted(read - set(declared)):
             problems.append(f"{call.workflow} reads `inputs.{name}`, which its workflow_call does not take: in the pass it is empty")
+        passed = call.job.get("secrets")
+        if passed != "inherit":
+            for name in sorted(secrets - set(passed or {})):
+                problems.append(f"{call.workflow} reads `secrets.{name}`, which {PASS} does not pass it: in the pass it is empty")
 
         granted = permissions(call.job.get("permissions", full_pass.get("permissions")))
         wanted = [permissions(workflow.get("permissions"))]

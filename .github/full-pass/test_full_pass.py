@@ -154,6 +154,23 @@ class WiringTests(unittest.TestCase):
         workflows["site.yml"]["jobs"]["publish"]["if"] = "${{ inputs.publish && !inputs.full }}"
         self.assertEqual(self.problems(workflows), [])
 
+    def test_a_secret_the_pass_does_not_pass(self):
+        workflows = repository()
+        workflows["app.yml"]["jobs"]["build"]["steps"].append(
+            {"name": "Sign", "env": {"KEY": "${{ secrets.SIGNING_KEY }}", "TOKEN": "${{ secrets.GITHUB_TOKEN }}"},
+             "run": "sign.sh"})
+        self.assertEqual(self.problems(workflows),
+                         ["app.yml reads `secrets.SIGNING_KEY`, which full-pass.yml does not pass it: in the pass it is empty"])
+        workflows["full-pass.yml"]["jobs"]["app"]["secrets"] = {"SIGNING_KEY": "${{ secrets.SIGNING_KEY }}"}
+        self.assertEqual(self.problems(workflows), [])
+        workflows["full-pass.yml"]["jobs"]["app"]["secrets"] = "inherit"
+        self.assertEqual(self.problems(workflows), [])
+
+    def test_the_secrets_of_jobs_the_pass_skips_are_theirs(self):
+        workflows = repository()
+        workflows["site.yml"]["jobs"]["publish"]["env"] = {"TOKEN": "${{ secrets.DEPLOY_TOKEN }}"}
+        self.assertEqual(self.problems(workflows), [])
+
     def test_a_job_that_writes_runs_in_the_pass(self):
         workflows = repository()
         workflows["site.yml"]["jobs"]["publish"]["if"] = "${{ github.ref == 'refs/heads/main' }}"

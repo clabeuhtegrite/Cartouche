@@ -46,6 +46,7 @@ The pass does not run on pull requests. The Workflow audit checks how it is wire
 
 - add a workflow that runs on pull requests without the pass calling it, unless it tests nothing (`NOT_TESTS`);
 - call a workflow that does not take the boolean input `full` from `workflow_call`, or read an input in a test job that `workflow_call` does not take: in the pass, it is empty;
+- read a secret in a test job that the call does not pass: a called workflow has only the secrets its call passes;
 - let a job that writes or deploys run in the pass: its condition has `!inputs.full`;
 - grant a call less than its workflow's jobs ask for, which GitHub checks before it starts the pass, skipped jobs included;
 - keep two artifacts under the same name in the pass's one run;
