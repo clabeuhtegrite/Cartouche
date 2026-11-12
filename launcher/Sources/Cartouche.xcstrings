@@ -6932,7 +6932,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Cartouche n’a pas de clé Google à elle : elle accède à votre Drive par un client OAuth à vous, créé une fois, gratuitement, dans Google Cloud. Collez son ID, ou tout le texte que Google Cloud donne avec."
+            "value" : "Cartouche n’a pas de clé Google à lui : il accède à votre Drive par un client OAuth à vous, créé une fois, gratuitement, dans Google Cloud. Collez son ID, ou tout le texte que Google Cloud donne avec."
           }
         }
       }
