@@ -15,6 +15,9 @@ A game is built when:
 
 A game whose last build failed at the current commit, with the same files and
 tools, waits for one of these to change instead of failing again every night.
+A game built from a newer commit than the checkout's, which stays on the last
+commit that built while the branch's newest does not (fallback.py), is up to
+date.
 """
 
 from __future__ import annotations
@@ -124,7 +127,13 @@ def plan(
             details.append(t("plan.toolchain", old=build.toolchain, new=toolchain))
 
         base = engine.resolve(build.commit)
-        if base is None or not engine.is_ancestor(base, head):
+        if base is not None and base != head and engine.is_ancestor(head, base):
+            # Built from a newer commit than the checkout's, which stays on
+            # the last one that built while the branch's newest does not
+            # (fallback.py): nothing of the commits since is missing from it.
+            if not reasons:
+                entry.reasons, entry.detail = ["up_to_date"], t("plan.newer", commit=build.commit[:12])
+        elif base is None or not engine.is_ancestor(base, head):
             reasons.append("unknown_base")
             details.append(t("plan.unknown_base", commit=build.commit[:12]))
         else:

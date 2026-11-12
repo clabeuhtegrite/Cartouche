@@ -425,6 +425,9 @@ struct CartoucheSideStoreOutcome: Equatable, Sendable {
 
     enum Action: String, Sendable {
         case signIn
+        /// Register Cartouche's iPhone, the sign-in's device step alone
+        /// (app/patches/sidestore/0019).
+        case device
         case refresh
         case update
     }
@@ -434,8 +437,8 @@ struct CartoucheSideStoreOutcome: Equatable, Sendable {
     var date: Date
     var seconds: Int?
     var percent: Int?
-    /// The step reached: the sign-in's own ("account", "device"...), or the
-    /// last operation started ("ResignApp").
+    /// The step reached: the sign-in's own ("deviceCheck", "account",
+    /// "device"...), or the last operation started ("ResignApp").
     var stage: String?
     /// The operations it ran, the last ones: "FetchProvisioningProfiles>ResignApp".
     var trail: String?

@@ -942,7 +942,8 @@ struct CartoucheHomeSetupBanner: View {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(setup.bannerTitle)
                         .font(.headline)
-                    Text(setup.bannerDetail(signingInAgain: account.isAutomatic))
+                    Text(setup.bannerDetail(signingInAgain: account.isAutomatic,
+                                            registeringDevice: account.phase == .registeringDevice))
                         .font(.subheadline)
                         .opacity(0.85)
                 }

@@ -163,6 +163,84 @@ enum CartoucheSignInMessage {
     }
 }
 
+// MARK: This iPhone, through LocalDevVPN
+
+extension CartoucheSignInMessage {
+    /// What keeps the built-in SideStore from reaching this iPhone, as it
+    /// does through LocalDevVPN to register it with the account. Cartouche
+    /// tells the player in its own words, which say what to do, rather than
+    /// SideStore's, which point to its own settings.
+    enum DeviceTrouble: Equatable {
+        /// LocalDevVPN is off, or does not carry this iPhone's traffic.
+        case vpn
+        /// The iPhone is not on Wi-Fi, which LocalDevVPN needs.
+        case wifi
+        /// The pairing file is missing, or the iPhone refuses it.
+        case pairing
+        /// The iPhone did not answer through LocalDevVPN.
+        case noAnswer
+    }
+
+    /// The trouble FAILURE tells, when it is one of this iPhone's connection
+    /// to itself.
+    static func deviceTrouble(in failure: CartoucheFailure) -> DeviceTrouble? {
+        switch failure.cause {
+        case .vpn: return .vpn
+        case .pairing: return .pairing
+        case .device:
+            if case .text("noConnection")? = failure.details["kind"] { return .wifi }
+            return .noAnswer
+        default: return nil
+        }
+    }
+
+    /// When SideStore did not reach this iPhone, in a sign-in that ended
+    /// with FAILURE.
+    enum DeviceMoment: Equatable {
+        /// Before anything went to Apple (app/patches/sidestore/0019).
+        case beforeApple
+        /// Once Apple had accepted the account, at the step that registers
+        /// this iPhone, which is then left alone.
+        case afterApple
+        /// At another step.
+        case elsewhere
+    }
+
+    static func deviceMoment(of failure: CartoucheFailure) -> DeviceMoment {
+        switch failure.stage {
+        case "deviceCheck"?: return .beforeApple
+        case "device"?: return .afterApple
+        default: return .elsewhere
+        }
+    }
+
+    /// Whether a sign-in that ended with FAILURE leaves only the step that
+    /// registers this iPhone: Apple accepted the account, SideStore kept it
+    /// with its team and the certificate, and stopped at that step, which
+    /// Register Cartouche's iPhone takes alone (app/patches/sidestore/0019).
+    static func leavesDeviceStep(_ failure: CartoucheFailure) -> Bool {
+        failure.stage == "device"
+    }
+
+    /// Whether that step, taken alone, ended with FAILURE for want of the
+    /// account a sign-in leaves: the whole sign-in is left then.
+    static func needsSignIn(afterDeviceStep failure: CartoucheFailure) -> Bool {
+        failure.stage == "account" || failure.cause == .notSignedIn
+    }
+
+    /// The steps of the sign-in before anything goes to Apple: Cartouche's
+    /// own, then SideStore's (app/patches/sidestore/0011, 0019).
+    static let stagesBeforeApple: Set<String> = ["start", "database", "credentials", "deviceCheck"]
+
+    /// Whether the password the player typed can stay on the sign-in's
+    /// screen after a sign-in that ended with FAILURE: when it never left
+    /// this iPhone, for the player to sign in again without typing it again.
+    static func keepsPassword(after failure: CartoucheFailure?) -> Bool {
+        guard let stage = failure?.stage else { return false }
+        return stagesBeforeApple.contains(stage)
+    }
+}
+
 /// How long Cartouche keeps the player from signing in again once Apple has
 /// refused more sign-ins for now, so that no burst of attempts, by the
 /// player or by Cartouche itself, makes Apple's limit last longer: what
@@ -197,4 +275,110 @@ struct CartoucheSignInPause: Codable, Equatable {
 
     /// Whether it still keeps the player from signing in at NOW.
     func holds(at now: Date) -> Bool { now < until }
+}
+
+/// Where Cartouche's sign-in stands (CartoucheAccount), which its screens
+/// show (CartoucheSignInView).
+enum CartoucheSignInPhase: Equatable {
+    /// Cartouche waits for LocalDevVPN before it hands SideStore the
+    /// sign-in, or the step that registers this iPhone alone: nothing has
+    /// gone to Apple yet.
+    case waitingForVPN(deviceStep: Bool)
+    /// SideStore signs in, registers this iPhone and fetches the
+    /// certificate.
+    case signingIn
+    /// Apple asks for a verification code.
+    case code(CartoucheSignInMessage.CodeRequest)
+    /// SideStore registers this iPhone alone, with the account it kept.
+    case registeringDevice
+
+    var needsCode: Bool {
+        if case .code = self { return true }
+        return false
+    }
+
+    var isWaitingForVPN: Bool {
+        if case .waitingForVPN = self { return true }
+        return false
+    }
+
+    /// Whether the built-in SideStore is at work, which nothing interrupts.
+    var sideStoreRuns: Bool { self == .signingIn || self == .registeringDevice }
+
+    /// Whether the sign-in's screen offers the step that registers this
+    /// iPhone alone, rather than the Apple ID and its password: while that
+    /// step runs or waits for LocalDevVPN and, in between, while it is LEFT,
+    /// unless the player chose to sign in again.
+    static func showsDeviceStep(_ phase: CartoucheSignInPhase?, left: Bool, signingInAgain: Bool) -> Bool {
+        switch phase {
+        case .registeringDevice?, .waitingForVPN(deviceStep: true)?: return true
+        case .signingIn?, .code?, .waitingForVPN(deviceStep: false)?: return false
+        case nil: return left && !signingInAgain
+        }
+    }
+
+    /// Whether going from OLD to NEW ends a sign-in that SideStore ran: the
+    /// end of the step alone, or of a wait for LocalDevVPN, ends none.
+    static func endsSignIn(from old: CartoucheSignInPhase?, to new: CartoucheSignInPhase?) -> Bool {
+        guard new == nil, let old else { return false }
+        return old == .signingIn || old.needsCode
+    }
+}
+
+/// The wait for LocalDevVPN, which the built-in SideStore needs to register
+/// this iPhone, before a sign-in or before that step alone: what waits goes
+/// on as soon as LocalDevVPN is connected, and the wait stops after ten
+/// minutes, for the player to try again when they are ready.
+struct CartoucheVPNWait: Equatable {
+    static let timeout: TimeInterval = 600
+
+    enum Next: Equatable {
+        /// LocalDevVPN is connected: what waited goes on.
+        case goOn
+        case keepWaiting
+        /// Ten minutes went by: nothing goes on.
+        case stop
+    }
+
+    let started: Date
+
+    /// What comes next, LocalDevVPN being CONNECTED or not at NOW.
+    func next(connected: Bool, at now: Date) -> Next {
+        if connected { return .goOn }
+        return now.timeIntervalSince(started) > Self.timeout ? .stop : .keepWaiting
+    }
+
+    /// How long it lasted at NOW, in whole seconds, for the measurements.
+    func seconds(at now: Date) -> Double { max(0, now.timeIntervalSince(started).rounded()) }
+}
+
+/// When Cartouche takes by itself the step that registers this iPhone,
+/// which a sign-in that Apple accepted left: each time LocalDevVPN connects
+/// while that step is left and Cartouche runs nothing else of the sign-in,
+/// three times at most while it is open. LocalDevVPN staying connected
+/// after a try, or after a sign-in, starts none: the player can, and
+/// Cartouche tries again once LocalDevVPN connects again.
+struct CartoucheDeviceStepWatch: Equatable {
+    static let triesAtMost = 3
+
+    /// How many times Cartouche took the step by itself.
+    private(set) var tries = 0
+    /// Whether LocalDevVPN was connected when Cartouche last looked.
+    private(set) var connected = false
+
+    /// Cartouche looks whether LocalDevVPN is CONNECTED, the step being
+    /// LEFT or not, and Cartouche IDLE or not: whether it takes the step
+    /// by itself now.
+    mutating func look(connected: Bool, left: Bool, idle: Bool) -> Bool {
+        defer { self.connected = connected }
+        guard connected, !self.connected, left, idle, tries < Self.triesAtMost else { return false }
+        tries += 1
+        return true
+    }
+
+    /// A sign-in, or the step, ended, LocalDevVPN being CONNECTED or not:
+    /// a step left then is taken once LocalDevVPN connects again.
+    mutating func ended(connected: Bool) {
+        self.connected = connected
+    }
 }
