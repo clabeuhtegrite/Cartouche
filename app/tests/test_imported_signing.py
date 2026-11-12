@@ -4,12 +4,56 @@ import subprocess
 import sys
 import tempfile
 import unittest
+import re
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 
 
 class ImportedSigningTest(unittest.TestCase):
+    @unittest.skipUnless(sys.platform == "darwin" and shutil.which("xcrun"), "Needs the iOS SDK")
+    def test_signing_adapter_respects_the_engine_ios_15_deployment_target(self):
+        adapter = ROOT / "launcher/Sources/CartoucheImportedSigning.swift"
+        words = sorted(set(re.findall(r"CartoucheText\.(\w+)", adapter.read_text())))
+        stubs = '''
+import Foundation
+@available(iOS 17.0, *) @MainActor final class CartoucheAccount {
+    static let shared = CartoucheAccount()
+    var phase: Int? = nil
+}
+@available(iOS 17.0, *) @MainActor final class CartoucheUpdates {
+    static let shared = CartoucheUpdates()
+    var phase: Int? = nil
+}
+enum LCUtils {
+    static var appGroupUserDefault: UserDefaults { .standard }
+    static func getCertTeamId(withKeyData: Data, password: String) -> String? { nil }
+}
+enum LCSharedUtils {
+    static func teamIdentifier() -> String? { nil }
+    static func setCartoucheSigningCandidate(_: [String: Any]?) {}
+}
+enum CartoucheStoreKeychain {
+    static let service: String? = nil
+    static func data(_: String) -> Data? { nil }
+}
+enum CartoucheCertificate {
+    static func works(candidate: CartoucheSigningMaterial?) async -> Bool { false }
+}
+enum CartoucheText {
+''' + "\n".join(f'static let {word} = "test"' for word in words) + "\n}\n"
+        sdk = subprocess.check_output(["xcrun", "--sdk", "iphoneos", "--show-sdk-path"], text=True).strip()
+        with tempfile.TemporaryDirectory() as temporary:
+            folder = Path(temporary)
+            (folder / "Stubs.swift").write_text(stubs)
+            result = subprocess.run([
+                "xcrun", "--sdk", "iphoneos", "swiftc", "-typecheck", "-swift-version", "5",
+                "-target", "arm64-apple-ios15.0", "-sdk", sdk,
+                "-module-cache-path", str(folder / "cache"),
+                str(folder / "Stubs.swift"), str(ROOT / "launcher/Sources/CartoucheSigningMaterial.swift"), str(adapter),
+            ], capture_output=True, text=True)
+            self.assertEqual(result.returncode, 0, result.stderr)
+
     def test_imported_secrets_are_not_copied_into_preferences(self):
         adapter = (ROOT / "launcher/Sources/CartoucheImportedSigning.swift").read_text()
         self.assertNotRegex(adapter, r'\.set\(material\.(certificate|password)\b')

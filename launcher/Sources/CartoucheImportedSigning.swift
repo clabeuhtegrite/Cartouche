@@ -34,8 +34,10 @@ enum CartoucheImportedSigning {
     @MainActor
     static func importMaterial(_ material: CartoucheSigningMaterial) async throws {
         guard isImportedInstall else { throw ImportError(message: CartoucheText.signingReinstall) }
-        guard CartoucheAccount.shared.phase == nil, CartoucheUpdates.shared.phase == nil else {
-            throw ImportError(message: CartoucheText.signingWait)
+        if #available(iOS 17.0, *) {
+            guard CartoucheAccount.shared.phase == nil, CartoucheUpdates.shared.phase == nil else {
+                throw ImportError(message: CartoucheText.signingWait)
+            }
         }
         guard let team = LCUtils.getCertTeamId(withKeyData: material.certificate, password: material.password) else {
             throw ImportError(message: CartoucheText.signingInvalidKey)
