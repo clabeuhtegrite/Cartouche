@@ -9,18 +9,28 @@
 //  While Apple refuses more sign-ins for now, Sign In gives way to the time
 //  left to wait (CartoucheSignInPause).
 //
+//  Without LocalDevVPN, Sign In waits for it, with the button that connects
+//  it, then goes on by itself. Once Apple has accepted the account, should
+//  only this iPhone be left to register, the screen offers that step alone,
+//  without the password or a code.
+//
 
 import SwiftUI
 
 @available(iOS 17.0, *)
 struct CartoucheSignInView: View {
     @ObservedObject private var account = CartoucheAccount.shared
+    @ObservedObject private var setup = CartoucheSetup.shared
+    @ObservedObject private var guide = CartoucheGuide.shared
     @Environment(\.dismiss) private var dismiss
     @Environment(\.openURL) private var openURL
 
     @State private var appleID = CartoucheSetup.shared.appleID ?? ""
     @State private var password = ""
     @State private var code = ""
+    /// The player chose to sign in again, rather than to register this
+    /// iPhone alone.
+    @State private var signingInAgain = false
 
     private enum Field: Hashable {
         case appleID, password, code
@@ -32,6 +42,20 @@ struct CartoucheSignInView: View {
     private var request: CartoucheSignInMessage.CodeRequest? {
         if case .code(let request) = account.phase { return request }
         return nil
+    }
+
+    /// Whether the screen offers to register this iPhone alone.
+    private var showsDeviceStep: Bool {
+        switch account.phase {
+        case .registeringDevice?, .waitingForVPN(deviceStep: true)?: return true
+        case .signingIn?, .code?, .waitingForVPN(deviceStep: false)?: return false
+        case nil: return setup.needsDevice && !signingInAgain
+        }
+    }
+
+    /// Whether SideStore is at work, which nothing interrupts.
+    private var sideStoreRuns: Bool {
+        account.phase == .signingIn || account.phase == .registeringDevice
     }
 
     var body: some View {
@@ -48,13 +72,17 @@ struct CartoucheSignInView: View {
                     .padding(.bottom, 4)
                     if let request {
                         codeCard(request)
+                    } else if showsDeviceStep {
+                        deviceCard
                     } else {
                         accountCard
                     }
-                    if let problem = account.problemReport, !isBusy {
+                    if let problem = account.problemReport, !isBusy, !showsDeviceStep {
                         problemCard(problem)
                     }
-                    vpnCard
+                    if !account.isWaitingForVPN {
+                        vpnCard
+                    }
                 }
                 .padding()
                 .frame(maxWidth: 560)
@@ -67,11 +95,13 @@ struct CartoucheSignInView: View {
                     Button(CartoucheText.cancel) {
                         if request != nil {
                             account.answer(.cancel)
+                        } else if account.isWaitingForVPN {
+                            account.stopWaiting()
                         } else {
                             dismiss()
                         }
                     }
-                    .disabled(account.phase == .signingIn)
+                    .disabled(sideStoreRuns)
                 }
             }
         }
@@ -79,15 +109,35 @@ struct CartoucheSignInView: View {
         .preferredColorScheme(.dark)
         .interactiveDismissDisabled(isBusy)
         .onAppear {
-            focus = appleID.isEmpty ? .appleID : .password
+            if !showsDeviceStep { focus = appleID.isEmpty ? .appleID : .password }
         }
         .onChange(of: request?.id) { _, id in
             code = ""
             if id != nil { focus = .code }
         }
+        .onChange(of: account.phase) { old, new in
+            guard new == nil, old == .signingIn || isCode(old) else { return }
+            // The sign-in ended: its password goes, unless it never left
+            // this iPhone. A sign-in that leaves this iPhone to register
+            // offers that step.
+            if !CartoucheSignInMessage.keepsPassword(after: account.problemReport?.failure) { password = "" }
+            signingInAgain = false
+        }
         .onChange(of: account.signedIn) { _, signedIn in
             if signedIn { dismiss() }
         }
+        // Whether LocalDevVPN is connected, as the player connects it.
+        .task {
+            while !Task.isCancelled {
+                guide.refreshVPN()
+                try? await Task.sleep(for: .seconds(1))
+            }
+        }
+    }
+
+    private func isCode(_ phase: CartoucheAccount.Phase?) -> Bool {
+        if case .code? = phase { return true }
+        return false
     }
 
     // MARK: The Apple ID
@@ -95,26 +145,31 @@ struct CartoucheSignInView: View {
     private var accountCard: some View {
         card {
             VStack(alignment: .leading, spacing: 12) {
-                TextField(CartoucheText.signInAppleID, text: $appleID)
-                    .textContentType(.username)
-                    .keyboardType(.emailAddress)
-                    .textInputAutocapitalization(.never)
-                    .autocorrectionDisabled()
-                    .submitLabel(.next)
-                    .focused($focus, equals: .appleID)
-                    .onSubmit { focus = .password }
-                    .modifier(FieldStyle())
-                SecureField(CartoucheText.signInPassword, text: $password)
-                    .textContentType(.password)
-                    .submitLabel(.go)
-                    .focused($focus, equals: .password)
-                    .onSubmit(signIn)
-                    .modifier(FieldStyle())
-                Text(CartoucheText.signInFreeAccount)
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
-                if isBusy {
+                Group {
+                    TextField(CartoucheText.signInAppleID, text: $appleID)
+                        .textContentType(.username)
+                        .keyboardType(.emailAddress)
+                        .textInputAutocapitalization(.never)
+                        .autocorrectionDisabled()
+                        .submitLabel(.next)
+                        .focused($focus, equals: .appleID)
+                        .onSubmit { focus = .password }
+                        .modifier(FieldStyle())
+                    SecureField(CartoucheText.signInPassword, text: $password)
+                        .textContentType(.password)
+                        .submitLabel(.go)
+                        .focused($focus, equals: .password)
+                        .onSubmit(signIn)
+                        .modifier(FieldStyle())
+                    Text(CartoucheText.signInFreeAccount)
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                .disabled(isBusy)
+                if account.isWaitingForVPN {
+                    vpnWait
+                } else if isBusy {
                     working(CartoucheText.signInWorking)
                 } else if let until = account.pausedUntil {
                     // Apple refuses more sign-ins for now: the time left,
@@ -131,7 +186,6 @@ struct CartoucheSignInView: View {
                 }
             }
         }
-        .disabled(isBusy)
     }
 
     private var signInButton: some View {
@@ -168,8 +222,111 @@ struct CartoucheSignInView: View {
         guard account.pausedUntil == nil, CartoucheSignInMessage.canSignIn(appleID: appleID, password: password) else { return }
         focus = nil
         account.signIn(appleID: appleID, password: password)
-        // SideStore keeps the password in its own keychain items.
-        password = ""
+    }
+
+    // MARK: This iPhone, alone
+
+    private var deviceCard: some View {
+        card {
+            VStack(alignment: .leading, spacing: 12) {
+                Label(CartoucheText.signInDeviceTitle, systemImage: "iphone.gen3")
+                    .font(.system(.title3, design: .rounded, weight: .bold))
+                Text(CartoucheText.signInDeviceHow)
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                if let problem = account.problemReport, !isBusy {
+                    Label(Self.problemLine(problem), systemImage: "exclamationmark.triangle.fill")
+                        .font(.footnote)
+                        .foregroundStyle(.red)
+                        .textSelection(.enabled)
+                        .fixedSize(horizontal: false, vertical: true)
+                    CartoucheReportButton(report: problem)
+                        .font(.footnote)
+                        .buttonStyle(.bordered)
+                }
+                if account.isWaitingForVPN {
+                    vpnWait
+                } else if account.phase == .registeringDevice {
+                    working(CartoucheText.signInDeviceWorking)
+                } else if let until = account.pausedUntil {
+                    TimelineView(.periodic(from: .now, by: 1)) { context in
+                        if context.date < until {
+                            waitButton(Self.timeLeft(until.timeIntervalSince(context.date)))
+                        } else {
+                            deviceButton
+                        }
+                    }
+                } else {
+                    deviceButton
+                }
+                if !isBusy {
+                    // Should SideStore's account no longer do, as when Apple
+                    // asks to sign in again.
+                    Button(CartoucheText.signInAgain, systemImage: "person.crop.circle.badge.checkmark") {
+                        signingInAgain = true
+                        focus = appleID.isEmpty ? .appleID : .password
+                    }
+                    .buttonStyle(.bordered)
+                }
+            }
+        }
+    }
+
+    private var deviceButton: some View {
+        Button {
+            account.registerDevice()
+        } label: {
+            Label(CartoucheText.signInDeviceButton, systemImage: "iphone.gen3")
+                .frame(maxWidth: .infinity)
+        }
+        .buttonStyle(.borderedProminent)
+        .controlSize(.large)
+    }
+
+    /// The problem's words, or only what to do about this iPhone's
+    /// connection, which the card already puts in context.
+    private static func problemLine(_ problem: CartoucheReport) -> String {
+        problem.failure.flatMap(CartoucheSignInMessage.deviceTrouble(in:)).map(CartoucheText.deviceMessage) ?? problem.message
+    }
+
+    // MARK: Waiting for LocalDevVPN
+
+    private var vpnWait: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            working(CartoucheText.signInVPNWaiting)
+            connectVPNButton(prominent: true)
+            Button(CartoucheText.signInVPNGoOn) {
+                account.goOn()
+            }
+            .font(.footnote)
+        }
+    }
+
+    /// Connects LocalDevVPN, which then opens Cartouche again; its page of
+    /// the App Store when it is not on this iPhone.
+    @ViewBuilder
+    private func connectVPNButton(prominent: Bool) -> some View {
+        let installed = guide.hasLocalDevVPN
+        let button = Button {
+            if installed {
+                guide.connectVPN()
+            } else {
+                openURL(CartoucheGuide.localDevVPNAppStore)
+            }
+        } label: {
+            Label(installed ? CartoucheText.guideVPNConnect : CartoucheText.guideVPNGet,
+                  systemImage: installed ? "network.badge.shield.half.filled" : "arrow.down.app")
+                .frame(maxWidth: prominent ? .infinity : nil)
+        }
+        if prominent {
+            button
+                .buttonStyle(.borderedProminent)
+                .controlSize(.large)
+        } else {
+            button
+                .buttonStyle(.bordered)
+        }
     }
 
     // MARK: The verification code
@@ -241,7 +398,7 @@ struct CartoucheSignInView: View {
     private func problemCard(_ problem: CartoucheReport) -> some View {
         card {
             VStack(alignment: .leading, spacing: 10) {
-                Label(CartoucheText.signInFailedTitle, systemImage: "exclamationmark.triangle.fill")
+                Label(problem.title, systemImage: "exclamationmark.triangle.fill")
                     .font(.headline)
                     .foregroundStyle(.red)
                 Text(problem.message)
@@ -263,20 +420,21 @@ struct CartoucheSignInView: View {
     private var vpnCard: some View {
         card {
             VStack(alignment: .leading, spacing: 10) {
-                Label(CartoucheText.signInVPNTitle, systemImage: "network.badge.shield.half.filled")
-                    .font(.headline)
+                if guide.vpnConnected {
+                    Label(CartoucheText.guideVPNDone, systemImage: "checkmark.circle.fill")
+                        .font(.headline)
+                        .foregroundStyle(.green)
+                } else {
+                    Label(CartoucheText.signInVPNTitle, systemImage: "network.badge.shield.half.filled")
+                        .font(.headline)
+                }
                 Text(CartoucheText.signInVPNHow)
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
-                Button {
-                    UIApplication.shared.open(CartoucheSetupView.localDevVPN) { opened in
-                        if !opened { UIApplication.shared.open(CartoucheSetupView.localDevVPNAppStore) }
-                    }
-                } label: {
-                    Label(CartoucheText.setupVPNOpen, systemImage: "arrow.up.forward.app")
+                if !guide.vpnConnected {
+                    connectVPNButton(prominent: false)
                 }
-                .buttonStyle(.bordered)
             }
         }
     }
@@ -287,6 +445,7 @@ struct CartoucheSignInView: View {
             Text(text)
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.vertical, 6)

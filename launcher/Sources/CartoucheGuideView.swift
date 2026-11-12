@@ -362,6 +362,14 @@ struct CartoucheGuideView: View {
             action(CartoucheText.setupSignIn, systemImage: "person.crop.circle.badge.checkmark", primary: true) {
                 signingIn = true
             }
+        } else if progress.deviceLeft {
+            // Apple accepted the account: only this iPhone is left to
+            // register, which Cartouche does by itself once LocalDevVPN is
+            // connected.
+            detail(account.phase == .registeringDevice ? CartoucheText.setupBannerDeviceWorking : CartoucheText.signInDeviceHow)
+            action(CartoucheText.signInDeviceButton, systemImage: "iphone.gen3", primary: true) {
+                signingIn = true
+            }
         } else if setup.certificateRefused && !account.isAutomatic {
             // iOS refused the certificate and signing in again by itself
             // did not bring a new one.

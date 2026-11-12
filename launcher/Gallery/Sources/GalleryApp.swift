@@ -30,7 +30,12 @@
 //                                        the sign-in; too-many: Apple
 //                                        refused the sign-in for too many
 //                                        requests, with the wait under
-//                                        way; paused: the sheet's
+//                                        way; vpn-wait: the sign-in waiting
+//                                        for LocalDevVPN; iphone-step: a
+//                                        sign-in Apple accepted that
+//                                        stopped at the step that registers
+//                                        this iPhone, LocalDevVPN being
+//                                        off; paused: the sheet's
 //                                        game, or the first of the
 //                                        player's, paused behind the console;
 //                                        offline: the player's NAS, out of
@@ -159,6 +164,12 @@ struct GalleryScenario {
             }
             if work == "too-many" {
                 CartoucheAccount.shared.showTooManyRequestsForGallery()
+            }
+            if work == "vpn-wait" {
+                CartoucheAccount.shared.waitForVPNForGallery()
+            }
+            if work == "iphone-step" {
+                CartoucheAccount.shared.showDeviceStepForGallery()
             }
             if let titleId = updatedTitle, let game = CartoucheCatalog.shared.game(titleId: titleId) {
                 // Cartouche Builder built the game again last night.

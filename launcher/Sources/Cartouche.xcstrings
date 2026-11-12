@@ -4115,6 +4115,23 @@
         }
       }
     },
+    "setup.appleID.device" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Signed in: %@. This iPhone is left to register, which Cartouche does by itself once LocalDevVPN is connected."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Compte connecté : %@. Il reste à inscrire cet iPhone, ce que Cartouche fait de lui-même dès que LocalDevVPN est connecté."
+          }
+        }
+      }
+    },
     "setup.appleID.done" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -4247,6 +4264,40 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Une seule fois, avant votre premier jeu"
+          }
+        }
+      }
+    },
+    "setup.banner.device.detail" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Connect LocalDevVPN to register this iPhone"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Connectez LocalDevVPN pour inscrire cet iPhone"
+          }
+        }
+      }
+    },
+    "setup.banner.device.working" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cartouche registers this iPhone…"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cartouche inscrit cet iPhone…"
           }
         }
       }
@@ -5526,6 +5577,193 @@
         }
       }
     },
+    "signIn.device.afterApple" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Apple accepted your Apple ID: only this iPhone is left to register, which Cartouche does by itself once LocalDevVPN is connected."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Apple a accepté votre identifiant Apple : il ne reste qu’à inscrire cet iPhone, ce que Cartouche fait de lui-même dès que LocalDevVPN est connecté."
+          }
+        }
+      }
+    },
+    "signIn.device.beforeApple" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nothing was sent to Apple yet: sign in again once this is fixed."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Rien n’a encore été envoyé à Apple : reconnectez-vous une fois ce point réglé."
+          }
+        }
+      }
+    },
+    "signIn.device.button" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Register this iPhone"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Inscrire cet iPhone"
+          }
+        }
+      }
+    },
+    "signIn.device.failed.title" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This iPhone is not registered yet"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cet iPhone n’est pas encore inscrit"
+          }
+        }
+      }
+    },
+    "signIn.device.how" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Apple accepted your Apple ID. Cartouche only has to register this iPhone with it, through LocalDevVPN: no password, no code."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Apple a accepté votre identifiant Apple. Il ne reste qu’à y inscrire cet iPhone, par LocalDevVPN : sans mot de passe ni code."
+          }
+        }
+      }
+    },
+    "signIn.device.noAnswer" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This iPhone did not answer through LocalDevVPN. Disconnect LocalDevVPN, connect it again, then try again."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cet iPhone n’a pas répondu par LocalDevVPN. Déconnectez LocalDevVPN, reconnectez-le, puis réessayez."
+          }
+        }
+      }
+    },
+    "signIn.device.pairing" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This iPhone did not accept its pairing file. Put the pairing file in Cartouche again with the Cartouche Installer, on your computer."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cet iPhone n’a pas accepté son fichier de jumelage. Remettez le fichier de jumelage dans Cartouche avec l’Installeur Cartouche, sur votre ordinateur."
+          }
+        }
+      }
+    },
+    "signIn.device.title" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Last step: this iPhone"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dernière étape : cet iPhone"
+          }
+        }
+      }
+    },
+    "signIn.device.vpn" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "LocalDevVPN is not connected, or does not carry this iPhone’s traffic. Connect it, or disconnect it and connect it again."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "LocalDevVPN n’est pas connecté, ou ne fait pas passer le trafic de cet iPhone. Connectez-le, ou déconnectez-le puis reconnectez-le."
+          }
+        }
+      }
+    },
+    "signIn.device.wifi" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This iPhone is not on Wi-Fi, which LocalDevVPN needs to reach it. Join a Wi-Fi network."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cet iPhone n’est pas en Wi-Fi, et LocalDevVPN en a besoin pour l’atteindre. Connectez-vous à un réseau Wi-Fi."
+          }
+        }
+      }
+    },
+    "signIn.device.working" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Registering this iPhone with your account…"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Inscription de cet iPhone sur votre compte…"
+          }
+        }
+      }
+    },
     "signIn.failed.title" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -5709,6 +5947,40 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Connectez d’abord LocalDevVPN"
+          }
+        }
+      }
+    },
+    "signIn.vpnWait" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Waiting for LocalDevVPN: Cartouche goes on by itself as soon as it is connected."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "En attente de LocalDevVPN : Cartouche continue de lui-même dès qu’il est connecté."
+          }
+        }
+      }
+    },
+    "signIn.vpnWait.goOn" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Go on without waiting"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Continuer sans attendre"
           }
         }
       }

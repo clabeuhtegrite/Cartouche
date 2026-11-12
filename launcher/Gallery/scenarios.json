@@ -446,6 +446,38 @@
       ]
     },
     {
+      "name": "iphone-sign-in-vpn-wait",
+      "screen": "signin",
+      "work": "vpn-wait",
+      "owned": [],
+      "setup": true,
+      "controller": false,
+      "width": 402,
+      "height": 874,
+      "insets": [
+        62,
+        0,
+        34,
+        0
+      ]
+    },
+    {
+      "name": "iphone-sign-in-iphone-step",
+      "screen": "signin",
+      "work": "iphone-step",
+      "owned": [],
+      "setup": true,
+      "controller": false,
+      "width": 402,
+      "height": 874,
+      "insets": [
+        62,
+        0,
+        34,
+        0
+      ]
+    },
+    {
       "name": "iphone-guide-first-launch",
       "screen": "guide",
       "owned": [],

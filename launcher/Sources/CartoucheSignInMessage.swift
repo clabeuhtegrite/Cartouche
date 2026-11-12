@@ -163,6 +163,64 @@ enum CartoucheSignInMessage {
     }
 }
 
+// MARK: This iPhone, through LocalDevVPN
+
+extension CartoucheSignInMessage {
+    /// What keeps the built-in SideStore from reaching this iPhone, as it
+    /// does through LocalDevVPN to register it with the account. Cartouche
+    /// tells the player in its own words, which say what to do, rather than
+    /// SideStore's, which point to its own settings.
+    enum DeviceTrouble: Equatable {
+        /// LocalDevVPN is off, or does not carry this iPhone's traffic.
+        case vpn
+        /// The iPhone is not on Wi-Fi, which LocalDevVPN needs.
+        case wifi
+        /// The pairing file is missing, or the iPhone refuses it.
+        case pairing
+        /// The iPhone did not answer through LocalDevVPN.
+        case noAnswer
+    }
+
+    /// The trouble FAILURE tells, when it is one of this iPhone's connection
+    /// to itself.
+    static func deviceTrouble(in failure: CartoucheFailure) -> DeviceTrouble? {
+        switch failure.cause {
+        case .vpn: return .vpn
+        case .pairing: return .pairing
+        case .device:
+            if case .text("noConnection")? = failure.details["kind"] { return .wifi }
+            return .noAnswer
+        default: return nil
+        }
+    }
+
+    /// Whether a sign-in that ended with FAILURE leaves only the step that
+    /// registers this iPhone: Apple accepted the account, SideStore kept it
+    /// with its team and the certificate, and stopped at that step, which
+    /// Register Cartouche's iPhone takes alone (app/patches/sidestore/0017).
+    static func leavesDeviceStep(_ failure: CartoucheFailure) -> Bool {
+        failure.stage == "device"
+    }
+
+    /// Whether that step, taken alone, ended with FAILURE for want of the
+    /// account a sign-in leaves: the whole sign-in is left then.
+    static func needsSignIn(afterDeviceStep failure: CartoucheFailure) -> Bool {
+        failure.stage == "account" || failure.cause == .notSignedIn
+    }
+
+    /// The steps of the sign-in before anything goes to Apple: Cartouche's
+    /// own, then SideStore's (app/patches/sidestore/0011, 0017).
+    static let stagesBeforeApple: Set<String> = ["start", "database", "credentials", "deviceCheck"]
+
+    /// Whether the password the player typed can stay on the sign-in's
+    /// screen after a sign-in that ended with FAILURE: when it never left
+    /// this iPhone, for the player to sign in again without typing it again.
+    static func keepsPassword(after failure: CartoucheFailure?) -> Bool {
+        guard let stage = failure?.stage else { return false }
+        return stagesBeforeApple.contains(stage)
+    }
+}
+
 /// How long Cartouche keeps the player from signing in again once Apple has
 /// refused more sign-ins for now, so that no burst of attempts, by the
 /// player or by Cartouche itself, makes Apple's limit last longer: what

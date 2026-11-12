@@ -101,6 +101,50 @@ final class CartoucheSignInMessageTests: XCTestCase {
                                                     failure: CartoucheFailure(.appleCredentials, details: ["kind": .text("incorrectCredentials")])))
     }
 
+    func testTheTroubleWithThisIPhone() {
+        XCTAssertEqual(CartoucheSignInMessage.deviceTrouble(in: CartoucheFailure(.vpn, stage: "device",
+                                                                                 details: ["kind": .text("noVPN")])), .vpn)
+        XCTAssertEqual(CartoucheSignInMessage.deviceTrouble(in: CartoucheFailure(.pairing, stage: "deviceCheck",
+                                                                                 details: ["kind": .text("invalidPairingFile")])),
+                       .pairing)
+        XCTAssertEqual(CartoucheSignInMessage.deviceTrouble(in: CartoucheFailure(.device, stage: "device",
+                                                                                 details: ["kind": .text("noConnection")])), .wifi)
+        XCTAssertEqual(CartoucheSignInMessage.deviceTrouble(in: CartoucheFailure(.device, stage: "device",
+                                                                                 details: ["kind": .text("noDevice")])), .noAnswer)
+        XCTAssertEqual(CartoucheSignInMessage.deviceTrouble(in: CartoucheFailure(.device)), .noAnswer)
+        XCTAssertNil(CartoucheSignInMessage.deviceTrouble(in: CartoucheFailure(.deviceRegistration, stage: "device")))
+        XCTAssertNil(CartoucheSignInMessage.deviceTrouble(in: CartoucheFailure(.appleCredentials, stage: "account")))
+    }
+
+    func testWhatASignInLeavesOfTheIPhonesStep() {
+        // Apple accepted the account and SideStore kept it: only this
+        // iPhone is left, whatever stopped its step.
+        XCTAssertTrue(CartoucheSignInMessage.leavesDeviceStep(CartoucheFailure(.vpn, stage: "device")))
+        XCTAssertTrue(CartoucheSignInMessage.leavesDeviceStep(CartoucheFailure(.deviceRegistration, stage: "device")))
+        // Before Apple, or with Apple, nothing is kept.
+        XCTAssertFalse(CartoucheSignInMessage.leavesDeviceStep(CartoucheFailure(.vpn, stage: "deviceCheck")))
+        XCTAssertFalse(CartoucheSignInMessage.leavesDeviceStep(CartoucheFailure(.appleCredentials, stage: "account")))
+        XCTAssertFalse(CartoucheSignInMessage.leavesDeviceStep(CartoucheFailure(.sideStoreQuit)))
+
+        // The iPhone's step alone, without the account it needs.
+        XCTAssertTrue(CartoucheSignInMessage.needsSignIn(afterDeviceStep: CartoucheFailure(.notSignedIn, stage: "account")))
+        XCTAssertTrue(CartoucheSignInMessage.needsSignIn(afterDeviceStep: CartoucheFailure(.noTeam, stage: "account")))
+        XCTAssertTrue(CartoucheSignInMessage.needsSignIn(afterDeviceStep: CartoucheFailure(.notSignedIn)))
+        XCTAssertFalse(CartoucheSignInMessage.needsSignIn(afterDeviceStep: CartoucheFailure(.vpn, stage: "deviceCheck")))
+        XCTAssertFalse(CartoucheSignInMessage.needsSignIn(afterDeviceStep: CartoucheFailure(.deviceRegistration, stage: "device")))
+    }
+
+    func testThePasswordStaysOnlyWhenItNeverLeftThisIPhone() {
+        for stage in ["start", "database", "credentials", "deviceCheck"] {
+            XCTAssertTrue(CartoucheSignInMessage.keepsPassword(after: CartoucheFailure(.vpn, stage: stage)), stage)
+        }
+        for stage in ["account", "verification", "team", "certificate", "device", "finish"] {
+            XCTAssertFalse(CartoucheSignInMessage.keepsPassword(after: CartoucheFailure(.other, stage: stage)), stage)
+        }
+        XCTAssertFalse(CartoucheSignInMessage.keepsPassword(after: CartoucheFailure(.sideStoreQuit)))
+        XCTAssertFalse(CartoucheSignInMessage.keepsPassword(after: nil))
+    }
+
     func testThePauseAfterApplesLimit() throws {
         let now = Date(timeIntervalSince1970: 1_794_000_000)
         let first = CartoucheSignInPause.after(nil, at: now, retryAfter: nil)

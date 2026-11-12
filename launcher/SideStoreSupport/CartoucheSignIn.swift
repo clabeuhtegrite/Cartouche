@@ -8,6 +8,8 @@
 //  runs its Sign In to Cartouche action (app/patches/sidestore/0011) with the
 //  Apple ID and password Cartouche left in their shared keychain; it asks for
 //  a verification code through the same keychain (CartoucheSignInMessage).
+//  After a sign-in that stopped at the step that registers this iPhone, its
+//  Register Cartouche's iPhone action (patch 0017) takes that step alone.
 //
 //  This file joins LiveContainer's SideStoreSupport framework, which
 //  LiveContainer loads when the app carries the built-in SideStore. The
@@ -34,6 +36,29 @@ public final class CartoucheSignIn: NSObject {
                 try await performIntentRefresh(
                     identifier: "CartoucheSignInIntent",
                     mangledTypeName: "9SideStore21CartoucheSignInIntentV",
+                    intentProgress: progress)
+                completion(nil)
+            } catch {
+                completion(error.localizedDescription)
+            }
+        }
+    }
+
+    /// Registers this iPhone with the Apple ID SideStore is signed in to,
+    /// alone, with the account it kept. `progress` counts to 100;
+    /// `completion` runs on the main queue, with nil or the error's text.
+    @objc(registerDeviceWithProgress:completion:)
+    public static func registerDevice(progress: Progress, completion: @escaping (String?) -> Void) {
+        guard #available(iOS 17.0, *) else {
+            completion("Signing in from Cartouche needs iOS 17 or later.")
+            return
+        }
+        Task { @MainActor in
+            do {
+                // CartoucheRegisterDeviceIntent, in SideStore's module.
+                try await performIntentRefresh(
+                    identifier: "CartoucheRegisterDeviceIntent",
+                    mangledTypeName: "9SideStore29CartoucheRegisterDeviceIntentV",
                     intentProgress: progress)
                 completion(nil)
             } catch {

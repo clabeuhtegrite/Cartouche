@@ -1,10 +1,11 @@
 """Checks that Cartouche's Apple ID sign-in lines up with the built-in
-SideStore's patch (app/patches/sidestore/0011):
+SideStore's patches (app/patches/sidestore/0011, and 0017 for the iPhone's
+step alone):
 
 - the launcher finds CartoucheSignIn (launcher/SideStoreSupport) by the
-  Objective-C names it declares;
-- CartoucheSignIn runs the action that the patch adds, by its type's mangled
-  name in SideStore's module, and Shortcuts does not list that action;
+  Objective-C names it declares, for the sign-in and for the iPhone's step;
+- CartoucheSignIn runs the actions that the patches add, each by its type's
+  mangled name in SideStore's module, and Shortcuts lists neither;
 - both sides name the same keychain items, and read the fields the other
   writes.
 
@@ -23,11 +24,15 @@ PATCHES = ROOT / "app" / "patches" / "sidestore"
 MODULE = "SideStore"
 
 
-def added_by_patch() -> str:
-    """The lines patch 0011 adds to SideStore."""
-    patches = sorted(PATCHES.glob("*-let-cartouche-sign-the-built-in-sidestore-in.patch"))
+SIGN_IN_PATCH = "let-cartouche-sign-the-built-in-sidestore-in"
+DEVICE_PATCH = "check-the-iphone-before-signing-in-and-register-it-alone"
+
+
+def added_by_patch(name: str = SIGN_IN_PATCH) -> str:
+    """The lines a patch adds to SideStore: 0011 unless NAME says otherwise."""
+    patches = sorted(PATCHES.glob(f"*-{name}.patch"))
     if len(patches) != 1:
-        raise AssertionError(f"expected one sign-in patch in {PATCHES.relative_to(ROOT)}, found {len(patches)}")
+        raise AssertionError(f"expected one {name} patch in {PATCHES.relative_to(ROOT)}, found {len(patches)}")
     lines = patches[0].read_text(encoding="utf-8").splitlines()
     return "\n".join(line[1:] for line in lines if line.startswith("+") and not line.startswith("+++"))
 
@@ -48,19 +53,25 @@ class SignInTest(unittest.TestCase):
         launcher = ACCOUNT.read_text(encoding="utf-8")
         bridge = BRIDGE.read_text(encoding="utf-8")
         class_name = found(r'NSClassFromString\("([^"]+)"\)', launcher, "the bridge's class").group(1)
-        selector = found(r'NSSelectorFromString\("(signIn[^"]+)"\)', launcher, "the bridge's selector").group(1)
+        selectors = re.findall(r'NSSelectorFromString\("([^"]+)"\)', launcher)
+        self.assertEqual(sorted(selectors), ["registerDeviceWithProgress:completion:", "signInWithProgress:completion:"])
         self.assertIn(f"@objc({class_name})\npublic final class", bridge)
-        self.assertIn(f"@objc({selector})\n    public static func", bridge)
+        for selector in selectors:
+            self.assertIn(f"@objc({selector})\n    public static func", bridge)
 
-    def test_the_bridge_runs_the_action_the_patch_adds(self):
-        added = added_by_patch()
-        name = found(r"^struct (\w+): AppIntent\b", added, "the AppIntent the patch adds", re.M).group(1)
-        identifier, mangled = found(
+    def test_the_bridge_runs_the_actions_the_patches_add(self):
+        calls = re.findall(
             r'performIntentRefresh\(\s*identifier:\s*"([^"]+)",\s*mangledTypeName:\s*"([^"]+)"',
-            BRIDGE.read_text(encoding="utf-8"), "the bridge's performIntentRefresh call").groups()
-        self.assertEqual(identifier, name)
-        self.assertEqual(mangled, f"{len(MODULE)}{MODULE}{len(name)}{name}V")
-        self.assertIn("static var isDiscoverable: Bool { false }", added)
+            BRIDGE.read_text(encoding="utf-8"))
+        names = []
+        for patch in (SIGN_IN_PATCH, DEVICE_PATCH):
+            added = added_by_patch(patch)
+            intents = re.findall(r"^struct (\w+): AppIntent\b", added, re.M)
+            self.assertEqual(len(intents), 1, f"the AppIntent patch {patch} adds")
+            self.assertIn("static var isDiscoverable: Bool { false }", added)
+            names += intents
+        self.assertEqual(names, ["CartoucheSignInIntent", "CartoucheRegisterDeviceIntent"])
+        self.assertEqual(calls, [(name, f"{len(MODULE)}{MODULE}{len(name)}{name}V") for name in names])
 
     def test_both_sides_name_the_same_keychain_items(self):
         ours = accounts(MESSAGE.read_text(encoding="utf-8"))
