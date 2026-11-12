@@ -1,0 +1,104 @@
+# The launcher's harness: the launcher's own code (launcher/Sources), all of
+# it but the root view, in a small app of the iOS Simulator, on top of
+# LiveContainer as the harness stands it in (Sources/), with LiveContainer's
+# own LCAppModel.swift, LCContainer.swift, unpacker and texts, which
+# harness.sh copies from app/LiveContainer with Cartouche's patches into
+# Build/LiveContainer. Its tests (Tests/) run in that app: they install,
+# start, pause, quit and uninstall test games built as nxnative builds them,
+# and check what the launcher and LiveContainer leave.
+#
+#     launcher/Harness/harness.sh OUT     # XcodeGen and Xcode, on a Mac
+#
+# The Harness workflow runs it on every pull request that changes the
+# launcher, the harness or the LiveContainer it builds on.
+
+name: CartoucheHarness
+options:
+  bundleIdPrefix: io.github.clabeuhtegrite
+  deploymentTarget:
+    iOS: "17.0"
+  developmentLanguage: en
+settings:
+  base:
+    SWIFT_VERSION: "5.0"
+    # Signed to run in the Simulator, which the keychain asks of an app.
+    CODE_SIGNING_ALLOWED: "YES"
+    CODE_SIGNING_REQUIRED: "NO"
+    CODE_SIGN_IDENTITY: "-"
+    CODE_SIGN_STYLE: Manual
+    DEVELOPMENT_TEAM: ""
+    ENABLE_USER_SCRIPT_SANDBOXING: "NO"
+    TARGETED_DEVICE_FAMILY: "1"
+    SWIFT_STRICT_CONCURRENCY: minimal
+targets:
+  CartoucheHarness:
+    type: application
+    platform: iOS
+    sources:
+      - path: Sources
+      - path: ../Sources
+        includes:
+          - "Cartouche*.swift"
+        excludes:
+          # LiveContainer's tab view shows it: the harness has none.
+          - "CartoucheRootView.swift"
+      - path: ../Sources/Cartouche.xcstrings
+        buildPhase: resources
+      - path: Build/LiveContainer/LiveContainerSwiftUI/Models/LCAppModel.swift
+      - path: Build/LiveContainer/LiveContainerSwiftUI/Models/LCContainer.swift
+      - path: Build/LiveContainer/LiveContainerSwiftUI/Utilities
+      - path: Build/LiveContainer/Resources/Localizable.xcstrings
+        buildPhase: resources
+      - path: Build/CartoucheCatalog
+        type: folder
+        buildPhase: resources
+    dependencies:
+      # LiveContainer's unpacker (unarchive.m).
+      - sdk: libarchive.tbd
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: io.github.clabeuhtegrite.cartouche.harness
+        PRODUCT_NAME: CartoucheHarness
+        # harness.sh gives it Cartouche's version (app/config.env).
+        MARKETING_VERSION: "0"
+        CURRENT_PROJECT_VERSION: "1"
+        # Info.plist has the keys of Cartouche's own that the launcher reads;
+        # Xcode adds the others.
+        INFOPLIST_FILE: Info.plist
+        GENERATE_INFOPLIST_FILE: "YES"
+        INFOPLIST_KEY_CFBundleDisplayName: Harness
+        INFOPLIST_KEY_UILaunchScreen_Generation: "YES"
+        INFOPLIST_KEY_UIApplicationSceneManifest_Generation: "YES"
+        INFOPLIST_KEY_UIRequiresFullScreen: "YES"
+        INFOPLIST_KEY_UISupportedInterfaceOrientations: "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight"
+        SWIFT_OBJC_BRIDGING_HEADER: Sources/Harness-Bridging-Header.h
+        HEADER_SEARCH_PATHS: $(SRCROOT)/Build/LiveContainer/LiveContainerSwiftUI/Utilities
+        SWIFT_ACTIVE_COMPILATION_CONDITIONS: "DEBUG CARTOUCHE_HARNESS"
+        CLANG_ENABLE_OBJC_ARC: "YES"
+        ENABLE_TESTABILITY: "YES"
+  CartoucheHarnessTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources:
+      - path: Tests
+    dependencies:
+      - target: CartoucheHarness
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: io.github.clabeuhtegrite.cartouche.harness.tests
+        GENERATE_INFOPLIST_FILE: "YES"
+        TEST_HOST: $(BUILT_PRODUCTS_DIR)/CartoucheHarness.app/CartoucheHarness
+        BUNDLE_LOADER: $(TEST_HOST)
+        SWIFT_ACTIVE_COMPILATION_CONDITIONS: "DEBUG CARTOUCHE_HARNESS"
+schemes:
+  CartoucheHarness:
+    build:
+      targets:
+        CartoucheHarness: all
+        CartoucheHarnessTests: [test]
+    test:
+      config: Debug
+      gatherCoverageData: false
+      targets:
+        - name: CartoucheHarnessTests
+          parallelizable: false

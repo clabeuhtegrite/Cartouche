@@ -1,0 +1,146 @@
+name: Launcher harness
+
+# Runs the launcher's harness (launcher/Harness) in the iOS Simulator: the
+# launcher's own code on top of LiveContainer's unpacker, app model and
+# texts as Cartouche builds them, the rest of LiveContainer, its signing and
+# Cartouche's servers stood in. Its tests install, replace, start, pause,
+# quit and uninstall test games built as nxnative builds them, never a real
+# game, and check Cartouche's setup, its telemetry, the games folder and
+# the saves (launcher/Harness/README.md).
+#
+# A pull request's tests run once for what it changes in the files the
+# harness is built from: a rebase or a merge of main that leaves those
+# changes as they were keeps the result of the run that passed before.
+# main runs them after each merge that changes those files. Run the
+# workflow from the Actions tab to run them again.
+
+on:
+  push:
+    branches: [main]
+    # What the harness is built from (launcher/Harness/project.yml and
+    # harness.sh).
+    paths:
+      - "launcher/Sources/**"
+      - "launcher/Harness/**"
+      - "app/LiveContainer"
+      - "app/patches/livecontainer/**"
+      - "catalog/devices.json"
+      - "catalog/nxnative.json"
+      - "catalog/covers.json"
+      - "catalog/games/**"
+      - ".github/workflows/harness.yml"
+  pull_request:
+    paths:
+      - "launcher/Sources/**"
+      - "launcher/Harness/**"
+      - "app/LiveContainer"
+      - "app/patches/livecontainer/**"
+      - "catalog/devices.json"
+      - "catalog/nxnative.json"
+      - "catalog/covers.json"
+      - "catalog/games/**"
+      - ".github/workflows/harness.yml"
+  workflow_dispatch:
+  workflow_call:
+    inputs:
+      full:
+        description: Every test, whatever ran before (the Full test pass).
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: harness-${{ github.head_ref || github.ref }}-${{ inputs.full && 'full' || 'own' }}
+  cancel-in-progress: true
+
+env:
+  XCODE_VERSION: "27.2"
+
+jobs:
+  # The pull request's changes to the files in the paths above, as its merge
+  # into main has them, and whether a run of this pull request passed with
+  # them already. Its key goes to the Actions cache once the tests pass.
+  tested:
+    name: Harness passed already?
+    if: ${{ github.event_name == 'pull_request' && !inputs.full }}
+    runs-on: ubuntu-latest
+    outputs:
+      key: ${{ steps.changes.outputs.key }}
+      passed: ${{ steps.memo.outputs.cache-hit }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 2
+          persist-credentials: false
+      - name: What the pull request changes in the harness's files
+        id: changes
+        run: |
+          # HEAD^1 is main, HEAD the pull request merged into it.
+          CHANGES="$(git diff --binary HEAD^1 HEAD -- launcher/Sources launcher/Harness app/LiveContainer \
+            app/patches/livecontainer catalog/devices.json catalog/nxnative.json catalog/covers.json catalog/games \
+            .github/workflows/harness.yml | sha256sum | cut -c1-64)"
+          echo "key=harness-xcode-$XCODE_VERSION-$CHANGES" >> "$GITHUB_OUTPUT"
+      - name: Did they pass?
+        id: memo
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: build/harness-passed
+          key: ${{ steps.changes.outputs.key }}
+          lookup-only: true
+      - name: Say so
+        if: ${{ steps.memo.outputs.cache-hit == 'true' }}
+        run: |
+          echo "::notice::An earlier run of this pull request passed the harness with these very changes: run this workflow from the Actions tab to run it again."
+          echo "The harness passed with these very changes already." >> "$GITHUB_STEP_SUMMARY"
+
+  harness:
+    name: Harness tests
+    needs: tested
+    # Run unless the first job found a pass, so that a failure there cannot
+    # skip them.
+    if: ${{ !cancelled() && needs.tested.outputs.passed != 'true' }}
+    runs-on: xcode-27
+    timeout-minutes: 60
+    env:
+      # brew install takes the formula the runner knows, without updating
+      # Homebrew first.
+      HOMEBREW_NO_AUTO_UPDATE: "1"
+      HOMEBREW_NO_INSTALL_CLEANUP: "1"
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Check out LiveContainer
+        run: git submodule update --init app/LiveContainer
+      - name: Select Xcode
+        run: |
+          sudo xcode-select -s "/Applications/Xcode_${XCODE_VERSION}.app"
+          xcodebuild -version
+      - name: Install XcodeGen
+        run: brew install xcodegen
+      - name: Build the harness and run its tests
+        run: launcher/Harness/harness.sh build/harness
+      - name: Upload the results
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: launcher-harness
+          path: build/harness
+          retention-days: 14
+          if-no-files-found: warn
+      # Once every test has passed.
+      - name: Note that they passed
+        if: ${{ needs.tested.outputs.key != '' }}
+        env:
+          SOURCE: ${{ github.event.pull_request.head.sha }}
+        run: |
+          mkdir -p build/harness-passed
+          echo "$SOURCE" > build/harness-passed/source
+      - name: Keep the note in the cache
+        if: ${{ needs.tested.outputs.key != '' }}
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: build/harness-passed
+          key: ${{ needs.tested.outputs.key }}

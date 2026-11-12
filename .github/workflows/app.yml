@@ -72,8 +72,9 @@ jobs:
                 BUILD=true; LAUNCHER=true ;;
               # Read by no build: the notes, the release workflow's pull
               # requests, which change only the source, and what the CI,
-              # Storage and Launcher screens workflows check.
-              app/README.md|app/patches/README.md|app/releases/*|app/sidestore-source.json|app/tests/*|launcher/README.md|launcher/StorageTests/*|launcher/Gallery/*) ;;
+              # Storage, Launcher screens and Launcher harness workflows
+              # check.
+              app/README.md|app/patches/README.md|app/releases/*|app/sidestore-source.json|app/tests/*|launcher/README.md|launcher/StorageTests/*|launcher/Gallery/*|launcher/Harness/*) ;;
               # What the app is built from (app/scripts/prepare.sh and
               # package.sh).
               app/*|.gitmodules|launcher/*|catalog/devices.json|catalog/nxnative.json|catalog/games/*)
