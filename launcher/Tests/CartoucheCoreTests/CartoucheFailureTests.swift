@@ -254,6 +254,36 @@ final class CartoucheFailureTests: XCTestCase {
         XCTAssertEqual(read.facts, [:])
     }
 
+    // MARK: How a renewal ended
+
+    func testARenewalEndsAsSideStoreLeftIt() throws {
+        let quit = CartoucheFailure.sideStore(outcome: nil, message: "Built-in SideStore quit unexpectedly",
+                                              fraction: 1, seconds: 4, vpn: true, pairing: true)
+        // SideStore answered that it went through.
+        XCTAssertEqual(CartoucheFailure.renewalEnd(failure: nil, outcome: nil, renewed: false), .renewed(despite: nil))
+        // It quit before it said anything, and Cartouche's signature is the same.
+        XCTAssertEqual(CartoucheFailure.renewalEnd(failure: quit, outcome: nil, renewed: false), .quit)
+        // It quit once it had renewed Cartouche: its record says so.
+        XCTAssertEqual(CartoucheFailure.renewalEnd(failure: quit, outcome: nil, renewed: true), .renewed(despite: quit))
+
+        // It said it renewed Cartouche, and its answer was lost on the way.
+        let renewed = try XCTUnwrap(outcome(["ok": true, "stage": "ScheduleExpirationWarningNotification"], action: .refresh))
+        let lost = CartoucheFailure.sideStore(outcome: renewed, message: "Built-in SideStore quit unexpectedly",
+                                              fraction: 1, seconds: 4, vpn: true, pairing: true)
+        XCTAssertEqual(CartoucheFailure.renewalEnd(failure: lost, outcome: renewed, renewed: false), .renewed(despite: lost))
+
+        // Any other failure stays one, unless Cartouche is renewed all the same.
+        let failed = try XCTUnwrap(outcome(["stage": "FetchProvisioningProfiles", "family": "operation",
+                                            "kind": "invalidParameters"], action: .refresh))
+        let invalid = CartoucheFailure.sideStore(outcome: failed, message: "Invalid parameters", fraction: 1, seconds: 3,
+                                                 vpn: true, pairing: true)
+        XCTAssertEqual(CartoucheFailure.renewalEnd(failure: invalid, outcome: failed, renewed: false), .failed)
+        XCTAssertEqual(CartoucheFailure.renewalEnd(failure: invalid, outcome: failed, renewed: true), .renewed(despite: invalid))
+        let busy = CartoucheFailure.sideStore(outcome: nil, message: "Another refresh task is in progress.",
+                                              fraction: 0, seconds: 0, vpn: true, pairing: true)
+        XCTAssertEqual(CartoucheFailure.renewalEnd(failure: busy, outcome: nil, renewed: false), .failed)
+    }
+
     // MARK: Cartouche's own errors
 
     private struct Described: CartoucheDescribedError {
