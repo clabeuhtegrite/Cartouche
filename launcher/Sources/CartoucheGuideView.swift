@@ -357,6 +357,22 @@ struct CartoucheGuideView: View {
             action(CartoucheText.setupSignIn, systemImage: "person.crop.circle.badge.checkmark", primary: true) {
                 signingIn = true
             }
+        } else if progress.signInUnfinished && account.phase == nil {
+            // Apple accepted the account, and the sign-in stopped before the
+            // certificate: signing in again brings it.
+            detail(setup.appleID.map(CartoucheText.setupAppleIDUnfinished) ?? CartoucheText.guideAccountHow)
+            if let report = account.lastProblem {
+                Label(report.message, systemImage: "exclamationmark.triangle.fill")
+                    .font(.footnote)
+                    .foregroundStyle(CartoucheTheme.danger)
+                    .fixedSize(horizontal: false, vertical: true)
+                CartoucheReportButton(report: report)
+                    .font(.footnote)
+                    .cartoucheSecondaryButton()
+            }
+            action(CartoucheText.signInAgain, systemImage: "person.crop.circle.badge.checkmark", primary: true) {
+                signingIn = true
+            }
         } else if progress.deviceLeft {
             // Apple accepted the account: only this iPhone is left to
             // register, which Cartouche does by itself once LocalDevVPN is
@@ -376,7 +392,7 @@ struct CartoucheGuideView: View {
             HStack(spacing: 10) {
                 ProgressView()
                     .tint(Color.white)
-                detail(CartoucheText.guideAccountCertificate)
+                detail(account.phase != nil ? CartoucheText.signInWorking : CartoucheText.guideAccountCertificate)
             }
             action(CartoucheText.guideOpenSetup, systemImage: "checklist", primary: false) {
                 showingSetup = true
