@@ -48,8 +48,10 @@ struct CartoucheRomfsIdentity: Codable, Hashable, Sendable {
     /// build=<text> size=<bytes> index=<16 hex digits>"; nil without its
     /// first word, a size and an index.
     init?(line text: String) {
-        let line = text.split(separator: "\n", maxSplits: 1, omittingEmptySubsequences: false).first ?? ""
-        let words = line.split(whereSeparator: { $0 == " " || $0 == "\t" || $0 == "\r" })
+        // By Character: "\r\n" is one, a newline that is neither "\n" nor
+        // "\r", so a line ending with it is cut on isNewline.
+        let line = text.split(maxSplits: 1, omittingEmptySubsequences: false, whereSeparator: \.isNewline).first ?? ""
+        let words = line.split(whereSeparator: \.isWhitespace)
         guard line.hasPrefix("DMROMFSID1"), words.first == "DMROMFSID1" else { return nil }
         var size: UInt64?
         var index: UInt64?

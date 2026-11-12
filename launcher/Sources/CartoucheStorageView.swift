@@ -308,7 +308,6 @@ struct CartoucheStorageView: View {
         }
     }
 
-    /// "NAS › Games › Switch", or the server's name alone for its root.
     /// What the games folder at FOLDER lacks for the games nxnative built
     /// without their game files, and its images of game files that no IPA
     /// needs (CartoucheRomfs).
@@ -324,6 +323,7 @@ struct CartoucheStorageView: View {
         return notes
     }
 
+    /// "NAS › Games › Switch", or the server's name alone for its root.
     static func placeName(server: CartoucheStorageServer, path: String) -> String {
         ([server.name] + path.split(separator: "/").map(String.init)).joined(separator: " › ")
     }
