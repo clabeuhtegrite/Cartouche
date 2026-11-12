@@ -93,7 +93,11 @@ enum CartoucheRenewal {
                 progress.completedUnitCount = 0
                 try? await Task.sleep(nanoseconds: 1_000_000_000)
             case .quit, .failed:
-                throw Failure(message: message ?? CartoucheText.renewFailed, failure: failure)
+                guard let message, let failure else {
+                    throw Failure(message: CartoucheText.renewFailed, failure: failure)
+                }
+                // Never Apple's page for an error, as SideStore's words would show it.
+                throw Failure(message: CartoucheText.sideStoreMessage(message, failure: failure), failure: failure)
             }
         }
     }

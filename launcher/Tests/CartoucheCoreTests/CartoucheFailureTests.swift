@@ -92,6 +92,11 @@ final class CartoucheFailureTests: XCTestCase {
             (["family": "cartouche", "kind": "accountRepair"], .accountRepair),
             (["family": "cartouche", "kind": "noCredentials"], .credentialsMissing),
             (["family": "server", "kind": "underlyingError", "apple": -20209], .appleServer),
+            (["family": "server", "kind": "httpStatus", "http": 429, "service": "grandSlam"], .tooManyAttempts),
+            (["family": "server", "kind": "httpStatus", "http": 503, "service": "grandSlam"], .appleServer),
+            (["family": "server", "kind": "underlyingError", "apple": -22411], .tooManyAttempts),
+            (["family": "server", "kind": "underlyingError", "apple": -21668], .tooManyAttempts),
+            (["family": "server", "kind": "underlyingError", "apple": -20102], .tooManyAttempts),
             (["family": "anisette", "kind": "allServersFailed"], .anisette),
             (["family": "operation", "kind": "forbidden", "stage": "certificate"], .certificateRefused),
             (["family": "operation", "kind": "forbidden", "stage": "device"], .other),
@@ -141,6 +146,53 @@ final class CartoucheFailureTests: XCTestCase {
         XCTAssertFalse(failure.summary.contains("expired"))
         XCTAssertEqual(failure.summary, "appleServer, at team, 25 %, 40 s; apple 1100, codeAsked yes, "
                        + "kind underlyingError, pairing yes, vpn yes")
+    }
+
+    func testApplesLimitSaysHowLongToWaitAndWhichService() throws {
+        let left = try XCTUnwrap(outcome([
+            "seconds": 41, "stage": "verification", "family": "server", "kind": "httpStatus", "http": 429,
+            "service": "grandSlam", "retryAfter": 1_800, "codeAsked": true,
+        ]))
+        XCTAssertEqual(left.service, "grandSlam")
+        XCTAssertEqual(left.retryAfter, 1_800)
+        let failure = CartoucheFailure.sideStore(outcome: left, message: "Apple refuses more requests for now", fraction: 0.1,
+                                                 seconds: 45, vpn: true, pairing: true)
+        XCTAssertEqual(failure.cause, .tooManyAttempts)
+        XCTAssertEqual(failure.fields, [
+            "cause": .text("tooManyAttempts"), "stage": .text("verification"), "seconds": .number(41), "percent": .number(10),
+            "kind": .text("httpStatus"), "http": .number(429), "service": .text("grandSlam"), "retryAfter": .number(1_800),
+            "codeAsked": .flag(true), "vpn": .flag(true), "pairing": .flag(true),
+        ])
+        // Nor a week and more, nor a service that is no name.
+        let odd = try XCTUnwrap(outcome(["family": "server", "kind": "httpStatus", "http": 429, "retryAfter": 999_999,
+                                         "service": "gsa.apple.com"]))
+        XCTAssertNil(odd.retryAfter)
+        XCTAssertNil(odd.service)
+    }
+
+    func testApplesPageInTheWordsGivesItsStatusOnly() throws {
+        // As SideStore passed it on before patch 0016.
+        let message = "LNPerformActionErrorCodeLocalizedStringResource: Invalid server response: unparseable format\n<html>\n"
+            + "<head><title>429 Too Many Requests</title></head>\n<body>\n<center><h1>429 Too Many Requests</h1></center>\n"
+            + "<hr><center>Apple</center>\n</body>\n</html>"
+        let left = try XCTUnwrap(outcome(["stage": "verification", "family": "server", "kind": "invalidResponseFormat",
+                                          "codes": "SideSign.ServerError 1"]))
+        let failure = CartoucheFailure.sideStore(outcome: left, message: message, fraction: nil, seconds: nil, vpn: true, pairing: true)
+        XCTAssertEqual(failure.cause, .tooManyAttempts)
+        XCTAssertEqual(failure.details["http"], .number(429))
+        XCTAssertFalse(failure.summary.contains("Apple"))
+        XCTAssertFalse(failure.summary.contains("html"))
+
+        let unavailable = message.replacingOccurrences(of: "429 Too Many Requests", with: "503 Service Unavailable")
+        let other = CartoucheFailure.sideStore(outcome: left, message: unavailable, fraction: nil, seconds: nil, vpn: nil, pairing: nil)
+        XCTAssertEqual(other.cause, .appleServer)
+        XCTAssertEqual(other.details["http"], .number(503))
+
+        // Without an outcome, the page tells the cause.
+        XCTAssertEqual(CartoucheFailure.sideStore(outcome: nil, message: message, fraction: nil, seconds: nil, vpn: nil, pairing: nil).cause,
+                       .tooManyAttempts)
+        XCTAssertEqual(CartoucheFailure.sideStore(outcome: nil, message: unavailable, fraction: nil, seconds: nil, vpn: nil,
+                                                  pairing: nil).cause, .appleServer)
     }
 
     func testWithoutAnOutcomeTheBridgesSentencesTellTheCause() {

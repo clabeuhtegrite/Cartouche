@@ -6,6 +6,8 @@
 //  Apple ID and its password, then the verification code Apple sends, while
 //  the built-in SideStore signs in without showing itself. It closes once
 //  SideStore is signed in, and the setup shows the certificate coming in.
+//  While Apple refuses more sign-ins for now, Sign In gives way to the time
+//  left to wait (CartoucheSignInPause).
 //
 
 import SwiftUI
@@ -114,22 +116,56 @@ struct CartoucheSignInView: View {
                     .fixedSize(horizontal: false, vertical: true)
                 if isBusy {
                     working(CartoucheText.signInWorking)
-                } else {
-                    Button(action: signIn) {
-                        Label(CartoucheText.signInButton, systemImage: "person.crop.circle.badge.checkmark")
-                            .frame(maxWidth: .infinity)
+                } else if let until = account.pausedUntil {
+                    // Apple refuses more sign-ins for now: the time left,
+                    // then Sign In again.
+                    TimelineView(.periodic(from: .now, by: 1)) { context in
+                        if context.date < until {
+                            waitButton(Self.timeLeft(until.timeIntervalSince(context.date)))
+                        } else {
+                            signInButton
+                        }
                     }
-                    .buttonStyle(.borderedProminent)
-                    .controlSize(.large)
-                    .disabled(!CartoucheSignInMessage.canSignIn(appleID: appleID, password: password))
+                } else {
+                    signInButton
                 }
             }
         }
         .disabled(isBusy)
     }
 
+    private var signInButton: some View {
+        Button(action: signIn) {
+            Label(CartoucheText.signInButton, systemImage: "person.crop.circle.badge.checkmark")
+                .frame(maxWidth: .infinity)
+        }
+        .buttonStyle(.borderedProminent)
+        .controlSize(.large)
+        .disabled(!CartoucheSignInMessage.canSignIn(appleID: appleID, password: password))
+    }
+
+    private func waitButton(_ timeLeft: String) -> some View {
+        Button {} label: {
+            Label(CartoucheText.signInWait(timeLeft), systemImage: "hourglass")
+                .monospacedDigit()
+                .frame(maxWidth: .infinity)
+        }
+        .buttonStyle(.borderedProminent)
+        .controlSize(.large)
+        .disabled(true)
+    }
+
+    /// "14 min 32 s", in the iPhone's language.
+    private static func timeLeft(_ seconds: TimeInterval) -> String {
+        let formatter = DateComponentsFormatter()
+        formatter.allowedUnits = seconds >= 3_600 ? [.hour, .minute] : [.minute, .second]
+        formatter.unitsStyle = .abbreviated
+        formatter.maximumUnitCount = 2
+        return formatter.string(from: max(1, seconds.rounded(.up))) ?? ""
+    }
+
     private func signIn() {
-        guard CartoucheSignInMessage.canSignIn(appleID: appleID, password: password) else { return }
+        guard account.pausedUntil == nil, CartoucheSignInMessage.canSignIn(appleID: appleID, password: password) else { return }
         focus = nil
         account.signIn(appleID: appleID, password: password)
         // SideStore keeps the password in its own keychain items.

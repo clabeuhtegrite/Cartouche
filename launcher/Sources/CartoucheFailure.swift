@@ -449,6 +449,12 @@ struct CartoucheSideStoreOutcome: Equatable, Sendable {
     var http: Int?
     var network: Int?
     var host: String?
+    /// For Apple's answer with an HTTP error and no answer of its own (patch
+    /// 0016): which of Apple's services gave it ("grandSlam" for the sign-in
+    /// and its code, "developerServices"), and the seconds Apple asked to
+    /// wait, when it did.
+    var service: String?
+    var retryAfter: Int?
     /// What the action noted on its way: whether Apple asked for a code and
     /// how, the account's certificates and teams.
     var facts: [String: CartoucheTelemetryValue]
@@ -458,6 +464,7 @@ struct CartoucheSideStoreOutcome: Equatable, Sendable {
         enum Key: String, CodingKey {
             case version, action, ok, date, seconds, percent, stage, trail, family, kind, codes, apple, http, network, host
             case codeAsked, bundledCertificate, activeCertificate, certificates, teams, codeMode, teamType
+            case service, retryAfter
         }
 
         var version: Int
@@ -474,10 +481,10 @@ struct CartoucheSideStoreOutcome: Equatable, Sendable {
             action = try values.decode(String.self, forKey: .action)
             ok = try values.decode(Bool.self, forKey: .ok)
             date = try values.decode(Int.self, forKey: .date)
-            for key in [Key.seconds, .percent, .apple, .http, .network, .certificates, .teams] {
+            for key in [Key.seconds, .percent, .apple, .http, .network, .certificates, .teams, .retryAfter] {
                 if let value = try? values.decodeIfPresent(Int.self, forKey: key) { ints[key] = value }
             }
-            for key in [Key.stage, .trail, .family, .kind, .codes, .host, .codeMode, .teamType] {
+            for key in [Key.stage, .trail, .family, .kind, .codes, .host, .codeMode, .teamType, .service] {
                 if let value = try? values.decodeIfPresent(String.self, forKey: key) { texts[key] = value }
             }
             for key in [Key.codeAsked, .bundledCertificate, .activeCertificate] {
@@ -516,6 +523,8 @@ struct CartoucheSideStoreOutcome: Equatable, Sendable {
         http = written.int(.http, in: 100...599)
         network = written.int(.network, in: -99_999...99_999)
         host = written.name(.host)
+        service = written.name(.service)
+        retryAfter = written.int(.retryAfter, in: 0...604_800)
 
         var facts: [String: CartoucheTelemetryValue] = [:]
         for (key, flag) in written.flags {
@@ -562,6 +571,9 @@ struct CartoucheSideStoreOutcome: Equatable, Sendable {
             default: return .appleRefused
             }
         case "server", "decoding":
+            // Apple refusing more requests for now: its 429, Too Many
+            // Requests, or its own codes for too many attempts.
+            if http == 429 || apple.map(Self.limitCodes.contains) == true { return .tooManyAttempts }
             return .appleServer
         case "anisette":
             return .anisette
@@ -610,6 +622,10 @@ struct CartoucheSideStoreOutcome: Equatable, Sendable {
         }
     }
 
+    /// Apple's codes for too many attempts, or codes asked for, for now:
+    /// -20102, -21668 and -22411 (SideSign's GrandSlamAuthErrorCodes).
+    static let limitCodes: Set<Int> = [-20102, -21668, -22411]
+
     /// Its names and numbers, as an error's details. Its family is in its
     /// codes' first domain.
     var details: [String: CartoucheTelemetryValue] {
@@ -620,6 +636,8 @@ struct CartoucheSideStoreOutcome: Equatable, Sendable {
         if let http { details["http"] = .number(Double(http)) }
         if let network { details["network"] = .number(Double(network)) }
         if let host { details["host"] = .text(host) }
+        if let service { details["service"] = .text(service) }
+        if let retryAfter { details["retryAfter"] = .number(Double(retryAfter)) }
         return details
     }
 }
@@ -648,16 +666,26 @@ extension CartoucheFailure {
         if let vpn { details["vpn"] = .flag(vpn) }
         if let pairing { details["pairing"] = .flag(pairing) }
 
+        let text = message.map(CartoucheSignInMessage.readable) ?? ""
+        // A page of Apple's in the words, as SideStore passed one on before
+        // patch 0016: only its status leaves the iPhone.
+        let pageStatus = CartoucheSignInMessage.pageStatus(in: text)
         if let outcome, !outcome.ok {
             details.merge(outcome.details) { _, new in new }
-            return CartoucheFailure(outcome.cause, stage: outcome.stage,
+            var cause = outcome.cause
+            if let pageStatus, outcome.http == nil {
+                details["http"] = .number(Double(pageStatus))
+                if pageStatus == 429, cause == .appleServer { cause = .tooManyAttempts }
+            }
+            return CartoucheFailure(cause, stage: outcome.stage,
                                     fraction: outcome.percent.map { Double($0) / 100 } ?? fraction,
                                     seconds: outcome.seconds.map { Double($0) } ?? seconds, codes: outcome.codes, details: details)
         }
-        let text = message.map(CartoucheSignInMessage.readable) ?? ""
+        if let pageStatus { details["http"] = .number(Double(pageStatus)) }
         let said = bridgeSentences.first { text.hasPrefix($0.prefix) }?.cause
         guard let outcome else {
-            return CartoucheFailure(said ?? .noOutcome, fraction: fraction, seconds: seconds, details: details)
+            let page: Cause? = pageStatus.map { $0 == 429 ? .tooManyAttempts : .appleServer }
+            return CartoucheFailure(said ?? page ?? .noOutcome, fraction: fraction, seconds: seconds, details: details)
         }
         // SideStore's action went well, yet what ran it failed on the way back.
         details["outcomeOK"] = .flag(true)

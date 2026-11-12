@@ -1,0 +1,283 @@
+From 01cb44a3468961d4fd5d79293ff0ad826c1959f7 Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Thu, 12 Nov 2026 07:10:17 +0000
+Subject: [PATCH] Tell Apple's too many requests apart from its answers
+
+SideSign read a body before looking at its HTTP status. When Apple
+limits the sign-ins for now, it answers HTTP 429, Too Many Requests,
+with a page of its web server's for a body; read as a property list,
+that page became "Invalid server response: unparseable format" with
+the page's HTML for words, which the player saw as it was. Cartouche's
+anisette also took that error for a machine Apple refused, so the next
+sign-in made a new machine, provisioned it and asked for one more
+verification code: more requests, while Apple asked for fewer.
+
+Before reading a body, the sign-in, its verification code and the
+developer services now throw ServerError.httpStatus for Apple's 429,
+whatever its body, and for another status of error with a page for a
+body. The error keeps the status, the seconds Retry-After asks to wait
+(a week at most) and which of Apple's services answered (grandSlam,
+developerServices, other); never the page, nor its words. Any other
+answer is read as before, with the codes of Apple's own answers.
+
+A 429 is no longer a refusal of the anisette machine: Apple limits the
+account or the network, whatever the machine, which is kept. Another
+status with a page still is, as before.
+
+Cartouche's outcome (cartouche.outcome, patch 0014) gives the status
+as http, and the service and the wait as service and retryAfter, for
+Cartouche to tell the player in its own words, wait before signing in
+again, and send them in its measurements.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01MzPJourhkKg92rekVbCy68
+---
+ .../DeveloperPortal/Authentication.swift      | 17 ++++
+ .../DeveloperPortal/DeveloperPortalAPI.swift  | 13 +++
+ .../SideSign/Sources/Models/Errors.swift      | 83 +++++++++++++++++++
+ .../Core/Anisette/CartoucheAnisette.swift     |  6 +-
+ SideStore/Intents/CartoucheOutcome.swift      | 12 +++
+ 5 files changed, 130 insertions(+), 1 deletion(-)
+
+diff --git a/Dependencies/SideSign/Sources/DeveloperPortal/Authentication.swift b/Dependencies/SideSign/Sources/DeveloperPortal/Authentication.swift
+index 39a3c1f..3b84691 100644
+--- a/Dependencies/SideSign/Sources/DeveloperPortal/Authentication.swift
++++ b/Dependencies/SideSign/Sources/DeveloperPortal/Authentication.swift
+@@ -355,6 +355,13 @@ public extension DeveloperPortal {
+         let httpResponse = response as? HTTPURLResponse
+         let statusCode = httpResponse?.statusCode ?? 0
+ 
++        // Cartouche: Apple's page for an HTTP error, such as 429 when it
++        // limits the sign-ins for now, is no answer to read (ServerError.httpFailure).
++        if let failure = ServerError.httpFailure(response, body: data) {
++            debugLog("[SideSign] Auth endpoint answered HTTP \(statusCode) without an answer: \(failure)")
++            throw failure
++        }
++
+         guard !data.isEmpty else {
+             debugLog("[SideSign] Auth endpoint returned 0 bytes (HTTP \(statusCode))")
+             throw ServerError.badServerResponse(reason: "Auth endpoint returned empty response (0 bytes)", jsonPayload: "0 bytes")
+@@ -695,6 +702,11 @@ public extension DeveloperPortal {
+         try throwIfXMLUIErrorAlert(in: data, statusCode: statusCode, actionName: "sendTrustedDevice2FACodeRequest")
+ 
+         guard statusCode == HTTPStatusCodes.ok else {
++            // Cartouche: nor here, Apple's page (ServerError.httpFailure).
++            if let failure = ServerError.httpFailure(response, body: data) {
++                debugLog("[SideSign] sendTrustedDevice2FACodeRequest answered HTTP \(statusCode) without an answer: \(failure)")
++                throw failure
++            }
+             let rawStr = prettyJSONString(from: data)
+             debugLog("[SideSign] sendTrustedDevice2FACodeRequest failed (HTTP \(statusCode)): \(rawStr)")
+             throw ServerError.badServerResponse(reason: "Trusted device request failed (HTTP \(statusCode))", jsonPayload: rawStr)
+@@ -760,6 +772,11 @@ public extension DeveloperPortal {
+         }
+ 
+         guard statusCode == HTTPStatusCodes.ok else {
++            // Cartouche: nor here, Apple's page (ServerError.httpFailure).
++            if let failure = ServerError.httpFailure(response, body: data) {
++                debugLog("[SideSign] sendPhone2FACodeRequest answered HTTP \(statusCode) without an answer: \(failure)")
++                throw failure
++            }
+             let reason = errorMsg ?? HTTPStatusCodes.localizedDescription(for: statusCode)
+             debugLog("[SideSign] sendPhone2FACodeRequest failed (HTTP \(statusCode)): \(reason)")
+             throw ServerError.badServerResponse(reason: reason, jsonPayload: rawStr)
+diff --git a/Dependencies/SideSign/Sources/DeveloperPortal/DeveloperPortalAPI.swift b/Dependencies/SideSign/Sources/DeveloperPortal/DeveloperPortalAPI.swift
+index dfea7cc..8191931 100644
+--- a/Dependencies/SideSign/Sources/DeveloperPortal/DeveloperPortalAPI.swift
++++ b/Dependencies/SideSign/Sources/DeveloperPortal/DeveloperPortalAPI.swift
+@@ -352,6 +352,13 @@ public final class DeveloperPortal: DeveloperPortalAPI, Sendable {
+         let httpResponse = response as? HTTPURLResponse
+         let statusCode = httpResponse?.statusCode ?? 0
+ 
++        // Cartouche: Apple's page for an HTTP error, such as 429 when it
++        // limits the requests for now, is no answer to read (ServerError.httpFailure).
++        if let failure = ServerError.httpFailure(response, body: data) {
++            debugLog("[SideSign] sendRequest answered HTTP \(statusCode) without an answer: \(failure)")
++            throw failure
++        }
++
+         guard !data.isEmpty else {
+             if statusCode == HTTPStatusCodes.noContent || T.self == EmptyResponse.self {
+                 if let empty = EmptyResponse() as? T {
+@@ -466,6 +473,12 @@ public final class DeveloperPortal: DeveloperPortalAPI, Sendable {
+         let isDelete = methodOverride == "DELETE"
+         let isNoContent = statusCode == HTTPStatusCodes.noContent
+ 
++        // Cartouche: nor here, Apple's page (ServerError.httpFailure).
++        if let failure = ServerError.httpFailure(response, body: data) {
++            debugLog("[SideSign] sendServicesRequest answered HTTP \(statusCode) without an answer: \(failure)")
++            throw failure
++        }
++
+         guard !data.isEmpty else {
+             if isDelete || isNoContent || T.self == EmptyResponse.self {
+                 verboseLog("[SideSign] sendServicesRequest: successful empty response for DELETE or \(HTTPStatusCodes.noContent)")
+diff --git a/Dependencies/SideSign/Sources/Models/Errors.swift b/Dependencies/SideSign/Sources/Models/Errors.swift
+index cca02c7..203eec1 100644
+--- a/Dependencies/SideSign/Sources/Models/Errors.swift
++++ b/Dependencies/SideSign/Sources/Models/Errors.swift
+@@ -75,6 +75,14 @@ public enum ServerError: LocalizedError, CustomStringConvertible, Sendable {
+     case invalidResponseFormat(rawPayload: String)
+     case missingKey(key: String, jsonPayload: String)
+     case underlyingError(code: Int, message: String)
++    /// Cartouche: Apple answered with an HTTP error and no answer of its own
++    /// (httpFailure(_:body:)): 429, Too Many Requests, when it refuses more
++    /// requests for now, for RETRY AFTER seconds when it says how long; or
++    /// another status, with a page for a body. SERVICE is which of Apple's
++    /// services answered: grandSlam (the sign-in and its verification
++    /// code), developerServices, or other. The page itself is left out: it
++    /// would reach the player as the error's message.
++    case httpStatus(code: Int, retryAfter: Int?, service: String)
+ 
+     public var description: String {
+         switch self {
+@@ -82,6 +90,8 @@ public enum ServerError: LocalizedError, CustomStringConvertible, Sendable {
+         case .invalidResponseFormat(let rawPayload):          return "invalidResponseFormat:\n\(rawPayload)"
+         case .missingKey(let key, let jsonPayload):           return "missingKey(\"\(key)\"):\n\(jsonPayload)"
+         case .underlyingError(let code, let message):         return "underlyingError(code: \(code), message: \"\(message)\")"
++        case .httpStatus(let code, let retryAfter, let service):
++            return "httpStatus(code: \(code), retryAfter: \(retryAfter.map(String.init) ?? "nil"), service: \(service))"
+         }
+     }
+ 
+@@ -91,10 +101,83 @@ public enum ServerError: LocalizedError, CustomStringConvertible, Sendable {
+         case .invalidResponseFormat(let rawPayload):          return "Invalid server response: unparseable format\n\(rawPayload)"
+         case .missingKey(let key, let jsonPayload):           return "Invalid server response: missing required key '\(key)'\n\(jsonPayload)"
+         case .underlyingError(let code, let message):         return "\(message) (\(code))"
++        case .httpStatus(let code, _, _) where code == HTTPStatusCodes.tooManyRequests:
++            return "Apple refuses more requests for now, after too many in a short time (HTTP 429). Wait before trying again."
++        case .httpStatus(let code, _, _):
++            return "\(HTTPStatusCodes.localizedDescription(for: code)) (HTTP \(code))"
+         }
+     }
+ }
+ 
++// Cartouche: Apple's own page for an HTTP error, such as "429 Too Many
++// Requests" when it limits the sign-ins for now, is no answer to read: read
++// as one, it became "unparseable format" with the page's HTML for a message,
++// which the player saw as it was. Needs proper testing on an iPhone that
++// Apple limits.
++public extension ServerError {
++    /// The error an HTTP RESPONSE from Apple stands for before its BODY is
++    /// read, when Apple gave no answer of its own: 429, Too Many Requests,
++    /// whatever the body; or another status of error with a page (HTML) for
++    /// a body. Nil for any other response, which is read as before, with
++    /// the codes of Apple's own answers.
++    static func httpFailure(_ response: URLResponse?, body: Data) -> ServerError? {
++        guard let response = response as? HTTPURLResponse else { return nil }
++        let code = response.safeStatusCode
++        if code != HTTPStatusCodes.tooManyRequests {
++            guard !(200...299).contains(code), self.isPage(body, contentType: self.header("Content-Type", of: response)) else {
++                return nil
++            }
++        }
++        return .httpStatus(code: code, retryAfter: self.retryAfter(of: response), service: self.service(of: response.url))
++    }
++
++    /// Whether BODY is a page, as a web server sends for an error, rather
++    /// than a property list, JSON or Apple's buddyml.
++    static func isPage(_ body: Data, contentType: String?) -> Bool {
++        if contentType?.lowercased().contains("text/html") == true {
++            return true
++        }
++        let start = String(decoding: body.prefix(512), as: UTF8.self).lowercased()
++        return start.contains("<html") || start.contains("<!doctype html")
++    }
++
++    /// The seconds RESPONSE's Retry-After asks to wait, a week at most,
++    /// whether it gives them or a date.
++    static func retryAfter(of response: HTTPURLResponse) -> Int? {
++        guard let value = self.header("Retry-After", of: response)?.trimmingCharacters(in: .whitespaces), !value.isEmpty else {
++            return nil
++        }
++        let week = 7 * 86_400
++        if let seconds = Int(value) {
++            return seconds >= 0 ? min(seconds, week) : nil
++        }
++        let formatter = DateFormatter()
++        formatter.locale = Locale(identifier: "en_US_POSIX")
++        formatter.timeZone = TimeZone(identifier: "GMT")
++        formatter.dateFormat = "EEE, dd MMM yyyy HH:mm:ss zzz"
++        guard let date = formatter.date(from: value) else { return nil }
++        return min(max(0, Int(date.timeIntervalSinceNow.rounded(.up))), week)
++    }
++
++    /// Which of Apple's services URL is, as a name.
++    static func service(of url: URL?) -> String {
++        switch url?.host?.lowercased() {
++        case "gsa.apple.com": return "grandSlam"
++        case "developerservices2.apple.com": return "developerServices"
++        default: return "other"
++        }
++    }
++
++    private static func header(_ name: String, of response: HTTPURLResponse) -> String? {
++        for (key, value) in response.allHeaderFields {
++            if let key = key as? String, key.caseInsensitiveCompare(name) == .orderedSame {
++                return value as? String
++            }
++        }
++        return nil
++    }
++}
++
+ public enum SignerError: Error, LocalizedError, Sendable {
+     case unknown(cause: String? = nil)
+     case invalidApp(cause: String)
+diff --git a/SideStore/Core/Anisette/CartoucheAnisette.swift b/SideStore/Core/Anisette/CartoucheAnisette.swift
+index 8c3142f..08e7bdb 100644
+--- a/SideStore/Core/Anisette/CartoucheAnisette.swift
++++ b/SideStore/Core/Anisette/CartoucheAnisette.swift
+@@ -236,7 +236,9 @@ enum CartoucheAnisette
+ 
+     /// Whether Apple refused the sign-in for something else than the
+     /// account: a code of its own other than too many attempts, or a page
+-    /// instead of an answer.
++    /// instead of an answer. Not Apple's page for too many requests (429):
++    /// Apple limits the account or the network for now, whatever the
++    /// machine, and a new machine would only ask for one more code.
+     private static func isRefusal(_ error: Error) -> Bool
+     {
+         switch error
+@@ -247,6 +249,8 @@ enum CartoucheAnisette
+                 GrandSlamAuthErrorCodes.tooManyCodesRequested,
+                 GrandSlamAuthErrorCodes.rateLimited,
+             ].contains(code)
++        case ServerError.httpStatus(let code, _, _):
++            return code != HTTPStatusCodes.tooManyRequests
+         case ServerError.invalidResponseFormat:
+             return true
+         default:
+diff --git a/SideStore/Intents/CartoucheOutcome.swift b/SideStore/Intents/CartoucheOutcome.swift
+index f0d55cd..8b02640 100644
+--- a/SideStore/Intents/CartoucheOutcome.swift
++++ b/SideStore/Intents/CartoucheOutcome.swift
+@@ -149,6 +149,16 @@ final class CartoucheOutcome: @unchecked Sendable
+             {
+                 outcome["http"] = status
+             }
++            // Which of Apple's services answered with an HTTP error, and
++            // how long it asked to wait, when it did (ServerError.httpFailure).
++            if case ServerError.httpStatus(_, let retryAfter, let service) = error
++            {
++                outcome["service"] = service
++                if let retryAfter
++                {
++                    outcome["retryAfter"] = retryAfter
++                }
++            }
+             if let (code, host) = Self.network(of: error)
+             {
+                 outcome["network"] = code
+@@ -260,6 +270,8 @@ final class CartoucheOutcome: @unchecked Sendable
+         {
+         case AnisetteError.badServerResponse(let status, _) where (100...599).contains(status):
+             return status
++        case ServerError.httpStatus(let status, _, _) where (100...599).contains(status):
++            return status
+         case ServerError.badServerResponse(let reason, _):
+             // "HTTP 503 from bundleIds", "... (HTTP 502)": only the number.
+             guard let range = reason.range(of: "HTTP [1-5][0-9][0-9]", options: .regularExpression) else { return nil }
+-- 
+2.43.0
+
