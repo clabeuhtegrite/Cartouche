@@ -8,6 +8,8 @@ name: Showcase site
 # Nothing else of the repository is published (site/README.md). Each download
 # link gets the newest file of its releases on the way: the Builder and
 # Installer workflows run this one again once they have published a release.
+# The Full test pass checks the page and its links, and publishes nothing
+# (full-pass.yml).
 
 on:
   push:
@@ -15,13 +17,21 @@ on:
     paths: ["site/**", ".github/workflows/site.yml"]
   # From the Actions tab, and by the Builder and Installer workflows.
   workflow_dispatch:
+  # The Full test pass (full-pass.yml): the page checked, never published.
+  workflow_call:
+    inputs:
+      full:
+        description: "Check the page, as the Full test pass does, and never publish it"
+        type: boolean
+        default: false
 
 permissions:
   contents: read
 
-# One publication at a time, the last one wins.
+# One publication at a time, the last one wins. The Full test pass's run,
+# which publishes nothing, waits for none.
 concurrency:
-  group: showcase-site
+  group: ${{ inputs.full && format('showcase-site-full-{0}', github.run_id) || 'showcase-site' }}
   cancel-in-progress: false
 
 jobs:
@@ -64,10 +74,11 @@ jobs:
           if-no-files-found: error
 
   # The only job that can write runs nothing from the repository: it commits
-  # the files the first job uploaded.
+  # the files the first job uploaded. Not in the Full test pass.
   publish:
     name: Publish it on gh-pages
     needs: page
+    if: ${{ !inputs.full }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:

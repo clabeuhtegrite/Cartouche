@@ -35,12 +35,20 @@ on:
       - "catalog/devices.json"
       - ".github/workflows/telemetry.yml"
   workflow_dispatch:
+  # The Full test pass (full-pass.yml): the tests, never the deploy.
+  workflow_call:
+    inputs:
+      full:
+        description: "Run the tests, as the Full test pass does, and never deploy"
+        type: boolean
+        default: false
 
 permissions:
   contents: read
 
+# The Full test pass's run is its own, and waits for no deploy.
 concurrency:
-  group: telemetry-${{ github.ref }}
+  group: ${{ inputs.full && format('telemetry-full-{0}', github.run_id) || format('telemetry-{0}', github.ref) }}
   cancel-in-progress: false
 
 jobs:
@@ -64,10 +72,11 @@ jobs:
           .venv/bin/pip install --quiet -e "guard[dev]"
           .venv/bin/python -m unittest discover -s telemetry/test -v
 
+  # Not in the Full test pass, which deploys nothing.
   deploy:
     name: Deploy the telemetry server
     needs: test
-    if: ${{ github.event_name != 'pull_request' && github.ref == 'refs/heads/main' }}
+    if: ${{ github.event_name != 'pull_request' && github.ref == 'refs/heads/main' && !inputs.full }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
     environment: cloudflare
