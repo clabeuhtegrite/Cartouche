@@ -2,18 +2,19 @@
 //  CartoucheStorage.swift
 //  Cartouche
 //
-//  The player's own storage, off the iPhone: the servers and S3 buckets
-//  they sign in to in Cartouche and the folders of theirs that iOS lets it
-//  keep, and the two places Cartouche uses there, kept apart: one for the
-//  games' IPAs, one for the backups of their saves.
+//  The player's own storage, off the iPhone: the servers, S3 buckets and
+//  Google Drive they sign in to in Cartouche and the folders of theirs that
+//  iOS lets it keep, and the two places Cartouche uses there, kept apart:
+//  one for the games' IPAs, one for the backups of their saves.
 //
 //  Cartouche reaches only what the player signs in to with their own
 //  account or keys, or a folder they picked: there is no link to paste or
-//  follow, no public bucket. It is where the player keeps their own
-//  copies, never a way to download games.
+//  follow, no public bucket, no file someone shared. It is where the player
+//  keeps their own copies, never a way to download games.
 //
 //  The servers and places are in Cartouche's preferences; each server's
-//  password or secret key is in the keychain, never in the preferences.
+//  password, secret key or Google sign-in is in the keychain, never in the
+//  preferences.
 //
 
 import Combine
@@ -38,6 +39,10 @@ struct CartoucheStorageServer: Codable, Identifiable, Hashable {
         /// The player's Mac with Cartouche Builder, paired once: the Games
         /// and Saves folders it shares (CartoucheStorageMac.swift).
         case mac
+        /// The player's Google Drive, My Drive alone, signed in to with
+        /// their own OAuth client and Google account
+        /// (CartoucheStorageDrive.swift).
+        case drive
 
         var id: String { rawValue }
     }
@@ -49,9 +54,11 @@ struct CartoucheStorageServer: Codable, Identifiable, Hashable {
     /// SMB, FTP and SFTP: the server's name or address. S3: its address, with
     /// http:// before it for a server of the player's network without
     /// HTTPS. A Mac: the address it was last reached at, and its port.
+    /// Google Drive: the address of the Google account signed in to.
     var host: String = ""
     var port: Int?
-    /// S3: the access key ID.
+    /// S3: the access key ID. Google Drive: the ID of the player's OAuth
+    /// client, whose refresh token is the secret in the keychain.
     var username: String = ""
     /// SMB: the shared folder. S3: the bucket.
     var share: String = ""
@@ -104,6 +111,11 @@ struct CartoucheStorageError: LocalizedError, CustomNSError {
         /// The SFTP server's key: none shown, or another than the one kept.
         case noHostKey, hostKeyChanged
         case noSubsystem
+        /// Google Drive: not a client ID, a client Google refuses, the Drive
+        /// API off in the player's project, the Drive not allowed on
+        /// Google's page or no lasting sign-in, a sign-in that page did not
+        /// give, a file or folder no longer there, another refusal.
+        case badClient, clientRefused, driveOff, driveScope, noLastingSignIn, webSignIn, notThere, driveFailed
     }
 
     let kind: Kind
@@ -527,7 +539,7 @@ enum CartoucheStorage {
             #else
             throw CartoucheStorageError(.notInBuild, "SFTP is not in this build")
             #endif
-        case .smb, .folder, .s3, .mac:
+        case .smb, .folder, .s3, .mac, .drive:
             throw CartoucheStorageError(.noPassword, "Not a server signed in to with a password here")
         }
     }
@@ -592,6 +604,8 @@ enum CartoucheStorage {
             #endif
         case .mac:
             return try await CartoucheMacStorage.connect(server, secret: secret, settings: settings)
+        case .drive:
+            return try await CartoucheDrive.connect(server, refreshToken: secret)
         }
     }
 }

@@ -253,15 +253,18 @@ struct CartoucheHomeView: View {
             // room for it beside the wordmark; on an upright iPhone, the
             // symbol alone, as the controller's.
             if let offline = reach.offlineInUse.first {
+                // A Google Drive whose sign-in Google ended says so, the
+                // same way: its Storage page signs in again.
+                let away = CartoucheStorageOffline(offline)
                 Button {
                     onTab(.system)
                 } label: {
                     Group {
                         if metrics.size.width >= Self.offlineNameWidth {
-                            Label(CartoucheText.storageOfflineShort(offline.name), systemImage: "wifi.slash")
+                            Label(away.short, systemImage: away.symbol)
                                 .labelStyle(CartoucheTightLabelStyle())
                         } else {
-                            Image(systemName: "wifi.slash")
+                            Image(systemName: away.symbol)
                         }
                     }
                     .font(.subheadline.weight(.semibold))
@@ -272,7 +275,7 @@ struct CartoucheHomeView: View {
                     .cartoucheGlass(in: Capsule(), interactive: true)
                 }
                 .buttonStyle(.plain)
-                .accessibilityLabel(Text(CartoucheText.storageOfflineTitle(offline.name)))
+                .accessibilityLabel(Text(away.title))
             }
             // Renewals keep Cartouche signed: its expiry shows here only
             // when it comes close, and leads to the System page.
@@ -494,9 +497,10 @@ struct CartoucheHomeView: View {
                 return setup.bannerDetail(signingInAgain: CartoucheAccount.shared.isAutomatic)
             }
             guard status == .update else { return nil }
-            return isGamesFolderOffline ? CartoucheText.statusUpdateOffline(serverName) : status.long
+            guard isGamesFolderOffline else { return status.long }
+            return isGamesFolderSignedOut ? CartoucheText.statusUpdateSignedOut(serverName) : CartoucheText.statusUpdateOffline(serverName)
         case .stored where isGamesFolderOffline:
-            return CartoucheText.statusStoredOffline(serverName)
+            return isGamesFolderSignedOut ? CartoucheText.statusStoredSignedOut(serverName) : CartoucheText.statusStoredOffline(serverName)
         default:
             return status.long
         }
@@ -507,6 +511,13 @@ struct CartoucheHomeView: View {
     private var isGamesFolderOffline: Bool {
         guard let server = CartoucheStorageSettings.shared.location(.games)?.server else { return false }
         return reach.isOffline(server.id)
+    }
+
+    /// Whether the games folder is on a Google Drive whose sign-in Google
+    /// ended: its games install once the player signs in again.
+    private var isGamesFolderSignedOut: Bool {
+        guard let server = CartoucheStorageSettings.shared.location(.games)?.server else { return false }
+        return CartoucheStorageOffline(server).isSignedOut
     }
 
     private var serverName: String {

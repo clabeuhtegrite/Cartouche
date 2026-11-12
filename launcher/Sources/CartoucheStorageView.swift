@@ -3,9 +3,11 @@
 //  Cartouche
 //
 //  The player's storage, on screen: the System page's Storage page, where
-//  the player signs in to a shared folder of their Mac, PC or NAS, or picks
-//  a folder in Files, and chooses the games folder and the saves folder;
-//  and, on a game's sheet, the copies of its saves, which can be put back.
+//  the player signs in to a shared folder of their Mac, PC or NAS, a
+//  bucket, a server or their Google Drive (CartoucheStorageDriveView.swift),
+//  or picks a folder in Files, and chooses the games folder and the saves
+//  folder; and, on a game's sheet, the copies of its saves, which can be put
+//  back.
 //
 
 import Combine
@@ -52,6 +54,8 @@ struct CartoucheStorageView: View {
             NavigationStack {
                 if server.kind == .mac {
                     CartoucheStorageMacForm(server: server)
+                } else if server.kind == .drive {
+                    CartoucheStorageDriveForm(server: server)
                 } else if server.kind == .s3 {
                     CartoucheStorageS3Form(server: server)
                 } else if server.kind == .ftp || server.kind == .sftp {
@@ -111,9 +115,13 @@ struct CartoucheStorageView: View {
                         }
                     }
                     if offline {
-                        Label(CartoucheStorageOffline(server).localizedDescription, systemImage: "wifi.slash")
+                        let away = CartoucheStorageOffline(server)
+                        Label(away.localizedDescription, systemImage: away.symbol)
                             .font(.footnote)
                             .foregroundStyle(Color.orange)
+                        if away.isSignedOut {
+                            CartoucheDriveSignInAgainButton(server: server)
+                        }
                     } else if let problem = stored.problemReport {
                         Text(problem.message)
                             .font(.footnote)
@@ -128,8 +136,9 @@ struct CartoucheStorageView: View {
                         .disabled(stored.isScanning)
                 } else if offline {
                     // As the games folder's lines: what waits, and a way to
-                    // try the server again.
-                    Label(CartoucheStorageOffline(server).localizedDescription, systemImage: "wifi.slash")
+                    // try the server again, or to sign in to the Drive again.
+                    let away = CartoucheStorageOffline(server)
+                    Label(away.localizedDescription, systemImage: away.symbol)
                         .font(.footnote)
                         .foregroundStyle(Color.orange)
                     if !backups.waiting.isEmpty {
@@ -137,8 +146,15 @@ struct CartoucheStorageView: View {
                             .font(.footnote)
                             .foregroundStyle(.secondary)
                     }
-                    CartoucheTryAgainButton(isTrying: reach.trying.contains(server.id)) {
-                        Task { await reach.tryAgain(server) }
+                    if away.isSignedOut {
+                        // Once for both folders, on the games folder's lines.
+                        if settings.place(.games)?.server != server.id {
+                            CartoucheDriveSignInAgainButton(server: server)
+                        }
+                    } else {
+                        CartoucheTryAgainButton(isTrying: reach.trying.contains(server.id)) {
+                            Task { await reach.tryAgain(server) }
+                        }
                     }
                 } else if settings.isReadOnly(.saves) {
                     Text(CartoucheText.storageReadOnlySaves)
@@ -243,6 +259,11 @@ struct CartoucheStorageView: View {
                 Label(CartoucheText.storageAddS3, systemImage: "cloud")
             }
             Button {
+                editing = CartoucheStorageServer(kind: .drive, name: "")
+            } label: {
+                Label(CartoucheText.storageAddDrive, systemImage: "g.circle")
+            }
+            Button {
                 editing = CartoucheStorageServer(kind: .ftp, name: "")
             } label: {
                 Label(CartoucheText.storageAddFTP, systemImage: "externaldrive.connected.to.line.below")
@@ -298,6 +319,7 @@ struct CartoucheStorageView: View {
         case .ftp: return "externaldrive.fill.badge.wifi"
         case .sftp: return "lock.shield.fill"
         case .mac: return "laptopcomputer"
+        case .drive: return "g.circle.fill"
         }
     }
 
@@ -321,6 +343,8 @@ struct CartoucheStorageView: View {
             return "\(server.username)@\(server.host)\(port)"
         case .mac:
             return server.host.isEmpty ? "Cartouche Builder" : "Cartouche Builder · " + server.host
+        case .drive:
+            return server.host.isEmpty ? CartoucheText.storageDriveTitle : CartoucheText.storageDriveTitle + " · " + server.host
         }
     }
 }
@@ -1031,7 +1055,8 @@ struct CartoucheSavesSection: View {
                         .foregroundStyle(.secondary)
                 }
                 if reach.isOffline(location.server.id) {
-                    Label(CartoucheStorageOffline(location.server).localizedDescription, systemImage: "wifi.slash")
+                    let away = CartoucheStorageOffline(location.server)
+                    Label(away.localizedDescription, systemImage: away.symbol)
                         .font(.footnote)
                         .foregroundStyle(Color.orange)
                     if backups.waiting.contains(target.key) {

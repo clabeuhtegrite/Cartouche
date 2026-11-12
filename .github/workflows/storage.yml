@@ -1,10 +1,11 @@
 name: Storage
 
 # Runs the launcher's storage code, as the app does, against real servers on
-# a Mac: Samba (SMB), MinIO (S3), pyftpdlib (FTP, with and without MLSD) and
-# OpenSSH (SFTP), on the runner itself, with made-up apps for IPAs, one past
-# 4 GiB (launcher/StorageTests/README.md). For a pull request that changes
-# that code, its tests or the servers, and from main after one.
+# a Mac: Samba (SMB), MinIO (S3), pyftpdlib (FTP, with and without MLSD),
+# OpenSSH (SFTP) and a stand-in for Google's (Google Drive), on the runner
+# itself, with made-up apps for IPAs, one past 4 GiB
+# (launcher/StorageTests/README.md). For a pull request that changes that
+# code, its tests or the servers, and from main after one.
 
 on:
   push:
@@ -100,7 +101,7 @@ jobs:
         if: ${{ failure() }}
         run: |
           df -h /tmp
-          for LOG in smb/smbd.log smb/log/*.log ssh/sshd.log ftp/ftp.log ftp-list/ftp.log s3/minio.log; do
+          for LOG in smb/smbd.log smb/log/*.log ssh/sshd.log ftp/ftp.log ftp-list/ftp.log s3/minio.log drive/drive.log; do
             for FILE in "$SERVERS"/$LOG; do
               [ -f "$FILE" ] || continue
               echo "::group::$FILE"

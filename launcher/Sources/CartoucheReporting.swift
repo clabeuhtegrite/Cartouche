@@ -160,7 +160,7 @@ enum CartoucheReports {
         // A server that does not answer from here: its address may be wrong,
         // or the iPhone away from its network.
         let message = (error as? CartoucheStorageOffline).map {
-            $0.isMac ? CartoucheText.storageMacOffline($0.name) : CartoucheText.storageOfflineCheck($0.name)
+            $0.isSignedOut || $0.isMac ? $0.localizedDescription : CartoucheText.storageOfflineCheck($0.name)
         } ?? error.localizedDescription
         return make(.storage, CartoucheText.storageConnectFailed, message: message, error: error,
                     step: "Connecting to " + kindName(server.kind), stage: "connect", facts: facts)
@@ -239,6 +239,7 @@ enum CartoucheReports {
         case .ftp: return "FTP"
         case .sftp: return "SFTP"
         case .mac: return "Cartouche Builder on a Mac"
+        case .drive: return "Google Drive"
         }
     }
 
@@ -265,7 +266,8 @@ enum CartoucheReports {
 
     // MARK: The error
 
-    /// The status an error of SMB, S3, FTP or SFTP holds, for its cause.
+    /// The status an error of SMB, S3, FTP, SFTP or Google Drive holds, for
+    /// its cause.
     nonisolated static func protocolStatus(_ error: Error) -> CartoucheFailure.ProtocolStatus? {
         #if canImport(SMBClient)
         if let response = error as? ErrorResponse {
@@ -283,11 +285,17 @@ enum CartoucheReports {
         if let failure = error as? FTPFailure {
             return .init(kind: .ftp, status: failure.reply.code)
         }
+        if let failure = error as? CartoucheDriveFailure {
+            return .init(kind: .drive, status: failure.status, code: failure.reason.isEmpty ? nil : failure.reason)
+        }
+        if let failure = error as? CartoucheDriveTokenFailure {
+            return .init(kind: .drive, status: failure.status, code: failure.code.isEmpty ? nil : failure.code)
+        }
         return nil
     }
 
-    /// ERROR as its domains and codes, with what an error of SMB, S3, FTP or
-    /// SFTP holds.
+    /// ERROR as its domains and codes, with what an error of SMB, S3, FTP,
+    /// SFTP or Google Drive holds.
     static func describe(_ error: Error) -> String {
         CartoucheReport.describe(error) { error in
             #if canImport(SMBClient)
@@ -305,6 +313,14 @@ enum CartoucheReports {
             }
             if let failure = error as? FTPFailure {
                 return "FTP \(failure.reply.code)"
+            }
+            // Google's reason or code, never its message, which may name
+            // the player's project or files.
+            if let failure = error as? CartoucheDriveFailure {
+                return "Google Drive " + (failure.errorDescription ?? "")
+            }
+            if let failure = error as? CartoucheDriveTokenFailure {
+                return "Google sign-in " + (failure.errorDescription ?? "")
             }
             return nil
         }
@@ -370,14 +386,18 @@ extension CartoucheStorageError: CartoucheDescribedError {
         case .notAnApp: return .notAnApp
         case .badAddress, .badBucket, .badName: return .storageAddress
         case .signInFailed, .noSubsystem: return .storageServer
-        case .folderGone: return .storageNotFound
+        case .folderGone, .notThere: return .storageNotFound
         case .noHostKey, .hostKeyChanged: return .storageHostKey
+        case .badClient, .driveOff: return .storageSetup
+        case .clientRefused, .noLastingSignIn, .webSignIn: return .storageCredentials
+        case .driveScope: return .storagePermission
+        case .driveFailed: return .storageServer
         }
     }
 }
 
 extension CartoucheStorageOffline: CartoucheDescribedError {
-    var failureKind: String { isMac ? "macOffline" : "offline" }
+    var failureKind: String { isSignedOut ? "driveSignedOut" : isMac ? "macOffline" : "offline" }
     var failureCause: CartoucheFailure.Cause { .storageOffline }
     var underlyingError: Error? { nil }
 }

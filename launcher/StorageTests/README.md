@@ -1,6 +1,6 @@
 # Storage tests
 
-The launcher's storage code, the code the app runs to reach the player's servers, run against real servers on a Mac: Samba for SMB, MinIO for S3, pyftpdlib for FTP, OpenSSH for SFTP, and a Mac of Cartouche Builder's that the tests play themselves. The unit tests of `launcher/Tests` check the protocols' messages; these check what the app does with them, from signing in to putting a game's IPA there and installing it again. The [Storage](../../.github/workflows/storage.yml) workflow runs them on GitHub's Mac (`xcode-27`) for each pull request that changes that code, its tests or the servers, and on main after one.
+The launcher's storage code, the code the app runs to reach the player's servers, run against real servers on a Mac: Samba for SMB, MinIO for S3, pyftpdlib for FTP, OpenSSH for SFTP, and a Mac of Cartouche Builder's that the tests play themselves. Google Drive cannot run on a Mac: [`drive_server.py`](drive_server.py) stands in for Google's servers, the sign-in of the player's own OAuth client and the Drive API, answering as Google's documentation says they do. The unit tests of `launcher/Tests` check the protocols' messages; these check what the app does with them, from signing in to putting a game's IPA there and installing it again. The [Storage](../../.github/workflows/storage.yml) workflow runs them on GitHub's Mac (`xcode-27`) for each pull request that changes that code, its tests or the servers, and on main after one.
 
 No game is involved: the IPAs are made-up apps of a few files ([`make_ipas.py`](make_ipas.py)), packed by nxnative's own [`pack_ipa.py`](https://github.com/seedds/nxnative/blob/main/dm/ios/tools/pack_ipa.py), at the commit Cartouche pins ([`catalog/nxnative.commit`](../../catalog/nxnative.commit)), as it packs games: folders, Unix modes, a link, an empty file, names with accents, small files deflated and large ones stored. One is about 35 MB, with files larger than a read of the storage; the other is past 4 GiB, as a game's is, with a file that lies past 4 GiB in it (Zip64).
 
@@ -28,6 +28,7 @@ Each server adds what only it has:
 | `FTPTests` | pyftpdlib, with MLSD | an account that can only read; a folder it can only read; no user name; MLSD used for listing |
 | `FTPListTests` | pyftpdlib, without MLSD or MLST | as `FTPTests`, listed with LIST, as vsftpd and others do |
 | `SFTPTests` | OpenSSH | the server's key taken the first time; another key refused before the password is sent, as sshd's log shows; a wrong password said to be one |
+| `DriveTests` | the stand-in for Google's servers | the sign-in on Google's page with the player's own client and PKCE, a sign-in asked again when Google gives no lasting one, the Drive left unchecked, the access refused, a client Google does not know; the access token renewed after its hour; a sign-in Google ended, as it does after seven days for a project in testing, waiting for the player to sign in again, with nothing more sent to Google and no report; a Google Doc, a shortcut, the bin and a name with a `/` left out of the games folder, the newest of two IPAs of one name taken, a name a Mac decomposed found; the room left; Google failing for a moment, asked again; an upload cut, by an error or a closed connection, going on from where Google holds it; the Drive API off in the player's project, said with where to turn it on; a full Drive; no redirection followed, so that the token goes to Google alone |
 
 [`OfflineTests`](Tests/CartoucheStorageTests/OfflineTests.swift) needs none of these servers: it signs in to a server out of reach, as a NAS at home is from anywhere else, on every protocol, and to a port of the Mac that refuses the connection. Each must say the server is offline (CartoucheStorageReach): within the patience and four seconds for an address that never answers (`192.0.2.1`, which no network routes, RFC 5737), within four seconds for a refused connection. It also knocks on a server of the Mac without a word, and checks that a server tried again tells once that it answers again, then that it is offline once it stops.
 
@@ -49,7 +50,7 @@ CARTOUCHE_STORAGE_SERVERS=/tmp/cartouche-servers/servers.json swift test --packa
 launcher/StorageTests/servers.sh stop /tmp/cartouche-servers
 ```
 
-It adds a user, `cartouche-test`, and runs smbd and sshd as root with sudo, so it runs only on a throwaway Mac, as GitHub's are, or with `CARTOUCHE_STORAGE_THROWAWAY=1`; `stop` removes the user. The passwords and keys are made up at each start and stay in `servers.json`. Without `CARTOUCHE_STORAGE_SERVERS`, every test but `OfflineTests` and `MacBridgeTests` is skipped. The IPA past 4 GiB is made only when the disk has room for it four times over, else its test is skipped.
+The stand-in needs nothing but Python 3. It adds a user, `cartouche-test`, and runs smbd and sshd as root with sudo, so it runs only on a throwaway Mac, as GitHub's are, or with `CARTOUCHE_STORAGE_THROWAWAY=1`; `stop` removes the user. The passwords and keys are made up at each start and stay in `servers.json`. Without `CARTOUCHE_STORAGE_SERVERS`, every test but `OfflineTests` and `MacBridgeTests` is skipped. The IPA past 4 GiB is made only when the disk has room for it four times over, else its test is skipped.
 
 | Server | Port | Accounts | Games folder |
 | --- | --- | --- | --- |
@@ -57,6 +58,7 @@ It adds a user, `cartouche-test`, and runs smbd and sshd as root with sudo, so i
 | MinIO | 9000 | the player's keys, and a reader's | `Jeux` in the bucket `cartouche` |
 | pyftpdlib | 2121, 2122 without MLSD | `joueur`, and `lecteur`, which only reads | `Jeux` at the root |
 | OpenSSH | 2222 | `cartouche-test`, by password | `Jeux` in its home |
+| The stand-in for Google | 9100 | `joueur@example.com`, through a made-up OAuth client, signed in once | `Jeux` in My Drive |
 
 Each root also has `Lecture seule`, a folder the player's account can only read, with the small IPA.
 
@@ -66,4 +68,4 @@ Samba, since 4.16, starts its RPC services (`samba-dcerpcd` and its `rpcd_*` wor
 
 ## Not here
 
-What needs an iPhone: Bonjour, the keychain, folders picked in Files, and the views; the pairing's form, too, and the Mac's side of the bridge, which Cartouche Builder's own tests check (`builder/mac/Tests`). Nor the servers of NAS makers as they are configured out of the box; a NAS that behaves differently is worth a case here.
+What needs an iPhone: Bonjour, the keychain, folders picked in Files, and the views; the pairing's form, too, and the Mac's side of the bridge, which Cartouche Builder's own tests check (`builder/mac/Tests`). Nor the servers of NAS makers as they are configured out of the box; a NAS that behaves differently is worth a case here. Nor Google's own servers: the sheet iOS shows for the sign-in, Google's consent screen and its warning for an app Google has not verified, and the seven days Google keeps a sign-in of a project in testing, which only a player's iPhone and Google account show.
