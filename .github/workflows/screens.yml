@@ -1,16 +1,25 @@
 name: Launcher screens
 
-# Builds the launcher's gallery (launcher/Gallery) for the iOS Simulator and
-# saves a screenshot of each scenario of launcher/Gallery/scenarios.json: the
-# console's screens at the sizes of the iPhone 17 Pro and of the iPhone Duo
-# folded and unfolded, and on the iPhone Duo simulator itself. They are kept
-# with the run, and for a branch of this repository on the branch
-# launcher-screens/<branch>, one commit that each run replaces.
+# Builds the launcher's gallery (launcher/Gallery) for the iOS Simulator, runs
+# its UI tests on an iPhone simulator, which drive the console as a player
+# would (launcher/Gallery/UITests), then saves a screenshot of each scenario
+# of launcher/Gallery/scenarios.json: the console's screens at the sizes of
+# the iPhone 17 Pro and of the iPhone Duo folded and unfolded, and on the
+# iPhone Duo simulator itself. The screenshots wait for the UI tests to pass,
+# on the same Mac and from the same build. They are kept with the run, and
+# for a branch of this repository on the branch launcher-screens/<branch>,
+# one commit that each run replaces; the results of failed UI tests are kept
+# with the run (launcher-ui-tests).
 #
-# A pull request's screenshots are taken once for what it changes in the
-# gallery's files: a rebase or a merge of main that leaves those changes as
-# they were keeps the ones taken before, about half an hour of a Mac each
-# time. Run the workflow from the Actions tab to take them again.
+# A pull request's UI tests and screenshots run once for what it changes in
+# the gallery's files: a rebase or a merge of main that leaves those changes
+# as they were keeps the results of before, about an hour of a Mac each
+# time. Run the workflow from the Actions tab to run them again, with or
+# without the screenshots.
+#
+# They run on Ad's Mac when it can take them now, which spares GitHub's
+# Macs, five at a time for the whole account, and their wait; on GitHub's
+# otherwise, and always for a run again (.github/mac/README.md).
 
 on:
   pull_request:
@@ -25,6 +34,11 @@ on:
       - "catalog/games/**"
       - ".github/workflows/screens.yml"
   workflow_dispatch:
+    inputs:
+      screenshots:
+        description: Take the screenshots too, once the UI tests pass
+        type: boolean
+        default: true
 
 permissions:
   contents: read
@@ -38,10 +52,11 @@ env:
 
 jobs:
   # The pull request's changes to the files in the paths above, as its merge
-  # into main has them, and whether a run of this pull request took their
-  # screenshots already. Its key goes to the Actions cache once they are.
+  # into main has them, and whether a run of this pull request passed their
+  # UI tests and took their screenshots already. Its key goes to the Actions
+  # cache once it has.
   taken:
-    name: Screenshots taken already?
+    name: UI tests and screenshots done already?
     if: ${{ github.event_name == 'pull_request' }}
     runs-on: ubuntu-latest
     outputs:
@@ -59,8 +74,8 @@ jobs:
           CHANGES="$(git diff --binary HEAD^1 HEAD -- launcher/Sources launcher/Gallery \
             catalog/devices.json catalog/nxnative.json catalog/covers.json catalog/games \
             .github/workflows/screens.yml | sha256sum | cut -c1-64)"
-          echo "key=screens-xcode-$XCODE_VERSION-$CHANGES" >> "$GITHUB_OUTPUT"
-      - name: Were their screenshots taken?
+          echo "key=ui-screens-xcode-$XCODE_VERSION-$CHANGES" >> "$GITHUB_OUTPUT"
+      - name: Were they done?
         id: memo
         uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
@@ -72,17 +87,47 @@ jobs:
         env:
           BRANCH: launcher-screens/${{ github.head_ref }}
         run: |
-          echo "::notice::An earlier run took the screenshots of these very changes, on $BRANCH: run this workflow from the Actions tab to take them again."
-          echo "The screenshots of these very changes are on \`$BRANCH\` already." >> "$GITHUB_STEP_SUMMARY"
+          echo "::notice::An earlier run passed the UI tests of these very changes and took their screenshots, on $BRANCH: run this workflow from the Actions tab to run them again."
+          echo "The UI tests of these very changes passed, and their screenshots are on \`$BRANCH\` already." >> "$GITHUB_STEP_SUMMARY"
+
+  # Ad's Mac, when it can take them now, else GitHub's (route.py).
+  route:
+    name: Ad's Mac or GitHub
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: read # the jobs waiting for Ad's Mac
+    outputs:
+      runner: ${{ steps.route.outputs.runner }}
+      mac: ${{ steps.route.outputs.mac }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          sparse-checkout: .github/mac
+          persist-credentials: false
+      - name: Where the UI tests and screenshots run
+        id: route
+        env:
+          MAC_JOB: UI tests and screenshots
+          MAC_LABELS: cartouche-screens,xcode-${{ env.XCODE_VERSION }},ios-sim-${{ env.XCODE_VERSION }}
+          RUNNERS_TOKEN: ${{ secrets.MAC_RUNNER_TOKEN }}
+          GH_TOKEN: ${{ github.token }}
+        run: python3 .github/mac/route.py
 
   screens:
-    name: Screenshots
-    needs: taken
-    # Taken unless the first job found them, so that a failure there cannot
-    # skip them.
+    name: UI tests and screenshots
+    needs: [taken, route]
+    # Run unless the first job found them done, so that a failure there, or
+    # in the route, cannot skip them.
     if: ${{ !cancelled() && needs.taken.outputs.taken != 'true' }}
-    runs-on: xcode-27
-    timeout-minutes: 60
+    runs-on: ${{ fromJSON(needs.route.outputs.runner || '"xcode-27"') }}
+    # The UI tests take half an hour, a failed one running once more, and
+    # the screenshots as long again.
+    timeout-minutes: 95
+    outputs:
+      # Whether the screenshots were taken, whole or in part: skipped when
+      # the UI tests failed, or when the run was asked without them.
+      shot: ${{ steps.shoot.outcome }}
     env:
       # brew install takes the formula the runner knows, without updating
       # Homebrew first.
@@ -93,23 +138,44 @@ jobs:
         with:
           persist-credentials: false
       - name: Select Xcode
+        if: ${{ runner.environment == 'github-hosted' }}
         run: |
           sudo xcode-select -s "/Applications/Xcode_${XCODE_VERSION}.app"
           xcodebuild -version
       - name: Install XcodeGen
+        if: ${{ runner.environment == 'github-hosted' }}
         run: brew install xcodegen
+      # Its own simulators, which stay from a run to the next, shut down.
+      - name: Xcode, XcodeGen and simulators on Ad's Mac
+        if: ${{ runner.environment == 'self-hosted' }}
+        run: |
+          .github/mac/job.sh xcode "$XCODE_VERSION"
+          .github/mac/job.sh tool xcodegen
+          .github/mac/job.sh simulators
+      - name: UI tests
+        run: launcher/Gallery/uitests.sh build/ui-tests
+      - name: Upload the UI tests' results
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: launcher-ui-tests
+          path: build/ui-tests
+          retention-days: 14
+          if-no-files-found: warn
       - name: Take the screenshots
+        id: shoot
+        if: ${{ github.event_name != 'workflow_dispatch' || inputs.screenshots }}
         run: launcher/Gallery/capture.sh build/screens
       - name: Upload them
-        if: ${{ !cancelled() }}
+        if: ${{ !cancelled() && (steps.shoot.outcome == 'success' || steps.shoot.outcome == 'failure') }}
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: launcher-screens
           path: build/screens
           retention-days: 14
           if-no-files-found: warn
-      # Once every scenario has its screenshot.
-      - name: Note that they are taken
+      # Once the UI tests have passed and every scenario has its screenshot.
+      - name: Note that they are done
         if: ${{ needs.taken.outputs.key != '' }}
         env:
           SOURCE: ${{ github.event.pull_request.head.sha }}
@@ -123,12 +189,41 @@ jobs:
           path: build/screens-taken
           key: ${{ needs.taken.outputs.key }}
 
+  # Beside the UI tests and screenshots when Ad's Mac takes them: sends the
+  # run back to GitHub's Macs when the Mac loses them or does not take them
+  # (watch.py).
+  watch:
+    name: Watch Ad's Mac
+    needs: [taken, route]
+    if: ${{ !cancelled() && needs.route.outputs.mac == 'true' && needs.taken.outputs.taken != 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 160
+    permissions:
+      contents: read
+      actions: write # cancels this run, and starts Mac rescue to run it again
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          sparse-checkout: .github/mac
+          persist-credentials: false
+      - name: Watch the UI tests and screenshots on Ad's Mac
+        env:
+          MAC_JOB: UI tests and screenshots
+          MAC_LABELS: cartouche-screens,xcode-${{ env.XCODE_VERSION }},ios-sim-${{ env.XCODE_VERSION }}
+          # The job waits for the one before it on the Mac, which takes about
+          # as long: GitHub's Macs only after that.
+          MAC_QUEUE_MINUTES: "45"
+          RUNNERS_TOKEN: ${{ secrets.MAC_RUNNER_TOKEN }}
+          GH_TOKEN: ${{ github.token }}
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+        run: python3 .github/mac/watch.py
+
   # The only job that can write runs nothing from the pull request: it
   # commits the screenshots the job above uploaded.
   keep:
     name: Keep the screenshots on a branch
     needs: screens
-    if: ${{ !cancelled() && needs.screens.result != 'skipped' && (github.event_name == 'workflow_dispatch' || github.event.pull_request.head.repo.full_name == github.repository) }}
+    if: ${{ !cancelled() && (needs.screens.outputs.shot == 'success' || needs.screens.outputs.shot == 'failure') && (github.event_name == 'workflow_dispatch' || github.event.pull_request.head.repo.full_name == github.repository) }}
     runs-on: ubuntu-latest
     permissions:
       contents: write # the branch launcher-screens/<branch>
