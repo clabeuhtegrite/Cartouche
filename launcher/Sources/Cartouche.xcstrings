@@ -9340,13 +9340,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Each start of Cartouche, game installs, updates, renewals, Apple ID sign-ins and errors, by their codes and the step they stopped at."
+            "value" : "Each start of Cartouche, game installs, updates, renewals, Apple ID sign-ins, how the Files picker of each import went, and errors, by their codes and the step they stopped at."
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Chaque ouverture de Cartouche, les installations de jeux, les mises à jour, les renouvellements, les connexions au compte Apple et les erreurs, par leurs codes et l’étape où elles se sont arrêtées."
+            "value" : "Chaque ouverture de Cartouche, les installations de jeux, les mises à jour, les renouvellements, les connexions au compte Apple, le déroulement du sélecteur de fichiers de chaque import et les erreurs, par leurs codes et l’étape où elles se sont arrêtées."
           }
         }
       }
@@ -10146,6 +10146,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Cartouche n’a pas pu lire le jeu installé."
+          }
+        }
+      }
+    },
+    "work.install.checking" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Checking the IPA and the room on this iPhone."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vérification de l’IPA et de la place sur cet iPhone."
           }
         }
       }
