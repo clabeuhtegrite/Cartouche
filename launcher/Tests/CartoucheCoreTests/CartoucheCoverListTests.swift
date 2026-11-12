@@ -67,6 +67,20 @@ final class CartoucheCoverListTests: XCTestCase {
         XCTAssertEqual(covers["0400486024DEC000"]?.cover, "cocv5r")
     }
 
+    func testAGenreCartoucheKnowsIsRead() throws {
+        var racing = kart
+        racing["genre"] = "racing"
+        var unknown = ocarina
+        unknown["genre"] = "indie"
+        let covers = try XCTUnwrap(CartoucheCoverList.covers(in: list([racing, unknown])))
+        XCTAssertEqual(covers["0400C3F00006E000"]?.genre, "racing")
+        // A genre Cartouche does not know leaves its cover, without it.
+        XCTAssertEqual(covers["0400486024DEC000"]?.cover, "cocv5r")
+        XCTAssertNil(covers["0400486024DEC000"]?.genre)
+        // A list from before genres reads as it did.
+        XCTAssertNil(try XCTUnwrap(CartoucheCoverList.covers(in: list([kart])))["0400C3F00006E000"]?.genre)
+    }
+
     func testIdsAreAsTheSchemaHasThem() {
         XCTAssertTrue(CartoucheCoverList.isImageId("cocv5r"))
         XCTAssertTrue(CartoucheCoverList.isImageId("ak6iozckwj322sjmxqd4"))

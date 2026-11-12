@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Writes catalog/covers.json: each game's official cover and artwork, as
-IGDB image IDs.
+IGDB image IDs, and its genre on IGDB.
 
 IGDB (igdb.com, Twitch's game database) is searched by the name of each
 game of catalog/nxnative.json, among the games it lists on the Nintendo
@@ -9,7 +9,10 @@ only, never an address, as every catalog file (catalog/README.md): the
 launcher builds the images' addresses on images.igdb.com itself, and loads
 them on the player's iPhone. A game IGDB does not know, or names too
 differently, is left out and keeps the label the launcher draws; MATCHES
-pins a game to its IGDB entry by hand.
+pins a game to its IGDB entry by hand. The genre is one of Cartouche's own,
+from IGDB's genres (GENRES), for the games whose nxnative profile says none;
+GENRE_PINS gives a game the genre players know it by when IGDB's says
+another.
 
 The search needs a Twitch application's credentials (dev.twitch.tv/console)
 in IGDB_CLIENT_ID and IGDB_CLIENT_SECRET; the Covers and Live covers
@@ -42,7 +45,7 @@ ROOT = Path(__file__).resolve().parents[2]
 TOKEN = "https://id.twitch.tv/oauth2/token"
 API = "https://api.igdb.com/v4/"
 PLATFORMS = {"switch": "Nintendo Switch", "switch2": "Nintendo Switch 2"}
-FIELDS = "fields name,alternative_names.name,platforms,cover.image_id,artworks.image_id;"
+FIELDS = "fields name,alternative_names.name,platforms,genres,cover.image_id,artworks.image_id;"
 # IGDB takes at most four requests a second.
 PAUSE = 0.3
 # How alike two names must be, once plain (plain()), for an IGDB entry to be
@@ -51,6 +54,45 @@ LIKENESS = 0.9
 
 # Games the search does not find by name: title ID -> IGDB game ID.
 MATCHES: dict[str, int] = {}
+
+# Games whose genres on IGDB give another than the one players know them
+# by: title ID -> Cartouche's genre.
+GENRE_PINS: dict[str, str] = {
+    "01002DA013484000": "adventure",  # The Legend of Zelda: Skyward Sword HD, a puzzle game on IGDB
+    "010063301BD50000": "strategy",  # Super Robot Wars Y, a simulator on IGDB
+}
+
+# IGDB's genres, by their IDs, as Cartouche's own (CartoucheText.genre in
+# launcher/Sources/CartoucheText.swift), in the order they win when a game
+# has several: the more a genre tells of a game, the earlier. Tactical says
+# Fire Emblem, where Turn-based strategy also goes to Pokémon, a
+# role-playing game. IGDB's Indie tells nothing of the kind. The telemetry
+# server finds the genre of a game Cartouche does not know with the same
+# list (IGDB_GENRES in telemetry/worker.js), which the tests check.
+GENRES: list[tuple[int, str]] = [
+    (10, "racing"),  # Racing
+    (14, "sports"),  # Sport
+    (7, "music"),  # Music
+    (4, "action"),  # Fighting
+    (5, "action"),  # Shooter
+    (11, "strategy"),  # Real Time Strategy (RTS)
+    (24, "strategy"),  # Tactical
+    (36, "strategy"),  # MOBA
+    (13, "simulation"),  # Simulator
+    (12, "rpg"),  # Role-playing (RPG)
+    (15, "strategy"),  # Strategy
+    (16, "strategy"),  # Turn-based strategy (TBS)
+    (35, "board"),  # Card & Board Game
+    (9, "puzzle"),  # Puzzle
+    (26, "puzzle"),  # Quiz/Trivia
+    (8, "action"),  # Platform
+    (25, "action"),  # Hack and slash/Beat 'em up
+    (33, "action"),  # Arcade
+    (30, "action"),  # Pinball
+    (31, "adventure"),  # Adventure
+    (2, "adventure"),  # Point-and-click
+    (34, "adventure"),  # Visual Novel
+]
 
 EDITION = re.compile(r"\b(nintendo switch 2 edition|nintendo switch edition|switch 2 edition)\b")
 
@@ -91,6 +133,11 @@ def choose(name: str, platform: int, found: list[dict]) -> dict | None:
     if not scored:
         return None
     return max(scored, key=lambda item: (round(item[0], 3), item[1]))[2]
+
+
+def genre_of(genres: list[int] | None) -> str | None:
+    """Cartouche's genre for IGDB's genre IDs, or None."""
+    return next((genre for id, genre in GENRES if id in (genres or [])), None)
 
 
 def quoted(text: str) -> str:
@@ -146,6 +193,9 @@ def covers(catalog: dict, ask: Ask, log=sys.stderr) -> list[dict]:
         artworks = [a["image_id"] for a in entry.get("artworks", []) if a.get("image_id")]
         if artworks:
             record["artwork"] = artworks[0]
+        genre = GENRE_PINS.get(game["titleId"]) or genre_of(entry.get("genres"))
+        if genre:
+            record["genre"] = genre
         if plain(entry["name"]) != plain(game["name"]):
             print(f"   close: {game['name']} -> {entry['name']} (IGDB {entry['id']})", file=log)
         records.append(record)
