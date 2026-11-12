@@ -17,7 +17,7 @@ use std::{
 pub use cartouche_installer_fakes::{
     AccountConfig, FakeAnisette, FakeApple, FakeGithub, FakeIphone, FakeUsbmuxd, IphoneConfig,
     MemoryKeychain, Trust, TwoFactor,
-    apple::Failure,
+    apple::{Failure, OwnFiles, OwnSigning},
     github::BUNDLE_ID,
     ipa::{CartoucheIpa, other_app_ipa},
 };
@@ -394,12 +394,52 @@ impl Harness {
 
     /// The window's Install button: the newest Cartouche from GitHub.
     pub fn install(&self) -> Result<Value, Value> {
-        self.invoke("install_cartouche_operation", json!({ "ipaPath": null }))
+        self.invoke("install_cartouche_operation", json!({ "ipaPath": null, "importedSigning": null }))
     }
 
     /// "Install from a file", with this IPA.
     pub fn install_file(&self, path: &Path) -> Result<Value, Value> {
-        self.invoke("install_cartouche_operation", json!({ "ipaPath": path.to_string_lossy() }))
+        self.invoke(
+            "install_cartouche_operation",
+            json!({ "ipaPath": path.to_string_lossy(), "importedSigning": null }),
+        )
+    }
+
+    /// A signing certificate and a profile of the player's own, for this
+    /// iPhone: a wildcard App ID with Increased Memory Limit, of a paid
+    /// account Apple's developer website made them for.
+    pub fn own_signing(&self) -> OwnSigning {
+        self.apple.own_signing(&[self.iphone.udid()])
+    }
+
+    /// What the window does as soon as a profile is chosen, under "I have a
+    /// signing certificate (.p12)": it checks it, and keeps what it said.
+    pub fn check_profile(&self, files: &OwnFiles) -> Result<Value, Value> {
+        self.invoke("inspect_signing_profile", json!({ "profilePath": files.profile.to_string_lossy() }))
+    }
+
+    /// The window's Install button with the player's own certificate: the
+    /// profile checked, then installed with the .p12 and its password.
+    pub fn install_own(&self, files: &OwnFiles) -> Result<Value, Value> {
+        let checked = self.check_profile(files)?;
+        self.install_checked(files, &checked, None)
+    }
+
+    /// The same, with the profile as `checked` said it was, from an IPA
+    /// file with `ipa`.
+    pub fn install_checked(&self, files: &OwnFiles, checked: &Value, ipa: Option<&Path>) -> Result<Value, Value> {
+        self.invoke(
+            "install_cartouche_operation",
+            json!({
+                "ipaPath": ipa.map(|path| path.to_string_lossy()),
+                "importedSigning": {
+                    "p12Path": files.p12.to_string_lossy(),
+                    "profilePath": files.profile.to_string_lossy(),
+                    "password": files.password,
+                    "profileSha256": checked["sha256"],
+                },
+            }),
+        )
     }
 
     /// The iPhone picked, signed in: what the window has before Install.

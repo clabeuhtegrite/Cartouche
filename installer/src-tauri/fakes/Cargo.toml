@@ -37,6 +37,8 @@ tokio-tungstenite = "0.29"
 cms = "0.2.3"
 der = "0.7"
 x509-cert = "0.2.5"
+rsa = "0.9.10"
+p12-keystore = { package = "isideload-p12-keystore", version = "=0.3.0-rc4" }
 zip = { version = "8.6", default-features = false, features = ["deflate"] }
 urlencoding = "2"
 keyring = "3.6.3"

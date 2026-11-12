@@ -10,6 +10,7 @@
 mod ca;
 mod developer;
 mod gsa;
+mod own;
 
 use std::{
     collections::{BTreeMap, BTreeSet},
@@ -22,6 +23,7 @@ use base64::{Engine, prelude::BASE64_STANDARD};
 use tokio::net::TcpListener;
 
 pub use ca::AppleCa;
+pub use own::{OwnFiles, OwnSigning};
 
 use crate::http::{self, Request, Response};
 
@@ -316,6 +318,13 @@ impl FakeApple {
             expires: SystemTime::now() + Duration::from_secs(365 * 24 * 3600),
         });
         issued.serial
+    }
+
+    /// A certificate and its profile made on Apple's developer website, for
+    /// a paid account of the player's own and these iPhones: what "I have a
+    /// signing certificate (.p12)" installs with, without this Apple.
+    pub fn own_signing(&self, udids: &[&str]) -> OwnSigning {
+        OwnSigning::new(self, udids)
     }
 
     pub fn log(&self) -> Vec<String> {

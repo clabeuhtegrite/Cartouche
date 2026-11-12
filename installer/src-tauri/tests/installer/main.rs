@@ -8,5 +8,6 @@ mod harness;
 mod download;
 mod install;
 mod keychain;
+mod own_certificate;
 mod pairing;
 mod sign_in;

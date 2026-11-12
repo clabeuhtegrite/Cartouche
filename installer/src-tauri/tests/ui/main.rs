@@ -39,13 +39,24 @@ struct Scenario {
     /// What the fakes are before the window opens.
     prepare: fn(&Fakes),
     run: fn(&Ui, &Fakes),
+    /// Whether the window's file dialogs answer with the files the
+    /// scenario chose (`ui.choose_files`): no test can click through the
+    /// system's.
+    file_dialogs: bool,
 }
 
 const SCENARIOS: &[Scenario] = &[
-    Scenario { name: "first_install_en", language: "en", prepare: publish, run: first_install },
-    Scenario { name: "first_install_fr", language: "fr", prepare: publish, run: first_install },
-    Scenario { name: "everything_goes_wrong_fr", language: "fr", prepare: github_down, run: everything_goes_wrong },
-    Scenario { name: "without_a_keychain_en", language: "en", prepare: no_keychain, run: without_a_keychain },
+    Scenario { name: "first_install_en", language: "en", prepare: publish, run: first_install, file_dialogs: false },
+    Scenario { name: "first_install_fr", language: "fr", prepare: publish, run: first_install, file_dialogs: false },
+    Scenario {
+        name: "everything_goes_wrong_fr",
+        language: "fr",
+        prepare: github_down,
+        run: everything_goes_wrong,
+        file_dialogs: false,
+    },
+    Scenario { name: "without_a_keychain_en", language: "en", prepare: no_keychain, run: without_a_keychain, file_dialogs: false },
+    Scenario { name: "own_certificate_fr", language: "fr", prepare: publish, run: own_certificate, file_dialogs: true },
 ];
 
 /// The version every scenario installs.
@@ -281,6 +292,13 @@ impl Ui {
         self.step("return __ui.closeModal();");
     }
 
+    /// What the next file dialogs answer, in order, as if the person
+    /// picked these files.
+    fn choose_files(&self, paths: &[&std::path::Path]) {
+        let choices = self.handle.state::<FileChoices>();
+        choices.0.lock().unwrap().extend(paths.iter().map(|path| path.to_string_lossy().to_string()));
+    }
+
     /// The text of `key` in the window's language.
     fn t(&self, key: &str) -> String {
         self.t_with(key, &[])
@@ -311,7 +329,7 @@ impl Ui {
         // innerText, which keeps the blocks apart: "…an app." then "Settings"
         // is not a key.
         let found = self.step(
-            r#"return document.body.innerText.match(/\b(common|dropdown|app|steps|install|apple_id|device|operations?|certificates|app_ids|settings|dialog|error)\.[a-z_]+(\.[a-z_]+)*\b/gi);"#,
+            r#"return document.body.innerText.match(/\b(common|dropdown|app|steps|install|apple_id|signing|device|operations?|certificates|app_ids|settings|dialog|error)\.[a-z_]+(\.[a-z_]+)*\b/gi);"#,
         );
         assert_eq!(found, Value::Null, "keys shown instead of texts");
     }
@@ -319,6 +337,29 @@ impl Ui {
 
 fn js(text: &str) -> String {
     serde_json::to_string(text).expect("JSON")
+}
+
+/// The files the next file dialogs answer with.
+#[derive(Default)]
+struct FileChoices(std::sync::Mutex<std::collections::VecDeque<String>>);
+
+/// A file dialog that answers the next file chosen, or that the person
+/// cancelled when there is none.
+#[tauri::command]
+fn open(choices: tauri::State<'_, FileChoices>) -> Option<String> {
+    choices.0.lock().unwrap().pop_front()
+}
+
+/// The dialog plugin, by its name, in the real one's place: the window
+/// calls it as it ships, and gets the files the scenario chose.
+fn file_dialogs() -> tauri::plugin::TauriPlugin<Wry> {
+    tauri::plugin::Builder::new("dialog")
+        .invoke_handler(tauri::generate_handler![open])
+        .setup(|app, _| {
+            app.manage(FileChoices::default());
+            Ok(())
+        })
+        .build()
 }
 
 fn run_in_window(scenario: &Scenario) -> ! {
@@ -356,9 +397,11 @@ fn run_in_window(scenario: &Scenario) -> ! {
     let mut context = cartouche_installer_lib::context();
     // A data folder of its own, never the installer's.
     context.config_mut().identifier = format!("io.github.clabeuhtegrite.cartouche.installer.uitests.{name}");
-    let app = cartouche_installer_lib::configure(tauri::Builder::default(), environment)
-        .build(context)
-        .expect("installer");
+    let mut builder = cartouche_installer_lib::configure(tauri::Builder::default(), environment);
+    if scenario.file_dialogs {
+        builder = builder.plugin(file_dialogs());
+    }
+    let app = builder.build(context).expect("installer");
     let data_dir = app.path().app_data_dir().expect("data folder");
     let _ = std::fs::remove_dir_all(&data_dir);
     std::fs::create_dir_all(&data_dir).expect("data folder");
@@ -548,4 +591,55 @@ fn without_a_keychain(ui: &Ui, f: &Fakes) {
     ui.click(&ui.t_with("install.button", &[("version", version)]));
     ui.wait_text(&ui.t("operations.install_success_title"));
     assert_eq!(f.installed().as_deref(), Some(version));
+}
+
+/// A player with a signing certificate of their own: picks the iPhone, then
+/// "I have a signing certificate (.p12)", the .p12 and its profile, which
+/// the window checks and says has no Increased Memory Limit, types its
+/// password, and installs, without an Apple ID.
+fn own_certificate(ui: &Ui, f: &Fakes) {
+    let version = VERSION;
+    let name = f.iphone.config().name.clone();
+    let mut own = f.apple.own_signing(&[f.iphone.udid()]);
+    own.entitlements().remove("com.apple.developer.kernel.increased-memory-limit");
+    // In the installer's data folder, which goes once the scenario ends.
+    let dir = ui.handle.path().app_data_dir().expect("data folder").join("own-certificate");
+    std::fs::create_dir_all(&dir).expect("folder");
+    let files = own.write(&dir);
+    let file_name = |path: &std::path::Path| path.file_name().unwrap().to_string_lossy().to_string();
+
+    ui.wait_text(&name);
+    ui.click(&name);
+    ui.wait_text(&ui.t("device.selected"));
+    ui.click(&ui.t("signing.have_certificate"));
+    ui.wait_text(&ui.t("signing.hint"));
+    ui.wait_text(&ui.t("signing.install_hint"));
+    ui.wait_text(&ui.t("signing.needs_ready"));
+    ui.choose_files(&[&files.p12, &files.profile]);
+    ui.click(&ui.t("signing.choose_p12"));
+    ui.wait_text(&file_name(&files.p12));
+    ui.click(&ui.t("signing.choose_profile"));
+    ui.wait_text(&file_name(&files.profile));
+    ui.wait_text(&ui.t("signing.no_memory_limit"));
+    assert!(!ui.has_text(&ui.t("signing.needs_ready")), "not ready with an iPhone, a certificate and a profile");
+    ui.type_into("password", &files.password);
+    ui.no_raw_keys();
+
+    ui.click(&ui.t_with("install.button", &[("version", version)]));
+    ui.wait_text(&ui.t("operations.install_success_title"));
+    ui.wait_text(&ui.t("signing.success_message"));
+    for step in ["signing.step_install", "signing.step_handoff"] {
+        assert!(ui.has_text(&ui.t(step)), "{step}");
+    }
+    assert_eq!(f.installed().as_deref(), Some(version));
+    let app = f.iphone.app(BUNDLE_ID).expect("installed");
+    assert_eq!(app.bundle_id, BUNDLE_ID);
+    assert_eq!(app.signature.signer_certificate, own.certificate);
+    assert!(f.iphone.container_file(BUNDLE_ID, "Documents/CartoucheSigning.plist").is_some(), "no certificate in Cartouche");
+    assert_eq!(f.apple.log(), Vec::<String>::new(), "Apple was asked");
+    ui.no_raw_keys();
+
+    ui.close_dialog();
+    ui.wait_text(&ui.t_with("install.installed", &[("version", version)]));
+    ui.wait_text(&ui.t_with("install.update_button", &[("version", version)]));
 }

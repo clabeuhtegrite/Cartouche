@@ -1,8 +1,9 @@
 //! What iOS checks before it installs an app, as far as a test can: every
 //! executable carries a code signature whose code and sealed files match,
-//! with the bundle's identifier and team; the profile names this iPhone, the
-//! team, the app and the certificate that signed it; and the executable asks
-//! for no entitlement the profile does not grant.
+//! with the bundle's identifier and team; the profile names this iPhone (or
+//! all of them, an enterprise profile), the team, the app and the
+//! certificate that signed it; and the executable asks for no entitlement
+//! the profile does not grant.
 
 use std::collections::BTreeMap;
 
@@ -424,7 +425,9 @@ fn check_profile(
         .and_then(|v| v.as_array())
         .map(|a| a.iter().filter_map(|v| v.as_string()).collect())
         .unwrap_or_default();
-    if !devices.contains(&udid) {
+    // An enterprise profile provisions every iPhone, and lists none.
+    let all_devices = profile.get("ProvisionsAllDevices").and_then(|v| v.as_boolean()) == Some(true);
+    if !all_devices && !devices.contains(&udid) {
         return Err(format!("{name}: the provisioning profile does not list this iPhone ({udid})"));
     }
     let teams: Vec<&str> = profile

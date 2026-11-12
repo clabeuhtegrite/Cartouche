@@ -66,8 +66,22 @@ impl AppleCa {
     }
 
     /// Signs a development certificate for the key of `csr_pem`, with the
-    /// subject Apple gives it, whatever the request said.
+    /// subject Apple gives it, whatever the request said, for a year.
     pub fn issue_development(&self, csr_pem: &str, team_id: &str, holder: &str) -> Result<Issued, String> {
+        let now = std::time::SystemTime::now();
+        let year = std::time::Duration::from_secs(365 * 24 * 3600);
+        self.issue_development_between(csr_pem, team_id, holder, now - std::time::Duration::from_secs(3600), now + year)
+    }
+
+    /// The same, valid from `not_before` to `not_after`.
+    pub fn issue_development_between(
+        &self,
+        csr_pem: &str,
+        team_id: &str,
+        holder: &str,
+        not_before: std::time::SystemTime,
+        not_after: std::time::SystemTime,
+    ) -> Result<Issued, String> {
         let mut csr = CertificateSigningRequestParams::from_pem(csr_pem)
             .map_err(|e| format!("the certificate signing request does not read: {e}"))?;
         let mut serial = [0u8; 8];
@@ -83,9 +97,8 @@ impl AppleCa {
         params.is_ca = IsCa::ExplicitNoCa;
         params.key_usages = vec![KeyUsagePurpose::DigitalSignature];
         params.extended_key_usages = vec![ExtendedKeyUsagePurpose::CodeSigning];
-        let now = std::time::SystemTime::now();
-        params.not_before = (now - std::time::Duration::from_secs(3600)).into();
-        params.not_after = (now + std::time::Duration::from_secs(365 * 24 * 3600)).into();
+        params.not_before = not_before.into();
+        params.not_after = not_after.into();
         csr.params = params;
         let issuer = Issuer::new(self.wwdr_params.clone(), &self.wwdr_key);
         let cert = csr.signed_by(&issuer).map_err(|e| format!("could not sign the certificate: {e}"))?;
