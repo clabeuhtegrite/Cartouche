@@ -58,7 +58,7 @@ On Windows, isideload's cryptography needs Strawberry Perl, make, and the Visual
 To publish a version:
 
 1. In a pull request, raise the version in [`src-tauri/tauri.conf.json`](src-tauri/tauri.conf.json), which names the release, in [`src-tauri/Cargo.toml`](src-tauri/Cargo.toml) then `Cargo.lock` (`cargo update -p cartouche-installer`), and in `package.json` and its lockfile (`npm version <version> --no-git-tag-version`), and write the notes of the release in [`RELEASE.md`](RELEASE.md).
-2. Once it is merged, run **Actions › Installer › Run workflow** on `main` with **Publish** ticked. The workflow builds both, then publishes them as the release `installer-v<version>`, never marked as the latest, and publishes the site again, whose buttons and download page then give this version. It stops if that release exists already.
+2. Once it is merged, which starts the [Full test pass](../.github/full-pass/README.md), every test of the repository, run **Actions › Installer › Run workflow** on `main` with **Publish** ticked. The workflow builds both and, once the full test pass has passed on that commit, publishes them as the release `installer-v<version>`, never marked as the latest, and publishes the site again, whose buttons and download page then give this version. It stops if that release exists already, or if the pass fails.
 
 ## Licence
 

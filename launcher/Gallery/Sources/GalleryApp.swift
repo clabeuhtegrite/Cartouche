@@ -167,9 +167,10 @@ struct GalleryScenario {
     func prepare() {
         GalleryState.setupDone = setupDone
         GalleryState.certificateRefused = work == "certificate"
+        GalleryState.signInUnfinished = work == "sign-in-unfinished"
         let pairing = GalleryState.documents.appendingPathComponent("SideStore/Documents", isDirectory: true)
         try? FileManager.default.removeItem(at: pairing)
-        if setupDone {
+        if setupDone || GalleryState.signInUnfinished {
             try? FileManager.default.createDirectory(at: pairing, withIntermediateDirectories: true)
             try? Data("gallery".utf8).write(to: pairing.appendingPathComponent("ALTPairingFile.mobiledevicepairing"))
         }
@@ -222,6 +223,9 @@ struct GalleryScenario {
             }
             if work == "iphone-step" {
                 CartoucheAccount.shared.showDeviceStepForGallery()
+            }
+            if work == "sign-in-unfinished" {
+                CartoucheAccount.shared.showUnfinishedForGallery()
             }
             if let titleId = updatedTitle, let game = CartoucheCatalog.shared.game(titleId: titleId) {
                 // Cartouche Builder built the game again last night.

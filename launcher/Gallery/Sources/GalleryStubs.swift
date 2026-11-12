@@ -17,6 +17,9 @@ enum GalleryState {
     static var setupDone = false
     /// iOS no longer accepts the certificate (work: certificate).
     static var certificateRefused = false
+    /// SideStore keeps the Apple ID of a sign-in that stopped before the
+    /// certificate (work: sign-in-unfinished).
+    static var signInUnfinished = false
 
     static let documents: URL = {
         let url = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
