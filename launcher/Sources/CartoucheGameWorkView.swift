@@ -6,7 +6,7 @@
 //  console: installing the player's copy, from Files or from the player's
 //  games folder, starting a game, uninstalling one or copying it to the
 //  games folder, how far it has gone, and whether the player can leave
-//  Cartouche meanwhile.
+//  Cartouche meanwhile; and an install it asks about first.
 //
 
 import SwiftUI
@@ -66,6 +66,27 @@ struct CartoucheGameNotice: Equatable {
     /// The report on what failed, which the player can copy; nil when
     /// nothing failed.
     var report: CartoucheReport? = nil
+}
+
+/// An install the console asks about before it starts, on an iPhone whose
+/// GPU nxnative refuses (CartoucheGameActions.installQuestion).
+struct CartoucheInstallQuestion: Equatable {
+    enum Source: Equatable {
+        /// An IPA on this iPhone, from Files or another app.
+        case file(URL)
+        /// A game in the player's games folder.
+        case stored(CartoucheStoredGame)
+    }
+
+    let source: Source
+
+    /// The game's name, or its IPA's.
+    var name: String {
+        switch source {
+        case .file(let url): return url.deletingPathExtension().lastPathComponent
+        case .stored(let game): return game.name
+        }
+    }
 }
 
 @available(iOS 17.0, *)

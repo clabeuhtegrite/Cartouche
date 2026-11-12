@@ -85,10 +85,14 @@ final class CartoucheGameActions: ObservableObject {
     @Published var running: CartoucheRunningGame?
     @Published var switching: CartoucheGameSwitch?
     @Published var quitQuestion: CartoucheRunningGame?
+    @Published var installQuestion: CartoucheInstallQuestion?
 
     nonisolated static func takes(_ url: URL) -> Bool { false }
     func install(_ url: URL) { GalleryTest.install(url, with: self) }
     func install(stored game: CartoucheStoredGame) {}
+    func installAnyway(_ question: CartoucheInstallQuestion) { installQuestion = nil }
+    func dropInstall(_ question: CartoucheInstallQuestion) { installQuestion = nil }
+    func closeInstallQuestion() { installQuestion = nil }
     func play(_ app: LCAppModel, showingSettings: Bool = false) {}
     func resumeRunningGame() {}
     func askToQuit() { quitQuestion = running }
