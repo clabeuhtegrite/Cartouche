@@ -21,10 +21,10 @@
 // the database keeps only its day and its issue's number, for the daily
 // cap, and forgets them two days later.
 //
-// POST /v1/games finds on IGDB the cover, the artwork and the genre of a
-// game of the player's that Cartouche's catalog does not know, by the name
-// its copy gives it (launcher/Sources/CartoucheGameLookup.swift), as
-// catalog/tools/igdb_covers.py finds those of the catalog's games, with the
+// POST /v1/games finds on IGDB the cover, the artwork, the genre and the
+// summary of a game of the player's that Cartouche's catalog does not know,
+// by the name its copy gives it (launcher/Sources/CartoucheGameLookup.swift),
+// as catalog/tools/igdb_covers.py finds those of the catalog's games, with the
 // Twitch application of IGDB_CLIENT_ID and IGDB_CLIENT_SECRET. The answer is
 // kept 30 days for that name, and given again to whoever asks for it: never
 // who asked.
@@ -408,7 +408,7 @@ export const IGDB = {
   token: "https://id.twitch.tv/oauth2/token",
   api: "https://api.igdb.com/v4/",
   platforms: { switch: "Nintendo Switch", switch2: "Nintendo Switch 2" },
-  fields: "fields name,alternative_names.name,platforms,genres,cover.image_id,artworks.image_id;",
+  fields: "fields name,alternative_names.name,platforms,genres,cover.image_id,artworks.image_id,summary;",
   likeness: 0.9,
 };
 
@@ -444,6 +444,9 @@ export const IGDB_GENRES = [
 ];
 
 const IMAGE = /^[0-9a-z]{1,40}$/;
+// The longest summary of a game given, in characters, as igdb_covers.py
+// keeps them: the game's sheet shows its first lines, and the rest on demand.
+export const LONGEST_SUMMARY = 2000;
 const EDITION = /\b(nintendo switch 2 edition|nintendo switch edition|switch 2 edition)\b/g;
 
 /** NAME without accents, marks, punctuation, case or edition words, as
@@ -549,14 +552,46 @@ export function genreOf(genres) {
   return IGDB_GENRES.find(([id]) => genres.includes(id))?.[1];
 }
 
+/** IGDB's summary of a game as Cartouche keeps it, as igdb_covers.py's
+ * summary_of() does: without addresses, each line with its spaces made
+ * single, an empty line at most between two paragraphs, and at most
+ * LONGEST_SUMMARY characters, cut after a word with an ellipsis; undefined
+ * for no text. */
+export function summaryOf(text) {
+  if (typeof text !== "string") return undefined;
+  const lines = text
+    .replaceAll("\r\n", "\n")
+    .replaceAll("\r", "\n")
+    // Control characters but the line's end, as spaces.
+    .replace(/[\u0000-\u0009\u000b-\u001f\u007f-\u009f\ufeff]/g, " ")
+    // A web address, which the app does not show.
+    .replace(/\S*:\/\/\S*|(?<!\S)www\.\S*/gi, "")
+    .split("\n")
+    .map((line) => line.split(/\s+/).filter(Boolean).join(" "));
+  let summary = lines.join("\n").replace(/\n{3,}/g, "\n\n").replace(/^\n+|\n+$/g, "");
+  if (!summary) return undefined;
+  // Characters, not UTF-16 units, as Python counts them.
+  const characters = Array.from(summary);
+  if (characters.length > LONGEST_SUMMARY) {
+    let cut = characters.slice(0, LONGEST_SUMMARY - 1);
+    const space = Math.max(cut.lastIndexOf(" "), cut.lastIndexOf("\n"));
+    if (space >= LONGEST_SUMMARY / 2) cut = cut.slice(0, space);
+    summary = cut.join("").replace(/[ \n,;:]+$/, "") + "…";
+  }
+  return summary;
+}
+
 /** What the server gives of an IGDB entry: its ID and name, its cover, an
- * artwork, its genre, and the platform the app said, else IGDB's. */
+ * artwork, its genre, its summary, and the platform the app said, else
+ * IGDB's. */
 function gameOf(entry, platform, platforms) {
   const game = { igdb: entry.id, name: entry.name.slice(0, 200), cover: entry.cover.image_id };
   const artwork = (Array.isArray(entry.artworks) ? entry.artworks : []).map((art) => art?.image_id).find((id) => IMAGE.test(id ?? ""));
   if (artwork) game.artwork = artwork;
   const genre = genreOf(entry.genres);
   if (genre) game.genre = genre;
+  const summary = summaryOf(entry.summary);
+  if (summary) game.summary = summary;
   const on = Array.isArray(entry.platforms) ? entry.platforms : [];
   game.platform = platform ?? (on.includes(platforms.switch) || !on.includes(platforms.switch2) ? "switch" : "switch2");
   return game;
