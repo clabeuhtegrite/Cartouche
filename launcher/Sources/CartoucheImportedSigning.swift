@@ -93,6 +93,8 @@ enum CartoucheImportedSigning {
     /// chose in Setup; and its outcome, `imported` or why not.
     @MainActor
     static func measure(via: String, error: Error?) {
+        // The telemetry, as the console, needs iOS 17.
+        guard #available(iOS 17.0, *) else { return }
         let outcome = error.map { ($0 as? ImportError)?.kind ?? "other" } ?? "imported"
         CartoucheTelemetry.shared.event("signing.imported", fields: ["via": .text(via), "outcome": .text(outcome)])
     }
