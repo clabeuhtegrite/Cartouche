@@ -23,7 +23,7 @@ The knobs a test sets are in `HarnessLC` (signing, the certificate, the game's p
 
 ## The tests
 
-- [`InstallTests`](Tests/InstallTests.swift): an install from an IPA, step by step, a game installed again over another build with its saves and settings, uninstalled with or without its saves, an app that is no game, signing that fails or leaves files out, an encrypted app, IPAs that are no IPA, cut short, without an app or without `Payload`, and the question before an install on a GPU nxnative refuses.
+- [`InstallTests`](Tests/InstallTests.swift): an install from an IPA, step by step, a game installed again over another build with its saves and settings, uninstalled with or without its saves, an app that is no game, signing that fails or leaves files out, an encrypted app, IPAs that are no IPA, cut short or damaged, without an app or without `Payload`, an app whose `Info.plist` cannot be read or gives no bundle identifier, and the question before an install on a GPU nxnative refuses.
 - [`PlayTests`](Tests/PlayTests.swift): a start in Cartouche's place: the data folder, nxnative's switch for its settings screen in `env.txt`, the game's language, a game signed with an old certificate, a certificate iOS no longer accepts.
 - [`BehindConsoleTests`](Tests/BehindConsoleTests.swift): a game behind the console, the Home button, Quit, a game iOS stops, near its memory limit or without Increased Memory Limit, LiveProcess missing or refusing, another game in its place.
 - [`SetupTests`](Tests/SetupTests.swift): the built-in SideStore's certificate handed to LiveContainer, whether iOS accepts it, the Apple ID, the pairing file.
