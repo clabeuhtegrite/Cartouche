@@ -54,7 +54,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - run: shellcheck -x app/scripts/*.sh catalog/tools/*.sh launcher/Gallery/*.sh launcher/StorageTests/*.sh telemetry/*.sh builder/mac/*.sh
+      - run: shellcheck -x app/scripts/*.sh catalog/tools/*.sh launcher/Gallery/*.sh launcher/StorageTests/*.sh telemetry/*.sh builder/mac/*.sh .github/mac/*.sh .github/mac/cartouche-ci
 
   builder:
     name: Cartouche Builder
@@ -90,6 +90,8 @@ jobs:
         run: .venv/bin/python .github/rulesets/check_rulesets.py
       - name: The branches the Branches workflow deletes
         run: .venv/bin/python -m unittest discover -s .github/branches -v
+      - name: The runner on Ad's Mac, and the jobs it takes
+        run: .venv/bin/python -m unittest discover -s .github/mac -v
 
   site:
     name: Showcase site

@@ -382,6 +382,16 @@ struct GalleryScenario {
         }
         guard let ready else { return }
         Task { @MainActor in
+            // Turned sideways first, for up to 30 s: on the iPhone Duo of run
+            // 43275681933, beside two builds of the app on Ad's Mac, the
+            // simulator had not turned the scene by the time the gallery
+            // said it had settled, upright.
+            if landscape, let scene {
+                for _ in 0..<120 {
+                    if scene.effectiveGeometry.interfaceOrientation.isLandscape { break }
+                    try? await Task.sleep(for: .milliseconds(250))
+                }
+            }
             try? await Task.sleep(for: .seconds(3))
             // The covers the screen shows, from IGDB, for up to 20 s more.
             for _ in 0..<40 {

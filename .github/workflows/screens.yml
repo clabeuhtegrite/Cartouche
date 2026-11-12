@@ -16,6 +16,10 @@ name: Launcher screens
 # as they were keeps the results of before, about an hour of a Mac each
 # time. Run the workflow from the Actions tab to run them again, with or
 # without the screenshots.
+#
+# They run on Ad's Mac when it can take them now, which spares GitHub's
+# Macs, five at a time for the whole account, and their wait; on GitHub's
+# otherwise, and always for a run again (.github/mac/README.md).
 
 on:
   pull_request:
@@ -86,13 +90,37 @@ jobs:
           echo "::notice::An earlier run passed the UI tests of these very changes and took their screenshots, on $BRANCH: run this workflow from the Actions tab to run them again."
           echo "The UI tests of these very changes passed, and their screenshots are on \`$BRANCH\` already." >> "$GITHUB_STEP_SUMMARY"
 
+  # Ad's Mac, when it can take them now, else GitHub's (route.py).
+  route:
+    name: Ad's Mac or GitHub
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: read # the jobs waiting for Ad's Mac
+    outputs:
+      runner: ${{ steps.route.outputs.runner }}
+      mac: ${{ steps.route.outputs.mac }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          sparse-checkout: .github/mac
+          persist-credentials: false
+      - name: Where the UI tests and screenshots run
+        id: route
+        env:
+          MAC_JOB: UI tests and screenshots
+          MAC_LABELS: cartouche-screens,xcode-${{ env.XCODE_VERSION }},ios-sim-${{ env.XCODE_VERSION }}
+          RUNNERS_TOKEN: ${{ secrets.MAC_RUNNER_TOKEN }}
+          GH_TOKEN: ${{ github.token }}
+        run: python3 .github/mac/route.py
+
   screens:
     name: UI tests and screenshots
-    needs: taken
-    # Run unless the first job found them done, so that a failure there
-    # cannot skip them.
+    needs: [taken, route]
+    # Run unless the first job found them done, so that a failure there, or
+    # in the route, cannot skip them.
     if: ${{ !cancelled() && needs.taken.outputs.taken != 'true' }}
-    runs-on: xcode-27
+    runs-on: ${{ fromJSON(needs.route.outputs.runner || '"xcode-27"') }}
     # The UI tests take half an hour, a failed one running once more, and
     # the screenshots as long again.
     timeout-minutes: 95
@@ -110,11 +138,20 @@ jobs:
         with:
           persist-credentials: false
       - name: Select Xcode
+        if: ${{ runner.environment == 'github-hosted' }}
         run: |
           sudo xcode-select -s "/Applications/Xcode_${XCODE_VERSION}.app"
           xcodebuild -version
       - name: Install XcodeGen
+        if: ${{ runner.environment == 'github-hosted' }}
         run: brew install xcodegen
+      # Its own simulators, which stay from a run to the next, shut down.
+      - name: Xcode, XcodeGen and simulators on Ad's Mac
+        if: ${{ runner.environment == 'self-hosted' }}
+        run: |
+          .github/mac/job.sh xcode "$XCODE_VERSION"
+          .github/mac/job.sh tool xcodegen
+          .github/mac/job.sh simulators
       - name: UI tests
         run: launcher/Gallery/uitests.sh build/ui-tests
       - name: Upload the UI tests' results
@@ -151,6 +188,35 @@ jobs:
         with:
           path: build/screens-taken
           key: ${{ needs.taken.outputs.key }}
+
+  # Beside the UI tests and screenshots when Ad's Mac takes them: sends the
+  # run back to GitHub's Macs when the Mac loses them or does not take them
+  # (watch.py).
+  watch:
+    name: Watch Ad's Mac
+    needs: [taken, route]
+    if: ${{ !cancelled() && needs.route.outputs.mac == 'true' && needs.taken.outputs.taken != 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 160
+    permissions:
+      contents: read
+      actions: write # cancels this run, and starts Mac rescue to run it again
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          sparse-checkout: .github/mac
+          persist-credentials: false
+      - name: Watch the UI tests and screenshots on Ad's Mac
+        env:
+          MAC_JOB: UI tests and screenshots
+          MAC_LABELS: cartouche-screens,xcode-${{ env.XCODE_VERSION }},ios-sim-${{ env.XCODE_VERSION }}
+          # The job waits for the one before it on the Mac, which takes about
+          # as long: GitHub's Macs only after that.
+          MAC_QUEUE_MINUTES: "45"
+          RUNNERS_TOKEN: ${{ secrets.MAC_RUNNER_TOKEN }}
+          GH_TOKEN: ${{ github.token }}
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+        run: python3 .github/mac/watch.py
 
   # The only job that can write runs nothing from the pull request: it
   # commits the screenshots the job above uploaded.
