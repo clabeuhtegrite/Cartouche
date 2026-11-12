@@ -37,6 +37,7 @@ class HarnessCase: XCTestCase {
         // A new certificate for each test: Cartouche checks each one once.
         certificate = HarnessCertificate(team: "HARNESS001", password: "harness", serial: Int.random(in: 1...Int(Int32.max)))
         HarnessLC.installCertificate(certificate)
+        HarnessStorage.warmUp()
         let watchdog = HarnessWatchdog()
         watchdog.start()
         self.watchdog = watchdog
@@ -266,6 +267,26 @@ enum HarnessStorage {
     static var root: URL {
         FileManager.default.urls(for: .libraryDirectory, in: .userDomainMask)[0]
             .appendingPathComponent("HarnessStorage", isDirectory: true)
+    }
+
+    @MainActor private static var warmedUp = false
+
+    /// Has iOS make and read a bookmark of a folder once, before the first
+    /// test watches the main thread. The simulator's first bookmark waits
+    /// on a file provider starting up (1.9 s on the CI's Mac), which an
+    /// iPhone did long before the player picks a folder in Files: the test
+    /// that picks one first would fail on the simulator, not on Cartouche.
+    @MainActor
+    static func warmUp() {
+        guard !warmedUp else { return }
+        warmedUp = true
+        let url = root.appendingPathComponent("WarmUp", isDirectory: true)
+        try? FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
+        if let bookmark = try? CartoucheFolder.bookmark(of: url) {
+            var stale = false
+            _ = try? URL(resolvingBookmarkData: bookmark, options: [], relativeTo: nil, bookmarkDataIsStale: &stale)
+        }
+        try? FileManager.default.removeItem(at: root)
     }
 
     /// A folder of the player's, with its own name, kept by Cartouche as
