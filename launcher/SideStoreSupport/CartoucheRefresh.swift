@@ -4,8 +4,8 @@
 //
 //  Lets Cartouche's System tab renew the app without leaving it. It runs
 //  the same refresh as the Refresh All Apps action of Shortcuts: the
-//  built-in SideStore starts in LiveProcess, renews every app it manages,
-//  Cartouche first, and reports its progress.
+//  built-in SideStore starts in LiveProcess, renews Cartouche, and no other
+//  app (app/patches/sidestore/0017), and reports its progress.
 //
 //  This file joins LiveContainer's SideStoreSupport framework, which
 //  LiveContainer loads when the app carries the built-in SideStore. The
@@ -17,7 +17,7 @@ import Foundation
 
 @objc(CartoucheRefresh)
 public final class CartoucheRefresh: NSObject {
-    /// Renews every app the built-in SideStore manages. `progress` counts to
+    /// Renews Cartouche through the built-in SideStore. `progress` counts to
     /// 100; `completion` runs on the main queue, with nil or the error's text.
     @objc(refreshAllAppsWithProgress:completion:)
     public static func refreshAllApps(progress: Progress, completion: @escaping (String?) -> Void) {

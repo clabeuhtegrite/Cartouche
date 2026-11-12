@@ -322,6 +322,7 @@ enum CartoucheText {
     // MARK: Installing, starting and uninstalling a game
 
     static func installTitle(_ name: String) -> String { f("work.install.title", "Installing %@", name) }
+    static var installChecking: String { s("work.install.checking", "Checking the IPA and the room on this iPhone.") }
     static var installUnpacking: String { s("work.install.unpacking", "Unpacking the IPA.") }
     static var installSigning: String { s("work.signing", "Signing it for this iPhone") }
     static var installFailed: String { s("work.install.failed", "The game was not installed") }
@@ -740,7 +741,7 @@ enum CartoucheText {
     static var telemetryWhat: String { s("telemetry.what", "What is sent") }
     static var telemetryWhatGames: String { s("telemetry.what.games", "For each game session: frame rate, frame and GPU times, stutters and what caused them, shader preparation, memory, heat and power, sound, the screen’s sizes, how the game ended, and the game’s version and settings.") }
     static var telemetryWhatDevice: String { s("telemetry.what.device", "This iPhone’s model, iOS version and memory limit, Cartouche’s version and language, and a random number of this copy of Cartouche.") }
-    static var telemetryWhatEvents: String { s("telemetry.what.events", "Each start of Cartouche, game installs, updates, renewals, Apple ID sign-ins and errors, by their codes and the step they stopped at.") }
+    static var telemetryWhatEvents: String { s("telemetry.what.events", "Each start of Cartouche, game installs, updates, renewals, Apple ID sign-ins, how the Files picker of each import went, and errors, by their codes and the step they stopped at.") }
     static var telemetryWhatNever: String { s("telemetry.what.never", "Never your Apple ID, your iPhone’s name, your files, the addresses of your storage or the game’s log itself.") }
     static var telemetryLastSent: String { s("telemetry.lastSent", "Last sent") }
     static var telemetryNever: String { s("telemetry.never", "Never") }

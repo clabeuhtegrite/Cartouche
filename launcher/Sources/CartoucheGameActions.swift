@@ -185,26 +185,43 @@ final class CartoucheGameActions: ObservableObject {
             return
         }
         let accessing = url.startAccessingSecurityScopedResource()
-        guard FileManager.default.isReadableFile(atPath: url.path) else {
-            if accessing { url.stopAccessingSecurityScopedResource() }
-            fail(.install, CartoucheText.installFailed, message: "lc.appList.ipaAccessError".loc, cause: .fileUnreadable)
-            return
-        }
-        // Unpacking writes about as much as the IPA holds.
-        let size = Int64((try? url.resourceValues(forKeys: [.fileSizeKey]).fileSize) ?? 0)
-        let needed = size + 512 * 1_048_576
-        facts.insert(.init("IPA size", CartoucheReport.bytes(size)), at: 1)
-        if let free = Self.freeSpace(), free < needed {
-            if accessing { url.stopAccessingSecurityScopedResource() }
-            facts.append(.init("Needed", CartoucheReport.bytes(needed)))
-            fail(.install, CartoucheText.installFailed,
-                 message: CartoucheText.installNoSpace(needed: CartoucheText.storageAmount(bytes: needed),
-                                                       free: CartoucheText.storageAmount(bytes: free)), cause: .noSpace)
-            return
-        }
-
+        // Over the console at once, as the picker goes, and checked off the
+        // main thread: a file on a USB drive, a server in Files or iCloud
+        // Drive takes a moment to answer, and so does iOS to say how much
+        // room it can make.
         work = CartoucheGameWork(kind: .installing, name: url.deletingPathExtension().lastPathComponent,
-                                 step: CartoucheText.installUnpacking, fraction: 0, stage: "unpacking")
+                                 step: CartoucheText.installChecking, fraction: nil, stage: "checking")
+        Task {
+            guard let size = await Self.readableSize(of: url) else {
+                if accessing { url.stopAccessingSecurityScopedResource() }
+                fail(.install, CartoucheText.installFailed, message: "lc.appList.ipaAccessError".loc, cause: .fileUnreadable)
+                work = nil
+                return
+            }
+            // Unpacking writes about as much as the IPA holds.
+            let needed = size + 512 * 1_048_576
+            facts.insert(.init("IPA size", CartoucheReport.bytes(size)), at: 1)
+            if let free = await Self.freeSpace(), free < needed {
+                if accessing { url.stopAccessingSecurityScopedResource() }
+                facts.append(.init("Needed", CartoucheReport.bytes(needed)))
+                fail(.install, CartoucheText.installFailed,
+                     message: CartoucheText.installNoSpace(needed: CartoucheText.storageAmount(bytes: needed),
+                                                           free: CartoucheText.storageAmount(bytes: free)), cause: .noSpace)
+                work = nil
+                return
+            }
+            installChecked(url, accessing: accessing, into: model)
+        }
+    }
+
+    /// Unpacks the IPA at URL, checked, and installs the game it holds.
+    private func installChecked(_ url: URL, accessing: Bool, into model: SharedModel) {
+        if var unpacking = work {
+            unpacking.step = CartoucheText.installUnpacking
+            unpacking.fraction = 0
+            unpacking.stage = "unpacking"
+            work = unpacking
+        }
         beginTransfer()
         transfer = Task {
             do {
@@ -292,7 +309,7 @@ final class CartoucheGameActions: ObservableObject {
                 }
                 let entries = try await CartoucheZip.entries(of: source)
                 let needed = Int64(clamping: entries.reduce(UInt64(0)) { $0 + $1.size }) + 512 * 1_048_576
-                if let free = Self.freeSpace(), free < needed {
+                if let free = await Self.freeSpace(), free < needed {
                     throw CartoucheStorageError(.noSpaceHere, CartoucheText.installFromStorageNoSpace(
                         needed: CartoucheText.storageAmount(bytes: needed), free: CartoucheText.storageAmount(bytes: free)))
                 }
@@ -573,9 +590,19 @@ final class CartoucheGameActions: ObservableObject {
         return CartoucheStoredGames.infoPlistEntry(in: entries)?.modified
     }
 
-    nonisolated private static func freeSpace() -> Int64? {
+    /// The room this iPhone has for a game, off the main thread: iOS counts
+    /// what it could free for it, which takes it a moment.
+    nonisolated private static func freeSpace() async -> Int64? {
         let values = try? LCPath.docPath.resourceValues(forKeys: [.volumeAvailableCapacityForImportantUsageKey])
         return values?.volumeAvailableCapacityForImportantUsage
+    }
+
+    /// The size of the IPA at URL, if Cartouche can read it, off the main
+    /// thread: the file may be on a USB drive, a server in Files or iCloud
+    /// Drive.
+    nonisolated private static func readableSize(of url: URL) async -> Int64? {
+        guard FileManager.default.isReadableFile(atPath: url.path) else { return nil }
+        return Int64((try? url.resourceValues(forKeys: [.fileSizeKey]).fileSize) ?? 0)
     }
 
     /// The copy iOS makes in Documents/Inbox of a file opened from another

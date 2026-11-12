@@ -33,7 +33,7 @@
 //                    the game starts; missing when it cannot be read.
 //                    Without it, iOS gives the game a fraction of what
 //                    Cartouche has with it: 3,376 MiB against 8,192 on an
-//                    iPhone with 12 GB (docs/decisions.md, 64)
+//                    iPhone with 12 GB (docs/decisions.md, 66)
 //
 //  - The Home button of a controller: nxnative leaves it to the game
 //    without a use (DmGamepad.m). A press shows Cartouche's console, as the

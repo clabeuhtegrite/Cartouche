@@ -126,6 +126,15 @@ struct CartoucheSignature {
         return Int(floor(expirationDate.timeIntervalSinceNow / 86_400))
     }
 
+    /// Whether Cartouche was renewed since BEFORE was read: SideStore records
+    /// the new expiry once it has renewed it, and a profile made later
+    /// expires later. Its renewal date alone could also be the installed
+    /// profile's, which SideStore takes again when it starts.
+    func isRenewal(of before: CartoucheSignature) -> Bool {
+        guard let expirationDate else { return false }
+        return before.expirationDate.map { expirationDate > $0 } ?? true
+    }
+
     static func current() -> CartoucheSignature {
         let profile = embeddedProfile()
         let renewal = lastRenewal()
