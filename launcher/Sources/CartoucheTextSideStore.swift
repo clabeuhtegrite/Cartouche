@@ -5,9 +5,11 @@
 //  What Cartouche tells the player of the built-in SideStore's error, in
 //  Cartouche.xcstrings with the other words (CartoucheText.swift): its own
 //  words when Apple limits the requests or answers with a page, which
-//  SideStore's would show as they are. A file of its own, since it reads
-//  CartoucheFailure and CartoucheSignInMessage, which the storage tests
-//  (launcher/StorageTests) build CartoucheText.swift without.
+//  SideStore's would show as they are, and when SideStore could not reach
+//  this iPhone for the sign-in, which SideStore's would send to its own
+//  settings. A file of its own, since it reads CartoucheFailure and
+//  CartoucheSignInMessage, which the storage tests (launcher/StorageTests)
+//  build CartoucheText.swift without.
 //
 
 import Foundation
@@ -30,7 +32,42 @@ extension CartoucheText {
         case .tooManyRequests?: return signIn ? signInTooManyRequests : appleTooManyRequests
         case .unreadable(let status?)?: return applePage(status)
         case .unreadable(nil)?: return appleUnreadable
-        case nil: return readable
+        case nil:
+            guard signIn, let trouble = CartoucheSignInMessage.deviceTrouble(in: failure) else { return readable }
+            // Before Apple, or once it accepted the account.
+            switch CartoucheSignInMessage.deviceMoment(of: failure) {
+            case .beforeApple: return deviceMessage(trouble) + " " + deviceBeforeApple
+            case .afterApple: return deviceMessage(trouble) + " " + deviceAfterApple
+            case .elsewhere: return deviceMessage(trouble)
+            }
         }
+    }
+
+    // MARK: This iPhone, through LocalDevVPN
+
+    static var deviceVPN: String { s("signIn.device.vpn", "LocalDevVPN is not connected, or does not carry this iPhone’s traffic. Connect it, or disconnect it and connect it again.") }
+    static var deviceWiFi: String { s("signIn.device.wifi", "This iPhone is not on Wi-Fi, which LocalDevVPN needs to reach it. Join a Wi-Fi network.") }
+    static var devicePairing: String { s("signIn.device.pairing", "This iPhone did not accept its pairing file. Put the pairing file in Cartouche again with the Cartouche Installer, on your computer.") }
+    static var deviceNoAnswer: String { s("signIn.device.noAnswer", "This iPhone did not answer through LocalDevVPN. Disconnect LocalDevVPN, connect it again, then try again.") }
+    static var deviceBeforeApple: String { s("signIn.device.beforeApple", "Nothing was sent to Apple yet: sign in again once this is fixed.") }
+    static var deviceAfterApple: String { s("signIn.device.afterApple", "Apple accepted your Apple ID: only this iPhone is left to register, which Cartouche does by itself once LocalDevVPN is connected.") }
+
+    /// What to do about TROUBLE.
+    static func deviceMessage(_ trouble: CartoucheSignInMessage.DeviceTrouble) -> String {
+        switch trouble {
+        case .vpn: return deviceVPN
+        case .wifi: return deviceWiFi
+        case .pairing: return devicePairing
+        case .noAnswer: return deviceNoAnswer
+        }
+    }
+
+    /// What Cartouche tells the player when registering this iPhone alone
+    /// (CartoucheAccount.registerDevice) ended with SideStore's MESSAGE, as
+    /// FAILURE tells: what to do when SideStore did not reach the iPhone,
+    /// the sign-in's words otherwise.
+    static func deviceStepMessage(_ message: String, failure: CartoucheFailure) -> String {
+        if let trouble = CartoucheSignInMessage.deviceTrouble(in: failure) { return deviceMessage(trouble) }
+        return sideStoreMessage(message, failure: failure, signIn: true)
     }
 }

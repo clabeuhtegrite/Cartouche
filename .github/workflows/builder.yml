@@ -16,7 +16,9 @@ name: Builder
 # Run from the Actions tab, it builds everything; on main with Publish
 # ticked, it also publishes the disk image as the release builder-v<version>,
 # the version of builder/pyproject.toml, without GitHub's Latest mark, which
-# is meant for Cartouche: the app's updates come from there (Updater.swift).
+# is meant for Cartouche: the app's updates come from there (Updater.swift),
+# once the Full test pass has passed on that commit (full-pass.yml), which
+# builds everything too and publishes nothing.
 # It then publishes the showcase site again, whose download buttons give the
 # newest disk image (site/README.md). How to publish: builder/README.md.
 
@@ -36,12 +38,21 @@ on:
         description: "Publish the disk image as the release builder-v<version> (main only)"
         type: boolean
         default: false
+  # The Full test pass (full-pass.yml): everything, whatever the paths, and nothing published.
+  workflow_call:
+    inputs:
+      full:
+        description: "Build and test everything, as the Full test pass does, and publish nothing"
+        type: boolean
+        default: false
 
 permissions:
   contents: read
 
+# The Full test pass's run is its own: neither a push to main nor a pull
+# request cancels it.
 concurrency:
-  group: builder-${{ github.head_ref || github.ref }}
+  group: ${{ inputs.full && format('builder-full-{0}', github.run_id) || format('builder-{0}', github.head_ref || github.ref) }}
   cancel-in-progress: true
 
 env:
@@ -202,11 +213,12 @@ jobs:
           key: ${{ needs.built.outputs.key }}
 
   # The only job that can write to a branch runs nothing from the pull
-  # request: it commits the screenshots the job above uploaded.
+  # request: it commits the screenshots the job above uploaded. Not in the
+  # Full test pass, which publishes nothing.
   keep:
     name: Keep the screenshots on a branch
     needs: mac
-    if: ${{ !cancelled() && needs.mac.outputs.screens == 'true' && (github.event_name == 'workflow_dispatch' || github.event.pull_request.head.repo.full_name == github.repository) }}
+    if: ${{ !cancelled() && !inputs.full && needs.mac.outputs.screens == 'true' && (github.event_name == 'workflow_dispatch' || github.event.pull_request.head.repo.full_name == github.repository) }}
     runs-on: ubuntu-latest
     permissions:
       contents: write # the branch builder-screens/<branch>
@@ -230,12 +242,36 @@ jobs:
           git push -q -f "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY.git" "HEAD:refs/heads/$BRANCH"
           echo "Pushed to $BRANCH"
 
+  # Nothing is published from a commit before the Full test pass has passed
+  # on it: once the app is built, this waits for the pass running, which the
+  # pull request that raised the version started, or starts one when none
+  # has run (.github/full-pass/README.md).
+  tests:
+    name: Full test pass on this commit
+    needs: mac
+    if: ${{ !cancelled() && needs.mac.result == 'success' && github.event_name == 'workflow_dispatch' && inputs.publish && github.ref == 'refs/heads/main' && !inputs.full }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 300
+    permissions:
+      contents: read
+      actions: write # starts the pass when none has run on this commit
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # The commits since a pass of main, which may change only the source.
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Wait for the full test pass
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 .github/full-pass/wait_for_pass.py --sha "$GITHUB_SHA" --ref "$GITHUB_REF" --start --summary "$GITHUB_STEP_SUMMARY"
+
   # The only job that can publish runs nothing it built: it attaches the
   # disk image and its SHA-256 the Mac app's job uploaded.
   publish:
     name: Publish Cartouche Builder
-    needs: mac
-    if: ${{ !cancelled() && needs.mac.result == 'success' && github.event_name == 'workflow_dispatch' && inputs.publish && github.ref == 'refs/heads/main' }}
+    needs: [mac, tests]
+    if: ${{ !cancelled() && needs.mac.result == 'success' && needs.tests.result == 'success' && github.event_name == 'workflow_dispatch' && inputs.publish && github.ref == 'refs/heads/main' && !inputs.full }}
     runs-on: ubuntu-latest
     permissions:
       contents: write # the release builder-v<version>

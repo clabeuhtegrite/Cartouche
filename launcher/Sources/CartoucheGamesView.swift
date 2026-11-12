@@ -549,12 +549,15 @@ struct CartoucheGamesView: View {
     private func openGuideIfNew() {
         let progress = guide.progress(catalog.entries(for: sharedModel.apps, stored: storedGames.games))
         guide.note(progress)
-        #if !CARTOUCHE_GALLERY
+        #if CARTOUCHE_GALLERY
+        // The gallery's screenshots show the console without the guide over
+        // it; its UI tests open the console as a new install does.
+        guard GalleryTest.isOn else { return }
+        #endif
         guard guide.opensByItself(progress) else { return }
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
             if nothingOver { showingGuide = true }
         }
-        #endif
     }
 
     private var sheetPresented: Binding<Bool> {

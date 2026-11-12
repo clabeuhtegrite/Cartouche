@@ -213,11 +213,19 @@ public final class BridgeServer: @unchecked Sendable {
                 transport.close()
                 return
             }
+            do {
+                try await transport.start(timeout: 10)
+            } catch {
+                transport.close()
+                return
+            }
             await self.open(transport)
         }
     }
 
-    private func open(_ transport: CartoucheBridgeConnection) async {
+    /// A connection once open, the network's or one in memory for the
+    /// tests: a session of a paired iPhone, or a pairing.
+    func open(_ transport: any CartoucheBridgeTransport & Sendable) async {
         // A connection that does not finish its handshake in time is closed,
         // which ends the reads it waits on.
         let handshaking = Flag()
@@ -226,18 +234,21 @@ public final class BridgeServer: @unchecked Sendable {
             if handshaking.isSet { transport.close() }
         }
         do {
-            try await transport.start(timeout: 10)
             let opening = try await CartoucheBridgeHandshake.server(transport, mac: devices.macID, name: name,
                                                                      keyOf: { [devices] in devices.key(of: $0) },
                                                                      allow: { [weak self] name, code in
                                                                          await self?.askPairing(name: name, code: code) ?? false
+                                                                     },
+                                                                     // In the list before the iPhone hears it is paired:
+                                                                     // its first session follows at once.
+                                                                     keep: { [devices] device, name, key in
+                                                                         devices.add(id: device, name: name, key: key)
                                                                      })
             handshaking.clear()
             switch opening {
             case let .session(channel):
                 await serve(channel)
-            case let .paired(device, name, key):
-                devices.add(id: device, name: name, key: key)
+            case .paired:
                 changed()
                 transport.close()
             case .refused:
