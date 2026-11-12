@@ -165,13 +165,21 @@ public struct EngineCommit: Codable, Equatable {
     public var url: String?
     public var branch: String?
     public var commitURL: String?
+    /// The branch's newest commit, when the checkout stays on an older one,
+    /// the last that built on this Mac, because the newest does not build
+    /// (cartouche_builder/fallback.py); `held` then says so.
+    public var latest: String?
+    public var latestShort: String?
+    public var held: Bool?
 
     enum CodingKeys: String, CodingKey {
-        case head, short, time, subject, url, branch
+        case head, short, time, subject, url, branch, latest, held
         case commitURL = "commit_url"
+        case latestShort = "latest_short"
     }
 
-    public init(head: String, short: String, time: Double? = nil, subject: String? = nil, url: String? = nil, branch: String? = nil, commitURL: String? = nil) {
+    public init(head: String, short: String, time: Double? = nil, subject: String? = nil, url: String? = nil, branch: String? = nil, commitURL: String? = nil,
+                latest: String? = nil, latestShort: String? = nil, held: Bool? = nil) {
         self.head = head
         self.short = short
         self.time = time
@@ -179,6 +187,15 @@ public struct EngineCommit: Codable, Equatable {
         self.url = url
         self.branch = branch
         self.commitURL = commitURL
+        self.latest = latest
+        self.latestShort = latestShort
+        self.held = held
+    }
+
+    /// The newest commit's 12 digits, while the builder stays behind it.
+    public var heldBehind: String? {
+        guard held == true, let latest, !latest.isEmpty else { return nil }
+        return latestShort ?? String(latest.prefix(12))
     }
 
     public var date: Date? { time.flatMap { $0 > 0 ? Date(timeIntervalSince1970: $0) : nil } }
@@ -400,9 +417,21 @@ public struct GameProgress: Codable, Equatable {
     public var log: String?
     public var ipa: String?
     public var duration: Double?
+    /// The nxnative commit it was built (or tried) from, 12 digits, and
+    /// whether that is an older one than the branch's newest, which does
+    /// not build (cartouche_builder/fallback.py).
+    public var commit: String?
+    public var fallback: Bool?
+    /// Why it was not built, as a name (cartouche_builder/causes.py:
+    /// "app_build", "no_space", "damaged"...), nxnative's exit code, and for
+    /// an error of the engine's own, its exception, where and errno.
+    public var cause: String?
+    public var exit: Int?
+    public var failure: FailureDetails?
 
     enum CodingKeys: String, CodingKey {
         case name, reasons, detail, state, stage, step, k, n, frac, overall, eta, note, message, started, ended, error, log, ipa, duration
+        case commit, fallback, cause, exit, failure
         case titleID = "title_id"
     }
 
@@ -425,6 +454,18 @@ public struct GameProgress: Codable, Equatable {
     public var startedDate: Date? { started.flatMap(ISODate.parse) }
 }
 
+/// A batch on an older nxnative commit (TO) than the branch's newest
+/// (FROM), whose app build fails (cartouche_builder/fallback.py).
+public struct BatchFallback: Codable, Equatable {
+    public var from: String
+    public var to: String
+
+    public init(from: String, to: String) {
+        self.from = from
+        self.to = to
+    }
+}
+
 public struct BatchStatus: Codable, Equatable {
     public var pid: Int?
     public var scheduled: Bool?
@@ -433,6 +474,10 @@ public struct BatchStatus: Codable, Equatable {
     public var updated: String?
     public var ended: String?
     public var head: String?
+    /// The branch's newest commit, and the commits the batch went from and
+    /// to when it builds from an older one because the newest does not.
+    public var latest: String?
+    public var fallback: BatchFallback?
     public var message: String?
     public var error: String?
     /// Why a batch that failed did, as names and numbers.
@@ -442,7 +487,7 @@ public struct BatchStatus: Codable, Equatable {
     public var lines: [String]
     public var running: Bool?
 
-    enum CodingKeys: String, CodingKey { case pid, scheduled, state, started, updated, ended, head, message, error, failure, report, games, lines, running }
+    enum CodingKeys: String, CodingKey { case pid, scheduled, state, started, updated, ended, head, latest, fallback, message, error, failure, report, games, lines, running }
 
     public init(state: String, pid: Int? = nil, games: [GameProgress] = [], lines: [String] = [], message: String? = nil) {
         self.state = state
@@ -461,6 +506,8 @@ public struct BatchStatus: Codable, Equatable {
         updated = try c.decodeIfPresent(String.self, forKey: .updated)
         ended = try c.decodeIfPresent(String.self, forKey: .ended)
         head = try c.decodeIfPresent(String.self, forKey: .head)
+        latest = try? c.decodeIfPresent(String.self, forKey: .latest)
+        fallback = try? c.decodeIfPresent(BatchFallback.self, forKey: .fallback)
         message = try c.decodeIfPresent(String.self, forKey: .message)
         error = try c.decodeIfPresent(String.self, forKey: .error)
         failure = try? c.decodeIfPresent(FailureDetails.self, forKey: .failure)

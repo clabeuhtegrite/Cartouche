@@ -104,6 +104,16 @@ final class EngineAnswerTests: XCTestCase {
         XCTAssertEqual(done.finished.map(\.state), ["failed"])
         XCTAssertEqual(done.finished.first?.error, "the fake build failed on purpose")
         XCTAssertNotNil(done.endedDate)
+        // Why it failed, as names and numbers, and the commit it was built from.
+        let failed = try XCTUnwrap(done.finished.first)
+        XCTAssertEqual(failed.cause, "nxnative")
+        XCTAssertEqual(failed.exit, 1)
+        XCTAssertEqual(failed.commit?.count, 12)
+        XCTAssertEqual(failed.fallback, false)
+        XCTAssertNotNil(failed.duration)
+        XCTAssertNil(done.fallback)
+        XCTAssertEqual(BuilderTelemetry.fields(cause: failed.cause, exit: failed.exit, failure: failed.failure),
+                       ["cause": .text("nxnative"), "exit": .count(1)])
 
         let building = try XCTUnwrap(try answer(StatusAnswer.self, "status-building").status)
         XCTAssertTrue(building.isRunning)
@@ -111,6 +121,56 @@ final class EngineAnswerTests: XCTestCase {
         XCTAssertEqual(building.current.map(\.titleID), ["0400C3F00006E000"])
         XCTAssertTrue(building.queued.isEmpty)
         XCTAssertFalse(building.lines.isEmpty)
+    }
+
+    /// A batch on the last nxnative commit that built on this Mac, its
+    /// newest not building (cartouche_builder/fallback.py), and a game
+    /// skipped for a full disk.
+    func testABatchOnTheLastCommitThatBuilt() throws {
+        let json = #"""
+            {"state": "done", "head": "6da69001c0ffee00", "latest": "7867152deadbeef0",
+             "fallback": {"from": "7867152deadbeef0", "to": "6da69001c0ffee00"},
+             "games": [{"title_id": "0100152000022000", "name": "A game", "state": "built", "commit": "6da69001c0ff", "fallback": true},
+                       {"title_id": "010093801237C000", "name": "Another", "state": "skipped", "cause": "no_space", "exit": 1, "failure": {}}]}
+            """#
+        let status = try JSONDecoder().decode(BatchStatus.self, from: Data(json.utf8))
+        XCTAssertEqual(status.fallback, BatchFallback(from: "7867152deadbeef0", to: "6da69001c0ffee00"))
+        XCTAssertEqual(status.latest, "7867152deadbeef0")
+        XCTAssertEqual(status.games.first?.fallback, true)
+        XCTAssertEqual(status.games.first?.commit, "6da69001c0ff")
+        XCTAssertEqual(status.games.last?.cause, "no_space")
+        XCTAssertEqual(status.games.last?.failure, FailureDetails())
+        // What an older engine wrote still reads.
+        let older = try JSONDecoder().decode(BatchStatus.self, from: Data(#"{"state": "done", "fallback": "not one", "games": []}"#.utf8))
+        XCTAssertNil(older.fallback)
+        // What the telemetry may say of it: names and numbers it checks.
+        XCTAssertEqual(BuilderTelemetry.fields(cause: "No space on /Volumes/Jeux", exit: 99_999, failure: nil), [:])
+        XCTAssertEqual(BuilderTelemetry.commit("6DA69001C0FFEE00"), "6da69001c0ff")
+        XCTAssertNil(BuilderTelemetry.commit("not a commit"))
+
+        let held = try JSONDecoder().decode(EngineCommit.self, from: Data(#"""
+            {"head": "6da69001c0ffee00", "short": "6da69001c0ff", "latest": "7867152deadbeef0", "latest_short": "7867152deadb", "held": true}
+            """#.utf8))
+        XCTAssertEqual(held.heldBehind, "7867152deadb")
+        let current = try JSONDecoder().decode(EngineCommit.self, from: Data(#"{"head": "6da69001c0ffee00", "short": "6da69001c0ff"}"#.utf8))
+        XCTAssertNil(current.heldBehind)
+    }
+
+    func testAFullDiskInThePlayersWords() {
+        let posix = NSError(domain: NSPOSIXErrorDomain, code: Int(ENOSPC))
+        XCTAssertTrue(DiskSpace.isFull(NSError(domain: NSCocoaErrorDomain, code: NSFileWriteOutOfSpaceError)))
+        XCTAssertTrue(DiskSpace.isFull(NSError(domain: NSCocoaErrorDomain, code: NSFileWriteUnknownError, userInfo: [NSUnderlyingErrorKey: posix])))
+        XCTAssertFalse(DiskSpace.isFull(NSError(domain: NSCocoaErrorDomain, code: NSFileWriteNoPermissionError)))
+        XCTAssertFalse(DiskSpace.isFull(EngineFailure(kind: "no_space", message: "Your Mac's disk is full.")))
+        defer { L10n.use("") }
+        L10n.use("fr")
+        XCTAssertEqual(DiskSpace.amount(412_000_000), "0,4 Go")
+        XCTAssertEqual(DiskSpace.message(free: 412_000_000),
+                       "Le disque du Mac est plein (il reste 0,4 Go). Libérez de la place, par exemple dans Stockage, puis réessayez.")
+        L10n.use("en")
+        XCTAssertEqual(DiskSpace.amount(12_400_000_000), "12 GB")
+        XCTAssertEqual(DiskSpace.message(free: nil), "Your Mac's disk is full. Free some room, on the Storage page for example, then try again.")
+        XCTAssertNotNil(DiskSpace.free(at: URL(fileURLWithPath: NSTemporaryDirectory())))
     }
 
     func testTheQueue() throws {

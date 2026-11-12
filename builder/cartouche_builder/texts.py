@@ -80,6 +80,7 @@ TEXTS: dict[str, tuple[str, str]] = {
     "plan.shared_never": ("Up to date for its own fixes; {count} shared commits are left out (setting)", "À jour pour ses propres correctifs ; {count} commits communs sont laissés de côté (réglage)"),
     "plan.failed_here": ("Failed at this nxnative commit ({error}); tried again when nxnative or its files change", "Échec à ce commit de nxnative ({error}) ; réessayé quand nxnative ou ses fichiers changeront"),
     "plan.up_to_date": ("Up to date (nxnative {commit})", "À jour (nxnative {commit})"),
+    "plan.newer": ("Up to date (built from nxnative {commit}, newer than the commit the builder stays on while nxnative's newest does not build)", "À jour (construit avec nxnative {commit}, plus récent que celui où reste Cartouche Builder tant que le dernier de nxnative ne construit pas)"),
     "origin.builder": ("built here", "construit ici"),
     "origin.ipa": ("read from the IPA", "lu dans l'IPA"),
     # ---- A build (build.py, batch.py)
@@ -110,6 +111,25 @@ TEXTS: dict[str, tuple[str, str]] = {
     "batch.queue_failed": ("The games asked for could not be added: {error}", "Les jeux demandés n'ont pas pu être ajoutés : {error}"),
     "batch.taken_out": ("{name}: taken out of the batch.", "{name} : retiré du lot."),
     "batch.trimmed": ("Removed the build folder {folder} ({gb} GB) to keep under the size limit.", "Dossier de construction {folder} supprimé ({gb} Go) pour rester sous la taille limite."),
+    # ---- A full disk (disks.py)
+    "disk.full_mac": ("Your Mac's disk is full ({free} left). Free some room, on the Storage page for example, then try again.", "Le disque du Mac est plein (il reste {free}). Libérez de la place, par exemple dans Stockage, puis réessayez."),
+    "disk.full_mac_unknown": ("Your Mac's disk is full. Free some room, on the Storage page for example, then try again.", "Le disque du Mac est plein. Libérez de la place, par exemple dans Stockage, puis réessayez."),
+    "disk.full_named": ("The disk “{name}” is full ({free} left). Free some room on it, then try again.", "Le disque « {name} » est plein (il reste {free}). Libérez-y de la place, puis réessayez."),
+    "disk.full_named_unknown": ("The disk “{name}” is full. Free some room on it, then try again.", "Le disque « {name} » est plein. Libérez-y de la place, puis réessayez."),
+    "disk.room_mac": ("nxnative needs {needed} free on your Mac's disk to build this game, and {free} are left. Free some room, on the Storage page for example, then try again.", "nxnative a besoin de {needed} libres sur le disque du Mac pour construire ce jeu, et il en reste {free}. Libérez de la place, par exemple dans Stockage, puis réessayez."),
+    "disk.room_named": ("nxnative needs {needed} free on the disk “{name}” to build this game, and {free} are left. Free some room on it, then try again.", "nxnative a besoin de {needed} libres sur le disque « {name} » pour construire ce jeu, et il en reste {free}. Libérez-y de la place, puis réessayez."),
+    # ---- Why a game was not built (causes.py)
+    "cause.damaged": ("Some of this game's files are damaged{part}: nxnative does not build from them, as the game would not run well. Copy the game again from your console (or make its NUP again), then build it again.", "Des fichiers de ce jeu sont abîmés{part} : nxnative ne construit pas avec, le jeu tournerait mal. Copiez de nouveau le jeu depuis votre console (ou refaites son NUP), puis relancez la construction."),
+    "cause.damaged_update": (" (its update {version})", " (sa mise à jour {version})"),
+    "cause.damaged_base": (" (the base game)", " (le jeu de base)"),
+    # ---- nxnative's newest commit, when it does not build (fallback.py)
+    "fallback.retry": ("nxnative {new} did not build the app (app build): trying again from {old}, the last commit that built on this Mac…", "nxnative {new} n'a pas construit l'app (« app build ») : nouvel essai avec {old}, le dernier commit qui a construit sur ce Mac…"),
+    "fallback.moving": ("Going back to nxnative {old}, the last commit that built on this Mac…", "Retour à nxnative {old}, le dernier commit qui a construit sur ce Mac…"),
+    "fallback.back": ("Back to nxnative {new}…", "Retour à nxnative {new}…"),
+    "fallback.confirmed": ("{name} built from nxnative {old}: nxnative {new} is broken for now. The games are built from {old} until nxnative has a newer commit.", "{name} construit avec nxnative {old} : nxnative {new} est cassé pour l'instant. Les jeux se construisent avec {old} jusqu'à un commit plus récent de nxnative."),
+    "fallback.not_the_cause": ("{name} does not build from nxnative {old} either: nxnative {new} is not the cause, and the batch goes on from it.", "{name} ne se construit pas non plus avec nxnative {old} : nxnative {new} n'y est pour rien, et le lot reprend avec lui."),
+    "fallback.move_failed": ("nxnative could not go to {commit}: {error}", "nxnative n'a pas pu passer à {commit} : {error}"),
+    "fallback.held": ("nxnative {new}, its newest commit, does not build for now: the games are built from {old}, the last commit that built on this Mac.", "nxnative {new}, son dernier commit, ne construit pas pour l'instant : les jeux se construisent avec {old}, le dernier commit qui a construit sur ce Mac."),
     # ---- The app's commands (api.py)
     "api.refused": ("{path} is none of the builder's own folders or files: left as it is.", "{path} n'est ni un dossier ni un fichier du compilateur : laissé tel quel."),
     "api.no_source": ("Its sources are not in the sources folder: its IPA is shown, and built again once they are back.", "Ses sources ne sont pas dans le dossier des sources : son IPA est montrée, et reconstruite quand elles reviendront."),

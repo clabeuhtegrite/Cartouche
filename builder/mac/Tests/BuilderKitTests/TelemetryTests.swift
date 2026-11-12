@@ -27,11 +27,11 @@ final class TelemetryTests: XCTestCase {
             "ready": .flag(true), "remote": .flag(true), "schedule": .flag(true), "xcode": .text("27.2"),
         ]
         let setup: [String: TelemetryValue] = ["item": .text("metal"), "result": .text("ready"), "seconds": .number(312)]
-        let built: [String: TelemetryValue] = ["ipaMB": .number(1830), "nxnative": .text(head), "reasons": .text("named,shared"),
-                                               "seconds": .number(5412), "source": .text("packages")]
-        let failed: [String: TelemetryValue] = ["nxnative": .text(head), "reasons": .text("profile"), "seconds": .number(1260),
-                                                "source": .text("dump"), "stage": .text("shaders")]
-        let batch: [String: TelemetryValue] = ["built": .count(1), "failed": .count(1), "games": .count(3), "jobs": .count(1),
+        let built: [String: TelemetryValue] = ["fallback": .flag(true), "ipaMB": .number(1830), "nxnative": .text(head),
+                                               "reasons": .text("named,shared"), "seconds": .number(5412), "source": .text("packages")]
+        let failed: [String: TelemetryValue] = ["cause": .text("app_build"), "exit": .count(1), "nxnative": .text(head), "reasons": .text("profile"),
+                                                "seconds": .number(1260), "source": .text("dump"), "stage": .text("app build")]
+        let batch: [String: TelemetryValue] = ["built": .count(1), "failed": .count(1), "fallback": .flag(true), "games": .count(3), "jobs": .count(1),
                                                "minutes": .number(112.5), "nxnative": .text(head), "scheduled": .flag(true),
                                                "skipped": .count(1), "state": .text("done"), "stopped": .count(0)]
         let engineError: [String: TelemetryValue] = ["background": .flag(true), "kind": .text("engine"), "origin": .text("check")]
@@ -51,6 +51,11 @@ final class TelemetryTests: XCTestCase {
                                                      "nxnative": .text(head), "scheduled": .flag(false), "skipped": .count(0),
                                                      "state": .text("failed"), "stopped": .count(2), "where": .text("workspace.prepare")]
         let imported: [String: TelemetryValue] = ["ipaMB": .number(5120), "nxnative": .text(head), "remote": .flag(true), "seconds": .number(48)]
+        let skipped: [String: TelemetryValue] = ["cause": .text("no_space"), "exit": .count(1), "nxnative": .text(head), "reasons": .text("new"),
+                                                 "seconds": .number(312), "source": .text("nup"), "stage": .text("unpack v0")]
+        let failedHere: [String: TelemetryValue] = ["cause": .text("builder"), "errno": .count(13), "exception": .text("PermissionError"),
+                                                    "nxnative": .text(head), "reasons": .text("source"), "seconds": .number(2410),
+                                                    "source": .text("packages"), "stage": .text("deliver"), "where": .text("ipa.deliver")]
         let events: [(name: String, game: String?, fields: [String: TelemetryValue])] = [
             ("builder.opened", nil, opened),
             ("builder.setup", nil, setup),
@@ -68,6 +73,8 @@ final class TelemetryTests: XCTestCase {
             ("builder.error", nil, notStarted),
             ("builder.batch", nil, failedBatch),
             ("builder.imported", "0100152000022000", imported),
+            ("builder.skipped", "0100152000022000", skipped),
+            ("builder.failed", "010093801237C000", failedHere),
         ]
         var made: [TelemetryEvent] = []
         for (index, event) in events.enumerated() {

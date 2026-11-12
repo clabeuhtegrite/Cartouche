@@ -622,15 +622,18 @@ final class AppModel: ObservableObject {
     }
 
     /// The batch and each game in it, for the telemetry: their states,
-    /// steps, reasons and times, never a message, a name or a path.
+    /// steps, reasons, causes and times, never a message, a name or a path.
     private func report(_ status: BatchStatus) {
         let head = status.head.map { String($0.prefix(12)) }
-        for game in status.games where ["built", "failed"].contains(game.state) {
+        // A game skipped says why only when it was tried: a full disk, no
+        // room, no keys; not one the batch ended before.
+        for game in status.games where ["built", "failed"].contains(game.state) || (game.state == "skipped" && !(game.cause ?? "").isEmpty) {
             var fields: [String: TelemetryValue] = [:]
             if let reasons = game.reasons, !reasons.isEmpty { fields["reasons"] = .text(reasons.joined(separator: ",")) }
             if let duration = game.duration { fields["seconds"] = .number(duration.rounded()) }
             if let kind = library?.game(game.titleID)?.kind { fields["source"] = .text(kind) }
-            if let head { fields["nxnative"] = .text(head) }
+            if let commit = game.commit.flatMap(BuilderTelemetry.commit) ?? head { fields["nxnative"] = .text(commit) }
+            if game.fallback == true { fields["fallback"] = .flag(true) }
             if game.state == "built" {
                 if let size = library?.game(game.titleID)?.ipa?.size, size > 0 {
                     fields["ipaMB"] = .number((Double(size) / 1_000_000).rounded())
@@ -638,7 +641,8 @@ final class AppModel: ObservableObject {
                 telemetry.event("builder.built", game: game.titleID, fields: fields)
             } else {
                 fields["stage"] = .text(game.stage ?? "")
-                telemetry.event("builder.failed", game: game.titleID, fields: fields)
+                fields.merge(BuilderTelemetry.fields(cause: game.cause, exit: game.exit, failure: game.failure)) { _, new in new }
+                telemetry.event(game.state == "failed" ? "builder.failed" : "builder.skipped", game: game.titleID, fields: fields)
             }
         }
         var fields: [String: TelemetryValue] = [
@@ -655,6 +659,7 @@ final class AppModel: ObservableObject {
             fields["minutes"] = .number((ended.timeIntervalSince(started) / 60 * 10).rounded() / 10)
         }
         if let head { fields["nxnative"] = .text(head) }
+        if status.fallback != nil { fields["fallback"] = .flag(true) }
         if let failure = status.failure { fields.merge(BuilderTelemetry.fields(of: failure)) { _, new in new } }
         telemetry.event("builder.batch", fields: fields)
     }
@@ -849,7 +854,10 @@ final class AppModel: ObservableObject {
     /// Shows ERROR above the page, and counts it by ORIGIN, what the app
     /// was doing, with its codes but never its words.
     func show(_ error: Error, origin: String, background: Bool = false) {
-        let text = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+        // A full disk says which, and what is left on it, not Cocoa's words.
+        let text = DiskSpace.isFull(error)
+            ? DiskSpace.message(free: DiskSpace.free(at: URL(fileURLWithPath: NSHomeDirectory())))
+            : (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
         banner = Banner(kind: .error, text: text)
         telemetry.error(error, origin: origin, background: background)
     }

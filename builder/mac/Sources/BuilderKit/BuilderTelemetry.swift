@@ -429,6 +429,24 @@ public final class BuilderTelemetry: ObservableObject {
         return fields
     }
 
+    /// What the telemetry may say of why a game was not built: the cause's
+    /// name (cartouche_builder/causes.py), nxnative's exit code and, for an
+    /// error of the engine's own, its exception, where and errno; each
+    /// checked again, since the engine wrote them.
+    public nonisolated static func fields(cause: String?, exit: Int?, failure: FailureDetails?) -> [String: TelemetryValue] {
+        var fields = failure.map { Self.fields(of: $0) } ?? [:]
+        if let cause = cause.flatMap(FailureDetails.name) { fields["cause"] = .text(cause) }
+        if let exit, (-1_000...1_000).contains(exit) { fields["exit"] = .count(exit) }
+        return fields
+    }
+
+    /// An nxnative commit's 12 digits, when TEXT is one.
+    public nonisolated static func commit(_ text: String) -> String? {
+        let digits = text.lowercased()
+        guard (7...40).contains(digits.count), digits.unicodeScalars.allSatisfy({ ("0"..."9").contains($0) || ("a"..."f").contains($0) }) else { return nil }
+        return String(digits.prefix(12))
+    }
+
     /// "NSCocoaErrorDomain 640 < NSPOSIXErrorDomain 28": an error and the
     /// ones under it.
     public nonisolated static func codes(of error: Error) -> String {
