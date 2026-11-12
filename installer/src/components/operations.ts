@@ -79,6 +79,22 @@ export const installCartoucheFromFileOperation: Operation = {
   ],
 };
 
+export const importedInstallCartoucheOperation: Operation = {
+  ...installCartoucheOperation,
+  successMessageKey: "signing.success_message",
+  steps: installCartoucheOperation.steps.map(step => ({
+    ...step,
+    titleKey: step.id === "install" ? "signing.step_install"
+      : step.id === "pairing" ? "signing.step_handoff" : step.titleKey,
+  })),
+};
+
+export const importedInstallCartoucheFromFileOperation: Operation = {
+  ...importedInstallCartoucheOperation,
+  steps: [{ id: "download", titleKey: "operations.install_step_check" },
+    ...importedInstallCartoucheOperation.steps.slice(1)],
+};
+
 export const placeCartouchePairingOperation: Operation = {
   id: "place_cartouche_pairing",
   titleKey: "operations.pairing_title",

@@ -262,5 +262,23 @@
       ]
     },
     "support_message": "Si cela continue, touchez Copier et collez l’erreur dans une <issues>issue de Cartouche</issues>."
+  },
+  "signing": {
+    "hint": "Choisissez votre certificat de signature (.p12) et son profil de provisionnement. La signature se fait sur cet ordinateur, sans compte Apple.",
+    "choose_p12": "Choisir le certificat P12",
+    "choose_profile": "Choisir le profil de provisionnement",
+    "password": "Mot de passe du P12 (laisser vide si le P12 n’est pas chiffré)",
+    "limitations": "Les jeux prennent la place de Cartouche. Les extensions et le renouvellement hebdomadaire par SideStore sont désactivés. Les mises à jour passent par cet installateur. Les droits mémoire dépendent du profil.",
+    "needs_files": "Choisissez un P12 et son profil de provisionnement.",
+    "needs_ready": "Sélectionnez un iPhone et fournissez les éléments de signature.",
+    "have_certificate": "J’ai un certificat de signature (.p12)",
+    "use_account": "Utiliser mon compte Apple",
+    "profile_checking": "Vérification du profil de provisionnement…",
+    "profile_invalid": "Impossible de lire ce profil. Choisissez un fichier .mobileprovision valide.",
+    "no_memory_limit": "Ce profil n’a pas Increased Memory Limit : la plupart des jeux ne démarreront pas. Sans ce droit, l’app dispose d’environ 3 Go de mémoire.",
+    "install_hint": "Cartouche signé avec votre certificat et les droits autorisés par le profil.",
+    "step_install": "Signer et installer avec votre certificat",
+    "step_handoff": "Préparer le transfert chiffré du certificat",
+    "success_message": "Ouvrez Cartouche sur l’iPhone pour importer le transfert chiffré du certificat. Si iOS demande la confiance ou le mode développeur, suivez ses instructions dans Réglages. Aucun compte Apple ni fichier d’association n’est nécessaire."
   }
 }

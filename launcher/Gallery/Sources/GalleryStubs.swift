@@ -237,6 +237,7 @@ enum LCUtils {
 }
 
 enum LCSharedUtils {
+    static func setCartoucheSigningCandidate(_ material: [String: Any]?) {}
     static func certificatePassword() -> String? { GalleryState.setupDone ? "" : nil }
     static func appGroupPath() -> URL? { GalleryState.appGroup }
 }

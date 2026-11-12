@@ -116,7 +116,7 @@ final class CartoucheAccount: ObservableObject {
     /// Has the built-in SideStore sign in with this Apple ID, unless Apple's
     /// limit on sign-ins still holds.
     func signIn(appleID: String, password: String) {
-        guard phase == nil, pausedUntil == nil,
+        guard !CartoucheImportedSigning.accountSigningDisabled, phase == nil, pausedUntil == nil,
               CartoucheSignInMessage.canSignIn(appleID: appleID, password: password) else { return }
         problemReport = nil
         signedIn = false
@@ -154,7 +154,7 @@ final class CartoucheAccount: ObservableObject {
     /// nothing when it keeps none, or while Apple's limit on sign-ins holds:
     /// the setup then asks the player.
     func signInAgain() {
-        guard phase == nil, pausedUntil == nil,
+        guard !CartoucheImportedSigning.accountSigningDisabled, phase == nil, pausedUntil == nil,
               let appleID = CartoucheStoreKeychain.string("appleIDEmailAddress"),
               let password = CartoucheStoreKeychain.string("appleIDPassword") else { return }
         signIn(appleID: appleID, password: password)
