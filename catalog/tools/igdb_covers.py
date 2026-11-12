@@ -151,6 +151,8 @@ def summary_of(text: str | None) -> str | None:
     if not isinstance(text, str):
         return None
     text = text.replace("\r\n", "\n").replace("\r", "\n")
+    # Zero-width spaces, which iOS would trim as spaces.
+    text = text.replace("\u200b", "")
     # Control characters but the line's end, as spaces.
     text = re.sub(r"[\x00-\x09\x0b-\x1f\x7f-\x9f\ufeff]", " ", text)
     text = ADDRESS.sub("", text)

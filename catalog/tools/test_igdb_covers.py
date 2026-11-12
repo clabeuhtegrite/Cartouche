@@ -173,7 +173,10 @@ class IgdbCoversTest(unittest.TestCase):
                          "- Play alone\n- Or with a friend")
         self.assertEqual(igdb_covers.summary_of(
             "Visit https://example.com/unravel or WWW.example.com, today.\nhttp://x"), "Visit or today.")
-        for none in (None, 7, "", " \n \u00a0 "):
+        # Zero-width spaces, such as those after Pokémon Scarlet's, which
+        # the launcher would trim.
+        self.assertEqual(igdb_covers.summary_of("Pok\u200bémon awaits.\u200b\u200b"), "Pokémon awaits.")
+        for none in (None, 7, "", " \n \u00a0 ", "\u200b"):
             self.assertIsNone(igdb_covers.summary_of(none))
         # Too long: cut after the last word that fits, without its comma,
         # with an ellipsis.
