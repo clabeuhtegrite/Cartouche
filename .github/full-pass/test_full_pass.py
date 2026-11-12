@@ -548,6 +548,16 @@ class VerdictTests(unittest.TestCase):
         self.assertTrue(self.verdict.Expected("CI", "Showcase site", False).matches("CI / Showcase site"))
         self.assertFalse(self.verdict.Expected("Showcase site", "Check the page", False).matches("CI / Showcase site"))
 
+    def test_names_a_matrix_job_by_its_values(self):
+        storage = self.verdict.Expected("Storage", "Storage against real servers", False, matrix=True)
+        self.assertTrue(storage.matches("Storage / Storage against real servers (smb, 3)"))
+        self.assertTrue(storage.matches("Storage / Storage against real servers"))
+        self.assertFalse(storage.matches("Storage / Storage against real servers again"))
+        alone = self.verdict.Expected("Storage", "Storage against real servers", False)
+        self.assertFalse(alone.matches("Storage / Storage against real servers (smb, 3)"))
+        build = self.verdict.Expected("Installer", "Build for ${{ matrix.name }}", False, matrix=True)
+        self.assertTrue(build.matches("Installer / Build for macOS"))
+
     def test_a_call_missing_from_the_needs(self):
         self.assertIn("Installer: missing", self.judge(self.jobs(), {"app": {"result": "success"}}).problems)
 
@@ -557,6 +567,7 @@ class VerdictTests(unittest.TestCase):
         self.assertIs(names[("App", "Build Cartouche.ipa")], False)
         self.assertIs(names[("Storage", "Storage against real servers")], False)
         self.assertIs(names[("Installer", "Build for ${{ matrix.name }}")], False)
+        self.assertEqual({one.name for one in found if one.matrix}, {"Build for ${{ matrix.name }}"})
         self.assertIs(names[("Builder", "Mac app")], False)
         self.assertIs(names[("Telemetry", "Telemetry server")], False)
         self.assertIs(names[("CI", "Workflow audit")], False)

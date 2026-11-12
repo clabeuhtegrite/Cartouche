@@ -45,10 +45,14 @@ class Expected:
     call: str
     name: str
     may_skip: bool
+    matrix: bool = False
 
     def matches(self, run_name: str) -> bool:
         # A matrix job's name has expressions, as 'Build for ${{ matrix.name }}'.
         pattern = ".+".join(re.escape(part) for part in TEMPLATE.split(self.name))
+        if self.matrix:
+            # GitHub adds each matrix job's values to a name that does not give them: 'Test (macOS, 27)'.
+            pattern += r"(?: \(.+\))?"
         prefix = f"{self.call} / "
         if run_name.startswith(prefix):
             return re.fullmatch(pattern, run_name[len(prefix):]) is not None
@@ -71,7 +75,8 @@ def expected_jobs(root: Path) -> list[Expected]:
     found = []
     for call in wiring.calls(every[wiring.PASS]):
         for key, job in (every[call.workflow].get("jobs") or {}).items():
-            found.append(Expected(call.name, wiring.job_name(key, job), wiring.may_skip(job)))
+            matrix = "matrix" in (job.get("strategy") or {})
+            found.append(Expected(call.name, wiring.job_name(key, job), wiring.may_skip(job), matrix))
     return found
 
 
