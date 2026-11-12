@@ -271,6 +271,8 @@ def capture(udid, scenario, screens):
     name = scenario["name"]
     said, ready = launch(udid, scenario, name, 90)
     if scenario.get("orientation") == "landscape" and not said.get("orientation", "").startswith("landscape"):
+        # Its log says whether iOS refused to turn it ("cannot turn sideways").
+        explain(udid, None, name)
         raise Failure(f"the gallery stayed upright: {said}")
     display = None
     if len(screens) > 1:
