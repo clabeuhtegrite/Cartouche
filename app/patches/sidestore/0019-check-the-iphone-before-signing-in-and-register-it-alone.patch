@@ -1,4 +1,4 @@
-From 72a9ffde6f38a81a26ad5a279e59170817701afc Mon Sep 17 00:00:00 2001
+From 917ae4741a13a0f8fad467f91ae56dd96999fd2f Mon Sep 17 00:00:00 2001
 From: Claude <noreply@anthropic.com>
 Date: Thu, 12 Nov 2026 07:54:13 +0000
 Subject: [PATCH] Check the iPhone before signing in, and register it alone
@@ -113,7 +113,7 @@ index 0000000..5feb56c
 +    }
 +}
 diff --git a/SideStore/Intents/CartoucheOutcome.swift b/SideStore/Intents/CartoucheOutcome.swift
-index 8b02640..ea0415b 100644
+index 0d20a81..444c6be 100644
 --- a/SideStore/Intents/CartoucheOutcome.swift
 +++ b/SideStore/Intents/CartoucheOutcome.swift
 @@ -3,16 +3,17 @@
@@ -143,7 +143,7 @@ index 8b02640..ea0415b 100644
  //   "trail": "SignIn", "family": "minimuxer", "kind": "noVPN",
  //   "codes": "Minimuxer.MinimuxerError 3", "apple": -22406, "http": 503,
  //   "network": -1009, "host": "apple", "codeAsked": true,
-@@ -36,6 +37,7 @@ final class CartoucheOutcome: @unchecked Sendable
+@@ -45,6 +46,7 @@ final class CartoucheOutcome: @unchecked Sendable
      enum Action: String
      {
          case signIn

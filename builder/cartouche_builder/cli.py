@@ -197,7 +197,7 @@ def _doctor(ctx: batch.Context) -> int:
 def _setup(ctx: batch.Context) -> int:
     with batch.batch_lock(ctx.paths):
         print(t("batch.cloning_engine") if not ctx.engine.present else t("batch.updating_engine"))
-        ctx.engine.update()
+        batch.update_engine(ctx)
         toolchain.ensure_python(ctx.paths, ctx.engine.requirements, log=print)
         toolchain.write_dotnet_lock(ctx.paths)
     print(t("cli.setup_done"))

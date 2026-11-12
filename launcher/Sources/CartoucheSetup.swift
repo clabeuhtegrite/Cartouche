@@ -279,6 +279,11 @@ final class CartoucheSetup: ObservableObject {
     /// Whether the setup has something left for the player: a certificate
     /// still being checked does not show it.
     var needsSetup: Bool { !(canPlay && hasPairingFile && appleID != nil) || needsDevice }
+    /// What the measurements say of the installation (CartoucheSetupFacts.swift).
+    var facts: CartoucheSetupFacts {
+        CartoucheSetupFacts(hasCertificate: hasCertificate, certificateWorks: certificateWorks,
+                            hasPairingFile: hasPairingFile, signedIn: appleID != nil)
+    }
 
     private static let deviceStepKey = "CartoucheDeviceStepLeft"
 

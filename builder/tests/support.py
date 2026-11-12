@@ -211,6 +211,26 @@ ev(ev="game", title_id=title_id, name=name, version="1.0.0", bundle_id="org.nxna
 if os.environ.get("FAKE_FAIL") == title_id:
     ev(ev="say", msg="[RED] the fake build failed on purpose")
     sys.exit(1)
+if os.environ.get("FAKE_NO_SPACE") == title_id:
+    ev(ev="say", msg=f"[RED] less than 32 GB free on the volume of {work}")
+    sys.exit(1)
+if os.environ.get("FAKE_DAMAGED") == title_id:
+    ev(ev="stage", k=2, n=2, name="unpack v131072", step="")
+    ev(ev="say", msg="[RED] v131072: 3 file(s) whose bytes do not start as their names promise (a .zs file that is not a zstd stream), so the game files are damaged:\n"
+       "  romfs/Texture/a.zs (12,288 bytes, starts 000000)\nPack again from a good copy of the game (--allow-damaged packs these files as they are)")
+    sys.exit(1)
+if os.environ.get("FAKE_CRASH") == title_id:
+    print("Traceback (most recent call last):\n  File \"build_ipa_from_nsp.py\", line 1, in <module>\nKeyError: 'icon'", file=sys.stderr, flush=True)
+    ev(ev="say", msg="[RED] KeyError: 'icon'")
+    sys.exit(1)
+# As nxnative's commit of 11 November 2026: the iOS app does not link, for
+# every game (a BROKEN file in the checkout), or for one at any commit.
+broken = (repo / "BROKEN").exists() and os.environ.get("FAKE_BROKEN_ONLY", title_id) == title_id
+if broken or os.environ.get("FAKE_APP_BUILD") == title_id:
+    ev(ev="stage", k=2, n=2, name="app build", step="starting")
+    print("Undefined symbols for architecture arm64: \"_probe_atrace\"", file=sys.stderr, flush=True)
+    ev(ev="say", msg="[RED] xcodebuild failed (exit 65): see the app build's log")
+    sys.exit(1)
 if os.environ.get("FAKE_SLEEP") and os.environ.get("FAKE_SLEEP_ONLY", title_id) == title_id:
     ev(ev="stage", k=2, n=2, name="shaders", step="")
     for _ in range(int(os.environ["FAKE_SLEEP"]) * 10):
@@ -242,9 +262,13 @@ def git(repo: Path, *args: str) -> str:
     return subprocess.run(["git", *args], cwd=repo, capture_output=True, text=True, check=True, env={**os.environ, **GIT_ENV}).stdout.strip()
 
 
-def commit(repo: Path, message: str, files: dict[str, str]) -> str:
+def commit(repo: Path, message: str, files: dict[str, str | None]) -> str:
+    """Commits FILES, by their text; None removes one."""
     for name, text in files.items():
         path = repo / name
+        if text is None:
+            path.unlink()
+            continue
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(text)
     git(repo, "add", "-A")
@@ -270,13 +294,17 @@ def make_engine_remote(folder: Path, games: dict[str, str]) -> Path:
     return folder
 
 
+# What makes the fake nxnative fail, sleep or end without an IPA, for a game.
+FAKES = ("FAKE_FAIL", "FAKE_SLEEP", "FAKE_SLEEP_ONLY", "FAKE_NO_IPA", "FAKE_NO_SPACE", "FAKE_DAMAGED", "FAKE_CRASH", "FAKE_APP_BUILD", "FAKE_BROKEN_ONLY")
+
+
 class Home(unittest.TestCase):
     """A test with a builder home, a home folder and a launch agents folder of its own."""
 
     def setUp(self) -> None:
         self._tmp = tempfile.TemporaryDirectory()
         self.tmp = Path(self._tmp.name)
-        self._env = {k: os.environ.get(k) for k in ("HOME", "CARTOUCHE_BUILDER_HOME", "CARTOUCHE_BUILDER_AGENTS", "CARTOUCHE_BUILDER_LANG", "CARTOUCHE_BUILDER_QUIET", "FAKE_FAIL", "FAKE_SLEEP", "FAKE_SLEEP_ONLY", "FAKE_NO_IPA")}
+        self._env = {k: os.environ.get(k) for k in ("HOME", "CARTOUCHE_BUILDER_HOME", "CARTOUCHE_BUILDER_AGENTS", "CARTOUCHE_BUILDER_LANG", "CARTOUCHE_BUILDER_QUIET", *FAKES)}
         # A home folder of the test's own: what another app left in the
         # player's Library is never read, and the tests show it.
         os.environ["HOME"] = str(self.tmp / "user")
@@ -284,10 +312,8 @@ class Home(unittest.TestCase):
         os.environ["CARTOUCHE_BUILDER_AGENTS"] = str(self.tmp / "agents")
         os.environ["CARTOUCHE_BUILDER_LANG"] = "en"
         os.environ["CARTOUCHE_BUILDER_QUIET"] = "1"
-        os.environ.pop("FAKE_FAIL", None)
-        os.environ.pop("FAKE_SLEEP", None)
-        os.environ.pop("FAKE_SLEEP_ONLY", None)
-        os.environ.pop("FAKE_NO_IPA", None)
+        for fake in FAKES:
+            os.environ.pop(fake, None)
         from cartouche_builder import i18n
 
         i18n.set_language("en")
