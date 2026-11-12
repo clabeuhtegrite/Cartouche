@@ -27,6 +27,8 @@ struct CartoucheRootView: View {
                 CartoucheReports.noteStart()
                 Self.clearBadge()
                 CartoucheTelemetry.shared.start()
+                // A Files picker open when Cartouche last ended.
+                CartoucheImportPicker.noteLeftOpen()
             }
             .onReceive(NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification)) { _ in
                 Self.clearBadge()

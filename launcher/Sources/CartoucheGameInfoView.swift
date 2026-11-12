@@ -140,6 +140,16 @@ struct CartoucheGameInfoView: View {
                 .disabled(isReading)
             }
         }
+        // B cancels, as Cancel does, once every view has had the input:
+        // the sheet under the page, which waits for it to close, does not
+        // take it too. Not while Photos or Files is open over the page.
+        .onReceive(CartoucheGamepad.shared.inputs) { input in
+            guard input == .b, !choosingPhoto, !choosingFile else { return }
+            DispatchQueue.main.async {
+                forgetNewCover()
+                onClose()
+            }
+        }
         .photosPicker(isPresented: $choosingPhoto, selection: $photo, matching: .images)
         .onChange(of: photo) { _, item in
             guard let item else { return }
