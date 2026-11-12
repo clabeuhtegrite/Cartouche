@@ -27,7 +27,10 @@ facts = state.get("facts", {})
 running = state.get("runner") == "running"
 print(f"Runner: {'online' if running else 'stopped'}{', a job runs now' if state.get('job') else ''} ({state.get('time')})")
 print(f"Why: {state.get('why')}")
-print(f"Power: {facts.get('power')}, {facts.get('free_gb', 0):.0f} GB free, paused: {'yes' if facts.get('paused') else 'no'}")
+power = {"ac": "mains power", "battery": "battery"}.get(facts.get("power"), "unknown")
+if facts.get("battery") is not None:
+    power = f"{power}, charged at {facts['battery']}%"
+print(f"Power: {power}, {facts.get('free_gb', 0):.0f} GB free, paused: {'yes' if facts.get('paused') else 'no'}")
 jobs = state.get("last_jobs") or []
 print("Last jobs:" if jobs else "No job yet.")
 for job in jobs:
@@ -42,7 +45,7 @@ PY
   resume)
     sudo rm -f "$SUPPORT/paused"
     sudo launchctl kickstart -k system/fr.cartouche.ci.supervisor
-    echo "Resumed: the runner starts again within a few seconds when the Mac is on mains power."
+    echo "Resumed: the runner starts again within a few seconds when the Mac is on mains power or its battery at 30% or more."
     ;;
   logs)
     sudo tail -n 40 /Library/Logs/CartoucheCI/supervisor.log "/Users/$ACCOUNT/logs/runner.log"

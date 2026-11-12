@@ -28,13 +28,13 @@ The jobs run as the account `cartouche-ci`: hidden, with no password, so that no
 
 The supervisor ([`supervisor.py`](supervisor.py)), a LaunchDaemon of root, keeps the runner online only while the Mac can take a job without getting in Ad's way, and offline otherwise, so that the jobs go to GitHub's Macs:
 
-- on mains power: on the battery it stops, once the job it runs ends;
+- on mains power, or on the battery at 30% or more: below 30% it stops once the job it runs ends, below 20% at once;
 - with 30 GB free to start; below 15 GB it stops once its job ends, below 8 GB at once;
 - while every Xcode of its labels is in `/Applications`;
 - unless Ad paused it, which stops it at once;
 - unless the runner stopped by itself 3 times in half an hour, as it does once GitHub forgets a runner offline for 14 days: it tries again an hour later, and `cartouche-ci logs` says why (run `install.sh` again with a new registration token).
 
-While a job runs, the Mac does not go to sleep by itself (`caffeinate -s`); closing the lid still puts it to sleep, and the watch sends the job back to GitHub. The runner runs at a lower priority than Ad's apps (`Nice` 5), one job at a time. Once a day, between two jobs, the supervisor removes Xcode's builds left for three days, the SideStores beyond the four newest, simulators of runtimes no longer installed and the runner's logs of more than a week.
+While a job runs, the Mac does not go to sleep by itself, on the battery too (`caffeinate -i -s`); closing the lid still puts it to sleep, and the watch sends the job back to GitHub. The runner runs at a lower priority than Ad's apps (`Nice` 5), one job at a time. Once a day, between two jobs, the supervisor removes Xcode's builds left for three days, the SideStores beyond the four newest, simulators of runtimes no longer installed and the runner's logs of more than a week.
 
 ## Install, pause, remove
 

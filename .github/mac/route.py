@@ -62,7 +62,7 @@ def pick(found: list[dict], wanted: set[str], waiting_for_mac: Callable[[], int]
         return None, "no runner of Ad's Mac is registered"
     online = [runner for runner in matching if runner.get("status") == "online"]
     if not online:
-        return None, "Ad's Mac is offline: asleep, away, on the battery or paused"
+        return None, "Ad's Mac is offline: asleep, away, low on battery or paused"
     idle = [runner for runner in online if not runner.get("busy")]
     if idle:
         return idle[0], "Ad's Mac is free"

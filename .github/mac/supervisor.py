@@ -5,7 +5,8 @@ and every 15 seconds it starts or stops the runner's service.
 
 The runner runs:
 
-- on mains power: on the battery, it stops once the job it runs ends;
+- on mains power, or on the battery at 30% or more: below 30% it stops once
+  the job it runs ends, below 20% at once;
 - with 30 GB free on the disk to start; below 15 GB it stops once its job
   ends, below 8 GB at once;
 - while every Xcode its labels promise is on the Mac (config.json, which
@@ -16,9 +17,9 @@ The runner runs:
   logs says why.
 
 A stopped runner is offline: route.py sends the jobs to GitHub's Macs. While
-a job runs, the Mac does not go to sleep by itself (caffeinate -s, which
-holds on mains power only); closing the lid still puts it to sleep, and the
-job's watch (watch.py) sends it back to GitHub.
+a job runs, the Mac does not go to sleep by itself, on the battery too
+(caffeinate -i: -s alone holds on mains power only); closing the lid still
+puts it to sleep, and the job's watch (watch.py) sends it back to GitHub.
 
 Once a day, between two jobs, it removes what the jobs leave behind, as the
 runner's account: Xcode's builds left for three days, the SideStores beyond
@@ -60,6 +61,11 @@ ACCOUNT = "cartouche-ci"
 START_GB = 30
 STOP_GB = 15
 HARD_GB = 8
+BATTERY_START = 30  # % of charge, on the battery
+BATTERY_HARD = 20
+# Keeps the Mac awake while a job runs: -i on the battery too, where -s,
+# which holds on mains power only, does not.
+CAFFEINATE = ("caffeinate", "-i", "-s")
 ROUND = 15
 CLEAN_EVERY = 24 * 3600
 EXITS = 3  # the runner stopped by itself so many times...
@@ -79,10 +85,20 @@ class Facts:
     jobs: list = field(default_factory=list)  # the PIDs of Runner.Worker
     missing_xcode: list = field(default_factory=list)  # versions its labels promise
     exits: int = 0  # the times it stopped by itself, of late (Supervisor.exits)
+    battery: int | None = None  # its charge in %, on a Mac with a battery
 
 
 def decide(facts: Facts) -> tuple[str, str]:
     """("start", "stop" or "keep", why) for the runner's service."""
+    on_battery = facts.power == "battery"
+    if facts.power == "ac":
+        source = "on mains power"
+    elif not on_battery:
+        source = "its power source unknown"
+    elif facts.battery is None:
+        source = "on the battery, its charge unknown"
+    else:
+        source = f"on the battery, at {facts.battery}%"
     if facts.paused:
         want, why = False, "paused (cartouche-ci resume)"
     elif facts.missing_xcode:
@@ -91,17 +107,18 @@ def decide(facts: Facts) -> tuple[str, str]:
         want, why = False, (f"the runner stopped by itself {facts.exits} times in {EXITS_MINUTES} minutes, "
                             f"so it rests {REST_MINUTES} minutes (cartouche-ci logs says why; when GitHub "
                             "forgot it, run install.sh again)")
-    elif facts.power == "battery":
-        want, why = False, "on the battery"
+    elif on_battery and (facts.battery is None or facts.battery < BATTERY_START):
+        want, why = False, source
     elif facts.free_gb < (STOP_GB if facts.running else START_GB):
         want, why = False, f"{facts.free_gb:.0f} GB free on the disk"
     else:
-        want, why = True, "on mains power, with room on the disk"
+        want, why = True, f"{source}, with room on the disk"
     if want:
         return ("keep" if facts.running else "start"), why
     if not facts.running:
         return "keep", why
-    if facts.jobs and not facts.paused and facts.free_gb >= HARD_GB:
+    drained = on_battery and facts.battery is not None and facts.battery < BATTERY_HARD
+    if facts.jobs and not facts.paused and facts.free_gb >= HARD_GB and not drained:
         return "keep", f"{why}: it stops once its job ends"
     return "stop", why
 
@@ -112,6 +129,14 @@ def power_source(pmset: str) -> str:
     if not found:
         return "unknown"
     return "battery" if "Battery" in found.group(1) else "ac"
+
+
+def battery_charge(pmset: str) -> int | None:
+    """The battery's charge in %, from what pmset -g batt says
+    ("-InternalBattery-0 (id=4718691) 85%; discharging; ..."), or None on a
+    Mac without a battery."""
+    found = re.search(r"InternalBattery.*?(\d{1,3})%", pmset)
+    return int(found.group(1)) if found else None
 
 
 def run(*args: str, timeout: int = 30) -> subprocess.CompletedProcess:
@@ -143,8 +168,10 @@ def facts(config: dict, home: Path) -> Facts:
     service = run("launchctl", "print", SERVICE)
     jobs = run("pgrep", "-U", ACCOUNT, "-f", "Runner.Worker")
     present = xcode_versions()
+    pmset = run("pmset", "-g", "batt").stdout
     return Facts(
-        power=power_source(run("pmset", "-g", "batt").stdout),
+        power=power_source(pmset),
+        battery=battery_charge(pmset),
         free_gb=free_gb,
         paused=PAUSED.exists(),
         running=service.returncode == 0 and "state = running" in service.stdout,
@@ -217,7 +244,7 @@ class Supervisor:
         elif seen.running and not self.started:
             self.started = True  # started before this supervisor
         if seen.jobs and (self.caffeinate is None or self.caffeinate.poll() is not None):
-            self.caffeinate = subprocess.Popen(["caffeinate", "-s", "-w", str(seen.jobs[0])])
+            self.caffeinate = subprocess.Popen([*CAFFEINATE, "-w", str(seen.jobs[0])])
         if not seen.jobs and time.time() - self.cleaned > CLEAN_EVERY:
             self.cleaned = time.time()
             self.clean()

@@ -41,12 +41,26 @@ class DecideTests(unittest.TestCase):
         self.assertEqual(decide(facts(power="unknown"))[0], "start")
         self.assertEqual(decide(facts(running=True))[0], "keep")
 
-    def test_stops_on_the_battery_once_its_job_ends(self):
-        self.assertEqual(decide(facts(power="battery", running=True))[0], "stop")
-        action, why = decide(facts(power="battery", running=True, jobs=[42]))
+    def test_runs_on_the_battery_down_to_30_percent(self):
+        self.assertEqual(decide(facts(power="battery", battery=80))[0], "start")
+        self.assertEqual(decide(facts(power="battery", battery=30))[0], "start")
+        self.assertEqual(decide(facts(power="battery", battery=80, running=True))[0], "keep")
+        action, why = decide(facts(power="battery", battery=29))
+        self.assertEqual(action, "keep")
+        self.assertIn("29%", why)
+        self.assertEqual(decide(facts(power="battery", battery=29, running=True))[0], "stop")
+
+    def test_below_30_percent_it_stops_once_its_job_ends_and_below_20_at_once(self):
+        action, why = decide(facts(power="battery", battery=25, running=True, jobs=[42]))
         self.assertEqual(action, "keep")
         self.assertIn("once its job ends", why)
+        self.assertEqual(decide(facts(power="battery", battery=19, running=True, jobs=[42]))[0], "stop")
+        self.assertEqual(decide(facts(power="ac", battery=10))[0], "start", "on mains power, whatever the charge")
+
+    def test_does_not_start_on_a_battery_whose_charge_it_cannot_read(self):
         self.assertEqual(decide(facts(power="battery"))[0], "keep")
+        self.assertEqual(decide(facts(power="battery", running=True))[0], "stop")
+        self.assertEqual(decide(facts(power="battery", running=True, jobs=[42]))[0], "keep")
 
     def test_needs_more_room_to_start_than_to_go_on(self):
         self.assertEqual(decide(facts(free_gb=20))[0], "keep")
@@ -105,11 +119,43 @@ class ExitsTests(unittest.TestCase):
         self.assertEqual(made.exits(running=False, now=41 * 60), 2)
 
 
+class RoundTests(unittest.TestCase):
+    def test_keeps_the_mac_awake_during_a_job_on_the_battery_too(self):
+        with mock.patch.object(supervisor.Supervisor, "__init__", lambda self: None):
+            made = supervisor.Supervisor()
+        made.config, made.home, made.caffeinate, made.said = {}, Path("/nowhere"), None, ""
+        made.cleaned, made.started, made.stops = 0.0, True, []
+        seen = facts(power="battery", battery=80, running=True, jobs=[42])
+        with tempfile.TemporaryDirectory() as folder, \
+                mock.patch.object(supervisor, "facts", return_value=seen), \
+                mock.patch.object(supervisor, "STATE", Path(folder) / "state.json"), \
+                mock.patch.object(supervisor, "log"), \
+                mock.patch.object(supervisor.subprocess, "Popen") as popen:
+            made.round()
+            state = json.loads((Path(folder) / "state.json").read_text())
+        command = popen.call_args.args[0]
+        self.assertEqual(command[0], "caffeinate")
+        self.assertIn("-i", command, "caffeinate -s alone holds on mains power only")
+        self.assertEqual(command[-2:], ["-w", "42"])
+        self.assertEqual(state["runner"], "running")
+        self.assertEqual(state["facts"]["battery"], 80)
+
+
 class ReadingTests(unittest.TestCase):
     def test_the_power_source(self):
         self.assertEqual(supervisor.power_source("Now drawing from 'AC Power'\n -InternalBattery-0 (id=1) 80%"), "ac")
         self.assertEqual(supervisor.power_source("Now drawing from 'Battery Power'\n"), "battery")
         self.assertEqual(supervisor.power_source(""), "unknown")
+
+    def test_the_battery_s_charge(self):
+        on_battery = ("Now drawing from 'Battery Power'\n"
+                      " -InternalBattery-0 (id=4718691)\t85%; discharging; 5:12 remaining present: true\n")
+        charged = ("Now drawing from 'AC Power'\n"
+                   " -InternalBattery-0 (id=4718691)\t100%; charged; 0:00 remaining present: true\n")
+        self.assertEqual(supervisor.battery_charge(on_battery), 85)
+        self.assertEqual(supervisor.battery_charge(charged), 100)
+        self.assertIsNone(supervisor.battery_charge("Now drawing from 'AC Power'\n"), "a Mac without a battery")
+        self.assertIsNone(supervisor.battery_charge(""))
 
     def test_the_last_jobs_the_runner_printed(self):
         printed = "\n".join([
