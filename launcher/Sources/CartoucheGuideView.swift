@@ -19,7 +19,6 @@
 //
 
 import SwiftUI
-import UniformTypeIdentifiers
 
 @available(iOS 17.0, *)
 struct CartoucheGuideView: View {
@@ -52,7 +51,6 @@ struct CartoucheGuideView: View {
     /// A later step the player opened; nil: the step left first.
     @State private var opened: Step?
     @State private var signingIn = false
-    @State private var choosingIPA = false
     @State private var showingSetup = false
     @State private var showingStorage = false
 
@@ -85,9 +83,6 @@ struct CartoucheGuideView: View {
         }
         .sheet(isPresented: $signingIn) {
             CartoucheSignInView()
-        }
-        .fileImporter(isPresented: $choosingIPA, allowedContentTypes: [.ipa]) { result in
-            if case .success(let url) = result { onImport(url) }
         }
         .modifier(CartoucheSetupRefresh())
         .onAppear {
@@ -306,14 +301,14 @@ struct CartoucheGuideView: View {
                 showingStorage = true
             }
             action(CartoucheText.guideFolderImport, systemImage: "square.and.arrow.down", primary: false) {
-                choosingIPA = true
+                chooseIPA()
             }
         case .play:
             let stored = entries.owned.filter { $0.app == nil && $0.stored != nil }
             if stored.isEmpty {
                 detail(progress.buildSkipped ? CartoucheText.guidePlayWaitingNoMac : CartoucheText.guidePlayWaiting)
                 action(CartoucheText.importCopy, systemImage: "square.and.arrow.down", primary: true) {
-                    choosingIPA = true
+                    chooseIPA()
                 }
             } else {
                 detail(CartoucheText.guidePlayReady)
@@ -387,6 +382,12 @@ struct CartoucheGuideView: View {
                 showingSetup = true
             }
         }
+    }
+
+    /// The Files picker, over the guide: the IPA picked installs once the
+    /// guide has closed.
+    private func chooseIPA() {
+        CartoucheImportPicker.shared.pick(from: .guide, onImport)
     }
 
     // MARK: Pieces

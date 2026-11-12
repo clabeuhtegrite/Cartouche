@@ -1,5 +1,5 @@
 """Checks that Cartouche's Apple ID sign-in lines up with the built-in
-SideStore's patches (app/patches/sidestore/0011, and 0017 for the iPhone's
+SideStore's patches (app/patches/sidestore/0011, and 0019 for the iPhone's
 step alone):
 
 - the launcher finds CartoucheSignIn (launcher/SideStoreSupport) by the

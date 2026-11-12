@@ -9,7 +9,7 @@
 //  Apple ID and password Cartouche left in their shared keychain; it asks for
 //  a verification code through the same keychain (CartoucheSignInMessage).
 //  After a sign-in that stopped at the step that registers this iPhone, its
-//  Register Cartouche's iPhone action (patch 0017) takes that step alone.
+//  Register Cartouche's iPhone action (patch 0019) takes that step alone.
 //
 //  This file joins LiveContainer's SideStoreSupport framework, which
 //  LiveContainer loads when the app carries the built-in SideStore. The

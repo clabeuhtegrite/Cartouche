@@ -20,7 +20,7 @@
 //  it reaches the iPhone for each renewal. Without LocalDevVPN, Cartouche
 //  waits for it before it hands SideStore the sign-in, unless the player
 //  goes on without it, and SideStore's action checks that it reaches the
-//  iPhone before anything goes to Apple (patch 0017): a sign-in that Apple
+//  iPhone before anything goes to Apple (patch 0019): a sign-in that Apple
 //  accepts and that then stops at that step costs the player a verification
 //  code, and Apple one more sign-in, which it limits. One that stops there
 //  all the same leaves that step alone (CartoucheSetup.deviceStepLeft):

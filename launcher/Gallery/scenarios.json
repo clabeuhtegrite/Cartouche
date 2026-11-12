@@ -1,5 +1,5 @@
 {
-  "comment": "Each scenario is one screenshot: a screen of the launcher, the player's games (title IDs), whether the setup is done and whether a controller is connected; the game of a sheet or of its settings page, with the page's category (one of nxnative's sections, or cartouche.saves for the cloud saves), or the game being installed with work: installing, or its install that failed, with the report to copy, with work: install-failed, or a new version of Cartouche on offer with work: update, a newer build of one of the player's games in their games folder with work: newer-build (the sheet's game, or the first of the player's); the Apple ID sign-in, with Apple's request for a verification code with work: code, or after Apple refused it for too many requests, with the wait under way, with work: too-many; a certificate iOS no longer accepts, with work: certificate; the sheet's game, or the first of the player's, paused behind the console, with work: paused; the player's NAS out of reach, away from home, with a newer build of that game in its games folder and two games' saves waiting for it, with work: offline; Add your Mac (screen: storage-mac), the form that pairs this iPhone with a Mac nearby: two Macs whose Cartouche Builder shares with Cartouche, with work: mac-nearby, pairing with the first, with the six digits on both screens, with work: mac-code, or none, iOS refusing Cartouche the local network, with work: mac-refused; the Storage page with the player's Mac, paired, as the games folder and the saves folder, with work: mac, and that Mac out of reach, away from home, with two games' saves waiting for it, with work: mac-offline; the first game's guide after No thanks to its Mac step, with work: build-skipped. A scenario with a width and a height is drawn at that size in points, with the safe area of that iPhone, on an iPad: the iPhone 17 Pro, and the iPhone Duo folded (466 x 678) and unfolded (626 x 890), from Apple's pixel sizes at 3x. A scenario with a device takes the whole screen of that simulator, with its own safe area and system bars; a landscape one turns the gallery sideways, as a game does, while the simulator stays upright.",
+  "comment": "Each scenario is one screenshot: a screen of the launcher, the player's games (title IDs, or TITLEID:Name for a game nxnative.json does not have, which IGDB has by its name when the catalogue has a game of that name), whether the setup is done and whether a controller is connected; the game of a sheet or of its settings page, with the page's category (one of nxnative's sections, or cartouche.saves for the cloud saves), or the game being installed with work: installing, or its install that failed, with the report to copy, with work: install-failed, or a new version of Cartouche on offer with work: update, a newer build of one of the player's games in their games folder with work: newer-build (the sheet's game, or the first of the player's); the Apple ID sign-in, with Apple's request for a verification code with work: code, or after Apple refused it for too many requests, with the wait under way, with work: too-many; a certificate iOS no longer accepts, with work: certificate; the sheet's game, or the first of the player's, paused behind the console, with work: paused; the player's NAS out of reach, away from home, with a newer build of that game in its games folder and two games' saves waiting for it, with work: offline; Add your Mac (screen: storage-mac), the form that pairs this iPhone with a Mac nearby: two Macs whose Cartouche Builder shares with Cartouche, with work: mac-nearby, pairing with the first, with the six digits on both screens, with work: mac-code, or none, iOS refusing Cartouche the local network, with work: mac-refused; the Storage page with the player's Mac, paired, as the games folder and the saves folder, with work: mac, and that Mac out of reach, away from home, with two games' saves waiting for it, with work: mac-offline; the first game's guide after No thanks to its Mac step, with work: build-skipped; what the player says of the sheet's game (screen: gameinfo), and that game, or the first of the player's, with a cover of the player's own, with work: own-cover. A scenario with a width and a height is drawn at that size in points, with the safe area of that iPhone, on an iPad: the iPhone 17 Pro, and the iPhone Duo folded (466 x 678) and unfolded (626 x 890), from Apple's pixel sizes at 3x. A scenario with a device takes the whole screen of that simulator, with its own safe area and system bars; a landscape one turns the gallery sideways, as a game does, while the simulator stays upright.",
   "language": "fr",
   "scenarios": [
     {
@@ -175,6 +175,66 @@
         34,
         0
       ]
+    },
+    {
+      "name": "iphone-home-unknown-games",
+      "screen": "games",
+      "owned": [
+        "0100C0FFEE0A0000:Celeste",
+        "0100F00D0BAD0000:Pixel Quest",
+        "0400C3F00006E000"
+      ],
+      "setup": true,
+      "controller": true,
+      "width": 402,
+      "height": 874,
+      "insets": [
+        62,
+        0,
+        34,
+        0
+      ]
+    },
+    {
+      "name": "iphone-sheet-unknown-game",
+      "screen": "sheet",
+      "sheet": "0100F00D0BAD0000",
+      "owned": [
+        "0100C0FFEE0A0000:Celeste",
+        "0100F00D0BAD0000:Pixel Quest",
+        "0400C3F00006E000"
+      ],
+      "setup": true,
+      "controller": false,
+      "width": 402,
+      "height": 874,
+      "insets": [
+        62,
+        0,
+        34,
+        0
+      ]
+    },
+    {
+      "name": "iphone-game-info",
+      "screen": "gameinfo",
+      "sheet": "0100C0FFEE0A0000",
+      "owned": [
+        "0100C0FFEE0A0000:Celeste",
+        "0100F00D0BAD0000:Pixel Quest",
+        "0400C3F00006E000"
+      ],
+      "setup": true,
+      "controller": false,
+      "width": 402,
+      "height": 874,
+      "insets": [
+        62,
+        0,
+        34,
+        0
+      ],
+      "work": "own-cover"
     },
     {
       "name": "iphone-game-settings",

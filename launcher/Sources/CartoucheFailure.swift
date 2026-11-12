@@ -426,7 +426,7 @@ struct CartoucheSideStoreOutcome: Equatable, Sendable {
     enum Action: String, Sendable {
         case signIn
         /// Register Cartouche's iPhone, the sign-in's device step alone
-        /// (app/patches/sidestore/0017).
+        /// (app/patches/sidestore/0019).
         case device
         case refresh
         case update
@@ -706,5 +706,29 @@ extension CartoucheFailure {
             fields["outcome"] = .flag(false)
         }
         return fields
+    }
+
+    /// How a renewal by the built-in SideStore ended, for Cartouche.
+    enum RenewalEnd: Equatable, Sendable {
+        /// Cartouche is renewed. DESPITE is what failed on the way back, if
+        /// anything did: SideStore stopped, or iOS ended it, once it had
+        /// renewed Cartouche and before it said so.
+        case renewed(despite: CartoucheFailure?)
+        /// SideStore stopped before it said how the renewal went, and
+        /// Cartouche is not renewed: a new SideStore may get further.
+        case quit
+        /// The renewal failed, as its failure says.
+        case failed
+    }
+
+    /// FAILURE is why the renewal failed, as the bridge told it, nil when
+    /// SideStore answered that it went through; OUTCOME, what SideStore left;
+    /// RENEWED, whether the signature SideStore records for Cartouche is newer
+    /// than when the renewal started. SideStore records it once Cartouche is
+    /// renewed, before it ends.
+    static func renewalEnd(failure: CartoucheFailure?, outcome: CartoucheSideStoreOutcome?, renewed: Bool) -> RenewalEnd {
+        guard let failure else { return .renewed(despite: nil) }
+        if renewed || outcome?.ok == true { return .renewed(despite: failure) }
+        return failure.cause == .sideStoreQuit ? .quit : .failed
     }
 }

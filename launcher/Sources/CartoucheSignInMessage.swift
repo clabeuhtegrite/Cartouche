@@ -197,7 +197,7 @@ extension CartoucheSignInMessage {
     /// When SideStore did not reach this iPhone, in a sign-in that ended
     /// with FAILURE.
     enum DeviceMoment: Equatable {
-        /// Before anything went to Apple (app/patches/sidestore/0017).
+        /// Before anything went to Apple (app/patches/sidestore/0019).
         case beforeApple
         /// Once Apple had accepted the account, at the step that registers
         /// this iPhone, which is then left alone.
@@ -217,7 +217,7 @@ extension CartoucheSignInMessage {
     /// Whether a sign-in that ended with FAILURE leaves only the step that
     /// registers this iPhone: Apple accepted the account, SideStore kept it
     /// with its team and the certificate, and stopped at that step, which
-    /// Register Cartouche's iPhone takes alone (app/patches/sidestore/0017).
+    /// Register Cartouche's iPhone takes alone (app/patches/sidestore/0019).
     static func leavesDeviceStep(_ failure: CartoucheFailure) -> Bool {
         failure.stage == "device"
     }
@@ -229,7 +229,7 @@ extension CartoucheSignInMessage {
     }
 
     /// The steps of the sign-in before anything goes to Apple: Cartouche's
-    /// own, then SideStore's (app/patches/sidestore/0011, 0017).
+    /// own, then SideStore's (app/patches/sidestore/0011, 0019).
     static let stagesBeforeApple: Set<String> = ["start", "database", "credentials", "deviceCheck"]
 
     /// Whether the password the player typed can stay on the sign-in's

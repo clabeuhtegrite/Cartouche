@@ -48,7 +48,10 @@ enum CartoucheDevice {
     }
 
     /// Whether the GPU samples BC-compressed textures, which games from
-    /// consoles use.
+    /// consoles use. nxnative refuses a GPU without them, the A16's and
+    /// older, for every game: the game says so on its screen, or, built by
+    /// an older nxnative, stops at its first texture (dm/ios/Sources/main.m,
+    /// dm/gfx/nvn/nvn_mtl.m).
     static let supportsBCTextureCompression: Bool = {
         #if CARTOUCHE_GALLERY
         return true
@@ -123,6 +126,15 @@ struct CartoucheSignature {
         return Int(floor(expirationDate.timeIntervalSinceNow / 86_400))
     }
 
+    /// Whether Cartouche was renewed since BEFORE was read: SideStore records
+    /// the new expiry once it has renewed it, and a profile made later
+    /// expires later. Its renewal date alone could also be the installed
+    /// profile's, which SideStore takes again when it starts.
+    func isRenewal(of before: CartoucheSignature) -> Bool {
+        guard let expirationDate else { return false }
+        return before.expirationDate.map { expirationDate > $0 } ?? true
+    }
+
     static func current() -> CartoucheSignature {
         let profile = embeddedProfile()
         let renewal = lastRenewal()
@@ -170,7 +182,8 @@ struct CartoucheSignature {
     }
 }
 
-/// How a game fits this iPhone, from its sheet and what was measured here.
+/// How a game fits this iPhone, from its sheet and what was measured here,
+/// in words (CartoucheGameFit holds the rule).
 enum CartoucheFit: Hashable {
     /// Testers ran it on this model, and nothing here stands in the way.
     case recommended
@@ -207,32 +220,39 @@ enum CartoucheFit: Hashable {
     /// LIMITMIB is the memory the game has here, where Play starts it
     /// (CartoucheGameKeeping.gameLimitMiB).
     static func of(_ sheet: CartoucheGameSheet, limitMiB: Int?) -> CartoucheFit {
-        var blockers: [String] = []
-        if !CartoucheDevice.runsAtLeast(sheet.requirements.minimumIOS) {
-            blockers.append(CartoucheText.reasonIOS(sheet.requirements.minimumIOS))
-        }
-        if sheet.requirements.bcTextureCompression && !CartoucheDevice.supportsBCTextureCompression {
-            blockers.append(CartoucheText.reasonGPU)
-        }
-        if !blockers.isEmpty { return .unsupported(blockers) }
+        let latest = sheet.results.filter { $0.device == CartoucheDevice.modelIdentifier }.max { $0.date < $1.date }
+        return CartoucheFit(CartoucheGameFit.verdict(
+            minimumIOS: sheet.requirements.minimumIOS,
+            runsMinimumIOS: CartoucheDevice.runsAtLeast(sheet.requirements.minimumIOS),
+            readsBCTextures: CartoucheDevice.supportsBCTextureCompression,
+            needsIML: sheet.requirements.increasedMemoryLimit, hasIML: CartoucheDevice.hasIncreasedMemoryLimit,
+            peakMiB: sheet.peakMemoryMiB, limitMiB: limitMiB, latestHere: latest?.status))
+    }
 
-        var warnings: [String] = []
-        if sheet.requirements.increasedMemoryLimit && !CartoucheDevice.hasIncreasedMemoryLimit {
-            warnings.append(CartoucheText.reasonIML)
+    /// How a game without a sheet fits: nil, unless this iPhone's GPU is
+    /// one nxnative refuses for every game.
+    static func withoutSheet() -> CartoucheFit? {
+        CartoucheGameFit.verdictWithoutSheet(readsBCTextures: CartoucheDevice.supportsBCTextureCompression)
+            .map { CartoucheFit($0) }
+    }
+
+    private init(_ verdict: CartoucheGameFit.Verdict) {
+        switch verdict {
+        case .recommended: self = .recommended
+        case .untested: self = .untested
+        case .notRecommended(let reasons): self = .notRecommended(reasons.map(Self.text))
+        case .unsupported(let reasons): self = .unsupported(reasons.map(Self.text))
         }
-        if let peak = sheet.peakMemoryMiB, let limitMiB, peak > limitMiB {
-            warnings.append(CartoucheText.reasonMemory(
-                needed: CartoucheText.mebibytes(peak), limit: CartoucheText.mebibytes(limitMiB)))
+    }
+
+    private static func text(_ reason: CartoucheGameFit.Reason) -> String {
+        switch reason {
+        case .iOS(let minimum): return CartoucheText.reasonIOS(minimum)
+        case .gpu: return CartoucheText.reasonGPU
+        case .increasedMemoryLimit: return CartoucheText.reasonIML
+        case .memory(let needed, let limit):
+            return CartoucheText.reasonMemory(needed: CartoucheText.mebibytes(needed), limit: CartoucheText.mebibytes(limit))
+        case .doesNotRun: return CartoucheText.reasonDoesNotRun
         }
-        let here = sheet.results.filter { $0.device == CartoucheDevice.modelIdentifier }
-        let latest = here.max { $0.date < $1.date }
-        if latest?.status == "does-not-run" {
-            warnings.append(CartoucheText.reasonDoesNotRun)
-        }
-        if !warnings.isEmpty { return .notRecommended(warnings) }
-        if let latest, latest.status == "playable" || latest.status == "playable-with-issues" {
-            return .recommended
-        }
-        return .untested
     }
 }

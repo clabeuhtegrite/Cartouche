@@ -95,7 +95,7 @@ enum CartoucheText {
     static var fitUnsupported: String { s("status.unsupported", "Not supported on this iPhone") }
 
     static func reasonIOS(_ version: String) -> String { f("reason.ios", "Needs iOS %@ or later.", version) }
-    static var reasonGPU: String { s("reason.gpu", "Needs a GPU that reads BC-compressed textures.") }
+    static var reasonGPU: String { s("reason.gpu", "nxnative’s games need an iPhone 15 Pro or later, or an iPad with an M1 chip or later: this iPhone’s GPU cannot read their compressed textures, and a game stops there before its first image.") }
     static var reasonIML: String { s("reason.iml", "Needs Increased Memory Limit, which is not active for Cartouche yet.") }
     static func reasonMemory(needed: String, limit: String) -> String {
         f("reason.memory", "Needs about %1$@; a game may use %2$@ on this iPhone.", needed, limit)
@@ -332,11 +332,14 @@ enum CartoucheText {
     // MARK: Installing, starting and uninstalling a game
 
     static func installTitle(_ name: String) -> String { f("work.install.title", "Installing %@", name) }
+    static var installChecking: String { s("work.install.checking", "Checking the IPA and the room on this iPhone.") }
     static var installUnpacking: String { s("work.install.unpacking", "Unpacking the IPA.") }
     static var installSigning: String { s("work.signing", "Signing it for this iPhone") }
     static var installFailed: String { s("work.install.failed", "The game was not installed") }
     static var installSignWarning: String { s("work.install.signWarning", "Installed, but not signed") }
     static var installDone: String { s("work.install.done", "Installed") }
+    static var installGPUTitle: String { s("work.install.gpu", "This iPhone cannot run nxnative’s games") }
+    static var installAnyway: String { s("work.install.gpu.anyway", "Install anyway") }
     static func installNotAGame(_ name: String) -> String { f("work.install.notAGame", "%@ is not an nxnative game: you will find it in Apps.", name) }
     static func installNoSpace(needed: String, free: String) -> String {
         f("work.install.noSpace", "Installing this game takes about %1$@ of free space, and this iPhone has %2$@. Free some space, then import it again.", needed, free)
@@ -356,6 +359,16 @@ enum CartoucheText {
     static func installFromStorageRetry(_ server: String) -> String { f("work.install.stored.retry", "The connection to %@ dropped. Cartouche connects again and goes on from where it stopped.", server) }
     static func installFromStorageLost(_ server: String, _ reason: String) -> String {
         f("work.install.stored.lost", "The connection to %1$@ dropped and did not come back within three minutes. Install the game again once the network is back. (%2$@)", server, reason)
+    }
+    static var installGameFiles: String { s("work.install.gameFiles", "Copying its game files, romfs.img.") }
+    static func installGameFilesMissing(_ name: String) -> String {
+        f("work.install.gameFiles.missing", "%@ was built without its game files, and its romfs.img is not beside its IPA in your games folder. Put it there, as nxnative wrote it, then install the game again.", name)
+    }
+    static func installGameFilesMismatch(_ name: String) -> String {
+        f("work.install.gameFiles.mismatch", "The romfs.img beside %@ is not the one it was built with. Put the one nxnative wrote with this IPA beside it, then install the game again.", name)
+    }
+    static func installGameFilesApart(_ name: String) -> String {
+        f("work.install.gameFiles.apart", "%@ was built without its game files. Put this IPA and its romfs.img together in your games folder, then install the game from there.", name)
     }
     static func exportTitle(_ name: String) -> String { f("work.export.title", "Copying %@", name) }
     static func exportStep(_ server: String) -> String { f("work.export.step", "Copying it to %@.", server) }
@@ -445,11 +458,15 @@ enum CartoucheText {
         f("running.stopped.memory.behind", "iOS closed the game near its limit of %@ behind Cartouche: in Cartouche’s place, it would have no more memory. Your progress is kept up to its last save.", limit)
     }
     static var startsInPlaceNote: String { s("sheet.inPlace", "Behind Cartouche, this game would run short of memory: it starts in Cartouche’s place, and the console closes while it runs.") }
+    static func startsInPlaceWithoutIML(_ limit: String) -> String {
+        f("sheet.inPlace.iml", "Behind Cartouche, games have only %@ here, without Increased Memory Limit: this game starts in Cartouche’s place, and the console closes while it runs.", limit)
+    }
     static var tryBehindAgain: String { s("sheet.inPlace.retry", "Try behind Cartouche again") }
     static var playingTitle: String { s("system.playing", "While a game runs") }
     static var keepConsoleOpen: String { s("system.playing.keep", "Keep Cartouche open behind the game") }
     static var behindLimit: String { s("system.playing.limit", "Memory for a game behind Cartouche") }
     static var behindLimitUnknown: String { s("system.playing.limit.unknown", "Measured at the next game") }
+    static var behindWithoutIML: String { s("system.playing.noIML", "Behind Cartouche, games run without Increased Memory Limit here: they start in Cartouche’s place, with all of its memory, unless their sheet shows they need less.") }
     static var playingFooter: String { s("system.playing.footer", "The Home button over the game, or the controller’s, brings back the console and pauses the game. A game that needs more memory than it has here starts in Cartouche’s place, when Cartouche has more.") }
     static var memoryFooterBehind: String { s("system.memory.footer.behind", "Games that start in Cartouche’s place share this limit; behind Cartouche, a game has its own, below. With Increased Memory Limit, an iPhone with 12 GB allows Cartouche about 8 GiB.") }
     static func updateWhilePlaying(_ name: String) -> String { f("system.updates.playing", "Quit %@ first: Cartouche closes to install its update.", name) }
@@ -493,6 +510,24 @@ enum CartoucheText {
     static var storageGamesFolder: String { s("storage.games", "Games folder") }
     static var storageSavesFolder: String { s("storage.saves", "Saves folder") }
     static var storageGamesFound: String { s("storage.games.found", "Games found") }
+    /// The games of the games folder built without their game files whose
+    /// romfs.img is not there, by their names.
+    static func storageGameFilesMissing(_ names: [String]) -> String {
+        let list = names.formatted(.list(type: .and))
+        if names.count == 1 {
+            return f("storage.gameFiles.missing.one", "%@ was built without its game files: put its romfs.img beside its IPA, and Cartouche installs the two together.", list)
+        }
+        return f("storage.gameFiles.missing", "%@ were built without their game files: put each one’s romfs.img beside its IPA, and Cartouche installs the two together.", list)
+    }
+    /// The images of game files no IPA of the games folder needs, by their
+    /// paths in it.
+    static func storageGameFilesLoose(_ names: [String]) -> String {
+        let list = names.formatted(.list(type: .and))
+        if names.count == 1 {
+            return f("storage.gameFiles.loose.one", "%@: a game’s files, but no IPA here was built to go with them. Put beside them the IPA nxnative built with them, or build the game with Cartouche Builder.", list)
+        }
+        return f("storage.gameFiles.loose", "%@: games’ files, but no IPA here was built to go with them. Put beside each the IPA nxnative built with it, or build the games with Cartouche Builder.", list)
+    }
     static var storageReadAgain: String { s("storage.readAgain", "Read the folder again") }
     static var storageChangeFolder: String { s("storage.changeFolder", "Change folder") }
     static var storageStopUsing: String { s("storage.stopUsing", "Stop using this folder") }
@@ -744,7 +779,7 @@ enum CartoucheText {
     static var telemetryWhat: String { s("telemetry.what", "What is sent") }
     static var telemetryWhatGames: String { s("telemetry.what.games", "For each game session: frame rate, frame and GPU times, stutters and what caused them, shader preparation, memory, heat and power, sound, the screen’s sizes, how the game ended, and the game’s version and settings.") }
     static var telemetryWhatDevice: String { s("telemetry.what.device", "This iPhone’s model, iOS version and memory limit, Cartouche’s version and language, and a random number of this copy of Cartouche.") }
-    static var telemetryWhatEvents: String { s("telemetry.what.events", "Each start of Cartouche, game installs, updates, renewals, Apple ID sign-ins and errors, by their codes and the step they stopped at.") }
+    static var telemetryWhatEvents: String { s("telemetry.what.events", "Each start of Cartouche, game installs, updates, renewals, Apple ID sign-ins, how the Files picker of each import went, and errors, by their codes and the step they stopped at.") }
     static var telemetryWhatNever: String { s("telemetry.what.never", "Never your Apple ID, your iPhone’s name, your files, the addresses of your storage or the game’s log itself.") }
     static var telemetryLastSent: String { s("telemetry.lastSent", "Last sent") }
     static var telemetryNever: String { s("telemetry.never", "Never") }

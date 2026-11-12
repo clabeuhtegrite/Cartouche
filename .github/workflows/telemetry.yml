@@ -9,6 +9,9 @@ name: Telemetry
 # first deploy, once they are. Its secret CARTOUCHE_REPORTS_TOKEN lets the
 # Worker file the problems players send in the private repository
 # <owner>/cartouche-reports, or the variable CARTOUCHE_REPORTS_REPOSITORY.
+# The repository's secrets IGDB_CLIENT_ID and IGDB_CLIENT_SECRET, which the
+# Covers workflows use too, let the server find on IGDB the covers of the
+# games Cartouche does not know.
 # The dashboard, which shows the project what the database holds, goes
 # with the server, with the catalog's names and covers: the variables
 # CLOUDFLARE_ACCESS_TEAM and CLOUDFLARE_ACCESS_AUD are only for a
@@ -77,6 +80,8 @@ jobs:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           CARTOUCHE_REPORTS_TOKEN: ${{ secrets.CARTOUCHE_REPORTS_TOKEN }}
+          IGDB_CLIENT_ID: ${{ secrets.IGDB_CLIENT_ID }}
+          IGDB_CLIENT_SECRET: ${{ secrets.IGDB_CLIENT_SECRET }}
           CARTOUCHE_REPORTS_REPOSITORY: ${{ vars.CARTOUCHE_REPORTS_REPOSITORY || format('{0}/cartouche-reports', github.repository_owner) }}
           CLOUDFLARE_ACCESS_TEAM: ${{ vars.CLOUDFLARE_ACCESS_TEAM }}
           CLOUDFLARE_ACCESS_AUD: ${{ vars.CLOUDFLARE_ACCESS_AUD }}

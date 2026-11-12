@@ -15,7 +15,7 @@ of it (CartoucheSideStoreOutcome, launcher/Sources/CartoucheFailure.swift):
   sign-in and the developer services, as cases Cartouche names;
 - the sign-in, and the step that registers this iPhone alone, check that
   SideStore reaches the iPhone before anything goes to Apple
-  (app/patches/sidestore/0017), and the stages Cartouche reads of them are
+  (app/patches/sidestore/0019), and the stages Cartouche reads of them are
   theirs.
 
 SideStore's sources are read as app/scripts/prepare.sh leaves them, every
@@ -237,7 +237,7 @@ class SideStoreOutcomeTest(unittest.TestCase):
     def test_the_sign_in_reaches_this_iphone_before_apple(self):
         # Sign In to Cartouche makes minimuxer's readiness check before its
         # sign-in starts, and Register Cartouche's iPhone before Apple's
-        # developer services (patch 0017).
+        # developer services (patch 0019).
         check = "try await CartoucheDeviceCheck.run()"
         sign_in = block(self.sign_in, "func perform()", "the sign-in's perform")
         self.assertLess(sign_in.index("handler.reach(.deviceCheck)"), sign_in.index(check))
