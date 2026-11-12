@@ -231,6 +231,10 @@ enum CartoucheText {
     static var signInVPNHow: String { s("signIn.vpn.how", "Cartouche goes through it to register this iPhone with your account, as for each renewal.") }
     static var signInUnavailable: String { s("signIn.unavailable", "The built-in SideStore did not load. Close Cartouche, open it again, then sign in.") }
     static var signInKeychainFailed: String { s("signIn.keychainFailed", "Cartouche could not hand your Apple ID to the built-in SideStore. Try again.") }
+    static var signInTooManyRequests: String { s("signIn.tooManyRequests", "Apple is refusing new sign-ins for now: too many attempts in a short time, from this Apple ID or from this network. There is nothing to reset or reinstall. Wait for the countdown to end, then sign in again: trying sooner can make the wait longer.") }
+    static func signInWait(_ remaining: String) -> String { f("signIn.wait", "Try again in %@", remaining) }
+    // What Cartouche says instead of SideStore's words when Apple limits the
+    // requests or answers with a page: CartoucheTextSideStore.swift.
 
     // MARK: System
 

@@ -27,7 +27,10 @@
 //                                        console; update: a new version of
 //                                        Cartouche on offer; code: Apple
 //                                        asks for a verification code, on
-//                                        the sign-in; paused: the sheet's
+//                                        the sign-in; too-many: Apple
+//                                        refused the sign-in for too many
+//                                        requests, with the wait under
+//                                        way; paused: the sheet's
 //                                        game, or the first of the
 //                                        player's, paused behind the console;
 //                                        offline: the player's NAS, out of
@@ -153,6 +156,9 @@ struct GalleryScenario {
             if work == "code" {
                 CartoucheAccount.shared.requestCodeForGallery(.init(
                     id: "gallery", mode: .sms, phone: "+33 •• •• •• •• 78", canTextMessage: false, error: nil))
+            }
+            if work == "too-many" {
+                CartoucheAccount.shared.showTooManyRequestsForGallery()
             }
             if let titleId = updatedTitle, let game = CartoucheCatalog.shared.game(titleId: titleId) {
                 // Cartouche Builder built the game again last night.
