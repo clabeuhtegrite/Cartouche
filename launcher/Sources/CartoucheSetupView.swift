@@ -7,6 +7,7 @@
 //  the certificate, which Cartouche hands to LiveContainer on its own
 //  (CartoucheSetup.swift). Each step shows
 //  where it stands, read again whenever Cartouche comes back to the front.
+//  The Apple ID's step stays open while this iPhone is left to register.
 //
 
 import SwiftUI
@@ -50,21 +51,20 @@ struct CartoucheSetupView: View {
                 }
                 step(
                     number: 2,
-                    done: setup.appleID != nil,
+                    done: setup.appleID != nil && !setup.needsDevice,
                     title: CartoucheText.setupAppleIDTitle,
-                    detail: setup.appleID.map(CartoucheText.setupAppleIDDone) ?? CartoucheText.setupAppleIDHow
+                    detail: appleIDDetail
                 ) {
-                    if setup.appleID == nil || !setup.hasCertificate || setup.certificateRefused {
+                    if setup.appleID == nil || !setup.hasCertificate || setup.certificateRefused || setup.needsDevice {
                         // SideStore registers this iPhone at sign-in, through
                         // the pairing file.
                         Button {
                             signingIn = true
                         } label: {
-                            Label(setup.appleID == nil ? CartoucheText.setupSignIn : CartoucheText.signInAgain,
-                                  systemImage: "person.crop.circle.badge.checkmark")
+                            Label(appleIDButton, systemImage: setup.needsDevice ? "iphone.gen3" : "person.crop.circle.badge.checkmark")
                         }
                         .buttonStyle(.borderedProminent)
-                        .disabled(!setup.hasPairingFile)
+                        .disabled(!setup.hasPairingFile || account.phase == .registeringDevice)
                     }
                 }
                 step(
@@ -106,6 +106,17 @@ struct CartoucheSetupView: View {
                 setup.pairingFailed(error)
             }
         }
+    }
+
+    private var appleIDDetail: String {
+        guard let appleID = setup.appleID else { return CartoucheText.setupAppleIDHow }
+        guard setup.needsDevice else { return CartoucheText.setupAppleIDDone(appleID) }
+        return account.phase == .registeringDevice ? CartoucheText.setupBannerDeviceWorking : CartoucheText.setupAppleIDDevice(appleID)
+    }
+
+    private var appleIDButton: String {
+        if setup.needsDevice { return CartoucheText.signInDeviceButton }
+        return setup.appleID == nil ? CartoucheText.setupSignIn : CartoucheText.signInAgain
     }
 
     private var certificateDetail: String {
@@ -205,7 +216,8 @@ struct CartoucheSetupBanner: View {
                     VStack(alignment: .leading, spacing: 3) {
                         Text(setup.bannerTitle)
                             .font(.headline)
-                        Text(setup.bannerDetail(signingInAgain: account.isAutomatic))
+                        Text(setup.bannerDetail(signingInAgain: account.isAutomatic,
+                                                registeringDevice: account.phase == .registeringDevice))
                             .font(.subheadline)
                             .opacity(0.85)
                     }
@@ -238,11 +250,14 @@ extension CartoucheSetup {
         return canPlay ? CartoucheText.setupBannerRenewal : CartoucheText.setupBannerTitle
     }
 
-    func bannerDetail(signingInAgain: Bool) -> String {
+    func bannerDetail(signingInAgain: Bool, registeringDevice: Bool = false) -> String {
         if certificateRefused {
             return signingInAgain ? CartoucheText.setupBannerCertificateRenewing : CartoucheText.setupBannerCertificateDetail
         }
         guard canPlay else { return CartoucheText.setupBannerDetail }
-        return hasPairingFile ? CartoucheText.setupBannerSignInDetail : CartoucheText.setupBannerRenewalDetail
+        guard hasPairingFile else { return CartoucheText.setupBannerRenewalDetail }
+        guard needsDevice else { return CartoucheText.setupBannerSignInDetail }
+        // Signed in, with this iPhone left to register.
+        return registeringDevice ? CartoucheText.setupBannerDeviceWorking : CartoucheText.setupBannerDeviceDetail
     }
 }

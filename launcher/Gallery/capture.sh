@@ -32,18 +32,15 @@ set -euo pipefail
 
 [ $# -eq 1 ] || { echo "usage: $0 OUT" >&2; exit 2; }
 HERE="$(cd "$(dirname "$0")" && pwd)"
-ROOT="$(cd "$HERE/../.." && pwd)"
 mkdir -p "$1"
 OUT="$(cd "$1" && pwd)"
 BUILD="$HERE/Build"
 
-# The catalogue the launcher reads, as package.sh copies it into the app.
-rm -rf "$BUILD"
-mkdir -p "$BUILD/CartoucheCatalog/games" "$BUILD/raw"
-cp "$ROOT/catalog/devices.json" "$ROOT/catalog/nxnative.json" "$ROOT/catalog/covers.json" "$BUILD/CartoucheCatalog/"
-cp "$ROOT"/catalog/games/*.json "$BUILD/CartoucheCatalog/games/"
-
-(cd "$HERE" && xcodegen generate --quiet)
+# The catalogue the launcher reads, and the project. The build of the UI
+# tests, when they ran first, stays (project.sh).
+"$HERE/project.sh"
+rm -rf "$BUILD/raw"
+mkdir -p "$BUILD/raw"
 
 # The tool that cuts a screen out of a screenshot, for this Mac.
 xcrun --sdk macosx swiftc -O "$HERE/screenshot.swift" -o "$BUILD/screenshot"

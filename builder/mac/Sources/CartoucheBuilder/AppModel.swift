@@ -118,6 +118,8 @@ final class AppModel: ObservableObject {
     private var started = false
     private var poller: Task<Void, Never>?
     private var checker: Task<Void, Never>?
+    /// When the library is read again for the player's coming back.
+    private var comebacks = ComebackReads()
 
     init(home: BuilderHome = .default, sample: Bool = false) {
         self.home = home
@@ -165,6 +167,8 @@ final class AppModel: ObservableObject {
         bridge.attach(model: self)
         let checked = library?.checked.flatMap(ISODate.parse)
         let stale = checked.map { Date().timeIntervalSince($0) > AppModel.checkInterval } ?? true
+        // This read is the one the app's coming to the front would ask for.
+        comebacks.read()
         await refreshLibrary(update: stale && setup.ready)
         checkRegularly()
         telemetry.event("builder.opened", fields: openedFields())
@@ -307,7 +311,10 @@ final class AppModel: ObservableObject {
         bridge.update(games: fresh.games)
     }
 
-    func refreshLibrary(update: Bool) async {
+    /// The library read again, with a look at nxnative (UPDATE). QUIETLY: a
+    /// failure keeps the last library without a word, the next look saying
+    /// why.
+    func refreshLibrary(update: Bool, quietly: Bool = false) async {
         guard !sample, let engine else { return }
         if update {
             guard !checking else { return }
@@ -319,8 +326,17 @@ final class AppModel: ObservableObject {
             library = fresh
             if update { announceImproved(fresh) }
         } catch {
-            show(error, origin: update ? "check" : "library", background: update)
+            if !quietly { show(error, origin: update ? "check" : "library", background: update) }
         }
+    }
+
+    /// The player is back in the app, maybe from the Finder, where they put
+    /// a game in their dumps or their games folder: the library reads the
+    /// two folders again, without a look at nxnative, at most once in ten
+    /// seconds (ComebackReads), and not while one is on its way.
+    func playerCameBack() {
+        guard started, !checking, comebacks.comeBack() else { return }
+        Task { await refreshLibrary(update: false, quietly: true) }
     }
 
     func loadStorage() async {
@@ -622,41 +638,12 @@ final class AppModel: ObservableObject {
     }
 
     /// The batch and each game in it, for the telemetry: their states,
-    /// steps, reasons and times, never a message, a name or a path.
+    /// steps, reasons, causes and times, never a message, a name or a path
+    /// (BuilderTelemetry.batchEvents).
     private func report(_ status: BatchStatus) {
-        let head = status.head.map { String($0.prefix(12)) }
-        for game in status.games where ["built", "failed"].contains(game.state) {
-            var fields: [String: TelemetryValue] = [:]
-            if let reasons = game.reasons, !reasons.isEmpty { fields["reasons"] = .text(reasons.joined(separator: ",")) }
-            if let duration = game.duration { fields["seconds"] = .number(duration.rounded()) }
-            if let kind = library?.game(game.titleID)?.kind { fields["source"] = .text(kind) }
-            if let head { fields["nxnative"] = .text(head) }
-            if game.state == "built" {
-                if let size = library?.game(game.titleID)?.ipa?.size, size > 0 {
-                    fields["ipaMB"] = .number((Double(size) / 1_000_000).rounded())
-                }
-                telemetry.event("builder.built", game: game.titleID, fields: fields)
-            } else {
-                fields["stage"] = .text(game.stage ?? "")
-                telemetry.event("builder.failed", game: game.titleID, fields: fields)
-            }
+        for event in BuilderTelemetry.batchEvents(status, library: library, jobs: config?.jobs ?? 1) {
+            telemetry.event(event.name, game: event.game, fields: event.fields)
         }
-        var fields: [String: TelemetryValue] = [
-            "state": .text(status.state),
-            "games": .count(status.games.count),
-            "built": .count(status.games.filter { $0.state == "built" }.count),
-            "failed": .count(status.games.filter { $0.state == "failed" }.count),
-            "skipped": .count(status.games.filter { $0.state == "skipped" }.count),
-            "stopped": .count(status.games.filter { $0.state == "stopped" }.count),
-            "scheduled": .flag(status.scheduled ?? false),
-            "jobs": .count(config?.jobs ?? 1),
-        ]
-        if let started = status.startedDate, let ended = status.endedDate {
-            fields["minutes"] = .number((ended.timeIntervalSince(started) / 60 * 10).rounded() / 10)
-        }
-        if let head { fields["nxnative"] = .text(head) }
-        if let failure = status.failure { fields.merge(BuilderTelemetry.fields(of: failure)) { _, new in new } }
-        telemetry.event("builder.batch", fields: fields)
     }
 
     // MARK: nxnative's improvements
@@ -849,8 +836,8 @@ final class AppModel: ObservableObject {
     /// Shows ERROR above the page, and counts it by ORIGIN, what the app
     /// was doing, with its codes but never its words.
     func show(_ error: Error, origin: String, background: Bool = false) {
-        let text = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
-        banner = Banner(kind: .error, text: text)
+        // A full disk says which, and what is left on it, not Cocoa's words.
+        banner = Banner(kind: .error, text: DiskSpace.words(for: error))
         telemetry.error(error, origin: origin, background: background)
     }
 

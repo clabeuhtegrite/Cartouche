@@ -3,13 +3,19 @@
   "status": {
     "ended": "",
     "error": "",
+    "fallback": null,
     "games": [
       {
+        "cause": "",
+        "commit": "ff1adf9f63d5",
         "detail": "An nxnative commit names it: Mario Kart World: the menus (PR #3)",
         "duration": 0.0,
         "ended": "",
         "error": "",
         "eta": null,
+        "exit": null,
+        "failure": {},
+        "fallback": false,
         "frac": null,
         "ipa": "",
         "k": 2,
@@ -23,25 +29,26 @@
           "named"
         ],
         "stage": "pack",
-        "started": "2026-11-10T17:11:06+00:00",
+        "started": "2026-11-12T08:10:07+00:00",
         "state": "building",
         "step": "",
         "title_id": "0400C3F00006E000"
       }
     ],
-    "head": "16142e670c8f8517642e3f1bc29dbf947e9aa56d",
+    "head": "ff1adf9f63d5999fab2d4f6649c029d3950ef4ce",
+    "latest": "ff1adf9f63d5999fab2d4f6649c029d3950ef4ce",
     "lines": [
       "Looking at nxnative and the games…",
       "Bringing nxnative up to date…"
     ],
     "message": "Bringing nxnative up to date…",
-    "pid": 27851,
+    "pid": 8761,
     "report": "",
     "running": true,
     "scheduled": false,
-    "started": "2026-11-10T17:11:06+00:00",
+    "started": "2026-11-12T08:10:07+00:00",
     "state": "building",
-    "updated": "2026-11-10T17:11:09+00:00",
+    "updated": "2026-11-12T08:10:10+00:00",
     "version": 1
   }
 }

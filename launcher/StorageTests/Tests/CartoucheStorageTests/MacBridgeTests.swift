@@ -6,9 +6,11 @@
 //  it (CartoucheStorageMac.swift): the test plays the Mac on 127.0.0.1,
 //  with the bridge's own handshake (CartoucheBridge.swift) and its two
 //  folders, Games and Saves, in memory. Pairing and its six digits, a
-//  pairing refused, signing in at the last address, a Mac that forgot this
-//  iPhone, another Mac at its address, a Mac gone, then files listed, read,
-//  written, given up and removed. It needs no server, so it always runs.
+//  pairing refused, signing in at the last address, and at once after
+//  pairing with a Mac slow to write the pairing down, a Mac that forgot
+//  this iPhone, another Mac at its address, a Mac gone, then files listed,
+//  read, written, given up and removed. It needs no server, so it always
+//  runs.
 //  Bonjour needs a real network: the Mac's side of it is in builder/mac's
 //  tests (BridgeSessionTests), its words in Cartouche's.
 //
@@ -29,6 +31,7 @@ final class FakeMac: @unchecked Sendable {
     let name: String
     private let lock = NSLock()
     private var allowing = true
+    private var writing: TimeInterval = 0
     private var keys: [String: Data] = [:]
     private var codes: [String] = []
     private var entries: [String: Entry] = ["Games": .folder, "Saves": .folder]
@@ -80,6 +83,14 @@ final class FakeMac: @unchecked Sendable {
         lock.unlock()
     }
 
+    /// Takes SECONDS to write a pairing down, as Cartouche Builder writing
+    /// bridge.json on a busy disk.
+    func slowToWrite(_ seconds: TimeInterval) {
+        lock.lock()
+        writing = seconds
+        lock.unlock()
+    }
+
     /// The iPhones paired with it.
     var paired: [String] {
         lock.lock()
@@ -122,10 +133,23 @@ final class FakeMac: @unchecked Sendable {
         return allowing
     }
 
+    private var writingTime: TimeInterval {
+        lock.lock()
+        defer { lock.unlock() }
+        return writing
+    }
+
     private func keep(_ key: Data, of device: String) {
         lock.lock()
         keys[device] = key
         lock.unlock()
+    }
+
+    /// Writes the pairing down, in the time it takes.
+    private func write(_ key: Data, of device: String) async {
+        let wait = writingTime
+        if wait > 0 { try? await Task.sleep(nanoseconds: UInt64(wait * 1_000_000_000)) }
+        keep(key, of: device)
     }
 
     private func serve(_ transport: CartoucheBridgeConnection) async {
@@ -133,7 +157,8 @@ final class FakeMac: @unchecked Sendable {
             try await transport.start(timeout: 5)
             let opening = try await CartoucheBridgeHandshake.server(transport, mac: macID, name: name,
                                                                      keyOf: { [weak self] in self?.key(of: $0) },
-                                                                     allow: { [weak self] _, code in self?.asked(code: code) ?? false })
+                                                                     allow: { [weak self] _, code in self?.asked(code: code) ?? false },
+                                                                     keep: { [weak self] device, _, key in await self?.write(key, of: device) })
             switch opening {
             case let .session(channel):
                 while let (request, body) = try? await channel.receive(CartoucheBridgeRequest.self) {
@@ -141,10 +166,7 @@ final class FakeMac: @unchecked Sendable {
                     guard (try? await channel.send(response, body: data)) != nil else { break }
                 }
                 channel.close()
-            case let .paired(device, _, key):
-                keep(key, of: device)
-                transport.close()
-            case .refused:
+            case .paired, .refused:
                 transport.close()
             }
         } catch {
@@ -313,6 +335,19 @@ final class MacBridgeTests: XCTestCase {
         }
         XCTAssertEqual(shown.all.count, 1, "the digits showed while the Mac asked")
         XCTAssertEqual(mac.paired, [])
+    }
+
+    func testSignsInAtOnceAfterPairingWithAMacSlowToWriteItDown() async throws {
+        // Cartouche signs in as soon as the Mac says the iPhone is paired,
+        // to take its folders for the games and the saves: the Mac has
+        // written the pairing down by then, however long that takes it.
+        mac.slowToWrite(0.5)
+        let (server, secret) = try await pair()
+        XCTAssertEqual(mac.paired, [CartoucheMacStorage.deviceID(of: server)])
+        let remote = try await CartoucheMacStorage.connect(server, secret: secret, settings: settings())
+        let top = try await remote.list("")
+        XCTAssertEqual(top.map(\.name), ["Games", "Saves"])
+        await remote.disconnect()
     }
 
     func testAMacThatForgotThisIPhoneAsksToPairAgain() async throws {
