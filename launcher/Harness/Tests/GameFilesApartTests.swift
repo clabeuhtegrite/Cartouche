@@ -174,7 +174,8 @@ final class GameFilesApartTests: HarnessCase {
 
     func testANewBuildThatNeedsOtherFilesIsRefusedAndTheInstalledGameStaysWhole() async throws {
         let first = apart(7)
-        let app = try XCTUnwrap(try await install(try HarnessIPA.gameApart(first, in: try newFolder("first build"))))
+        let installedFirst = try await install(try HarnessIPA.gameApart(first, in: try newFolder("first build")))
+        let app = try XCTUnwrap(installedFirst)
         XCTAssertNil(actions.notice)
 
         // A build of an update of the game, whose files changed.

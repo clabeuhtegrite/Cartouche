@@ -10660,6 +10660,23 @@
         }
       }
     },
+    "work.install.damaged" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This IPA is damaged: it ends early, or one of its files changed since it was made, as when a copy stops before the end or goes wrong. Copy it again from where it came from, then install it again."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cette IPA est abîmée : elle s’arrête avant la fin, ou l’un de ses fichiers a changé depuis sa création, comme quand une copie s’interrompt ou se passe mal. Copiez-la de nouveau depuis son origine, puis installez-la de nouveau."
+          }
+        }
+      }
+    },
     "work.install.done" : {
       "extractionState" : "manual",
       "localizations" : {

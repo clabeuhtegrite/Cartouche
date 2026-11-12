@@ -378,7 +378,18 @@ final class InstallTests: HarnessCase {
         let result = try await install(cut)
         XCTAssertNil(result)
         XCTAssertEqual(actions.notice?.title, CartoucheText.installFailed)
-        XCTAssertEqual(actions.notice?.message, "lc.appList.urlFileIsNotIpaError".loc)
+        XCTAssertEqual(actions.notice?.message, CartoucheText.installDamagedIPA, "an IPA, damaged, not a file that is none")
+        assertNothingInstalled()
+    }
+
+    func testAnIPAWhoseFileChangedIsRefused() async throws {
+        let game = HarnessGame.plain()
+        let damaged = try HarnessIPA.damaged(game, in: "romfs.img", named: "Damaged.ipa")
+        let result = try await install(damaged)
+        XCTAssertNil(result, "a game missing its files as they were is not installed")
+        XCTAssertEqual(actions.notice?.title, CartoucheText.installFailed)
+        XCTAssertEqual(actions.notice?.message, CartoucheText.installDamagedIPA)
+        XCTAssertNotNil(actions.notice?.report)
         assertNothingInstalled()
     }
 
@@ -400,7 +411,40 @@ final class InstallTests: HarnessCase {
         let result = try await install(ipa)
         XCTAssertNil(result)
         XCTAssertEqual(actions.notice?.title, CartoucheText.installFailed)
+        XCTAssertEqual(actions.notice?.message, "lc.appList.bundleNotFondError".loc,
+                       "no app in it, rather than a folder iOS cannot find")
         XCTAssertNotNil(actions.notice?.report)
         assertNothingInstalled()
+    }
+
+    func testAnAppWithoutItsInfoPlistIsRefused() async throws {
+        let app = "Payload/Nameless.app/"
+        let ipa = try HarnessIPA.write([
+            .folder("Payload/"), .folder(app),
+            .file(app + "Nameless", HarnessMachOFile.executable(sdk: 0x001A_0000), mode: 0o755),
+        ], named: "No Info.plist.ipa")
+        let result = try await install(ipa)
+        XCTAssertNil(result, "not installed as an app named Unknown")
+        XCTAssertEqual(actions.notice?.title, CartoucheText.installFailed)
+        XCTAssertEqual(actions.notice?.message, "lc.appList.infoPlistCannotReadError".loc)
+        XCTAssertNotNil(actions.notice?.report)
+        assertNothingInstalled()
+    }
+
+    func testAnAppWhoseInfoPlistIsUnreadableIsRefused() async throws {
+        let app = "Payload/Garbled.app/"
+        for (label, plist) in [("zeros, as a copy that went wrong leaves them", Data(count: 64)),
+                               ("a property list without the app's identifier",
+                                HarnessIPA.plist(["CFBundleExecutable": "Garbled", "CFBundleName": "Garbled"]))] {
+            let ipa = try HarnessIPA.write([
+                .folder("Payload/"), .folder(app),
+                .file(app + "Info.plist", plist),
+                .file(app + "Garbled", HarnessMachOFile.executable(sdk: 0x001A_0000), mode: 0o755),
+            ], named: "Garbled, \(label).ipa")
+            let result = try await install(ipa)
+            XCTAssertNil(result, label)
+            XCTAssertEqual(actions.notice?.message, "lc.appList.infoPlistCannotReadError".loc, label)
+            assertNothingInstalled()
+        }
     }
 }

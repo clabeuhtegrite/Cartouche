@@ -163,11 +163,25 @@ final class UnpackTests: HarnessCase {
 
     func testLiveContainerRefusesAnIPACutShort() async throws {
         let ipa = try HarnessIPA.game(.plain())
-        // In the executable, in romfs.img, in MoltenVK.
+        // In the executable, in romfs.img, in MoltenVK: a damaged archive,
+        // not a file that is no archive (patch 0010).
         for fraction in [0.1, 0.5, 0.9] {
             let cut = try HarnessIPA.cut(ipa, keeping: fraction, named: "Cut at \(fraction).ipa")
             let (status, _) = await unpackWithLiveContainer(cut, into: try newFolder("cut at \(fraction)"))
-            XCTAssertEqual(status, 1, "an IPA cut at \(Int(fraction * 100)) % of it")
+            XCTAssertEqual(status, 2, "an IPA cut at \(Int(fraction * 100)) % of it")
+        }
+    }
+
+    func testLiveContainerRefusesAnIPAWhoseFileChanged() async throws {
+        let game = HarnessGame.plain()
+        // libarchive reads a stored file whose CRC-32 does not match with a
+        // warning only, and a deflated one may inflate to other bytes: both
+        // are damaged (patch 0010).
+        for method in [HarnessZip.Method.store, .deflate] {
+            let label = method == .store ? "stored" : "deflated"
+            let damaged = try HarnessIPA.damaged(game, in: "romfs.img", named: "Damaged \(label).ipa", method: method)
+            let (status, _) = await unpackWithLiveContainer(damaged, into: try newFolder("damaged \(label)"))
+            XCTAssertEqual(status, 2, "an IPA whose \(label) romfs.img changed")
         }
     }
 

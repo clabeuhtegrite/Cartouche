@@ -274,14 +274,16 @@ enum HarnessIPA {
         return cut
     }
 
-    /// GAME's IPA with one byte changed in the middle of the stored file
-    /// NAMED, its CRC left as it was: a copy that went wrong.
-    static func damaged(_ game: HarnessGame, in named: String, named name: String) throws -> URL {
+    /// GAME's IPA with one byte changed in the middle of the file NAMED as
+    /// the IPA keeps it, stored or deflated by METHOD, its CRC left as it
+    /// was: a copy that went wrong.
+    static func damaged(_ game: HarnessGame, in named: String, named name: String,
+                        method: HarnessZip.Method = .store) throws -> URL {
         var entries = game.files
         guard let index = entries.firstIndex(where: { $0.name.hasSuffix("/" + named) }) else {
             throw HarnessZip.Failure("\(named) is not in the game")
         }
-        entries[index].method = .store
+        entries[index].method = method
         entries[index].damage = true
         return try write(entries, named: name)
     }
