@@ -12,7 +12,11 @@ of it (CartoucheSideStoreOutcome, launcher/Sources/CartoucheFailure.swift):
   SideStore left nothing, are still LiveContainer's;
 - Apple's HTTP errors without an answer of its own, such as its 429 when it
   limits the sign-ins (app/patches/sidestore/0016), are told apart in the
-  sign-in and the developer services, as cases Cartouche names.
+  sign-in and the developer services, as cases Cartouche names;
+- the outcome reads the error behind the titles SideStore wraps errors in,
+  and every sentence SideStore's code gives invalidParameters, which it
+  throws for what it did not expect, has the name of a reason, each one
+  named still SideStore's (app/patches/sidestore/0018).
 
 SideStore's sources are read as app/scripts/prepare.sh leaves them, every
 patch applied, so that a later patch's fields count too. Needs the
@@ -148,6 +152,65 @@ def error_cases(path: Path, name: str) -> set:
     return cases(block(text, f"enum {name}:", f"{name} in {path.relative_to(ROOT)}").split("var ")[0])
 
 
+@functools.lru_cache(maxsize=None)
+def own_sources() -> dict:
+    """SideStore's own Swift sources, not those of its dependencies, by their
+    path, every patch applied, with those a patch adds."""
+    touched = {name for patch in sorted(PATCHES.glob("*.patch")) for name in hunks(patch)}
+    names = {path.relative_to(SIDESTORE).as_posix() for path in SIDESTORE.rglob("*.swift")}
+    names |= {name for name in touched if name.endswith(".swift")}
+    return {name: patched(name) if name in touched else (SIDESTORE / name).read_text(encoding="utf-8")
+            for name in sorted(names) if not name.startswith("Dependencies/")}
+
+
+def swift_literal(text: str, index: int) -> tuple:
+    """The string literal that opens at INDEX of TEXT, with each of its
+    interpolations as "…", and where it ends."""
+    escapes = {"n": "\n", "t": "\t", '"': '"', "\\": "\\", "'": "'", "0": ""}
+    index += 1
+    out = []
+    while text[index] != '"':
+        if text[index] != "\\":
+            out.append(text[index])
+            index += 1
+        elif text[index + 1] == "(":
+            depth, index = 1, index + 2
+            while depth:
+                if text[index] == '"':
+                    index = swift_literal(text, index)[1]
+                    continue
+                depth += {"(": 1, ")": -1}.get(text[index], 0)
+                index += 1
+            out.append("…")
+        else:
+            out.append(escapes.get(text[index + 1], text[index + 1]))
+            index += 2
+    return "".join(out), index + 1
+
+
+def invalid_parameters(text: str) -> list:
+    """What each OperationError.invalidParameters in TEXT is given: the
+    sentence its string literals make, or the expression itself when it
+    holds none. The case's declaration and the patterns that bind what it
+    carries are left out."""
+    found = []
+    for match in re.finditer(r"\binvalidParameters\(", text):
+        if text[:match.start()].endswith("case ") or re.match(r"\s*(?:let|var)\b", text[match.end():]):
+            continue
+        index, depth, literals, expression = match.end(), 1, [], []
+        while depth:
+            if text[index] == '"':
+                literal, index = swift_literal(text, index)
+                literals.append(literal)
+                continue
+            depth += {"(": 1, ")": -1}.get(text[index], 0)
+            if depth:
+                expression.append(text[index])
+            index += 1
+        found.append(("".join(literals), None) if literals else (None, "".join(expression).strip()))
+    return found
+
+
 def ours() -> str:
     return block(FAILURE.read_text(encoding="utf-8"), "struct CartoucheSideStoreOutcome:", "CartoucheSideStoreOutcome")
 
@@ -174,6 +237,7 @@ class SideStoreOutcomeTest(unittest.TestCase):
         self.outcome = self.files["SideStore/Intents/CartoucheOutcome.swift"]
         self.ours = ours()
         self.cause = block(self.ours, "var cause: CartoucheFailure.Cause", "CartoucheSideStoreOutcome.cause")
+        self.sources = own_sources()
 
     def test_both_sides_name_the_same_keychain_item(self):
         account = re.compile(r'static let account = "([^"]+)"')
@@ -284,6 +348,86 @@ class SideStoreOutcomeTest(unittest.TestCase):
         named = set(re.findall(r'kind == "(\w+)"', block(message, "static func trouble(", "CartoucheSignInMessage.trouble")))
         self.assertEqual(named, {"httpStatus", "invalidResponseFormat"})
         self.assertLessEqual(named, server)
+
+    def test_every_sentence_of_invalid_parameters_has_its_reason(self):
+        # invalidParameters is what SideStore throws for what its own code
+        # did not expect, with a sentence that can name an app: only the
+        # name of its reason leaves the iPhone (patch 0018).
+        listed = re.search(r"static let invalidParametersReasons[^=]*= \[(.*?)\n    \]", self.outcome, re.S)
+        self.assertIsNotNone(listed, "the sentences of invalidParameters not found")
+        reasons = [(sentence.replace('\\"', '"'), reason)
+                   for sentence, reason in re.findall(r'^\s*\("((?:[^"\\]|\\.)*)", "(\w+)"\),$', listed.group(1), re.M)]
+        self.assertGreaterEqual(len(reasons), 40)
+        for _, reason in reasons:
+            self.assertRegex(reason, r"^[a-z][A-Za-z0-9]{0,47}$")
+
+        sentences, expressions = [], set()
+        for name, text in self.sources.items():
+            for sentence, expression in invalid_parameters(text):
+                if sentence is None:
+                    expressions.add(expression)
+                else:
+                    sentences.append((name, sentence))
+        self.assertGreaterEqual(len(sentences), 50)
+        for name, sentence in sentences:
+            reason = next((reason for fragment, reason in reasons if fragment in sentence), None)
+            self.assertIsNotNone(reason, f"{name}: no reason for {sentence!r}")
+        # What SideStore passes on of another error's: minimuxer's (its
+        # description, or the reason its connection mode is not
+        # configured), a dialog it could not show, and an error's words.
+        self.assertEqual(expressions, {"reason", "self.description", "errMsg", "error.localizedDescription"})
+
+        # Each sentence the outcome names is still SideStore's, or minimuxer's.
+        minimuxer = "\n".join(path.read_text(encoding="utf-8")
+                              for path in sorted((SIDESTORE / "Dependencies" / "minimuxer" / "Sources").rglob("*.swift")))
+        handlers = self.sources["SideStore/Handlers/PipelineHandler.swift"]
+        for fragment, reason in reasons:
+            said = any(fragment in sentence for _, sentence in sentences) or fragment in minimuxer or fragment in handlers
+            self.assertTrue(said, f"{fragment!r} ({reason}) is no longer SideStore's")
+
+        # What a sentence names, with the outcome's own expressions.
+        subjects = re.search(r"static let invalidParametersSubjects = \[(.*?)\n    \]", self.outcome, re.S)
+        self.assertIsNotNone(subjects, "what a sentence names not found")
+        patterns = [pattern.replace("\\\\", "\\") for pattern in re.findall(r'^\s*"(.+)",$', subjects.group(1), re.M)]
+
+        def subject(sentence):
+            for pattern in patterns:
+                found = re.search(pattern, sentence)
+                if found:
+                    return re.sub(r"(?<=.)Operation$", "", found.group(1))
+            return None
+
+        examples = {
+            "FetchProvisioningProfilesOperation: context.targetAppBundle is nil": ("notInContext", "targetAppBundle"),
+            "RefreshAppOperation.execute: self.context.provisioningProfiles is nil": ("notInContext", "provisioningProfiles"),
+            "VerifyCertificateOperation: installedApp is missing in context.": ("notInContext", "installedApp"),
+            "Missing StandaloneStep mapping for ScheduleExpirationWarningNotificationOperation":
+                ("noStepMapping", "ScheduleExpirationWarningNotification"),
+            "Missing progress weight for step 'scheduleExpirationWarningNotification' in steps list":
+                ("noStepWeight", "scheduleExpirationWarningNotification"),
+            "PipelineHandler: Cannot review permissions because presenting view controller is unavailable":
+                ("askPermissions", None),
+            "Could not resolve installed app for 'Mario Kart World'": ("noResultApp", None),
+        }
+        for sentence, (reason, missing) in examples.items():
+            told = next((reason for fragment, reason in reasons if fragment in sentence), None)
+            self.assertEqual((told, subject(sentence)), (reason, missing), sentence)
+
+    def test_the_outcome_reads_the_error_behind_a_title(self):
+        save = block(self.outcome, "func save(", "CartoucheOutcome.save")
+        # The error SideStore wrapped in a title, as Swift threw it.
+        self.assertIn("let error = Self.unwrapped(thrown)", save)
+        unwrapped = block(self.outcome, "static func unwrapped(", "CartoucheOutcome.unwrapped")
+        self.assertIn("current as? ALTWrappedError", unwrapped)
+        kind = block(self.outcome, "static func kind(of error: Error)", "CartoucheOutcome.kind(of:)")
+        families = set(re.findall(r"case is (\w+): family", kind)) | {"CartoucheSignInError"}
+        retyped = set(re.findall(r"case let typed as (\w+): return typed", unwrapped))
+        self.assertEqual(families - {"CancellationError"}, retyped)
+        # Only then are its case, Apple's code and its sentence read.
+        after = save[save.index("let error = Self.unwrapped(thrown)"):]
+        for reading in ("Self.kind(of: error)", "Self.appleCode(of: error)", "Self.httpStatus(of: error)",
+                        "case OperationError.invalidParameters(let sentence) = error"):
+            self.assertIn(reading, after, reading)
 
 
 if __name__ == "__main__":
