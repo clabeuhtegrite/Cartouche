@@ -8,18 +8,24 @@
 //  the whole screen of the simulator it runs on, such as the iPhone Duo's,
 //  with its own safe area, size classes and system bars.
 //
-//      -GalleryScreen games|library|sheet|settings|setup|signin|guide|system|storage|storage-mac|telemetry|report
+//      -GalleryScreen games|library|sheet|settings|gameinfo|setup|signin|guide|system|storage|storage-mac|telemetry|report
 //                                        library: every game, open over
-//                                        the home; storage-mac: Add your
-//                                        Mac, the form that pairs this
-//                                        iPhone with a Mac nearby
+//                                        the home; gameinfo: what the
+//                                        player says of the sheet's game;
+//                                        storage-mac: Add your Mac, the
+//                                        form that pairs this iPhone with a
+//                                        Mac nearby
 //      -GalleryWidth 402 -GalleryHeight 874     (none: the whole screen)
 //      -GalleryInsets 62,0,34,0          top, leading, bottom, trailing
 //      -GalleryWidthClass compact        the width class at a scenario's
 //                                        size, where iOS gives another one
 //                                        than its width says: an iPhone 17
 //                                        Pro sideways is compact
-//      -GalleryOwned 0400C3F00006E000,…  the player's games
+//      -GalleryOwned 0400C3F00006E000,…  the player's games; TITLEID:Name
+//                                        for one nxnative.json does not
+//                                        have, which IGDB has by its name
+//                                        when the catalogue has a game of
+//                                        that name (showFound)
 //      -GallerySetup 1 -GalleryController 1
 //      -GallerySheet <title ID>          the game of the sheet, of its
 //                                        settings, or being installed
@@ -47,7 +53,9 @@
 //                                        away from home, with two games'
 //                                        saves waiting for it; build-skipped:
 //                                        No thanks said to the guide's Mac
-//                                        step
+//                                        step; own-cover: the sheet's game,
+//                                        or the first of the player's, with
+//                                        a cover of the player's own
 //      -GalleryOrientation landscape     the gallery turns itself sideways,
 //                                        as a game does; the simulator
 //                                        stays upright
@@ -107,6 +115,23 @@ struct GalleryScenario {
         return scenario
     }
 
+    /// The title IDs of the player's games.
+    var ownedTitles: [String] { owned.map { item in String(item.prefix { $0 != ":" }) } }
+
+    /// The player's games that nxnative.json does not have: title ID and
+    /// name.
+    var unknownGames: [(titleId: String, name: String)] {
+        owned.compactMap { item in
+            guard let colon = item.firstIndex(of: ":") else { return nil }
+            return (String(item[..<colon]), String(item[item.index(after: colon)...]))
+        }
+    }
+
+    /// The name of the player's game of TITLEID.
+    func name(of titleId: String) -> String? {
+        unknownGames.first { $0.titleId == titleId }?.name ?? CartoucheCatalog.shared.game(titleId: titleId)?.name
+    }
+
     /// Puts the files the stand-ins read where the launcher looks for them.
     func prepare() {
         GalleryState.setupDone = setupDone
@@ -130,6 +155,10 @@ struct GalleryScenario {
             if work == "build-skipped" { CartoucheGuide.shared.skipBuild() }
             if controller { CartoucheGamepad.shared.showHints() }
             showStats()
+            showFound()
+            if work == "own-cover", let titleId = sheet ?? ownedTitles.first {
+                showOwnCover(of: titleId)
+            }
             if work == "installing" {
                 let name = sheet.flatMap { CartoucheCatalog.shared.game(titleId: $0)?.name } ?? "Game"
                 // As from iOS 26, which goes on with it outside Cartouche.
@@ -199,7 +228,7 @@ struct GalleryScenario {
     /// them there: built last night.
     @MainActor
     private func storedGames(in folder: String) -> [CartoucheStoredGame] {
-        owned.compactMap { titleId in
+        ownedTitles.compactMap { titleId in
             guard let game = CartoucheCatalog.shared.game(titleId: titleId) else { return nil }
             let built = Date().addingTimeInterval(-9 * 3_600)
             return CartoucheStoredGame(
@@ -208,6 +237,41 @@ struct GalleryScenario {
                 build: CartoucheGameBuild(version: "1.0.0", commit: "7bddb8c1e2f3", chain: "adec7d81d970",
                                           builtAt: built.addingTimeInterval(-120)),
                 titleId: titleId, isGame: true)
+        }
+    }
+
+    /// What Cartouche's server would answer about the player's games that
+    /// nxnative.json does not have: what IGDB has of the catalogue's game
+    /// of the same name, if there is one, as the server finds a game by its
+    /// name.
+    @MainActor
+    private func showFound() {
+        let catalog = CartoucheCatalog.shared
+        var found: [String: CartoucheFoundGame] = [:]
+        for game in unknownGames {
+            let platform = CartoucheGameWanted.platform(titleId: game.titleId)
+            guard let wanted = CartoucheGameWanted(name: game.name, platform: platform),
+                  let known = catalog.titleId(matchingName: game.name), let cover = catalog.cover(titleId: known) else { continue }
+            let profile = catalog.game(titleId: known)
+            found[wanted.key] = CartoucheFoundGame(
+                igdb: cover.igdb, name: profile?.name ?? game.name, cover: cover.cover, artwork: cover.artwork,
+                genre: profile.flatMap { $0.genre == "other" ? nil : $0.genre } ?? cover.genre,
+                platform: platform ?? profile?.platform)
+        }
+        catalog.showFoundForGallery(found)
+    }
+
+    /// A cover of the player's own for the game of TITLEID, as one drawn by
+    /// hand: never a game's own art.
+    @MainActor
+    private func showOwnCover(of titleId: String) {
+        let catalog = CartoucheCatalog.shared
+        guard let entry = catalog.entries(for: self.apps()).owned.first(where: { $0.titleId == titleId }),
+              let picture = GalleryIcon.cover(name: entry.name, key: titleId).jpegData(compressionQuality: 0.9) else { return }
+        do {
+            try catalog.setPlayerInfo(nil, cover: CartouchePlayerInfoStore.jpeg(from: picture), for: entry)
+        } catch {
+            NSLog("[Gallery] cannot keep the player's cover: %@", String(describing: error))
         }
     }
 
@@ -227,7 +291,7 @@ struct GalleryScenario {
         ]
         var shownSizes: [String: CartoucheGameSize] = [:]
         var shownTimes: [String: CartouchePlayTime] = [:]
-        for (index, titleId) in owned.enumerated() {
+        for (index, titleId) in ownedTitles.enumerated() {
             let bundleId = "org.nxnative." + titleId.lowercased()
             if index < sizes.count { shownSizes[bundleId] = sizes[index] }
             if index < times.count { shownTimes[bundleId] = times[index] }
@@ -238,13 +302,13 @@ struct GalleryScenario {
     /// The game a newer build is in the games folder of (work: newer-build,
     /// and offline, away from the games folder): the sheet's, or the first
     /// of the player's.
-    private var updatedTitle: String? { work == "newer-build" || work == "offline" ? sheet ?? owned.first : nil }
+    private var updatedTitle: String? { work == "newer-build" || work == "offline" ? sheet ?? ownedTitles.first : nil }
 
     /// The sheet's game, or the first of the player's, paused behind the
     /// console (work: paused).
     @MainActor
     func pause(among apps: [LCAppModel]) {
-        guard work == "paused", let titleId = sheet ?? owned.first,
+        guard work == "paused", let titleId = sheet ?? ownedTitles.first,
               let app = apps.first(where: { $0.appInfo.relativeBundlePath == titleId + ".app" }) else { return }
         CartoucheGameActions.shared.showRunningForGallery(app)
     }
@@ -309,10 +373,10 @@ struct GalleryScenario {
     }
 
     func apps() -> [LCAppModel] {
-        owned.compactMap { titleId in
-            guard let game = CartoucheCatalog.shared.game(titleId: titleId) else { return nil }
-            let info = LCAppInfo(name: game.name, identifier: "org.nxnative." + titleId.lowercased(),
-                                 folder: titleId + ".app", icon: GalleryIcon.make(name: game.name, key: titleId))
+        ownedTitles.compactMap { titleId in
+            guard let name = name(of: titleId) else { return nil }
+            let info = LCAppInfo(name: name, identifier: "org.nxnative." + titleId.lowercased(),
+                                 folder: titleId + ".app", icon: GalleryIcon.make(name: name, key: titleId))
             if titleId == updatedTitle {
                 // Installed four days ago, from an older commit of nxnative.
                 info.infoPlist = NSMutableDictionary(dictionary: ["CFBundleShortVersionString": "1.0.0", "DMCommit": "52124866a1b2",
@@ -386,6 +450,12 @@ struct CartoucheGalleryApp: App {
                                 Button(CartoucheText.done) {}
                             }
                         }
+                }
+            }
+        case "gameinfo":
+            if let entry = entries.owned.first(where: { $0.titleId == scenario.sheet }) {
+                NavigationStack {
+                    CartoucheGameInfoView(entry: entry, onClose: {})
                 }
             }
         case "settings":

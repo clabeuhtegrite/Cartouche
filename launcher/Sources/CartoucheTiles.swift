@@ -3,10 +3,11 @@
 //  Cartouche
 //
 //  Every game shows as the front of its game case: its official cover from
-//  IGDB (CartoucheCovers.swift), whole, in a rounded rectangle of a case's
-//  proportions; until it has loaded and when there is none, the icon of
-//  the player's own copy over its name, or a label we draw from the game's
-//  name and genre. The cartridge itself stays Cartouche's icon and mark.
+//  IGDB (CartoucheCovers.swift), or the player's own, whole, in a rounded
+//  rectangle of a case's proportions; until it has loaded and when there
+//  is none, the icon of the player's own copy over its name, or a label we
+//  draw from the game's name and genre. The cartridge itself stays
+//  Cartouche's icon and mark.
 //
 
 import SwiftUI
@@ -154,8 +155,9 @@ struct CartoucheAppIcon: View {
     }
 }
 
-/// A game as a cartridge: its official cover, whole, the player's copy or
-/// not; without one, the icon of the player's copy or our label.
+/// A game as a cartridge: its official cover or the player's own, whole,
+/// the player's copy or not; without one, the icon of the player's copy or
+/// our label.
 @available(iOS 17.0, *)
 struct CartoucheGameCartridge: View {
     let entry: CartoucheEntry
@@ -167,8 +169,8 @@ struct CartoucheGameCartridge: View {
     var body: some View {
         let side = width
         CartoucheCartridge(width: width, key: entry.tileKey, isFocused: isFocused) {
-            if let cover = entry.cover?.cover {
-                CartoucheCoverImage(id: cover, whole: true) {
+            if let art = entry.coverArt {
+                CartoucheCoverImage(art: art, whole: true) {
                     drawnLabel(side: side)
                 }
             } else {
