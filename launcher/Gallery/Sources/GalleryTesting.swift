@@ -122,14 +122,16 @@ enum GalleryTest {
 ///
 /// From a fifth of a second into a wait, the watch also looks at where the
 /// main thread is, ten times a second (GalleryMainStack). The time it finds
-/// the main thread answering the tests' own questions, the accessibility
-/// queries through which XCUITest reads the screen and waits for the
-/// gallery, does not count, each look standing for the time until the next
-/// one: no player asks them, and while the Files picker is open, one of
-/// them can hold the main thread for seconds. The readout says how long
-/// they held it, apart, and gallery-main-thread.txt, in the gallery's tmp
-/// folder, where the main thread was during each wait of a second or more,
-/// which uitests.sh shows.
+/// the main thread busy for the tests' accessibility does not count, each
+/// look standing for the time until the next one: answering the tests' own
+/// questions, the accessibility queries through which XCUITest reads the
+/// screen and waits for the gallery, which no player asks, and one of
+/// which can hold the main thread for seconds while the Files picker is
+/// open; or loading the code of iOS's accessibility, which the tests turn
+/// on, and no player without VoiceOver loads. The readout says how long
+/// the tests' accessibility held it, apart, and gallery-main-thread.txt,
+/// in the gallery's tmp folder, where the main thread was during each wait
+/// of a second or more, which uitests.sh shows.
 final class GalleryWatch: @unchecked Sendable {
     static let shared = GalleryWatch()
 
@@ -157,7 +159,7 @@ final class GalleryWatch: @unchecked Sendable {
     private var inBackground = false
     private var longest: TimeInterval = 0
     private var stalls: [(at: TimeInterval, wait: TimeInterval)] = []
-    /// The time spent answering the tests' questions: the most in one wait,
+    /// The time spent for the tests' accessibility: the most in one wait,
     /// and how many waits it held the main thread a quarter of a second or
     /// more.
     private var testsLongest: TimeInterval = 0
@@ -197,7 +199,7 @@ final class GalleryWatch: @unchecked Sendable {
 
     /// What the tests read: the longest wait in milliseconds, and the
     /// stalls, each with when it began, in seconds from the start; then the
-    /// time spent answering the tests' questions, apart.
+    /// time spent for the tests' accessibility, apart.
     var readout: String {
         lock.withLock {
             var longest = self.longest
@@ -211,7 +213,7 @@ final class GalleryWatch: @unchecked Sendable {
                     .joined(separator: ", ")
             }
             if testsStalls > 0 {
-                text += "; answering the tests' queries: longest \(Self.milliseconds(testsLongest)) ms, \(testsStalls) times"
+                text += "; for the tests' accessibility: longest \(Self.milliseconds(testsLongest)) ms, \(testsStalls) times"
             }
             if countsFrom == nil { text += ", not counting yet" }
             return text
@@ -221,8 +223,8 @@ final class GalleryWatch: @unchecked Sendable {
     fileprivate static func milliseconds(_ seconds: TimeInterval) -> Int { Int((seconds * 1000).rounded()) }
 
     /// Of a wait of WAIT seconds during which the watch saw the main thread
-    /// where LOOKS say: the part that counts, and the part spent answering
-    /// the tests' questions.
+    /// where LOOKS say: the part that counts, and the part spent for the
+    /// tests' accessibility.
     private static func ownPart(of wait: TimeInterval, _ looks: [GalleryLook])
         -> (own: TimeInterval, tests: TimeInterval) {
         var tests: TimeInterval = 0
@@ -321,12 +323,12 @@ final class GalleryWatch: @unchecked Sendable {
         }
         guard let record else { return }
         let part = Self.ownPart(of: record.wait, record.looks)
-        NSLog("[Gallery] the main thread took %ld ms to answer, %ld ms of them answering the tests' queries",
+        NSLog("[Gallery] the main thread took %ld ms to answer, %ld ms of them for the tests' accessibility",
               Self.milliseconds(record.wait), Self.milliseconds(part.tests))
         guard record.wait >= Self.writeFrom, !record.looks.isEmpty else { return }
         // Written down from the watch's queue, not to hold the main thread.
         queue.async {
-            var text = String(format: "%@ the main thread took %ld ms to answer, from %.1f s: %ld ms counted, %ld ms answering the tests' queries; where it was:",
+            var text = String(format: "%@ the main thread took %ld ms to answer, from %.1f s: %ld ms counted, %ld ms for the tests' accessibility; where it was:",
                               GalleryMainStack.clock(), Self.milliseconds(record.wait), record.at,
                               Self.milliseconds(part.own), Self.milliseconds(part.tests))
             text += GalleryLook.describe(record.looks, upTo: record.wait)
@@ -426,7 +428,7 @@ struct GalleryLook {
     /// LOOKS of a wait of WAIT seconds, those in a row that saw the same
     /// told once, from when, with how long they stand for: of the places
     /// that count, eight at most, spread over the wait, with their frames;
-    /// of those answering the tests' queries, the longest, more briefly.
+    /// of those for the tests' accessibility, the longest, more briefly.
     static func describe(_ looks: [GalleryLook], upTo wait: TimeInterval) -> String {
         var places: [(stack: GalleryMainStack, from: TimeInterval, looks: Int, seconds: TimeInterval)] = []
         for (index, look) in looks.enumerated() {
@@ -456,7 +458,7 @@ struct GalleryLook {
         if let longest = answering.max(by: { $0.seconds < $1.seconds }) {
             let all = answering.reduce(TimeInterval(0)) { $0 + $1.seconds }
             let count = answering.count == 1 ? "1 place" : "\(answering.count) places"
-            text += "\n  answering the tests' queries, \(GalleryWatch.milliseconds(all)) ms in \(count); the longest, "
+            text += "\n  for the tests' accessibility, \(GalleryWatch.milliseconds(all)) ms in \(count); the longest, "
                 + "from \(seconds(longest.from)) s, \(GalleryWatch.milliseconds(longest.seconds)) ms:"
             for line in longest.stack.summary(most: 16) { text += "\n    " + line }
         }
@@ -473,11 +475,16 @@ struct GalleryMainStack: Equatable {
     let addresses: [UInt]
     /// The outermost frame in iOS's accessibility or XCTest's, if any.
     let entry: Int?
-    /// Whether the main thread was answering the tests' questions alone:
-    /// in iOS's accessibility or XCTest's, called by the run loop or a
-    /// queue, with none of the gallery's own code above them. iOS's
-    /// accessibility also stands in for some of UIKit's methods, as the
-    /// tests turn it on: there UIKit calls it, and the wait counts.
+    /// Whether the main thread was busy for the tests' accessibility alone:
+    /// answering their questions, in iOS's accessibility or XCTest's,
+    /// called by the run loop or a queue, with none of the gallery's own
+    /// code above them; or loading code for iOS's accessibility, dyld
+    /// called by it. iOS's accessibility also stands in for some of UIKit's
+    /// methods, as the tests turn it on: there UIKit calls it, and the wait
+    /// counts, but for what it loads. The first menu of a sheet's bar took
+    /// 4.5 s on a CI Mac as an accessibility bundle, asked for the label of
+    /// its action, loaded SpringBoardHome (Launcher screens, the run of
+    /// b5abee9): with VoiceOver off, iOS loads none of it.
     let answersTheTests: Bool
 
     private static let capacity = 256
@@ -495,7 +502,8 @@ struct GalleryMainStack: Equatable {
     }
 
     /// From the watch's queue: where the main thread is now, and whether
-    /// it is answering the tests, from the images its frames are in.
+    /// it is busy for the tests' accessibility, from the images its frames
+    /// are in.
     static func take() -> GalleryMainStack? {
         let count = Int(GalleryMainThreadStack(buffer, Int32(capacity)))
         guard count > 0 else { return nil }
@@ -516,7 +524,25 @@ struct GalleryMainStack: Equatable {
             let gallery = images[..<entry].contains { $0.hasPrefix(galleryPath) }
             answers = ["CoreFoundation", "Foundation", "libdispatch.dylib", "libxpc.dylib"].contains(caller) && !gallery
         }
+        // Loading: the innermost frames of dyld's, whatever they run, asked
+        // for by iOS's accessibility, through a bundle of Foundation's or not.
+        if !answers, let loading = images.firstIndex(where: isLoader) {
+            let caller = images[loading...].firstIndex { !isLoader($0) && !isGoBetween($0) }
+            answers = caller.map { isAccessibility(images[$0]) } ?? false
+        }
         return GalleryMainStack(addresses: addresses, entry: entry, answersTheTests: answers)
+    }
+
+    /// dyld, and what loads an image through it: dlopen, and the soft
+    /// links by which a framework loads another the first time it needs it.
+    private static func isLoader(_ image: String) -> Bool {
+        ["dyld", "dyld_sim", "libdyld.dylib", "SoftLinking"].contains((image as NSString).lastPathComponent)
+    }
+
+    /// What can stand between dyld and the code that has an image loaded:
+    /// a bundle loaded, and the messages that ask for it.
+    private static func isGoBetween(_ image: String) -> Bool {
+        ["Foundation", "CoreFoundation", "libobjc.A.dylib"].contains((image as NSString).lastPathComponent)
     }
 
     /// The address of the call frame INDEX is in: where a caller goes on

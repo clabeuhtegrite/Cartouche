@@ -18,10 +18,10 @@
 # thread was in each wait of a second or more (gallery-main-thread.txt,
 # GalleryWatch in Sources/GalleryTesting.swift). The log ends with what
 # matters most, as a tool that reads a job's log on GitHub may get only its
-# last few thousand lines: where the main thread was in the waits that
-# counted a second or more, what the gallery's Documents and On My iPhone
-# held, then each test that failed with what it found on the screen, each
-# test's result, and the summary.
+# last few thousand lines: the main thread's waits test by test, where it
+# was in those that counted a second or more, the longest first, what the
+# gallery's Documents and On My iPhone held, then each test that failed
+# with what it found on the screen, each test's result, and the summary.
 
 set -euo pipefail
 
@@ -161,20 +161,41 @@ CONTAINER="$(xcrun simctl get_app_container "$UDID" "$BUNDLE" data 2>/dev/null |
 WAITS="$CONTAINER/tmp/gallery-main-thread.txt"
 if [ -n "$CONTAINER" ] && [ -f "$WAITS" ]; then
   cp "$WAITS" "$OUT/"
-  echo "== The main thread's waits of a second or more: where it was, for those that counted a second or more"
   # Each wait is a paragraph: its first line, then where the main thread
-  # was, which is shown for a wait that counted a second or more. Swift's
-  # names, demangled.
+  # was; each start of the gallery is one too, with the test's name
+  # (-GalleryTestName). Swift's names, demangled.
   demangle() {
     if xcrun --find swift-demangle >/dev/null 2>&1; then xcrun swift-demangle --simplified; else cat; fi
   }
+  echo "== The main thread's waits of a second or more, test by test"
   awk 'BEGIN { RS = ""; FS = "\n" }
+    /^== The gallery started/ {
+      if (match($1, /-GalleryTestName [^ ]+/)) print "== " substr($1, RSTART + 17, RLENGTH - 17); else print $1
+      next
+    }
+    { print "  " $1 }' "$WAITS" | head -n 600 || true
+  # Where it was: in the waits that counted two seconds or more first,
+  # which fail their test, then in those that counted a second or more,
+  # the longest first; then in those the tests' accessibility held ten
+  # seconds or more, which count for nothing but can make a test run out
+  # of time. Each is cut at its first lines.
+  echo "== Where the main thread was in the waits that counted a second or more, the longest first"
+  awk 'BEGIN { RS = ""; FS = "\n" }
+    /^== The gallery started/ {
+      test = $1
+      if (match($1, /-GalleryTestName [^ ]+/)) test = "== " substr($1, RSTART + 17, RLENGTH - 17)
+      next
+    }
     {
-      counted = 0
+      counted = 0; tests = 0
       if (match($1, /[0-9]+ ms counted/)) counted = substr($1, RSTART, RLENGTH) + 0
-      if (counted >= 1000) print $0; else print $1
-      print ""
-    }' "$WAITS" | demangle | head -n 2500 || true
+      if (match($1, /[0-9]+ ms for the tests/)) tests = substr($1, RSTART, RLENGTH) + 0
+      if (counted >= 1000) most = 160; else if (tests >= 10000) most = 40; else next
+      text = test
+      for (i = 1; i <= NF && i <= most; i++) text = text "\037" $i
+      if (NF > most) text = text "\037  … " (NF - most) " lines more in gallery-main-thread.txt"
+      print counted "\t" text "\037"
+    }' "$WAITS" | sort -t "$(printf '\t')" -k1,1nr | cut -f2- | tr '\037' '\n' | demangle | head -n 1800 || true
 fi
 if [ "$status" -ne 0 ]; then
   # What the Files picker had to show.

@@ -10,13 +10,17 @@
 import XCTest
 
 final class ConsoleUITests: ConsoleTestCase {
-    /// The home shows the player's games, the game in focus with Play and
-    /// Details, and the dock.
+    /// The home shows the player's games, the first by name in focus, as
+    /// its cover says to VoiceOver, with Play and Details, and the dock.
     @MainActor
     func testTheHomeShowsThePlayersGames() {
         let app = openConsole()
         for name in Games.names {
-            expect(app.buttons[name].waitForExistence(timeout: 10), "No cover of \(name) on the shelf", in: app)
+            let cover = app.buttons[name]
+            expect(cover.waitForExistence(timeout: 10), "No cover of \(name) on the shelf", in: app)
+            expect(cover.isSelected == (name == Games.inFocus),
+                   "The cover of \(name) says it is \(cover.isSelected ? "" : "not ")in focus; \(Games.inFocus) alone is",
+                   in: app)
         }
         expect(app.buttons[Words.details].exists, "No Details for the game in focus", in: app)
         expect(app.buttons[Words.importGame].exists, "No Import in the dock", in: app)

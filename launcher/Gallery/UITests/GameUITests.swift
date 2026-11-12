@@ -13,7 +13,8 @@
 import XCTest
 
 final class GameUITests: ConsoleTestCase {
-    /// The game in focus, the first of the player's.
+    /// The first of the player's games, the one work: paused pauses; the
+    /// console opens with another in focus, the first by name.
     private var game: String { Games.names[0] }
 
     /// The game's info, from its sheet: a new name shows on the sheet and
@@ -25,17 +26,16 @@ final class GameUITests: ConsoleTestCase {
         editInfo(of: game, in: app)
         replaceText(in: app.textFields.firstMatch, with: name, "the game's name", in: app)
         saveInfo(in: app)
-        expect(app.staticTexts[name].waitForExistence(timeout: 10), "The sheet does not show the new name, \(name)", in: app)
+        expect(sheetShows(name, in: app), "The sheet does not show the new name, \(name)", in: app)
         closeSheet(in: app)
         expect(app.buttons[name].waitForExistence(timeout: 10), "The home does not show the new name, \(name)", in: app)
+        expect(!app.buttons[game].exists, "The home still shows \(game) under its new name", in: app)
 
         // Back to Cartouche's info.
         editInfo(of: name, in: app)
-        let reset = app.buttons[Words.backToCartouchesInfo]
-        scrollTo(reset, "Back to Cartouche's info", in: app)
-        tap(reset, "Back to Cartouche's info", in: app)
+        scrollAndTap(app.buttons[Words.backToCartouchesInfo], "Back to Cartouche's info", in: app)
         saveInfo(in: app)
-        expect(app.staticTexts[game].waitForExistence(timeout: 10), "The sheet does not show \(game) again", in: app)
+        expect(sheetShows(game, in: app), "The sheet does not show \(game) again", in: app)
         closeSheet(in: app)
         expect(app.buttons[game].waitForExistence(timeout: 10), "The home does not show \(game) again", in: app)
         expect(!app.buttons[name].exists, "The home still shows \(name)", in: app)
@@ -103,23 +103,11 @@ final class GameUITests: ConsoleTestCase {
 
     // MARK: Steps
 
-    /// From the home, the sheet of the game in focus, named NAME: its Done,
-    /// which the home has not, then its name.
-    @MainActor
-    private func openSheet(of name: String, in app: XCUIApplication) {
-        tap(app.buttons[Words.details], "Details of \(name)", in: app)
-        expect(app.buttons[Words.done].waitForExistence(timeout: 15), "Details did not open the sheet of \(name)", in: app)
-        expect(app.staticTexts[name].waitForExistence(timeout: 10), "The sheet is not \(name)'s", in: app)
-    }
-
-    /// From the home, the sheet of the game in focus, named NAME, then its
-    /// info.
+    /// From the home, the sheet of the game named NAME, then its info.
     @MainActor
     private func editInfo(of name: String, in app: XCUIApplication) {
         openSheet(of: name, in: app)
-        let edit = app.buttons[Words.editInfo]
-        scrollTo(edit, "Edit the game's info on the sheet", in: app)
-        tap(edit, "Edit the game's info on the sheet", in: app)
+        scrollAndTap(app.buttons[Words.editInfo], "Edit the game's info on the sheet", in: app)
         expect(app.navigationBars[Words.gameInfo].waitForExistence(timeout: 15), "The game's info did not open", in: app)
     }
 
@@ -129,13 +117,6 @@ final class GameUITests: ConsoleTestCase {
         let bar = app.navigationBars[Words.gameInfo]
         tap(bar.buttons[Words.save], "Save of the game's info", in: app)
         expect(waitForGone(bar), "Save did not close the game's info", in: app)
-    }
-
-    /// Done of the sheet: the console.
-    @MainActor
-    private func closeSheet(in app: XCUIApplication) {
-        tap(app.buttons[Words.done], "Done of the sheet", in: app)
-        expect(waitUntil(10) { isOnConsole(app) }, "Done did not bring the console back", in: app)
     }
 
     /// Quit, on top, the home's or the sheet's, then the question,

@@ -124,6 +124,9 @@ enum GalleryWords {
 enum Games {
     static let owned = ["0400C3F00006E000", "040074A01BF12000", "01006BB00C6F0000"]
     static let names = ["Mario Kart World", "Donkey Kong Bananza", "The Legend of Zelda: Link's Awakening"]
+    /// The game in focus as the console opens: the first by name, as the
+    /// shelf orders the player's games, not the first of owned.
+    static var inFocus: String { names.min { $0.localizedStandardCompare($1) == .orderedAscending }! }
     /// A game of the catalogue the player does not have.
     static let other = "13 Sentinels: Aegis Rim"
 }
@@ -227,9 +230,18 @@ class ConsoleTestCase: XCTestCase {
     func launchGallery(_ launch: Launch) -> XCUIApplication {
         continueAfterFailure = false
         let app = XCUIApplication()
-        app.launchArguments = launch.arguments
+        // The test's name, which the gallery writes down as it starts, with
+        // its main thread's waits after it (uitests.sh).
+        app.launchArguments = launch.arguments + ["-GalleryTestName", shortName]
         app.launch()
         return app
+    }
+
+    /// The test's name, "GameUITests.testAFailedInstallGivesItsReport":
+    /// without the brackets of "-[GameUITests testAFailed…]", which a
+    /// launch argument would take for an option of its own.
+    private var shortName: String {
+        name.trimmingCharacters(in: CharacterSet(charactersIn: "-[]")).replacingOccurrences(of: " ", with: ".")
     }
 
     // MARK: Looking and tapping
@@ -410,6 +422,27 @@ class ConsoleTestCase: XCTestCase {
         expect(element.exists && element.isHittable, "No \(what), even after scrolling", in: app, file: file, line: line)
     }
 
+    /// Scrolls to ELEMENT, then taps it once it stays where it can be: the
+    /// rows of a list above it can grow as they are drawn and push it off
+    /// the screen, as a game's sheet did to its Edit the game's info, at
+    /// its bottom edge just after it could be tapped. Then it scrolls
+    /// again.
+    @MainActor
+    func scrollAndTap(_ element: XCUIElement, _ what: String, in app: XCUIApplication,
+                      file: StaticString = #filePath, line: UInt = #line) {
+        let element = element.firstMatch
+        for _ in 0..<3 {
+            scrollTo(element, what, in: app, file: file, line: line)
+            Thread.sleep(forTimeInterval: 0.5)
+            if element.isHittable {
+                element.tap()
+                return
+            }
+        }
+        expect(false, "\(what) is there, but cannot be tapped, even after scrolling to it three times", in: app,
+               file: file, line: line)
+    }
+
     /// Back from the page titled TITLE, by the first button of its
     /// navigation bar.
     @MainActor
@@ -444,6 +477,46 @@ class ConsoleTestCase: XCTestCase {
         return system.exists && system.isHittable
     }
 
+    // MARK: A game's sheet
+
+    /// From the home, the sheet of the game named NAME, as a player opens
+    /// it: its cover tapped, unless it is in focus already, then Details,
+    /// which opens the sheet of the game in focus. The cover in focus says
+    /// so, as VoiceOver reads it: selected. A tap on the cover in focus
+    /// opens its sheet too, should the cover not have said it was.
+    @MainActor
+    func openSheet(of name: String, in app: XCUIApplication, file: StaticString = #filePath, line: UInt = #line) {
+        let cover = app.buttons[name].firstMatch
+        let done = app.buttons[Words.done]
+        expect(cover.waitForExistence(timeout: 15), "No cover of \(name) on the home", in: app, file: file, line: line)
+        if !cover.isSelected {
+            tap(cover, "The cover of \(name)", in: app, file: file, line: line)
+            expect(waitUntil(10) { cover.isSelected || done.exists },
+                   "A tap on the cover of \(name) did not put it in focus", in: app, file: file, line: line)
+        }
+        if !done.exists {
+            tap(app.buttons[Words.details], "Details of \(name)", in: app, file: file, line: line)
+        }
+        expect(done.waitForExistence(timeout: 15), "Details did not open the sheet of \(name)", in: app,
+               file: file, line: line)
+        expect(sheetShows(name, in: app), "The sheet open is not \(name)'s", in: app, file: file, line: line)
+    }
+
+    /// Whether the sheet open shows NAME, its game's, within TIMEOUT
+    /// seconds: in its list, as the home under it, which stays in the
+    /// accessibility tree with the same name on its shelf, has none.
+    @MainActor
+    func sheetShows(_ name: String, in app: XCUIApplication, timeout: TimeInterval = 10) -> Bool {
+        app.collectionViews.staticTexts[name].waitForExistence(timeout: timeout)
+    }
+
+    /// Done of the sheet: the console.
+    @MainActor
+    func closeSheet(in app: XCUIApplication, file: StaticString = #filePath, line: UInt = #line) {
+        tap(app.buttons[Words.done], "Done of the sheet", in: app, file: file, line: line)
+        expect(waitUntil(10) { isOnConsole(app) }, "Done did not bring the console back", in: app, file: file, line: line)
+    }
+
     // MARK: The main thread
 
     /// What the watch says, read on the console.
@@ -456,8 +529,8 @@ class ConsoleTestCase: XCTestCase {
 
     /// Fails unless the main thread answered within longestWait every time
     /// it was asked, since a second after the gallery opened, but for the
-    /// time it spent answering the tests' own queries, which the readout
-    /// gives apart.
+    /// time it spent for the tests' accessibility, answering their queries
+    /// or loading accessibility's code, which the readout gives apart.
     @MainActor
     func expectMainThreadAnswered(_ app: XCUIApplication, file: StaticString = #filePath, line: UInt = #line) {
         guard let reading = mainThread(of: app) else {

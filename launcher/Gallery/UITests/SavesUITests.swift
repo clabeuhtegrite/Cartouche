@@ -15,27 +15,25 @@ import XCTest
 final class SavesUITests: ConsoleTestCase {
     /// From the sheet of the game, its saves go to the folder, which then
     /// holds one copy of them; put back after a question, it is back in
-    /// place, without an error, the console answering throughout.
+    /// place, without an error, the console answering throughout. The game
+    /// is the first of the player's, whose saves the gallery has (work:
+    /// saves), not the one in focus as the console opens.
     @MainActor
     func testTheSavesGoToTheFolderAndTheirCopyComesBack() {
         let app = openConsole(Launch(work: "saves"))
-        let game = Games.names[0]
-        tap(app.buttons[Words.details], "Details of \(game)", in: app)
-        expect(app.buttons[Words.done].waitForExistence(timeout: 15), "Details did not open the sheet of \(game)", in: app)
+        openSheet(of: Games.names[0], in: app)
 
         // Never synced yet, then synced.
         let syncNow = String(format: Words.syncNow, GalleryWords.savesFolder)
         let sync = element(in: app.buttons, beginningWith: syncNow)
         scrollTo(sync, "\(syncNow), on the sheet", in: app)
         expect(saysNoneYet(app), "The sheet says the saves were synced before they were", in: app)
-        tap(sync, "\(syncNow), on the sheet", in: app)
+        scrollAndTap(sync, "\(syncNow), on the sheet", in: app)
         expect(waitUntil(30) { !saysNoneYet(app) }, "The sheet's last sync still says none once the saves were sent", in: app)
         expect(app.alerts.count == 0, "Syncing the saves showed an error: \(app.alerts.firstMatch.debugDescription)", in: app)
 
         // Their one copy in the folder, put back.
-        let putBack = element(in: app.buttons, beginningWith: Words.putBack)
-        scrollTo(putBack, "\(Words.putBack), on the sheet", in: app)
-        tap(putBack, "\(Words.putBack), on the sheet", in: app)
+        scrollAndTap(element(in: app.buttons, beginningWith: Words.putBack), "\(Words.putBack), on the sheet", in: app)
         expect(app.navigationBars[Words.putBack].waitForExistence(timeout: 15), "\(Words.putBack) did not open", in: app)
         // A copy is named by its date, which has the year.
         let year = String(Calendar.current.component(.year, from: Date()))
@@ -49,8 +47,7 @@ final class SavesUITests: ConsoleTestCase {
                in: app)
 
         back(from: Words.putBack, in: app)
-        tap(app.buttons[Words.done], "Done of the sheet", in: app)
-        expect(waitUntil(10) { isOnConsole(app) }, "Done did not bring the console back", in: app)
+        closeSheet(in: app)
         expectMainThreadAnswered(app)
     }
 

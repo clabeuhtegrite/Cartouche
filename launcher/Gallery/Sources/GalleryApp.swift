@@ -86,6 +86,11 @@
 //      -GalleryHoldMainThread 1.5        the main thread held once, for
 //                                        that many seconds, which the
 //                                        watch must see
+//      -GalleryKeyboard 1                for a test that types: the
+//                                        keyboard shown and put away once,
+//                                        before the watch counts
+//      -GalleryTestName <name>           the test's, which the watch writes
+//                                        down as the gallery starts
 //
 
 import Network
