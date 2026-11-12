@@ -1,0 +1,78 @@
+From 01c0ea192e89c1ec5e7eb2a4408f8090077d9ae8 Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Thu, 12 Nov 2026 07:19:51 +0000
+Subject: [PATCH] Renew Cartouche alone
+
+SideStore keeps its database in its app group, and Cartouche signs
+with the group of every SideStore of the same Apple ID,
+group.com.SideStore.SideStore.<team>: a SideStore or a
+LiveContainer+SideStore of the player's shares it, and their apps are
+in Cartouche's database too. Refresh All Apps renewed them with
+Cartouche, and an app it could not renew failed the renewal with its
+own error, "Invalid parameters", once Cartouche itself had been
+renewed.
+
+Refresh All Apps, which Cartouche's Renew now and its Shortcuts action
+run, and the background refresh now renew Cartouche alone, the app
+SideStore is built into. Cartouche installs its games in LiveContainer,
+never through SideStore, so no other app is its to renew: the SideStore
+that installed one renews it, as before.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01MzPJotUFrVR2CyQYzeyDrQ
+---
+ AltStore/Core/Model/InstalledApp.swift | 31 ++++++++------------------
+ 1 file changed, 9 insertions(+), 22 deletions(-)
+
+diff --git a/AltStore/Core/Model/InstalledApp.swift b/AltStore/Core/Model/InstalledApp.swift
+index ccb7133..b4f37f6 100644
+--- a/AltStore/Core/Model/InstalledApp.swift
++++ b/AltStore/Core/Model/InstalledApp.swift
+@@ -389,16 +389,12 @@ public extension InstalledApp
+     
+     class func fetchAppsForRefreshingAll(in context: NSManagedObjectContext) -> [InstalledApp]
+     {
+-        let predicate = NSPredicate(format: "(%K == YES AND %K != %@) AND (%K == nil OR %K == NO OR %K == YES)",
+-                                    #keyPath(InstalledApp.isActive),
+-                                    #keyPath(InstalledApp.bundleIdentifier), StoreApp.altstoreAppID,
+-                                    #keyPath(InstalledApp.storeApp),
+-                                    #keyPath(InstalledApp.storeApp.isPledgeRequired),
+-                                    #keyPath(InstalledApp.storeApp.isPledged))
+-        
+-        var installedApps = InstalledApp.all(satisfying: predicate,
+-                                             sortedBy: [NSSortDescriptor(keyPath: \InstalledApp.expirationDate, ascending: true)],
+-                                             in: context)
++        // Cartouche: this database is in the app group that every SideStore
++        // signed with the same Apple ID opens, so it also holds the apps of
++        // the player's own SideStore or LiveContainer+SideStore, which renews
++        // them itself. Cartouche installs no app through SideStore: it renews
++        // Cartouche alone, added below.
++        var installedApps: [InstalledApp] = []
+         
+         if let altStoreApp = InstalledApp.fetchAltStore(in: context)
+         {
+@@ -427,18 +423,9 @@ public extension InstalledApp
+         // Date 6 hours before now.
+         let date = Date().addingTimeInterval(-1 * 6 * 60 * 60)
+         
+-        let predicate = NSPredicate(format: "(%K == YES) AND (%K < %@) AND (%K != %@) AND (%K == nil OR %K == NO OR %K == YES)",
+-                                    #keyPath(InstalledApp.isActive),
+-                                    #keyPath(InstalledApp.refreshedDate), date as NSDate,
+-                                    #keyPath(InstalledApp.bundleIdentifier), StoreApp.altstoreAppID,
+-                                    #keyPath(InstalledApp.storeApp),
+-                                    #keyPath(InstalledApp.storeApp.isPledgeRequired),
+-                                    #keyPath(InstalledApp.storeApp.isPledged)
+-        )
+-        
+-        var installedApps = InstalledApp.all(satisfying: predicate,
+-                                             sortedBy: [NSSortDescriptor(keyPath: \InstalledApp.expirationDate, ascending: true)],
+-                                             in: context)
++        // Cartouche: Cartouche alone, added below, as for Refresh All Apps
++        // (fetchAppsForRefreshingAll).
++        var installedApps: [InstalledApp] = []
+         
+         if let altStoreApp = InstalledApp.fetchAltStore(in: context), altStoreApp.refreshedDate < date
+         {
+-- 
+2.43.0
+
