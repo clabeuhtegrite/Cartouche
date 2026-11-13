@@ -262,5 +262,23 @@
       ]
     },
     "support_message": "Si cela continue, touchez Copier et collez l’erreur dans une <issues>issue de Cartouche</issues>."
+  },
+  "signing": {
+    "hint": "Choisissez votre certificat de signature (.p12) et son profil de provisionnement. La signature se fait sur cet ordinateur, sans compte Apple.",
+    "choose_p12": "Choisir le certificat (.p12)",
+    "choose_profile": "Choisir son profil (.mobileprovision)",
+    "password": "Mot de passe du certificat (à laisser vide s’il n’en a pas)",
+    "limitations": "Les jeux s’ouvrent à la place de Cartouche, jamais derrière la console. Cartouche ne se renouvelle pas chaque semaine : installez ses mises à jour avec cet installeur. La mémoire augmentée dépend de votre profil.",
+    "needs_files": "Choisissez votre certificat (.p12) et son profil.",
+    "needs_ready": "Choisissez un iPhone, puis votre certificat et son profil.",
+    "have_certificate": "J’ai un certificat de signature (.p12)",
+    "use_account": "Utiliser plutôt mon compte Apple",
+    "profile_checking": "Vérification du profil…",
+    "profile_invalid": "Impossible de lire ce profil. Choisissez un fichier .mobileprovision valide.",
+    "no_memory_limit": "Ce profil n’a pas la mémoire augmentée : la plupart des jeux ne démarreront pas. Sans elle, l’app n’a qu’environ 3 Go de mémoire.",
+    "install_hint": "Cartouche signée avec votre certificat et les droits que donne son profil.",
+    "step_install": "La signer avec votre certificat et l’installer",
+    "step_handoff": "Mettre votre certificat, chiffré, dans Cartouche",
+    "success_message": "Ouvrez Cartouche sur l’iPhone : elle prend votre certificat toute seule. Si iOS vous demande de faire confiance au développeur ou d’activer le mode développeur, faites-le dans Réglages. Ni compte Apple ni fichier de jumelage ne sont nécessaires."
   }
 }

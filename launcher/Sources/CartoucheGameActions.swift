@@ -1034,7 +1034,7 @@ final class CartoucheGameActions: ObservableObject {
                 // iOS refused the certificate LiveContainer signed the game
                 // with: Cartouche has SideStore fetch the one that works.
                 CartoucheSetup.shared.certificateRefusedAtStart()
-                fail(.start, CartoucheText.startFailed, message: CartoucheText.startCertificateRefused, error: error)
+                fail(.start, CartoucheText.startFailed, message: CartoucheImportedSigning.isSelected ? CartoucheText.signingRefused : CartoucheText.startCertificateRefused, error: error)
             } catch {
                 fail(.start, CartoucheText.startFailed, error: error)
             }
@@ -1415,7 +1415,7 @@ final class CartoucheGameActions: ObservableObject {
     private func tellOffline(_ offline: CartoucheStorageOffline) {
         CartoucheReports.note((work.map { $0.title + ": " } ?? "") + "not started, the server is offline from this network")
         workFailed = true
-        notice = CartoucheGameNotice(title: CartoucheText.storageOfflineTitle(offline.name), message: offline.localizedDescription)
+        notice = CartoucheGameNotice(title: offline.title, message: offline.localizedDescription)
     }
 
     /// Tells the player that the install or the copy stopped from outside

@@ -1684,6 +1684,23 @@
         }
       }
     },
+    "guide.importedIntro" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Three steps from here to your first game. Each one ticks itself once it is done."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Trois étapes jusqu’à votre premier jeu. Chacune se coche toute seule une fois faite."
+          }
+        }
+      }
+    },
     "guide.intro" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -4506,6 +4523,23 @@
         }
       }
     },
+    "setup.appleID.unfinished" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The sign-in with %@ stopped before Cartouche got its certificate. Connect LocalDevVPN, then sign in again."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "La connexion avec %@ s’est arrêtée avant que Cartouche reçoive son certificat. Connectez LocalDevVPN, puis reconnectez-vous."
+          }
+        }
+      }
+    },
     "setup.banner.certificate" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -4676,6 +4710,23 @@
         }
       }
     },
+    "setup.banner.unfinished" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The sign-in stopped before the certificate"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "La connexion s’est arrêtée avant le certificat"
+          }
+        }
+      }
+    },
     "setup.certificate.checking" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -4716,13 +4767,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Comes by itself once you have signed in. If not, install Cartouche again over this copy with the Cartouche Installer."
+            "value" : "Comes by itself at the end of the sign-in with your Apple ID."
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Arrive tout seul après la connexion. Sinon, réinstallez Cartouche par-dessus cette copie avec l’Installeur Cartouche."
+            "value" : "Arrive tout seul à la fin de la connexion avec votre identifiant Apple."
           }
         }
       }
@@ -5730,6 +5781,23 @@
         }
       }
     },
+    "signIn.certificateUnopened" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The built-in SideStore signed in, but Cartouche could not open the certificate it took. Copy the report for whoever helps you."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Le SideStore intégré s’est connecté, mais Cartouche n’a pas pu ouvrir le certificat reçu. Copiez le rapport pour qui vous aide."
+          }
+        }
+      }
+    },
     "signIn.code.byDevice" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -6342,6 +6410,278 @@
         }
       }
     },
+    "signing.certificateChosen" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Choose another certificate (.p12)"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Choisir un autre certificat (.p12)"
+          }
+        }
+      }
+    },
+    "signing.chooseCertificate" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Choose the certificate (.p12)"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Choisir le certificat (.p12)"
+          }
+        }
+      }
+    },
+    "signing.chooseProfile" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Choose its profile (.mobileprovision)"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Choisir son profil (.mobileprovision)"
+          }
+        }
+      }
+    },
+    "signing.handoffFailed" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cartouche could not open the certificate the installer gave it. Install Cartouche again with your certificate and its profile."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cartouche n’a pas pu ouvrir le certificat donné par l’Installeur Cartouche. Réinstallez Cartouche avec votre certificat et son profil."
+          }
+        }
+      }
+    },
+    "signing.how" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Choose your certificate (.p12), its password and its profile (.mobileprovision). Neither an Apple ID nor LocalDevVPN is needed."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Choisissez votre certificat (.p12), son mot de passe et son profil (.mobileprovision). Ni compte Apple ni LocalDevVPN ne sont nécessaires."
+          }
+        }
+      }
+    },
+    "signing.invalidFile" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Choose a signing file smaller than 4 MB."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Choisissez un fichier de signature de moins de 4 Mo."
+          }
+        }
+      }
+    },
+    "signing.invalidKey" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This certificate does not open. Check its password, and that the .p12 holds its private key."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ce certificat ne s’ouvre pas. Vérifiez son mot de passe, et que le .p12 contient bien sa clé privée."
+          }
+        }
+      }
+    },
+    "signing.invalidProfile" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The provisioning profile is invalid, expired or does not match this certificate."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ce profil n’est pas valide, a expiré ou ne correspond pas à ce certificat."
+          }
+        }
+      }
+    },
+    "signing.password" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Certificate password"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mot de passe du certificat"
+          }
+        }
+      }
+    },
+    "signing.profileChosen" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Choose another profile (.mobileprovision)"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Choisir un autre profil (.mobileprovision)"
+          }
+        }
+      }
+    },
+    "signing.refused" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "iOS refused this certificate. Import another one, or install Cartouche again with a new certificate and its profile, from the Cartouche Installer."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "iOS a refusé ce certificat. Importez-en un autre, ou réinstallez Cartouche avec un nouveau certificat et son profil, depuis l’Installeur Cartouche."
+          }
+        }
+      }
+    },
+    "signing.reinstall" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "If the profile Cartouche was installed with does not allow this certificate, install Cartouche again with it and its profile, from the Cartouche Installer."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Si le profil avec lequel Cartouche a été installée n’autorise pas ce certificat, réinstallez Cartouche avec lui et son profil, depuis l’Installeur Cartouche."
+          }
+        }
+      }
+    },
+    "signing.title" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Import signing certificate"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Importer un certificat de signature"
+          }
+        }
+      }
+    },
+    "signing.updateOnComputer" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cartouche is signed with your own certificate: install its updates, and a new certificate before it expires, from the Cartouche Installer on your computer. It needs no renewal each week."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cartouche est signée avec votre propre certificat : installez ses mises à jour, et un nouveau certificat avant qu’il n’expire, depuis l’Installeur Cartouche sur votre ordinateur. Elle n’a pas besoin d’être renouvelée chaque semaine."
+          }
+        }
+      }
+    },
+    "signing.use" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Use this certificate"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Utiliser ce certificat"
+          }
+        }
+      }
+    },
+    "signing.wait" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Wait for the current sign-in or update to finish before changing certificates."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Attendez la fin de la connexion ou de la mise à jour avant de changer de certificat."
+          }
+        }
+      }
+    },
     "stats.countedNext" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -6716,6 +7056,23 @@
         }
       }
     },
+    "status.stored.signedOut" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sign in to %@ again in System › Storage to install this game."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Reconnectez-vous à %@ dans Système › Stockage pour installer ce jeu."
+          }
+        }
+      }
+    },
     "status.unknown.long" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -6835,6 +7192,23 @@
         }
       }
     },
+    "status.update.signedOut" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sign in to %@ again in System › Storage to update this game."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Reconnectez-vous à %@ dans Système › Stockage pour mettre à jour ce jeu."
+          }
+        }
+      }
+    },
     "storage.account" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -6892,13 +7266,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "First add your Mac, a shared folder, an S3 bucket, an FTP or SFTP server, or a folder in Files, below."
+            "value" : "First add your Mac, a shared folder, an S3 bucket, an FTP or SFTP server, your Google Drive, or a folder in Files, below."
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Ajoutez d’abord votre Mac, un dossier partagé, un bucket S3, un serveur FTP ou SFTP, ou un dossier de Fichiers, plus bas."
+            "value" : "Ajoutez d’abord votre Mac, un dossier partagé, un bucket S3, un serveur FTP ou SFTP, votre Google Drive, ou un dossier de Fichiers, plus bas."
           }
         }
       }
@@ -7035,6 +7409,788 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Créer"
+          }
+        }
+      }
+    },
+    "storage.drive.account" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Google account"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Compte Google"
+          }
+        }
+      }
+    },
+    "storage.drive.account.footer" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Google asks you to let your client see, edit and delete the files of your Drive: Cartouche installs your games from there and keeps your saves there, in My Drive alone. Your sign-in stays in this iPhone’s keychain."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Google vous demande de laisser votre client voir, modifier et supprimer les fichiers de votre Drive : Cartouche y installe vos jeux et y garde vos sauvegardes, dans Mon Drive seulement. Votre connexion reste dans le trousseau de cet iPhone."
+          }
+        }
+      }
+    },
+    "storage.drive.add" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Add Google Drive"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ajouter Google Drive"
+          }
+        }
+      }
+    },
+    "storage.drive.badAnswer" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Google Drive gave an answer Cartouche does not understand."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Google Drive a donné une réponse que Cartouche ne comprend pas."
+          }
+        }
+      }
+    },
+    "storage.drive.badClient" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This is not a client ID: Google Cloud shows it under your client, ending with .apps.googleusercontent.com."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ce n’est pas un ID client : Google Cloud l’affiche sous votre client, il finit par .apps.googleusercontent.com."
+          }
+        }
+      }
+    },
+    "storage.drive.bundleID" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bundle ID"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ID de bundle"
+          }
+        }
+      }
+    },
+    "storage.drive.client" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Your Google client"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Votre client Google"
+          }
+        }
+      }
+    },
+    "storage.drive.client.field" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Client ID"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ID client"
+          }
+        }
+      }
+    },
+    "storage.drive.client.footer" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cartouche has no Google key of its own: it reaches your Drive through an OAuth client of yours, made once, for free, in Google Cloud. Paste its ID, or all the text Google Cloud gives with it."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cartouche n’a pas de clé Google à lui : il accède à votre Drive par un client OAuth à vous, créé une fois, gratuitement, dans Google Cloud. Collez son ID, ou tout le texte que Google Cloud donne avec."
+          }
+        }
+      }
+    },
+    "storage.drive.clientRefused" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Google does not know this client, or it is not of the iOS type: check its ID in Google Cloud, or make the client again."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Google ne connaît pas ce client, ou il n’est pas de type iOS : vérifiez son ID dans Google Cloud, ou recréez le client."
+          }
+        }
+      }
+    },
+    "storage.drive.copied" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Copied"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Copié"
+          }
+        }
+      }
+    },
+    "storage.drive.copy" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Copy"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Copier"
+          }
+        }
+      }
+    },
+    "storage.drive.failed" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Google Drive refused: %@"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Google Drive a refusé : %@"
+          }
+        }
+      }
+    },
+    "storage.drive.full" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Your Google Drive is full."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Votre Google Drive est plein."
+          }
+        }
+      }
+    },
+    "storage.drive.guide.intro" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Once, for free, in Google Cloud, with the Google account of your Drive: on this iPhone, or on a computer, where it is easier. Each button opens its step’s page."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Une fois, gratuitement, dans Google Cloud, avec le compte Google de votre Drive : sur cet iPhone, ou sur un ordinateur, où c’est plus simple. Chaque bouton ouvre la page de son étape."
+          }
+        }
+      }
+    },
+    "storage.drive.guide.title" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Your Google client"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Votre client Google"
+          }
+        }
+      }
+    },
+    "storage.drive.howTo" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Make your client, step by step"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Créer votre client, pas à pas"
+          }
+        }
+      }
+    },
+    "storage.drive.noRefreshToken" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Google gave no lasting sign-in: sign in again."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Google n’a pas donné de connexion durable : reconnectez-vous."
+          }
+        }
+      }
+    },
+    "storage.drive.notThere" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This file or folder is no longer on your Google Drive."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ce fichier ou ce dossier n’est plus sur votre Google Drive."
+          }
+        }
+      }
+    },
+    "storage.drive.off" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The Google Drive API is off in your Google Cloud project: turn it on, wait a minute, then sign in again."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "L’API Google Drive est désactivée dans votre projet Google Cloud : activez-la, attendez une minute, puis reconnectez-vous."
+          }
+        }
+      }
+    },
+    "storage.drive.openStep" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Open in Google Cloud"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ouvrir dans Google Cloud"
+          }
+        }
+      }
+    },
+    "storage.drive.pageFailed" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Google’s sign-in page did not open: %@"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "La page de connexion de Google ne s’est pas ouverte : %@"
+          }
+        }
+      }
+    },
+    "storage.drive.readOnly" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Your Google account can only read here."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Votre compte Google ne peut que lire ici."
+          }
+        }
+      }
+    },
+    "storage.drive.refusedOnPage" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "You did not allow your client on Google’s page."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vous n’avez pas autorisé votre client sur la page de Google."
+          }
+        }
+      }
+    },
+    "storage.drive.scope" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Google did not let Cartouche reach your Drive: sign in again, and allow your client to see, edit and delete your Drive’s files."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Google n’a pas laissé Cartouche accéder à votre Drive : reconnectez-vous, et autorisez votre client à voir, modifier et supprimer les fichiers de votre Drive."
+          }
+        }
+      }
+    },
+    "storage.drive.signIn" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sign in with Google"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Se connecter avec Google"
+          }
+        }
+      }
+    },
+    "storage.drive.signInAgain" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sign in to Google again"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Se reconnecter à Google"
+          }
+        }
+      }
+    },
+    "storage.drive.signInFailed" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Google did not sign you in: %@"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Google ne vous a pas connecté : %@"
+          }
+        }
+      }
+    },
+    "storage.drive.signInNeeded" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sign in to Google in System › Storage: Cartouche reaches your Drive only with your own account."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Connectez-vous à Google dans Système › Stockage : Cartouche n’accède à votre Drive qu’avec votre propre compte."
+          }
+        }
+      }
+    },
+    "storage.drive.signedOut" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Google ended Cartouche’s sign-in to %@, as it does after 7 days for a project in testing: sign in to Google again in System › Storage. Meanwhile your games installed play, and your saves wait."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Google a mis fin à la connexion de Cartouche à %@, comme il le fait au bout de 7 jours pour un projet en test : reconnectez-vous à Google dans Système › Stockage. En attendant, vos jeux installés se lancent, et vos sauvegardes attendent."
+          }
+        }
+      }
+    },
+    "storage.drive.signedOut.short" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@: sign in again"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ : à reconnecter"
+          }
+        }
+      }
+    },
+    "storage.drive.step.api" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Turn on the Google Drive API"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Activer l’API Google Drive"
+          }
+        }
+      }
+    },
+    "storage.drive.step.api.detail" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "With your project chosen at the top of the page, Enable."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Votre projet choisi en haut de la page, Activer."
+          }
+        }
+      }
+    },
+    "storage.drive.step.branding" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Set up Google’s sign-in page"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Préparer la page de connexion de Google"
+          }
+        }
+      }
+    },
+    "storage.drive.step.branding.detail" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Get started: Cartouche as the app’s name, your address, External as the audience, your address again, then Create."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Commencer : Cartouche comme nom de l’app, votre adresse, Externe comme audience, de nouveau votre adresse, puis Créer."
+          }
+        }
+      }
+    },
+    "storage.drive.step.client" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Create the client"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Créer le client"
+          }
+        }
+      }
+    },
+    "storage.drive.step.client.detail" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "iOS as the application type, Cartouche as its name and this bundle ID, then Create. Copy the client ID Google shows."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "iOS comme type d’application, Cartouche comme nom et cet ID de bundle, puis Créer. Copiez l’ID client que Google affiche."
+          }
+        }
+      }
+    },
+    "storage.drive.step.project" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Create a project"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Créer un projet"
+          }
+        }
+      }
+    },
+    "storage.drive.step.project.detail" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Name it Cartouche, then Create."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nommez-le Cartouche, puis Créer."
+          }
+        }
+      }
+    },
+    "storage.drive.step.signIn" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Paste it in Cartouche and sign in"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Le coller dans Cartouche et se connecter"
+          }
+        }
+      }
+    },
+    "storage.drive.step.signIn.detail" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Google says it has not verified the app: it is yours, choose Continue, then allow access to your Drive’s files."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Google dit ne pas avoir validé l’app : c’est la vôtre, choisissez Continuer, puis autorisez l’accès aux fichiers de votre Drive."
+          }
+        }
+      }
+    },
+    "storage.drive.step.tester" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Add yourself as a test user"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vous ajouter comme utilisateur test"
+          }
+        }
+      }
+    },
+    "storage.drive.step.tester.detail" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Under Test users, Add users: the address of your Google account, then Save."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sous Utilisateurs test, Ajouter des utilisateurs : l’adresse de votre compte Google, puis Enregistrer."
+          }
+        }
+      }
+    },
+    "storage.drive.title" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Google Drive"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Google Drive"
+          }
+        }
+      }
+    },
+    "storage.drive.turnOn" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Turn on the Drive API"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Activer l’API Drive"
+          }
+        }
+      }
+    },
+    "storage.drive.weekly" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "While your project is in testing, Google ends the sign-in after 7 days: Cartouche then asks you to sign in again, in a few taps, and your saves wait meanwhile. To sign in once for good, publish the app under Audience, when Google offers it."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tant que votre projet est en test, Google met fin à la connexion au bout de 7 jours : Cartouche vous demande alors de vous reconnecter, en quelques touches, et vos sauvegardes attendent. Pour vous connecter une fois pour toutes, publiez l’app dans Audience, si Google le propose."
           }
         }
       }
@@ -7402,13 +8558,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Your games and saves on your own storage: your Mac with Cartouche Builder, a shared folder of your Mac, PC or NAS, an S3 bucket, an FTP or SFTP server, or a folder in Files. Its games show in your library."
+            "value" : "Your games and saves on your own storage: your Mac with Cartouche Builder, a shared folder of your Mac, PC or NAS, an S3 bucket, an FTP or SFTP server, your Google Drive, or a folder in Files. Its games show in your library."
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Vos jeux et sauvegardes sur votre propre stockage : votre Mac avec Cartouche Builder, dossier partagé de votre Mac, PC ou NAS, bucket S3, serveur FTP ou SFTP, ou dossier de Fichiers. Ses jeux apparaissent dans votre bibliothèque."
+            "value" : "Vos jeux et sauvegardes sur votre propre stockage : votre Mac avec Cartouche Builder, dossier partagé de votre Mac, PC ou NAS, bucket S3, serveur FTP ou SFTP, votre Google Drive, ou dossier de Fichiers. Ses jeux apparaissent dans votre bibliothèque."
           }
         }
       }
@@ -8524,13 +9680,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Only storage of your own, with your own account: Cartouche keeps the password or the secret key in this iPhone’s keychain."
+            "value" : "Only storage of your own, with your own account: Cartouche keeps the password, the secret key or the Google sign-in in this iPhone’s keychain."
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Uniquement votre propre stockage, avec votre propre compte : Cartouche garde le mot de passe ou la clé secrète dans le trousseau de cet iPhone."
+            "value" : "Uniquement votre propre stockage, avec votre propre compte : Cartouche garde le mot de passe, la clé secrète ou la connexion Google dans le trousseau de cet iPhone."
           }
         }
       }
@@ -10105,13 +11261,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Each start of Cartouche, game installs, updates, renewals, Apple ID sign-ins, how the Files picker of each import went, and errors, by their codes and the step they stopped at."
+            "value" : "Each start of Cartouche, game installs, updates, renewals, Apple ID sign-ins, signing certificates you import, how the Files picker of each import went, and errors, by their codes and the step they stopped at."
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Chaque ouverture de Cartouche, les installations de jeux, les mises à jour, les renouvellements, les connexions au compte Apple, le déroulement du sélecteur de fichiers de chaque import et les erreurs, par leurs codes et l’étape où elles se sont arrêtées."
+            "value" : "Chaque ouverture de Cartouche, les installations de jeux, les mises à jour, les renouvellements, les connexions au compte Apple, les certificats de signature importés, le déroulement du sélecteur de fichiers de chaque import et les erreurs, par leurs codes et l’étape où elles se sont arrêtées."
           }
         }
       }

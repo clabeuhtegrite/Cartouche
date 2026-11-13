@@ -81,6 +81,13 @@ struct CartoucheGameSheetView: View {
         return reach.isOffline(server.id)
     }
 
+    /// Whether the games folder is on a Google Drive whose sign-in Google
+    /// ended: the player signs in again, rather than waits.
+    private var isGamesFolderSignedOut: Bool {
+        guard let server = CartoucheStorageSettings.shared.location(.games)?.server else { return false }
+        return reach.isOffline(server.id) && CartoucheStorageOffline(server).isSignedOut
+    }
+
     var body: some View {
         List {
             Section {
@@ -188,7 +195,11 @@ struct CartoucheGameSheetView: View {
                     }
                 }
                 if entry.update != nil, isGamesFolderOffline {
-                    buildLine(CartoucheText.statusUpdateOffline(serverName), systemImage: "wifi.slash")
+                    if isGamesFolderSignedOut {
+                        buildLine(CartoucheText.statusUpdateSignedOut(serverName), systemImage: "person.crop.circle.badge.exclamationmark")
+                    } else {
+                        buildLine(CartoucheText.statusUpdateOffline(serverName), systemImage: "wifi.slash")
+                    }
                 }
                 if let update = entry.update, let build = update.build {
                     buildLine(CartoucheText.buildNewer(serverName, CartoucheText.build(build, showsCommit: false)),
@@ -201,7 +212,11 @@ struct CartoucheGameSheetView: View {
                 primaryButton(CartoucheText.installFrom(serverName), systemImage: "arrow.down.circle.fill") { onInstallStored(stored) }
                 secondaryButton(CartoucheText.importOtherCopy, systemImage: "square.and.arrow.down", action: onImport)
                 if isGamesFolderOffline {
-                    buildLine(CartoucheText.statusStoredOffline(serverName), systemImage: "wifi.slash")
+                    if isGamesFolderSignedOut {
+                        buildLine(CartoucheText.statusStoredSignedOut(serverName), systemImage: "person.crop.circle.badge.exclamationmark")
+                    } else {
+                        buildLine(CartoucheText.statusStoredOffline(serverName), systemImage: "wifi.slash")
+                    }
                 }
             } else {
                 primaryButton(CartoucheText.importCopy, systemImage: "square.and.arrow.down", action: onImport)

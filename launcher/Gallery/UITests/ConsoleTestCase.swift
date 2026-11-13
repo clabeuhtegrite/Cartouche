@@ -72,6 +72,10 @@ enum Words {
     static let addS3 = "Add S3 storage"                     // storage.addS3
     static let addFTP = "Add an FTP server"                 // storage.addFTP
     static let addFolder = "Add a folder in Files"          // storage.addFolder
+    static let addDrive = "Add Google Drive"                // storage.drive.add
+    static let driveSignedOut = "Google ended Cartouche’s sign-in to %@" // storage.drive.signedOut
+    static let driveSignedOutShort = "%@: sign in again"    // storage.drive.signedOut.short
+    static let driveSignInAgain = "Sign in to Google again" // storage.drive.signInAgain
     static let offline = "%@ does not answer on this network." // storage.offline
     static let offlineShort = "%@ offline"                  // storage.offline.short
     static let tryAgain = "Try again"                       // storage.tryAgain
@@ -145,7 +149,8 @@ struct Launch {
     /// the game of SHEET; "offline", the NAS out of reach; "mac", the
     /// player's Mac paired; "mac-nearby", "mac-code" or "mac-refused", what
     /// Add your Mac finds; "saves", the first game's saves and a folder in
-    /// Files as the saves folder.
+    /// Files as the saves folder; "drive-signed-out", the player's Google
+    /// Drive, whose sign-in Google ended, with two games' saves waiting.
     var work: String?
     /// The game being installed, or whose install failed.
     var sheet: String?
