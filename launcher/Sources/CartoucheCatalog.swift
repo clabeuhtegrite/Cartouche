@@ -218,7 +218,9 @@ final class CartoucheCatalog: ObservableObject {
     private var otherApps: Set<String> = []
 
     private init() {
-        let folder = Bundle.main.bundleURL.appendingPathComponent("CartoucheCatalog", isDirectory: true)
+        // In the app's bundle on the iPhone, in its Resources on the Mac
+        // (builder/mac/bundle.sh).
+        let folder = (Bundle.main.resourceURL ?? Bundle.main.bundleURL).appendingPathComponent("CartoucheCatalog", isDirectory: true)
         let decoder = JSONDecoder()
         var sheets: [CartoucheGameSheet] = []
         let gameFiles = (try? FileManager.default.contentsOfDirectory(

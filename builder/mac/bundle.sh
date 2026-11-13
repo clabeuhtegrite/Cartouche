@@ -2,13 +2,14 @@
 # Makes Cartouche Builder.app in DESTINATION (builder/mac/build by default):
 # the SwiftUI app built for Apple silicon, the builder's engine (the Python
 # package cartouche_builder, which the app runs) and the covers list in its
-# resources, its icon, its Info.plist, and its ad hoc signature.
+# resources, with the catalogue and the words of Cartouche's console, its
+# icon, its Info.plist, and its ad hoc signature.
 #
 #   builder/mac/bundle.sh [DESTINATION]
 #
 # The version is the builder's (builder/pyproject.toml); the telemetry
-# server is Cartouche's (app/config.env). Needs Xcode's Swift and macOS's
-# sips, iconutil and codesign.
+# server is Cartouche's (app/config.env). Needs Xcode's Swift, Python 3, and
+# macOS's sips, iconutil and codesign.
 
 set -euo pipefail
 
@@ -31,6 +32,16 @@ cp "$binary" "$app/Contents/MacOS/Cartouche Builder"
 cp -R "$builder/cartouche_builder" "$app/Contents/Resources/engine/"
 find "$app/Contents/Resources/engine" -name __pycache__ -type d -prune -exec rm -rf {} +
 cp "$root/catalog/covers.json" "$app/Contents/Resources/covers.json"
+
+# Cartouche's console (Sources/CartoucheConsole): nxnative's games, the game
+# sheets and the device profiles it reads, as the iPhone's app has them
+# (app/scripts/package.sh), and its words in each language, the launcher's
+# with the Mac's over them (console/strings.py).
+mkdir -p "$app/Contents/Resources/CartoucheCatalog/games"
+cp "$root/catalog/devices.json" "$root/catalog/nxnative.json" "$root/catalog/covers.json" "$app/Contents/Resources/CartoucheCatalog/"
+cp "$root"/catalog/games/*.json "$app/Contents/Resources/CartoucheCatalog/games/"
+python3 "$here/console/strings.py" "$root/launcher/Sources/Cartouche.xcstrings" "$here/console/strings.json" \
+  "$app/Contents/Resources" >/dev/null
 
 # The icon, from macOS's variant of Cartouche's (app/icon/make_icon.py).
 icons=$(mktemp -d)

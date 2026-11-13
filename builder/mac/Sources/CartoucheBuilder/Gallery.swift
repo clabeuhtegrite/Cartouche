@@ -26,6 +26,11 @@ enum Gallery {
         case assistantWelcome = "assistant-welcome", assistantTools = "assistant-tools", assistantSources = "assistant-sources"
         case assistantGames = "assistant-games", assistantKeys = "assistant-keys", assistantBuilds = "assistant-builds"
         case assistantIPhone = "assistant-iphone", assistantDone = "assistant-done"
+        // Cartouche's console on this Mac (ConsoleGallery.swift).
+        case console, consoleLibrary = "console-library"
+
+        /// Whether the page is the console's, which is always dark.
+        var isConsole: Bool { self == .console || self == .consoleLibrary }
 
         /// The setup assistant's step the page shows.
         var step: SetupStep? {
@@ -54,7 +59,7 @@ enum Gallery {
             }
         }
 
-        var inEnglish: Bool { [.library, .game, .gameQueue, .setup, .menubar, .assistantWelcome, .assistantGames].contains(self) }
+        var inEnglish: Bool { [.library, .game, .gameQueue, .setup, .menubar, .assistantWelcome, .assistantGames, .console].contains(self) }
 
         /// The window as the app opens it: the settings as the Settings
         /// scene does, the menu bar's panel without a frame, the setup
@@ -92,12 +97,13 @@ enum Gallery {
         for language in ["fr", "en"] {
             L10n.use(language)
             for page in Page.allCases where language == "fr" || page.inEnglish {
-                for dark in language == "fr" ? [false, true] : [false] {
+                for dark in page.isConsole ? [true] : language == "fr" ? [false, true] : [false] {
                     let file = folder.appendingPathComponent("\(page.rawValue)-\(language)-\(dark ? "dark" : "light").png")
                     if render(page, samples: samples, dark: dark, to: file) { saved += 1 }
                 }
             }
         }
+        ConsoleGallery.cleanUp()
         print("gallery: \(saved) pictures in \(folder.path)"
               + (drawnByAppKit > 0 ? ", \(drawnByAppKit) drawn by AppKit without the window server's effects" : ""))
         exit(saved > 0 ? 0 : 1)
@@ -127,6 +133,8 @@ enum Gallery {
         switch page {
         case .settings:
             controller = settings(model)
+        case .console, .consoleLibrary:
+            controller = ConsoleGallery.controller(library: page == .consoleLibrary, language: L10n.code)
         case .menubar, .menubarBuilding:
             let panel = hosted(MenuBarView().background(Color(nsColor: .windowBackgroundColor)), model)
             size.height = ceil(panel.sizeThatFits(in: CGSize(width: size.width, height: 2000)).height)
@@ -147,7 +155,7 @@ enum Gallery {
                               styleMask: page.styleMask, backing: .buffered, defer: false)
         window.isReleasedWhenClosed = false
         window.appearance = NSAppearance(named: dark ? .darkAqua : .aqua)
-        window.title = page == .settings ? SettingsTab.general.title : "Cartouche Builder"
+        window.title = page == .settings ? SettingsTab.general.title : page.isConsole ? "Cartouche" : "Cartouche Builder"
         if page == .settings {
             window.toolbarStyle = .preference
         }

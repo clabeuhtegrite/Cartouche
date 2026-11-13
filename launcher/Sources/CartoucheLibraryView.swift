@@ -151,7 +151,12 @@ struct CartoucheLibraryView: View {
         }
         .background(CartoucheStage(key: focused?.tileKey, art: focused?.backdrop))
         .navigationTitle(CartoucheText.allGames)
+        #if os(iOS)
         .searchable(text: $query, placement: .navigationBarDrawer(displayMode: .always), prompt: CartoucheText.searchPrompt)
+        #else
+        // On the Mac (builder/mac), in the window's toolbar.
+        .searchable(text: $query, placement: .toolbar, prompt: CartoucheText.searchPrompt)
+        #endif
         .onChange(of: filter) { _, _ in focusIndex = 0 }
         .onChange(of: query) { _, _ in focusIndex = 0 }
         // A tap opens the sheet itself; the controller's focus shows it.

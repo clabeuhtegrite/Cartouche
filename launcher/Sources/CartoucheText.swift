@@ -9,7 +9,10 @@
 import Foundation
 
 enum CartoucheText {
-    static let bundle = Bundle(for: CartoucheCatalog.self)
+    /// The app's bundle. On the Mac (builder/mac), the console's words are
+    /// read from the folder of the language the app speaks, which its
+    /// settings can change while it runs.
+    nonisolated(unsafe) static var bundle = Bundle(for: CartoucheCatalog.self)
 
     static func s(_ key: String, _ english: String) -> String {
         NSLocalizedString(key, tableName: "Cartouche", bundle: bundle, value: english, comment: "")

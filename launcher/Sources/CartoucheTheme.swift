@@ -201,24 +201,33 @@ extension View {
     }
 
     /// A game's cartridge that its sheet grows out of (iOS 18 and later).
+    /// On the Mac (builder/mac), a sheet opens as macOS opens one.
     @ViewBuilder
     func cartoucheZoomSource(_ id: String, in namespace: Namespace.ID?) -> some View {
+        #if os(iOS)
         if #available(iOS 18.0, *), let namespace {
             self.matchedTransitionSource(id: id, in: namespace)
         } else {
             self
         }
+        #else
+        self
+        #endif
     }
 
     /// A game's sheet, grown out of its cartridge and shrinking back into it
     /// (iOS 18 and later); it slides up from the bottom before.
     @ViewBuilder
     func cartoucheZoom(from id: String?, in namespace: Namespace.ID?) -> some View {
+        #if os(iOS)
         if #available(iOS 18.0, *), let id, let namespace {
             self.navigationTransition(.zoom(sourceID: id, in: namespace))
         } else {
             self
         }
+        #else
+        self
+        #endif
     }
 }
 
