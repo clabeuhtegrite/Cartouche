@@ -29,7 +29,8 @@ import Foundation
 /// that lacks a line leaves its value out.
 struct CartoucheGameMeasures: Codable, Equatable {
     /// Frames per second, over the 300-frame stretches of the session,
-    /// weighted by how long each lasted.
+    /// weighted by how long each lasted, but a stretch that held a pause:
+    /// one of its frames lasted a second or more (CartoucheGameLogReader.pauseMs).
     struct Rate: Codable, Equatable {
         var median: Double
         /// The rate of the slowest 5% of the time played.
@@ -148,8 +149,18 @@ struct CartoucheGameMeasures: Codable, Equatable {
 /// Reads an nxnative log, line by line, into a session's measures.
 struct CartoucheGameLogReader {
     /// This reading of nxnative's log, sent with every report: raised when
-    /// a change to nxnative's lines changes what it reads.
-    static let version = 1
+    /// a change to nxnative's lines, or to the reading, changes what it
+    /// reads. 2 leaves out of the frame rate the stretches that held a
+    /// pause (pauseMs); the server counts the slowest 5% from it on
+    /// (telemetry/sheets.py, SLOWEST_READER).
+    static let version = 2
+    /// A frame this long is a pause, not a slow frame: the game left behind
+    /// the console, Cartouche in the background, or a freeze. nxnative
+    /// times each stretch of 300 frames by the clock (power_line,
+    /// hle_nvn.c), so a stretch that held a pause of a minute came out at
+    /// under 5 fps, and the slowest 5% of a twenty-minute session with it.
+    /// Its rate says nothing of how the game ran, and is left out.
+    static let pauseMs = 1000.0
     /// A log is read up to this size: a long session writes a few megabytes.
     static let maximumBytes = 256 << 20
     /// Headroom under which a game that stopped without a line most likely
@@ -170,6 +181,10 @@ struct CartoucheGameLogReader {
     private var footprintPeak: Double?
     private var lastFootprint: Double?
     private var windowFps: [Double] = []
+    /// Whether a power line gave a stretch's rate, even one left out.
+    private var sawWindowFps = false
+    /// The longest frame of the last timing line, and the frame it was up to.
+    private var longestFrame: (frame: Int, ms: Double)?
     private var watts: [Double] = []
     private var cpuPercent: [Double] = []
     private var performancePercent: [Double] = []
@@ -269,14 +284,18 @@ struct CartoucheGameLogReader {
 
     private mutating func readSummary(_ line: String) {
         if line.contains("[nvn] timing up to frame ") {
+            var upTo: Int?
             if let groups = Self.groups(Self.timing, line), let frame = Int(groups[0]) {
                 noteFrame(frame)
+                upTo = frame
             }
+            longestFrame = nil
             for segment in Self.allGroups(Self.timingSegment, line) {
                 guard let p50 = Self.number(segment[1]), let p95 = Self.number(segment[2]) else { continue }
                 if segment[0] == "frame time" {
                     frameP50.append(p50)
                     frameP95.append(p95)
+                    if let upTo, let longest = Self.number(segment[3]) { longestFrame = (upTo, longest) }
                 } else {
                     gpuP50.append(p50)
                     gpuP95.append(p95)
@@ -303,7 +322,12 @@ struct CartoucheGameLogReader {
         } else if let groups = Self.groups(Self.power, line) {
             noteFrame(Int(groups[0]))
             if let watt = Self.number(groups[1]), watt > 0, watt < 100 { watts.append(watt) }
-            if let fps = Self.number(groups[3]), fps > 0, fps <= 480 { windowFps.append(fps) }
+            if let fps = Self.number(groups[3]), fps > 0, fps <= 480 {
+                sawWindowFps = true
+                // The timing line of the same stretch comes just before.
+                let paused = longestFrame.map { $0.frame == Int(groups[0]) && $0.ms >= Self.pauseMs } ?? false
+                if !paused { windowFps.append(fps) }
+            }
             if let cpu = Self.number(groups[4]), cpu >= 0, cpu <= 10_000 { cpuPercent.append(cpu) }
             if let share = Self.number(groups[5]), share >= 0, share <= 100 { performancePercent.append(share) }
             if let gpu = Self.number(groups[6]), gpu >= 0, gpu <= 1000 { gpuBusy.append(gpu) }
@@ -418,7 +442,7 @@ struct CartoucheGameLogReader {
         // The rate of each stretch, weighted by how long it lasted: 300
         // frames at 30 fps last twice as long as at 60.
         var rates = windowFps
-        if rates.isEmpty {
+        if !sawWindowFps {
             rates = frameP50.filter { $0 > 0 }.map { 1000 / $0 }
         }
         let weighted = rates.map { (value: $0, weight: 1 / $0) }
