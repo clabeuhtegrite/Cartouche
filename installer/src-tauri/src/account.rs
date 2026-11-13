@@ -18,14 +18,14 @@ use keyring::Entry;
 use rootcause::prelude::*;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use std::time::Duration;
-use tauri::{AppHandle, Emitter, Listener, Manager, Runtime, State, Window};
+use tauri::{AppHandle, Emitter, Manager, Runtime, State, Window};
 use tauri_plugin_store::StoreExt;
 use tracing::{debug, warn};
 
 use crate::{
     environment::Environment,
     error::AppError,
+    questions::{MAX_CERTS_TIMEOUT, Questions, TWO_FACTOR_TIMEOUT},
     secure_storage::{create_sideloading_storage, keyring_available},
     sideload::{SideloaderGuard, SideloaderMutex},
 };
@@ -184,24 +184,16 @@ async fn login<R: Runtime>(
             let window_clone = window_clone.clone();
 
             async move {
-                // Listen before asking: an answer that comes first is lost.
-                let (tx, rx) = std::sync::mpsc::channel::<String>();
-                let handler_id = window_clone.listen("2fa-recieved", move |event| {
-                    let code = event.payload();
-                    let _ = tx.send(code.to_string());
-                });
-
-                let asked = window_clone.emit("2fa-required", params);
-                if asked.is_err() {
-                    window_clone.unlisten(handler_id);
-                }
-                asked.context("Failed to emit 2fa-required event")?;
-
-                let result = rx.recv_timeout(Duration::from_secs(120));
-                window_clone.unlisten(handler_id);
-
-                let code = result?.trim_matches('"').to_string();
-                Ok(TwoFactorCallbackResponse::SubmitCode(code))
+                // The code comes back by a command, answer_two_factor_code,
+                // never as an event (questions.rs). Waiting before asking:
+                // an answer can't come first.
+                let questions = window_clone.state::<Questions>();
+                let waiting = questions.two_factor.ask();
+                window_clone
+                    .emit("2fa-required", params)
+                    .context("Failed to emit 2fa-required event")?;
+                let code = waiting.answer(TWO_FACTOR_TIMEOUT).await?;
+                Ok(TwoFactorCallbackResponse::SubmitCode(code.trim().to_string()))
             }
             .boxed()
         }
@@ -251,23 +243,13 @@ async fn login<R: Runtime>(
                         machine_id: cert.machine_id.clone(),
                     })
                     .collect();
-                // Listen before asking: an answer that comes first is lost.
-                let (tx, rx) = std::sync::mpsc::channel::<Option<Vec<String>>>();
-                let handler_id = window_clone.listen("max-certs-response", move |event| {
-                    let certs = event.payload();
-                    let certs = serde_json::from_str::<Option<Vec<String>>>(certs).unwrap_or(None);
-                    let _ = tx.send(certs);
-                });
-
-                let asked = window_clone.emit("max-certs-reached", cert_infos);
-                if asked.is_err() {
-                    window_clone.unlisten(handler_id);
-                }
-                asked?;
-
-                let result = rx.recv_timeout(Duration::from_secs(300));
-                window_clone.unlisten(handler_id);
-                Ok(result?)
+                // The answer comes back by a command, answer_max_certs, never
+                // as an event (questions.rs). Waiting before asking: an
+                // answer can't come first.
+                let questions = window_clone.state::<Questions>();
+                let waiting = questions.max_certs.ask();
+                window_clone.emit("max-certs-reached", cert_infos)?;
+                Ok(waiting.answer(MAX_CERTS_TIMEOUT).await?)
             })
         });
 

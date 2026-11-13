@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import "./AppleID.css";
 import { invoke } from "@tauri-apps/api/core";
-import { emit, listen } from "@tauri-apps/api/event";
+import { listen } from "@tauri-apps/api/event";
 import { load } from "@tauri-apps/plugin-store";
 import { Modal } from "./components/Modal";
 import { toast } from "sonner";
@@ -279,12 +279,13 @@ export const AppleID = ({
               return;
             }
             // Closed before the code goes: Apple can refuse it and the
-            // installer ask again before emit returns, and that question
-            // must stay open.
+            // installer ask again before the command returns, and that
+            // question must stay open. A command, never an event: Tauri
+            // can set an event aside for good (src-tauri/src/questions.rs).
             const code = tfaCode;
             setTfaOpen(false);
             setTfaCode("");
-            await emit("2fa-recieved", code);
+            await invoke("answer_two_factor_code", { code });
           }}
         >
           <input
@@ -347,7 +348,7 @@ export const AppleID = ({
               const revoke = selectedSerials.length > 0 ? selectedSerials : null;
               setCerts(null);
               setChooseCertsOpen(false);
-              await emit("max-certs-response", revoke);
+              await invoke("answer_max_certs", { revoke });
             }}
           >
             {t("apple_id.continue")}
@@ -357,7 +358,7 @@ export const AppleID = ({
             onClick={async () => {
               setCerts(null);
               setChooseCertsOpen(false);
-              await emit("max-certs-response", null);
+              await invoke("answer_max_certs", { revoke: null });
             }}
           >
             {t("common.cancel")}
