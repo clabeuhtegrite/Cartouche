@@ -6,8 +6,10 @@ this Mac from there."""
 
 import os
 import plistlib
+import stat
 import subprocess
 import threading
+import warnings
 import zipfile
 from pathlib import Path
 from unittest import mock
@@ -247,27 +249,46 @@ class MacApps(Home):
         old = make_app(self.folder / "Mario Kart World.app", MKW, "111111111111")
 
         def zipped(name, entries):
+            """A zip of ENTRIES, in order: a name and its bytes, or a link
+            ("->", where it leads)."""
             path = library / name
-            with zipfile.ZipFile(path, "w") as archive:
-                for entry, data in entries.items():
-                    archive.writestr(entry, data)
+            with warnings.catch_warnings(), zipfile.ZipFile(path, "w") as archive:
+                warnings.simplefilter("ignore")  # a name twice
+                for entry, data in entries:
+                    if isinstance(data, tuple):
+                        link = zipfile.ZipInfo(entry)
+                        link.create_system = 3
+                        link.external_attr = (stat.S_IFLNK | 0o755) << 16
+                        archive.writestr(link, data[1])
+                    else:
+                        archive.writestr(entry, data)
             return path
 
         info = plistlib.dumps({"DMTitleID": MKW})
+        app = "Mario Kart World.app/Contents"
+        out = str(self.tmp)
         cases = {
             "not a zip": library / "Broken.app.zip",
-            "outside": zipped("Outside.app.zip", {"Mario Kart World.app/Contents/Info.plist": info, "../../escaped.txt": b"x"}),
-            "absolute": zipped("Absolute.app.zip", {"/tmp/escaped.txt": b"x"}),
-            "another game's": zipped("Odyssey.app.zip", {"Super Mario Odyssey.app/Contents/Info.plist": plistlib.dumps({"DMTitleID": ODYSSEY})}),
-            "two apps": zipped("Two.app.zip", {"A.app/Contents/Info.plist": info, "B.app/Contents/Info.plist": info}),
+            "outside": zipped("Outside.app.zip", [(f"{app}/Info.plist", info), ("../../escaped.txt", b"x")]),
+            "absolute": zipped("Absolute.app.zip", [(f"{app}/Info.plist", info), (f"{out}/escaped.txt", b"x")]),
+            "under a link": zipped("Link.app.zip", [(f"{app}/Info.plist", info), (f"{app}/Out", ("->", out)), (f"{app}/Out/escaped.txt", b"x")]),
+            "a name twice": zipped("Twice.app.zip", [(f"{app}/Info.plist", info), (f"{app}/Out", ("->", f"{out}/escaped.txt")), (f"{app}/Out", b"x")]),
+            "another game's": zipped("Odyssey.app.zip", [("Super Mario Odyssey.app/Contents/Info.plist", plistlib.dumps({"DMTitleID": ODYSSEY}))]),
+            "two apps": zipped("Two.app.zip", [("A.app/Contents/Info.plist", info), ("B.app/Contents/Info.plist", info)]),
         }
         cases["not a zip"].write_bytes(b"not a zip")
         for case, path in cases.items():
-            with self.subTest(case), self.assertRaises(ValueError):
-                macapps.install(path, self.folder, MKW, old.name)
-            self.assertEqual(macapps.read_info(old).commit, "111111111111", case)
-            self.assertEqual(sorted(p.name for p in self.folder.iterdir()), [old.name], case)
-        self.assertFalse((self.tmp / "escaped.txt").exists())
+            with self.subTest(case):
+                with self.assertRaises(ValueError):
+                    macapps.install(path, self.folder, MKW, old.name)
+                self.assertEqual(macapps.read_info(old).commit, "111111111111")
+                self.assertEqual(sorted(p.name for p in self.folder.iterdir()), [old.name])
+                self.assertFalse((self.tmp / "escaped.txt").exists())
+        # A link inside the app, as a framework's, is the app's.
+        fine = zipped("Fine.app.zip", [(f"{app}/Info.plist", info), (f"{app}/Frameworks/Host.framework/Versions/A/Host", b"host"),
+                                       (f"{app}/Frameworks/Host.framework/Versions/Current", ("->", "A"))])
+        macapps.refuse_unsafe(fine)
+        fine.unlink()
         # Files named after a game, that are no app of it: never listed as
         # one, never in place of its own.
         self.assertEqual(macapps.index_packed(library), {})

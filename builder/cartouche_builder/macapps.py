@@ -430,12 +430,39 @@ def unpacked_size(packed: Path) -> int:
         raise ValueError(t("mac.not_packed", name=packed.name)) from error
 
 
+def refuse_unsafe(packed: Path) -> None:
+    """Refuses the zip PACKED when unpacking it could write outside the
+    folder it is unpacked in: an absolute name, a "..", a name twice (the
+    second written through the first, a link), or a name under a link.
+    ditto, which unpacks it on macOS, does not refuse them all; nxnative's
+    apps, which ditto zipped, have none."""
+    with zipfile.ZipFile(packed) as archive:
+        entries = archive.infolist()
+        names: set[str] = set()
+        links: set[str] = set()
+        for entry in entries:
+            parts = PurePosixPath(entry.filename).parts
+            if not parts or entry.filename.startswith("/") or ".." in parts:
+                raise ValueError(t("mac.not_packed", name=packed.name))
+            name = "/".join(parts)
+            if name in names:
+                raise ValueError(t("mac.not_packed", name=packed.name))
+            names.add(name)
+            if stat.S_ISLNK(entry.external_attr >> 16):
+                links.add(name)
+        for name in names:
+            parts = name.split("/")
+            if any("/".join(parts[:depth]) in links for depth in range(1, len(parts))):
+                raise ValueError(t("mac.not_packed", name=packed.name))
+
+
 def install(packed: Path, folder: Path, title_id: str, name: str, stop=None, progress=None) -> Path:
     """Puts the game's app kept in PACKED in FOLDER as NAME, in place of the
     game's app there (target_name chose NAME): unpacked beside it under a
     hidden name, then moved in whole as a build is (deliver). PROGRESS hears
     of the bytes unpacked, and of all there are."""
     total = unpacked_size(packed)
+    refuse_unsafe(packed)
     folder.mkdir(parents=True, exist_ok=True)
     staging = folder / f".{name}.builder-unpack"
     remove_tree(staging)

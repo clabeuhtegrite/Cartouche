@@ -17,15 +17,15 @@ import Foundation
 final class LCAppInfo {
     /// The app on this Mac.
     let url: URL
-    private let info: [String: Any]
+    /// Its Info.plist.
+    private let plist: [String: Any]
     /// When the app came to this Mac: its folder's creation.
     var installationDate: Date?
     private var loadedIcon: NSImage??
 
     init(url: URL) {
         self.url = url.standardizedFileURL
-        let plist = self.url.appendingPathComponent("Contents/Info.plist")
-        info = (NSDictionary(contentsOf: plist) as? [String: Any]) ?? [:]
+        plist = (NSDictionary(contentsOf: self.url.appendingPathComponent("Contents/Info.plist")) as? [String: Any]) ?? [:]
         installationDate = (try? self.url.resourceValues(forKeys: [.creationDateKey]))?.creationDate
     }
 
@@ -35,12 +35,12 @@ final class LCAppInfo {
 
     func displayName() -> String? {
         for key in ["CFBundleDisplayName", "CFBundleName"] {
-            if let name = info[key] as? String, !name.isEmpty { return name }
+            if let name = plist[key] as? String, !name.isEmpty { return name }
         }
         return url.deletingPathExtension().lastPathComponent
     }
 
-    func bundleIdentifier() -> String? { info["CFBundleIdentifier"] as? String }
+    func bundleIdentifier() -> String? { plist["CFBundleIdentifier"] as? String }
 
     /// LiveContainer's own settings for the app, which a Mac has none of.
     func info() -> NSMutableDictionary? { nil }
@@ -54,7 +54,7 @@ final class LCAppInfo {
     func iconIsDarkIcon(_ isDark: Bool) -> NSImage? {
         if let loadedIcon { return loadedIcon }
         var icon: NSImage?
-        let name = (info["CFBundleIconFile"] as? String) ?? (info["CFBundleIconName"] as? String)
+        let name = (plist["CFBundleIconFile"] as? String) ?? (plist["CFBundleIconName"] as? String)
         if let name, !name.isEmpty {
             let resources = url.appendingPathComponent("Contents/Resources", isDirectory: true)
             let file = name.hasSuffix(".icns") ? name : name + ".icns"
