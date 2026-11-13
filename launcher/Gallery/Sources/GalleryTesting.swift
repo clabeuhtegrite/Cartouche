@@ -355,6 +355,15 @@ enum GalleryKeyboard {
     /// From a text field out of sight, over the console: the keyboard shown,
     /// then put away. Each step gives up after a while, as no keyboard shows
     /// when the simulator has a hardware one.
+    ///
+    /// Without UIKit's animations, back once the keyboard is put away, so
+    /// that it comes and goes at once and leaves no animation on its way:
+    /// on 13 November, in a test that types, XCTest waited three times its
+    /// 60 s for the gallery's animations to end on the home ("App animations
+    /// complete notification not received"), until a game's sheet covered
+    /// it, and the test ran out of time (Launcher screens, run 225). Only
+    /// these tests show this keyboard, and none of the tests that do not
+    /// type ever waited so. No player sees it.
     static func showOnce() async {
         guard let window = await keyWindow() else {
             NSLog("[Gallery] no window to show the keyboard from")
@@ -364,6 +373,8 @@ enum GalleryKeyboard {
         let field = UITextField(frame: CGRect(x: -400, y: -400, width: 200, height: 44))
         field.isAccessibilityElement = false
         window.addSubview(field)
+        UIView.setAnimationsEnabled(false)
+        defer { UIView.setAnimationsEnabled(true) }
         let shown = await wait(for: UIResponder.keyboardDidShowNotification, atMost: 15) { _ = field.becomeFirstResponder() }
         let hidden = await wait(for: UIResponder.keyboardDidHideNotification, atMost: 5) { _ = field.resignFirstResponder() }
         field.removeFromSuperview()

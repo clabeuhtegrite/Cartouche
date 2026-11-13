@@ -12,16 +12,19 @@
 # gallery once first, with time: its first launch after the install can take
 # minutes. The import's tests pick an IPA in On My iPhone, which this script
 # puts there. A test that fails runs once more before it counts as failed,
-# and so do the tests when the test runner stops before the first one.
-# OUT keeps the results (UITests.xcresult), with the screen and the
+# and so do the tests when the test runner stops before the first one; a
+# test has ten minutes, which a test that runs out of them does not get
+# again. OUT keeps the results (UITests.xcresult), with the screen and the
 # accessibility tree of each test that failed, and where the gallery's main
-# thread was in each wait of a second or more (gallery-main-thread.txt,
-# GalleryWatch in Sources/GalleryTesting.swift). The log ends with what
-# matters most, as a tool that reads a job's log on GitHub may get only its
-# last few thousand lines: the main thread's waits test by test, where it
-# was in those that counted a second or more, the longest first, what the
-# gallery's Documents and On My iPhone held, then each test that failed
-# with what it found on the screen, each test's result, and the summary.
+# thread was in each wait of a second or more of this run
+# (gallery-main-thread.txt, GalleryWatch in Sources/GalleryTesting.swift).
+# The log ends with what matters most, as a tool that reads a job's log on
+# GitHub may get only its last few thousand lines: the main thread's waits
+# test by test, where it was in those that counted a second or more, the
+# longest first, the minutes XCTest waited for the gallery's animations to
+# end, what the gallery's Documents and On My iPhone held, then each test
+# that failed with what it found on the screen, each test's result, and the
+# summary.
 
 set -euo pipefail
 
@@ -136,13 +139,23 @@ else
   echo "::warning::the simulator has no local storage for On My iPhone: the IPA to pick is in the gallery's folder alone"
 fi
 
+# The main thread's waits of this run alone: on a Mac whose simulator stays
+# from a run to the next, as Ad's, the gallery's container keeps those of
+# the runs before, which pushed this run's out of the log.
+rm -f "$CONTAINER/tmp/gallery-main-thread.txt"
+
+# Ten minutes for a test, fifteen at most: a test that runs out of them is
+# not run again. On Ad's Mac, where a query of the screen can take 3 to 5 s,
+# tests that passed took up to 284 s, and one that XCTest held three times
+# 60 s waiting for the gallery's animations to end ran out of five minutes
+# (13 November).
 run_tests() {
   rm -rf "$OUT/UITests.xcresult"
   xcodebuild test-without-building -project "$PROJECT" -scheme CartoucheGallery \
     -destination "platform=iOS Simulator,id=$UDID" -derivedDataPath "$BUILD/DerivedData" \
     -resultBundlePath "$OUT/UITests.xcresult" \
     -retry-tests-on-failure -test-iterations 2 \
-    -test-timeouts-enabled YES -default-test-execution-time-allowance 300 -maximum-test-execution-time-allowance 600 \
+    -test-timeouts-enabled YES -default-test-execution-time-allowance 600 -maximum-test-execution-time-allowance 900 \
     -parallel-testing-enabled NO -collect-test-diagnostics never 2>&1 | tee "$OUT/xcodebuild.log"
 }
 status=0
@@ -197,6 +210,20 @@ if [ -n "$CONTAINER" ] && [ -f "$WAITS" ]; then
       print counted "\t" text "\037"
     }' "$WAITS" | sort -t "$(printf '\t')" -k1,1nr | cut -f2- | tr '\037' '\n' | demangle | head -n 1800 || true
 fi
+# Before each tap or text it types, XCTest waits for the gallery to be idle,
+# its animations ended: 60 s at most, after which it says so and goes on.
+# Minutes a test loses without failing, until it runs out of time.
+echo "== XCTest's waits of 60 s for the gallery's animations to end, test by test"
+awk '
+  match($0, /^Test Case .-\[[^]]+\]. started/) { test = substr($0, RSTART + 11, RLENGTH - 20); next }
+  /App animations complete notification not received/ {
+    at = $0; sub(/^ *t = */, "", at); sub(/s .*/, "", at)
+    waits[test] = waits[test] sprintf(", from %.1f s", at - 60); count[test]++; found = 1
+  }
+  END {
+    for (test in count) print "  " test ": " count[test] " times" waits[test]
+    if (!found) print "  none"
+  }' "$OUT/xcodebuild.log" | sed -E 's/CartoucheGalleryUITests\.//' || true
 if [ "$status" -ne 0 ]; then
   # What the Files picker had to show.
   echo "== The gallery's Documents"
@@ -217,8 +244,8 @@ if [ "$status" -ne 0 ]; then
 fi
 # Each test's result, and what the main thread's watch said at its end.
 echo "== Each test"
-grep -iE "^Test Case '.*' (passed|failed|skipped)|^== .*: Main thread: " "$OUT/xcodebuild.log" \
-  | sed -E "s/^Test Case '-\[CartoucheGalleryUITests\.//; s/\]'//" || true
+grep -iE "^Test Case '.*' (passed|failed|skipped|exceeded)|^== .*: Main thread: " "$OUT/xcodebuild.log" \
+  | sed -E "s/^Test Case '-\[CartoucheGalleryUITests\.//; s/\]'//; s/(exceeded execution time allowance of [0-9]+ minutes)\..*/\1/" || true
 echo "== The summary"
 xcrun xcresulttool get test-results summary --path "$OUT/UITests.xcresult" 2>/dev/null || true
 echo
