@@ -675,18 +675,24 @@ enum GalleryMac {
     /// Cartouche Builder at work on the Mac, as it tells Cartouche (work:
     /// mac-builds): Mario Kart World building, Donkey Kong Bananza waiting
     /// its turn, Link's Awakening built this morning, and a game the
-    /// player has not installed, whose last build failed yesterday.
+    /// player has not installed, whose last build failed yesterday. Its
+    /// words in the gallery's language, as a Mac in that language says
+    /// them (stageText in the Mac's Theme.swift).
     static func builds(now: Date = Date()) -> CartoucheBridgeBuilds {
         let hour: TimeInterval = 3_600
+        let french = CartoucheText.bundle.preferredLocalizations.first == "fr"
         return CartoucheBridgeBuilds(running: true, games: [
             .init(id: "0400C3F00006E000", name: "Mario Kart World", state: "building", reasons: ["changes"],
-                  progress: 0.42, step: "Compiling shaders for the iPhone", left: 21 * 60, built: now.addingTimeInterval(-3 * 24 * hour)),
+                  progress: 0.42, step: french ? "Compilation des shaders pour l’iPhone" : "Compiling shaders for the iPhone",
+                  left: 21 * 60, built: now.addingTimeInterval(-3 * 24 * hour)),
             .init(id: "040074A01BF12000", name: "Donkey Kong Bananza", state: "queued", reasons: ["changes"], turn: 1,
                   built: now.addingTimeInterval(-6 * 24 * hour)),
             .init(id: "01006BB00C6F0000", name: "The Legend of Zelda: Link's Awakening", state: "up_to_date",
                   built: now.addingTimeInterval(-9 * hour)),
             .init(id: "01003FC01670C000", name: "13 Sentinels: Aegis Rim", state: "failed",
-                  failed: now.addingTimeInterval(-26 * hour), error: "Building the app stopped: Xcode found no iOS SDK."),
+                  failed: now.addingTimeInterval(-26 * hour),
+                  error: french ? "La construction de l’app s’est arrêtée\u{00A0}: Xcode n’a trouvé aucun SDK iOS."
+                                : "Building the app stopped: Xcode found no iOS SDK."),
         ])
     }
 

@@ -50,7 +50,8 @@ final class CartoucheMacBuildsWatch: ObservableObject {
     /// turn, or starts.
     static var gallery: (mac: String, builds: CartoucheBridgeBuilds, showsAll: Bool)?
     /// Whether the gallery's sheet opens on the game's build on the Mac
-    /// (screen: sheet-mac).
+    /// (screen: sheet-mac): its section in the middle of the screen, or,
+    /// with the Mac's builds open, down to their end.
     static var galleryScrolls = false
     #endif
 
@@ -370,6 +371,10 @@ struct CartoucheMacBuildsSection: View {
 /// first, and those done, the newest first.
 @available(iOS 17.0, *)
 struct CartoucheMacBuildsList: View {
+    /// The last build done, the list's end, which the gallery's sheet
+    /// scrolls to (screen: sheet-mac, work: mac-builds-all).
+    static let end = "mac.builds.end"
+
     let builds: CartoucheBridgeBuilds
 
     var body: some View {
@@ -398,8 +403,13 @@ struct CartoucheMacBuildsList: View {
             heading(CartoucheText.macBuildsDone)
             ForEach(done) { item in
                 let when = CartoucheMacBuildsSection.when(item.date)
-                row(item.game.name, detail: item.failed ? CartoucheText.macBuildsFailed(when) : CartoucheText.macBuildsBuilt(when),
-                    systemImage: item.failed ? "exclamationmark.triangle" : "checkmark.circle")
+                let line = row(item.game.name, detail: item.failed ? CartoucheText.macBuildsFailed(when) : CartoucheText.macBuildsBuilt(when),
+                               systemImage: item.failed ? "exclamationmark.triangle" : "checkmark.circle")
+                if item.id == done.last?.id {
+                    line.id(Self.end)
+                } else {
+                    line
+                }
             }
         }
     }

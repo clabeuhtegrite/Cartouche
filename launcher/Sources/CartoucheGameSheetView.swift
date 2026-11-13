@@ -181,12 +181,23 @@ struct CartoucheGameSheetView: View {
             .onAppear { macBuilds.start() }
             .onDisappear { macBuilds.stop() }
             #if CARTOUCHE_GALLERY
-            // The gallery's sheet on the game's build on the Mac, its
-            // section's title in view (screen: sheet-mac).
+            // The gallery's sheet on the game's build on the Mac (screen:
+            // sheet-mac): the game's build in the middle of the screen, or,
+            // with all the Mac's builds open, down to their end, the
+            // section's title still in view. Twice: the list had only
+            // guessed the heights of the rows on the way, which the first
+            // scroll lays out, and the second lands where asked.
             .task {
                 guard CartoucheMacBuildsWatch.galleryScrolls else { return }
-                try? await Task.sleep(nanoseconds: 500_000_000)
-                reader.scrollTo(CartoucheMacBuildsSection.anchor, anchor: UnitPoint(x: 0.5, y: 0.2))
+                let showsAll = CartoucheMacBuildsWatch.gallery?.showsAll == true
+                for _ in 0..<2 {
+                    try? await Task.sleep(nanoseconds: 500_000_000)
+                    if showsAll {
+                        reader.scrollTo(CartoucheMacBuildsList.end, anchor: .bottom)
+                    } else {
+                        reader.scrollTo(CartoucheMacBuildsSection.anchor, anchor: .center)
+                    }
+                }
             }
             #endif
             // What the player gave in Edit the game's info shows at once:
