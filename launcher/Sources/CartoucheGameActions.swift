@@ -1323,6 +1323,19 @@ final class CartoucheGameActions: ObservableObject {
                                    documents: container.containerURL.appendingPathComponent("Documents", isDirectory: true))
     }
 
+    /// Where an nxnative game writes its logs, in the data folder it plays
+    /// with, for Share the log on its sheet (CartoucheGameLogView); nil for
+    /// any other app, or a game that has no data folder yet.
+    func logs(of app: LCAppModel) -> CartoucheGameLogFolder? {
+        let catalog = CartoucheCatalog.shared
+        guard let found = catalog.gameTitle(of: app),
+              let container = app.uiSelectedContainer ?? app.uiContainers.first else { return nil }
+        let titleId = found.isEmpty ? catalog.titleId(matchingName: app.displayName) : found
+        let build = CartoucheInstalledBuilds.shared.record(of: app) ?? CartoucheInstalledBuilds.installedBuild(of: app)
+        return CartoucheGameLogFolder(game: app.displayName, titleId: titleId, build: build,
+                                      documents: container.containerURL.appendingPathComponent("Documents", isDirectory: true))
+    }
+
     /// Sends the saves of the nxnative games among APPS that changed since
     /// they were last in step with the player's saves folder, if they chose
     /// one (CartoucheSaveBackups).

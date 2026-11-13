@@ -107,6 +107,13 @@ enum Words {
     static let putBack = "Put back a copy"                  // saves.putBack
     static let putBackCopy = "Put back the copy of "        // saves.putBack.action
     static let putBackDone = "The copy of "                 // saves.putBack.done
+    static let shareLog = "Share the log"                   // gameLog.row
+    static let gameLog = "Game log"                         // gameLog.title
+    static let lastSession = "Last session"                 // gameLog.last
+    static let endedInACrash = "Ended in a crash"           // gameLog.crashed
+    static let sendTheLog = "Send the log…"                 // gameLog.share
+    static let sendToCartouche = "Send to Cartouche"        // report.sendToCartouche
+    static let whatCartoucheReceives = "What Cartouche receives" // gameLog.whatIsSent
 }
 
 /// The gallery's own words (GalleryTesting.swift).
@@ -150,7 +157,8 @@ struct Launch {
     /// player's Mac paired; "mac-nearby", "mac-code" or "mac-refused", what
     /// Add your Mac finds; "saves", the first game's saves and a folder in
     /// Files as the saves folder; "drive-signed-out", the player's Google
-    /// Drive, whose sign-in Google ended, with two games' saves waiting.
+    /// Drive, whose sign-in Google ended, with two games' saves waiting;
+    /// "log", the first game's logs of its last two sessions.
     var work: String?
     /// The game being installed, or whose install failed.
     var sheet: String?

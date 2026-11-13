@@ -1004,6 +1004,278 @@
         }
       }
     },
+    "gameLog.before" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Session before"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Partie d’avant"
+          }
+        }
+      }
+    },
+    "gameLog.crashed" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ended in a crash"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Terminée par un plantage"
+          }
+        }
+      }
+    },
+    "gameLog.fileWord" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "log"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "journal"
+          }
+        }
+      }
+    },
+    "gameLog.footer" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "What the game wrote as it ran: whoever helps you sees in it how it started and how it ended."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ce que le jeu a écrit pendant la partie : qui vous aide y voit comment il a démarré et comment il s’est arrêté."
+          }
+        }
+      }
+    },
+    "gameLog.last" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Last session"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dernière partie"
+          }
+        }
+      }
+    },
+    "gameLog.none" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The game has not written a log yet."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Le jeu n’a pas encore écrit de journal."
+          }
+        }
+      }
+    },
+    "gameLog.preparing" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Preparing the log…"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Préparation du journal…"
+          }
+        }
+      }
+    },
+    "gameLog.row" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Share the log"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Partager le journal"
+          }
+        }
+      }
+    },
+    "gameLog.send.footer" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cartouche receives the start and the end of each log, privately and cleaned: without the paths of your folders, addresses, names or identifiers."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cartouche reçoit le début et la fin de chaque journal, en privé et nettoyés : sans les chemins de vos dossiers, ni adresses, ni noms, ni identifiants."
+          }
+        }
+      }
+    },
+    "gameLog.sent.footer" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "What is in angle brackets, such as <path> or <address>, stands for what was taken out. Cartouche’s server passes the rest to the project, privately."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ce qui est entre chevrons, comme <path> ou <address>, remplace ce qui a été retiré. Le serveur de Cartouche transmet le reste au projet, en privé."
+          }
+        }
+      }
+    },
+    "gameLog.share" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Send the log…"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Envoyer le journal…"
+          }
+        }
+      }
+    },
+    "gameLog.share.footer" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "By Messages, Mail or AirDrop, to whoever helps you: the log goes as the game wrote it, with the names of your folders in it."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Par Messages, Mail ou AirDrop, à qui vous aide : le journal part tel que le jeu l’a écrit, avec les noms de vos dossiers."
+          }
+        }
+      }
+    },
+    "gameLog.title" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Game log"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Journal du jeu"
+          }
+        }
+      }
+    },
+    "gameLog.what.prompt" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "What happened (optional)"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ce qui s’est passé (facultatif)"
+          }
+        }
+      }
+    },
+    "gameLog.whatIsSent" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "What Cartouche receives"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ce que reçoit Cartouche"
+          }
+        }
+      }
+    },
+    "gameLog.zipFailed" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The log could not be prepared: %@"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Le journal n’a pas pu être préparé : %@"
+          }
+        }
+      }
+    },
     "games.empty.message" : {
       "extractionState" : "manual",
       "localizations" : {

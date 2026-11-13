@@ -28,7 +28,7 @@ The full list is in [telemetry/README.md](../telemetry/README.md#reports). **Sys
 
 ### What is never sent
 
-- A line of a game's log, which can hold paths and keys; a file, a game or a save.
+- A line of a game's log, which can hold paths and keys; a file, a game or a save. A log you share yourself goes only where you send it ([Reporting a problem](#reporting-a-problem)).
 - Your Apple ID, your name, the iPhone's name, its serial number or any identifier of Apple's, such as the advertising identifier.
 - Anything of your storage: its address, folders, account or password.
 - Your location, contacts, photos, or anything of another app.
@@ -59,6 +59,8 @@ The full list is in [telemetry/README.md](../telemetry/README.md#cartouche-build
 It holds what you write; Cartouche's and iOS's versions and the iPhone's model, language, memory, free space and how far the setup is; Cartouche's last steps; the reports of its last errors of the week; and the iPhone's memory limit, for the catalog's list of iPhones.
 
 **Send to Cartouche** gives it to the project's server, which files it as an issue of the project's private repository on GitHub, read only by the project, and kept there until the project deletes it. GitHub stores it in the United States. The server keeps it only until GitHub has it, then only the day it came, until the day after; as with game measurements, it never keeps the address it came from. Through GitHub's form, a report is public, under your GitHub account.
+
+**A game's log**, from its sheet (**Share the log**), leaves the same way, only when you tap one of two buttons. **Send the log…** shares the logs of the game's last two sessions as the game wrote them, with the names of your folders in them, in a zip, by Messages, Mail, AirDrop or the app you choose: Cartouche's server never sees it. **Send to Cartouche** sends the server a summary and the start and the end of each log, which you can see first, and which Cartouche cleans: the paths of your folders, addresses, your names, identifiers, anything shaped like a key and the memory a crash writes out are taken out. The server files it and keeps it as a report.
 
 ## Games Cartouche does not know
 

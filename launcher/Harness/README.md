@@ -32,6 +32,7 @@ The knobs a test sets are in `HarnessLC` (signing, the certificate, the game's p
 - [`UnpackTests`](Tests/UnpackTests.swift): LiveContainer's unpacker and Cartouche's reader on the same IPAs, in Zip64 or not, stored or deflated, with links, and what each does with an IPA cut short or damaged.
 - [`StorageTests`](Tests/StorageTests.swift): the games folder and the saves folder, as a folder of the iPhone: the games listed, a game installed from there, copied there and installed again, its saves sent after a game and back with its next install.
 - [`GameFilesApartTests`](Tests/GameFilesApartTests.swift): a game nxnative built with its files apart, `romfs.id` in its app and its `romfs.img` beside the IPA, installed from the games folder or from Files, without its image or with another, and a new build of it, which keeps the image the installed one holds, or needs another.
+- [`LogShareTests`](Tests/LogShareTests.swift): a game's log, shared from its sheet: the logs nxnative writes, found in the data folder the game plays with once it has played, the zip of them as the game wrote them, and what Send to Cartouche sends of them, cleaned.
 - [`LoggingTests`](Tests/LoggingTests.swift): the harness itself: what Cartouche logs never waits for Xcode to read it, its standard error being a file.
 
 The storage servers themselves are tested against real ones by [`launcher/StorageTests`](../StorageTests/README.md), and the launcher's rules on their own by `swift test --package-path launcher`.

@@ -14,9 +14,10 @@
 //  the game's info for the player's own game (CartoucheGameInfoView), with
 //  what IGDB has of a game Cartouche does not know, after which the sheet
 //  goes back to its top, where the name and cover show; the game's copy in
-//  the games folder and Uninstall, the testers' results, and last, folded,
-//  the technical details: the recommended settings, what nxnative's
-//  profile says and which build is installed.
+//  the games folder, its log to share (CartoucheGameLogView) and Uninstall,
+//  the testers' results, and last, folded, the technical details: the
+//  recommended settings, what nxnative's profile says and which build is
+//  installed.
 //
 
 import SwiftUI
@@ -40,6 +41,9 @@ struct CartoucheGameSheetView: View {
     /// Opens what the player says of their game: its name, platform, genre
     /// and cover.
     var onEditInfo: () -> Void = {}
+    /// Whether the sheet opens on the game's management, near its bottom,
+    /// rather than on its top: for the gallery's screens of it.
+    var opensOnManagement = false
     @ObservedObject private var actions = CartoucheGameActions.shared
     @ObservedObject private var keeping = CartoucheGameKeeping.shared
     @ObservedObject private var reach = CartoucheStorageReach.shared
@@ -51,7 +55,7 @@ struct CartoucheGameSheetView: View {
          onUninstall: @escaping (LCAppModel) -> Void,
          onInstallStored: @escaping (CartoucheStoredGame) -> Void = { _ in },
          onExport: @escaping (LCAppModel) -> Void = { _ in },
-         onEditInfo: @escaping () -> Void = {}) {
+         onEditInfo: @escaping () -> Void = {}, opensOnManagement: Bool = false) {
         self.entry = entry
         self.memory = memory
         self.onPlay = onPlay
@@ -61,6 +65,7 @@ struct CartoucheGameSheetView: View {
         self.onInstallStored = onInstallStored
         self.onExport = onExport
         self.onEditInfo = onEditInfo
+        self.opensOnManagement = opensOnManagement
     }
 
     /// The memory the game has here, where Play starts it: behind the
@@ -93,6 +98,8 @@ struct CartoucheGameSheetView: View {
     /// The header's row, which the sheet goes back to when what the player
     /// says of the game changes.
     private static let top = "top"
+    /// The last row of the game's management.
+    private static let management = "management"
 
     var body: some View {
         ScrollViewReader { reader in
@@ -167,6 +174,11 @@ struct CartoucheGameSheetView: View {
             // the sheet goes back to the game's name and cover.
             .onChange(of: entry.player) { _, _ in
                 withAnimation { reader.scrollTo(Self.top, anchor: .top) }
+            }
+            .task {
+                guard opensOnManagement else { return }
+                try? await Task.sleep(for: .milliseconds(300))
+                reader.scrollTo(Self.management, anchor: .center)
             }
         }
         // The header names the game: the bar above it stays empty.
@@ -385,7 +397,7 @@ struct CartoucheGameSheetView: View {
     /// Whether the game starts in Cartouche's place, for its own needs or
     /// because games behind the console run without Increased Memory Limit
     /// here, the game's copy in the games folder, or the button that copies
-    /// it there, and Uninstall, last, in red.
+    /// it there, its log, once it wrote one, and Uninstall, last, in red.
     private func manageSection(_ app: LCAppModel) -> some View {
         Section {
             if keeping.keepsConsoleOpen, CartoucheGameKeeping.isAvailable,
@@ -418,6 +430,15 @@ struct CartoucheGameSheetView: View {
                     Label(CartoucheText.exportTo(server.name), systemImage: "externaldrive.fill.badge.plus")
                 }
             }
+            // What the game wrote of its last sessions, for whoever helps
+            // the player: shared as it is, or sent to Cartouche cleaned.
+            if let logs = actions.logs(of: app), !logs.files.isEmpty {
+                NavigationLink {
+                    CartoucheGameLogView(folder: logs, tileKey: entry.tileKey)
+                } label: {
+                    Label(CartoucheText.gameLogRow, systemImage: "doc.text")
+                }
+            }
             // Quit the game first.
             if !actions.isRunning(app) {
                 Button(role: .destructive) {
@@ -426,6 +447,7 @@ struct CartoucheGameSheetView: View {
                     Label(CartoucheText.uninstall, systemImage: "trash")
                         .foregroundStyle(CartoucheTheme.danger)
                 }
+                .id(Self.management)
             }
         }
     }
