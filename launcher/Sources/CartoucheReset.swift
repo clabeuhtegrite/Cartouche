@@ -2,7 +2,7 @@
 //  CartoucheReset.swift
 //  Cartouche
 //
-//  System › Reset Cartouche (CartoucheResetView, decision 97): Cartouche
+//  System › Reset Cartouche (CartoucheResetView, decision 99): Cartouche
 //  erases what the player put in it and what it learned since, as
 //  CartoucheResetPlan says, then starts again as a new player finds it the
 //  first time it opens after the Cartouche Installer: without a computer,

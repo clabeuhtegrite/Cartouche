@@ -2,7 +2,7 @@
 //  ResetTests.swift
 //  CartoucheHarnessTests
 //
-//  System › Reset Cartouche (CartoucheReset, decision 97), on a Cartouche
+//  System › Reset Cartouche (CartoucheReset, decision 99), on a Cartouche
 //  a player has used: a game installed, the data folder of one uninstalled
 //  with its saves kept, their storage, a folder of it in Cartouche's own
 //  space in Files and a server with its password, the Apple ID the

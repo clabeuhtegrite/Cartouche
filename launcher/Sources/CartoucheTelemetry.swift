@@ -246,7 +246,7 @@ final class CartoucheTelemetry: ObservableObject {
 
     /// Cartouche is being reset (CartoucheReset.swift): what the telemetry
     /// knew of the games goes with them. Its number, its switch and the
-    /// reports not sent yet stay, and its file with them (decision 97).
+    /// reports not sent yet stay, and its file with them (decision 99).
     func forgetGames() {
         state.logs = CartoucheTelemetryLogs()
         state.runs = CartoucheTelemetryRuns()

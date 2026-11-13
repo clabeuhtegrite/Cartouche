@@ -3,7 +3,7 @@
 //  Cartouche
 //
 //  What System › Reset Cartouche erases and keeps (CartoucheReset.swift,
-//  decision 97): Cartouche starts again as a new player finds it, the first
+//  decision 99): Cartouche starts again as a new player finds it, the first
 //  time it opens after the Cartouche Installer, without the computer.
 //
 //  Erased: everything the player put into Cartouche, and everything it
