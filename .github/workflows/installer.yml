@@ -2,15 +2,18 @@ name: Installer
 
 # Tests and builds the Cartouche Installer (installer/): the Mac app, one for
 # Apple silicon and Intel, in a disk image, and the Windows setup. The builds
-# stay with the run. Cartouche's source is in the paths, since the installer
-# reads it and its tests read the one on the branch. Run from the Actions tab
-# on main with Publish ticked, once the Full test pass has passed on that
-# commit (full-pass.yml), it also publishes them as the release
-# installer-v<version>, the version of installer/src-tauri/tauri.conf.json,
-# without GitHub's Latest mark, which is meant for Cartouche (GitHub still
-# gives it to the newest release that is not a pre-release), then publishes
-# the showcase site again, whose download buttons give the newest builds
-# (site/README.md). How to publish: installer/README.md.
+# stay with the run, and the pictures of the window its tests take too and,
+# for a branch of this repository, on the branch installer-captures/<branch>,
+# one commit that each run replaces. Cartouche's source is in the paths, since
+# the installer reads it and its tests read the one on the branch. Run from
+# the Actions tab on main with Publish ticked, once the Full test pass has
+# passed on that commit (full-pass.yml), it also publishes them as the
+# release installer-v<version>, the version of
+# installer/src-tauri/tauri.conf.json, without GitHub's Latest mark, which is
+# meant for Cartouche (GitHub still gives it to the newest release that is
+# not a pre-release), then publishes the showcase site again, whose download
+# buttons give the newest builds (site/README.md). How to publish:
+# installer/README.md.
 
 on:
   # Not on main after a pull request: that one built the same files, and
@@ -81,14 +84,14 @@ jobs:
         if: runner.os == 'macOS'
         working-directory: installer/src-tauri
         env:
-          CARTOUCHE_UI_CAPTURES: ${{ github.workspace }}/build/installer-captures
+          CARTOUCHE_UI_CAPTURES: ${{ github.workspace }}/build/installer-captures/${{ matrix.name }}
         run: cargo test --locked --features ui-tests --test ui
       - name: Test the window
         if: runner.os == 'Windows'
         shell: pwsh
         working-directory: installer/src-tauri
         env:
-          CARTOUCHE_UI_CAPTURES: ${{ github.workspace }}/build/installer-captures
+          CARTOUCHE_UI_CAPTURES: ${{ github.workspace }}/build/installer-captures/${{ matrix.name }}
         run: |
           $ErrorActionPreference = 'Stop'
           $PSNativeCommandUseErrorActionPreference = $true
@@ -96,8 +99,8 @@ jobs:
           & "$vs\Common7\Tools\Launch-VsDevShell.ps1" -Arch amd64 -HostArch amd64 -SkipAutomaticLocation
           cargo test --locked --features ui-tests --test ui
       # The window as a Mac and Windows draw it, for a change to it to be
-      # seen before it merges. Not named cartouche-installer-*, which the
-      # release takes.
+      # seen before it merges, in a folder named after the system. Not named
+      # cartouche-installer-*, which the release takes.
       - name: Keep the window's captures
         if: ${{ !cancelled() }}
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
@@ -153,6 +156,42 @@ jobs:
           path: build/installer
           if-no-files-found: error
           retention-days: 30
+
+  # The only job that can write to a branch runs nothing from the pull
+  # request: it commits the pictures of the window the builds above kept,
+  # macOS/ and Windows/, where git fetches them without the Actions API. Not
+  # in the Full test pass, which publishes nothing.
+  keep:
+    name: Keep the window's pictures on a branch
+    needs: build
+    if: ${{ !cancelled() && !inputs.full && (github.event_name == 'workflow_dispatch' || github.event.pull_request.head.repo.full_name == github.repository) }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # the branch installer-captures/<branch>
+    env:
+      BRANCH: installer-captures/${{ github.head_ref || github.ref_name }}
+      SOURCE: ${{ github.event.pull_request.head.sha || github.sha }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
+        with:
+          pattern: installer-window-captures-*
+          merge-multiple: true
+          path: captures
+      - name: Push them to installer-captures/<branch>
+        run: |
+          if [ -z "$(ls -A captures 2>/dev/null)" ]; then
+            echo "No picture of the window in this run."
+            exit 0
+          fi
+          cd captures
+          git init -q -b captures
+          git add -A
+          git -c user.name="github-actions[bot]" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" \
+            commit -q -m "Installer window of $SOURCE"
+          gh auth setup-git
+          git push -q -f "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY.git" "HEAD:refs/heads/$BRANCH"
+          echo "Pushed to $BRANCH"
 
   # Nothing is published from a commit before the Full test pass has passed
   # on it: once both are built, this waits for the pass running, which the
