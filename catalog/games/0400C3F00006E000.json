@@ -22,6 +22,45 @@
       "notes": [
         "Ran smoothly at 1080p in handheld mode. Memory peak not recorded yet."
       ]
+    },
+    {
+      "device": "iPhone18,2",
+      "iOS": "27.2.1",
+      "date": "2026-11-12",
+      "engine": "nxnative, its build not reported",
+      "status": "playable-with-issues",
+      "notes": [
+        "Measured by Cartouche on 3 iPhones, 5 sessions from 2026-11-11 to 2026-11-12. 1 session ended badly: 1 did not start."
+      ],
+      "measured": {
+        "iPhones": 3,
+        "sessions": 5,
+        "from": "2026-11-11",
+        "to": "2026-11-12",
+        "targetFps": 60,
+        "endedBadlyPercent": 20
+      }
+    },
+    {
+      "device": "iPhone19,4",
+      "iOS": "27.3",
+      "date": "2026-11-12",
+      "engine": "nxnative, its build not reported",
+      "status": "playable-with-issues",
+      "peakMemoryMiB": 5499,
+      "notes": [
+        "Measured by Cartouche on 4 iPhones, 9 sessions from 2026-11-11 to 2026-11-12: 32.2 fps for 60 (median), 83 stutters a minute. 3 sessions ended badly: 3 crashes."
+      ],
+      "measured": {
+        "iPhones": 4,
+        "sessions": 9,
+        "from": "2026-11-11",
+        "to": "2026-11-12",
+        "fps": 32.2,
+        "targetFps": 60,
+        "stuttersPerMinute": 83,
+        "endedBadlyPercent": 33.3
+      }
     }
   ]
 }
