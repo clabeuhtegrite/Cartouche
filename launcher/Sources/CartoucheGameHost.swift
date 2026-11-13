@@ -46,6 +46,14 @@ final class CartoucheGameHost {
     private var homePresses: AnyCancellable?
     private var activation: NSObjectProtocol?
     private let calls = CartoucheGameSceneCalls()
+    /// Cartouche's scene accessories, which ask iOS for the TV while the
+    /// game runs (CartoucheTV.swift), with the view controllers they are
+    /// on.
+    private(set) var tvAccessories: [(controller: UIViewController, registration: AnyObject)] = []
+    /// The game's own scene on the TV, which LiveContainer opened in the
+    /// game's process.
+    private(set) var gameOnTV: UIViewController?
+    private var screenWatch: [NSObjectProtocol] = []
 
     private init() {}
 
@@ -72,6 +80,12 @@ final class CartoucheGameHost {
         self.window = window
         self.screen = screen
         isInFront = true
+        // A TV shows the game alone from now on, never the iPhone's screen.
+        CartoucheTV.shared.card.show(app)
+        CartoucheTV.shared.host = self
+        askForTheTV(from: [consoleWindow?.rootViewController, screen])
+        watchScreens()
+        guardTheTV()
         UIView.animate(withDuration: 0.25) { window.alpha = 1 }
         screen.rotate()
         // The player may play with a controller alone: the iPhone must not
@@ -131,6 +145,8 @@ final class CartoucheGameHost {
         if !isInFront {
             setGameForeground(false)
         }
+        CartoucheTV.shared.card.status = isInFront ? .playing : .paused
+        openGameOnTV()
         guard let app else { return }
         let pid = Int(vc.pid)
         // The game's process writes its first reading as it starts: then
@@ -149,6 +165,7 @@ final class CartoucheGameHost {
         guard app != nil, isInFront, let window else { return }
         isInFront = false
         setGameForeground(false)
+        showOnTV(inFront: false)
         CartoucheGamepad.shared.gameInFront = false
         UIView.animate(withDuration: 0.2) { window.alpha = 0 }
         Task { [weak self] in
@@ -170,11 +187,15 @@ final class CartoucheGameHost {
               // shows on the console until it ends.
               CartoucheGameActions.shared.work == nil else { return }
         isInFront = true
+        // Before the game shows again: hidden from a TV that mirrors the
+        // iPhone, until iOS hands Cartouche that TV again.
+        guardTheTV()
         window.isHidden = false
         window.makeKey()
         UIView.animate(withDuration: 0.2) { window.alpha = 1 }
         screen.rotate()
         setGameForeground(true)
+        showOnTV(inFront: true)
         CartoucheGamepad.shared.gameInFront = true
         UIApplication.shared.isIdleTimerDisabled = true
         CartoucheGameActions.shared.gameDidMove(inFront: true)
@@ -277,11 +298,17 @@ final class CartoucheGameHost {
     fileprivate func sceneSettingsChanged(_ vc: AppSceneViewController, settings: UIMutableApplicationSceneSettings,
                                           context: Any?) {
         guard vc === scene else { return }
+        let cartoucheInForeground = (settings.value(forKey: "foreground") as? Bool) ?? true
         settings.interruptionPolicy = 0
         if !isInFront {
             settings.setValue(false, forKey: "foreground")
         }
         vc.presenter?.scene?.updateSettings(settings, withTransitionContext: context, completion: nil)
+        // The game's scene on the TV follows Cartouche into the background
+        // and back, as its own scene does.
+        if gameOnTV != nil {
+            vc.setExternalDisplaySceneForeground(isInFront && cartoucheInForeground)
+        }
     }
 
     // MARK: The end
@@ -300,6 +327,17 @@ final class CartoucheGameHost {
     }
 
     private func tearDown() {
+        // The TV goes back to iOS, which mirrors the console on it again.
+        closeGameOnTV()
+        stopAskingForTheTV()
+        if CartoucheTV.shared.host === self {
+            CartoucheTV.shared.host = nil
+            CartoucheTV.shared.card.clear()
+        }
+        for observer in screenWatch {
+            NotificationCenter.default.removeObserver(observer)
+        }
+        screenWatch = []
         if let scene {
             scene.delegate = nil
             scene.willMove(toParent: nil)
@@ -332,6 +370,117 @@ final class CartoucheGameHost {
         }
     }
 
+    // MARK: The TV (CartoucheTV.swift)
+
+    /// Asks iOS for the TV, from CONTROLLERS, while the game runs: iOS 27
+    /// mirrors the iPhone on a TV unless the app on screen registers a scene
+    /// accessory for it. The console's view controller stays on screen
+    /// under the game, paused or not, and the game's screen is on top while
+    /// the game is: whichever iOS finds the more relevant, it hands
+    /// Cartouche the TV, never a copy of the game with its controls.
+    private func askForTheTV(from controllers: [UIViewController?]) {
+        guard #available(iOS 27.0, *) else { return }
+        let configuration = UISceneConfiguration(name: nil, sessionRole: .windowExternalDisplayNonInteractive)
+        configuration.delegateClass = CartoucheTVSceneDelegate.self
+        for case let controller? in controllers {
+            let registration = controller.registerSceneAccessory(.externalNonInteractive(sceneConfiguration: configuration))
+            registration.isEnabled = true
+            tvAccessories.append((controller: controller, registration: registration as AnyObject))
+        }
+    }
+
+    private func stopAskingForTheTV() {
+        if #available(iOS 27.0, *) {
+            for (controller, registration) in tvAccessories {
+                if let registration = registration as? UISceneAccessoryRegistration {
+                    controller.unregisterSceneAccessory(registration)
+                }
+            }
+        }
+        tvAccessories = []
+    }
+
+    /// The game's own scene on the TV, once its process runs and iOS has
+    /// handed Cartouche the TV: the game fills it, nxnative with its
+    /// picture, docked. Without it the TV shows the game's card.
+    private func openGameOnTV() {
+        let tv = CartoucheTV.shared
+        guard gameOnTV == nil, let tvScreen = tv.screen, let display = tv.window?.windowScene?.screen,
+              let scene, scene.isAppRunning else { return }
+        guard let made = scene.openExternalDisplayScene(on: display) else {
+            CartoucheTV.note("TV: the game has no scene of its own on the TV, which shows its card")
+            return
+        }
+        gameOnTV = made
+        tvScreen.showGame(made)
+        tvScreen.showsGame = isInFront
+        scene.setExternalDisplaySceneForeground(isInFront)
+        CartoucheTV.note(String(format: "TV: the game's own scene is on the TV (%.0fx%.0f points)",
+                                display.bounds.width, display.bounds.height))
+    }
+
+    private func closeGameOnTV() {
+        guard let gameOnTV else { return }
+        self.gameOnTV = nil
+        if let tvScreen = CartoucheTV.shared.screen, tvScreen.game === gameOnTV {
+            tvScreen.removeGame()
+        }
+        scene?.closeExternalDisplayScene()
+    }
+
+    /// What the TV shows as the game comes and goes: the game's own scene
+    /// while the game is on screen, its card, paused, while the console is
+    /// over it. The game's scene on the TV follows its own into the
+    /// background, where nxnative pauses.
+    private func showOnTV(inFront: Bool) {
+        let tv = CartoucheTV.shared
+        if tv.card.status != .starting {
+            tv.card.status = inFront ? .playing : .paused
+        }
+        tv.screen?.showsGame = inFront
+        if gameOnTV != nil {
+            scene?.setExternalDisplaySceneForeground(inFront)
+        }
+        guardTheTV()
+    }
+
+    /// Never the game with its controls on a TV, even for a moment: while
+    /// the game is on screen and a TV mirrors the iPhone, as it may before
+    /// iOS hands Cartouche that TV, or if it never does, the game's screen
+    /// hides the game, unless the player shows it anyway.
+    func guardTheTV() {
+        guard let screen else { return }
+        let hides = isInFront && CartoucheTV.shared.window == nil && Self.iPhoneIsMirrored()
+        let hid = screen.hidesGameForTV
+        screen.hidesGameForTV = hides
+        // Noted as it changes: shown anyway, the game stays so.
+        if screen.hidesGameForTV != hid {
+            CartoucheTV.note(hides ? "TV: a display mirrors the iPhone, the game hides from it" : "TV: the game shows again")
+        }
+    }
+
+    /// Whether a display shows a copy of the iPhone's screen: a TV, by
+    /// cable or AirPlay, that iOS has not handed Cartouche.
+    static func iPhoneIsMirrored() -> Bool {
+        #if CARTOUCHE_HARNESS
+        // In the launcher's harness (launcher/Harness), as a test sets it.
+        return HarnessLC.iPhoneMirrored
+        #else
+        return UIScreen.screens.contains { $0.mirrored != nil }
+        #endif
+    }
+
+    /// A display that comes or goes may start or stop a copy of the
+    /// iPhone's screen.
+    private func watchScreens() {
+        let center = NotificationCenter.default
+        for name in [UIScreen.didConnectNotification, UIScreen.didDisconnectNotification, UIScreen.modeDidChangeNotification] {
+            screenWatch.append(center.addObserver(forName: name, object: nil, queue: .main) { [weak self] _ in
+                MainActor.assumeIsolated { self?.guardTheTV() }
+            })
+        }
+    }
+
     // MARK: Where the game shows
 
     private static func hostScene() -> UIWindowScene? {
@@ -355,6 +504,26 @@ final class CartoucheGameHost {
         if allowed.contains(.landscapeLeft) { mask.insert(.landscapeLeft) }
         if allowed.contains(.landscapeRight) { mask.insert(.landscapeRight) }
         return mask
+    }
+}
+
+// MARK: The TV's comings and goings
+
+@available(iOS 18.0, *)
+extension CartoucheGameHost: CartoucheTVHost {
+    /// iOS handed Cartouche the TV: the game's own scene goes there, once
+    /// its process runs.
+    func tvDidConnect(_ tv: CartoucheTV) {
+        openGameOnTV()
+        guardTheTV()
+    }
+
+    /// iOS takes the TV back, unplugged or no longer asked for: the game's
+    /// scene there closes, and nxnative puts its picture back on the
+    /// iPhone.
+    func tvWillDisconnect(_ tv: CartoucheTV) {
+        closeGameOnTV()
+        Task { @MainActor [weak self] in self?.guardTheTV() }
     }
 }
 
@@ -415,6 +584,11 @@ final class CartoucheGameScreen: UIViewController {
     private let onHome: () -> Void
     private let spinner = UIActivityIndicatorView(style: .large)
     private let homeButton = UIButton(type: .custom)
+    /// Over the game while a TV mirrors the iPhone (hidesGameForTV).
+    private var tvCover: UIView?
+    /// The player chose to show the game on the iPhone anyway, which a TV
+    /// that mirrors it shows too.
+    private var showsGameDespiteTV = false
 
     init(orientations: UIInterfaceOrientationMask, onHome: @escaping () -> Void) {
         self.orientations = orientations
@@ -477,6 +651,65 @@ final class CartoucheGameScreen: UIViewController {
     func gameShows() {
         spinner.stopAnimating()
         spinner.isHidden = true
+    }
+
+    /// Whether the game hides from a TV that mirrors the iPhone
+    /// (CartoucheGameHost.guardTheTV): black over the game, under the Home
+    /// button, while iOS hands Cartouche the TV; after a few seconds, what
+    /// the player can do, and a way to show the game anyway.
+    var hidesGameForTV: Bool {
+        get { tvCover != nil }
+        set {
+            guard newValue != (tvCover != nil) else { return }
+            guard newValue, !showsGameDespiteTV else {
+                tvCover?.removeFromSuperview()
+                tvCover = nil
+                return
+            }
+            loadViewIfNeeded()
+            let cover = UIView(frame: view.bounds)
+            cover.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+            cover.backgroundColor = .black
+            cover.accessibilityIdentifier = "game.tvCover"
+            let label = UILabel()
+            label.text = CartoucheText.tvMoving
+            label.font = .preferredFont(forTextStyle: .headline)
+            label.textColor = .white
+            label.numberOfLines = 0
+            label.textAlignment = .center
+            label.translatesAutoresizingMaskIntoConstraints = false
+            var configuration = UIButton.Configuration.bordered()
+            configuration.title = CartoucheText.tvShowAnyway
+            configuration.baseForegroundColor = .white
+            configuration.cornerStyle = .capsule
+            let anyway = UIButton(configuration: configuration)
+            anyway.isHidden = true
+            anyway.accessibilityIdentifier = "game.tvCover.anyway"
+            anyway.addAction(UIAction { [weak self] _ in
+                CartoucheTV.note("TV: the player shows the game anyway, on the iPhone and on the display that mirrors it")
+                self?.showsGameDespiteTV = true
+                self?.hidesGameForTV = false
+            }, for: .primaryActionTriggered)
+            let stack = UIStackView(arrangedSubviews: [label, anyway])
+            stack.axis = .vertical
+            stack.alignment = .center
+            stack.spacing = 16
+            stack.translatesAutoresizingMaskIntoConstraints = false
+            cover.addSubview(stack)
+            view.insertSubview(cover, belowSubview: homeButton)
+            NSLayoutConstraint.activate([
+                stack.centerXAnchor.constraint(equalTo: cover.centerXAnchor),
+                stack.centerYAnchor.constraint(equalTo: cover.centerYAnchor),
+                stack.widthAnchor.constraint(lessThanOrEqualTo: cover.widthAnchor, constant: -64),
+            ])
+            tvCover = cover
+            Task { [weak self, weak cover, weak label, weak anyway] in
+                try? await Task.sleep(for: .seconds(4))
+                guard let self, let cover, self.tvCover === cover else { return }
+                label?.text = CartoucheText.tvMirrored
+                anyway?.isHidden = false
+            }
+        }
     }
 
     /// Turns the screen as the game allows, and hides the status bar.

@@ -8,7 +8,7 @@
 //  the whole screen of the simulator it runs on, such as the iPhone Duo's,
 //  with its own safe area, size classes and system bars.
 //
-//      -GalleryScreen games|library|sheet|settings|gameinfo|setup|signin|guide|system|storage|storage-mac|storage-drive|storage-drive-guide|telemetry|report
+//      -GalleryScreen games|library|sheet|settings|gameinfo|setup|signin|guide|system|storage|storage-mac|storage-drive|storage-drive-guide|telemetry|report|tv
 //                                        library: every game, open over
 //                                        the home; gameinfo: what the
 //                                        player says of the sheet's game;
@@ -17,7 +17,12 @@
 //                                        Mac nearby; storage-drive: Add
 //                                        Google Drive, with the player's
 //                                        own client; storage-drive-guide:
-//                                        the steps that make that client
+//                                        the steps that make that client;
+//                                        tv: the TV while the sheet's game,
+//                                        or the first of the player's, runs
+//                                        behind the console, its card where
+//                                        the game leaves its own scene on
+//                                        the TV empty (CartoucheTV.swift)
 //      -GalleryWidth 402 -GalleryHeight 874     (none: the whole screen)
 //      -GalleryInsets 62,0,34,0          top, leading, bottom, trailing
 //      -GalleryWidthClass compact        the width class at a scenario's
@@ -75,7 +80,10 @@
 //                                        games folder and the saves folder,
 //                                        whose sign-in Google ended, as after
 //                                        7 days for a project in testing, with
-//                                        two games' saves waiting for it
+//                                        two games' saves waiting for it;
+//                                        on the TV (screen tv), paused: the
+//                                        game paused behind the console,
+//                                        starting: the game starting
 //      -GalleryOrientation landscape     the gallery turns itself sideways,
 //                                        as a game does; the simulator
 //                                        stays upright
@@ -600,9 +608,30 @@ struct CartoucheGalleryApp: App {
             }
         case "root":
             CartoucheRootView()
+        case "tv":
+            if #available(iOS 18.0, *) {
+                if let entry = entries.owned.first(where: { $0.titleId == (scenario.sheet ?? scenario.ownedTitles.first) }) {
+                    CartoucheTVCard(model: tvCard(for: entry))
+                }
+            }
         default:
             CartoucheGamesView()
         }
+    }
+
+    /// The TV's card for ENTRY's game, as the scenario has it: on screen,
+    /// paused or starting.
+    @available(iOS 18.0, *)
+    @MainActor
+    private func tvCard(for entry: CartoucheEntry) -> CartoucheTVCardModel {
+        let card = CartoucheTVCardModel()
+        card.show(name: entry.name, cover: entry.coverArt, backdrop: entry.backdrop, colorKey: entry.tileKey)
+        switch scenario.work {
+        case "paused": card.status = .paused
+        case "starting": card.status = .starting
+        default: card.status = .playing
+        }
+        return card
     }
 
     /// The game's settings, on the scenario's category.
