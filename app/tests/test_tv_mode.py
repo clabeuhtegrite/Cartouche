@@ -13,6 +13,9 @@ rather than on an iPhone plugged into a TV
   screen, and opens none when this iOS has no such class;
 - the game host asks iOS for the TV while a game runs behind the console,
   with Cartouche's TV scene delegate, and stops asking when it ends;
+- the game hides from a copy of the iPhone's screen that iOS 27 makes
+  without a screen for it, as soon as the scene says its screen is
+  captured;
 - every step of the TV goes in the journal a player's report takes along,
   so that a report from an iPhone plugged into a TV says what the TV did.
 
@@ -132,6 +135,22 @@ class TVModeTest(unittest.TestCase):
         self.assertIsNotNone(show)
         # Hidden from a mirrored TV before the game's window shows again.
         self.assertLess(show.group(0).index("guardTheTV()"), show.group(0).index("window.isHidden = false"))
+
+    def test_the_game_hides_from_a_copy_without_a_screen_as_soon_as_ios_makes_it(self):
+        # iOS 27 lists no screen for a TV that mirrors the iPhone
+        # (UIScreen.screens): only the scene's capture state says so.
+        copy = re.search(r"private func copyOfTheIPhone\(\).*?\n    \}\n", self.host, re.S)
+        self.assertIsNotNone(copy, "the game host no longer looks for a copy of the iPhone's screen")
+        self.assertIn("window?.windowScene?.traitCollection.sceneCaptureState == .active", copy.group(0))
+        watch = re.search(r"private func watchScreens\(in scene: UIWindowScene\) \{.*?\n    \}\n", self.host, re.S)
+        self.assertIsNotNone(watch)
+        self.assertIn("scene.registerForTraitChanges([UITraitSceneCaptureState.self])", watch.group(0),
+                      "the game hides as iOS starts the copy, not at the next step of the game")
+        self.assertIn("AVAudioSession.routeChangeNotification", watch.group(0))
+        start = re.search(r"func start\(_ app: LCAppModel.*?\n    \}\n", self.host, re.S)
+        self.assertIn("watchScreens(in: host)", start.group(0))
+        tear_down = re.search(r"private func tearDown\(\) \{.*?\n    \}\n", self.host, re.S)
+        self.assertIn("unregisterForTraitChanges(", tear_down.group(0))
 
     def test_every_step_of_the_tv_goes_in_the_reports_journal(self):
         note = re.search(r"static func note\(_ step: String\) \{.*?\n    \}\n", self.tv, re.S)
