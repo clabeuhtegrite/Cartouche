@@ -28,7 +28,16 @@ It stops the build when the framework holds no intents of the launcher's,
 when one of its names is already SideStore's, when the metadata holds what
 this merge does not know, or when a title or a phrase has no French.
 
-usage: app_intents.py APP.app --french launcher/AppIntents/fr.json
+With --check, run by package.sh once the merge is done, it checks the app as
+it will ship, and stops the build unless the built-in SideStore's intents
+are there as they were before the merge: each of its actions, entities,
+queries and App Shortcuts under the same identifier and the same types,
+SideStoreSupport's as package.sh renames them, Refresh All Apps among them,
+which the nightly renewal of Cartouche runs from the Shortcuts app; and
+unless the strings the merge wrote pass plutil -lint, where there is one,
+and hold the French of every title and phrase.
+
+usage: app_intents.py APP.app --french launcher/AppIntents/fr.json [--check]
 """
 
 import argparse
@@ -36,6 +45,7 @@ import json
 import plistlib
 import re
 import shutil
+import subprocess
 import sys
 from pathlib import Path
 
@@ -62,6 +72,20 @@ KNOWN = set(BY_NAME) | set(LISTS) | set(OWN) | set(SAME) | set(KEPT) | {"autoSho
 
 PLACEHOLDER = re.compile(r"\$\{(\w+)\}")
 APPLICATION_NAME = "${applicationName}"
+
+# The built-in SideStore, and the renames package.sh makes in its intents as
+# it copies them into the app: they run as the types SideStoreSupport
+# defines, in the app's own process. app/tests/test_app_intents.py keeps
+# these in step with package.sh.
+SIDESTORE = "Frameworks/SideStoreApp.framework"
+RENAMES = (
+    ("9SideStore20RefreshAllAppsIntentV", "16SideStoreSupport20RefreshAllAppsIntentV"),
+    ("9SideStore26RefreshAllAppsWidgetIntentV", "16SideStoreSupport26RefreshAllAppsWidgetIntentV"),
+)
+# Refresh All Apps, which the nightly renewal's automation runs.
+REFRESH_ALL_APPS = "16SideStoreSupport20RefreshAllAppsIntentV"
+# The strings the merge writes in each French localization.
+STRINGS = ("Localizable.strings", "AppShortcuts.strings")
 
 
 class MergeError(Exception):
@@ -221,13 +245,118 @@ def merge(app: Path, french_path: Path) -> dict:
     return merged
 
 
+def sidestore_as_packaged(app: Path) -> str:
+    """The built-in SideStore's intents as package.sh puts them in APP
+    before the merge, as text: its own metadata, which stays in its
+    framework, with SideStoreSupport's types."""
+    path = app / SIDESTORE / METADATA / ACTIONS
+    if not path.is_file():
+        raise MergeError(f"{path} is missing: the built-in SideStore's own intents")
+    text = path.read_text(encoding="utf-8")
+    for old, new in RENAMES:
+        text = text.replace(old, new)
+    return text
+
+
+def lint_strings(path: Path) -> list:
+    """Why PATH, a .strings file, would not read: plutil -lint's word, where
+    there is plutil, then whether it is a table of strings."""
+    problems = []
+    plutil = shutil.which("plutil")
+    if plutil:
+        run = subprocess.run([plutil, "-lint", str(path)], capture_output=True, text=True)
+        if run.returncode != 0:
+            problems.append(f"plutil -lint {path}: {(run.stdout + run.stderr).strip()}")
+    try:
+        strings = plistlib.loads(path.read_bytes())
+    except Exception as error:
+        return problems + [f"{path} does not read: {error}"]
+    if not isinstance(strings, dict) or not all(isinstance(k, str) and isinstance(v, str) for k, v in strings.items()):
+        problems.append(f"{path} is not a table of strings")
+    return problems
+
+
+def check_package(app: Path, french_path: Path) -> dict:
+    """Fails unless APP holds the built-in SideStore's intents as package.sh
+    put them before the merge, and the strings the merge wrote read and
+    hold the French of every title and phrase. What was checked."""
+    french = json.loads(french_path.read_text(encoding="utf-8"))
+    before_text = sidestore_as_packaged(app)
+    before = json.loads(before_text)
+    # As package.sh's sed sees it: a type's name wherever it is written.
+    text = (app / METADATA / ACTIONS).read_text(encoding="utf-8")
+    merged = json.loads(text)
+    problems = []
+    for part in BY_NAME:
+        theirs = merged.get(part, {})
+        for name, item in before.get(part, {}).items():
+            if name not in theirs:
+                problems.append(f"SideStore's {part[:-1]} {name} is missing")
+            elif theirs[name] != item:
+                problems.append(f"SideStore's {part[:-1]} {name} is not as package.sh put it")
+    for part in LISTS + ("autoShortcuts",):
+        for item in before.get(part, []):
+            if item not in merged.get(part, []):
+                problems.append(f"an item of SideStore's {part} is missing: {json.dumps(item, sort_keys=True)[:160]}")
+    for key, value in before.items():
+        if key not in BY_NAME + LISTS + OWN + ("autoShortcuts",) and merged.get(key) != value:
+            problems.append(f"SideStore's {key} was {value!r}, and is {merged.get(key)!r}")
+    for old, new in RENAMES:
+        if new in before_text and new not in text:
+            problems.append(f"no intent runs as {new}, which package.sh renames {old} to")
+        if old in text:
+            problems.append(f"an intent still runs as {old}, which the app does not load")
+    refresh = sorted(name for name, action in merged.get("actions", {}).items() if REFRESH_ALL_APPS in json.dumps(action))
+    if not refresh:
+        problems.append(f"no action runs {REFRESH_ALL_APPS}: the nightly renewal's Refresh All Apps would fail")
+
+    linted = []
+    folders = sorted(path for path in app.glob("fr*.lproj") if path.is_dir())
+    if not any(folder.name == "fr.lproj" for folder in folders):
+        problems.append(f"{app / 'fr.lproj'} is missing")
+    for folder in folders:
+        for name in STRINGS:
+            path = folder / name
+            if not path.exists():
+                if name == "AppShortcuts.strings" or folder.name == "fr.lproj":
+                    problems.append(f"{path} is missing")
+                continue
+            found = lint_strings(path)
+            problems += found
+            linted.append(f"{folder.name}/{name}")
+            if found:
+                continue
+            strings = plistlib.loads(path.read_bytes())
+            wanted = french["phrases"] if name == "AppShortcuts.strings" else french["strings"]
+            wrong = sorted(key for key, value in wanted.items() if strings.get(key) != value)
+            if wrong:
+                problems.append(f"{path} lacks the French of: " + "; ".join(repr(key) for key in wrong))
+    if problems:
+        raise MergeError("the app's intents as they ship: " + "; ".join(problems))
+    checked = {
+        "sidestore": {part: sorted(before.get(part, {})) for part in BY_NAME},
+        "sidestoreShortcuts": len(before.get("autoShortcuts", [])),
+        "refreshAllApps": refresh,
+        "strings": linted,
+    }
+    print(f"app_intents: the built-in SideStore's intents as package.sh put them: actions {', '.join(checked['sidestore']['actions'])}; "
+          f"{checked['sidestoreShortcuts']} App Shortcuts; Refresh All Apps, which the nightly renewal runs: {', '.join(refresh)} as {REFRESH_ALL_APPS}; "
+          f"strings {'linted by plutil' if shutil.which('plutil') else 'read'}: {', '.join(linted)}")
+    return checked
+
+
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("app", type=Path)
     parser.add_argument("--french", type=Path, required=True)
+    parser.add_argument("--check", action="store_true",
+                        help="check the app as it will ship, once merged: SideStore's intents as they were, the strings readable")
     arguments = parser.parse_args(argv)
     try:
-        merge(arguments.app, arguments.french)
+        if arguments.check:
+            check_package(arguments.app, arguments.french)
+        else:
+            merge(arguments.app, arguments.french)
     except MergeError as error:
         print(f"app_intents: {error}", file=sys.stderr)
         return 1

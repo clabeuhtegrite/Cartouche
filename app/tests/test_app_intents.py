@@ -13,7 +13,11 @@ docs/decisions.md, 90):
   French;
 - launcher/AppIntents/fr.json translates every title and phrase the Swift
   file declares, each phrase with Cartouche's name and its game;
-- package.sh runs the merge once SideStore's intents are in place;
+- package.sh runs the merge once SideStore's intents are in place, then
+  checks the app as it will ship: SideStore's intents as package.sh put
+  them, under the same identifiers and types, Refresh All Apps among them,
+  which the nightly renewal runs, and the strings the merge wrote readable,
+  through plutil -lint on a Mac;
 - nothing asks for Siri's entitlement, an extension or a key of the
   Info.plist: App Shortcuts need none.
 
@@ -60,6 +64,13 @@ def sidestore_metadata():
                 "parameters": [],
                 "title": resource("Refresh All Apps"),
             },
+            "RefreshAllAppsWidgetIntent": {
+                "identifier": "RefreshAllAppsWidgetIntent",
+                "mangledTypeNameV2": "16SideStoreSupport26RefreshAllAppsWidgetIntentV",
+                "openAppWhenRun": False,
+                "parameters": [],
+                "title": resource("Refresh All Apps"),
+            },
             "InstallIPAIntent": {
                 "identifier": "InstallIPAIntent",
                 "mangledTypeNameV2": "9SideStore16InstallIPAIntentV",
@@ -87,6 +98,15 @@ def sidestore_metadata():
         "shortcutTileColor": 5,
         "version": 1,
     }
+
+
+def sidestore_original():
+    """The built-in SideStore's own intents, which stay in its framework,
+    before package.sh renames their types."""
+    text = json.dumps(sidestore_metadata())
+    for old, new in app_intents.RENAMES:
+        text = text.replace(new, old)
+    return json.loads(text)
 
 
 PHRASES = [
@@ -164,6 +184,7 @@ class MergeTest(unittest.TestCase):
         self.folder = Path(tempfile.mkdtemp())
         self.addCleanup(shutil.rmtree, self.folder)
         self.app = self.folder / "LiveContainer.app"
+        self.write_metadata(self.app / "Frameworks" / "SideStoreApp.framework" / "Metadata.appintents", sidestore_original())
         self.write_metadata(self.app / "Metadata.appintents", sidestore_metadata())
         (self.app / "Metadata.appintents" / "nlu").mkdir()
         (self.app / "Metadata.appintents" / "nlu" / "nlu.lzfse").write_bytes(b"SideStore's")
@@ -203,7 +224,8 @@ class MergeTest(unittest.TestCase):
     def test_the_launchers_intents_join_sidestores_in_the_apps_metadata(self):
         self.merge()
         merged = json.loads((self.app / "Metadata.appintents" / "extract.actionsdata").read_text(encoding="utf-8"))
-        self.assertEqual(set(merged["actions"]), {"RefreshAllIntent", "InstallIPAIntent", "CartouchePlayGameIntent"})
+        self.assertEqual(set(merged["actions"]),
+                         {"RefreshAllIntent", "RefreshAllAppsWidgetIntent", "InstallIPAIntent", "CartouchePlayGameIntent"})
         # SideStore's, as package.sh renamed them, untouched.
         self.assertEqual(merged["actions"]["RefreshAllIntent"], sidestore_metadata()["actions"]["RefreshAllIntent"])
         self.assertEqual(merged["entities"], launcher_metadata()["entities"])
@@ -289,6 +311,82 @@ class MergeTest(unittest.TestCase):
             plistlib.dumps({"Game": "Partie"}, fmt=plistlib.FMT_BINARY))
         self.merge_fails("'Game'", "Partie")
 
+    # The app as it ships (--check, after the merge).
+
+    @property
+    def merged_path(self):
+        return self.app / "Metadata.appintents" / "extract.actionsdata"
+
+    def change_merged(self, change):
+        merged = json.loads(self.merged_path.read_text(encoding="utf-8"))
+        change(merged)
+        self.merged_path.write_text(json.dumps(merged), encoding="utf-8")
+
+    def check(self):
+        with redirect_stdout(StringIO()):
+            return app_intents.check_package(self.app, FRENCH)
+
+    def check_fails(self, *words):
+        with self.assertRaises(app_intents.MergeError) as failure:
+            self.check()
+        for word in words:
+            self.assertIn(word, str(failure.exception))
+        return str(failure.exception)
+
+    def test_the_app_ships_with_sidestores_intents_as_package_sh_put_them(self):
+        self.merge()
+        checked = self.check()
+        self.assertEqual(checked["sidestore"]["actions"], ["InstallIPAIntent", "RefreshAllAppsWidgetIntent", "RefreshAllIntent"])
+        self.assertEqual(checked["sidestoreShortcuts"], 1)
+        # The action the nightly renewal's automation runs.
+        self.assertEqual(checked["refreshAllApps"], ["RefreshAllIntent"])
+        self.assertEqual(checked["strings"], ["fr.lproj/Localizable.strings", "fr.lproj/AppShortcuts.strings",
+                                              "fr_CA.lproj/AppShortcuts.strings"])
+
+    def test_the_check_fails_without_refresh_all_apps(self):
+        self.merge()
+        self.change_merged(lambda merged: merged["actions"].pop("RefreshAllIntent"))
+        self.check_fails("SideStore's action RefreshAllIntent is missing", "nightly renewal")
+
+    def test_the_check_fails_on_an_action_or_app_shortcut_of_sidestores_changed_or_lost(self):
+        self.merge()
+        def change(merged):
+            merged["actions"]["RefreshAllAppsWidgetIntent"]["identifier"] = "RefreshWidget"
+            merged["autoShortcuts"] = [shortcut for shortcut in merged["autoShortcuts"]
+                                       if shortcut["actionIdentifier"] != "RefreshAllIntent"]
+        self.change_merged(change)
+        self.check_fails("RefreshAllAppsWidgetIntent is not as package.sh put it", "SideStore's autoShortcuts is missing")
+
+    def test_the_check_fails_on_a_type_package_sh_did_not_rename(self):
+        # package.sh's renames did not run: SideStore's types are SideStore's
+        # own, which the app does not load.
+        (self.app / "Metadata.appintents" / "extract.actionsdata").write_text(json.dumps(sidestore_original()), encoding="utf-8")
+        self.merge()
+        self.check_fails("no intent runs as 16SideStoreSupport20RefreshAllAppsIntentV",
+                         "still runs as 9SideStore26RefreshAllAppsWidgetIntentV", "nightly renewal")
+
+    def test_the_check_fails_on_strings_that_do_not_read(self):
+        self.merge()
+        (self.app / "fr.lproj" / "AppShortcuts.strings").write_bytes(b'"Lance ${game}" = ;')
+        self.check_fails("fr.lproj/AppShortcuts.strings")
+
+    def test_the_check_fails_on_strings_without_the_french(self):
+        self.merge()
+        (self.app / "fr.lproj" / "Localizable.strings").write_bytes(
+            plistlib.dumps({"lc.common.ok": "OK"}, fmt=plistlib.FMT_BINARY))
+        self.check_fails("lacks the French", "'Play a Game'")
+
+    def test_the_command_checks_the_app(self):
+        self.merge()
+        with redirect_stdout(StringIO()) as said:
+            self.assertEqual(app_intents.main([str(self.app), "--french", str(FRENCH), "--check"]), 0)
+        self.assertIn("Refresh All Apps, which the nightly renewal runs: RefreshAllIntent", said.getvalue())
+        self.change_merged(lambda merged: merged["actions"].pop("InstallIPAIntent"))
+        error = StringIO()
+        with redirect_stderr(error):
+            self.assertEqual(app_intents.main([str(self.app), "--french", str(FRENCH), "--check"]), 1)
+        self.assertIn("InstallIPAIntent", error.getvalue())
+
     def test_the_command_says_why_it_stopped(self):
         shutil.rmtree(self.app / "Metadata.appintents")
         error = StringIO()
@@ -368,14 +466,26 @@ class SourcesTest(unittest.TestCase):
         # it runs.
         self.assertIn("'Which game?'", said.getvalue())
 
-    def test_package_merges_them_once_sidestores_are_in_place(self):
+    def test_package_merges_them_once_sidestores_are_in_place_then_checks_the_app(self):
         package = PACKAGE.read_text(encoding="utf-8")
         copy = package.index('cp -R "$SS/Metadata.appintents" "$APP/Metadata.appintents"')
-        merge = package.index('python3 "$HERE/app_intents.py" "$APP" --french "$HERE/../../launcher/AppIntents/fr.json"')
+        merge = package.index('python3 "$HERE/app_intents.py" "$APP" --french "$HERE/../../launcher/AppIntents/fr.json"\n')
+        check = package.index('python3 "$HERE/app_intents.py" "$APP" --french "$HERE/../../launcher/AppIntents/fr.json" --check\n')
         archive = package.index('zip -qr "$OUT_IPA" Payload')
         self.assertLess(copy, merge)
-        self.assertLess(merge, archive)
+        self.assertLess(merge, check)
+        self.assertLess(check, archive)
         self.assertIn('HERE="$(cd "$(dirname "$0")" && pwd)"', package)
+        self.assertIn("set -euo pipefail", package, "a failed check stops the build")
+
+    def test_the_check_renames_as_package_sh_does(self):
+        package = PACKAGE.read_text(encoding="utf-8")
+        renames = re.findall(r"sed -i '' 's/(\w+)/(\w+)/g' \"\$APP/Metadata\.appintents/extract\.actionsdata\"", package)
+        self.assertEqual(renames, list(app_intents.RENAMES))
+        self.assertIn(app_intents.REFRESH_ALL_APPS, [new for _, new in renames])
+        self.assertIn('FW="$APP/Frameworks"', package)
+        self.assertIn('SS="$FW/SideStoreApp.framework"', package)
+        self.assertEqual(app_intents.SIDESTORE, "Frameworks/SideStoreApp.framework")
 
     def test_no_siri_entitlement_extension_nor_infoplist_key(self):
         # App Shortcuts need neither Siri's entitlement nor an Intents

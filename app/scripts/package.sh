@@ -239,6 +239,11 @@ sed -i '' 's/9SideStore26RefreshAllAppsWidgetIntentV/16SideStoreSupport26Refresh
 # framework the launcher is built into, whose metadata iOS never reads. They
 # join SideStore's, with their French (docs/decisions.md, 90).
 python3 "$HERE/app_intents.py" "$APP" --french "$HERE/../../launcher/AppIntents/fr.json"
+# Then the app as it will ship: the built-in SideStore's intents as above,
+# each under the same identifier and type, Refresh All Apps among them, which
+# the nightly renewal runs from Shortcuts; the strings the merge wrote
+# through plutil -lint. Any difference stops the build.
+python3 "$HERE/app_intents.py" "$APP" --french "$HERE/../../launcher/AppIntents/fr.json" --check
 
 # SideStore's widget becomes the app's widget.
 WIDGET="$APP/PlugIns/LiveWidgetExtension.appex"
