@@ -1,0 +1,47 @@
+[package]
+name = "cartouche-installer-fakes"
+version = "0.1.0"
+edition = "2024"
+publish = false
+license = "MIT"
+description = "A fake iPhone, fake Apple, anisette and GitHub servers, for the Cartouche Installer's tests"
+
+# Only crates the installer already builds with, at the versions of its
+# Cargo.lock: the fakes add no code from outside to the installer's build.
+[dependencies]
+tokio = { version = "1.49", features = ["net", "rt", "rt-multi-thread", "macros", "io-util", "sync", "time"] }
+futures = "0.3"
+idevice = { version = "0.1.68", features = ["usbmuxd", "house_arrest", "afc", "core_device_proxy", "remote_pairing", "tcp", "tunnel_tcp_stack", "xpc", "rsd", "pair"] }
+plist = "1.8"
+rustls = "0.23.36"
+tokio-rustls = { version = "0.26", default-features = false }
+rcgen = { version = "0.14", features = ["x509-parser"] }
+idevice-srp = "0.6"
+sha2_010 = { package = "sha2", version = "0.10" }
+sha2 = "0.11"
+hkdf = "0.12"
+chacha20poly1305 = "0.10"
+ed25519-dalek = "2"
+x25519-dalek = { version = "2", features = ["static_secrets"] }
+rand = "0.8"
+base64 = "0.22"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+srp = "0.7.0-rc.3"
+pbkdf2 = "0.13"
+hmac = "0.13"
+aes = "0.9"
+cbc = "0.2"
+aes-gcm = "0.11"
+tokio-tungstenite = "0.29"
+cms = "0.2.3"
+der = "0.7"
+x509-cert = "0.2.5"
+rsa = "0.9.10"
+p12-keystore = { package = "isideload-p12-keystore", version = "=0.3.0-rc4" }
+zip = { version = "8.6", default-features = false, features = ["deflate"] }
+urlencoding = "2"
+keyring = "3.6.3"
+hex = "0.4"
+uuid = { version = "1", features = ["v4"] }
+tracing = "0.1"

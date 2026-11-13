@@ -66,6 +66,15 @@ jobs:
     with:
       full: true
 
+  # The launcher in the iOS Simulator as a player uses it: its installs,
+  # starts and console on top of LiveContainer's own unpacker and app model
+  # (launcher/Harness).
+  harness:
+    name: Launcher harness
+    uses: ./.github/workflows/harness.yml # zizmor: ignore[self-repository]
+    with:
+      full: true
+
   # The launcher's gallery, its UI tests and its screenshots.
   screens:
     name: Launcher screens
@@ -119,7 +128,7 @@ jobs:
 
   verdict:
     name: Every test passed
-    needs: [ci, app, storage, screens, builder, installer, telemetry, site]
+    needs: [ci, app, storage, harness, screens, builder, installer, telemetry, site]
     # Whatever the calls' results, so that the run always says which part
     # did not pass.
     if: ${{ always() }}

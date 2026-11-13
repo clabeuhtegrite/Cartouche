@@ -18,6 +18,18 @@ final class CartoucheSMB: CartoucheRemote {
     /// Cartouche connected to it (MaximalAccess, MS-SMB2 2.2.10); 0 when it
     /// did not say.
     private let shareAccess: UInt32
+    /// Every request on this connection, its files' and its copies' too,
+    /// one at a time, in the order they were made. SMBClient gives each
+    /// request the connection's next number (its MessageId, MS-SMB2
+    /// 3.2.4.1.3) as the request is made, from a counter that nothing
+    /// guards: two requests made at the same moment could take the same
+    /// number, and the server then hangs up on the connection. Samba says
+    /// "bad message_id" in its log, and the request still waiting for its
+    /// answer fails, with "disconnected" or ENODATA, as two tests of the
+    /// storage did on 12 and 13 November: each time on the request made
+    /// just as a file read to its end was let go, whose close its deinit
+    /// sent at the same moment.
+    private let requests = CartoucheRequestQueue()
 
     private init(client: SMBClient, shareAccess: UInt32) {
         self.client = client
@@ -86,15 +98,17 @@ final class CartoucheSMB: CartoucheRemote {
         // folder in it adds neither.
         let session = client.session
         do {
-            let opened = try await session.create(
-                desiredAccess: [.writeData, .appendData, .readAttributes, .synchronize],
-                fileAttributes: [.directory],
-                shareAccess: [.read, .write, .delete],
-                createDisposition: .open,
-                createOptions: [.directoryFile],
-                name: Self.name(path)
-            )
-            _ = try? await session.close(fileId: opened.fileId)
+            let opened = try await requests.run {
+                try await session.create(
+                    desiredAccess: [.writeData, .appendData, .readAttributes, .synchronize],
+                    fileAttributes: [.directory],
+                    shareAccess: [.read, .write, .delete],
+                    createDisposition: .open,
+                    createOptions: [.directoryFile],
+                    name: Self.name(path)
+                )
+            }
+            _ = try? await requests.run { try await session.close(fileId: opened.fileId) }
             return true
         } catch let refused as ErrorResponse where Self.refusals.contains(refused.header.status) {
             return false
@@ -151,56 +165,59 @@ final class CartoucheSMB: CartoucheRemote {
     }
 
     func list(_ path: String) async throws -> [CartoucheRemoteItem] {
-        try await client.listDirectory(path: path)
+        try await requests.run { try await client.listDirectory(path: path) }
             .filter { $0.name != "." && $0.name != ".." && !$0.isHidden && !$0.name.hasPrefix(".") }
             .map { CartoucheRemoteItem(name: $0.name, isFolder: $0.isDirectory, size: $0.size, modified: $0.lastWriteTime) }
     }
 
     func open(_ path: String) async throws -> CartoucheByteSource {
         let reader = client.fileReader(path: path)
-        let size = try await reader.fileSize
-        return SMBSource(reader: reader, size: size, session: client.session)
+        let size = try await requests.run { try await reader.fileSize }
+        return SMBSource(reader: reader, size: size, session: client.session, requests: requests)
     }
 
     func create(_ path: String, size: UInt64?) async throws -> CartoucheRemoteUpload {
         let partial = path + ".partial"
-        if try await client.existFile(path: partial) {
-            try await client.deleteFile(path: partial)
+        if try await requests.run({ try await client.existFile(path: partial) }) {
+            try await requests.run { try await client.deleteFile(path: partial) }
         }
         let session = client.session
-        let created = try await session.create(
-            desiredAccess: [.readData, .writeData, .appendData, .readAttributes, .delete],
-            fileAttributes: [.archive, .normal],
-            shareAccess: [.read],
-            createDisposition: .overwriteIf,
-            createOptions: [.nonDirectoryFile],
-            name: Self.name(partial)
-        )
-        return SMBUpload(client: client, fileId: created.fileId, partial: partial, path: path)
+        let created = try await requests.run {
+            try await session.create(
+                desiredAccess: [.readData, .writeData, .appendData, .readAttributes, .delete],
+                fileAttributes: [.archive, .normal],
+                shareAccess: [.read],
+                createDisposition: .overwriteIf,
+                createOptions: [.nonDirectoryFile],
+                name: Self.name(partial)
+            )
+        }
+        return SMBUpload(client: client, fileId: created.fileId, partial: partial, path: path, requests: requests)
     }
 
     func makeFolder(_ path: String) async throws {
-        try await client.createDirectory(path: path)
+        try await requests.run { try await client.createDirectory(path: path) }
     }
 
     func delete(_ path: String) async throws {
-        if try await client.existDirectory(path: path) {
-            try await client.deleteDirectory(path: path)
+        if try await requests.run({ try await client.existDirectory(path: path) }) {
+            try await requests.run { try await client.deleteDirectory(path: path) }
         } else {
-            try await client.deleteFile(path: path)
+            try await requests.run { try await client.deleteFile(path: path) }
         }
     }
 
     func freeSpace() async throws -> UInt64? {
-        try await client.availableSpace()
+        try await requests.run { try await client.availableSpace() }
     }
 
-    /// Says goodbye to the server, then closes the connection; a server
-    /// that no longer answers gets a few seconds.
+    /// Says goodbye to the server once the requests made before have
+    /// ended, then closes the connection; a server that no longer answers
+    /// gets a few seconds, waiting for those requests included.
     func disconnect() async {
         let session = client.session
         _ = try? await CartoucheDeadline.within(Self.goodbye, cut: { session.disconnect() }) {
-            try await client.logoff()
+            try await requests.run { try await client.logoff() }
         }
     }
 
@@ -221,16 +238,22 @@ private final class SMBSource: CartoucheByteSource {
     let size: UInt64
     private let reader: FileReader
     private let session: Session
+    private let requests: CartoucheRequestQueue
 
-    init(reader: FileReader, size: UInt64, session: Session) {
+    init(reader: FileReader, size: UInt64, session: Session, requests: CartoucheRequestQueue) {
         self.reader = reader
         self.size = size
         self.session = session
+        self.requests = requests
     }
 
+    /// Closes the file in its turn, before any request made on the
+    /// connection after this source was let go: the next one is often made
+    /// at the same moment, and the connection could not remove or replace
+    /// the file while it is still open on it.
     deinit {
         let reader = reader
-        Task { try? await reader.close() }
+        requests.queue { try await reader.close() }
     }
 
     func read(at offset: UInt64, count: Int) async throws -> Data {
@@ -244,8 +267,10 @@ private final class SMBSource: CartoucheByteSource {
         while data.count < wanted {
             let length = UInt32(min(wanted - data.count, most))
             let at = offset + UInt64(data.count)
+            // Its patience counts the wait for its turn: a request before it
+            // that gets no answer leaves this one waiting too.
             let part = try await CartoucheDeadline.within(CartoucheSMB.patience, cut: { session.disconnect() }) {
-                try await reader.read(offset: at, length: length)
+                try await requests.run { try await reader.read(offset: at, length: length) }
             }
             if part.isEmpty { break }
             data.append(part)
@@ -259,14 +284,16 @@ private final class SMBUpload: CartoucheRemoteUpload {
     private let fileId: Data
     private let partial: String
     private let path: String
+    private let requests: CartoucheRequestQueue
     private var offset: UInt64 = 0
     private var closed = false
 
-    init(client: SMBClient, fileId: Data, partial: String, path: String) {
+    init(client: SMBClient, fileId: Data, partial: String, path: String, requests: CartoucheRequestQueue) {
         self.client = client
         self.fileId = fileId
         self.partial = partial
         self.path = path
+        self.requests = requests
     }
 
     func write(_ data: Data) async throws {
@@ -275,7 +302,7 @@ private final class SMBUpload: CartoucheRemoteUpload {
         var at = data.startIndex
         while at < data.endIndex {
             let end = min(at + most, data.endIndex)
-            try await session.write(data: data.subdata(in: at ..< end), fileId: fileId, offset: offset)
+            try await requests.run { try await session.write(data: data.subdata(in: at ..< end), fileId: fileId, offset: offset) }
             offset += UInt64(end - at)
             at = end
         }
@@ -284,21 +311,21 @@ private final class SMBUpload: CartoucheRemoteUpload {
     func finish() async throws {
         if !closed {
             closed = true
-            _ = try await client.session.flush(fileId: fileId)
-            try await client.session.close(fileId: fileId)
+            try await requests.run { try await client.session.flush(fileId: fileId) }
+            try await requests.run { try await client.session.close(fileId: fileId) }
         }
-        if try await client.existFile(path: path) {
-            try await client.deleteFile(path: path)
+        if try await requests.run({ try await client.existFile(path: path) }) {
+            try await requests.run { try await client.deleteFile(path: path) }
         }
-        try await client.move(from: partial, to: path)
+        try await requests.run { try await client.move(from: partial, to: path) }
     }
 
     func cancel() async {
         if !closed {
             closed = true
-            _ = try? await client.session.close(fileId: fileId)
+            _ = try? await requests.run { try await client.session.close(fileId: fileId) }
         }
-        try? await client.deleteFile(path: partial)
+        _ = try? await requests.run { try await client.deleteFile(path: partial) }
     }
 }
 #endif

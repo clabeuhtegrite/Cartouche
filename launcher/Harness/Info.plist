@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!-- The keys of Cartouche's Info.plist the launcher reads, as
+	     app/scripts/package.sh adds them, for the harness: its servers are
+	     the tests' own (Sources/HarnessNetwork.swift). -->
+	<key>CartoucheBundleIdentifier</key>
+	<string>io.github.clabeuhtegrite.cartouche.harness</string>
+	<key>CartoucheSourceURL</key>
+	<string>https://source.harness.invalid/sidestore-source.json</string>
+	<key>CartoucheCoversURL</key>
+	<string>https://covers.harness.invalid/covers.json</string>
+	<key>CartoucheTelemetryURL</key>
+	<string>https://telemetry.harness.invalid</string>
+	<!-- The steps iOS goes on with once the player leaves Cartouche
+	     (CartoucheContinuedWork.swift). -->
+	<key>BGTaskSchedulerPermittedIdentifiers</key>
+	<array>
+		<string>io.github.clabeuhtegrite.cartouche.harness.transfer.*</string>
+	</array>
+</dict>
+</plist>

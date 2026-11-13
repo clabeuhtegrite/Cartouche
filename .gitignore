@@ -6,6 +6,8 @@ builder/mac/build/
 DerivedData/
 launcher/Gallery/Build/
 launcher/Gallery/*.xcodeproj/
+launcher/Harness/Build/
+launcher/Harness/*.xcodeproj/
 *.xcarchive
 *.ipa
 *.dSYM/

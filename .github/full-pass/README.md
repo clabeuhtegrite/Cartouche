@@ -11,6 +11,7 @@ It calls each workflow that tests a part of the project, whole, with `full: true
 | CI | [ci.yml](../workflows/ci.yml) | the publish guard and the catalog, the app's sources and their branding tests, the shell scripts, Cartouche Builder's engine, the workflow audit, the site's tests |
 | App | [app.yml](../workflows/app.yml) | the launcher's tests (`swift test`), then the app, its publish guard and its entry in the SideStore source |
 | Storage | [storage.yml](../workflows/storage.yml) | the storage code against real servers, with an IPA past 4 GiB |
+| Launcher harness | [harness.yml](../workflows/harness.yml) | the launcher's installs, starts and console in the iOS Simulator, on LiveContainer's own unpacker and app model ([launcher/Harness](../../launcher/Harness/README.md)) |
 | Launcher screens | [screens.yml](../workflows/screens.yml) | the launcher's gallery, its UI tests and a screenshot of every scenario |
 | Builder | [builder.yml](../workflows/builder.yml) | Cartouche Builder's tests, its app, its layout check, its disk image and its screenshots |
 | Installer | [installer.yml](../workflows/installer.yml) | the Installer's tests, its Mac app and its Windows setup |
