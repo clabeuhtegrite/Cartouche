@@ -575,6 +575,12 @@ class WorkflowTests(unittest.TestCase):
         for step in mac["steps"]:
             if "sudo " in step.get("run", "") or "brew install" in step.get("run", ""):
                 self.assertEqual(step.get("if"), "${{ runner.environment == 'github-hosted' }}", step["name"])
+        # The Actions cache too: it puts the compression in an entry's
+        # version, and the Mac, which has no zstd, keeps gzip entries that no
+        # job on GitHub's runners finds (runs 43453403759 and 43461548558).
+        for step in mac["steps"]:
+            if step.get("uses", "").startswith("actions/cache"):
+                self.assertIn("runner.environment == 'github-hosted'", step.get("if", ""), step["name"])
 
     def test_the_app_s_build(self):
         self.check("app.yml", "build", "Build Cartouche.ipa", "cartouche-build,xcode-${{ env.XCODE_VERSION }}")
@@ -582,6 +588,28 @@ class WorkflowTests(unittest.TestCase):
     def test_the_screenshots(self):
         self.check("screens.yml", "screens", "UI tests and screenshots",
                    "cartouche-screens,xcode-${{ env.XCODE_VERSION }},ios-sim-${{ env.XCODE_VERSION }}")
+
+    def test_the_note_that_the_screenshots_are_done_is_kept_where_it_is_looked_for(self):
+        # The first job looks for it on Ubuntu: a job on Ubuntu keeps it, once
+        # the UI tests and screenshots have passed, wherever they ran. Kept on
+        # the Mac, it was never found, and each merge of main into a pull
+        # request ran them again, 45 minutes of the Mac.
+        jobs = self.workflow("screens.yml")["jobs"]
+        [looked] = [s for s in jobs["taken"]["steps"] if s.get("uses", "").startswith("actions/cache/restore@")]
+        self.assertEqual(looked["with"]["key"], "${{ steps.changes.outputs.key }}")
+        self.assertEqual(jobs["taken"]["outputs"]["key"], "${{ steps.changes.outputs.key }}")
+        kept = [(job_id, step) for job_id, job in jobs.items() for step in job.get("steps", [])
+                if step.get("uses", "").startswith(("actions/cache@", "actions/cache/save@"))]
+        self.assertEqual([job_id for job_id, _ in kept], ["memo"])
+        [(_, save)] = kept
+        memo = jobs["memo"]
+        self.assertEqual(memo["runs-on"], jobs["taken"]["runs-on"])
+        self.assertEqual(save["with"]["path"], looked["with"]["path"])
+        self.assertEqual(save["with"]["key"], "${{ needs.taken.outputs.key }}")
+        self.assertIn("screens", memo["needs"])
+        self.assertIn("needs.screens.result == 'success'", memo["if"])
+        # The Full test pass skips it, as it skips the first job (wiring.py).
+        self.assertIn("github.event_name == 'pull_request'", memo["if"])
 
     def test_a_job_waits_for_the_mac_longer_than_the_one_before_it_takes(self):
         # One job may wait behind another of its kind (route.py): a build took

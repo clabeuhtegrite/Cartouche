@@ -70,7 +70,7 @@ jobs:
   # The pull request's changes to the files in the paths above, as its merge
   # into main has them, and whether a run of this pull request passed their
   # UI tests and took their screenshots already. Its key goes to the Actions
-  # cache once it has.
+  # cache once it has (memo).
   taken:
     name: UI tests and screenshots done already?
     if: ${{ github.event_name == 'pull_request' }}
@@ -190,16 +190,26 @@ jobs:
           path: build/screens
           retention-days: 14
           if-no-files-found: warn
-      # Once the UI tests have passed and every scenario has its screenshot.
+
+  # Once the UI tests have passed and every scenario has its screenshot,
+  # notes it in the Actions cache for the first job of the pull request's
+  # next runs, from Ubuntu as that job looks for it. The cache puts its
+  # compression in an entry's version: Ad's Mac, which has no zstd, kept a
+  # gzip entry there that Ubuntu, with zstd, never found (runs 43453403759
+  # and 43461548558).
+  memo:
+    name: Note that the UI tests and screenshots are done
+    needs: [taken, screens]
+    if: ${{ !cancelled() && github.event_name == 'pull_request' && needs.taken.outputs.key != '' && needs.screens.result == 'success' }}
+    runs-on: ubuntu-latest
+    steps:
       - name: Note that they are done
-        if: ${{ needs.taken.outputs.key != '' }}
         env:
           SOURCE: ${{ github.event.pull_request.head.sha }}
         run: |
           mkdir -p build/screens-taken
           echo "$SOURCE" > build/screens-taken/source
       - name: Keep the note in the cache
-        if: ${{ needs.taken.outputs.key != '' }}
         uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: build/screens-taken
