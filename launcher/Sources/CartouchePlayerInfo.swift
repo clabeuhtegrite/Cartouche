@@ -3,9 +3,9 @@
 //  Cartouche
 //
 //  What the player says of one of their games, on its sheet (Edit the
-//  game's info, CartoucheGameInfoView): its name, its platform, its genre
-//  and a cover of their own, from Photos or Files, over what Cartouche
-//  has. Kept on this iPhone only, in Application Support/Cartouche/GameInfo:
+//  game's info, CartoucheGameInfoView): its name, its platform, its genre,
+//  its summary and a cover of their own, from Photos or Files, over what
+//  Cartouche has. Kept on this iPhone only, in Application Support/Cartouche/GameInfo:
 //  info.json, and each cover as a JPEG file of its own, no larger than
 //  Cartouche shows it and without the photo's metadata. Foundation and
 //  ImageIO only, so that swift test checks it on a Mac
@@ -25,12 +25,15 @@ struct CartouchePlayerInfo: Codable, Hashable {
     var genre: String? = nil
     /// The file of the player's cover, in the store's folder.
     var cover: String? = nil
+    /// What the player writes of the game, in place of IGDB's summary.
+    var summary: String? = nil
 
-    var isEmpty: Bool { name == nil && platform == nil && genre == nil && cover == nil }
+    var isEmpty: Bool { name == nil && platform == nil && genre == nil && cover == nil && summary == nil }
 
     /// The info as Cartouche keeps it: a name without the spaces around it
     /// and at most `longestName` characters long, a platform and a genre
-    /// Cartouche knows, and a cover file named as the store names them;
+    /// Cartouche knows, a cover file named as the store names them, and a
+    /// summary as Cartouche shows IGDB's (CartoucheCoverList.summary(_:));
     /// nil for what is not.
     var checked: CartouchePlayerInfo {
         var info = CartouchePlayerInfo()
@@ -40,6 +43,7 @@ struct CartouchePlayerInfo: Codable, Hashable {
         info.platform = platform.flatMap { CartoucheGameWanted.platforms.contains($0) ? $0 : nil }
         info.genre = genre.flatMap { CartoucheCoverList.genres.contains($0) ? $0 : nil }
         info.cover = cover.flatMap { CartouchePlayerInfoStore.isCoverFile($0) ? $0 : nil }
+        info.summary = summary.flatMap(CartoucheCoverList.summary)
         return info
     }
 

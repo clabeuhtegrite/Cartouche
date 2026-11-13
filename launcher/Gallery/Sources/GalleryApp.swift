@@ -322,7 +322,7 @@ struct GalleryScenario {
             found[wanted.key] = CartoucheFoundGame(
                 igdb: cover.igdb, name: profile?.name ?? game.name, cover: cover.cover, artwork: cover.artwork,
                 genre: profile.flatMap { $0.genre == "other" ? nil : $0.genre } ?? cover.genre,
-                platform: platform ?? profile?.platform)
+                platform: platform ?? profile?.platform, summary: cover.summary)
         }
         catalog.showFoundForGallery(found)
     }

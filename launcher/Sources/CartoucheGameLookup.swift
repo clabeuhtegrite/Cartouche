@@ -8,8 +8,9 @@
 //  /v1/games) by the game's name, with Switch or Switch 2 when its title ID
 //  says which, and nothing else (docs/privacy.md). The server, which alone
 //  holds IGDB's keys, answers with the game's IDs there, its cover, an
-//  artwork and its genre, or that IGDB has no game of that name. Cartouche
-//  keeps each answer and asks again a month later; a server that does not
+//  artwork, its genre and its summary, or that IGDB has no game of that
+//  name. Cartouche keeps each answer and asks again a month later, and at
+//  once for one kept before it read the summaries; a server that does not
 //  answer is asked again an hour later, or when it says. The server is the
 //  telemetry's (CARTOUCHE_TELEMETRY_URL in app/config.env,
 //  CartoucheTelemetryURL in the Info.plist): a build without one asks
@@ -34,10 +35,12 @@ struct CartoucheFoundGame: Codable, Hashable {
     var genre: String? = nil
     /// switch or switch2: the platform Cartouche said, else IGDB's.
     var platform: String? = nil
+    /// IGDB's summary of the game, in English (CartoucheCoverList.summary(_:)).
+    var summary: String? = nil
 
     /// The game, or nil unless it is as telemetry/README.md has it: an
-    /// ID, a name and a cover; an artwork, a genre or a platform that is not
-    /// is left out.
+    /// ID, a name and a cover; an artwork, a genre, a platform or a summary
+    /// that is not is left out.
     static func checked(_ game: CartoucheFoundGame) -> CartoucheFoundGame? {
         let name = game.name.trimmingCharacters(in: .whitespacesAndNewlines)
         guard game.igdb > 0, !name.isEmpty, game.name.utf16.count <= 200, CartoucheCoverList.isImageId(game.cover) else {
@@ -46,7 +49,8 @@ struct CartoucheFoundGame: Codable, Hashable {
         return CartoucheFoundGame(igdb: game.igdb, name: game.name, cover: game.cover,
                                   artwork: game.artwork.flatMap { CartoucheCoverList.isImageId($0) ? $0 : nil },
                                   genre: game.genre.flatMap { CartoucheCoverList.genres.contains($0) ? $0 : nil },
-                                  platform: game.platform.flatMap { CartoucheGameWanted.platforms.contains($0) ? $0 : nil })
+                                  platform: game.platform.flatMap { CartoucheGameWanted.platforms.contains($0) ? $0 : nil },
+                                  summary: game.summary.flatMap(CartoucheCoverList.summary))
     }
 }
 
@@ -127,12 +131,14 @@ enum CartoucheGameAnswer: Hashable {
             let artwork: String?
             let genre: String?
             let platform: String?
+            let summary: String?
         }
         guard data.count <= 16_384, let answer = try? JSONDecoder().decode(Answer.self, from: data) else { return nil }
         guard answer.found else { return .notFound }
         guard let igdb = answer.igdb, let name = answer.name, let cover = answer.cover,
               let game = CartoucheFoundGame.checked(CartoucheFoundGame(igdb: igdb, name: name, cover: cover, artwork: answer.artwork,
-                                                                       genre: answer.genre, platform: answer.platform)) else {
+                                                                       genre: answer.genre, platform: answer.platform,
+                                                                       summary: answer.summary)) else {
             return nil
         }
         return .found(game)
@@ -147,7 +153,8 @@ private struct CartoucheGameRecord: Codable {
 }
 
 private struct CartoucheGameRecords: Codable {
-    var schema = 1
+    /// 2 since the answers have the games' summaries.
+    var schema = 2
     var games: [String: CartoucheGameRecord]
 }
 
@@ -208,11 +215,16 @@ final class CartoucheGameLookup {
         records(at: file).compactMapValues(\.found)
     }
 
+    /// The answers kept in FILE. Those kept before the answers had the
+    /// games' summaries (schema 1) still show, and are asked again at once.
     private nonisolated static func records(at file: URL) -> [String: CartoucheGameRecord] {
         guard let data = try? Data(contentsOf: file),
-              let kept = try? JSONDecoder().decode(CartoucheGameRecords.self, from: data), kept.schema == 1 else { return [:] }
+              let kept = try? JSONDecoder().decode(CartoucheGameRecords.self, from: data), [1, 2].contains(kept.schema) else {
+            return [:]
+        }
         return kept.games.mapValues { record in
-            CartoucheGameRecord(asked: record.asked, found: record.found.flatMap(CartoucheFoundGame.checked))
+            CartoucheGameRecord(asked: kept.schema == 1 ? .distantPast : record.asked,
+                                found: record.found.flatMap(CartoucheFoundGame.checked))
         }
     }
 

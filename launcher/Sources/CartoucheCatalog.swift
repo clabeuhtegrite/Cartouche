@@ -151,6 +151,11 @@ struct CartoucheEntry: Identifiable, Hashable {
         if let genre = game?.genre, genre != "other" { return genre }
         return cover?.genre ?? found?.genre
     }
+    /// What the player wrote of the game, else IGDB's summary of it.
+    var summary: String? { player?.summary ?? ownSummary }
+    /// IGDB's summary of the game, in English: by its title ID, or by its
+    /// name for a game Cartouche does not know.
+    var ownSummary: String? { cover?.summary ?? found?.summary }
     /// Whether Cartouche knows nothing of the game but what the player's
     /// copy says: nxnative has no profile for it, nor IGDB a cover by its
     /// title ID.

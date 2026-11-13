@@ -15,7 +15,7 @@ import XCTest
 final class CartoucheGameLookupTests: XCTestCase {
     private let endpoint = URL(string: "https://cartouche-telemetry.example.workers.dev")
     private let unravel = CartoucheFoundGame(igdb: 103281, name: "Unravel Two", cover: "co1yxz", artwork: "ar7k2",
-                                             genre: "puzzle", platform: "switch")
+                                             genre: "puzzle", platform: "switch", summary: "Two Yarnys, tied together.")
 
     private func json(_ object: [String: Any]) throws -> Data {
         try JSONSerialization.data(withJSONObject: object)
@@ -65,7 +65,7 @@ final class CartoucheGameLookupTests: XCTestCase {
 
     func testAnAnswerReadsAsTheServerGivesIt() throws {
         let found = try json(["found": true, "igdb": 103281, "name": "Unravel Two", "cover": "co1yxz", "artwork": "ar7k2",
-                              "genre": "puzzle", "platform": "switch"])
+                              "genre": "puzzle", "platform": "switch", "summary": "Two Yarnys, tied together."])
         XCTAssertEqual(CartoucheGameAnswer.read(found), .found(unravel))
         XCTAssertEqual(CartoucheGameAnswer.read(try json(["found": false])), .notFound)
         // The least the server gives: an ID, a name and a cover.
@@ -74,9 +74,10 @@ final class CartoucheGameLookupTests: XCTestCase {
     }
 
     func testWhatIsNotAsTheServerGivesItIsLeftOut() throws {
-        // An artwork, a genre or a platform that is not leaves the game.
+        // An artwork, a genre, a platform or a summary that is not leaves
+        // the game.
         let odd = try json(["found": true, "igdb": 103281, "name": "Unravel Two", "cover": "co1yxz", "artwork": "../ar",
-                            "genre": "indie", "platform": "ps5"])
+                            "genre": "indie", "platform": "ps5", "summary": " \n "])
         XCTAssertEqual(CartoucheGameAnswer.read(odd), .found(CartoucheFoundGame(igdb: 103281, name: "Unravel Two", cover: "co1yxz")))
         // A cover that is not, no ID or no name: no answer.
         XCTAssertNil(CartoucheGameAnswer.read(try json(["found": true, "igdb": 1, "name": "A", "cover": "co/1"])))
@@ -132,7 +133,8 @@ final class CartoucheGameLookupTests: XCTestCase {
     func testAnswersAreKeptShownAndAskedForAgainAMonthLater() async throws {
         let server = Server()
         server.answers["Unravel Two"] = ["found": true, "igdb": 103281, "name": "Unravel Two", "cover": "co1yxz",
-                                         "artwork": "ar7k2", "genre": "puzzle", "platform": "switch"]
+                                         "artwork": "ar7k2", "genre": "puzzle", "platform": "switch",
+                                         "summary": "Two Yarnys, tied together."]
         let file = keptFile()
         let lookup = CartoucheGameLookup(endpoint: endpoint, file: file, load: load(from: server))
         let games = [wanted("Unravel Two"), wanted("My Homebrew", nil)]
@@ -158,6 +160,32 @@ final class CartoucheGameLookupTests: XCTestCase {
         // Another Cartouche, started later, has the answers kept.
         let again = CartoucheGameLookup(endpoint: endpoint, file: file, load: load(from: server))
         XCTAssertEqual(again.answers, ["switch:Unravel Two": unravel])
+    }
+
+    @MainActor
+    func testAnswersKeptBeforeTheSummariesShowAndAreAskedForAgain() async throws {
+        let server = Server()
+        server.answers["Unravel Two"] = ["found": true, "igdb": 103281, "name": "Unravel Two", "cover": "co1yxz",
+                                         "summary": "Two Yarnys, tied together."]
+        let file = keptFile()
+        try FileManager.default.createDirectory(at: file.deletingLastPathComponent(), withIntermediateDirectories: true)
+        // Asked yesterday, by a Cartouche that did not read the summaries.
+        let yesterday = Date().addingTimeInterval(-86_400).timeIntervalSinceReferenceDate
+        let old = """
+        {"schema": 1, "games": {"switch:Unravel Two": {"asked": \(yesterday), "found": {"igdb": 103281, "name": "Unravel Two", "cover": "co1yxz"}}}}
+        """
+        try Data(old.utf8).write(to: file)
+        let lookup = CartoucheGameLookup(endpoint: endpoint, file: file, load: load(from: server))
+        // Shown meanwhile, and asked for again at once.
+        XCTAssertEqual(lookup.answers["switch:Unravel Two"]?.cover, "co1yxz")
+        var shown: [String: CartoucheFoundGame]?
+        await lookup.lookUpIfDue([wanted("Unravel Two")]) { shown = $0 }?.value
+        XCTAssertEqual(server.asked.count, 1)
+        XCTAssertEqual(shown?["switch:Unravel Two"]?.summary, "Two Yarnys, tied together.")
+        // Kept with the summary, and not asked for again before a month.
+        let again = CartoucheGameLookup(endpoint: endpoint, file: file, load: load(from: server))
+        XCTAssertEqual(again.answers["switch:Unravel Two"]?.summary, "Two Yarnys, tied together.")
+        XCTAssertNil(again.lookUpIfDue([wanted("Unravel Two")]) { _ in XCTFail("asked again") })
     }
 
     @MainActor
