@@ -6,8 +6,8 @@
 //  its signature, and Renew now (CartoucheRenewals in CartoucheRenewal.swift,
 //  CartoucheRenewalRules.swift), through the built-in SideStore's renewal
 //  as the harness stands it in (HarnessSideStore.swift); SideStore's other
-//  actions, which wait for a renewal under way, three minutes at most; and
-//  what the measurements say of a renewal.
+//  actions, which wait for a renewal under way, three minutes at most.
+//  What the measurements say of a renewal: TelemetryTests.
 //
 
 import SwiftUI
@@ -18,7 +18,6 @@ import XCTest
 final class RenewalTests: HarnessCase {
     private var renewals: CartoucheRenewals { CartoucheRenewals.shared }
     private var setup: CartoucheSetup { CartoucheSetup.shared }
-    private var telemetry: CartoucheTelemetry { CartoucheTelemetry.shared }
 
     /// A screen of Cartouche's, in a window of its own: see showScreen().
     private var screen: UIWindow?
@@ -31,18 +30,6 @@ final class RenewalTests: HarnessCase {
         HarnessLC.endHeldRenewal()
         try await waitUntil("no renewal is under way") { !self.renewals.isRenewing }
         try await super.tearDown()
-    }
-
-    /// Cartouche as a player who signed in leaves it: SideStore's Apple ID,
-    /// the pairing file where SideStore reads it, and the certificate,
-    /// checked.
-    private func setUpCartouche(file: StaticString = #filePath, line: UInt = #line) async throws {
-        XCTAssertTrue(CartoucheStoreKeychain.set(Data("player@example.com".utf8), for: "appleIDEmailAddress"),
-                      "the keychain works in the harness", file: file, line: line)
-        try FileManager.default.createDirectory(at: CartouchePairing.storeDocuments, withIntermediateDirectories: true)
-        try Data("pairing".utf8).write(to: CartouchePairing.storeDocuments.appendingPathComponent(CartouchePairing.importName))
-        setup.refresh()
-        try await waitUntil("Cartouche is set up", file: file, line: line) { self.setup.isComplete }
     }
 
     private func renewalEnds(file: StaticString = #filePath, line: UInt = #line) async throws {
@@ -292,49 +279,5 @@ final class RenewalTests: HarnessCase {
         XCTAssertNil(renewals.report)
         XCTAssertEqual(CartoucheSignature.current().daysLeft, 6)
         XCTAssertEqual(HarnessLC.renewals.count, 1)
-    }
-
-    // MARK: What the measurements say
-
-    /// Every report the server got, in order, as JSON.
-    private var reports: [[String: Any]] {
-        HarnessNetwork.requests.filter { $0.url.path == "/v1/reports" }.flatMap { request -> [[String: Any]] in
-            let body = (try? JSONSerialization.jsonObject(with: request.body)) as? [String: Any]
-            return body?["reports"] as? [[String: Any]] ?? []
-        }
-    }
-
-    private func fields(of name: String, where matches: ([String: Any]) -> Bool = { _ in true }) -> [String: Any]? {
-        reports
-            .filter { $0["name"] as? String == name }
-            .compactMap { $0["fields"] as? [String: Any] }
-            .last(where: matches)
-    }
-
-    /// renewal.done says Cartouche renewed itself, and signature.renewed
-    /// what renewed the signature: up to 0.12.0, the measurements could not
-    /// tell the automation of Shortcuts from Renew now, from an update or
-    /// from an install of the Cartouche Installer.
-    func testTheMeasurementsSayCartoucheRenewedItself() async throws {
-        HarnessNetwork.answer { request in
-            request.url.host == "telemetry.harness.invalid" ? HarnessNetwork.Answer(status: 200) : nil
-        }
-        telemetry.setOn(false)
-        telemetry.setOn(true)
-        telemetry.start()
-        try await setUpCartouche()
-        HarnessSideStore.record(expiringIn: 2.5)
-        // Cartouche reads its signature again as it comes back to the front.
-        NotificationCenter.default.post(name: UIApplication.didBecomeActiveNotification, object: nil)
-
-        renewals.renewIfDue()
-        try await renewalEnds()
-        try await waitUntil("the server has what renewed it") {
-            self.fields(of: "signature.renewed") { $0["via"] as? String == "cartouche" } != nil
-        }
-        let done = try XCTUnwrap(fields(of: "renewal.done"))
-        XCTAssertEqual(done["automatic"] as? Bool, true)
-        let renewed = try XCTUnwrap(fields(of: "signature.renewed") { $0["via"] as? String == "cartouche" })
-        XCTAssertEqual(renewed["daysLeft"] as? Double, 6)
     }
 }

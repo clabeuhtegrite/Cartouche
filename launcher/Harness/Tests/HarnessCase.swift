@@ -163,6 +163,19 @@ class HarnessCase: XCTestCase {
         try await Task.sleep(nanoseconds: UInt64(seconds * 1_000_000_000))
     }
 
+    /// Cartouche as a player who signed in leaves it: SideStore's Apple ID,
+    /// the pairing file where SideStore reads it, and the certificate,
+    /// checked.
+    func setUpCartouche(file: StaticString = #filePath, line: UInt = #line) async throws {
+        let setup = CartoucheSetup.shared
+        XCTAssertTrue(CartoucheStoreKeychain.set(Data("player@example.com".utf8), for: "appleIDEmailAddress"),
+                      "the keychain works in the harness", file: file, line: line)
+        try FileManager.default.createDirectory(at: CartouchePairing.storeDocuments, withIntermediateDirectories: true)
+        try Data("pairing".utf8).write(to: CartouchePairing.storeDocuments.appendingPathComponent(CartouchePairing.importName))
+        setup.refresh()
+        try await waitUntil("Cartouche is set up", file: file, line: line) { setup.isComplete }
+    }
+
     // MARK: Games
 
     /// Installs the IPA at URL as the player does from the Files picker,
