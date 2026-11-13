@@ -34,11 +34,12 @@ extension BridgeController: BridgeBuildsSource {
     }
 }
 
-/// What the Mac answers a paired iPhone when it takes no build.
+/// What the Mac answers a paired iPhone when it takes no build: "the app",
+/// never its name, which changes.
 enum IPhoneBuilds {
     static var starting: String {
-        tr("Cartouche Builder is starting on the Mac: try again in a moment.",
-           "Cartouche Builder démarre sur le Mac : réessayez dans un instant.")
+        tr("The app is starting on the Mac: try again in a moment.",
+           "L’app démarre sur le Mac : réessayez dans un instant.")
     }
 
     static var ipaOnly: String {
@@ -54,7 +55,7 @@ enum IPhoneBuilds {
             return tr("The Mac is importing an IPA: try again once it is done.",
                       "Le Mac importe une IPA : réessayez une fois l’import fini.")
         }
-        return tr("The Mac’s tools are not ready: open Cartouche Builder on the Mac to finish installing them.",
-                  "Les outils du Mac ne sont pas prêts : ouvrez Cartouche Builder sur le Mac pour finir de les installer.")
+        return tr("The Mac’s tools are not ready: open the app on the Mac to finish installing them.",
+                  "Les outils du Mac ne sont pas prêts : ouvrez l’app sur le Mac pour finir de les installer.")
     }
 }

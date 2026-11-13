@@ -8,9 +8,11 @@
 //  the whole screen of the simulator it runs on, such as the iPhone Duo's,
 //  with its own safe area, size classes and system bars.
 //
-//      -GalleryScreen games|library|sheet|settings|gameinfo|setup|signin|guide|system|storage|storage-mac|storage-drive|storage-drive-guide|telemetry|report|tv
+//      -GalleryScreen games|library|sheet|sheet-mac|settings|gameinfo|setup|signin|guide|system|storage|storage-mac|storage-drive|storage-drive-guide|telemetry|report|tv
 //                                        library: every game, open over
-//                                        the home; gameinfo: what the
+//                                        the home; sheet-mac: the sheet on
+//                                        the game's build on the player's
+//                                        Mac (work: mac-builds); gameinfo: what the
 //                                        player says of the sheet's game;
 //                                        storage-mac: Add your Mac, the
 //                                        form that pairs this iPhone with a
@@ -68,11 +70,12 @@
 //                                        mac-offline: that Mac out of reach,
 //                                        away from home, with two games'
 //                                        saves waiting for it; mac-builds:
-//                                        that Mac, its Cartouche Builder
-//                                        building one game and another
-//                                        waiting its turn, as the games'
-//                                        sheets show (GalleryMac.builds);
-//                                        build-skipped:
+//                                        that Mac building one game and
+//                                        another waiting its turn, as the
+//                                        games' sheets show
+//                                        (GalleryMac.builds), and
+//                                        mac-builds-all, with the Mac's
+//                                        builds open; build-skipped:
 //                                        No thanks said to the guide's Mac
 //                                        step; own-cover: the sheet's game,
 //                                        or the first of the player's, with
@@ -203,6 +206,7 @@ struct GalleryScenario {
         """
         try? Data(renewal.utf8).write(to: GalleryState.appGroup.appendingPathComponent("widget_data.json"))
         MainActor.assumeIsolated {
+            CartoucheMacBuildsWatch.galleryScrolls = screen == "sheet-mac"
             CartoucheSetup.shared.refresh()
             CartoucheGuide.shared.startOverForGallery()
             if work == "build-skipped" { CartoucheGuide.shared.skipBuild() }
@@ -276,7 +280,7 @@ struct GalleryScenario {
             if work == "saves", let titleId = sheet ?? ownedTitles.first {
                 GallerySaves.prepare(titleId: titleId)
             }
-            if work == "mac" || work == "mac-offline" || work == "mac-builds" {
+            if ["mac", "mac-offline", "mac-builds", "mac-builds-all"].contains(work) {
                 // The player's Mac, paired, with the games Cartouche Builder
                 // built in its Games folder; offline, away from home, the
                 // saves of two games wait for it; builds, Cartouche Builder
@@ -289,8 +293,8 @@ struct GalleryScenario {
                     CartoucheStorageReach.shared.showOfflineForGallery([mac.id])
                     CartoucheSaveBackups.shared.showWaitingForGallery(2)
                 }
-                if work == "mac-builds" {
-                    CartoucheMacBuildsWatch.gallery = (mac: mac.name, builds: GalleryMac.builds())
+                if work == "mac-builds" || work == "mac-builds-all" {
+                    CartoucheMacBuildsWatch.gallery = (mac: mac.name, builds: GalleryMac.builds(), showsAll: work == "mac-builds-all")
                 }
             }
             if work == "drive-signed-out" {
@@ -542,7 +546,7 @@ struct CartoucheGalleryApp: App {
             // the sheet of the game in focus on an iPhone Duo unfolded once
             // the player has a game.
             CartoucheGamesView(showingLibrary: true)
-        case "sheet":
+        case "sheet", "sheet-mac":
             if let entry = entries.all.first(where: { $0.titleId == scenario.sheet }) {
                 NavigationStack {
                     CartoucheGameSheetView(entry: entry, memory: CartoucheMemoryReading.now(), onPlay: { _ in },

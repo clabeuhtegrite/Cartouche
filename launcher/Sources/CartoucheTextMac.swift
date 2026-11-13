@@ -42,8 +42,8 @@ extension CartoucheText {
 
     // MARK: A game's builds on your Mac (CartoucheMacBuildsView.swift)
 
-    static func macBuildsTitle(_ mac: String) -> String { f("mac.builds.title", "Cartouche Builder on %@", mac) }
-    static func macBuildsTooOld(_ mac: String) -> String { f("mac.builds.tooOld", "Update Cartouche Builder on %@ to see its builds here and start one.", mac) }
+    static func macBuildsTitle(_ mac: String) -> String { f("mac.builds.title", "Builds on %@", mac) }
+    static func macBuildsTooOld(_ mac: String) -> String { f("mac.builds.tooOld", "Update the app on %@ to see its builds here and start one.", mac) }
     static var macBuildsFooter: String { s("mac.builds.footer", "Once built, the game is in the Mac’s games folder, where Cartouche offers to install it or update it.") }
     static func macBuildBuilding(_ percent: String) -> String { f("mac.build.building", "Building on the Mac, %@", percent) }
     static var macBuildBuildingNow: String { s("mac.build.building.now", "Building on the Mac") }
@@ -58,15 +58,15 @@ extension CartoucheText {
     static func macBuildUpToDateBuilt(_ date: String) -> String { f("mac.build.upToDate.built", "Up to date on the Mac, built %@", date) }
     static var macBuildFailed: String { s("mac.build.failed", "Its last build on the Mac failed") }
     static func macBuildFailedOn(_ date: String) -> String { f("mac.build.failed.on", "Its last build on the Mac failed, %@", date) }
-    static var macBuildNotFollowed: String { s("mac.build.notFollowed", "Not followed by Cartouche Builder: built on the Mac only when you ask") }
+    static var macBuildNotFollowed: String { s("mac.build.notFollowed", "Not followed on the Mac: built there only when you ask") }
     static var macBuildNoProfile: String { s("mac.build.noProfile", "nxnative has no profile for it yet: the Mac builds it once it has one") }
-    static var macBuildIPAOnly: String { s("mac.build.ipaOnly", "Only its IPA is on the Mac: its dump is not in Cartouche Builder’s sources folder") }
+    static var macBuildIPAOnly: String { s("mac.build.ipaOnly", "Only its IPA is on the Mac: its dump is not in the Mac’s sources folder") }
     static var macBuildActionBuild: String { s("mac.build.action.build", "Build on the Mac") }
     static var macBuildActionRebuild: String { s("mac.build.action.rebuild", "Rebuild on the Mac") }
     static var macBuildActionAgain: String { s("mac.build.action.again", "Build again on the Mac") }
     static var macBuildActionQueue: String { s("mac.build.action.queue", "Add to the Mac’s queue") }
     static var macBuildAsking: String { s("mac.build.asking", "Asking the Mac…") }
-    static var macBuildsAll: String { s("mac.builds.all", "The Mac’s builds") }
+    static var macBuildsAll: String { s("mac.builds.all", "All the Mac’s builds") }
     static var macBuildsBuilding: String { s("mac.builds.building", "Building") }
     static var macBuildsWaiting: String { s("mac.builds.waiting", "Waiting their turn") }
     static var macBuildsDone: String { s("mac.builds.done", "Finished") }

@@ -2438,13 +2438,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Only its IPA is on the Mac: its dump is not in Cartouche Builder’s sources folder"
+            "value" : "Only its IPA is on the Mac: its dump is not in the Mac’s sources folder"
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Seule son IPA est sur le Mac : son dump n’est pas dans le dossier des sources de Cartouche Builder"
+            "value" : "Seule son IPA est sur le Mac : son dump n’est pas dans le dossier des sources du Mac"
           }
         }
       }
@@ -2523,13 +2523,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Not followed by Cartouche Builder: built on the Mac only when you ask"
+            "value" : "Not followed on the Mac: built there only when you ask"
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Pas suivi par Cartouche Builder : construit sur le Mac seulement à votre demande"
+            "value" : "Pas suivi sur le Mac : construit seulement à votre demande"
           }
         }
       }
@@ -2625,13 +2625,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "The Mac’s builds"
+            "value" : "All the Mac’s builds"
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Les constructions du Mac"
+            "value" : "Toutes les constructions du Mac"
           }
         }
       }
@@ -2744,13 +2744,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Cartouche Builder on %@"
+            "value" : "Builds on %@"
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Cartouche Builder sur %@"
+            "value" : "Constructions sur %@"
           }
         }
       }
@@ -2761,13 +2761,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Update Cartouche Builder on %@ to see its builds here and start one."
+            "value" : "Update the app on %@ to see its builds here and start one."
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Mettez à jour Cartouche Builder sur %@ pour voir ses constructions ici et en lancer une."
+            "value" : "Mettez à jour l’app de %@ pour voir ses constructions ici et en lancer une."
           }
         }
       }

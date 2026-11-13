@@ -180,6 +180,15 @@ struct CartoucheGameSheetView: View {
             .background(CartoucheStage(key: entry.tileKey, art: entry.backdrop))
             .onAppear { macBuilds.start() }
             .onDisappear { macBuilds.stop() }
+            #if CARTOUCHE_GALLERY
+            // The gallery's sheet on the game's build on the Mac, its
+            // section's title in view (screen: sheet-mac).
+            .task {
+                guard CartoucheMacBuildsWatch.galleryScrolls else { return }
+                try? await Task.sleep(nanoseconds: 500_000_000)
+                reader.scrollTo(CartoucheMacBuildsSection.anchor, anchor: UnitPoint(x: 0.5, y: 0.2))
+            }
+            #endif
             // What the player gave in Edit the game's info shows at once:
             // the sheet goes back to the game's name and cover.
             .onChange(of: entry.player) { _, _ in

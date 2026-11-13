@@ -38,14 +38,20 @@ final class CartoucheMacBuildsWatch: ObservableObject {
     @Published private(set) var asking: String?
     /// What the Mac answered the build asked for, when it did not take it.
     @Published private(set) var refusal: String?
+    /// Whether the Mac's builds show, under the game's.
+    @Published var showsAll = false
 
     private var remote: CartoucheMacRemote?
     private var loop: Task<Void, Never>?
 
     #if CARTOUCHE_GALLERY
-    /// What the gallery shows in place of a Mac's answers: the Mac's name
-    /// and its builds; a build asked for waits its turn, or starts.
-    static var gallery: (mac: String, builds: CartoucheBridgeBuilds)?
+    /// What the gallery shows in place of a Mac's answers: the Mac's name,
+    /// its builds, and whether they show open; a build asked for waits its
+    /// turn, or starts.
+    static var gallery: (mac: String, builds: CartoucheBridgeBuilds, showsAll: Bool)?
+    /// Whether the gallery's sheet opens on the game's build on the Mac
+    /// (screen: sheet-mac).
+    static var galleryScrolls = false
     #endif
 
     /// The Mac paired in Storage: that of the games folder, where its
@@ -63,6 +69,7 @@ final class CartoucheMacBuildsWatch: ObservableObject {
         if let gallery = Self.gallery {
             macName = gallery.mac
             builds = gallery.builds
+            showsAll = gallery.showsAll
         }
         return
         #else
@@ -203,13 +210,15 @@ struct CartoucheMacBuildsSection: View {
     /// is told only then.
     let isOwned: Bool
     @ObservedObject var watch: CartoucheMacBuildsWatch
-    /// Whether the Mac's builds show, under the game's.
-    @State private var showsAll = false
+
+    /// The game's line, which the gallery's sheet opens on.
+    static let anchor = "mac.builds"
 
     var body: some View {
         if let builds = watch.builds, let build = CartoucheMacBuild.of(titleIds, in: builds) {
             Section {
                 status(build)
+                    .id(Self.anchor)
                 if let action = build.action {
                     button(action, build: build)
                 }
@@ -222,7 +231,7 @@ struct CartoucheMacBuildsSection: View {
                 // A row that opens on the list below it, wherever it is
                 // tapped, unlike a disclosure group's arrow.
                 Button {
-                    withAnimation { showsAll.toggle() }
+                    withAnimation { watch.showsAll.toggle() }
                 } label: {
                     HStack {
                         Text(CartoucheText.macBuildsAll)
@@ -231,12 +240,12 @@ struct CartoucheMacBuildsSection: View {
                         Image(systemName: "chevron.right")
                             .font(.footnote.weight(.semibold))
                             .foregroundStyle(.secondary)
-                            .rotationEffect(.degrees(showsAll ? 90 : 0))
+                            .rotationEffect(.degrees(watch.showsAll ? 90 : 0))
                             .accessibilityHidden(true)
                     }
                     .contentShape(Rectangle())
                 }
-                if showsAll {
+                if watch.showsAll {
                     CartoucheMacBuildsList(builds: builds)
                 }
             } header: {

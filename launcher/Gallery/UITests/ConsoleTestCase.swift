@@ -111,7 +111,7 @@ enum Words {
     static let macBuilding = "Building on the Mac"          // mac.build.building
     static let macWaitingAfterOne = "Waiting its turn on the Mac, after 1 game" // mac.build.waiting.one
     static let addToMacQueue = "Add to the Mac’s queue"     // mac.build.action.queue
-    static let macBuilds = "The Mac’s builds"               // mac.builds.all
+    static let macBuilds = "All the Mac’s builds"           // mac.builds.all
     static let macBuildsBuilding = "Building"               // mac.builds.building
     static let macBuildsWaiting = "Waiting their turn"      // mac.builds.waiting
     static let macBuildsFinished = "Finished"               // mac.builds.done
