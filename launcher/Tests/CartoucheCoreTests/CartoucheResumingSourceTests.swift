@@ -357,4 +357,111 @@ final class CartoucheResumingSourceTests: XCTestCase {
             XCTFail("a failure was lost")
         } catch is FlakyServer.Refused {}
     }
+
+    // MARK: One request at a time (CartoucheRequestQueue)
+
+    /// Requests made at the same moment on one connection, as an SMB
+    /// connection's can be: never two under way at once.
+    func testRequestsMadeAtOnceRunOneAtATime() async throws {
+        let queue = CartoucheRequestQueue()
+        let turns = Turns()
+        try await withThrowingTaskGroup(of: Void.self) { group in
+            for index in 0 ..< 64 {
+                group.addTask {
+                    try await queue.run {
+                        turns.begin("\(index)")
+                        // A request waits for the server's answer.
+                        try await Task.sleep(nanoseconds: 1_000_000)
+                        turns.end()
+                    }
+                }
+            }
+            try await group.waitForAll()
+        }
+        XCTAssertEqual(turns.order.count, 64)
+        XCTAssertEqual(turns.most, 1, "requests were under way at the same time")
+    }
+
+    /// The close of a file that SMBSource's deinit queues, while a request
+    /// is under way, comes before the request made just after it, though
+    /// the deinit does not wait for it: the connection could not remove or
+    /// replace a file still open on it.
+    func testTheCloseADeinitQueuesComesBeforeTheNextRequest() async throws {
+        let queue = CartoucheRequestQueue()
+        let turns = Turns()
+        let reading = Task {
+            try await queue.run {
+                turns.begin("read")
+                try await Task.sleep(nanoseconds: 50_000_000)
+                turns.end()
+            }
+        }
+        try await waitUntil { turns.order == ["read"] }
+        queue.queue {
+            turns.begin("close")
+            try await Task.sleep(nanoseconds: 20_000_000)
+            turns.end()
+        }
+        try await queue.run {
+            turns.begin("list")
+            turns.end()
+        }
+        try await reading.value
+        XCTAssertEqual(turns.order, ["read", "close", "list"])
+        XCTAssertEqual(turns.most, 1)
+    }
+
+    /// A request that fails ends its turn too, as one whose connection
+    /// was cut does, and so does a queued one.
+    func testAFailedRequestLetsTheNextOneThrough() async throws {
+        let queue = CartoucheRequestQueue()
+        do {
+            try await queue.run { throw FlakyServer.Dropped() }
+            XCTFail("a failure was lost")
+        } catch is FlakyServer.Dropped {}
+        queue.queue { throw FlakyServer.Dropped() }
+        // Waited for a few seconds at most: a turn that a failure kept
+        // would keep this request waiting for good.
+        let answered = CartoucheFlag()
+        let next = Task {
+            if try await queue.run({ 42 }) == 42 { answered.raise() }
+        }
+        try await waitUntil { answered.isRaised }
+        next.cancel()
+    }
+}
+
+/// What the requests of a test did, in the order they started, and how
+/// many were under way at once, at most.
+private final class Turns: @unchecked Sendable {
+    private let lock = NSLock()
+    private var running = 0
+    private var mostRunning = 0
+    private var started: [String] = []
+
+    func begin(_ name: String) {
+        lock.lock()
+        defer { lock.unlock() }
+        running += 1
+        mostRunning = max(mostRunning, running)
+        started.append(name)
+    }
+
+    func end() {
+        lock.lock()
+        defer { lock.unlock() }
+        running -= 1
+    }
+
+    var most: Int {
+        lock.lock()
+        defer { lock.unlock() }
+        return mostRunning
+    }
+
+    var order: [String] {
+        lock.lock()
+        defer { lock.unlock() }
+        return started
+    }
 }
