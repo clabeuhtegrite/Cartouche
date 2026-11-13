@@ -7,9 +7,10 @@
 #     launcher/Gallery/capture.sh OUT     # XcodeGen and Xcode, on a Mac
 #
 # CartoucheGalleryUITests (UITests) opens the gallery on the whole console
-# and drives it, as a player would: uitests.sh runs them.
+# and drives it, as a player would: uitests.sh runs them, on an iPhone, and
+# the iPad's on an iPad with --ipad.
 #
-#     launcher/Gallery/uitests.sh OUT
+#     launcher/Gallery/uitests.sh [--ipad] OUT
 #
 # The Launcher screens workflow runs both on every pull request that changes
 # the gallery, the launcher's sources or the catalog it shows, once for each
