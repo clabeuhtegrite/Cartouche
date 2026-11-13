@@ -446,6 +446,7 @@ enum CartoucheText {
     static var pausedDetail: String { s("running.paused", "Paused behind Cartouche, where you left it.") }
     static var backToCartouche: String { s("running.back", "Back to Cartouche") }
     static var homeButtonHint: String { s("running.homeHint", "The controller’s Home button brings you back to Cartouche.") }
+    static var turnIPadSideways: String { s("running.turnIPadSideways", "Turn your iPad sideways to play.") }
     static func quitQuestion(_ name: String) -> String { f("running.quit.question", "Quit %@?", name) }
     static var quitGame: String { s("running.quit.confirm", "Quit the game") }
     static var quitMessage: String { s("running.quit.message", "Progress since the game last saved will be lost.") }

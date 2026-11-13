@@ -96,4 +96,69 @@ final class CartoucheGameOrientationTests: XCTestCase {
         try Data("not a property list".utf8).write(to: bundle.appendingPathComponent("Info.plist"))
         XCTAssertEqual(CartoucheGameOrientations(bundle: bundle, isPad: true), iPad)
     }
+
+    /// On an iPad, which turns the game's screen as it is held: an nxnative
+    /// game, sideways only, keeps the way it is turned once it is sideways,
+    /// as the iPad tilts upright, upside down or lies flat. Players' iPads
+    /// turned such games upright mid-game (telemetry of 13 November: 834 x
+    /// 1210 then 1210 x 834 points on an 11-inch iPad Pro).
+    func testAGameMadeToBePlayedSidewaysStaysSidewaysOnAnIPad() {
+        let game = CartoucheGameOrientations.landscape
+        for current in [CartoucheGameOrientations.landscapeLeft, .landscapeRight] {
+            for held in [CartoucheGameOrientations.portrait, .portraitUpsideDown, [], current] {
+                XCTAssertTrue(game.keeps(current, held: held, isPad: true), "turned \(current.rawValue), held \(held.rawValue)")
+            }
+        }
+    }
+
+    /// It turns from one side to the other as the iPad does: the screen lets
+    /// go while the iPad is held the other side up, for iOS to turn it.
+    func testItTurnsFromOneSideToTheOtherWithTheIPad() {
+        let game = CartoucheGameOrientations.landscape
+        XCTAssertFalse(game.keeps(.landscapeLeft, held: .landscapeRight, isPad: true))
+        XCTAssertFalse(game.keeps(.landscapeRight, held: .landscapeLeft, isPad: true))
+    }
+
+    /// Turned a way the game does not allow, as when it starts on an iPad
+    /// held upright, the screen keeps nothing: the player turns the iPad
+    /// sideways, and the game with it.
+    func testUprightItWaitsForThePlayerToTurnTheIPad() {
+        let game = CartoucheGameOrientations.landscape
+        for held in [CartoucheGameOrientations.portrait, .portraitUpsideDown, .landscapeLeft, .landscapeRight, []] {
+            XCTAssertFalse(game.keeps(.portrait, held: held, isPad: true))
+            XCTAssertFalse(game.keeps(.portraitUpsideDown, held: held, isPad: true))
+        }
+        XCTAssertFalse(game.keeps([], held: .landscapeLeft, isPad: true), "turned no way iOS could tell")
+    }
+
+    /// A game that turns every way Cartouche does keeps nothing; one that
+    /// turns upright only keeps upright.
+    func testOnlyAGameThatTurnsFewerWaysKeepsOne() {
+        let every = CartoucheGameOrientations.ofCartouche(isPad: true)
+        for current in [CartoucheGameOrientations.portrait, .portraitUpsideDown, .landscapeLeft, .landscapeRight] {
+            XCTAssertFalse(every.keeps(current, held: [], isPad: true))
+        }
+        XCTAssertTrue(upright.keeps(.portrait, held: .landscapeLeft, isPad: true))
+        XCTAssertFalse(upright.keeps(.landscapeLeft, held: .portrait, isPad: true))
+    }
+
+    /// An iPad held upright shows a game made to be played sideways
+    /// upright: the player is asked to turn it, and only then.
+    func testAnIPadHeldUprightAsksToTurnItSideways() {
+        let game = CartoucheGameOrientations.landscape
+        XCTAssertTrue(game.asksToTurnSideways(.portrait, isPad: true))
+        XCTAssertTrue(game.asksToTurnSideways(.portraitUpsideDown, isPad: true))
+        XCTAssertTrue(CartoucheGameOrientations.landscapeRight.asksToTurnSideways(.portrait, isPad: true))
+        for current in [CartoucheGameOrientations.landscapeLeft, .landscapeRight, []] {
+            XCTAssertFalse(game.asksToTurnSideways(current, isPad: true), "turned \(current.rawValue)")
+        }
+        XCTAssertFalse(game.asksToTurnSideways(.portrait, isPad: false), "an iPhone turns the screen itself")
+    }
+
+    /// A game that may be played upright, or not sideways, asks nothing.
+    func testAGameThatTurnsUprightAsksNothing() {
+        XCTAssertFalse(CartoucheGameOrientations.ofCartouche(isPad: true).asksToTurnSideways(.portrait, isPad: true))
+        XCTAssertFalse(upright.asksToTurnSideways(.portraitUpsideDown, isPad: true))
+        XCTAssertFalse(CartoucheGameOrientations([.portraitUpsideDown, .landscapeLeft]).asksToTurnSideways(.portrait, isPad: true))
+    }
 }

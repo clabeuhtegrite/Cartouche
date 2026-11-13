@@ -3061,6 +3061,23 @@
         }
       }
     },
+    "running.turnIPadSideways" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Turn your iPad sideways to play."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tournez votre iPad à l’horizontale pour jouer."
+          }
+        }
+      }
+    },
     "saves.failed.copy" : {
       "extractionState" : "manual",
       "localizations" : {

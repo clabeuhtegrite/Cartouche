@@ -16,6 +16,11 @@
 //  which name no orientation, so that a game made to be played sideways
 //  turned upright with the iPhone.
 //
+//  An iPhone turns the screen only the ways it allows. An iPad turns
+//  Cartouche's scenes as it is held, whatever a game allows: the screen
+//  keeps the way it is turned once the game allows it, and turns from one
+//  side to the other as the iPad does (keeps(_:held:isPad:)).
+//
 //  Platform-independent: tested on its own by launcher/Package.swift.
 //
 
@@ -66,4 +71,38 @@ extension CartoucheGameOrientations {
         let info = data.flatMap { try? PropertyListSerialization.propertyList(from: $0, format: nil) } as? [String: Any]
         self.init(info: info ?? [:], isPad: isPad)
     }
+
+    /// Whether the screen of a game that allows these orientations keeps the
+    /// way it is turned, CURRENT, while the device is held the way HELD
+    /// (an empty set when it lies flat or iOS cannot tell). On an iPad iOS
+    /// turns Cartouche's scenes as the iPad is held, whatever a game allows
+    /// (Apple's TN3192): a game made to be played sideways turned upright
+    /// with the iPad. iOS keeps the way a scene is turned only while it is
+    /// asked to (UIViewController.prefersInterfaceOrientationLocked, iPadOS
+    /// 26), so the screen asks once it is turned a way the game allows, and
+    /// lets go while it is turned a way the game does not allow, for the
+    /// player to turn it sideways, and while the iPad is held another way the
+    /// game allows, for iOS to turn it there, as it turns a game from one
+    /// side to the other on an iPhone. A game that turns every way Cartouche
+    /// does keeps nothing.
+    func keeps(_ current: CartoucheGameOrientations, held: CartoucheGameOrientations, isPad: Bool) -> Bool {
+        guard !isSuperset(of: Self.ofCartouche(isPad: isPad)) else { return false }
+        guard current.isOne, contains(current) else { return false }
+        if held.isOne, held != current, contains(held) { return false }
+        return true
+    }
+
+    /// Whether the player should turn the device sideways to play a game
+    /// that allows these orientations while its screen is turned CURRENT:
+    /// on an iPad, which shows the game as it is held, a game made to be
+    /// played sideways (nxnative's) shown upright or upside down. An iPhone
+    /// turns the screen itself.
+    func asksToTurnSideways(_ current: CartoucheGameOrientations, isPad: Bool) -> Bool {
+        let upright: CartoucheGameOrientations = [.portrait, .portraitUpsideDown]
+        return isPad && current.isOne && upright.contains(current) && isDisjoint(with: upright)
+            && !isDisjoint(with: .landscape)
+    }
+
+    /// Exactly one orientation.
+    private var isOne: Bool { rawValue.nonzeroBitCount == 1 }
 }

@@ -97,6 +97,12 @@ enum HarnessLC {
     /// cable or AirPlay, that iOS has not handed Cartouche
     /// (CartoucheGameHost.iPhoneIsMirrored).
     static var iPhoneMirrored = false
+    /// The way the screen of a game behind the console is turned, and the
+    /// way the screen would turn for the device as it is held, as a test
+    /// sets them (CartoucheGameScreen.followTurns): the Simulator's own
+    /// when nil, which a test cannot turn.
+    static var screenTurned: CartoucheGameOrientations?
+    static var deviceHeld: CartoucheGameOrientations?
 
     static let appGroupID = "group.io.github.clabeuhtegrite.cartouche.harness"
 
@@ -175,6 +181,8 @@ enum HarnessLC {
         extensionReportsExit = true
         gamesHaveATVScene = true
         iPhoneMirrored = false
+        screenTurned = nil
+        deviceHeld = nil
         HarnessScenes.reset()
         HarnessNetwork.reset()
         let model = DataManager.shared.model
