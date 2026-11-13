@@ -19,20 +19,24 @@ final class IPadUITests: ConsoleTestCase {
     private let iPad = Launch(model: "iPad15,3")
 
     /// The sheet of the game in focus beside the home, then that of the
-    /// game whose cover is tapped, in its place.
+    /// game whose cover is tapped, in its place. The sheet is a list, and
+    /// the names are looked for in it alone: every cover on the home's
+    /// shelf carries its game's name too, as on 13 November, when a test
+    /// that looked for them anywhere found Donkey Kong Bananza on its cover
+    /// beside the sheet of Mario Kart World.
     @MainActor
     func testTheSheetOfTheGameInFocusStandsBesideTheHome() throws {
         try onAnIPad()
         let app = openConsole(iPad)
-        expect(app.staticTexts[Games.inFocus].waitForExistence(timeout: 15),
-               "No sheet of \(Games.inFocus) beside the home", in: app)
+        expect(sheetShows(Games.inFocus, in: app, timeout: 15), "No sheet of \(Games.inFocus) beside the home", in: app)
         expect(app.buttons[Words.gameSettings].exists, "No Game settings beside the home", in: app)
         expect(!app.buttons[Words.details].exists, "Details on the home, which the sheet beside it makes useless", in: app)
 
         let other = Games.names.first { $0 != Games.inFocus }!
         tap(app.buttons[other], "the cover of \(other)", in: app)
         expect(waitUntil(10) { app.buttons[other].isSelected }, "The cover of \(other) did not take the focus", in: app)
-        expect(waitUntil(10) { app.staticTexts[other].exists && !app.staticTexts[Games.inFocus].exists },
+        let sheet = app.collectionViews
+        expect(waitUntil(10) { sheet.staticTexts[other].exists && !sheet.staticTexts[Games.inFocus].exists },
                "The sheet beside the home still shows \(Games.inFocus), not \(other)", in: app)
         expect(isOnConsole(app), "The tap left the console", in: app)
         expectMainThreadAnswered(app)
@@ -55,8 +59,7 @@ final class IPadUITests: ConsoleTestCase {
     func testTheWordsCallTheIPadTheIPad() throws {
         try onAnIPad()
         let app = openConsole(iPad)
-        expect(app.staticTexts[Games.inFocus].waitForExistence(timeout: 15),
-               "No sheet of \(Games.inFocus) beside the home", in: app)
+        expect(sheetShows(Games.inFocus, in: app, timeout: 15), "No sheet of \(Games.inFocus) beside the home", in: app)
         expect(labelled(containing: "this iPad", in: app).waitForExistence(timeout: 10),
                "The sheet does not say this iPad", in: app)
         expect(!labelled(containing: "this iPhone", in: app).exists, "The console says this iPhone on an iPad", in: app)
