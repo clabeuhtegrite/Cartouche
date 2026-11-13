@@ -68,16 +68,19 @@ jobs:
 
           runtimes = [r for r in listing("runtimes")["runtimes"]
                       if r.get("isAvailable", True) and r.get("platform", "iOS") == "iOS"]
-          runtime = max(runtimes, key=lambda r: (release(r), -len(r["identifier"])))
-          types = runtime.get("supportedDeviceTypes", [])
-          print(f"runtime {runtime['identifier']} {runtime.get('version')}", file=sys.stderr)
-          print("types: " + ", ".join(t["name"] for t in types), file=sys.stderr)
+          # Newest first, the general runtime before one made for a device.
+          runtimes.sort(key=lambda r: (release(r), -len(r["identifier"])), reverse=True)
+          for runtime in runtimes:
+              print(f"runtime {runtime['identifier']} {runtime.get('version')}: "
+                    + ", ".join(t["name"] for t in runtime.get("supportedDeviceTypes", [])), file=sys.stderr)
 
           def device(key, choices):
-              wanted = next((t for name in choices for t in types if t["name"].startswith(name)), None)
-              if wanted is None:
+              found = [(runtime, t) for runtime in runtimes for name in choices
+                       for t in runtime.get("supportedDeviceTypes", []) if t["name"].startswith(name)]
+              if not found:
                   print(f"no {key}", file=sys.stderr)
                   return
+              runtime, wanted = found[0]
               for found in listing("devices", "available")["devices"].get(runtime["identifier"], []):
                   if found.get("deviceTypeIdentifier") == wanted["identifier"]:
                       udid = found["udid"]
@@ -90,6 +93,7 @@ jobs:
 
           device("iphone", ["iPhone 17 Pro"])
           device("ipad", ["iPad Pro 13-inch", "iPad Pro", "iPad Air", "iPad"])
+          device("duo", ["iPhone Duo"])
           PY
       - name: The probe on the iPhone
         env:
@@ -104,6 +108,13 @@ jobs:
         run: |
           .github/tv-research/run.sh "$UDID" build/probe/Build/Products/Debug-iphonesimulator/TVProbe.app \
             baseline:12:none none:14 nxnative:16 cartouche:40
+      - name: The probe on the iPhone Duo
+        if: ${{ !cancelled() && steps.devices.outputs.duo != '' }}
+        env:
+          UDID: ${{ steps.devices.outputs.duo }}
+        run: |
+          .github/tv-research/run.sh "$UDID" build/probe/Build/Products/Debug-iphonesimulator/TVProbe.app \
+            none:14:none cartouche:40
       - name: The build's errors
         if: ${{ failure() }}
         run: grep -E -B2 -A6 "error:" build/probe.log | head -150 || true
