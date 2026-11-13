@@ -473,7 +473,8 @@ test("the page sums up the reports Cartouche makes", () => {
   assert.equal(game.name, "Mario Kart World");
   assert.equal(game.cover, "co9abc");
   assert.equal(game.fps, session.fps.median);
-  assert.equal(game.low5, session.fps.low5);
+  // The slowest 5% only from the reading of the log that takes pauses out.
+  assert.equal(game.low5, session.reader >= M.SLOWEST_READER ? session.fps.low5 : null);
   assert.equal(game.peak, session.memory.peakMiB);
   assert.deepEqual(game.tightest, { peak: session.memory.peakMiB, limit: session.memoryLimitMiB, ratio: session.memory.peakMiB / session.memoryLimitMiB });
   assert.deepEqual(model.memory.byGame.map((item) => [item.id, item.peak, item.limit]), [["0400C3F00006E000", session.memory.peakMiB, session.memoryLimitMiB]]);
@@ -587,13 +588,226 @@ test("the Apple sign-in says how often it goes through, the step it stops at and
   assert.deepEqual(older.errors.byCause.map((row) => row.key), ["unknown"]);
 });
 
+// MARK: What the page makes of the reports
+
+// Reports of copies of their own, number N (the server keeps the first 8
+// characters of an install and of a session).
+let serial = 0;
+const copy = (n) => `${String(n).padStart(8, "0")}-0000-4000-8000-000000000000`;
+function sessionOf(n, fields = {}) {
+  serial += 1;
+  const [session] = APP_REPORTS;
+  return { ...session, install: copy(n), session: `${String(serial).padStart(8, "0")}-1111-4000-8000-000000000000`, seq: serial, end: undefined, ...fields };
+}
+function eventOf(n, name, fields = {}, extra = {}) {
+  serial += 1;
+  const [, event] = APP_REPORTS;
+  return { ...event, install: copy(n), seq: serial, name, game: undefined, fields, ...extra };
+}
+function onDay(day, report) {
+  const row = asRow(report);
+  row[REPORT.indexOf("day")] = day;
+  return row;
+}
+const build = (reports) => M.build(answer(reports.map((report) => (Array.isArray(report) ? report : asRow(report)))), CATALOG);
+
+test("the slowest 5% counts only from the reading of the log that takes pauses out", () => {
+  assert.equal(M.SLOWEST_READER, 2);
+  // Read before, a pause took this session's slowest 5% down to 12 frames a second.
+  const before = sessionOf(1, { reader: 1, fps: { median: 59.9, low5: 12 } });
+  const after = sessionOf(2, { reader: 2, fps: { median: 59.9, low5: 50 } });
+  const model = build([before, after]);
+  const [game] = model.games;
+  assert.equal(game.low5, 50);
+  assert.equal(game.low5Waiting, 1);
+  assert.deepEqual([model.fluidity.low5, model.fluidity.low5Measured, model.fluidity.low5Waiting], [50, 1, 1]);
+  assert.equal(game.verdict.status, "playable", "the pause makes no game « with issues »");
+  const older = build([before]);
+  assert.equal(older.games[0].low5, null);
+  assert.equal(older.fluidity.low5, null);
+  assert.equal(older.games[0].verdict.status, "playable");
+});
+
+test("a game's verdict follows the game sheets' rules, each iPhone counting once", () => {
+  const status = (sessions) => {
+    const { verdict } = build(sessions).games[0];
+    return [verdict.status, verdict.reasons.map((reason) => reason.key)];
+  };
+  const good = (n, fields = {}) => sessionOf(n, { fps: { median: 59.5, low5: 50 }, reader: 2, ...fields });
+  assert.deepEqual(status([good(1), good(2), good(3)]), ["playable", []]);
+  // One iPhone that played five slow sessions weighs as much as each of the two others.
+  const slow = Array.from({ length: 5 }, () => good(1, { fps: { median: 20, low5: 15 } }));
+  assert.deepEqual(status([...slow, good(2), good(3)]), ["playable", []]);
+  const verdict = build([...slow, good(2), good(3)]).games[0].verdict;
+  assert.deepEqual([verdict.iphones, verdict.sessions, verdict.fps, verdict.low], [3, 7, 59.5, 50]);
+  // Below 90 % of the rate the game asks for, or its slowest 5 % below 75 %.
+  assert.deepEqual(status([good(1, { fps: { median: 50, low5: 48 } }), good(2, { fps: { median: 52, low5: 48 } })]), ["issues", ["fps"]]);
+  assert.deepEqual(status([good(1, { fps: { median: 59, low5: 40 } }), good(2, { fps: { median: 59, low5: 42 } })]), ["issues", ["slowest"]]);
+  // One session in ten that ends badly; half of them.
+  const crashed = (n) => good(n, { end: { kind: "crash", signal: 11, pc: "main+0x10", lr: "main+0x0" } });
+  assert.deepEqual(status([crashed(1), ...Array.from({ length: 9 }, (_, index) => good(2 + index))]), ["issues", ["bad"]]);
+  assert.deepEqual(status([crashed(1), crashed(2), good(3), good(4)]), ["boots", ["bad"]]);
+  // No frame at all.
+  const blank = (n) => sessionOf(n, { fps: undefined, frames: 0, end: { kind: "boot-failed" } });
+  assert.deepEqual(status([blank(1), blank(2)]), ["none", ["noFrame"]]);
+  assert.equal(M.verdict([]), null);
+});
+
+test("the players' journey: a step reached counts those before it, even unsaid", () => {
+  const journey = build([
+    // 1 opened Cartouche, no more; 2 opened it, and the Apple sign-in failed.
+    eventOf(1, "app.opened", { setUp: false, signedIn: false }),
+    eventOf(2, "app.opened", { setUp: false, signedIn: false }),
+    eventOf(2, "error", { origin: "signIn", cause: "appleServer", stage: "account" }),
+    // 3 went all the way, and played on two days.
+    eventOf(3, "app.opened", { setUp: true, signedIn: true }),
+    eventOf(3, "account.signedIn", { seconds: 12 }),
+    eventOf(3, "game.installed", { version: "1.0.0" }, { game: "0400C3F00006E000" }),
+    onDay("2026-11-09", sessionOf(3)),
+    sessionOf(3),
+    // 4 ran a version that said neither its sign-in nor its set-up, and played.
+    eventOf(4, "game.installed", {}, { game: "0400C3F00006E000" }),
+    sessionOf(4),
+    // 5 was installed with the player's own certificate.
+    eventOf(5, "app.opened", { setUp: false, signedIn: false, signing: "imported" }),
+  ]).journey;
+  assert.equal(journey.copies, 5);
+  assert.deepEqual(journey.steps.map((step) => [step.key, step.copies]), [["opened", 5], ["signedIn", 3], ["setUp", 2], ["installed", 2], ["played", 2], ["returned", 1]]);
+  assert.equal(journey.stuckCopies, 3);
+  assert.deepEqual(journey.stuck.map((step) => [step.key, step.copies]), [["opened", 2], ["signedIn", 1], ["setUp", 0], ["installed", 0]]);
+  assert.deepEqual(journey.blockers, [{ origin: "signIn", cause: "appleServer", copies: 1 }]);
+  assert.equal(journey.neverSignedIn, 1);
+});
+
+test("each version says how far its copies got, the newest first", () => {
+  const older = { cartouche: "0.11.1" };
+  const newer = { cartouche: "0.11.2" };
+  const model = build([
+    eventOf(1, "app.opened", { setUp: false }, older),
+    eventOf(1, "error", { origin: "signIn", cause: "appleServer" }, older),
+    eventOf(2, "app.opened", { setUp: true }, older),
+    eventOf(2, "account.signedIn", {}, older),
+    sessionOf(2, { ...older, end: { kind: "crash", signal: 11, pc: "main+0x10", lr: "main+0x0" } }),
+    eventOf(3, "app.opened", { setUp: true }, newer),
+    eventOf(3, "account.signedIn", {}, newer),
+    sessionOf(3, newer),
+  ]);
+  assert.deepEqual(model.versions.map((row) => row.version), ["0.11.2", "0.11.1"]);
+  const [two, one] = model.versions;
+  assert.deepEqual(one.signIn, { ok: 1, failed: 1, copies: 2, okCopies: 1 });
+  assert.deepEqual(one.setUp, { share: 0.5, known: 2 });
+  assert.deepEqual([one.copies, one.opens, one.players, one.sessions, one.bad, one.errors], [2, 2, 1, 1, 1, 1]);
+  assert.deepEqual(one.topError, { origin: "signIn", cause: "appleServer", copies: 1, count: 1 });
+  assert.deepEqual([two.copies, two.players, two.bad, two.errors, two.topError], [1, 1, 0, 0, null]);
+  // A version picked leaves the others beside it.
+  const picked = M.build(answer([eventOf(1, "app.opened", {}, older), eventOf(3, "app.opened", {}, newer)].map(asRow)), CATALOG, { version: "0.11.1" });
+  assert.deepEqual(picked.versions.map((row) => row.version), ["0.11.2", "0.11.1"]);
+});
+
+test("each game on each model, the most played first", () => {
+  const model = build([
+    sessionOf(1, { device: "iPhone19,4", reader: 2, fps: { median: 59.9, low5: 55 } }),
+    sessionOf(2, { device: "iPhone19,4", reader: 2, fps: { median: 59.5, low5: 55 } }),
+    sessionOf(3, { device: "iPhone15,4", fps: undefined, frames: 0, end: { kind: "boot-failed" } }),
+    sessionOf(4, { device: "iPhone19,4", game: "0100000000010000", minutes: 5 }),
+  ]);
+  const { models, games } = model.compatibility;
+  assert.deepEqual(models, ["iPhone19,4", "iPhone15,4"]);
+  assert.deepEqual(games.map((game) => game.id), ["0400C3F00006E000", "0100000000010000"]);
+  assert.deepEqual(games[0].cells.map((cell) => cell && [cell.status, cell.iphones]), [["playable", 2], ["none", 1]]);
+  assert.deepEqual(games[1].cells.map((cell) => cell && cell.status), ["playable", null]);
+});
+
+test("the settings that change from one session to another come apart from those all share", () => {
+  const fluidity = build([
+    sessionOf(1, { settings: { DM_OPMODE: "0", DM_RENDER_SCALE: "1.0", DM_LANG: "fr" } }),
+    sessionOf(2, { settings: { DM_OPMODE: "1", DM_RENDER_SCALE: "1.0" } }),
+  ]).fluidity;
+  assert.deepEqual(fluidity.variedSettings.map((item) => [item.key, item.values.length, item.sessions]), [["DM_LANG", 2, 2], ["DM_OPMODE", 2, 2]]);
+  assert.deepEqual(fluidity.variedSettings[0].values.find((value) => value.value === null), { value: null, count: 1, installs: null }, "a session without the setting");
+  assert.deepEqual(fluidity.sameSettings, ["DM_RENDER_SCALE=1.0"]);
+});
+
+test("a measure that only ever says 0, as the GPU's busy time on iOS, says nothing", () => {
+  const idle = [sessionOf(1, { gpuBusyMsPerSecond: 0 }), sessionOf(2, { gpuBusyMsPerSecond: 0 })];
+  assert.equal(build(idle).heat.gpuBusy, null);
+  assert.equal(build([sessionOf(3, { gpuBusyMsPerSecond: 610 }), sessionOf(4, { gpuBusyMsPerSecond: 700 })]).heat.gpuBusy, 655);
+});
+
+test("the page opens on the first day with a report, a week at least, within the window", () => {
+  const window = { from: "2026-10-14", today: TODAY };
+  assert.deepEqual(M.shownDays(window, [{ day: "2026-11-09" }, { day: TODAY }]), M.dayList("2026-11-04", TODAY));
+  assert.deepEqual(M.shownDays(window, [{ day: "2026-10-20" }, { day: TODAY }]), M.dayList("2026-10-20", TODAY));
+  assert.deepEqual(M.shownDays(window, []), M.dayList("2026-10-14", TODAY));
+  assert.deepEqual(M.shownDays({ from: "2026-11-08", today: TODAY }, [{ day: TODAY }]), M.dayList("2026-11-08", TODAY));
+  assert.deepEqual(build([onDay("2026-11-09", eventOf(1, "app.opened", {}))]).days, M.dayList("2026-11-04", TODAY));
+});
+
+test("an error only the newest version sent is new; one older versions sent is not", () => {
+  const signIn = { origin: "signIn", cause: "appleServer", stage: "account", kind: "invalidResponseFormat", error: "SideSign.ServerError 1" };
+  const storage = { origin: "storage", cause: "offline", error: "NSPOSIXErrorDomain 60" };
+  const model = build([
+    eventOf(1, "error", signIn, { cartouche: "0.11.2" }),
+    eventOf(2, "error", signIn, { cartouche: "0.11.2" }),
+    eventOf(3, "error", storage, { cartouche: "0.11.1" }),
+    eventOf(4, "error", storage, { cartouche: "0.11.2" }),
+    eventOf(4, "error", storage, { cartouche: "0.11.2" }),
+  ]);
+  assert.deepEqual(model.errors.byCode.map((row) => [row.origin, row.newIn, row.iphones, row.count, row.versions]), [
+    ["storage", null, 2, 3, ["0.11.2", "0.11.1"]],
+    ["signIn", "0.11.2", 2, 2, ["0.11.2"]],
+  ]);
+  // With one version alone, nothing is new.
+  assert.equal(build([eventOf(1, "error", signIn, { cartouche: "0.11.2" })]).errors.byCode[0].newIn, null);
+});
+
+test("what needs a look comes first, the most serious and the widest first", () => {
+  const mac = (n, name, fields) => eventOf(100 + n, name, fields, { device: "Mac16,12", ios: "26.6", cartouche: "0.4.2", game: "0100000000010000" });
+  const signIn = { origin: "signIn", cause: "appleServer", stage: "account", kind: "invalidResponseFormat", error: "SideSign.ServerError 1" };
+  const crash = { kind: "crash", signal: 6, pc: "__pthread_kill+0x8", lr: "pthread_kill+0x10c" };
+  const model = build([
+    // Three copies of the newest version stopped at the Apple sign-in, with an error no version sent before.
+    ...[1, 2, 3].flatMap((n) => [eventOf(n, "app.opened", { setUp: false }, { cartouche: "0.11.2" }), eventOf(n, "error", signIn, { cartouche: "0.11.2" })]),
+    // A game that drew no frame on two iPhones.
+    ...[4, 5].map((n) => sessionOf(n, { game: "0100000000010000", fps: undefined, frames: 0 })),
+    // The same crash on two iPhones, three sessions that went well, and one at the edge of its memory.
+    ...[6, 7].map((n) => sessionOf(n, { end: crash })),
+    sessionOf(8),
+    sessionOf(9),
+    sessionOf(10, { memory: { ...APP_REPORTS[0].memory, peakMiB: 6000 } }),
+    // An nxnative commit no Mac could build with.
+    mac(1, "builder.failed", { nxnative: "deadbeef00aa", stage: "app build", cause: "app_build" }),
+    mac(1, "builder.failed", { nxnative: "deadbeef00aa", stage: "app build", cause: "app_build" }),
+    mac(2, "builder.failed", { nxnative: "deadbeef00aa", stage: "app build", cause: "app_build" }),
+    mac(2, "builder.built", { nxnative: "0123456789ab", seconds: 1800 }),
+  ]);
+  assert.deepEqual(model.attention.map((item) => [item.key, item.tone, item.copies]), [
+    ["signIn", "critical", 3],
+    ["game", "critical", 2],
+    ["build", "serious", 2],
+    ["crash", "serious", 2],
+    ["memory", "warning", 5],
+    ["newError", "warning", 3],
+  ]);
+  const byKey = Object.fromEntries(model.attention.map((item) => [item.key, item]));
+  assert.deepEqual([byKey.signIn.cause, byKey.signIn.causeCopies, byKey.signIn.section], ["appleServer", 3, "parcours"]);
+  assert.deepEqual([byKey.game.game, byKey.game.status], ["0100000000010000", "none"]);
+  assert.deepEqual([byKey.build.commit, byKey.build.failed, byKey.build.stage], ["deadbeef00aa", 3, "app build"]);
+  assert.deepEqual([byKey.crash.signal, byKey.crash.pc, byKey.crash.count], [6, "__pthread_kill+0x8", 2]);
+  assert.deepEqual([byKey.memory.game, byKey.memory.peak, byKey.memory.limit], ["0400C3F00006E000", 6000, 6143]);
+  assert.deepEqual([byKey.newError.version, byKey.newError.origin, byKey.newError.stage, byKey.newError.count], ["0.11.2", "signIn", "account", 3]);
+  assert.equal(model.attentionMore, 0);
+  // Below the thresholds, nothing.
+  assert.deepEqual(build([eventOf(1, "app.opened", {}), sessionOf(1), sessionOf(2)]).attention, []);
+});
+
 test("the sample data fills every section, and is the same each time", () => {
   const first = M.demo(28, CATALOG, NOW);
   assert.equal(JSON.stringify(first), JSON.stringify(M.demo(28, CATALOG, NOW)));
   assert.equal(first.demo, true);
   const model = M.build(first, CATALOG);
   assert.equal(model.days.length, 28);
-  assert.equal(model.totals.iphones, 12);
+  assert.equal(model.totals.iphones, 16);
   assert.equal(model.builder.macs, 2);
   assert.ok(model.games.length >= 6);
   assert.ok(model.games.some((game) => game.name === "Super Mario Odyssey" && game.cover === "co1mxf"));
@@ -610,9 +824,17 @@ test("the sample data fills every section, and is the same each time", () => {
     signInFailures: model.errors.signIn.failed,
     causes: model.errors.byCause.length,
     issues: model.problems.github.issues.length,
+    slowest: model.fluidity.low5Measured,
+    stuck: model.journey.stuckCopies,
+    blockers: model.journey.blockers.length,
+    versions: model.versions.length,
+    models: model.compatibility.models.length,
+    attention: model.attention.length,
+    commits: model.builder.byCommit.length,
   })) {
     assert.ok(value > 0, name);
   }
+  assert.ok(model.journey.steps.every((step, index) => !index || step.copies <= model.journey.steps[index - 1].copies), "each step holds fewer copies than the one before");
   const year = M.build(M.demo(365, CATALOG, NOW), CATALOG);
   assert.equal(year.days.length, 365);
 });
