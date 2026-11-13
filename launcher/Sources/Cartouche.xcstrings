@@ -10711,6 +10711,23 @@
         }
       }
     },
+    "system.releaseNotes" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "What’s new"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nouveautés"
+          }
+        }
+      }
+    },
     "system.signature" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -12203,6 +12220,40 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Renouvelez-le depuis la page Système, avec LocalDevVPN connecté."
+          }
+        }
+      }
+    },
+    "whatsNew.continue" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Continue"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Continuer"
+          }
+        }
+      }
+    },
+    "whatsNew.title" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "What’s new in Cartouche %@"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nouveautés de Cartouche %@"
           }
         }
       }

@@ -100,9 +100,10 @@ jobs:
               # requests, which change only the source, and what the CI,
               # Storage, Launcher screens and Launcher harness workflows
               # check.
-              app/README.md|app/patches/README.md|app/releases/*|app/sidestore-source.json|app/tests/*|launcher/README.md|launcher/StorageTests/*|launcher/Gallery/*|launcher/Harness/*) ;;
+              app/README.md|app/patches/README.md|app/releases/README.md|app/sidestore-source.json|app/tests/*|launcher/README.md|launcher/StorageTests/*|launcher/Gallery/*|launcher/Harness/*) ;;
               # What the app is built from (app/scripts/prepare.sh and
-              # package.sh).
+              # package.sh), each version's release notes included, which
+              # What's new shows.
               app/*|.gitmodules|launcher/*|catalog/devices.json|catalog/nxnative.json|catalog/games/*)
                 BUILD=true ;;
             esac

@@ -322,6 +322,12 @@ enum CartoucheText {
     static func updateUnfinished(_ version: String) -> String { f("updates.unfinished.message", "Cartouche closed before version %@ was installed. Try again from the System page, with LocalDevVPN connected.", version) }
     static var updatedMessage: String { s("updates.done.message", "Your games, their saves and Cartouche’s settings are all still here.") }
 
+    // MARK: What's new (CartoucheWhatsNewView.swift)
+
+    static func whatsNewTitle(_ version: String) -> String { f("whatsNew.title", "What’s new in Cartouche %@", version) }
+    static var whatsNewContinue: String { s("whatsNew.continue", "Continue") }
+    static var releaseNotesTitle: String { s("system.releaseNotes", "What’s new") }
+
     // MARK: Renewing every night
 
     static var dailyIntro: String { s("daily.intro", "An automation in Shortcuts can renew Cartouche every night, with no computer. It runs Cartouche’s Refresh All Apps action, which does what Renew now does.") }

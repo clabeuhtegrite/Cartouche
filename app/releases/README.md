@@ -4,7 +4,7 @@ A release puts a new version of Cartouche on players' iPhones without a computer
 
 ## Cutting a release
 
-1. In a pull request, raise `CARTOUCHE_VERSION` in [`../config.env`](../config.env) and add the release notes as `<version>.md` in this folder, in plain text: the System page shows them under the update, as **What’s new**. Merge it once the App build is green. Its merge starts the [Full test pass](../../.github/full-pass/README.md), every test of the repository, on main's new commit.
+1. In a pull request, raise `CARTOUCHE_VERSION` in [`../config.env`](../config.env) and add the release notes as `<version>.md` in this folder, in plain text: a sentence that says what the version brings, a blank line, then one item per line that begins with `- `, which may begin with its topic, such as `Games: `. Add their French as `<version>.fr.md`, in the same shape, such as `Jeux : `. The System page shows the English under the update, as **What’s new**; the app carries both, and once the update is installed Cartouche opens on them, in the player's language, then keeps them on its System page ([launcher/README.md](../../launcher/README.md#whats-new)). [`test_release_notes.py`](../tests/test_release_notes.py) checks their shape, and that the French is there. Merge it once the App build is green. Its merge starts the [Full test pass](../../.github/full-pass/README.md), every test of the repository, on main's new commit.
 2. Start the release, from a phone or from a computer:
    - On GitHub, open **Actions › Release › Run workflow**, keep the branch `main`, and enter the version, such as `0.1.1`. The release then makes the tag `v0.1.1` on main's last commit.
    - Or tag the merge commit on main and push the tag:

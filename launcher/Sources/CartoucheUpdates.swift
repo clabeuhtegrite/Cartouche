@@ -15,7 +15,9 @@
 //  app only once it has left the screen, so when SideStore starts the
 //  install it says so with a Darwin notification, and Cartouche goes to the
 //  home screen by itself. iOS closes it and installs the new version; the
-//  player opens Cartouche again, which says how it went.
+//  player opens Cartouche again, which says how it went: What's new, with
+//  the new version's notes (CartoucheWhatsNewView), or a word that it is
+//  installed when the version has none.
 //
 
 import Foundation
@@ -79,6 +81,9 @@ final class CartoucheUpdates: ObservableObject {
 
     private init() {
         observeInstall()
+        // What's new first, while the version this update installed is still
+        // in the preferences: it tells an update from a first install.
+        _ = CartoucheWhatsNew.shared
         reportPendingUpdate()
     }
 
@@ -217,6 +222,18 @@ final class CartoucheUpdates: ObservableObject {
         available = release
         isOffered = true
     }
+
+    /// What an update started from Cartouche leaves as it opens again, when
+    /// What's new has no notes to show.
+    func showInstalledForGallery() {
+        noteInstalled(Self.runningVersion)
+    }
+
+    /// What an update started from Cartouche leaves before iOS closes it:
+    /// the version it installs, which Cartouche reads as it opens again.
+    static func leavePendingForGallery(_ version: String) {
+        UserDefaults.standard.set(version, forKey: pendingKey)
+    }
     #endif
 
     // MARK: Updating
@@ -311,8 +328,15 @@ final class CartoucheUpdates: ObservableObject {
             notice = CartoucheGameNotice(title: CartoucheText.updateUnfinishedTitle, message: message, report: report)
         } else {
             CartoucheReports.note("Update to Cartouche " + pending + " installed")
-            notice = CartoucheGameNotice(title: CartoucheText.updateInstalledTitle(running), message: CartoucheText.updatedMessage)
+            // What's new says so, with what the version brings.
+            guard !CartoucheWhatsNew.shared.shows(running) else { return }
+            noteInstalled(running)
         }
+    }
+
+    /// Cartouche opens on version RUNNING, which the update installed.
+    private func noteInstalled(_ running: String) {
+        notice = CartoucheGameNotice(title: CartoucheText.updateInstalledTitle(running), message: CartoucheText.updatedMessage)
     }
 
     // MARK: Leaving the screen for the install

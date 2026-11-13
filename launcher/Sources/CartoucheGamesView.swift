@@ -55,6 +55,10 @@
 //  (CartoucheRunningGameQuestions). Cartouche's own update waits until it
 //  has ended, since the update closes Cartouche.
 //
+//  After an update, What's new shows over the console what the version
+//  brings, before anything Cartouche itself puts over it, such as a newer
+//  update on offer (CartoucheWhatsNewView).
+//
 
 import SwiftUI
 
@@ -65,6 +69,8 @@ struct CartoucheGamesView: View {
     @ObservedObject private var setup = CartoucheSetup.shared
     @ObservedObject private var actions = CartoucheGameActions.shared
     @ObservedObject private var storedGames = CartoucheStoredGames.shared
+    /// Made before CartoucheUpdates, which would otherwise make it.
+    @ObservedObject private var whatsNew = CartoucheWhatsNew.shared
     @ObservedObject private var updates = CartoucheUpdates.shared
     @ObservedObject private var account = CartoucheAccount.shared
     @ObservedObject private var guide = CartoucheGuide.shared
@@ -120,15 +126,21 @@ struct CartoucheGamesView: View {
     /// beside it.
     private var nothingOverConsole: Bool {
         sheetID == nil && !showingSetup && !showingGuide && !importPicker.isShowing && uninstalling == nil
-            && editingInfo == nil && actions.work == nil && actions.notice == nil && !showsUpdate
+            && editingInfo == nil && actions.work == nil && actions.notice == nil && !showsWhatsNew && !showsUpdate
             && actions.switching == nil && actions.quitQuestion == nil && actions.installQuestion == nil
     }
     /// Nothing over the console or beside it that takes the controller.
     private var nothingOver: Bool { nothingOverConsole && gameSettings == nil }
-    /// Cartouche's own update shows over the console alone, once nothing
-    /// else is over it.
+    /// What's new and Cartouche's own update show over the console alone,
+    /// once nothing else is over it: What's new first.
+    private var showsWhatsNew: Bool {
+        whatsNew.isShowing && onlyConsole
+    }
     private var showsUpdate: Bool {
-        updates.isShowing && onGames && sheetID == nil && !showingSetup && !showingGuide && !importPicker.isShowing
+        updates.isShowing && !whatsNew.isShowing && onlyConsole
+    }
+    private var onlyConsole: Bool {
+        onGames && sheetID == nil && !showingSetup && !showingGuide && !importPicker.isShowing
             && uninstalling == nil && editingInfo == nil && actions.work == nil && actions.notice == nil
             && actions.running == nil && actions.switching == nil && actions.quitQuestion == nil
             && actions.installQuestion == nil
@@ -225,12 +237,16 @@ struct CartoucheGamesView: View {
             if let work = actions.work {
                 CartoucheGameWorkView(work: work)
                     .transition(.opacity)
+            } else if showsWhatsNew {
+                CartoucheWhatsNewView(whatsNew: whatsNew)
+                    .transition(.opacity)
             } else if showsUpdate {
                 CartoucheUpdateView(updates: updates)
                     .transition(.opacity)
             }
         }
         .animation(.easeInOut(duration: 0.2), value: actions.work)
+        .animation(.easeInOut(duration: 0.2), value: showsWhatsNew)
         .animation(.easeInOut(duration: 0.2), value: showsUpdate)
         // The sheet over the console closed: its settings page goes too. It
         // stays when the sheet moves beside the console.
