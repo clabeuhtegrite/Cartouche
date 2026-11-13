@@ -305,6 +305,14 @@ public final class Engine: @unchecked Sendable {
         try await api(QueueAnswer.self, ["queue", "remove"] + games, timeout: 120)
     }
 
+    /// Installs on this Mac the game's app the games folder keeps in one
+    /// file (a NAS's), or makes this Mac's copy of it again of the newest
+    /// build; LINE hears how far it is. Blocked while the game runs from
+    /// its copy, and without room on this Mac.
+    public func installMac(_ titleID: String, line: (@Sendable (String) -> Void)? = nil) async throws -> MacInstallAnswer {
+        try await api(MacInstallAnswer.self, ["mac-install", titleID], timeout: 6 * 3600, line: line)
+    }
+
     // MARK: Batches
 
     /// Adds a matching external ROMFS to an existing IPA, without nxnative.

@@ -70,6 +70,7 @@ final class TelemetryTests: XCTestCase {
         let played: [String: TelemetryValue] = ["ended": .text("quit"), "exit": .count(0), "from": .text("builder"), "seconds": .number(2710),
                                                 "settings": .flag(false)]
         let saves: [String: TelemetryValue] = ["place": .text("share"), "step": .text("keepAndFetch"), "when": .text("before")]
+        let installed: [String: TelemetryValue] = ["again": .flag(false), "appMB": .number(1904), "seconds": .number(38)]
         let events: [(name: String, game: String?, fields: [String: TelemetryValue])] = [
             ("builder.opened", nil, opened),
             ("builder.setup", nil, setup),
@@ -95,6 +96,7 @@ final class TelemetryTests: XCTestCase {
             ("builder.batch", nil, macBatch),
             ("builder.played", "0100152000022000", played),
             ("builder.saves", "0100152000022000", saves),
+            ("builder.macInstalled", "0100152000022000", installed),
         ]
         var made: [TelemetryEvent] = []
         for (index, event) in events.enumerated() {
@@ -241,8 +243,13 @@ final class TelemetryTests: XCTestCase {
                        ["place": .text("share"), "step": .text("offline"), "when": .text("round")])
         XCTAssertEqual(BuilderTelemetry.savesFields(step: "send", when: "after", onShare: false),
                        ["place": .text("mac"), "step": .text("send"), "when": .text("after")])
+        // Its app installed from a NAS, in place of an older copy.
+        XCTAssertEqual(BuilderTelemetry.installedFields(bytes: 1_904_211_000, seconds: 37.6, again: true),
+                       ["again": .flag(true), "appMB": .number(1904), "seconds": .number(38)])
+        XCTAssertEqual(BuilderTelemetry.installedFields(bytes: nil, seconds: -1, again: false), ["again": .flag(false), "seconds": .number(0)])
         let made = [("builder.played", BuilderTelemetry.playedFields(ended: "gpu", exit: 70, seconds: 1, fromBuilder: true, settings: false)),
-                    ("builder.saves", BuilderTelemetry.savesFields(step: "keepAndFetch", when: "before", onShare: true))]
+                    ("builder.saves", BuilderTelemetry.savesFields(step: "keepAndFetch", when: "before", onShare: true)),
+                    ("builder.macInstalled", BuilderTelemetry.installedFields(bytes: 1_904_211_000, seconds: 38, again: false))]
         for (index, event) in made.enumerated() {
             XCTAssertNotNil(TelemetryEvent(id: "6a1d9e3c-0000-4000-8000-00000000020\(index)", seq: index + 1, context: context,
                                            name: event.0, game: "0100152000022000", fields: event.1), event.0)

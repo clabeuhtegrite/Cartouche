@@ -24,6 +24,7 @@ follows through status.json (status.py).
                          Mac (its app) again, or no longer: never for neither
                          (what was built stays where it is)
   mount                  connects the shares of the folders again
+  mac-install TITLE_ID   installs on this Mac the game's app a NAS keeps in one file
   bundle-romfs --ipa IPA --romfs IMAGE
                          packages matching external game data without compiling
   queue                  the games asked for while a batch runs (queue.py)
@@ -40,6 +41,7 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+import time
 import traceback
 import zipfile
 from dataclasses import asdict, fields
@@ -52,7 +54,8 @@ from .engine import Commit, EngineError
 from .i18n import language, t
 from .impact import Matcher, analyze
 from .paths import Paths
-from .state import now_iso
+from .state import MacCopy, now_iso
+from .workspace import free_gb
 
 API_VERSION = 1
 CHANGES_SHOWN = 40  # the newest commits shown for a game, of each kind
@@ -84,6 +87,8 @@ def main(argv: list[str]) -> int:
     platform_parser.add_argument("platform", choices=("ios", "mac"))
     platform_parser.add_argument("state", choices=("on", "off"))
     commands.add_parser("mount")
+    install_parser = commands.add_parser("mac-install")
+    install_parser.add_argument("title_id")
     bundle_parser = commands.add_parser("bundle-romfs")
     bundle_parser.add_argument("--ipa", required=True, type=Path)
     bundle_parser.add_argument("--romfs", required=True, type=Path)
@@ -113,6 +118,7 @@ def main(argv: list[str]) -> int:
             "follow": lambda: follow(ctx, args.title_id, args.state == "on"),
             "platform": lambda: platform(ctx, args.title_id, args.platform, args.state == "on"),
             "mount": lambda: mount(ctx),
+            "mac-install": lambda: mac_install(ctx, args.title_id),
             "bundle-romfs": lambda: bundle_romfs(ctx, args.ipa, args.romfs),
             "queue": lambda: queue(ctx, args.action, getattr(args, "title_ids", []), getattr(args, "force", False)),
         }[args.command]
@@ -176,6 +182,53 @@ def bundle_romfs(ctx: batch.Context, source: Path, image: Path) -> dict:
             "nxnative": info.short_commit if info else None, "bytes": size}
 
 
+def mac_install(ctx: batch.Context, title_id: str) -> dict:
+    """Installs on this Mac the game's app the games folder keeps in one file
+    (a NAS's), or makes this Mac's copy of it again of the newest build: in
+    the Mac apps folder, in place of the game's app there, never while the
+    game runs from it. What it does goes to stderr, for the app to show."""
+    title_id = title_id.upper()
+    if not titles.is_title_id(title_id):
+        raise BadRequest(f"not a title ID: {title_id}")
+    place = macapps.place(ctx.config)
+    if not place.packed:
+        raise batch.Blocked(t("mac.not_kept_packed"))
+    shares.reconnect([place.library], ctx.config.shares, log=lambda address: _say(t("batch.mounting", share=address)))
+    record = ctx.store.get(title_id)
+    built, copied = record.mac, record.mac_copy
+    packed = place.find(title_id, built.app if built else "")
+    if packed is None:
+        raise batch.Blocked(t("mac.no_packed"))
+    copy = place.copy(title_id, copied.app if copied else "")
+    shown = (built.name if built and built.name else "") or titles.label(packed.name[: -len(macapps.PACKED_SUFFIX)])
+    if copy is not None and macapps.running(copy):
+        raise batch.Blocked(t("mac.install_running", name=shown))
+    name = copy.name if copy is not None else macapps.target_name(place.installs, title_id, shown)
+    total = macapps.unpacked_size(packed)
+    # The copy it replaces gives its room back.
+    free = free_gb(place.installs) + (macapps.size(copy) / 2**30 if copy is not None else 0)
+    needed = total / 2**30 + ctx.config.min_free_gb
+    if free < needed:
+        raise batch.Blocked(t("mac.install_no_room", name=shown, needed=f"{needed:.0f}", free=f"{free:.0f}"))
+    began = time.monotonic()
+    last = [0.0]
+
+    def told(done: int, all_: int) -> None:
+        # Every second at most, and at the end.
+        if done < all_ and time.monotonic() - last[0] < 1:
+            return
+        last[0] = time.monotonic()
+        _say(t("mac.installing", name=shown, done=f"{done / 1e9:.1f}", total=f"{all_ / 1e9:.1f}"))
+
+    path = macapps.install(packed, place.installs, title_id, name, progress=told)
+    size = macapps.size(path)
+    ctx.store.mac_copied(title_id, MacCopy(app=path.name, folder=str(place.installs), built_at=built.built_at if built else "",
+                                           installed_at=now_iso(), size=size, commit=built.commit if built else ""))
+    # For the app's measurements: the bytes and the time, never a name or a path.
+    return {"app": {"name": path.name, "path": str(path), "size": size, "present": True},
+            "title_id": title_id, "bytes": size, "seconds": round(time.monotonic() - began, 1)}
+
+
 # ---- The games ------------------------------------------------------------------
 
 
@@ -222,12 +275,14 @@ def library(ctx: batch.Context, update: bool = False) -> dict:
             if building.get(title_id, {}).get("state") == "queued":
                 del building[title_id]
         waiting = {g["title_id"] for g in asked["games"] if g["batch"] == status.get("pid")} - set(building)
+    place = macapps.place(ctx.config)
+    copies = place.copies()
     for entry in plan.entries:
         progress = building.get(entry.title_id)
         if progress is None and entry.title_id in waiting:
             progress = {"title_id": entry.title_id, "name": entry.game.display_name, "state": "queued"}
-        data["games"].append(game_json(ctx, entry, progress, plan.profiles))
-    data["games"] += ipa_only(ctx, {e.title_id for e in plan.entries}, plan.profiles, plan.head)
+        data["games"].append(game_json(ctx, entry, progress, plan.profiles, place, copies))
+    data["games"] += ipa_only(ctx, {e.title_id for e in plan.entries}, plan.profiles, plan.head, place, copies)
     data["games"].sort(key=lambda g: g["name"].casefold())
     _keep(ctx, data)
     return data
@@ -320,7 +375,7 @@ def state_of(entry, running: dict | None) -> str:
     return {"failed_here": "failed", "not_selected": "not_followed", "no_platform": "not_followed", "no_profile": "no_profile"}.get(reason, "up_to_date")
 
 
-def game_json(ctx: batch.Context, entry, running: dict | None, profiles: dict) -> dict:
+def game_json(ctx: batch.Context, entry, running: dict | None, profiles: dict, place: macapps.Place | None = None, copies: dict | None = None) -> dict:
     game, record = entry.game, entry.record
     build = record.build if record else None
     attempt = record.attempt if record else None
@@ -347,7 +402,7 @@ def game_json(ctx: batch.Context, entry, running: dict | None, profiles: dict) -
         "icon": icon(ctx, entry.title_id),
         "progress": running,
         "platforms": platforms(ctx.config, entry.title_id),
-        "mac": mac_json(ctx, entry.title_id, record, entry.mac_app, entry),
+        "mac": mac_json(ctx, entry.title_id, record, entry.mac_app, entry, place, copies),
     }
 
 
@@ -356,19 +411,31 @@ def platforms(config: configs.Config, title_id: str) -> dict:
     return {"ios": config.on_ios(title_id), "mac": config.on_mac(title_id)}
 
 
-def mac_json(ctx: batch.Context, title_id: str, record, app: Path | None, entry=None) -> dict:
-    """The game's Mac app (macapps.py): the Mac apps folder, its app there
-    and its last build, its last attempt that did not build, and whether
-    the next batch builds it (after its IPA, or alone), with why."""
+def mac_json(ctx: batch.Context, title_id: str, record, kept: Path | None, entry=None,
+             place: macapps.Place | None = None, copies: dict | None = None) -> dict:
+    """The game's Mac app (macapps.py): the games folder, which keeps it
+    (KEPT: as it is, or in one file when PACKED), the app this Mac plays it
+    from (the games folder's, or this Mac's copy of it, BEHIND when made of
+    an older build), its last build, its last attempt that did not build,
+    and whether the next batch builds it (after its IPA, or alone), with why."""
+    place = place or macapps.place(ctx.config)
     built = record.mac if record else None
     attempt = record.mac_attempt if record else None
-    size = 0
-    if app is not None:
-        size = built.size if built and built.app == app.name and built.size else macapps.size(app)
+    copied = record.mac_copy if record else None
+    library = _mac_file(kept, built.app if built else "", built.size if built and kept is not None and built.app == kept.name else 0)
+    if place.packed:
+        copy = place.copy(title_id, copied.app if copied else "", copies)
+        app = _mac_file(copy, "", copied.size if copied and copy is not None and copied.app == copy.name else 0)
+        behind = _copy_behind(copy, built, copied)
+    else:
+        app, behind = library, False
     return {
-        "folder": str(ctx.config.mac_apps_path()),
-        "app": {"name": app.name, "path": str(app), "size": size, "present": True} if app is not None
-        else ({"name": built.app, "path": "", "size": 0, "present": False} if built and built.app else None),
+        "folder": str(place.library),
+        "packed": place.packed,
+        "installs": str(place.installs),
+        "library": library,
+        "app": app,
+        "behind": behind,
         "build": _mac_build(built),
         "attempt": asdict(attempt) if attempt else None,
         "due": bool(entry is not None and entry.mac),
@@ -376,6 +443,34 @@ def mac_json(ctx: batch.Context, title_id: str, record, app: Path | None, entry=
         "reason": entry.mac_reason if entry is not None else "",
         "detail": entry.mac_detail if entry is not None else "",
     }
+
+
+def _mac_file(path: Path | None, name: str, size: int) -> dict | None:
+    """The app or file PATH, of SIZE bytes when known; NAME, gone, when it
+    is not there."""
+    if path is None:
+        return {"name": name, "path": "", "size": 0, "present": False} if name else None
+    if not size:
+        try:
+            size = path.stat().st_size if path.is_file() else macapps.size(path)
+        except OSError:
+            size = 0
+    return {"name": path.name, "path": str(path), "size": size, "present": True}
+
+
+def _copy_behind(copy: Path | None, built, copied) -> bool:
+    """Whether this Mac's COPY of the game's app was made of an older build
+    than BUILT, the one the games folder keeps: by the build the builder
+    made it of (COPIED), else by what its Info.plist says."""
+    if copy is None or built is None:
+        return False
+    if copied is not None and copied.app == copy.name:
+        return not copied.made_of(built)
+    info = macapps.read_info(copy)
+    if info is None:
+        return True
+    return ((info.commit or "")[:12] != built.commit[:12] or info.dirty != built.dirty
+            or (info.chain or "") != built.chain or (info.version or "") != built.version)
 
 
 def _mac_build(built) -> dict | None:
@@ -418,7 +513,8 @@ def _build(build) -> dict | None:
     }
 
 
-def ipa_only(ctx: batch.Context, known: set[str], profiles: dict, head: str | None = None) -> list[dict]:
+def ipa_only(ctx: batch.Context, known: set[str], profiles: dict, head: str | None = None,
+             place: macapps.Place | None = None, copies: dict | None = None) -> list[dict]:
     """The games of the games folder whose sources are not in the sources
     folder (moved, or never there): shown, never built, with what nxnative
     changed since their IPA."""
@@ -431,7 +527,9 @@ def ipa_only(ctx: batch.Context, known: set[str], profiles: dict, head: str | No
         return []
     found: dict[str, dict] = {}
     matcher = Matcher({tid: p.name for tid, p in profiles.items()}, ctx.config.aliases)
-    apps = macapps.index(ctx.config.mac_apps_path())
+    place = place or macapps.place(ctx.config)
+    copies = place.copies() if copies is None else copies
+    kept = place.index()
     for path in candidates:
         ids = [i for i in titles.ids_in_name(path.name) if titles.is_title_id(i)]
         if ids and (ids[0] in known or ids[0] in found):
@@ -472,7 +570,7 @@ def ipa_only(ctx: batch.Context, known: set[str], profiles: dict, head: str | No
             "icon": icon(ctx, title_id),
             "progress": None,
             "platforms": platforms(ctx.config, title_id),
-            "mac": mac_json(ctx, title_id, record, macapps.find(ctx.config.mac_apps_path(), title_id, record.mac.app if record.mac else "", apps)),
+            "mac": mac_json(ctx, title_id, record, place.find(title_id, record.mac.app if record.mac else "", kept), place=place, copies=copies),
         }
     return list(found.values())
 
@@ -558,6 +656,9 @@ def config(ctx: batch.Context, changes_json: str | None) -> dict:
             "default_workspace": str(ctx.paths.workspace),
             "mac_apps": str(config.mac_apps_path()),
             "default_mac_apps": str(configs.default_mac_apps()),
+            # The games folder keeps the Mac apps in one file, installed in
+            # mac_apps to be played (macapps.Place).
+            "mac_packed": macapps.place(config).packed,
             "python": sys.executable,
             "scheduled": bool(agent),
             "problems": config.problems(ctx.paths),

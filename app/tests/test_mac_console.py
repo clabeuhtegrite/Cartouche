@@ -3,6 +3,10 @@ which builds the iPhone's console screens for the Mac:
 
 - its Shared folder holds links to the launcher's own files, by their own
   names, and nothing else, so that the Mac shows what the iPhone shows;
+- every other file of the launcher is listed in builder/mac/console/unshared.json
+  with why the console does not link it: the iPhone's alone, the Mac's own
+  in its place, or the step of the plan that brings it (Ad, 13 November: the
+  whole of the iPhone's app, and its changes to come, on the Mac);
 - the Builder's workflow builds the app again when one of those files or the
   launcher's words change (.github/workflows/builder.yml);
 - none of those files uses, outside an iPhone-only part, a name of UIKit's
@@ -33,6 +37,9 @@ SHARED = CONSOLE / "Shared"
 WORKFLOW = ROOT / ".github" / "workflows" / "builder.yml"
 CATALOG = LAUNCHER / "Cartouche.xcstrings"
 MAC_STRINGS = ROOT / "builder" / "mac" / "console" / "strings.json"
+UNSHARED = ROOT / "builder" / "mac" / "console" / "unshared.json"
+MAC_SOURCES = ROOT / "builder" / "mac" / "Sources"
+PLAN_STEPS = range(5, 10)  # the plan's steps still to come after this one (docs/decisions.md, 95)
 WRITER = ROOT / "builder" / "mac" / "console" / "strings.py"
 LANGUAGES = ("en", "fr")
 
@@ -88,6 +95,26 @@ class MacConsoleSources(unittest.TestCase):
                 self.assertTrue(link.is_symlink(), f"{name} is a file of its own, not the launcher's")
                 self.assertEqual(os.readlink(link), f"../../../../../launcher/Sources/{name}")
                 self.assertTrue((LAUNCHER / name).is_file(), f"launcher/Sources/{name} is gone")
+
+    def test_every_launcher_file_is_linked_or_says_why_not(self):
+        """A new file of the launcher comes to the Mac with it, or says why
+        it does not, so that the iPhone's app and its changes to come are
+        the Mac's too."""
+        listed = json.loads(UNSHARED.read_text(encoding="utf-8"))["files"]
+        linked = {path.name for path in SHARED.iterdir()}
+        launcher = {path.name for path in LAUNCHER.glob("*.swift")}
+        self.assertEqual(sorted(launcher - linked - set(listed)), [],
+                         "link them in Shared (and the Builder workflow's list), or say why not in builder/mac/console/unshared.json")
+        self.assertEqual(sorted(set(listed) - launcher), [], "files of unshared.json the launcher no longer has")
+        self.assertEqual(sorted(set(listed) & linked), [], "files linked in Shared and listed as not linked")
+        for name, entry in sorted(listed.items()):
+            with self.subTest(name=name):
+                self.assertIn(entry.get("kind"), ("iphone", "mac", "later"))
+                self.assertGreater(len(entry.get("why", "").strip()), 20, "why, in a sentence")
+                if entry["kind"] == "mac":
+                    self.assertTrue((MAC_SOURCES / entry.get("mac", "")).is_file(), "the Mac's own file in its place")
+                if entry["kind"] == "later":
+                    self.assertIn(entry.get("step"), PLAN_STEPS, "the step of the plan that brings it")
 
     def test_the_macs_own_files_are_beside_them(self):
         for path in (CONSOLE / "Mac").iterdir():

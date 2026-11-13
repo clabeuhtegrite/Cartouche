@@ -1,16 +1,16 @@
 {
   "api": 1,
   "status": {
-    "ended": "2026-11-13T16:07:23+00:00",
+    "ended": "2026-11-13T21:49:05+00:00",
     "error": "",
     "fallback": null,
     "games": [
       {
         "cause": "nxnative",
-        "commit": "603c75f96733",
+        "commit": "04354859e955",
         "detail": "An nxnative commit names it: Super Mario Odyssey: the cap (PR #4)",
         "duration": 0.0,
-        "ended": "2026-11-13T16:07:23+00:00",
+        "ended": "2026-11-13T21:49:05+00:00",
         "error": "the fake build failed on purpose",
         "eta": 3,
         "exit": 1,
@@ -19,7 +19,7 @@
         "frac": 1.0,
         "ipa": "",
         "k": 1,
-        "log": "/Users/player/Builder/home/logs/0100000000010000/2026-11-13_16-07-23.log",
+        "log": "/Users/player/Builder/home/logs/0100000000010000/2026-11-13_21-49-05.log",
         "mac": "",
         "mac_app": "",
         "mac_cause": "",
@@ -39,14 +39,14 @@
           "named"
         ],
         "stage": "extract",
-        "started": "2026-11-13T16:07:23+00:00",
+        "started": "2026-11-13T21:49:05+00:00",
         "state": "failed",
         "step": "",
         "title_id": "0100000000010000"
       }
     ],
-    "head": "603c75f96733e4d6155bc390642fed7f35ee91cb",
-    "latest": "603c75f96733e4d6155bc390642fed7f35ee91cb",
+    "head": "04354859e9553bdef84af008d1b37871eeef82bf",
+    "latest": "04354859e9553bdef84af008d1b37871eeef82bf",
     "lines": [
       "Looking at nxnative and the games…",
       "Bringing nxnative up to date…",
@@ -54,13 +54,13 @@
       "Super Mario Odyssey: the fake build failed on purpose"
     ],
     "message": "Bringing nxnative up to date…",
-    "pid": 7650,
-    "report": "/Users/player/Builder/home/reports/2026-11-13_16-07-23.md",
+    "pid": 23368,
+    "report": "/Users/player/Builder/home/reports/2026-11-13_21-49-05.md",
     "running": false,
     "scheduled": false,
-    "started": "2026-11-13T16:07:23+00:00",
+    "started": "2026-11-13T21:49:05+00:00",
     "state": "done",
-    "updated": "2026-11-13T16:07:23+00:00",
+    "updated": "2026-11-13T21:49:05+00:00",
     "version": 1
   }
 }

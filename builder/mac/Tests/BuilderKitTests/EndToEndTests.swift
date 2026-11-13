@@ -37,8 +37,9 @@ private struct TestWorld: Decodable {
     var python: String
     var sources: String
     var games: String
-    /// The Mac apps folder its settings name, in the world: never the
-    /// Mac's own Applications folder.
+    /// Where its settings install the Mac apps a games folder on a NAS
+    /// keeps in one file, in the world: never the Mac's own Applications
+    /// folder.
     var applications: String
     var head: String
     /// What the engine's processes need beside what Engine gives them.
@@ -173,8 +174,12 @@ final class EndToEndTests: XCTestCase {
             XCTAssertEqual(game.mac?.due, false, game.titleID)
             XCTAssertEqual(game.mac?.app?.present, true, game.titleID)
             XCTAssertEqual(game.mac?.build?.commit, commit, game.titleID)
-            XCTAssertEqual(game.mac?.app.map { URL(fileURLWithPath: $0.path).deletingLastPathComponent().path }, world.applications, game.titleID)
+            // In the games folder beside its IPA: this Mac's own disk keeps
+            // it as it is, played from there; nothing installed elsewhere.
+            XCTAssertEqual(game.mac?.packed, false, game.titleID)
+            XCTAssertEqual(game.mac?.app.map { URL(fileURLWithPath: $0.path).deletingLastPathComponent().path }, world.games, game.titleID)
         }
+        XCTAssertFalse(FileManager.default.fileExists(atPath: world.applications))
         // The Mac apps the builder put on this Mac, as the Storage page lists them.
         let storage = try await engine.storage()
         XCTAssertEqual(Set(storage.apps.map(\.titleID)), Set(world.titles.keys))

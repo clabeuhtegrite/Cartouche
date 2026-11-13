@@ -8,7 +8,7 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-from cartouche_builder import batch, config as configs, ipa, macapps
+from cartouche_builder import api, batch, config as configs, ipa, macapps
 from cartouche_builder import status as statuses
 from cartouche_builder.paths import Paths
 
@@ -334,22 +334,26 @@ class Batches(BatchHome):
 
 class MacApps(BatchHome):
     """Each game's app for this Mac (macapps.py), built after its IPA from the
-    same files and the same commit, or alone, and put in the Mac apps folder
-    (the Applications folder of the player's home, unless the settings name
-    another): a failure of its own, which leaves the IPA as it is."""
+    same files and the same commit, or alone, and kept in the games folder
+    beside its IPA, as it is on this Mac's own disk: a failure of its own,
+    which leaves the IPA as it is."""
 
     def setUp(self):
         super().setUp()
-        self.apps = self.tmp / "user" / "Applications"
+        self.apps = self.games
 
     def app(self, name: str) -> Path:
         return self.apps / f"{name}.app"
+
+    def app_names(self, folder: Path | None = None) -> list[str]:
+        folder = folder or self.apps
+        return sorted(p.name for p in folder.iterdir() if p.name.endswith(".app")) if folder.is_dir() else []
 
     def test_after_its_ipa_from_the_same_files(self):
         plan, summary = self.run_due()
         self.assertEqual((summary.failed, summary.mac_failed), ([], []))
         self.assertEqual(sorted(e.title_id for e, _ in summary.mac_built), sorted(NAMES))
-        self.assertEqual(sorted(p.name for p in self.apps.iterdir()), sorted(f"{n}.app" for n in NAMES.values()))
+        self.assertEqual(self.app_names(), sorted(f"{n}.app" for n in NAMES.values()))
         ctx = batch.context()
         head = ctx.engine.head()[:12]
         for title_id, name in NAMES.items():
@@ -400,7 +404,7 @@ class MacApps(BatchHome):
         self.assertEqual(summary.failed, [])
         self.assertEqual([(e.title_id, error) for e, error, _ in summary.mac_failed], [(MKW, "the Mac host did not build (exit 1): see mac_host.log")])
         self.assertTrue((self.games / f"Mario Kart World [{MKW}].ipa").is_file())
-        self.assertFalse(self.apps.exists() and any(self.apps.iterdir()))
+        self.assertEqual(self.app_names(), [])
         ctx = batch.context()
         record = ctx.store.get(MKW)
         self.assertIsNotNone(record.build)
@@ -527,7 +531,7 @@ class MacApps(BatchHome):
         commit(self.remote, "Mario Kart World's menus (PR #3)", {"dm/host/menu.c": "x"})
         self.run_due(only={MKW})
         self.assertEqual(macapps.read_info(ours).commit, batch.context().engine.head()[:12])
-        self.assertEqual(sorted(p.name for p in self.apps.iterdir()), [f"Mario Kart World [{MKW}].app", "Mario Kart World.app"])
+        self.assertEqual(self.app_names(), [f"Mario Kart World [{MKW}].app", "Mario Kart World.app"])
 
     def test_not_while_the_game_runs_from_it(self):
         self.run_due(only={MKW})
@@ -546,12 +550,68 @@ class MacApps(BatchHome):
         self.assertEqual(next(e for e in plan.entries if e.title_id == MKW).reasons, ["mac_behind"])
         self.assertEqual(macapps.read_info(app).commit, batch.context().engine.head()[:12])
 
-    def test_a_folder_of_the_players_choice(self):
+    def test_kept_in_one_file_on_a_nas(self):
+        """A games folder on a NAS keeps the game's app in one file beside its
+        IPA; this Mac installs it to play it, in the folder the settings
+        name, and its copy is made of each new build while it is there."""
+        self.enterContext(mock.patch.dict(os.environ, {macapps.PACKED_ENV: "1"}))
         chosen = self.tmp / "Games on this Mac"
         self.settings(mac_apps=str(chosen))
         self.run_due(only={MKW})
-        self.assertTrue(macapps.is_games(chosen / "Mario Kart World.app", MKW))
-        self.assertFalse(self.apps.exists())
+        kept = self.games / f"Mario Kart World [{MKW}].app.zip"
+        self.assertEqual(sorted(p.name for p in self.games.iterdir()), [kept.name, f"Mario Kart World [{MKW}].ipa"])
+        # Nothing on this Mac until the game is played here.
+        self.assertFalse(chosen.exists())
+        ctx = batch.context()
+        record = ctx.store.get(MKW)
+        self.assertEqual((record.mac.app, record.mac.folder, record.mac.packed, record.mac.size, record.mac_copy), (kept.name, str(self.games), True, kept.stat().st_size, None))
+        self.assertEqual([p.name for p in (ctx.workspace.root / ".cartouche-builder" / "out").iterdir() if ".app" in p.name], [])
+        # Installed to be played: whole, under the game's name.
+        answer = api.mac_install(ctx, MKW)
+        copy = chosen / "Mario Kart World.app"
+        self.assertEqual((answer["app"]["path"], answer["title_id"]), (str(copy), MKW))
+        info = macapps.read_info(copy)
+        self.assertEqual((info.title_id, info.commit), (MKW, ctx.engine.head()[:12]))
+        record = ctx.store.get(MKW)
+        self.assertEqual((record.mac_copy.app, record.mac_copy.folder, record.mac_copy.made_of(record.mac)), (copy.name, str(chosen), True))
+        # A new build: kept again in one file, and the copy made of it.
+        commit(self.remote, "Mario Kart World's menus (PR #3)", {"dm/host/menu.c": "x"})
+        self.run_due(only={MKW})
+        head = batch.context().engine.head()[:12]
+        record = batch.context().store.get(MKW)
+        self.assertEqual((record.mac.commit, macapps.read_info(copy).commit, record.mac_copy.made_of(record.mac)), (head, head, True))
+        self.assertEqual(self.app_names(chosen), ["Mario Kart World.app"])
+        # While the game runs from its copy, only the file is made again.
+        commit(self.remote, "Mario Kart World's shadows (PR #4)", {"dm/gfx/shadow.c": "x"})
+        with mock.patch.object(macapps, "running", side_effect=lambda path: path == copy):
+            plan, summary = self.run_due(only={MKW})
+        self.assertEqual([e.title_id for e, _ in summary.mac_built], [MKW])
+        record = batch.context().store.get(MKW)
+        self.assertEqual((record.mac.commit, macapps.read_info(copy).commit), (batch.context().engine.head()[:12], head))
+        self.assertFalse(record.mac_copy.made_of(record.mac))
+        with mock.patch.object(macapps, "running", side_effect=lambda path: path == copy):
+            with self.assertRaises(batch.Blocked):
+                api.mac_install(batch.context(), MKW)
+        api.mac_install(batch.context(), MKW)
+        self.assertEqual(macapps.read_info(copy).commit, batch.context().engine.head()[:12])
+        # Its copy gone from this Mac, the game stays built: the NAS keeps it.
+        shutil_rmtree(copy)
+        plan, summary = self.run_due(only={MKW})
+        entry = next(e for e in plan.entries if e.title_id == MKW)
+        self.assertEqual((entry.build, entry.reasons, entry.mac_reason), (False, ["up_to_date"], "up_to_date"))
+        self.assertTrue(kept.is_file())
+
+    def test_installed_only_from_a_nas(self):
+        self.run_due(only={MKW})
+        with self.assertRaises(batch.Blocked):
+            api.mac_install(batch.context(), MKW)
+        self.enterContext(mock.patch.dict(os.environ, {macapps.PACKED_ENV: "1"}))
+        # Kept as it is before the games folder went to a NAS: built again in one file.
+        with self.assertRaises(batch.Blocked):
+            api.mac_install(batch.context(), MKW)
+        plan, summary = self.run_due(only={MKW})
+        self.assertEqual(next(e for e in plan.entries if e.title_id == MKW).reasons, ["mac_missing"])
+        self.assertTrue((self.games / f"Mario Kart World [{MKW}].app.zip").is_file())
 
     def test_one_of_the_two_turned_off(self):
         paths = Paths.default()
@@ -561,8 +621,7 @@ class MacApps(BatchHome):
         configs.save(paths, config)
         plan, summary = self.run_due(only={MKW, ODYSSEY})
         self.assertEqual(([e.title_id for e, _ in summary.built], [e.title_id for e, _ in summary.mac_built]), ([MKW], [ODYSSEY]))
-        self.assertEqual(sorted(p.name for p in self.games.iterdir()), [f"Mario Kart World [{MKW}].ipa"])
-        self.assertEqual(sorted(p.name for p in self.apps.iterdir()), ["Super Mario Odyssey.app"])
+        self.assertEqual(sorted(p.name for p in self.games.iterdir()), [f"Mario Kart World [{MKW}].ipa", "Super Mario Odyssey.app"])
         ctx = batch.context()
         self.assertFalse((ctx.workspace.build_folder(MKW) / "mac_runs.txt").exists())
         self.assertFalse((ctx.workspace.build_folder(ODYSSEY) / "runs.txt").exists())
@@ -589,7 +648,7 @@ class MacApps(BatchHome):
         record = ctx.store.get(MKW)
         self.assertEqual((record.mac_attempt.result, record.attempt), ("stopped", None))
         self.assertTrue((self.games / f"Mario Kart World [{MKW}].ipa").is_file())
-        self.assertFalse(self.apps.exists() and any(self.apps.iterdir()))
+        self.assertEqual(self.app_names(), [])
         out = ctx.workspace.root / ".cartouche-builder" / "out"
         self.assertEqual([p.name for p in out.iterdir() if ".app" in p.name], [])
         status = json.loads(ctx.paths.status.read_text())

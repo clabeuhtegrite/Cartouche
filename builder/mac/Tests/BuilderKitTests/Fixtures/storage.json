@@ -3,25 +3,25 @@
   "storage": {
     "disks": {
       "games": {
-        "free": 31341740032,
+        "free": 27741163520,
         "path": "/Users/player/Builder/games",
         "present": true,
         "total": 270553174016
       },
       "mac_apps": {
-        "free": 31341740032,
-        "path": "/Users/player/Builder/user/Applications",
+        "free": 27741163520,
+        "path": "/Users/player/Builder/games",
         "present": true,
         "total": 270553174016
       },
       "sources": {
-        "free": 31341740032,
+        "free": 27741163520,
         "path": "/Users/player/Builder/sources",
         "present": true,
         "total": 270553174016
       },
       "workspace": {
-        "free": 31341740032,
+        "free": 27741163520,
         "path": "/Users/player/Builder/home/workspace",
         "present": true,
         "total": 270553174016
@@ -42,7 +42,7 @@
         "path": "/Users/player/Builder/home/workspace/0100000000010000_build",
         "size": 855,
         "title_id": "0100000000010000",
-        "used": 1794586043.7271736,
+        "used": 1794606545.5043433,
         "workspace": "/Users/player/Builder/home/workspace"
       },
       {
@@ -59,7 +59,7 @@
         "path": "/Users/player/Builder/home/workspace/0400C3F00006E000_build",
         "size": 844,
         "title_id": "0400C3F00006E000",
-        "used": 1794586043.453428,
+        "used": 1794606545.1954544,
         "workspace": "/Users/player/Builder/home/workspace"
       }
     ],
@@ -70,7 +70,7 @@
         "same_disk": true,
         "size": 849,
         "title_id": "0100000000010000",
-        "used": 1794586043.5653982,
+        "used": 1794606545.311588,
         "workspace": "/Users/player/Builder/home/workspace"
       },
       {
@@ -79,16 +79,17 @@
         "same_disk": true,
         "size": 846,
         "title_id": "0400C3F00006E000",
-        "used": 1794586043.4870005,
+        "used": 1794606545.2276354,
         "workspace": "/Users/player/Builder/home/workspace"
       }
     ],
     "mac_apps": [
       {
-        "built_at": "2026-11-13T16:07:23+00:00",
+        "built_at": "2026-11-13T21:49:05+00:00",
         "name": "Super Mario Odyssey",
         "on": true,
-        "path": "/Users/player/Builder/user/Applications/Super Mario Odyssey.app",
+        "packed": false,
+        "path": "/Users/player/Builder/games/Super Mario Odyssey.app",
         "shares_build": false,
         "size": 1604,
         "title_id": "0100000000010000"
@@ -102,7 +103,7 @@
     },
     "totals": {
       "app": 0,
-      "engine": 46326,
+      "engine": 46323,
       "extracted": 0,
       "icons": 16,
       "ipa_copies": 1695,

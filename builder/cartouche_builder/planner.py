@@ -23,7 +23,7 @@ A game is built for the iPhone (its IPA) and for this Mac (its app,
 macapps.py), unless one of the two is turned off (config.on_ios, on_mac).
 Its Mac app is built in the same batch as its IPA, after it, whenever its
 IPA is built. With its IPA up to date, its app alone is built when it was
-never built, when it is no longer in the Mac apps folder, or when it is older
+never built, when the games folder no longer keeps it, or when it is older
 than the IPA (built before it, or failed after it); one that failed at the
 current commit with the same files waits, as an IPA does. A game built for
 this Mac alone is planned as an IPA is, from its app's last build.
@@ -65,7 +65,7 @@ class Entry:
     mac_only: bool = False
     mac_reason: str = ""
     mac_detail: str = ""
-    mac_app: Path | None = None
+    mac_app: Path | None = None  # its app as the games folder keeps it: an app, or its file when packed
     mac_name: str = ""
 
     @property
@@ -97,7 +97,7 @@ def plan(
     toolchain: str = "",
     force: set[str] | None = None,
     now: float | None = None,
-    mac_apps: Path | None = None,
+    mac: macapps.Place | None = None,
 ) -> Plan:
     force = {f.upper() for f in force or set()}
     prints: dict[str, str] = {}
@@ -105,7 +105,7 @@ def plan(
     commits_since: dict[str, list[Commit]] = {}
     entries: list[Entry] = []
     notes: dict[tuple[str, str, str], None] = {}
-    apps = macapps.index(mac_apps)
+    kept = mac.index() if mac else {}
     for game in games:
         record = store.get(game.title_id)
         entry = Entry(game=game, build=False, record=record, selected=config.selected(game.title_id))
@@ -136,7 +136,7 @@ def plan(
         else:
             # For this Mac alone: planned from its app's last build.
             build = record.mac
-            entry.mac_app = macapps.find(mac_apps, game.title_id, build.app if build else "", apps)
+            entry.mac_app = mac.find(game.title_id, build.app if build else "", kept) if mac else None
             attempt = record.mac_attempt
         reasons: list[str] = []
         details: list[str] = []
@@ -152,9 +152,9 @@ def plan(
         if ios and entry.ipa is None and games_folder is not None:
             reasons.append("missing")
             details.append(t("plan.missing", name=build.ipa or entry.ipa_name))
-        elif not ios and entry.mac_app is None and mac_apps is not None:
+        elif not ios and entry.mac_app is None and mac is not None:
             reasons.append("mac_missing")
-            details.append(t("plan.mac_missing", name=build.app, folder=mac_apps))
+            details.append(t("plan.mac_missing", name=build.app, folder=mac.library))
         if build.fingerprint and build.fingerprint != _cached(game, prints):
             reasons.append("source")
             details.append(t("plan.source"))
@@ -198,7 +198,7 @@ def plan(
                     )
         _finish(entry, reasons, details, head, prints, attempt, build)
     for entry in entries:
-        _mac(entry, config, mac_apps, apps, head, prints)
+        _mac(entry, config, mac, kept, head, prints)
     return Plan(head=head, entries=entries, notes=list(notes), profiles=profiles)
 
 
@@ -224,12 +224,14 @@ def _finish(entry: Entry, reasons: list[str], details: list[str], head: str, pri
         entry.detail = t("plan.up_to_date", commit=(build.commit[:12] if build else head[:12]))
 
 
-def _mac(entry: Entry, config: Config, folder: Path | None, apps: dict[str, Path], head: str, prints: dict[str, str]) -> None:
-    """The game's Mac app: where it is, and whether this batch builds it, after
-    the IPA or alone (macapps.py). APPS: the apps of the Mac apps folder."""
+def _mac(entry: Entry, config: Config, mac: macapps.Place | None, kept: dict[str, Path], head: str, prints: dict[str, str]) -> None:
+    """The game's Mac app: where the games folder keeps it, and whether this
+    batch builds it, after the IPA or alone (macapps.py). KEPT: the apps the
+    games folder keeps (mac.index())."""
     record = entry.record
     built: MacBuild | None = record.mac if record else None
-    entry.mac_app = macapps.find(folder, entry.title_id, built.app if built else "", apps)
+    entry.mac_app = mac.find(entry.title_id, built.app if built else "", kept) if mac else None
+    folder = mac.library if mac else None
     entry.mac_name = entry.mac_app.name if entry.mac_app else (built.app if built else "")
     if not config.on_mac(entry.title_id):
         return

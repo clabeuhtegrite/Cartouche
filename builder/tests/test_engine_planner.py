@@ -4,7 +4,7 @@ import time
 import unittest
 
 from cartouche_builder import config as configs
-from cartouche_builder import library
+from cartouche_builder import library, macapps
 from cartouche_builder.engine import Engine
 from cartouche_builder.paths import Paths
 from cartouche_builder.planner import plan
@@ -60,10 +60,12 @@ class PlanHome(Home):
         self.games.mkdir()
         self.mac_apps = self.tmp / "Applications"
         self.config = configs.Config(sources=str(self.sources), games=str(self.games), mac=self.mac, mac_apps=str(self.mac_apps))
+        # The games folder keeps the Mac apps, as they are on this Mac's disk.
+        self.place = macapps.Place(library=self.games, packed=False, installs=self.mac_apps)
 
     def make_plan(self, force=None, now=None, toolchain=""):
         found = library.discover(self.sources, NAMES)
-        entries = plan(found.games, self.engine, self.engine.head(), self.engine.profiles(), self.store, self.config, self.games, toolchain, force, now, mac_apps=self.mac_apps).entries
+        entries = plan(found.games, self.engine, self.engine.head(), self.engine.profiles(), self.store, self.config, self.games, toolchain, force, now, mac=self.place).entries
         return {e.title_id: e for e in entries}
 
     def built_now(self, title_id, days_ago=0.0, commit_sha=None, toolchain=""):
@@ -74,14 +76,19 @@ class PlanHome(Home):
         self.store.built(title_id, Build(commit=(commit_sha or self.engine.head())[:12], built_at=when, ipa=name, fingerprint=fingerprint(game), toolchain=toolchain))
 
     def mac_built(self, title_id, days_ago=0.0, commit_sha=None, name=None):
-        """The game's Mac app in the Mac apps folder, and its record."""
+        """The game's Mac app as the games folder keeps it (in one file when
+        the place is packed), and its record."""
         game = next(g for g in library.discover(self.sources, NAMES).games if g.title_id == title_id)
         sha = (commit_sha or self.engine.head())[:12]
-        app = self.mac_apps / (name or f"{NAMES[title_id]}.app")
-        (app / "Contents").mkdir(parents=True, exist_ok=True)
-        (app / "Contents" / "Info.plist").write_bytes(plistlib.dumps({"DMTitleID": title_id, "DMCommit": sha}))
         when = time.strftime("%Y-%m-%dT%H:%M:%S+00:00", time.gmtime(time.time() - days_ago * 86400))
-        self.store.mac_built(title_id, MacBuild(commit=sha, built_at=when, app=app.name, folder=str(self.mac_apps), fingerprint=fingerprint(game)))
+        if self.place.packed:
+            app = self.games / (name or macapps.packed_name(NAMES[title_id], title_id))
+            app.write_bytes(b"PK")
+        else:
+            app = self.games / (name or f"{NAMES[title_id]}.app")
+            (app / "Contents").mkdir(parents=True, exist_ok=True)
+            (app / "Contents" / "Info.plist").write_bytes(plistlib.dumps({"DMTitleID": title_id, "DMCommit": sha}))
+        self.store.mac_built(title_id, MacBuild(commit=sha, built_at=when, app=app.name, folder=str(self.games), fingerprint=fingerprint(game), packed=self.place.packed))
         return app
 
 
@@ -221,13 +228,38 @@ class MacPlanning(PlanHome):
         self.mac_built(MKW, days_ago=2)
         self.assertEqual(self.make_plan()[MKW].reasons, ["mac_behind"])
 
+    def test_kept_in_one_file_on_a_nas(self):
+        # The games folder on a NAS keeps the game's app in one file, beside
+        # its IPA: the file is what the plan looks for.
+        self.place = macapps.Place(library=self.games, packed=True, installs=self.mac_apps)
+        self.built_now(MKW, days_ago=1)
+        kept = self.mac_built(MKW)
+        self.assertEqual(kept.name, f"Mario Kart World [{MKW}].app.zip")
+        entry = self.make_plan()[MKW]
+        self.assertEqual((entry.reasons, entry.mac_reason, entry.mac_app, entry.mac_name), (["up_to_date"], "up_to_date", kept, kept.name))
+        # This Mac's copy of it does not count: gone from the NAS, it is built again.
+        (self.mac_apps / "Mario Kart World.app" / "Contents").mkdir(parents=True)
+        (self.mac_apps / "Mario Kart World.app" / "Contents" / "Info.plist").write_bytes(plistlib.dumps({"DMTitleID": MKW}))
+        kept.unlink()
+        entry = self.make_plan()[MKW]
+        self.assertEqual((entry.reasons, entry.mac_only, entry.mac_app), (["mac_missing"], True, None))
+        # Found by the title ID its name ends with, under another name.
+        (self.games / f"MKW [{MKW}].app.zip").write_bytes(b"PK")
+        self.assertEqual(self.make_plan()[MKW].mac_app, self.games / f"MKW [{MKW}].app.zip")
+
+    def test_an_app_kept_as_it_is_before_the_games_folder_went_to_a_nas(self):
+        self.built_now(MKW, days_ago=1)
+        self.mac_built(MKW)
+        self.place = macapps.Place(library=self.games, packed=True, installs=self.mac_apps)
+        self.assertEqual(self.make_plan()[MKW].reasons, ["mac_missing"])
+
     def test_its_mac_app_found_under_another_name(self):
         self.built_now(MKW, days_ago=1)
         self.mac_built(MKW)
         # Renamed by the player in the Finder: its Info.plist still names the game.
-        (self.mac_apps / "Mario Kart World.app").rename(self.mac_apps / "MKW.app")
+        (self.games / "Mario Kart World.app").rename(self.games / "MKW.app")
         entry = self.make_plan()[MKW]
-        self.assertEqual((entry.reasons, entry.mac_app, entry.mac_name), (["up_to_date"], self.mac_apps / "MKW.app", "MKW.app"))
+        self.assertEqual((entry.reasons, entry.mac_app, entry.mac_name), (["up_to_date"], self.games / "MKW.app", "MKW.app"))
 
     def test_with_its_ipa_when_its_ipa_is_due(self):
         self.built_now(MKW, days_ago=1)
@@ -272,7 +304,7 @@ class MacPlanning(PlanHome):
         self.engine.update()
         entry = self.make_plan()[MKW]
         self.assertEqual((entry.build, entry.reasons, entry.mac_only, entry.mac_reason), (True, ["named"], True, "named"))
-        shutil.rmtree(self.mac_apps / "Mario Kart World.app")
+        shutil.rmtree(self.games / "Mario Kart World.app")
         self.assertEqual(self.make_plan()[MKW].reasons[:2], ["mac_missing", "named"])
         # Its failure waits for a change, as an IPA's does.
         game = next(g for g in library.discover(self.sources, NAMES).games if g.title_id == MKW)

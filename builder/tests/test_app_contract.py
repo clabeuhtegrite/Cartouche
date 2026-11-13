@@ -22,7 +22,7 @@ import time
 from pathlib import Path
 from unittest import mock
 
-from cartouche_builder import api, batch, config as configs
+from cartouche_builder import api, batch, config as configs, macapps
 from cartouche_builder.paths import Paths
 
 from support import HOLLOW, MKW, ODYSSEY, Home, commit, make_dump, make_engine_remote, make_ipa
@@ -133,6 +133,18 @@ class AppContract(Home):
         self.assertEqual((self.answers["queue"]["queued"], self.answers["queue"]["queue"]["stop"]), (True, [HOLLOW]))
         self.call("clean", "clean", "logs")
         self.call("platform", "platform", ODYSSEY, "mac", "off")
+
+        # The games folder on a NAS: Mario Kart World's app kept there in one
+        # file, then installed on this Mac to be played.
+        with mock.patch.dict(os.environ, {macapps.PACKED_ENV: "1"}):
+            self.build(MKW)
+            self.call("mac-install", "mac-install", MKW)
+            library = self.call("library-nas", "library")
+            self.call("storage-nas", "storage")
+            self.call("config-nas", "config")
+        mac = next(game["mac"] for game in library["games"] if game["title_id"] == MKW)
+        self.assertEqual((mac["packed"], mac["library"]["name"], mac["app"]["name"], mac["behind"]),
+                         (True, f"Mario Kart World [{MKW}].app.zip", "Mario Kart World.app", False))
 
         if os.environ.get("CARTOUCHE_BUILDER_FIXTURES") == "write":
             FIXTURES.mkdir(parents=True, exist_ok=True)

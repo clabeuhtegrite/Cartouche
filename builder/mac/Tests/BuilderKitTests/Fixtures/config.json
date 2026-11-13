@@ -5,6 +5,7 @@
     "default_workspace": "/Users/player/Builder/home/workspace",
     "home": "/Users/player/Builder/home",
     "mac_apps": "/Users/player/Builder/user/Applications",
+    "mac_packed": false,
     "problems": [],
     "python": "/usr/local/bin/python3",
     "scheduled": false,

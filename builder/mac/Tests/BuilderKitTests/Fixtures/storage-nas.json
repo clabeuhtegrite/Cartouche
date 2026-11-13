@@ -1,0 +1,131 @@
+{
+  "api": 1,
+  "storage": {
+    "disks": {
+      "games": {
+        "free": 27741069312,
+        "path": "/Users/player/Builder/games",
+        "present": true,
+        "total": 270553174016
+      },
+      "mac_apps": {
+        "free": 27741069312,
+        "path": "/Users/player/Builder/user/Applications",
+        "present": true,
+        "total": 270553174016
+      },
+      "sources": {
+        "free": 27741069312,
+        "path": "/Users/player/Builder/sources",
+        "present": true,
+        "total": 270553174016
+      },
+      "workspace": {
+        "free": 27741069312,
+        "path": "/Users/player/Builder/home/workspace",
+        "present": true,
+        "total": 270553174016
+      }
+    },
+    "folders": [
+      {
+        "kind": "build",
+        "name": "Super Mario Odyssey",
+        "parts": {
+          "app": 0,
+          "extracted": 0,
+          "other": 563,
+          "packages": 0,
+          "shaders": 300,
+          "temporary": 0
+        },
+        "path": "/Users/player/Builder/home/workspace/0100000000010000_build",
+        "size": 863,
+        "title_id": "0100000000010000",
+        "used": 1794606548.7363508,
+        "workspace": "/Users/player/Builder/home/workspace"
+      },
+      {
+        "kind": "build",
+        "name": "Mario Kart World",
+        "parts": {
+          "app": 0,
+          "extracted": 0,
+          "other": 557,
+          "packages": 0,
+          "shaders": 300,
+          "temporary": 0
+        },
+        "path": "/Users/player/Builder/home/workspace/0400C3F00006E000_build",
+        "size": 857,
+        "title_id": "0400C3F00006E000",
+        "used": 1794606551.8852541,
+        "workspace": "/Users/player/Builder/home/workspace"
+      }
+    ],
+    "ipa_copies": [
+      {
+        "name": "Super Mario Odyssey",
+        "path": "/Users/player/Builder/home/workspace/.cartouche-builder/out/0100000000010000.ipa",
+        "same_disk": true,
+        "size": 849,
+        "title_id": "0100000000010000",
+        "used": 1794606551.7747798,
+        "workspace": "/Users/player/Builder/home/workspace"
+      },
+      {
+        "name": "Mario Kart World",
+        "path": "/Users/player/Builder/home/workspace/.cartouche-builder/out/0400C3F00006E000.ipa",
+        "same_disk": true,
+        "size": 846,
+        "title_id": "0400C3F00006E000",
+        "used": 1794606548.66429,
+        "workspace": "/Users/player/Builder/home/workspace"
+      }
+    ],
+    "mac_apps": [
+      {
+        "built_at": "2026-11-13T21:49:11+00:00",
+        "name": "Super Mario Odyssey",
+        "on": false,
+        "packed": false,
+        "path": "/Users/player/Builder/games/Super Mario Odyssey.app",
+        "shares_build": false,
+        "size": 1604,
+        "title_id": "0100000000010000"
+      },
+      {
+        "built_at": "2026-11-13T21:49:11+00:00",
+        "name": "Mario Kart World",
+        "on": true,
+        "packed": true,
+        "path": "/Users/player/Builder/user/Applications/Mario Kart World.app",
+        "shares_build": false,
+        "size": 1601,
+        "title_id": "0400C3F00006E000"
+      }
+    ],
+    "settings": {
+      "keep_extracted": false,
+      "keep_ipa": false,
+      "min_free_gb": 0,
+      "workspace_limit_gb": 0
+    },
+    "totals": {
+      "app": 0,
+      "engine": 46935,
+      "extracted": 0,
+      "icons": 16,
+      "ipa_copies": 1695,
+      "ipa_copies_freeable": 0,
+      "logs": 15136,
+      "mac_apps": 3205,
+      "other": 1120,
+      "packages": 0,
+      "python": 0,
+      "shaders": 600,
+      "temporary": 0
+    },
+    "workspace": "/Users/player/Builder/home/workspace"
+  }
+}

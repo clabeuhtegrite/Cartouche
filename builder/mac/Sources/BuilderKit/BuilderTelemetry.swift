@@ -481,6 +481,16 @@ public final class BuilderTelemetry: ObservableObject {
          "place": .text(onShare ? "share" : "mac")]
     }
 
+    /// A game's app the games folder keeps in one file (a NAS's) installed
+    /// on this Mac to be played (builder.macInstalled): its size once
+    /// installed (BYTES), how long it took, and whether it took the place
+    /// of this Mac's copy of an older build (AGAIN). Never a name or a path.
+    public nonisolated static func installedFields(bytes: Int64?, seconds: TimeInterval, again: Bool) -> [String: TelemetryValue] {
+        var fields: [String: TelemetryValue] = ["seconds": .number(max(0, seconds).rounded()), "again": .flag(again)]
+        if let bytes, bytes > 0 { fields["appMB"] = .number((Double(bytes) / 1_000_000).rounded()) }
+        return fields
+    }
+
     /// An nxnative commit's 12 digits, when TEXT is one.
     public nonisolated static func commit(_ text: String) -> String? {
         let digits = text.lowercased()
@@ -531,7 +541,9 @@ public final class BuilderTelemetry: ObservableObject {
             if let built = game.commit.flatMap(BuilderTelemetry.commit) ?? head { fields["nxnative"] = .text(built) }
             if game.fallback == true { fields["fallback"] = .flag(true) }
             if game.mac == "built" {
-                if let size = library?.game(game.titleID)?.mac?.app?.size, size > 0 {
+                // As the games folder keeps it: the app, or its file on a NAS.
+                let mac = library?.game(game.titleID)?.mac
+                if let size = (mac?.library ?? mac?.app)?.size, size > 0 {
                     fields["appMB"] = .number((Double(size) / 1_000_000).rounded())
                 }
                 events.append(BatchEvent("builder.macBuilt", game: game.titleID, fields: fields))

@@ -105,7 +105,15 @@ final class EngineAnswerTests: XCTestCase {
         XCTAssertFalse(built.due)
         XCTAssertTrue(built.hasApp)
         XCTAssertEqual(built.app?.name, "Super Mario Odyssey.app")
-        XCTAssertEqual(built.app?.path.hasSuffix("/Applications/Super Mario Odyssey.app"), true)
+        // In the games folder beside its IPA, on this Mac's own disk: played
+        // from there.
+        XCTAssertEqual(built.app?.path, built.folder + "/Super Mario Odyssey.app")
+        XCTAssertEqual(built.folder, library.folders?.games?.path)
+        XCTAssertFalse(built.packed)
+        XCTAssertEqual(built.library, built.app)
+        XCTAssertFalse(built.behind)
+        XCTAssertTrue(built.kept && built.playable)
+        XCTAssertFalse(built.needsInstall)
         XCTAssertEqual(built.build?.commit.count, 12)
         XCTAssertNotNil(built.build?.date)
         XCTAssertTrue(failed.hasMacApp)
@@ -134,6 +142,45 @@ final class EngineAnswerTests: XCTestCase {
         let odd = try JSONDecoder().decode(Game.self, from: Data(#"{"title_id": "0100152000022000", "name": "A game", "state": "due", "platforms": 3, "mac": {"due": "yes"}}"#.utf8))
         XCTAssertNil(odd.platforms)
         XCTAssertEqual(odd.mac, GameMac())
+    }
+
+    /// A games folder on a NAS: the game's app kept there in one file, this
+    /// Mac's copy installed from it to be played.
+    func testAMacAppKeptOnANAS() throws {
+        let library = try answer(Library.self, "library-nas")
+        let mac = try XCTUnwrap(library.game("0400C3F00006E000")?.mac)
+        XCTAssertTrue(mac.packed)
+        XCTAssertEqual(mac.library?.name, "Mario Kart World [0400C3F00006E000].app.zip")
+        XCTAssertEqual(mac.library?.path, mac.folder + "/Mario Kart World [0400C3F00006E000].app.zip")
+        XCTAssertEqual(mac.app?.path, mac.installs + "/Mario Kart World.app")
+        XCTAssertTrue(mac.hasApp && mac.kept && mac.playable)
+        XCTAssertFalse(mac.behind)
+        XCTAssertFalse(mac.needsInstall)
+        // Not installed, or of an older build: installed first.
+        var away = mac
+        away.app = nil
+        XCTAssertTrue(away.playable && away.needsInstall)
+        var older = mac
+        older.behind = true
+        XCTAssertTrue(older.needsInstall)
+        // Its file no longer in the games folder: nothing to play until it
+        // is built again.
+        let odyssey = try XCTUnwrap(library.game("0100000000010000")?.mac)
+        XCTAssertTrue(odyssey.packed)
+        XCTAssertFalse(odyssey.kept || odyssey.playable)
+
+        let installed = try answer(MacInstallAnswer.self, "mac-install")
+        XCTAssertEqual(installed.titleID, "0400C3F00006E000")
+        XCTAssertEqual(installed.app.path, mac.app?.path)
+        XCTAssertEqual(installed.bytes, Int64(installed.app.size))
+        XCTAssertNotNil(installed.seconds)
+
+        let storage = try answer(StorageAnswer.self, "storage-nas").storage
+        let copy = try XCTUnwrap(storage.apps.first { $0.titleID == "0400C3F00006E000" })
+        XCTAssertTrue(copy.isInstalledCopy)
+        XCTAssertEqual(copy.path, mac.app?.path)
+        XCTAssertEqual(storage.macAppsDisk?.path, mac.installs)
+        XCTAssertEqual(try answer(ConfigAnswer.self, "config-nas").builder.macPacked, true)
     }
 
     func testAGameBeingBuiltHasItsProgress() throws {
@@ -348,6 +395,8 @@ final class EngineAnswerTests: XCTestCase {
         XCTAssertNotNil(app.date)
         XCTAssertEqual(storage.total("mac_apps"), app.size)
         XCTAssertNotNil(storage.macAppsDisk)
+        XCTAssertFalse(app.isInstalledCopy)
+        XCTAssertEqual(answer.builder.macPacked, false)
         // Of an engine older than the Mac's builds: none.
         let plain = try JSONDecoder().decode(StorageReport.self, from: Data(#"{"workspace": "/w", "disks": {}, "folders": [], "ipa_copies": [], "totals": {}}"#.utf8))
         XCTAssertEqual(plain.apps, [])

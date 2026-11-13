@@ -64,6 +64,12 @@ struct StorageView: View {
     }
 
     private func trashMessage(_ app: MacAppCopy) -> String {
+        if app.isInstalledCopy {
+            return (model.gamesOnShare
+                ? tr("Its app stays on the NAS: it is installed again when you play the game. ", "Son app reste sur le NAS : elle se réinstalle quand vous jouez au jeu. ")
+                : tr("Its app stays in the games folder: it is installed again when you play the game. ", "Son app reste dans le dossier des jeux : elle se réinstalle quand vous jouez au jeu. "))
+                + tr("Its saves stay on this Mac.", "Ses sauvegardes restent sur ce Mac.")
+        }
         let alone = !(model.config?.onIOS(app.titleID) ?? true)
         return (alone ? tr("The game is then no longer built: it was built for this Mac alone. ", "Le jeu n’est alors plus construit : il l’était pour ce Mac seul. ")
                       : tr("The game is then no longer built for this Mac; its IPA still is. ", "Le jeu n’est alors plus construit pour ce Mac ; son IPA l’est toujours. "))
@@ -223,6 +229,9 @@ struct StorageView: View {
 
     private func appDetail(_ app: MacAppCopy) -> String {
         var parts: [String] = []
+        if app.isInstalledCopy {
+            parts.append(model.gamesOnShare ? tr("installed from the NAS", "installée depuis le NAS") : tr("installed from the games folder", "installée depuis le dossier des jeux"))
+        }
         if let date = app.date { parts.append(tr("built ", "construite ") + Format.relative(date)) }
         if !app.on { parts.append(tr("no longer built", "plus construite")) }
         if app.sharesBuild == true {

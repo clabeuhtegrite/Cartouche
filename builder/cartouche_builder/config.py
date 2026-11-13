@@ -48,7 +48,7 @@ class Config:
     mac: bool = True
     skip_ios: list[str] = field(default_factory=list)  # games whose IPA is not built
     skip_mac: list[str] = field(default_factory=list)  # games not built for this Mac
-    mac_apps: str = ""  # where the games' Mac apps go ("" = the Applications folder of the player's session)
+    mac_apps: str = ""  # where this Mac installs the Mac apps a games folder on a NAS keeps in one file ("" = the Applications folder of the player's session)
     aliases: dict[str, list[str]] = field(default_factory=dict)  # more names of a game in commit messages
     unprofiled: bool = False  # also build games nxnative has no profile for (a guess that may not start)
     game_language: str = ""  # nxnative's -l (empty = its default, English)
@@ -74,7 +74,8 @@ class Config:
         return self.path("workspace") or paths.workspace
 
     def mac_apps_path(self) -> Path:
-        """The folder of the games' Mac apps: the one chosen, else the
+        """Where this Mac installs the games' Mac apps that the games folder
+        keeps in one file (macapps.Place): the folder chosen, else the
         Applications folder of the player's session, where Launchpad, the
         Dock and Spotlight find them."""
         return self.path("mac_apps") or default_mac_apps()

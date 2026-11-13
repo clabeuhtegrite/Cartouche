@@ -380,16 +380,16 @@ struct BuildSettings: View {
             Toggle(isOn: setting(model, \.mac, true)) {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(tr("This Mac", "Ce Mac"))
-                    Text(tr("Each game’s app, to play it on this Mac.", "L’app de chaque jeu, pour y jouer sur ce Mac."))
+                    Text(tr("Each game’s app, beside its IPA, to play it on this Mac.", "L’app de chaque jeu, à côté de son IPA, pour y jouer sur ce Mac."))
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
             }
             .disabled(mac && !ios)
             if mac {
-                FolderField(title: tr("Mac apps folder", "Dossier des apps Mac"),
-                            help: tr("Where the games’ apps go; empty for the Applications folder of your session, where Launchpad finds them.",
-                                     "Où vont les apps des jeux ; vide pour le dossier Applications de votre session, où Launchpad les trouve."),
+                FolderField(title: tr("Installed from a NAS in", "Installées depuis un NAS dans"),
+                            help: tr("A games folder on a NAS keeps each game’s app in one file: it is installed here when you play the game. Empty for the Applications folder of your session, where Launchpad finds them.",
+                                     "Un dossier des jeux sur un NAS garde l’app de chaque jeu en un seul fichier : elle s’installe ici quand vous jouez au jeu. Vide pour le dossier Applications de votre session, où Launchpad les trouve."),
                             path: model.config?.macApps ?? "", clearable: true, placeholder: defaultFolder) { path in model.update { $0.macApps = path } }
             }
         } header: {

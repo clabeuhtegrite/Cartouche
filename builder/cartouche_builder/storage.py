@@ -106,22 +106,30 @@ def kept_ipas(root: Path) -> list[Path]:
 
 
 def mac_apps(config: configs.Config, paths: Paths, records: dict | None, names: dict[str, str]) -> list[dict]:
-    """The games' Mac apps the builder made that are still where it put
-    them (each game's record says where), with their size."""
+    """The games' Mac apps on this Mac that the builder made, still where it
+    put them (each game's record says where), with their size: the games
+    folder's own, or the copies this Mac plays (PACKED) of those a NAS keeps
+    in one file, which stay there when a copy goes."""
     found = []
     workspace = config.workspace_path(paths)
     for title_id, record in sorted((records or {}).items()):
-        built = record.mac
-        path = built.path if built else None
+        built, copied = record.mac, record.mac_copy
+        if built is not None and not built.packed:
+            path, packed, built_at = built.path, False, built.built_at
+        elif copied is not None:
+            path, packed, built_at = copied.path, True, copied.built_at
+        else:
+            continue
         if path is None or not path.is_dir() or not macapps.is_games(path, title_id):
             continue
         found.append({
             "path": str(path),
             "title_id": title_id,
-            "name": names.get(title_id, "") or built.name,
+            "name": names.get(title_id, "") or (built.name if built else ""),
             "size": macapps.size(path),
             "on": config.on_mac(title_id),
-            "built_at": built.built_at,
+            "packed": packed,
+            "built_at": built_at,
             # On the build folders' disk its large files are clones of its
             # build folder's extracted files, which share their blocks while
             # they are kept.
@@ -185,13 +193,14 @@ def survey(config: configs.Config, paths: Paths, names: dict[str, str] | None = 
     }
     workspace = config.workspace_path(paths)
     apps = mac_apps(config, paths, records, names)
+    place = macapps.place(config)
     return {
         "workspace": str(workspace),
         "disks": {
             "workspace": disk(workspace),
             "games": disk(games),
             "sources": disk(config.path("sources")),
-            "mac_apps": disk(config.mac_apps_path()) if apps or config.mac else None,
+            "mac_apps": disk(place.installs if place.packed else place.library) if apps or config.mac else None,
         },
         "folders": folders,
         "ipa_copies": copies,

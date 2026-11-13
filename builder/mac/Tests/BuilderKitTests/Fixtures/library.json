@@ -1,13 +1,13 @@
 {
   "api": 1,
-  "checked": "2026-11-13T16:07:23+00:00",
+  "checked": "2026-11-13T21:49:05+00:00",
   "engine": {
     "branch": "main",
     "commit_url": "",
-    "head": "603c75f96733e4d6155bc390642fed7f35ee91cb",
-    "short": "603c75f96733",
+    "head": "04354859e9553bdef84af008d1b37871eeef82bf",
+    "short": "04354859e955",
     "subject": "Super Mario Odyssey: the cap (PR #4)",
-    "time": 1794586043,
+    "time": 1794606545,
     "url": "/Users/player/Builder/remote"
   },
   "folders": {
@@ -73,10 +73,14 @@
         "alone": false,
         "app": null,
         "attempt": null,
+        "behind": false,
         "build": null,
         "detail": "",
         "due": false,
-        "folder": "/Users/player/Builder/user/Applications",
+        "folder": "/Users/player/Builder/games",
+        "installs": "/Users/player/Builder/user/Applications",
+        "library": null,
+        "packed": false,
         "reason": ""
       },
       "name": "Hollow Knight",
@@ -98,11 +102,11 @@
       "aliases": [],
       "attempt": null,
       "build": {
-        "built_at": "2026-11-13T16:07:23+00:00",
+        "built_at": "2026-11-13T21:49:05+00:00",
         "chain": "abcdef012345",
-        "commit": "0ec27fd40194",
+        "commit": "387149ac481b",
         "dirty": false,
-        "duration": 0.041211154000393435,
+        "duration": 0.038002123000296706,
         "origin": "builder",
         "size": 846,
         "toolchain": "",
@@ -116,17 +120,17 @@
       "changes": [
         {
           "kind": "named",
-          "sha": "316e1edd25366eac9a36b95e5cf2ccfd06f67bc1",
-          "short": "316e1edd2536",
+          "sha": "24bc9406a3fc108c9d2f7a01029668125988cef0",
+          "short": "24bc9406a3fc",
           "subject": "Mario Kart World: the menus (PR #3)",
-          "time": 1794586043
+          "time": 1794606545
         },
         {
           "kind": "shared",
-          "sha": "603c75f96733e4d6155bc390642fed7f35ee91cb",
-          "short": "603c75f96733",
+          "sha": "04354859e9553bdef84af008d1b37871eeef82bf",
+          "short": "04354859e955",
           "subject": "Super Mario Odyssey: the cap (PR #4)",
-          "time": 1794586043
+          "time": 1794606545
         }
       ],
       "detail": "An nxnative commit names it: Mario Kart World: the menus (PR #3)",
@@ -144,18 +148,22 @@
         "alone": false,
         "app": null,
         "attempt": {
-          "at": "2026-11-13T16:07:23+00:00",
-          "commit": "0ec27fd40194",
+          "at": "2026-11-13T21:49:05+00:00",
+          "commit": "387149ac481b",
           "error": "the Mac host did not build (exit 1): see mac_host.log",
-          "fingerprint": "9ba4e1438c518a64bab3febe",
-          "log": "/Users/player/Builder/home/logs/0400C3F00006E000/2026-11-13_16-07-23.log",
+          "fingerprint": "6a436c7a759f3c0547379415",
+          "log": "/Users/player/Builder/home/logs/0400C3F00006E000/2026-11-13_21-49-05.log",
           "result": "failed",
           "toolchain": ""
         },
+        "behind": false,
         "build": null,
         "detail": "Its Mac app is built after its IPA",
         "due": true,
-        "folder": "/Users/player/Builder/user/Applications",
+        "folder": "/Users/player/Builder/games",
+        "installs": "/Users/player/Builder/user/Applications",
+        "library": null,
+        "packed": false,
         "reason": "with_ipa"
       },
       "name": "Mario Kart World",
@@ -176,20 +184,20 @@
     {
       "aliases": [],
       "attempt": {
-        "at": "2026-11-13T16:07:23+00:00",
-        "commit": "603c75f96733",
+        "at": "2026-11-13T21:49:05+00:00",
+        "commit": "04354859e955",
         "error": "the fake build failed on purpose",
-        "fingerprint": "b6f8d91f0f29c5b1c894f613",
-        "log": "/Users/player/Builder/home/logs/0100000000010000/2026-11-13_16-07-23.log",
+        "fingerprint": "54206c15d7dd378429e4a872",
+        "log": "/Users/player/Builder/home/logs/0100000000010000/2026-11-13_21-49-05.log",
         "result": "failed",
         "toolchain": ""
       },
       "build": {
-        "built_at": "2026-11-13T16:07:23+00:00",
+        "built_at": "2026-11-13T21:49:05+00:00",
         "chain": "abcdef012345",
-        "commit": "0ec27fd40194",
+        "commit": "387149ac481b",
         "dirty": false,
-        "duration": 0.03286114799993811,
+        "duration": 0.03770910699995511,
         "origin": "builder",
         "size": 849,
         "toolchain": "",
@@ -203,17 +211,17 @@
       "changes": [
         {
           "kind": "named",
-          "sha": "603c75f96733e4d6155bc390642fed7f35ee91cb",
-          "short": "603c75f96733",
+          "sha": "04354859e9553bdef84af008d1b37871eeef82bf",
+          "short": "04354859e955",
           "subject": "Super Mario Odyssey: the cap (PR #4)",
-          "time": 1794586043
+          "time": 1794606545
         },
         {
           "kind": "shared",
-          "sha": "316e1edd25366eac9a36b95e5cf2ccfd06f67bc1",
-          "short": "316e1edd2536",
+          "sha": "24bc9406a3fc108c9d2f7a01029668125988cef0",
+          "short": "24bc9406a3fc",
           "subject": "Mario Kart World: the menus (PR #3)",
-          "time": 1794586043
+          "time": 1794606545
         }
       ],
       "detail": "Failed at this nxnative commit (the fake build failed on purpose); tried again when nxnative or its files change",
@@ -231,23 +239,32 @@
         "alone": false,
         "app": {
           "name": "Super Mario Odyssey.app",
-          "path": "/Users/player/Builder/user/Applications/Super Mario Odyssey.app",
+          "path": "/Users/player/Builder/games/Super Mario Odyssey.app",
           "present": true,
           "size": 1604
         },
         "attempt": null,
+        "behind": false,
         "build": {
-          "built_at": "2026-11-13T16:07:23+00:00",
+          "built_at": "2026-11-13T21:49:05+00:00",
           "chain": "abcdef012345",
-          "commit": "0ec27fd40194",
+          "commit": "387149ac481b",
           "dirty": false,
-          "duration": 0.03296039099996051,
+          "duration": 0.0394491309998557,
           "size": 1604,
           "version": "1.0.0"
         },
         "detail": "Its Mac app is built once its IPA builds",
         "due": false,
-        "folder": "/Users/player/Builder/user/Applications",
+        "folder": "/Users/player/Builder/games",
+        "installs": "/Users/player/Builder/user/Applications",
+        "library": {
+          "name": "Super Mario Odyssey.app",
+          "path": "/Users/player/Builder/games/Super Mario Odyssey.app",
+          "present": true,
+          "size": 1604
+        },
+        "packed": false,
         "reason": "after_ipa"
       },
       "name": "Super Mario Odyssey",

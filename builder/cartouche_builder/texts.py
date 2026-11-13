@@ -125,6 +125,13 @@ TEXTS: dict[str, tuple[str, str]] = {
     "mac.no_app": ("nxnative ended without a Mac app at {path}.", "nxnative a fini sans app Mac à {path}."),
     "mac.running": ("{name} is open on this Mac: its app is replaced at the next batch, once the game is closed.", "{name} est ouvert sur ce Mac : son app sera remplacée au prochain lot, une fois le jeu fermé."),
     "mac.delivering": ("Putting {name} in {folder}…", "Mise en place de {name} dans {folder}…"),
+    "mac.packing": ("Keeping {name} in {folder}, in one file…", "Rangement de {name} dans {folder}, en un seul fichier…"),
+    "mac.not_packed": ("{name} holds no app of this game: it is built again at the next batch.", "{name} ne contient pas d'app de ce jeu : elle sera reconstruite au prochain lot."),
+    "mac.no_packed": ("This game has no Mac app in the games folder yet: it is built at the next batch.", "Ce jeu n'a pas encore d'app Mac dans le dossier de jeux : elle sera construite au prochain lot."),
+    "mac.not_kept_packed": ("The games folder keeps the Mac apps as they are: they are played from there.", "Le dossier de jeux garde les apps Mac telles quelles : elles se lancent de là."),
+    "mac.installing": ("Installing {name} on this Mac: {done} of {total} GB", "Installation de {name} sur ce Mac : {done} Go sur {total}"),
+    "mac.install_running": ("{name} is open on this Mac: quit it first, then play it again to update it.", "{name} est ouvert sur ce Mac : quittez-le d'abord, puis relancez-le pour le mettre à jour."),
+    "mac.install_no_room": ("{name} needs {needed} GB on this Mac's disk, and {free} GB are free. Free some room, on the Storage page for example.", "{name} a besoin de {needed} Go sur le disque du Mac, et {free} Go sont libres. Libérez de la place, par exemple dans Stockage."),
     "batch.trimmed": ("Removed the build folder {folder} ({gb} GB) to keep under the size limit.", "Dossier de construction {folder} supprimé ({gb} Go) pour rester sous la taille limite."),
     # ---- A full disk (disks.py)
     "disk.full_mac": ("Your Mac's disk is full ({free} left). Free some room, on the Storage page for example, then try again.", "Le disque du Mac est plein (il reste {free}). Libérez de la place, par exemple dans Stockage, puis réessayez."),

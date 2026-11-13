@@ -43,7 +43,7 @@ from .engine import Engine, EngineError
 from .i18n import set_language, t
 from .paths import Paths
 from .planner import Entry, Plan, fingerprint, plan
-from .state import TAKEN_OVER, Attempt, Build, MacBuild, Store, attempt_now, now_iso
+from .state import TAKEN_OVER, Attempt, Build, MacBuild, MacCopy, Store, attempt_now, now_iso
 from .status import Status
 from .workspace import NOTES, Workspace, drop_extracted, free_gb, same_volume
 
@@ -210,7 +210,7 @@ def survey(ctx: Context, update: bool = True, force: set[str] | None = None, log
     found = library.discover(ctx.config.path("sources"), {tid: p.name for tid, p in profiles.items()}, keys=ctx.config.path("keys"), cache=ctx.paths.identified)
     identity = toolchain.identity(toolchain.environment(ctx.paths)) if sys.platform == "darwin" else ""
     games = [g for g in found.games if g.title_id in only] if only else found.games
-    result = plan(games, ctx.engine, head, profiles, ctx.store, ctx.config, ctx.config.path("games"), identity, force, mac_apps=ctx.config.mac_apps_path())
+    result = plan(games, ctx.engine, head, profiles, ctx.store, ctx.config, ctx.config.path("games"), identity, force, mac=macapps.place(ctx.config))
     result.issues = found.issues
     return result
 
@@ -691,19 +691,22 @@ class Runner:
 
     def _mac_app(self, entry: Entry, source: Path, work: Path, keys: Path | None, log_path: Path, stop: "_Stop", print_: str, identity: str) -> None:
         """Builds the game's app for this Mac (nxnative's --platform mac-app),
-        from the same files and the same nxnative commit as its IPA, and puts
-        it in the Mac apps folder. Its failure is its own, recorded as the
-        Mac app's: the IPA stays as it was delivered."""
+        from the same files and the same nxnative commit as its IPA, and keeps
+        it in the games folder, beside the IPA: as it is, or in one file on a
+        NAS, where this Mac's copy of it is made again too (macapps.Place).
+        Its failure is its own, recorded as the Mac app's: the IPA stays as
+        it was delivered."""
         ctx, title_id = self.ctx, entry.title_id
         began = time.monotonic()
         commit = self.commit
         result: builds.Result | None = None
-        folder = ctx.config.mac_apps_path()
+        place = macapps.place(ctx.config)
+        folder = place.library
         writing: Path | None = work
         self.on_event("mac_start", title_id, entry)
         out = ctx.workspace.root / NOTES / "out" / f"{title_id}.app"
         try:
-            if same_volume(_existing(folder), ctx.workspace.root):
+            if not place.packed and same_volume(_existing(folder), ctx.workspace.root):
                 # On the build folders' disk the app's game files are clones
                 # of the extracted ones, whose room it keeps when they go: the
                 # disk keeps the room the settings say all the same.
@@ -737,22 +740,39 @@ class Runner:
             info = macapps.read_info(out)
             if info is None or info.title_id != title_id:
                 raise _Failed(t("mac.no_app", path=out), "no_app")
-            name = macapps.target_name(folder, title_id, str(result.game.get("name") or info.name or entry.game.display_name), entry.mac_name)
-            target = folder / name
-            if macapps.running(target):
-                # Its files stay as they are while it runs: the next batch
-                # makes the app again.
-                raise _Skipped(t("mac.running", name=name), "running")
-            self.on_event("message", title_id, t("mac.delivering", name=name, folder=folder))
-            self.on_event("progress", title_id, builds.Progress(stage="mac_deliver"))
-            writing = folder
-            macapps.deliver(out, folder, name, stop=stop)
+            display = str(result.game.get("name") or info.name or entry.game.display_name)
+            built_at, built_commit = now_iso(), info.commit or commit[:12]
+            copied: MacCopy | None = None
+            if place.packed:
+                # In one file beside the IPA, the name it had kept; then this
+                # Mac's copy, when it has one, made of this build too.
+                recorded = entry.mac_name if entry.mac_name.endswith(macapps.PACKED_SUFFIX) and title_id in entry.mac_name.upper() else ""
+                name = recorded or macapps.packed_name(display, title_id)
+                self.on_event("message", title_id, t("mac.packing", name=name, folder=folder))
+                self.on_event("progress", title_id, builds.Progress(stage="mac_deliver"))
+                writing = folder
+                app = macapps.named(out, display)
+                size = macapps.pack(app, folder / name, stop=stop)
+                copied = self._mac_copy(entry, place, app, built_at, built_commit, stop)
+            else:
+                name = macapps.target_name(folder, title_id, display, entry.mac_name)
+                target = folder / name
+                if macapps.running(target):
+                    # Its files stay as they are while it runs: the next batch
+                    # makes the app again.
+                    raise _Skipped(t("mac.running", name=name), "running")
+                self.on_event("message", title_id, t("mac.delivering", name=name, folder=folder))
+                self.on_event("progress", title_id, builds.Progress(stage="mac_deliver"))
+                writing = folder
+                macapps.deliver(out, folder, name, stop=stop)
+                size = macapps.size(target)
             build = MacBuild(
-                commit=info.commit or commit[:12],
-                built_at=now_iso(),
+                commit=built_commit,
+                built_at=built_at,
                 app=name,
                 folder=str(folder),
-                size=macapps.size(target),
+                size=size,
+                packed=place.packed,
                 chain=info.chain or "",
                 fingerprint=print_,
                 toolchain=identity,
@@ -762,6 +782,8 @@ class Runner:
                 dirty=info.dirty,
             )
             ctx.store.mac_built(title_id, build)
+            if copied is not None:
+                ctx.store.mac_copied(title_id, copied)
             with self._lock:
                 self.summary.mac_built.append((entry, build))
             self.on_event("mac_built", title_id, build)
@@ -770,6 +792,22 @@ class Runner:
                 raise
         finally:
             macapps.forget_built(out)
+
+    def _mac_copy(self, entry: Entry, place: macapps.Place, app: Path, built_at: str, commit: str, stop: "_Stop") -> MacCopy | None:
+        """This Mac's copy of the game's app, made of APP, the build just kept
+        in one file, when the Mac has one (the player played the game here):
+        nothing is installed that was not. None when there is none, or while
+        the game runs from it: it is made again the next time the game is
+        played (api mac-install)."""
+        ctx, title_id = self.ctx, entry.title_id
+        record = entry.record
+        recorded = record.mac_copy.app if record and record.mac_copy else ""
+        copy = place.copy(title_id, recorded)
+        if copy is None or macapps.running(copy):
+            return None
+        self.on_event("message", title_id, t("mac.delivering", name=copy.name, folder=place.installs))
+        target = macapps.deliver(app, place.installs, copy.name, stop=stop)
+        return MacCopy(app=target.name, folder=str(place.installs), built_at=built_at, installed_at=now_iso(), size=macapps.size(target), commit=commit)
 
     # ---- nxnative's newest commit, when it does not build (fallback.py) ----
 

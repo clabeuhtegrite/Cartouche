@@ -591,10 +591,12 @@ struct MacPlayItems: View {
 
     var body: some View {
         let playing = games.isPlaying(game.titleID)
-        Button(playing ? tr("Show the game", "Afficher le jeu") : tr("Play on this Mac", "Jouer sur ce Mac")) {
+        let installing = model.installing == game.titleID
+        Button(playing ? tr("Show the game", "Afficher le jeu") : installing ? tr("Installing…", "Installation…") : tr("Play on this Mac", "Jouer sur ce Mac")) {
             model.play(game)
         }
+        .disabled(installing)
         Button(tr("Game settings", "Réglages du jeu")) { model.play(game, settings: true) }
-            .disabled(playing || games.preparing.contains(game.titleID))
+            .disabled(playing || installing || games.preparing.contains(game.titleID))
     }
 }

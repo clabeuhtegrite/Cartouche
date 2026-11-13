@@ -111,6 +111,10 @@ final class AppModel: ObservableObject {
     @Published private(set) var cleaning = false
     @Published private(set) var bundling = false
     @Published private(set) var bundleMessage = ""
+    /// The game whose app the games folder keeps in one file (a NAS's) is
+    /// being installed on this Mac, and how far it is, in the engine's words.
+    @Published private(set) var installing: String?
+    @Published private(set) var installMessage = ""
     /// A batch asked for, until status.json shows it: a few seconds, or as
     /// long as the engine's look at nxnative holds the batch lock, which the
     /// batch waits for (batch.LOCK_WAIT).
@@ -787,6 +791,9 @@ final class AppModel: ObservableObject {
     /// Puts the game's Mac app in the Trash, never while the game runs from
     /// it, and builds the game no longer for this Mac (no longer at all,
     /// when it was built for this Mac alone): its saves stay on the Mac.
+    /// This Mac's copy of an app the games folder keeps in one file (a
+    /// NAS's) goes alone: the game stays built, its file where it is, and
+    /// it is installed again the next time it is played.
     func removeMacApp(_ app: MacAppCopy) {
         guard !sample else { return }
         let url = URL(fileURLWithPath: app.path)
@@ -801,8 +808,18 @@ final class AppModel: ObservableObject {
                 show(error, origin: "trash")
                 return
             }
-            telemetry.event("builder.cleaned", fields: ["what": .text("mac_app"), "items": .count(1),
+            telemetry.event("builder.cleaned", fields: ["what": .text(app.isInstalledCopy ? "mac_copy" : "mac_app"), "items": .count(1),
                                                         "freedMB": .number((Double(app.size) / 1_000_000).rounded())])
+            if app.isInstalledCopy {
+                banner = Banner(kind: .info, text: gamesOnShare
+                    ? tr("\(app.name) is in the Trash. The NAS keeps its app: it is installed again when you play it.",
+                         "\(app.name) est dans la Corbeille. Le NAS garde son app : elle se réinstalle quand vous y jouez.")
+                    : tr("\(app.name) is in the Trash. The games folder keeps its app: it is installed again when you play it.",
+                         "\(app.name) est dans la Corbeille. Le dossier des jeux garde son app : elle se réinstalle quand vous y jouez."))
+                await loadStorage()
+                await refreshLibrary(update: false)
+                return
+            }
             if let engine, config?.onMac(app.titleID) ?? app.on {
                 do {
                     if config?.onIOS(app.titleID) ?? true {
@@ -927,11 +944,24 @@ final class AppModel: ObservableObject {
 
     /// Starts GAME on this Mac: its newest copy of saves first; straight
     /// into the game, or with nxnative's own settings window (SETTINGS).
+    /// An app the games folder keeps in one file (a NAS's) is installed on
+    /// this Mac first, or its copy here made again of a newer build; when
+    /// that cannot be done, the copy already here plays.
     func play(_ game: Game, settings: Bool = false) {
         guard !sample else { return }
         macGames.language = L10n.code
         Task {
             do {
+                if let mac = game.mac, mac.needsInstall, !macGames.isPlaying(game.titleID) {
+                    do {
+                        try await installMac(game)
+                    } catch {
+                        guard mac.hasApp else { throw error }
+                        show(error, origin: "install")
+                        banner = Banner(kind: .error, text: tr("\(game.name) could not be updated on this Mac (\(DiskSpace.words(for: error))): the version already here starts.",
+                                                               "\(game.name) n’a pas pu être mis à jour sur ce Mac (\(DiskSpace.words(for: error))) : la version déjà là démarre."))
+                    }
+                }
                 try await macGames.play(game.titleID, settings: settings)
             } catch {
                 show(error, origin: "play")
@@ -939,10 +969,55 @@ final class AppModel: ObservableObject {
         }
     }
 
-    /// Whether GAME can be played on this Mac now: its app is there.
+    /// Whether GAME can be played on this Mac now: its app is here, or the
+    /// games folder keeps it in one file, installed when played.
     func canPlay(_ game: Game) -> Bool {
-        game.mac?.app?.present ?? false
+        game.mac?.playable ?? false
     }
+
+    /// Installs on this Mac GAME's app the games folder keeps in one file (a
+    /// NAS's), or makes this Mac's copy of it again of the newest build; how
+    /// far it is shows on the game (installMessage). One at a time.
+    func installMac(_ game: Game) async throws {
+        guard let engine, !sample else { return }
+        guard installing == nil else {
+            throw EngineFailure(kind: "busy", message: tr("Wait for the installation under way to finish.", "Attendez la fin de l’installation en cours."))
+        }
+        installing = game.titleID
+        installMessage = tr("Installing \(game.name) on this Mac…", "Installation de \(game.name) sur ce Mac…")
+        defer {
+            installing = nil
+            installMessage = ""
+        }
+        let titleID = game.titleID
+        let again = game.mac?.hasApp ?? false
+        let started = Date()
+        let answer = try await engine.installMac(titleID) { [weak self] line in
+            Task { @MainActor in
+                if self?.installing == titleID { self?.installMessage = line }
+            }
+        }
+        telemetry.event("builder.macInstalled", game: answer.titleID,
+                        fields: BuilderTelemetry.installedFields(bytes: answer.bytes, seconds: Date().timeIntervalSince(started), again: again))
+        await refreshLibrary(update: false)
+        if storage != nil { await loadStorage() }
+    }
+
+    /// The game page's buttons: installs GAME's app, saying what went wrong.
+    func installOnThisMac(_ game: Game) {
+        guard !sample else { return }
+        Task {
+            do {
+                try await installMac(game)
+            } catch {
+                show(error, origin: "install")
+            }
+        }
+    }
+
+    /// The games folder is on a network share: the player's words call it
+    /// the NAS.
+    var gamesOnShare: Bool { library?.folders?.games?.isShare ?? false }
 
     private func heard(_ news: MacGamesNews) {
         switch news {

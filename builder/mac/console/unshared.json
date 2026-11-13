@@ -1,0 +1,198 @@
+{
+  "about": "The launcher's files that Cartouche's console on the Mac does not link (builder/mac/Sources/CartoucheConsole/Shared), each with why: 'iphone', the iPhone's alone; 'mac', the Mac has its own, named; 'later', it comes to the Mac at that step of the plan (docs/decisions.md, 95). A new file of the launcher is linked in Shared, or listed here: app/tests/test_mac_console.py checks it.",
+  "files": {
+    "CartoucheAccount.swift": {
+      "kind": "iphone",
+      "why": "The Apple ID the built-in SideStore signs Cartouche and its games with on the iPhone; a Mac game is signed by nxnative's build, and the console's stand-in says so."
+    },
+    "CartoucheArrangement.swift": {
+      "kind": "mac",
+      "why": "The console and a game's sheet side by side on an iPhone Duo unfolded: the Mac's window puts them side by side itself.",
+      "mac": "CartoucheConsole/Mac/ConsoleView.swift"
+    },
+    "CartoucheContinuedWork.swift": {
+      "kind": "iphone",
+      "why": "iOS's background transfers (BGContinuedProcessingTask): the Mac's app goes on in the background on its own."
+    },
+    "CartoucheDevice.swift": {
+      "kind": "mac",
+      "why": "This iPhone's model, GPU, the memory limit iOS sets and the signature's end: the Mac's own in the console's stand-ins.",
+      "mac": "CartoucheConsole/Mac/ConsoleStandIns.swift"
+    },
+    "CartoucheGameActions.swift": {
+      "kind": "mac",
+      "why": "LiveContainer's steps (install, start, uninstall a game): the Mac starts the game's app through the app (MacGames), as the console's stand-in asks it.",
+      "mac": "CartoucheConsole/Mac/ConsoleStandIns.swift"
+    },
+    "CartoucheGameHost.swift": {
+      "kind": "iphone",
+      "why": "A game running behind the console in LiveContainer's LiveProcess: a Mac game runs in its own window."
+    },
+    "CartoucheGameInfoView.swift": {
+      "kind": "later",
+      "why": "What the player says of a game (its name, genre, summary, cover): with the game's settings on the Mac.",
+      "step": 6
+    },
+    "CartoucheGameOrientation.swift": {
+      "kind": "iphone",
+      "why": "Which ways a game behind the console turns the screen: a Mac's screen does not turn."
+    },
+    "CartoucheGameSettings.swift": {
+      "kind": "later",
+      "why": "A game's own settings in the console: on the Mac, nxnative's own window shows them meanwhile (Game settings).",
+      "step": 6
+    },
+    "CartoucheGamesView.swift": {
+      "kind": "mac",
+      "why": "The Games tab that holds the console on the iPhone: the Mac's window holds the same screens.",
+      "mac": "CartoucheConsole/Mac/ConsoleView.swift"
+    },
+    "CartoucheGuide.swift": {
+      "kind": "mac",
+      "why": "The way to a first game on a new iPhone (LocalDevVPN, Apple ID, a Mac): the Mac's is the Builder's setup assistant; the console's stand-in shows no guide.",
+      "mac": "CartoucheConsole/Mac/ConsoleStandIns.swift"
+    },
+    "CartoucheGuideView.swift": {
+      "kind": "iphone",
+      "why": "The first game's guide over the iPhone's console (CartoucheGuide)."
+    },
+    "CartoucheImportPicker.swift": {
+      "kind": "mac",
+      "why": "The Files picker an IPA is imported with: on the Mac, Import opens the Builder, which adds games.",
+      "mac": "CartoucheConsole/Mac/ConsoleView.swift"
+    },
+    "CartoucheImportedSigning.swift": {
+      "kind": "iphone",
+      "why": "The certificate an iPhone's games are signed with, imported: a Mac game is signed by nxnative's build."
+    },
+    "CartoucheInstallQuestions.swift": {
+      "kind": "iphone",
+      "why": "The question an install asks on an iPhone whose GPU cannot read BC textures (A16 and older): every Mac Cartouche runs on reads them."
+    },
+    "CartouchePickerMeasures.swift": {
+      "kind": "iphone",
+      "why": "What Cartouche can measure of iOS's Files picker."
+    },
+    "CartoucheProblemReport.swift": {
+      "kind": "later",
+      "why": "System › Report a problem: with the console's reports and measurements on the Mac.",
+      "step": 8
+    },
+    "CartoucheRelease.swift": {
+      "kind": "mac",
+      "why": "Cartouche's versions as the built-in SideStore's source lists them: the Mac's app updates itself from its own releases.",
+      "mac": "BuilderKit/Updater.swift"
+    },
+    "CartoucheRenewal.swift": {
+      "kind": "iphone",
+      "why": "Renewing the free account's 7-day signature on the iPhone: a Mac app does not expire."
+    },
+    "CartoucheReportView.swift": {
+      "kind": "later",
+      "why": "System › Report a problem, its screen: with the console's reports and measurements on the Mac.",
+      "step": 8
+    },
+    "CartoucheReporting.swift": {
+      "kind": "later",
+      "why": "The report under each error and its Copy the report button: with the console's measurements on the Mac; the console's stand-in keeps the Builder's own reports meanwhile.",
+      "step": 8
+    },
+    "CartoucheRootView.swift": {
+      "kind": "mac",
+      "why": "Cartouche's screens in place of LiveContainer's tab bar: on the Mac, the app's window and its switch between the console and the Builder.",
+      "mac": "CartoucheConsole/Mac/ConsoleView.swift"
+    },
+    "CartoucheRunningGame.swift": {
+      "kind": "mac",
+      "why": "A game behind the console and its memory: on the Mac, the game's own app, followed by MacGames, as the console's stand-in says.",
+      "mac": "CartoucheConsole/Mac/ConsoleStandIns.swift"
+    },
+    "CartoucheSaveBackups.swift": {
+      "kind": "mac",
+      "why": "The games' saves kept in step with the saves folder: on the Mac, with the same CartoucheSaveSync, by MacSaves.",
+      "mac": "BuilderKit/MacSaves.swift"
+    },
+    "CartoucheSetup.swift": {
+      "kind": "iphone",
+      "why": "The iPhone's setup: pairing file, Apple ID and certificate for SideStore and LiveContainer."
+    },
+    "CartoucheSetupFacts.swift": {
+      "kind": "iphone",
+      "why": "What the iPhone's setup says to the measurements (app.opened)."
+    },
+    "CartoucheSetupView.swift": {
+      "kind": "iphone",
+      "why": "The iPhone's setup, on screen."
+    },
+    "CartoucheSignInView.swift": {
+      "kind": "iphone",
+      "why": "The Apple ID sign-in for the built-in SideStore."
+    },
+    "CartoucheSigningMaterial.swift": {
+      "kind": "iphone",
+      "why": "The certificate and profile an iPhone's games are signed with."
+    },
+    "CartoucheSigningView.swift": {
+      "kind": "iphone",
+      "why": "Choosing how the iPhone's games are signed."
+    },
+    "CartoucheStorageDriveView.swift": {
+      "kind": "later",
+      "why": "The player's Google Drive on the Storage page: with the console's storage and the library the iPhone and the Mac share.",
+      "step": 7
+    },
+    "CartoucheStorageMacView.swift": {
+      "kind": "mac",
+      "why": "Pairing the iPhone with a Mac, from the iPhone's side: the Builder's iPhone page is the Mac's side.",
+      "mac": "CartoucheBuilder/BridgeView.swift"
+    },
+    "CartoucheStorageSFTP.swift": {
+      "kind": "later",
+      "why": "An SFTP server of the player's: with the console's storage and the library the iPhone and the Mac share.",
+      "step": 7
+    },
+    "CartoucheStorageSMB.swift": {
+      "kind": "later",
+      "why": "A shared folder over SMB: with the console's storage and the library the iPhone and the Mac share.",
+      "step": 7
+    },
+    "CartoucheStorageView.swift": {
+      "kind": "later",
+      "why": "The Storage page: with the console's storage and the library the iPhone and the Mac share.",
+      "step": 7
+    },
+    "CartoucheSystemView.swift": {
+      "kind": "later",
+      "why": "The System page: with the console's settings on the Mac; System opens the Builder meanwhile.",
+      "step": 6
+    },
+    "CartoucheTV.swift": {
+      "kind": "iphone",
+      "why": "The game alone on a TV while the iPhone keeps its controls: a Mac shows the game on any of its displays itself."
+    },
+    "CartoucheTelemetry.swift": {
+      "kind": "later",
+      "why": "Cartouche's measurements of the games: the console's own on the Mac, told apart from the iPhone's on the dashboard; the Builder measures the Mac's builds and games meanwhile (builder.*).",
+      "step": 8
+    },
+    "CartoucheTelemetryView.swift": {
+      "kind": "later",
+      "why": "System › Game measurements: with the console's measurements on the Mac.",
+      "step": 8
+    },
+    "CartoucheUpdateView.swift": {
+      "kind": "mac",
+      "why": "Cartouche's own update over the console, through SideStore: the Mac's app updates itself.",
+      "mac": "BuilderKit/Updater.swift"
+    },
+    "CartoucheUpdates.swift": {
+      "kind": "mac",
+      "why": "Cartouche's own updates, through SideStore: the Mac's app updates itself.",
+      "mac": "BuilderKit/Updater.swift"
+    },
+    "CartoucheVPN.swift": {
+      "kind": "iphone",
+      "why": "Whether LocalDevVPN is on, which SideStore needs on the iPhone."
+    }
+  }
+}

@@ -1,0 +1,50 @@
+{
+  "api": 1,
+  "builder": {
+    "default_mac_apps": "/Users/player/Builder/user/Applications",
+    "default_workspace": "/Users/player/Builder/home/workspace",
+    "home": "/Users/player/Builder/home",
+    "mac_apps": "/Users/player/Builder/user/Applications",
+    "mac_packed": true,
+    "problems": [],
+    "python": "/usr/local/bin/python3",
+    "scheduled": false,
+    "version": "0.5.0",
+    "workspace": "/Users/player/Builder/home/workspace"
+  },
+  "config": {
+    "aliases": {},
+    "engine_branch": "main",
+    "engine_policy": "weekly",
+    "engine_url": "/Users/player/Builder/remote",
+    "game_language": "",
+    "games": "/Users/player/Builder/games",
+    "ios": true,
+    "jobs": 1,
+    "keep_extracted": false,
+    "keep_ipa": false,
+    "keys": "",
+    "language": "",
+    "mac": true,
+    "mac_apps": "",
+    "min_free_gb": 0,
+    "notifications": true,
+    "only": [],
+    "refresh_days": 7,
+    "schedule": false,
+    "schedule_hour": 3,
+    "schedule_minute": 30,
+    "setup_done": true,
+    "shares": {},
+    "skip": [],
+    "skip_ios": [],
+    "skip_mac": [
+      "0100000000010000"
+    ],
+    "sources": "/Users/player/Builder/sources",
+    "unprofiled": false,
+    "version": 2,
+    "workspace": "",
+    "workspace_limit_gb": 0
+  }
+}

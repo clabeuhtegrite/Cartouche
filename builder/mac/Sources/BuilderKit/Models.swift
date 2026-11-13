@@ -330,13 +330,20 @@ public struct GamePlatforms: Codable, Equatable, Sendable {
     }
 }
 
-/// The game's app for this Mac (cartouche_builder/macapps.py): the folder
-/// of the games' Mac apps, its app there (as an IPA is described) and its
-/// last build, its last attempt that did not build, and whether the next
-/// batch builds it, after its IPA or alone, with why in the player's words.
+/// The game's app for this Mac (cartouche_builder/macapps.py): the games
+/// folder, which keeps it beside its IPA (`library`: as it is on this
+/// Mac's disk, in one file when `packed`, on a NAS), the app this Mac plays
+/// it from (`app`: the games folder's, or this Mac's copy of the file, in
+/// `installs`, `behind` when made of an older build), its last build, its
+/// last attempt that did not build, and whether the next batch builds it,
+/// after its IPA or alone, with why in the player's words.
 public struct GameMac: Codable, Equatable {
     public var folder: String
+    public var packed: Bool
+    public var installs: String
+    public var library: GameIPA?
     public var app: GameIPA?
+    public var behind: Bool
     public var build: GameBuild?
     public var attempt: GameAttempt?
     public var due: Bool
@@ -348,12 +355,17 @@ public struct GameMac: Codable, Equatable {
     public var reason: String
     public var detail: String
 
-    private enum CodingKeys: String, CodingKey { case folder, app, build, attempt, due, alone, reason, detail }
+    private enum CodingKeys: String, CodingKey { case folder, packed, installs, library, app, behind, build, attempt, due, alone, reason, detail }
 
-    public init(folder: String = "", app: GameIPA? = nil, build: GameBuild? = nil, attempt: GameAttempt? = nil, due: Bool = false,
+    public init(folder: String = "", packed: Bool = false, installs: String = "", library: GameIPA? = nil, app: GameIPA? = nil,
+                behind: Bool = false, build: GameBuild? = nil, attempt: GameAttempt? = nil, due: Bool = false,
                 alone: Bool = false, reason: String = "", detail: String = "") {
         self.folder = folder
+        self.packed = packed
+        self.installs = installs
+        self.library = packed ? library : (library ?? app)
         self.app = app
+        self.behind = behind
         self.build = build
         self.attempt = attempt
         self.due = due
@@ -365,7 +377,13 @@ public struct GameMac: Codable, Equatable {
     public init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         folder = (try? c.decodeIfPresent(String.self, forKey: .folder)) ?? ""
+        packed = (try? c.decodeIfPresent(Bool.self, forKey: .packed)) ?? false
+        installs = (try? c.decodeIfPresent(String.self, forKey: .installs)) ?? ""
         app = try? c.decodeIfPresent(GameIPA.self, forKey: .app)
+        // An engine of before the games folder kept the apps: the app is
+        // where it is kept.
+        library = c.contains(.library) ? (try? c.decodeIfPresent(GameIPA.self, forKey: .library)) : app
+        behind = (try? c.decodeIfPresent(Bool.self, forKey: .behind)) ?? false
         build = try? c.decodeIfPresent(GameBuild.self, forKey: .build)
         attempt = try? c.decodeIfPresent(GameAttempt.self, forKey: .attempt)
         due = (try? c.decodeIfPresent(Bool.self, forKey: .due)) ?? false
@@ -374,10 +392,34 @@ public struct GameMac: Codable, Equatable {
         detail = (try? c.decodeIfPresent(String.self, forKey: .detail)) ?? ""
     }
 
+    /// This Mac has the app to play it from.
     public var hasApp: Bool { app?.present ?? false }
+    /// The games folder keeps its app (in one file, on a NAS).
+    public var kept: Bool { library?.present ?? false }
+    /// It can be played on this Mac: from its app here, or once the file
+    /// the games folder keeps is installed.
+    public var playable: Bool { hasApp || (packed && kept) }
+    /// Played, it is installed first (from the NAS): not on this Mac yet,
+    /// or made of an older build than the one the games folder keeps.
+    public var needsInstall: Bool { packed && kept && (!hasApp || behind) }
     /// Its last build failed at nxnative's commit now: tried again when
     /// nxnative or the game's files change.
     public var failed: Bool { reason == "failed_here" }
+}
+
+/// What `api mac-install` answers: this Mac's copy of the game's app, made
+/// of the file the games folder keeps; for the measurements, its bytes and
+/// the time it took.
+public struct MacInstallAnswer: Decodable, Equatable {
+    public var app: GameIPA
+    public var titleID: String
+    public var bytes: Int64?
+    public var seconds: Double?
+
+    private enum CodingKeys: String, CodingKey {
+        case app, bytes, seconds
+        case titleID = "title_id"
+    }
 }
 
 public struct Game: Codable, Equatable, Identifiable {
@@ -769,17 +811,21 @@ public struct MacAppCopy: Codable, Equatable, Identifiable {
     /// Its game files are clones of its build folder's extracted files,
     /// kept: removing one of the two frees little.
     public var sharesBuild: Bool?
+    /// This Mac's copy of the app a NAS keeps in one file: removed, the
+    /// game stays built, installed again the next time it is played.
+    public var packed: Bool?
 
     public var id: String { path }
 
     enum CodingKeys: String, CodingKey {
-        case path, name, size, on
+        case path, name, size, on, packed
         case titleID = "title_id"
         case builtAt = "built_at"
         case sharesBuild = "shares_build"
     }
 
-    public init(path: String, titleID: String, name: String, size: UInt64, on: Bool = true, builtAt: String? = nil, sharesBuild: Bool? = nil) {
+    public init(path: String, titleID: String, name: String, size: UInt64, on: Bool = true, builtAt: String? = nil, sharesBuild: Bool? = nil,
+                packed: Bool? = nil) {
         self.path = path
         self.titleID = titleID
         self.name = name
@@ -787,7 +833,10 @@ public struct MacAppCopy: Codable, Equatable, Identifiable {
         self.on = on
         self.builtAt = builtAt
         self.sharesBuild = sharesBuild
+        self.packed = packed
     }
+
+    public var isInstalledCopy: Bool { packed ?? false }
 
     public var date: Date? { builtAt.flatMap(ISODate.parse) }
 }
@@ -1034,16 +1083,22 @@ public struct BuilderInfo: Codable, Equatable {
     public var python: String?
     public var scheduled: Bool?
     public var problems: [String]?
-    /// The folder of the games' Mac apps, and the one it is when none is
-    /// chosen: the Applications folder of the player's session.
+    /// Where this Mac installs the Mac apps the games folder keeps in one
+    /// file, and the folder it is when none is chosen: the Applications
+    /// folder of the player's session.
     public var macApps: String?
     public var defaultMacApps: String?
+    /// The games folder keeps the Mac apps in one file (a NAS's): they are
+    /// installed in macApps to be played. False when it keeps them as
+    /// they are, played from there.
+    public var macPacked: Bool?
 
     enum CodingKeys: String, CodingKey {
         case version, home, workspace, python, scheduled, problems
         case defaultWorkspace = "default_workspace"
         case macApps = "mac_apps"
         case defaultMacApps = "default_mac_apps"
+        case macPacked = "mac_packed"
     }
 }
 

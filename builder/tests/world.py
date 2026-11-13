@@ -408,16 +408,18 @@ class World:
 
     @property
     def mac_apps(self) -> Path:
-        """The Mac apps folder when the settings name none: the Applications
+        """Where this Mac installs the Mac apps a games folder on a NAS keeps
+        in one file, when the settings name no folder: the Applications
         folder of the player's home folder (config.default_mac_apps)."""
         return self.user / "Applications"
 
     def mac_app(self, title_id: str, folder: Path | None = None) -> Path | None:
-        """The game's Mac app in FOLDER (the Mac apps folder): the app there
-        whose Info.plist names it."""
+        """The game's Mac app in FOLDER (the games folder, where it is built,
+        or where this Mac installs it): the app there whose Info.plist names
+        it."""
         import plistlib
 
-        folder = folder or self.mac_apps
+        folder = folder or self.games
         found = []
         for app in sorted(folder.glob("*.app")) if folder.is_dir() else []:
             try:
@@ -435,7 +437,7 @@ class World:
 
         app = self.mac_app(title_id, folder)
         if app is None:
-            where = folder or self.mac_apps
+            where = folder or self.games
             raise AssertionError(f"no Mac app of {title_id} in {sorted(p.name for p in where.iterdir()) if where.is_dir() else where}")
         sim = app / "Contents" / "Resources" / "sim"
         return {
@@ -725,9 +727,9 @@ def make(folder: Path) -> dict:
     """A world in FOLDER with two games due, a folder of packages and a
     dump, set up as the app's setup assistant leaves it: what the Mac app's
     end-to-end tests start from (EndToEndTests.swift). Its Mac apps go in
-    the world's own Applications folder, named in its settings: the app
-    runs the engine with the Mac's home folder, whose Applications folder
-    the tests must never write in."""
+    its games folder; those it installs, in the world's own Applications
+    folder, named in its settings: the app runs the engine with the Mac's
+    home folder, whose Applications folder the tests must never write in."""
     world = World(folder, games={LANTERN: NAMES[LANTERN], DRIFT: NAMES[DRIFT]})
     packages(world.sources / f"{NAMES[LANTERN]} [{LANTERN}]", LANTERN, NAMES[LANTERN], update=65536, dlc=1)
     dump(world.sources / NAMES[DRIFT], DRIFT)

@@ -199,8 +199,12 @@ struct GameDetailView: View {
     /// its IPA or alone, or it is up to date), else where it goes.
     private var macDetail: String {
         guard game.onMac else {
-            return game.hasMacApp ? tr("No longer built: its app stays on this Mac.", "Plus construit : son app reste sur ce Mac.")
-                                  : tr("Its app for this Mac is not built.", "Son app pour ce Mac n’est pas construite.")
+            if game.hasMacApp { return tr("No longer built: its app stays on this Mac.", "Plus construit : son app reste sur ce Mac.") }
+            if let mac = game.mac, mac.packed, mac.kept {
+                return model.gamesOnShare ? tr("No longer built: its app stays on the NAS.", "Plus construit : son app reste sur le NAS.")
+                                          : tr("No longer built: its app stays in the games folder.", "Plus construit : son app reste dans le dossier des jeux.")
+            }
+            return tr("Its app for this Mac is not built.", "Son app pour ce Mac n’est pas construite.")
         }
         if let detail = game.mac?.detail, !detail.isEmpty { return detail }
         return tr("Its app, to play it on this Mac.", "Son app, pour y jouer sur ce Mac.")
@@ -308,11 +312,14 @@ struct GameDetailView: View {
     }
 
     /// Its app for this Mac: where it is, its build, or why it is not
-    /// there (the engine's words).
+    /// there (the engine's words). Kept in one file in a games folder on a
+    /// NAS, it is played from this Mac's copy, installed from there.
     private var macApp: some View {
         SheetPart(title: tr("Its Mac app", "Son app Mac")) {
             VStack(alignment: .leading, spacing: 8) {
-                if let app = game.mac?.app, app.present {
+                if let mac = game.mac, mac.packed {
+                    packedMacApp(mac)
+                } else if let app = game.mac?.app, app.present {
                     if let build = game.mac?.build {
                         Fact(tr("Built", "Construite"), build.date.map { Format.date($0) } ?? build.builtAt)
                         Fact("nxnative", String(build.commit.prefix(12)), link: model.library?.engine?.page(of: build.commit))
@@ -339,6 +346,72 @@ struct GameDetailView: View {
                     Fact(tr("Folder", "Dossier"), (folder as NSString).abbreviatingWithTildeInPath)
                 }
             }
+        }
+    }
+
+    /// The app the games folder keeps in one file (a NAS's), and this
+    /// Mac's copy of it: installed or not, of the newest build or not.
+    @ViewBuilder
+    private func packedMacApp(_ mac: GameMac) -> some View {
+        if let kept = mac.library, kept.present {
+            if let build = mac.build {
+                Fact(tr("Built", "Construite"), build.date.map { Format.date($0) } ?? build.builtAt)
+                Fact("nxnative", String(build.commit.prefix(12)), link: model.library?.engine?.page(of: build.commit))
+            }
+            Fact(model.gamesOnShare ? tr("On the NAS", "Sur le NAS") : tr("In the games folder", "Dans le dossier des jeux"), Format.size(kept.size))
+            Text(kept.name)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .textSelection(.enabled)
+            Button(tr("Show in the Finder", "Afficher dans le Finder")) { model.reveal(kept.path) }
+                .controlSize(.small)
+            Divider()
+            let installing = model.installing == game.titleID
+            if let app = mac.app, app.present {
+                Fact(tr("On this Mac", "Sur ce Mac"), Format.size(app.size))
+                Text(installing ? model.installMessage
+                     : mac.behind ? tr("Of an older build: the newest takes its place when you play.",
+                                       "D’une construction plus ancienne : la dernière prend sa place quand vous jouez.")
+                     : tr("Of the newest build.", "De la dernière construction."))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                HStack(spacing: 8) {
+                    if mac.behind {
+                        Button(tr("Update", "Mettre à jour")) { model.installOnThisMac(game) }
+                            .disabled(model.installing != nil)
+                    }
+                    Button(tr("Show in the Finder", "Afficher dans le Finder")) { model.reveal(app.path) }
+                    Button(tr("Remove from this Mac", "Retirer de ce Mac"), role: .destructive) {
+                        model.removeMacApp(MacAppCopy(path: app.path, titleID: game.titleID, name: game.name, size: app.size, on: game.onMac, packed: true))
+                    }
+                    .disabled(installing)
+                }
+                .controlSize(.small)
+            } else {
+                Fact(tr("On this Mac", "Sur ce Mac"), installing ? tr("installing…", "installation…") : tr("not installed", "pas installée"))
+                Text(installing ? model.installMessage
+                     : tr("Installed when you play it, or now: about \(Format.size(kept.size)) on this Mac.",
+                          "Installée quand vous y jouez, ou dès maintenant : environ \(Format.size(kept.size)) sur ce Mac."))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                Button(tr("Install on this Mac", "Installer sur ce Mac")) { model.installOnThisMac(game) }
+                    .controlSize(.small)
+                    .disabled(model.installing != nil)
+            }
+            if !mac.installs.isEmpty {
+                Fact(tr("Installed in", "Installée dans"), (mac.installs as NSString).abbreviatingWithTildeInPath)
+            }
+        } else if let kept = mac.library, !kept.name.isEmpty {
+            Text(tr("\(kept.name) is no longer in its folder: it is built again.", "\(kept.name) n’est plus dans son dossier : elle sera reconstruite."))
+                .font(.callout)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+        } else {
+            Text(tr("Not built yet.", "Pas encore construite."))
+                .font(.callout)
+                .foregroundStyle(.secondary)
         }
     }
 
@@ -540,6 +613,16 @@ struct MacPlayCard: View {
                         settingsButton(playing: playing, preparing: preparing)
                     }
                 }
+                if let line = installLine(playing: playing) {
+                    Label {
+                        Text(line)
+                            .fixedSize(horizontal: false, vertical: true)
+                    } icon: {
+                        Image(systemName: "arrow.down.app")
+                    }
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                }
                 Label {
                     Text(savesLine(playing: playing))
                         .fixedSize(horizontal: false, vertical: true)
@@ -553,17 +636,39 @@ struct MacPlayCard: View {
     }
 
     private func playButton(playing: MacGameRun?, preparing: Bool) -> some View {
-        Button {
+        let installing = model.installing == game.titleID
+        return Button {
             model.play(game)
         } label: {
             Label(playing != nil ? tr("Show the game", "Afficher le jeu")
+                                 : installing ? tr("Installing…", "Installation…")
                                  : preparing ? tr("Getting its saves…", "Arrivée des sauvegardes…") : tr("Play on this Mac", "Jouer sur ce Mac"),
-                  systemImage: playing != nil ? "macwindow" : "play.fill")
+                  systemImage: playing != nil ? "macwindow" : installing ? "arrow.down.app" : "play.fill")
                 .frame(maxWidth: .infinity)
         }
         .buttonStyle(.borderedProminent)
         .controlSize(.large)
-        .disabled(preparing)
+        .disabled(preparing || installing)
+    }
+
+    /// The app the games folder keeps in one file (a NAS's): installed on
+    /// this Mac before the game starts, or how far that is.
+    private func installLine(playing: MacGameRun?) -> String? {
+        guard let mac = game.mac, mac.packed, playing == nil else { return nil }
+        if model.installing == game.titleID { return model.installMessage }
+        guard mac.needsInstall, let kept = mac.library else { return nil }
+        if mac.hasApp {
+            return model.gamesOnShare
+                ? tr("A newer build is on the NAS: Play puts it in place of this Mac’s copy first.",
+                     "Une construction plus récente est sur le NAS : Jouer la met d’abord à la place de la copie de ce Mac.")
+                : tr("A newer build is in the games folder: Play puts it in place of this Mac’s copy first.",
+                     "Une construction plus récente est dans le dossier des jeux : Jouer la met d’abord à la place de la copie de ce Mac.")
+        }
+        return model.gamesOnShare
+            ? tr("Its app is on the NAS: Play installs it on this Mac first (\(Format.size(kept.size))).",
+                 "Son app est sur le NAS : Jouer l’installe d’abord sur ce Mac (\(Format.size(kept.size))).")
+            : tr("Its app is kept in one file in the games folder: Play installs it on this Mac first (\(Format.size(kept.size))).",
+                 "Son app est rangée en un seul fichier dans le dossier des jeux : Jouer l’installe d’abord sur ce Mac (\(Format.size(kept.size))).")
     }
 
     private func settingsButton(playing: MacGameRun?, preparing: Bool) -> some View {
@@ -573,7 +678,7 @@ struct MacPlayCard: View {
             Label(tr("Game settings", "Réglages du jeu"), systemImage: "slider.horizontal.3")
         }
         .controlSize(.large)
-        .disabled(playing != nil || preparing)
+        .disabled(playing != nil || preparing || model.installing == game.titleID)
         .help(tr("Starts the game with nxnative’s own window first: graphics, controls, performance.",
                  "Démarre le jeu avec d’abord la fenêtre de nxnative : graphismes, commandes, performances."))
     }
