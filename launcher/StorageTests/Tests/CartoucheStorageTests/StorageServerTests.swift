@@ -531,6 +531,73 @@ class StorageServerTests: XCTestCase {
         XCTAssertEqual(try party(in: second.documents), "partie 11")
     }
 
+    func testFindsAGamesSavesByItsTitleIDWhateverItsFolderIsNamed() async throws {
+        let remote = try await signIn()
+        let folder = try await scratchFolder(remote)
+        let scratchHere = try localFolder()
+        func round() -> CartoucheSavesFolder {
+            CartoucheSavesFolder(remote: remote, path: folder, place: "test|" + folder, scratch: scratchHere)
+        }
+        func folders() async throws -> [String] {
+            try await remote.list(folder).filter(\.isFolder).map(\.name).sorted()
+        }
+        let morning = Date(timeIntervalSince1970: 1_794_292_800)
+        let macFolder = "Essai sur le Mac [0100CA27C0DE0000]"
+        let ownFolder = "Essai de stockage [0100CA27C0DE0000]"
+
+        // The Mac played first, and named the game's folder after the
+        // game's app for the Mac.
+        let mac = CartoucheSaveTarget(key: "mac", name: "Essai sur le Mac", titleId: "0100CA27C0DE0000",
+                                      documents: try play("partie du Mac", written: morning))
+        let macSent = try await round().sync(mac, base: nil, fetching: false)
+        XCTAssertEqual(macSent.step, .send)
+        var macBase = try XCTUnwrap(macSent.base)
+
+        // The iPhone names it otherwise: it finds the Mac's folder by the
+        // game's title ID, takes its saves and sends its own there, and
+        // makes no folder of its own.
+        let phone = CartoucheSaveTarget(key: "phone", name: "Essai de stockage", titleId: "0100ca27c0de0000",
+                                        documents: try localFolder())
+        let fetched = try await round().sync(phone, base: nil, fetching: true)
+        XCTAssertEqual(fetched.step, .fetch)
+        XCTAssertEqual(try party(in: phone.documents), "partie du Mac")
+        var phoneBase = try XCTUnwrap(fetched.base)
+        let listed = try await round().copies(of: phone)
+        XCTAssertEqual(listed.map(\.path), [CartoucheStoragePath.join(folder, macFolder, CartoucheSaveSync.fileName(morning))])
+        _ = try play("partie de l'iPhone", written: morning + 600, in: phone.documents)
+        let phoneSent = try await round().sync(phone, base: phoneBase, fetching: false)
+        XCTAssertEqual(phoneSent.step, .send)
+        phoneBase = try XCTUnwrap(phoneSent.base)
+        let afterPhone = try await folders()
+        XCTAssertEqual(afterPhone, [macFolder])
+        let macFetched = try await round().sync(mac, base: macBase, fetching: true)
+        XCTAssertEqual(macFetched.step, .fetch)
+        XCTAssertEqual(try party(in: mac.documents), "partie de l'iPhone")
+        macBase = try XCTUnwrap(macFetched.base)
+
+        // An iPhone whose Cartouche looked for no other name made a folder
+        // of its own name meanwhile, with saves written later: of the
+        // game's two folders, the one holding the newest copy is the
+        // game's, for the iPhone as for the Mac, which then share it again.
+        let older = try play("partie d'un autre iPhone", written: morning + 1_200)
+        let own = CartoucheStoragePath.join(folder, ownFolder)
+        try await remote.makeFolders(own)
+        let upload = try await remote.create(CartoucheStoragePath.join(own, CartoucheSaveSync.fileName(morning + 1_200)), size: nil)
+        try await CartoucheSaveSync.writeZip(ofSavesIn: older, to: upload)
+        try await upload.finish()
+        let phoneTakes = try await round().sync(phone, base: phoneBase, fetching: true)
+        XCTAssertEqual(phoneTakes.fetched, CartoucheSaveSync.fileName(morning + 1_200))
+        XCTAssertEqual(try party(in: phone.documents), "partie d'un autre iPhone")
+        let macTakes = try await round().sync(mac, base: macBase, fetching: true)
+        XCTAssertEqual(macTakes.fetched, CartoucheSaveSync.fileName(morning + 1_200))
+        XCTAssertEqual(try party(in: mac.documents), "partie d'un autre iPhone")
+        let phoneCopies = try await round().copies(of: phone)
+        let macCopies = try await round().copies(of: mac)
+        XCTAssertEqual(phoneCopies.map(\.path), macCopies.map(\.path))
+        XCTAssertEqual(phoneCopies.first?.path, CartoucheStoragePath.join(own, CartoucheSaveSync.fileName(morning + 1_200)))
+        XCTAssertTrue(phoneCopies.allSatisfy { CartoucheStoragePath.parent($0.path) == own })
+    }
+
     // MARK: Where the account can write
 
     func testKnowsWhereItCanWrite() async throws {

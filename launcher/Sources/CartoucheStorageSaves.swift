@@ -13,7 +13,8 @@
 //  beyond ten go, but for the copy just made, whatever its date, as
 //  nxnative keeps the backup it just made. What another copy left half
 //  written goes once it is an hour old, since another iPhone may still be
-//  writing it.
+//  writing it. The game's folder is found by its title ID, whatever name is
+//  before it, which a Mac gives after the game's app for the Mac.
 //
 
 import Foundation
@@ -64,7 +65,7 @@ final class CartoucheSavesFolder {
     /// A folder of this iPhone's for the copies that come, unpacked there
     /// first.
     let scratch: URL
-    /// The games' folders in the saves folder, listed once.
+    /// The folders in the saves folder, listed once.
     private var gameFolders: Set<String>?
 
     init(remote: CartoucheRemote, path: String, place: String, scratch: URL) {
@@ -81,8 +82,29 @@ final class CartoucheSavesFolder {
         return name
     }
 
-    private func gameFolder(of target: CartoucheSaveTarget) -> String {
-        CartoucheStoragePath.join(path, Self.folderName(target))
+    /// The folder of a game's copies: the one whose name ends with the
+    /// game's "[<title ID>]", whatever the name before it, which a Mac gives
+    /// after the game's app for the Mac, or an iPhone after its own; of two
+    /// made before either was seen, the one holding the newest copy, which
+    /// the Mac takes too (the Builder's MacSavesFolder.gameFolder); else the
+    /// one Cartouche names, to make.
+    private func gameFolder(of target: CartoucheSaveTarget) async throws -> String {
+        let made = Self.folderName(target)
+        guard let titleId = target.titleId else { return CartoucheStoragePath.join(path, made) }
+        let suffix = "[\(titleId.uppercased())]"
+        let found = try await folders().filter { $0.uppercased().hasSuffix(suffix) }.sorted()
+        guard found.count > 1 else { return CartoucheStoragePath.join(path, found.first ?? made) }
+        var chosen = found[0]
+        var newest: Date?
+        for name in found {
+            let names = try await copyNames(in: CartoucheStoragePath.join(path, name))
+            guard let last = names.last.flatMap(CartoucheSaveSync.date(inName:)) else { continue }
+            if newest.map({ last > $0 }) ?? true {
+                chosen = name
+                newest = last
+            }
+        }
+        return CartoucheStoragePath.join(path, chosen)
     }
 
     // MARK: Syncing
@@ -92,7 +114,7 @@ final class CartoucheSavesFolder {
     /// copy come here, when the game is installed or about to start.
     func sync(_ target: CartoucheSaveTarget, base given: CartoucheSaveBase?, fetching: Bool) async throws -> CartoucheSaveOutcome {
         let base = given?.place == place ? given : nil
-        let folder = gameFolder(of: target)
+        let folder = try await gameFolder(of: target)
         let names = try await copyNames(in: folder)
         var here = CartoucheSaveSync.saves(in: target.documents)
         var newest = names.last.flatMap { name in
@@ -160,7 +182,7 @@ final class CartoucheSavesFolder {
     /// that was the newest.
     func putBack(_ name: String, of target: CartoucheSaveTarget, base given: CartoucheSaveBase?) async throws -> CartoucheSaveOutcome {
         let base = given?.place == place ? given : nil
-        let folder = gameFolder(of: target)
+        let folder = try await gameFolder(of: target)
         var names = try await copyNames(in: folder)
         guard names.contains(name), let date = CartoucheSaveSync.date(inName: name) else {
             throw CartoucheStorageError(.copyUnreadable, CartoucheText.savesCopyUnreadable)
@@ -189,7 +211,7 @@ final class CartoucheSavesFolder {
 
     /// TARGET's copies, the newest first.
     func copies(of target: CartoucheSaveTarget) async throws -> [CartoucheSaveBackup] {
-        let folder = gameFolder(of: target)
+        let folder = try await gameFolder(of: target)
         guard try await hasFolder(folder) else { return [] }
         return try await remote.list(folder).compactMap { item in
             guard !item.isFolder, let date = CartoucheSaveSync.date(inName: item.name) else { return nil }
@@ -211,11 +233,16 @@ final class CartoucheSavesFolder {
     /// Whether the game's FOLDER is there: a game never copied has none, and
     /// some servers refuse to list a folder that is not.
     private func hasFolder(_ folder: String) async throws -> Bool {
-        if gameFolders == nil {
-            let items = try await remote.list(path)
-            gameFolders = Set(items.filter(\.isFolder).map(\.name))
-        }
-        return gameFolders?.contains(CartoucheStoragePath.name(folder)) == true
+        try await folders().contains(CartoucheStoragePath.name(folder))
+    }
+
+    /// The folders in the saves folder, listed once for the round.
+    private func folders() async throws -> Set<String> {
+        if let gameFolders { return gameFolders }
+        let items = try await remote.list(path)
+        let listed = Set(items.filter(\.isFolder).map(\.name))
+        gameFolders = listed
+        return listed
     }
 
     /// The zip's entries of the copy at PATH, read from its end, without the
