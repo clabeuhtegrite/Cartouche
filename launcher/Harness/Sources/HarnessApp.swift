@@ -14,6 +14,9 @@ import SwiftUI
 @main
 struct HarnessApp: App {
     init() {
+        // Before anything logs: what Cartouche logs never waits for Xcode
+        // to read it (HarnessStandardError.swift).
+        HarnessStandardError.start()
         HarnessLC.start()
     }
 

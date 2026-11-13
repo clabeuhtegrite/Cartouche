@@ -92,6 +92,30 @@ final class CartoucheGameLogTests: XCTestCase {
         XCTAssertEqual(rate?.low5, 20)
     }
 
+    /// A stretch that held a pause, a frame of a minute while the game was
+    /// behind the console, came out at 4.6 fps by the clock: it is left out
+    /// of the rate, and a stretch that ran slowly still counts.
+    func testAStretchThatHeldAPauseIsLeftOutOfTheFrameRate() {
+        func stretch(_ upTo: Int, fps: String, longestMs: String) -> String {
+            "[dm] [nvn] timing up to frame \(upTo): frame time p50 16.67 / p95 18.00 / max \(longestMs) ms (300 frames); GPU p50 9.00 / p95 13.00 / max 15.00 ms (300 frames);\n"
+                + "[dm] [nvn] pipelines up to frame \(upTo): on the submit thread pipelines 0.0 ms, shader libraries 0.0 ms, predictions 0 / 0.0 ms\n"
+                + "[dm] [nvn] power up to frame \(upTo): CPU energy 3.00 W, 50.0 mJ per frame (\(fps) fps); CPU 200% (100 = one core), 80% of it on performance cores; wakeups 1100/s (out of platform idle 280); GPU 400.0 ms/s; thermal 0; top yielders: none"
+        }
+        // 19 stretches at 60 fps, 95 s, and one at 20 fps, 15 s: the slowest
+        // 5% of the time went at 20. A minute behind the console in a third
+        // stretch would have made it 4.6.
+        var stretches = Array(repeating: (fps: "60.0", longestMs: "20.00"), count: 19)
+        stretches.insert((fps: "20.0", longestMs: "70.00"), at: 10)
+        stretches.insert((fps: "4.6", longestMs: "60012.00"), at: 15)
+        let lines = stretches.enumerated().map { stretch(600 + 300 * $0.offset, fps: $0.element.fps, longestMs: $0.element.longestMs) }
+        let rate = measures(lines.joined(separator: "\n")).fps
+        XCTAssertEqual(rate, CartoucheGameMeasures.Rate(median: 60, low5: 20))
+        // A session whose every stretch held a pause has no rate, rather
+        // than one its frame times would make up.
+        XCTAssertNil(measures(stretch(600, fps: "4.6", longestMs: "60012.00")).fps)
+        XCTAssertEqual(CartoucheGameLogReader.version, 2, "the server counts the slowest 5% from this reading on")
+    }
+
     /// Without power lines, the rate comes from the frame times.
     func testTheFrameRateFallsBackOnFrameTimes() {
         let text = "[dm] [nvn] timing up to frame 300: frame time p50 33.33 / p95 35.00 / max 70.00 ms (300 frames);"
