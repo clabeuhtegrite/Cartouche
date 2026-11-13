@@ -183,10 +183,11 @@ enum CartoucheText {
     static var setupAppleIDTitle: String { s("setup.appleID.title", "Apple ID") }
     static var setupAppleIDHow: String { s("setup.appleID.how", "Sign in once, here in Cartouche, with LocalDevVPN connected: Cartouche then takes its certificate and renews itself every week.") }
     static func setupAppleIDDone(_ appleID: String) -> String { f("setup.appleID.done", "Signed in: %@", appleID) }
+    static func setupAppleIDUnfinished(_ appleID: String) -> String { f("setup.appleID.unfinished", "The sign-in with %@ stopped before Cartouche got its certificate. Connect LocalDevVPN, then sign in again.", appleID) }
     static var setupSignIn: String { s("setup.appleID.signIn", "Sign In") }
     static func setupAppleIDDevice(_ appleID: String) -> String { f("setup.appleID.device", "Signed in: %@. This iPhone is left to register, which Cartouche does by itself once LocalDevVPN is connected.", appleID) }
     static var setupCertificateTitle: String { s("setup.certificate.title", "Certificate") }
-    static var setupCertificateHow: String { s("setup.certificate.how", "Comes by itself once you have signed in. If not, install Cartouche again over this copy with the Cartouche Installer.") }
+    static var setupCertificateHow: String { s("setup.certificate.how", "Comes by itself at the end of the sign-in with your Apple ID.") }
     static var setupCertificateDone: String { s("setup.certificate.done", "Cartouche signs your games with it.") }
     static var setupCertificateChecking: String { s("setup.certificate.checking", "Cartouche checks that iOS accepts it.") }
     static var setupCertificateRefused: String { s("setup.certificate.refused", "iOS no longer accepts it, perhaps after an install from another computer. Sign in again with your Apple ID: Cartouche takes a new one.") }
@@ -197,6 +198,7 @@ enum CartoucheText {
     static var setupVPNOpen: String { s("setup.vpn.open", "Open LocalDevVPN") }
     static var setupBannerTitle: String { s("setup.banner.title", "Set up Cartouche") }
     static var setupBannerDetail: String { s("setup.banner.detail", "Once, before your first game") }
+    static var setupBannerUnfinishedDetail: String { s("setup.banner.unfinished", "The sign-in stopped before the certificate") }
     static var setupBannerRenewal: String { s("setup.banner.renewal", "Renewal to set up") }
     static var setupBannerRenewalDetail: String { s("setup.banner.renewal.detail", "Add your pairing file") }
     static var setupBannerSignInDetail: String { s("setup.banner.renewal.signIn", "Sign in with your Apple ID") }
@@ -234,6 +236,7 @@ enum CartoucheText {
     static var signInVPNHow: String { s("signIn.vpn.how", "Cartouche goes through it to register this iPhone with your account, as for each renewal.") }
     static var signInUnavailable: String { s("signIn.unavailable", "The built-in SideStore did not load. Close Cartouche, open it again, then sign in.") }
     static var signInKeychainFailed: String { s("signIn.keychainFailed", "Cartouche could not hand your Apple ID to the built-in SideStore. Try again.") }
+    static var signInCertificateUnopened: String { s("signIn.certificateUnopened", "The built-in SideStore signed in, but Cartouche could not open the certificate it took. Copy the report for whoever helps you.") }
     static var signInTooManyRequests: String { s("signIn.tooManyRequests", "Apple is refusing new sign-ins for now: too many attempts in a short time, from this Apple ID or from this network. There is nothing to reset or reinstall. Wait for the countdown to end, then sign in again: trying sooner can make the wait longer.") }
     static func signInWait(_ remaining: String) -> String { f("signIn.wait", "Try again in %@", remaining) }
     static var signInVPNWaiting: String { s("signIn.vpnWait", "Waiting for LocalDevVPN: Cartouche goes on by itself as soon as it is connected.") }
@@ -336,6 +339,9 @@ enum CartoucheText {
     static var installUnpacking: String { s("work.install.unpacking", "Unpacking the IPA.") }
     static var installSigning: String { s("work.signing", "Signing it for this iPhone") }
     static var installFailed: String { s("work.install.failed", "The game was not installed") }
+    static var installDamagedIPA: String {
+        s("work.install.damaged", "This IPA is damaged: it ends early, or one of its files changed since it was made, as when a copy stops before the end or goes wrong. Copy it again from where it came from, then install it again.")
+    }
     static var installSignWarning: String { s("work.install.signWarning", "Installed, but not signed") }
     static var installDone: String { s("work.install.done", "Installed") }
     static var installGPUTitle: String { s("work.install.gpu", "This iPhone cannot run nxnative’s games") }
@@ -505,7 +511,7 @@ enum CartoucheText {
     // MARK: The player's storage
 
     static var storageTitle: String { s("storage.title", "Storage") }
-    static var storageIntro: String { s("storage.intro", "Your games and saves on your own storage: your Mac with Cartouche Builder, a shared folder of your Mac, PC or NAS, an S3 bucket, an FTP or SFTP server, or a folder in Files. Its games show in your library.") }
+    static var storageIntro: String { s("storage.intro", "Your games and saves on your own storage: your Mac with Cartouche Builder, a shared folder of your Mac, PC or NAS, an S3 bucket, an FTP or SFTP server, your Google Drive, or a folder in Files. Its games show in your library.") }
     static var storageNotSet: String { s("storage.notSet", "Not set up") }
     static var storageGamesFolder: String { s("storage.games", "Games folder") }
     static var storageSavesFolder: String { s("storage.saves", "Saves folder") }
@@ -531,11 +537,11 @@ enum CartoucheText {
     static var storageReadAgain: String { s("storage.readAgain", "Read the folder again") }
     static var storageChangeFolder: String { s("storage.changeFolder", "Change folder") }
     static var storageStopUsing: String { s("storage.stopUsing", "Stop using this folder") }
-    static var storageAddFirst: String { s("storage.addFirst", "First add your Mac, a shared folder, an S3 bucket, an FTP or SFTP server, or a folder in Files, below.") }
+    static var storageAddFirst: String { s("storage.addFirst", "First add your Mac, a shared folder, an S3 bucket, an FTP or SFTP server, your Google Drive, or a folder in Files, below.") }
     static var storageChooseFolder: String { s("storage.chooseFolder", "Choose a folder") }
     static var storageGamesFooter: String { s("storage.games.footer", "Your library shows the IPAs of this folder, ready to install. Copy a game here before you uninstall it.") }
     static var storageServers: String { s("storage.servers", "Places") }
-    static var storageServersFooter: String { s("storage.servers.footer", "Only storage of your own, with your own account: Cartouche keeps the password or the secret key in this iPhone’s keychain.") }
+    static var storageServersFooter: String { s("storage.servers.footer", "Only storage of your own, with your own account: Cartouche keeps the password, the secret key or the Google sign-in in this iPhone’s keychain.") }
     static var storageAddSMB: String { s("storage.addSMB", "Add a shared folder (SMB)") }
     static var storageAddFolder: String { s("storage.addFolder", "Add a folder in Files") }
     static var storageAddS3: String { s("storage.addS3", "Add S3 storage") }
@@ -779,7 +785,7 @@ enum CartoucheText {
     static var telemetryWhat: String { s("telemetry.what", "What is sent") }
     static var telemetryWhatGames: String { s("telemetry.what.games", "For each game session: frame rate, frame and GPU times, stutters and what caused them, shader preparation, memory, heat and power, sound, the screen’s sizes, how the game ended, and the game’s version and settings.") }
     static var telemetryWhatDevice: String { s("telemetry.what.device", "This iPhone’s model, iOS version and memory limit, Cartouche’s version and language, and a random number of this copy of Cartouche.") }
-    static var telemetryWhatEvents: String { s("telemetry.what.events", "Each start of Cartouche, game installs, updates, renewals, Apple ID sign-ins, how the Files picker of each import went, and errors, by their codes and the step they stopped at.") }
+    static var telemetryWhatEvents: String { s("telemetry.what.events", "Each start of Cartouche, game installs, updates, renewals, Apple ID sign-ins, signing certificates you import, how the Files picker of each import went, and errors, by their codes and the step they stopped at.") }
     static var telemetryWhatNever: String { s("telemetry.what.never", "Never your Apple ID, your iPhone’s name, your files, the addresses of your storage or the game’s log itself.") }
     static var telemetryLastSent: String { s("telemetry.lastSent", "Last sent") }
     static var telemetryNever: String { s("telemetry.never", "Never") }

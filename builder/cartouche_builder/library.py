@@ -200,15 +200,18 @@ class _Look:
             self._packages(folder, packages, top)
         for nup in nups:
             self._nup(folder, nup, alone=not top and not packages and len(nups) == 1)
-        if not packages and not nups:
-            if is_dump(folder):
-                self._dump(folder)
-                return  # a dump's own folders are no games
-            zips = [p for p in files if p.suffix.lower() == ZIP_SUFFIX]
-            for path in zips:
-                self._zip(folder, path, alone=not top and len(zips) == 1)
-            if not zips:
-                self._built(files, builds)
+        if not packages and not nups and is_dump(folder):
+            self._dump(folder)
+            return  # a dump's own folders are no games
+        zips = [p for p in files if p.suffix.lower() == ZIP_SUFFIX]
+        for path in zips:
+            # A zipped dump is a game beside other games' packages too (all of
+            # them loose in one folder); there, a ZIP that holds no dump is the
+            # player's own (a manual, saves), and no issue.
+            beside = bool(packages or nups)
+            self._zip(folder, path, alone=not top and len(zips) == 1 and not beside, quiet=beside)
+        if not packages and not nups and not zips:
+            self._built(files, builds)
         if depth >= MAX_DEPTH:
             return
         for sub in folders:
@@ -307,9 +310,12 @@ class _Look:
         for path in builds:
             self.issues.append(t("library.build_folder", name=self.shown(path)))
 
-    def _zip(self, folder: Path, path: Path, alone: bool) -> None:
+    def _zip(self, folder: Path, path: Path, alone: bool, quiet: bool = False) -> None:
         try:
             self.games.append(_zip_game(path, folder, titles.label(folder.name if alone else path.name)))
+        except NoDump as error:
+            if not quiet:
+                self.issues.append(t("library.bad_zip", name=self.shown(path), error=error))
         except (OSError, ValueError, zipfile.BadZipFile, zipfile.LargeZipFile) as error:
             self.issues.append(t("library.bad_zip", name=self.shown(path), error=error))
 
@@ -373,6 +379,10 @@ def dump_title_id(folder: Path) -> str | None:
 
 
 # ---- Dumps in a ZIP ----------------------------------------------------------
+
+
+class NoDump(ValueError):
+    """A ZIP that holds no dump: no game, maybe no game's at all."""
 
 
 def mac_metadata(name: str) -> bool:
@@ -441,7 +451,7 @@ def inspect_zip(path: Path) -> tuple[str, str, int]:
             if title_id:
                 by_title.setdefault(title_id, []).append(root)
         if not by_title:
-            raise ValueError("no dump in the archive (base/exefs and base/romfs, updates/<version>/, or exefs/ and romfs/)")
+            raise NoDump("no dump in the archive (base/exefs and base/romfs, updates/<version>/, or exefs/ and romfs/)")
         if len(by_title) > 1:
             raise ValueError("the archive holds several games: " + ", ".join(sorted(by_title)))
         title_id, roots_of_title = next(iter(by_title.items()))

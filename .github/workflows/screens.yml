@@ -15,11 +15,13 @@ name: Launcher screens
 # the gallery's files: a rebase or a merge of main that leaves those changes
 # as they were keeps the results of before, about an hour of a Mac each
 # time. Run the workflow from the Actions tab to run them again, with or
-# without the screenshots.
+# without the screenshots. The Full test pass runs them all, and keeps the
+# screenshots with its run only (full-pass.yml).
 #
 # They run on Ad's Mac when it can take them now, which spares GitHub's
 # Macs, five at a time for the whole account, and their wait; on GitHub's
-# otherwise, and always for a run again (.github/mac/README.md).
+# otherwise, and always for a run again or the Full test pass
+# (.github/mac/README.md).
 
 on:
   pull_request:
@@ -39,12 +41,26 @@ on:
         description: Take the screenshots too, once the UI tests pass
         type: boolean
         default: true
+  # The Full test pass (full-pass.yml): the UI tests and every screenshot,
+  # kept with the run alone.
+  workflow_call:
+    inputs:
+      full:
+        description: "Run the UI tests and take every screenshot, as the Full test pass does, and keep them with the run alone"
+        type: boolean
+        default: false
+      screenshots:
+        description: Take the screenshots too, once the UI tests pass
+        type: boolean
+        default: true
 
 permissions:
   contents: read
 
+# The Full test pass's run is its own: neither a push to main nor a pull
+# request cancels it.
 concurrency:
-  group: screens-${{ github.head_ref || github.ref }}
+  group: ${{ inputs.full && format('screens-full-{0}', github.run_id) || format('screens-{0}', github.head_ref || github.ref) }}
   cancel-in-progress: true
 
 env:
@@ -195,7 +211,8 @@ jobs:
   watch:
     name: Watch Ad's Mac
     needs: [taken, route]
-    if: ${{ !cancelled() && needs.route.outputs.mac == 'true' && needs.taken.outputs.taken != 'true' }}
+    # Not in the Full test pass, whose UI tests run on GitHub's Macs.
+    if: ${{ !cancelled() && !inputs.full && needs.route.outputs.mac == 'true' && needs.taken.outputs.taken != 'true' }}
     runs-on: ubuntu-latest
     timeout-minutes: 170
     permissions:
@@ -219,11 +236,12 @@ jobs:
         run: python3 .github/mac/watch.py
 
   # The only job that can write runs nothing from the pull request: it
-  # commits the screenshots the job above uploaded.
+  # commits the screenshots the job above uploaded. Not in the Full test
+  # pass, which publishes nothing.
   keep:
     name: Keep the screenshots on a branch
     needs: screens
-    if: ${{ !cancelled() && (needs.screens.outputs.shot == 'success' || needs.screens.outputs.shot == 'failure') && (github.event_name == 'workflow_dispatch' || github.event.pull_request.head.repo.full_name == github.repository) }}
+    if: ${{ !cancelled() && !inputs.full && (needs.screens.outputs.shot == 'success' || needs.screens.outputs.shot == 'failure') && (github.event_name == 'workflow_dispatch' || github.event.pull_request.head.repo.full_name == github.repository) }}
     runs-on: ubuntu-latest
     permissions:
       contents: write # the branch launcher-screens/<branch>

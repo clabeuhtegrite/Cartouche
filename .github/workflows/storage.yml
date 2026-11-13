@@ -1,10 +1,12 @@
 name: Storage
 
 # Runs the launcher's storage code, as the app does, against real servers on
-# a Mac: Samba (SMB), MinIO (S3), pyftpdlib (FTP, with and without MLSD) and
-# OpenSSH (SFTP), on the runner itself, with made-up apps for IPAs, one past
-# 4 GiB (launcher/StorageTests/README.md). For a pull request that changes
-# that code, its tests or the servers, and from main after one.
+# a Mac: Samba (SMB), MinIO (S3), pyftpdlib (FTP, with and without MLSD),
+# OpenSSH (SFTP) and a stand-in for Google's (Google Drive), on the runner
+# itself, with made-up apps for IPAs, one past 4 GiB
+# (launcher/StorageTests/README.md). For a pull request that changes that
+# code, its tests or the servers, from main after one, and in the Full test
+# pass (full-pass.yml).
 
 on:
   push:
@@ -18,12 +20,21 @@ on:
       - ".github/workflows/storage.yml"
   pull_request:
   workflow_dispatch:
+  # The Full test pass (full-pass.yml): the tests, whatever the paths.
+  workflow_call:
+    inputs:
+      full:
+        description: "Run the tests, as the Full test pass does, whatever the paths"
+        type: boolean
+        default: false
 
 permissions:
   contents: read
 
+# The Full test pass's run is its own: neither a push to main nor a pull
+# request cancels it.
 concurrency:
-  group: storage-${{ github.ref }}
+  group: ${{ inputs.full && format('storage-full-{0}', github.run_id) || format('storage-{0}', github.ref) }}
   cancel-in-progress: true
 
 jobs:
@@ -39,13 +50,16 @@ jobs:
           persist-credentials: false
       - name: Does this change touch them?
         id: paths
+        env:
+          FULL: ${{ inputs.full }}
         run: |
           # A pull request is checked out as its merge into main: HEAD^1 is
           # main, HEAD^2 the pull request. On main, HEAD is the pull request
           # just merged, squashed into one commit, and HEAD^1 main before it.
           # Either way the tests run only for the launcher files they link,
           # where the paths above let in every one.
-          if [ "$GITHUB_EVENT_NAME" = "workflow_dispatch" ]; then
+          # The Actions tab and the Full test pass run them all.
+          if [ "$GITHUB_EVENT_NAME" = "workflow_dispatch" ] || [ "$FULL" = "true" ]; then
             echo "run=true" >> "$GITHUB_OUTPUT"
             exit 0
           fi
@@ -100,7 +114,7 @@ jobs:
         if: ${{ failure() }}
         run: |
           df -h /tmp
-          for LOG in smb/smbd.log smb/log/*.log ssh/sshd.log ftp/ftp.log ftp-list/ftp.log s3/minio.log; do
+          for LOG in smb/smbd.log smb/log/*.log ssh/sshd.log ftp/ftp.log ftp-list/ftp.log s3/minio.log drive/drive.log; do
             for FILE in "$SERVERS"/$LOG; do
               [ -f "$FILE" ] || continue
               echo "::group::$FILE"

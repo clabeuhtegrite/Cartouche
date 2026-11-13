@@ -52,6 +52,11 @@ enum CartoucheDevice {
     /// older, for every game: the game says so on its screen, or, built by
     /// an older nxnative, stops at its first texture (dm/ios/Sources/main.m,
     /// dm/gfx/nvn/nvn_mtl.m).
+    #if CARTOUCHE_HARNESS
+    /// In the launcher's harness (launcher/Harness), as a test sets it: an
+    /// iPhone whose GPU reads them, unless it says otherwise.
+    static var supportsBCTextureCompression: Bool { HarnessLC.readsBCTextures }
+    #else
     static let supportsBCTextureCompression: Bool = {
         #if CARTOUCHE_GALLERY
         return true
@@ -63,6 +68,7 @@ enum CartoucheDevice {
         return false
         #endif
     }()
+    #endif
 
     /// Whether Cartouche's signature carries Increased Memory Limit. iOS
     /// installs an app only with the entitlements its profile allows, so the
@@ -137,7 +143,7 @@ struct CartoucheSignature {
 
     static func current() -> CartoucheSignature {
         let profile = embeddedProfile()
-        let renewal = lastRenewal()
+        let renewal = CartoucheImportedSigning.accountSigningDisabled ? nil : lastRenewal()
         var expirationDate = profile.expirationDate
         if let renewed = renewal?.expirationDate, expirationDate.map({ renewed > $0 }) ?? true {
             expirationDate = renewed

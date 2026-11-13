@@ -38,7 +38,7 @@ enum CartoucheRenewal {
         return (refresh as AnyObject, unsafeBitCast(method_getImplementation(method), to: RefreshAllApps.self))
     }
 
-    static var canRenew: Bool { refreshAllApps != nil }
+    static var canRenew: Bool { !CartoucheImportedSigning.accountSigningDisabled && refreshAllApps != nil }
 
     /// Renews Cartouche without leaving the app; its SideStore renews no
     /// other app (app/patches/sidestore/0017). LocalDevVPN has to be
@@ -50,6 +50,9 @@ enum CartoucheRenewal {
     /// otherwise Cartouche asks a new SideStore, once.
     @MainActor
     static func renew(progress: Progress) async throws {
+        guard !CartoucheImportedSigning.accountSigningDisabled else {
+            throw Failure(message: CartoucheText.signingUpdateOnComputer, failure: nil)
+        }
         guard let refresh = refreshAllApps else {
             throw Failure(message: CartoucheText.renewUnavailable, failure: CartoucheFailure(.bridgeMissing, stage: "start"))
         }

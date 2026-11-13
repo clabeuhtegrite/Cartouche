@@ -35,7 +35,7 @@ The installer is a fork of [iloader](https://github.com/nab138/iloader) by nab13
 - **No updater.** The window shows its version; a new one is a new release.
 - **Names of its own:** the app `Cartouche Installer`, the identifier `io.github.clabeuhtegrite.cartouche.installer`, its own keychain service and its own label on the pairing records and certificates it makes. iloader's name and logos are its author's ([iloader's LICENSE-BRANDING](https://github.com/nab138/iloader/blob/main/LICENSE-BRANDING)); the installer uses neither.
 
-The crates are the ones of iloader's `Cargo.lock`, less those of its updater and process plugins, with `sha2`, `hex` and `zip` taken from the same lockfile's versions.
+The crates are the ones of iloader's `Cargo.lock`, less those of its updater and process plugins, with `sha2`, `hex` and `zip` taken from the same lockfile's versions. The tests' fakes ([`src-tauri/fakes`](src-tauri/fakes)) are built of crates of the same lockfile, and only for the tests.
 
 ## Developing
 
@@ -46,19 +46,22 @@ cd installer
 npm ci
 npx tauri dev                 # the app, reloading as the window's code changes
 npm run build                 # the window only: TypeScript, then Vite
-(cd src-tauri && cargo test --locked)
+(cd src-tauri && cargo test --locked)                                 # the tests
+(cd src-tauri && cargo test --locked --features ui-tests --test ui)   # the window's, once built
 ```
+
+The tests run the installer against a fake iPhone, fake Apple, anisette and GitHub servers and a keychain in memory, never the real ones: from listing the iPhone to Cartouche installed with its certificate and pairing file, and what goes wrong on the way. The window's tests click through the window as it ships, in English and French; on Linux they need a display (`xvfb-run -a`). What they cover, and how to add one: [src-tauri/tests/README.md](src-tauri/tests/README.md).
 
 On Windows, isideload's cryptography needs Strawberry Perl, make, and the Visual Studio build tools' environment, as in iloader's own build.
 
 ## CI and publishing
 
-[`.github/workflows/installer.yml`](../.github/workflows/installer.yml) runs on every pull request that touches `installer/` or Cartouche's source, which its tests read: on a Mac, the tests, then the app for Apple silicon and Intel in a disk image; on Windows, the setup. Both are kept with the run for 30 days.
+[`.github/workflows/installer.yml`](../.github/workflows/installer.yml) runs on every pull request that touches `installer/` or Cartouche's source, which its tests read: on a Mac and on Windows, the tests and the window's tests, then on the Mac the app for Apple silicon and Intel in a disk image, and on Windows the setup. Both are kept with the run for 30 days.
 
 To publish a version:
 
 1. In a pull request, raise the version in [`src-tauri/tauri.conf.json`](src-tauri/tauri.conf.json), which names the release, in [`src-tauri/Cargo.toml`](src-tauri/Cargo.toml) then `Cargo.lock` (`cargo update -p cartouche-installer`), and in `package.json` and its lockfile (`npm version <version> --no-git-tag-version`), and write the notes of the release in [`RELEASE.md`](RELEASE.md).
-2. Once it is merged, run **Actions › Installer › Run workflow** on `main` with **Publish** ticked. The workflow builds both, then publishes them as the release `installer-v<version>`, never marked as the latest, and publishes the site again, whose buttons and download page then give this version. It stops if that release exists already.
+2. Once it is merged, which starts the [Full test pass](../.github/full-pass/README.md), every test of the repository, run **Actions › Installer › Run workflow** on `main` with **Publish** ticked. The workflow builds both and, once the full test pass has passed on that commit, publishes them as the release `installer-v<version>`, never marked as the latest, and publishes the site again, whose buttons and download page then give this version. It stops if that release exists already, or if the pass fails.
 
 ## Licence
 

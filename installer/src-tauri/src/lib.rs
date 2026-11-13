@@ -9,9 +9,13 @@ mod pairing;
 #[macro_use]
 mod secure_storage;
 mod cartouche;
+mod environment;
 mod error;
 mod logging;
 mod operation;
+mod imported_signing;
+
+pub use environment::Environment;
 
 use crate::{
     account::{
@@ -25,9 +29,10 @@ use crate::{
     device::{
         DeviceInfoMutex, PairingCancelToken, cancel_pairing, list_devices, set_selected_device,
     },
-    pairing::{delete_stored_rppairing, export_pairing_cmd, has_stored_rppairing},
-    secure_storage::{force_disable_keyring, keyring_available},
+    pairing::{PairingStorage, delete_stored_rppairing, export_pairing_cmd, has_stored_rppairing},
+    secure_storage::{KeyringSwitch, force_disable_keyring, keyring_available},
     sideload::SideloaderMutex,
+    imported_signing::inspect_signing_profile,
 };
 
 /// The keychain (macOS), Credential Manager (Windows) or Secret Service
@@ -40,15 +45,58 @@ pub(crate) const PROVIDER_LABEL: &str = "cartouche-installer";
 /// certificates list it.
 pub(crate) const MACHINE_NAME: &str = "Cartouche";
 
-use tauri::Manager;
+use tauri::{Manager, Runtime};
 use tracing_subscriber::{Layer, Registry, fmt, layer::SubscriberExt, util::SubscriberInitExt};
 
-#[cfg_attr(mobile, tauri::mobile_entry_point)]
-pub fn run() {
-    tauri::Builder::default()
+/// The installer on any Tauri runtime, with its plugins, its state and
+/// every command the window calls: the app, and the tests with fakes in
+/// `environment`.
+pub fn configure<R: Runtime>(builder: tauri::Builder<R>, environment: Environment) -> tauri::Builder<R> {
+    builder
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_store::Builder::new().build())
+        .manage(environment)
+        .manage(DeviceInfoMutex::new(None))
+        .manage(SideloaderMutex::new(None))
+        .manage(PairingCancelToken::new(None))
+        .manage(PairingStorage::default())
+        .manage(KeyringSwitch::default())
+        .invoke_handler(tauri::generate_handler![
+            login_new,
+            invalidate_account,
+            logged_in_as,
+            login_stored,
+            delete_account,
+            list_devices,
+            set_selected_device,
+            cancel_pairing,
+            has_stored_rppairing,
+            delete_stored_rppairing,
+            export_pairing_cmd,
+            get_certificates,
+            revoke_certificate,
+            list_app_ids,
+            delete_app_id,
+            reset_anisette_state,
+            keyring_available,
+            force_disable_keyring,
+            cartouche_release,
+            installed_cartouche,
+            install_cartouche_operation,
+            inspect_signing_profile,
+            place_cartouche_pairing_operation,
+        ])
+}
+
+/// The window's own assets and configuration, built in.
+pub fn context() -> tauri::Context<tauri::Wry> {
+    tauri::generate_context!()
+}
+
+#[cfg_attr(mobile, tauri::mobile_entry_point)]
+pub fn run() {
+    configure(tauri::Builder::default(), Environment::system())
         .setup(|app| {
             let log_dir = app
                 .path()
@@ -109,35 +157,8 @@ pub fn run() {
                 );
             }));
 
-            app.manage(DeviceInfoMutex::new(None));
-            app.manage(SideloaderMutex::new(None));
-            app.manage(PairingCancelToken::new(None));
             Ok(())
         })
-        .invoke_handler(tauri::generate_handler![
-            login_new,
-            invalidate_account,
-            logged_in_as,
-            login_stored,
-            delete_account,
-            list_devices,
-            set_selected_device,
-            cancel_pairing,
-            has_stored_rppairing,
-            delete_stored_rppairing,
-            export_pairing_cmd,
-            get_certificates,
-            revoke_certificate,
-            list_app_ids,
-            delete_app_id,
-            reset_anisette_state,
-            keyring_available,
-            force_disable_keyring,
-            cartouche_release,
-            installed_cartouche,
-            install_cartouche_operation,
-            place_cartouche_pairing_operation,
-        ])
-        .run(tauri::generate_context!())
+        .run(context())
         .expect("error while running tauri application");
 }

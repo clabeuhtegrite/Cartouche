@@ -209,6 +209,9 @@
       "cartouche_missing": [
         "Install Cartouche first, with the button of step 3."
       ],
+      "profile_for_another_app": [
+        "Choose a wildcard profile (its App ID ends with *), or one made for io.github.clabeuhtegrite.cartouche, then install again."
+      ],
       "house_arrest": [
         "[ios::26.3]Make sure the iPhone is not on a developer beta of iOS 26.3, which has a bug with house arrest."
       ],
@@ -262,5 +265,24 @@
       ]
     },
     "support_message": "If it keeps failing, press Copy to clipboard and paste the error in a <issues>Cartouche issue</issues>."
+  },
+  "signing": {
+    "hint": "Choose your signing certificate (.p12) and its provisioning profile. Signing happens on this computer; no Apple ID is needed.",
+    "choose_p12": "Choose the certificate (.p12)",
+    "choose_profile": "Choose its profile (.mobileprovision)",
+    "password": "Certificate password (leave it empty if it has none)",
+    "limitations": "Games start in Cartouche’s place, never behind the console. Cartouche does not renew itself each week: install its updates with this installer. Increased Memory Limit depends on your profile.",
+    "needs_files": "Choose your certificate (.p12) and its profile.",
+    "needs_ready": "Choose an iPhone, then your certificate and its profile.",
+    "have_certificate": "I have a signing certificate (.p12)",
+    "use_account": "Use my Apple Account instead",
+    "profile_checking": "Checking the provisioning profile…",
+    "profile_invalid": "Cannot read this provisioning profile. Choose a valid .mobileprovision file.",
+    "no_memory_limit": "This profile has no Increased Memory Limit: most games will not start. Without it, the app has about 3 GB of memory.",
+    "profile_other_app": "This profile is for {{app}}, not Cartouche: iOS would not install it. Choose a wildcard profile (its App ID ends with *), or one made for io.github.clabeuhtegrite.cartouche.",
+    "install_hint": "Cartouche signed with your certificate and the permissions your provisioning profile grants.",
+    "step_install": "Sign it with your certificate and install it",
+    "step_handoff": "Put your certificate in Cartouche, encrypted",
+    "success_message": "Open Cartouche on the iPhone: it takes your certificate by itself. If iOS asks you to trust the developer or to turn on Developer Mode, do it in Settings. Neither an Apple ID nor a pairing file is needed."
   }
 }
