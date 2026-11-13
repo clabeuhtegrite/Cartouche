@@ -8,10 +8,10 @@ publish, run this before they publish anything from a commit:
 - one is queued or running: wait for it, then look again;
 - one has failed, and none is running: fail, with its link, without starting
   another: fix main, or re-run its failed jobs when a runner failed them;
-- one was cancelled, and none is running: run it again, once, and wait for
-  it, rather than start another: each workflow that waited for it started
-  one of its own (13 November). Cancelled again once run again: fail, with
-  its link;
+- one was cancelled, and none is running: with --start, run it again, once,
+  and wait for it, rather than start another: each workflow that waited for
+  it started one of its own (13 November). Cancelled again once run again:
+  fail, with its link;
 - a pass of an earlier commit of main has passed, and the commits since change
   only Cartouche's SideStore source, as the pull request "Source: Cartouche X"
   does: done, since nothing the pass tests has changed;
@@ -161,6 +161,9 @@ def wait(api: Api, git: Git, sha: str, ref: str, start: bool, minutes: float,
             if rerun is not None or latest.attempt > 1:
                 return Outcome(False, f"The full test pass of {sha[:12]} was cancelled again once run again: "
                                       "run it again from the Actions tab, then re-run this job", latest.url)
+            if not start:
+                return Outcome(False, f"The full test pass of {sha[:12]} was cancelled: run it again from the "
+                                      "Actions tab, then re-run this job", latest.url)
             say(f"The full test pass of {sha[:12]} was cancelled: running it again, once: {latest.url}")
             if not api.rerun(latest.id):
                 # Another job waiting for it may have run it again already.
@@ -237,7 +240,7 @@ def main(argv: list[str]) -> int:
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     parser.add_argument("--sha", required=True, help="the commit to be published, GITHUB_SHA")
     parser.add_argument("--ref", required=True, help="the branch or tag the workflow runs on, GITHUB_REF")
-    parser.add_argument("--start", action="store_true", help="start a pass on --ref when none has run on the commit")
+    parser.add_argument("--start", action="store_true", help="start a pass on --ref when none has run on the commit, or run a cancelled one again")
     parser.add_argument("--minutes", type=float, default=280, help="how long to wait for a pass that runs")
     parser.add_argument("--repository", default=os.environ.get("GITHUB_REPOSITORY", ""), help="OWNER/NAME")
     parser.add_argument("--summary", help="a Markdown file to add the outcome to")

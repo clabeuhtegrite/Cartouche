@@ -473,6 +473,15 @@ class WaitTests(unittest.TestCase):
         self.assertEqual((api.reran, api.started), ([10], []))
         self.assertGreaterEqual(self.clock.time, wait_for_pass.STARTED_SHOWS_WITHIN)
 
+    def test_a_cancelled_pass_and_nothing_to_run_it_again(self):
+        api = Api(runs=[[run(10, conclusion="cancelled")]], heads={"main": SHA})
+        outcome = self.wait(api, start=False)
+        self.assertFalse(outcome.passed)
+        self.assertIn("The full test pass of aaaaaaaaaaaa was cancelled: run it again from the Actions tab",
+                      outcome.message)
+        self.assertEqual(outcome.url, "https://github.com/o/r/actions/runs/10")
+        self.assertEqual((api.reran, api.started), ([], []))
+
     def test_the_pass_started_was_cancelled(self):
         api = Api(runs=[[]] * 13 + [[run(12, conclusion="cancelled")], [run(12, "queued", None, attempt=2)],
                                     [run(12, attempt=2)]], heads={"main": SHA})
