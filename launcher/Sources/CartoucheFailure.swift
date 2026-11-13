@@ -269,15 +269,18 @@ protocol CartoucheExplainedError: Error {
 extension CartoucheFailure {
     /// The status a server's protocol answered with, which only the app can
     /// read off the error of its library: an SMB NTSTATUS, an S3 or HTTP
-    /// status, an FTP reply, an SFTP status.
+    /// status, an FTP reply, an SFTP status, the HTTP status of Google
+    /// Drive or of its sign-in.
     struct ProtocolStatus: Equatable, Sendable {
         enum Kind: String, Sendable {
-            case smb, s3, ftp, sftp
+            case smb, s3, ftp, sftp, drive
         }
 
         var kind: Kind
         var status: Int
-        /// S3's code: "SignatureDoesNotMatch", "NoSuchBucket".
+        /// S3's code: "SignatureDoesNotMatch", "NoSuchBucket". Google Drive's
+        /// reason, "storageQuotaExceeded", or its sign-in's error,
+        /// "invalid_grant".
         var code: String?
 
         var cause: Cause {
@@ -331,6 +334,26 @@ extension CartoucheFailure {
                 case 3: return .storagePermission
                 case 5: return .storageAnswer
                 default: return .storageServer
+                }
+            case .drive:
+                switch (status, code ?? "") {
+                case (_, "invalid_grant"), (_, "invalid_client"), (_, "unauthorized_client"), (_, "deleted_client"),
+                     (401, _):
+                    return .storageCredentials
+                case (_, "accessNotConfigured"), (_, "SERVICE_DISABLED"):
+                    return .storageSetup
+                case (_, "storageQuotaExceeded"):
+                    return .storageFull
+                case (_, "insufficientFilePermissions"):
+                    return .storageReadOnly
+                case (_, "userRateLimitExceeded"), (_, "rateLimitExceeded"), (_, "RATE_LIMIT_EXCEEDED"), (429, _):
+                    return .storageServer
+                case (404, _):
+                    return .storageNotFound
+                case (403, _):
+                    return .storagePermission
+                default:
+                    return .storageServer
                 }
             }
         }
@@ -425,6 +448,9 @@ struct CartoucheSideStoreOutcome: Equatable, Sendable {
 
     enum Action: String, Sendable {
         case signIn
+        /// Register Cartouche's iPhone, the sign-in's device step alone
+        /// (app/patches/sidestore/0019).
+        case device
         case refresh
         case update
     }
@@ -434,8 +460,8 @@ struct CartoucheSideStoreOutcome: Equatable, Sendable {
     var date: Date
     var seconds: Int?
     var percent: Int?
-    /// The step reached: the sign-in's own ("account", "device"...), or the
-    /// last operation started ("ResignApp").
+    /// The step reached: the sign-in's own ("deviceCheck", "account",
+    /// "device"...), or the last operation started ("ResignApp").
     var stage: String?
     /// The operations it ran, the last ones: "FetchProvisioningProfiles>ResignApp".
     var trail: String?
@@ -456,7 +482,9 @@ struct CartoucheSideStoreOutcome: Equatable, Sendable {
     var service: String?
     var retryAfter: Int?
     /// What the action noted on its way: whether Apple asked for a code and
-    /// how, the account's certificates and teams.
+    /// how, the account's certificates and teams; for SideStore's
+    /// invalidParameters (patch 0018), which of its sentences it is and the
+    /// step or value that sentence names.
     var facts: [String: CartoucheTelemetryValue]
 
     /// What SideStore wrote, each value of the type it must have or none.
@@ -465,6 +493,7 @@ struct CartoucheSideStoreOutcome: Equatable, Sendable {
             case version, action, ok, date, seconds, percent, stage, trail, family, kind, codes, apple, http, network, host
             case codeAsked, bundledCertificate, activeCertificate, certificates, teams, codeMode, teamType
             case service, retryAfter
+            case reason, missing
         }
 
         var version: Int
@@ -484,7 +513,7 @@ struct CartoucheSideStoreOutcome: Equatable, Sendable {
             for key in [Key.seconds, .percent, .apple, .http, .network, .certificates, .teams, .retryAfter] {
                 if let value = try? values.decodeIfPresent(Int.self, forKey: key) { ints[key] = value }
             }
-            for key in [Key.stage, .trail, .family, .kind, .codes, .host, .codeMode, .teamType, .service] {
+            for key in [Key.stage, .trail, .family, .kind, .codes, .host, .codeMode, .teamType, .service, .reason, .missing] {
                 if let value = try? values.decodeIfPresent(String.self, forKey: key) { texts[key] = value }
             }
             for key in [Key.codeAsked, .bundledCertificate, .activeCertificate] {
@@ -533,7 +562,7 @@ struct CartoucheSideStoreOutcome: Equatable, Sendable {
         for key in [Written.Key.certificates, .teams] {
             if let count = written.int(key, in: 0...10_000) { facts[key.rawValue] = .number(Double(count)) }
         }
-        for key in [Written.Key.codeMode, .teamType] {
+        for key in [Written.Key.codeMode, .teamType, .reason, .missing] {
             if let name = written.name(key) { facts[key.rawValue] = .text(name) }
         }
         self.facts = facts

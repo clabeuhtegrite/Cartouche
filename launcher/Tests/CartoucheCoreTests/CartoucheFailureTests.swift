@@ -75,6 +75,9 @@ final class CartoucheFailureTests: XCTestCase {
         XCTAssertNil(outcome([:], maximumAge: 10))
         XCTAssertNil(outcome(["date": 1_794_000_000 + 3_600]))
         XCTAssertNil(outcome(["action": "refresh"]))
+        XCTAssertNil(outcome(["action": "device"]))
+        XCTAssertNotNil(outcome([:], action: .device))
+        XCTAssertNil(outcome(["action": "signIn"], action: .device))
         XCTAssertNil(outcome(["version": "1"]))
         XCTAssertNil(outcome(["ok": 0]))
         XCTAssertNil(CartoucheSideStoreOutcome(data: Data("not json".utf8), expecting: .signIn, now: now))
@@ -230,6 +233,30 @@ final class CartoucheFailureTests: XCTestCase {
                        ["seconds": .number(40), "outcome": .flag(false)])
     }
 
+    // MARK: What SideStore's code did not expect (patch 0018)
+
+    func testSaysWhichOfSideStoresSentencesAndWhatItNames() throws {
+        let left = try XCTUnwrap(outcome([
+            "stage": "FetchProvisioningProfiles", "family": "operation", "kind": "invalidParameters",
+            "codes": "SideStore.OperationError 8", "reason": "notInContext", "missing": "targetAppBundle",
+        ], action: .refresh))
+        XCTAssertEqual(left.cause, .other)
+        XCTAssertEqual(left.facts, ["reason": .text("notInContext"), "missing": .text("targetAppBundle")])
+        let failure = CartoucheFailure.sideStore(outcome: left, message: "Failed to Refresh Some App", fraction: 1,
+                                                 seconds: 4, vpn: true, pairing: true)
+        XCTAssertEqual(failure.codes, "SideStore.OperationError 8")
+        XCTAssertEqual(failure.details["kind"], .text("invalidParameters"))
+        XCTAssertEqual(failure.details["reason"], .text("notInContext"))
+        XCTAssertEqual(failure.details["missing"], .text("targetAppBundle"))
+    }
+
+    func testKeepsNoSentenceOfSideStoresForAReason() throws {
+        let read = try XCTUnwrap(outcome([
+            "reason": "Could not resolve installed app for 'Mario Kart World'", "missing": "context.targetAppBundle is nil",
+        ], action: .refresh))
+        XCTAssertEqual(read.facts, [:])
+    }
+
     // MARK: How a renewal ended
 
     func testARenewalEndsAsSideStoreLeftIt() throws {
@@ -325,6 +352,18 @@ final class CartoucheFailureTests: XCTestCase {
             (.init(kind: .ftp, status: 552), .storageFull),
             (.init(kind: .sftp, status: 2), .storageNotFound),
             (.init(kind: .sftp, status: 3), .storagePermission),
+            (.init(kind: .drive, status: 400, code: "invalid_grant"), .storageCredentials),
+            (.init(kind: .drive, status: 401, code: "invalid_client"), .storageCredentials),
+            (.init(kind: .drive, status: 401, code: "authError"), .storageCredentials),
+            (.init(kind: .drive, status: 403, code: "accessNotConfigured"), .storageSetup),
+            (.init(kind: .drive, status: 403, code: "SERVICE_DISABLED"), .storageSetup),
+            (.init(kind: .drive, status: 403, code: "storageQuotaExceeded"), .storageFull),
+            (.init(kind: .drive, status: 403, code: "insufficientFilePermissions"), .storageReadOnly),
+            (.init(kind: .drive, status: 403, code: "userRateLimitExceeded"), .storageServer),
+            (.init(kind: .drive, status: 429, code: "rateLimitExceeded"), .storageServer),
+            (.init(kind: .drive, status: 404, code: "notFound"), .storageNotFound),
+            (.init(kind: .drive, status: 403, code: "insufficientPermissions"), .storagePermission),
+            (.init(kind: .drive, status: 503, code: "backendError"), .storageServer),
         ]
         for (status, cause) in cases {
             XCTAssertEqual(status.cause, cause, "\(status)")

@@ -59,7 +59,7 @@ struct CartoucheGuideView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 14) {
                 header(progress)
-                ForEach(Step.allCases) { step in
+                ForEach(progress.steps) { step in
                     card(step, progress: progress)
                 }
                 Label(CartoucheText.guideNoDownloads, systemImage: "lock.shield")
@@ -132,7 +132,7 @@ struct CartoucheGuideView: View {
                 .foregroundStyle(CartoucheTheme.secondaryText)
                 .fixedSize(horizontal: false, vertical: true)
             HStack(spacing: 6) {
-                ForEach(Step.allCases) { step in
+                ForEach(progress.steps) { step in
                     Capsule()
                         .fill(capsuleStyle(step, progress))
                         .frame(height: 6)
@@ -144,7 +144,7 @@ struct CartoucheGuideView: View {
     }
 
     private func intro(_ progress: CartoucheGuide.Progress) -> String {
-        guard progress.isFinished else { return CartoucheText.guideIntro }
+        guard progress.isFinished else { return progress.requiresAccount ? CartoucheText.guideIntro : CartoucheText.guideImportedIntro }
         return progress.buildSkipped ? CartoucheText.guideFinishedIntroNoMac : CartoucheText.guideFinishedIntro
     }
 
@@ -182,7 +182,7 @@ struct CartoucheGuideView: View {
         let open = isOpen(step, progress)
         let skipped = progress.isSkipped(step)
         return HStack(alignment: .top, spacing: 14) {
-            badge(step, done: done, open: open, skipped: skipped)
+            badge(step, number: progress.number(of: step), done: done, open: open, skipped: skipped)
             VStack(alignment: .leading, spacing: 10) {
                 Text(Self.title(step))
                     .font(.system(.title3, design: .rounded, weight: .bold))
@@ -220,7 +220,7 @@ struct CartoucheGuideView: View {
                             : skipped && !open ? CartoucheText.guideStepSkipped(Self.title(step)) : Self.title(step))
     }
 
-    private func badge(_ step: Step, done: Bool, open: Bool, skipped: Bool) -> some View {
+    private func badge(_ step: Step, number: Int, done: Bool, open: Bool, skipped: Bool) -> some View {
         ZStack {
             Circle()
                 .fill(done ? Color.green : open ? CartoucheTheme.indigo : Color.white.opacity(0.14))
@@ -231,7 +231,7 @@ struct CartoucheGuideView: View {
                 Image(systemName: "forward.fill")
                     .font(.subheadline.weight(.heavy))
             } else {
-                Text(String(step.number))
+                Text(String(number))
                     .font(.headline.monospacedDigit().weight(.heavy))
             }
         }
@@ -357,6 +357,30 @@ struct CartoucheGuideView: View {
             action(CartoucheText.setupSignIn, systemImage: "person.crop.circle.badge.checkmark", primary: true) {
                 signingIn = true
             }
+        } else if progress.signInUnfinished && account.phase == nil {
+            // Apple accepted the account, and the sign-in stopped before the
+            // certificate: signing in again brings it.
+            detail(setup.appleID.map(CartoucheText.setupAppleIDUnfinished) ?? CartoucheText.guideAccountHow)
+            if let report = account.lastProblem {
+                Label(report.message, systemImage: "exclamationmark.triangle.fill")
+                    .font(.footnote)
+                    .foregroundStyle(CartoucheTheme.danger)
+                    .fixedSize(horizontal: false, vertical: true)
+                CartoucheReportButton(report: report)
+                    .font(.footnote)
+                    .cartoucheSecondaryButton()
+            }
+            action(CartoucheText.signInAgain, systemImage: "person.crop.circle.badge.checkmark", primary: true) {
+                signingIn = true
+            }
+        } else if progress.deviceLeft {
+            // Apple accepted the account: only this iPhone is left to
+            // register, which Cartouche does by itself once LocalDevVPN is
+            // connected.
+            detail(account.phase == .registeringDevice ? CartoucheText.setupBannerDeviceWorking : CartoucheText.signInDeviceHow)
+            action(CartoucheText.signInDeviceButton, systemImage: "iphone.gen3", primary: true) {
+                signingIn = true
+            }
         } else if setup.certificateRefused && !account.isAutomatic {
             // iOS refused the certificate and signing in again by itself
             // did not bring a new one.
@@ -368,7 +392,7 @@ struct CartoucheGuideView: View {
             HStack(spacing: 10) {
                 ProgressView()
                     .tint(Color.white)
-                detail(CartoucheText.guideAccountCertificate)
+                detail(account.phase != nil ? CartoucheText.signInWorking : CartoucheText.guideAccountCertificate)
             }
             action(CartoucheText.guideOpenSetup, systemImage: "checklist", primary: false) {
                 showingSetup = true
@@ -484,7 +508,7 @@ struct CartoucheGuideCard: View {
 
     private var detail: String {
         guard let step = progress.current else { return CartoucheText.guideFinishedTitle }
-        return CartoucheText.guideCardDetail(step.number, CartoucheGuide.Step.allCases.count,
+        return CartoucheText.guideCardDetail(progress.number(of: step), progress.steps.count,
                                              CartoucheGuideView.title(step))
     }
 }

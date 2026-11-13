@@ -12,6 +12,12 @@
 //  over the installed game. What Cartouche found is kept on the iPhone,
 //  so that each IPA is read once.
 //
+//  An IPA nxnative built without its game files (romfs.id, CartoucheRomfs)
+//  takes the image of them, romfs.img, that sits beside it, in any letter
+//  case, or elsewhere in the games folder: Cartouche installs the two
+//  together. An image no IPA takes, and an IPA without its image, are
+//  told on the Storage page, since neither installs a game by itself.
+//
 //  Away from the games folder's server, as from a NAS at home, the last
 //  list stays: Cartouche finds the server offline within a few seconds
 //  (CartoucheStorageReach), and reads the folder again once it answers.
@@ -36,8 +42,21 @@ struct CartoucheStoredGame: Codable, Hashable, Identifiable {
     var titleId: String?
     /// Whether it is an nxnative game, as far as Cartouche can tell.
     var isGame: Bool
+    /// The image of its game files it needs, for an IPA nxnative built
+    /// without them (CartoucheRomfs); nil for one that holds them.
+    var gameFiles: CartoucheRomfsIdentity? = nil
+    /// The image of the games folder that goes with it, by its path: of the
+    /// size it needs, beside it or elsewhere in the folder.
+    var gameFilesPath: String? = nil
+    /// Whether Cartouche looked for romfs.id in it, as an older Cartouche
+    /// did not.
+    var checkedGameFiles: Bool? = nil
 
     var id: String { path }
+    /// Whether it needs an image of its game files the games folder lacks.
+    var lacksGameFiles: Bool { gameFiles != nil && gameFilesPath == nil }
+    /// What it takes in the games folder, with the image of its game files.
+    var storedSize: UInt64 { size + (gameFilesPath == nil ? 0 : gameFiles?.size ?? 0) }
     var fileName: String { CartoucheStoragePath.name(path) }
 
     /// The name to show when the catalogue does not know the game.
@@ -114,19 +133,32 @@ final class CartoucheInstalledBuilds {
         try? data.write(to: file, options: .atomic)
     }
 
-    /// The build of the installed game, as its Info.plist says.
+    /// The builds read from the games' Info.plist, by the game's bundle, with
+    /// when the Info.plist last changed: the console asks for them often.
+    private static var readBuilds: [String: (changed: Date?, build: CartoucheGameBuild)] = [:]
+    private static let readLock = NSLock()
+
+    /// The build of the installed game, as the Info.plist in its bundle says.
+    /// LiveContainer's info() is not it: those are LiveContainer's own
+    /// settings for the game (LCAppInfo.plist), which name no version.
     static func installedBuild(of app: LCAppModel) -> CartoucheGameBuild {
-        let info = app.appInfo.info()
-        return CartoucheGameBuild(version: info?["CFBundleShortVersionString"] as? String, commit: info?["DMCommit"] as? String,
-                                  chain: info?["DMChain"] as? String)
+        guard let path = app.appInfo.bundlePath() else { return CartoucheGameBuild() }
+        let bundle = URL(fileURLWithPath: path, isDirectory: true)
+        let changed = (try? bundle.appendingPathComponent("Info.plist")
+            .resourceValues(forKeys: [.contentModificationDateKey]))?.contentModificationDate
+        readLock.lock()
+        defer { readLock.unlock() }
+        if let known = readBuilds[path], known.changed == changed { return known.build }
+        let build = CartoucheGameBuild.installed(atBundle: bundle) ?? CartoucheGameBuild()
+        readBuilds[path] = (changed, build)
+        return build
     }
 
-    /// The record of the game's install, when it is of the build installed.
+    /// The record of the game's install, when it is of the build installed
+    /// (CartoucheGameBuild.record(_:of:)).
     func record(of app: LCAppModel) -> CartoucheGameBuild? {
         guard let bundleId = app.appInfo.bundleIdentifier(), let recorded = builds[bundleId] else { return nil }
-        let installed = Self.installedBuild(of: app)
-        guard recorded.version == installed.version, recorded.commit == installed.commit else { return nil }
-        return recorded
+        return CartoucheGameBuild.record(recorded, of: Self.installedBuild(of: app))
     }
 
     /// The installed game's build, to compare with a copy in the games
@@ -153,6 +185,10 @@ final class CartoucheStoredGames: ObservableObject {
     var problem: String? { problemReport?.message }
     /// The server the games are on, for the console to name.
     @Published private(set) var serverName: String?
+    /// The images of game files in the games folder that no IPA there
+    /// takes, by their paths (CartoucheRomfs): a romfs.img without the IPA
+    /// nxnative built with it.
+    @Published private(set) var looseGameFiles: [String] = []
 
     private let settings: CartoucheStorageSettings
     private var known: [String: CartoucheStoredGame] = [:]
@@ -222,6 +258,7 @@ final class CartoucheStoredGames: ObservableObject {
         #endif
         guard let location = settings.location(.games) else {
             games = []
+            looseGameFiles = []
             serverName = nil
             problemReport = nil
             return
@@ -245,6 +282,7 @@ final class CartoucheStoredGames: ObservableObject {
             return
         }
         var found: [CartoucheStoredGame] = []
+        var images: [CartoucheRomfsImage] = []
         do {
             var folders = [location.path]
             let top = try await remote.list(location.path)
@@ -258,12 +296,17 @@ final class CartoucheStoredGames: ObservableObject {
                 } else {
                     items = (try? await remote.list(folder)) ?? []
                 }
+                for item in items where !item.isFolder && CartoucheRomfs.isImageName(item.name) {
+                    let path = CartoucheStoragePath.join(folder, item.name)
+                    images.append(CartoucheRomfsImage(path: path, folder: CartoucheStoragePath.parent(path), size: item.size))
+                }
                 for item in items where !item.isFolder && item.name.lowercased().hasSuffix(".ipa") {
                     let path = CartoucheStoragePath.join(folder, item.name)
                     let key = Self.key(location.server, path: path, size: item.size, modified: item.modified)
                     // What a scan before 0.9.0 found says nothing of the
-                    // build: read again.
-                    if let game = known[key], game.build != nil {
+                    // build, and one by an older Cartouche nothing of the
+                    // game files: read again.
+                    if let game = known[key], game.build != nil, game.checkedGameFiles == true {
                         found.append(game)
                         continue
                     }
@@ -278,8 +321,32 @@ final class CartoucheStoredGames: ObservableObject {
                                             facts: [.init("Games found", String(found.count))])
         }
         await remote.disconnect()
-        games = found.filter(\.isGame).sorted(by: Self.byName)
+        let paired = Self.pairGameFiles(found, images: images)
+        for game in paired.games {
+            let key = Self.key(location.server, path: game.path, size: game.size, modified: game.modified)
+            known[key]?.gameFilesPath = game.gameFilesPath
+        }
+        games = paired.games.filter(\.isGame).sorted(by: Self.byName)
+        looseGameFiles = paired.loose
         save()
+    }
+
+    /// GAMES, each IPA built without its game files with the image of the
+    /// games folder it takes (CartoucheRomfs.pair), and the images no IPA
+    /// takes. An IPA Cartouche could not read may be the one an image goes
+    /// with: none is said to be alone then.
+    nonisolated static func pairGameFiles(_ games: [CartoucheStoredGame], images: [CartoucheRomfsImage])
+        -> (games: [CartoucheStoredGame], loose: [String]) {
+        let needs = games.compactMap { game in
+            game.gameFiles.map { CartoucheRomfsNeed(path: game.path, folder: CartoucheStoragePath.parent(game.path), size: $0.size) }
+        }
+        let (taken, loose) = CartoucheRomfs.pair(needs, with: images, allRead: games.allSatisfy { $0.checkedGameFiles == true })
+        let paired = games.map { game -> CartoucheStoredGame in
+            var game = game
+            game.gameFilesPath = taken[game.path]?.path
+            return game
+        }
+        return (paired, loose.map(\.path))
     }
 
     /// The report on the games folder, which ERROR kept Cartouche from
@@ -320,17 +387,23 @@ final class CartoucheStoredGames: ObservableObject {
         }
         do {
             let source = try await remote.open(path)
-            let (info, builtAt) = try await Self.infoPlist(of: source)
+            let entries = try await CartoucheZip.entries(of: source)
+            let (info, builtAt) = try await Self.infoPlist(of: source, entries: entries)
             game.bundleId = info["CFBundleIdentifier"] as? String
             game.displayName = (info["CFBundleDisplayName"] as? String) ?? (info["CFBundleName"] as? String)
             game.version = info["CFBundleShortVersionString"] as? String
             game.build = CartoucheGameBuild(info: info, builtAt: builtAt)
             if !named {
                 game.titleId = game.bundleId.flatMap(CartoucheStoredGame.titleId(inBundleId:))
+                    ?? CartoucheNxnativeApp.titleId(in: info)
                     ?? game.displayName.flatMap { CartoucheCatalog.shared.titleId(matchingName: $0) }
                     ?? CartoucheCatalog.shared.titleId(inFileName: item.name)
             }
-            game.isGame = game.titleId != nil || info["DMLanguage"] != nil
+            // Its romfs.id, for an IPA built without its game files: one
+            // more entry read.
+            game.gameFiles = try await CartoucheRomfs.neededIdentity(ofIPA: source, entries: entries)
+            game.checkedGameFiles = true
+            game.isGame = CartoucheNxnativeApp.isGame(info: info, titleId: game.titleId, needsGameFiles: game.gameFiles != nil)
             return (game, true)
         } catch {
             NSLog("[Cartouche] cannot read %@: %@", path, error.localizedDescription)
@@ -348,10 +421,10 @@ final class CartoucheStoredGames: ObservableObject {
         }
     }
 
-    /// The Info.plist of the app in an IPA, and its time there, which says
-    /// when the IPA was built.
-    nonisolated static func infoPlist(of source: CartoucheByteSource) async throws -> (info: [String: Any], builtAt: Date?) {
-        let entries = try await CartoucheZip.entries(of: source)
+    /// The Info.plist of the app in an IPA of these ENTRIES, and its time
+    /// there, which says when the IPA was built.
+    nonisolated static func infoPlist(of source: CartoucheByteSource,
+                                      entries: [CartoucheZipEntry]) async throws -> (info: [String: Any], builtAt: Date?) {
         guard let entry = infoPlistEntry(in: entries) else {
             throw CartoucheStorageError(.notAnApp, CartoucheText.storageNotAnApp)
         }

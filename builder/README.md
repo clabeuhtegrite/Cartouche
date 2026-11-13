@@ -53,11 +53,17 @@ Refresh Cartouche on the iPhone to install the complete IPA. Cartouche signs
 the app at installation; no separate ROMFS transfer is needed. On a NAS,
 the game remains available while the Mac is off.
 
+Cartouche also installs the two as they are: the IPA and its `romfs.img`,
+side by side in the games folder, are installed together, the image checked
+against `romfs.id` the same way. An IPA, a `romfs.img` or a folder nxnative
+built a game in (`<title ID>_build`), left in the sources folder where no
+dump is, is no game for the builder, and the library says where it goes.
+
 ### While a batch builds
 
 A game asked for while a batch builds, with **Add to the queue** on its sheet or its card's menu, or **Add them to the queue** for the games nxnative improved, waits its turn at the end of the batch: it is built after the batch's own games and those asked for before it, in the same batch, with one report and one notification at the end. **Builds** lists the queue in its order, with a button that takes a game out of it. **Stop this game**, there or on its sheet, stops only the game building, and the batch goes on with the next; **Stop all** stops the batch and empties its queue. In the Terminal, `cartouche-builder build ID`, while a batch builds, adds the games to it in the same way.
 
-The app looks at nxnative and your games when it opens, if it last did more than six hours before, then every six hours and when you ask: a few seconds, or a minute over a NAS, while the spinner turns under the sidebar. A build asked for meanwhile waits for that look to end, as does one asked for while the builder frees space, and starts on its own: its games wait their turn on their sheets and in **Builds** from your click on, and **Stop** there ends it before it starts. The nightly run waits in the same way.
+The app looks at nxnative and your games when it opens, if it last did more than six hours before, then every six hours and when you ask: a few seconds, or a minute over a NAS, while the spinner turns under the sidebar. It also reads your dumps and your games folder again each time you come back to it, at most once in ten seconds, so that a game you just put there from the Finder shows at once. A build asked for meanwhile waits for that look to end, as does one asked for while the builder frees space, and starts on its own: its games wait their turn on their sheets and in **Builds** from your click on, and **Stop** there ends it before it starts. The nightly run waits in the same way.
 
 ### Your folders
 
@@ -107,6 +113,17 @@ nxnative gets dozens of commits a day, and almost all of them change code every 
 
 Documentation, tests and nxnative's own tooling never make a game due. A game whose build failed waits for nxnative or its files to change instead of failing again every night; **Build again**, on a game's sheet, builds it at once, due or not. Each commit's `Front-ends:` line, where nxnative's authors say what a front end must know ([Following main](https://github.com/seedds/nxnative/blob/main/docs/frontends.md#following-main)), shows on the game's sheet and in the batch's report.
 
+### When nxnative's newest commit does not build
+
+A commit of `main` can break every game's build: on 11 November 2026, four in a row did not link the iOS app. When a game's iOS app does not build at the newest commit (nxnative's **app build** step), and an older commit of `main` built a game on this Mac, the builder goes to that commit once no other game builds, and builds the game again from it, alone. If it builds, the newest commit is broken for now: the rest of the batch builds from the older one, and so do the next batches, until `main` has a newer commit, which is tried in turn. The footer under the pages says so, and **Builds** says it of each game built that way. If the game does not build from the older commit either, the newest is not the cause: the batch goes back to it, and the game's failure is recorded as any other. A game built from the newest commit before stays up to date.
+
+### When a build does not go through
+
+The error under a game in **Builds** is nxnative's own, but for what you can act on:
+
+- a full disk says which disk, the Mac's or a drive's or a share's, and how much is left on it, or how much nxnative needs to unpack the game; the game is built again at the next batch, as one skipped for want of room or of `prod.keys`;
+- damaged game files, a NUP or a dump whose files are not what their names say, or that do not match their checksums, say to copy the game again from the console, or to make its NUP again: nxnative does not build from them, since the game would not run well. The game waits for its files to change.
+
 ## The nightly run
 
 **Build what is due every night**, in the settings, installs a launchd agent of your session (`~/Library/LaunchAgents/io.github.clabeuhtegrite.cartouche-builder.plist`) that runs `cartouche-builder build` at that time, with `caffeinate` keeping the Mac awake while it builds. A Mac asleep at that time runs it when it wakes. A sources or games folder on a network share that is not mounted is mounted again, with the password saved in the keychain. One batch runs at a time: the nightly run leaves the app's batch alone, and a game asked for while one runs waits its turn in it. A notification says how it went, and **Builds** keeps each batch's report.
@@ -121,15 +138,17 @@ It never downloads, shares or uploads a game, a key or an IPA: it builds the gam
 
 ## Development
 
-The builder has two parts. Its engine, the Python package `cartouche_builder`, needs only Python's standard library: `library.py` finds the games, `engine.py` keeps nxnative's copy and reads its history, `impact.py` decides which commits touch a game, `planner.py` makes the plan, `build.py` runs and follows one build, `batch.py` runs a batch, `queue.py` keeps the games asked for while one runs, `status.py` writes what a batch is doing, `storage.py` measures and frees what the builder keeps, `ipa.py` reads and delivers IPAs, `shares.py` connects the network folders again, `toolchain.py` checks the Mac's tools, `schedule.py` is the nightly run, `cli.py` the commands, `api.py` the app's commands (`cartouche-builder api <command>`, one JSON answer each) and `texts.py` every text in English and French.
+The builder has two parts. Its engine, the Python package `cartouche_builder`, needs only Python's standard library: `library.py` finds the games, `engine.py` keeps nxnative's copy and reads its history, `impact.py` decides which commits touch a game, `planner.py` makes the plan, `build.py` runs and follows one build, `causes.py` names why one did not go through, `disks.py` words a full disk, `fallback.py` keeps the last nxnative commit that built while the newest does not, `batch.py` runs a batch, `queue.py` keeps the games asked for while one runs, `status.py` writes what a batch is doing, `storage.py` measures and frees what the builder keeps, `ipa.py` reads and delivers IPAs, `shares.py` connects the network folders again, `toolchain.py` checks the Mac's tools, `schedule.py` is the nightly run, `cli.py` the commands, `api.py` the app's commands (`cartouche-builder api <command>`, one JSON answer each) and `texts.py` every text in English and French.
 
-The Mac app, `mac/`, is a Swift package that runs the engine and shows what it answers. `mac/Sources/BuilderKit` is what the app does without its window: the engine's answers (`Engine.swift`, `Models.swift`), this Mac's tools and their installs (`MacSetup.swift`), the bridge with Cartouche (`BridgeServer.swift`, `BridgeDevices.swift`), the updates (`Updater.swift`) and the measures (`BuilderTelemetry.swift`). `mac/Sources/CartoucheBuilder` is its window, its settings and its menu bar.
+The Mac app, `mac/`, is a Swift package that runs the engine and shows what it answers. `mac/Sources/BuilderKit` is what the app does without its window: the engine's answers (`Engine.swift`, `Models.swift`), this Mac's tools and their installs (`MacSetup.swift`), the bridge with Cartouche (`BridgeServer.swift`, `BridgeDevices.swift`), the updates (`Updater.swift`), the measures (`BuilderTelemetry.swift`), what the setup assistant finds in the dumps folder (`SetupFiles.swift`) and when the library is read again as the player comes back (`ComebackReads.swift`). `mac/Sources/CartoucheBuilder` is its window, its settings and its menu bar.
 
 The engine's tests run a fake nxnative (a git repository whose build script writes an IPA of a few bytes) and fake dumps of a few bytes. From this folder:
 
 ```
 python3 -m unittest discover -s tests -t tests
 ```
+
+The end-to-end tests take the builder as a player has it, without a game. `tests/world.py` makes a player's Mac in a temporary folder: their folders, with packages, dumps, NUPs, zips and cartridges of a few bytes, their `prod.keys`, the app's copy of the engine and the builder's folder, and nxnative's repository, whose build script is `tests/simulated_nxnative.py`. It reads the games as nxnative does, says its stages, its progress and its errors in nxnative's words and exit codes, checks its room and the game's files, and writes an IPA whose Info.plist names the game and the commit; a scenario makes it slow, crash, be killed, fail its app build, refuse an option or need more room than there is (its docstring). `tests/test_end_to_end.py` runs the engine through the app's commands and batches, as the app does: the games found in every layout, built from the player's own files, built again when nxnative changes, the queue while a batch builds, a game taken out, Stop, a batch killed, the last commit that built when the newest does not, and why a build did not go through, in English and French; on a Mac, a disk image of a few megabytes really fills up. `mac/Tests/BuilderKitTests/EndToEndTests.swift` builds the same way through the app's `Engine`, on a world that `python3 tests/world.py make FOLDER` makes, then pairs an iPhone of the tests' own over the bridge, which reads the IPAs whole and sends a save. The **Builder** workflow runs the engine's tests on a Mac too.
 
 `tests/test_app_contract.py` checks that what the engine answers is what the app's tests read (`mac/Tests/BuilderKitTests/Fixtures`). The app's tests, on a Mac with Xcode 27.2:
 
@@ -143,4 +162,4 @@ Started with `--layout-check`, the app opens its window on sample games whose nx
 
 ### Publishing a version
 
-A version is the one in `pyproject.toml`, with its notes in `RELEASE.md`. On `main`, run the **Builder** workflow from the Actions tab with **Publish** ticked: it tests and builds the app, makes its disk image and publishes both with the SHA-256 as the release `builder-v<version>`, without GitHub's Latest mark, which stays Cartouche's. Each copy of the app finds it within six hours, and the workflow publishes the site again, whose buttons and download page then give this version ([site/README.md](../site/README.md#publishing)).
+A version is the one in `pyproject.toml`, with its notes in `RELEASE.md`; the merge of the pull request that raises it starts the [Full test pass](../.github/full-pass/README.md), every test of the repository, on main. On `main`, run the **Builder** workflow from the Actions tab with **Publish** ticked: it tests and builds the app, makes its disk image and, once the full test pass has passed on that commit, publishes both with the SHA-256 as the release `builder-v<version>`, without GitHub's Latest mark, which stays Cartouche's. Each copy of the app finds it within six hours, and the workflow publishes the site again, whose buttons and download page then give this version ([site/README.md](../site/README.md#publishing)).

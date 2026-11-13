@@ -7,7 +7,10 @@ name: Release
 # workflow's included: it pushes the branch release/v<version>, which adds the
 # release to app/sidestore-source.json, and its summary links the pull request
 # to open from it. Once that pull request is merged, Cartouche's built-in
-# SideStore finds the release and offers the update on the iPhone.
+# SideStore finds the release and offers the update on the iPhone. Nothing is
+# published before the Full test pass, every test of the repository, has
+# passed on the commit (full-pass.yml): once the IPA is built, the workflow
+# waits for the pass the merge of the version started, or starts one.
 # How to cut a release: app/releases/README.md.
 
 on:
@@ -109,6 +112,29 @@ jobs:
           retention-days: 14
           if-no-files-found: error
 
+  # Nothing is published from a commit before the Full test pass has passed
+  # on it: once the IPA is built, this waits for the pass running, which the
+  # pull request that raised the version started, or starts one when none
+  # has run (.github/full-pass/README.md).
+  tests:
+    name: Full test pass on this commit
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 300
+    permissions:
+      contents: read
+      actions: write # starts the pass when none has run on this commit
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # The commits since a pass of main, which may change only the source.
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Wait for the full test pass
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 .github/full-pass/wait_for_pass.py --sha "$GITHUB_SHA" --ref "$GITHUB_REF" --start --summary "$GITHUB_STEP_SUMMARY"
+
   guard:
     name: Publish guard
     needs: build
@@ -131,7 +157,7 @@ jobs:
   # only, nothing installed from a package index.
   publish:
     name: Publish the release and propose it to the source
-    needs: [build, guard]
+    needs: [build, guard, tests]
     runs-on: ubuntu-latest
     permissions:
       contents: write # the release, and the branch release/v<version>

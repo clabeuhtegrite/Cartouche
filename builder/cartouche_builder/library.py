@@ -18,8 +18,10 @@ prod.keys the header of its NCAs). The packages of one game in several
 folders, or beside another game's, are built from a folder of links to them
 alone (batch.py); a game's folder that holds only its own packages is given
 to nxnative as it is. What keeps a file or a folder out is said in plain
-words (Discovery.issues), and the app shows it. The sources are only read,
-never written.
+words (Discovery.issues), and the app shows it: also what nxnative built
+already, an IPA, the image of a game's files (romfs.img) or the folder it
+builds in, which are no dumps and go in the games folder, where Cartouche
+installs them from. The sources are only read, never written.
 """
 
 from __future__ import annotations
@@ -178,7 +180,7 @@ class _Look:
         # A game's files, as nxnative lists them: any letter case, none of the
         # hidden ones (the AppleDouble "._" file a non-Apple drive keeps
         # beside each).
-        files, folders = [], []
+        files, folders, builds = [], [], []
         for entry in entries:
             if entry.name.startswith("."):
                 continue
@@ -187,6 +189,8 @@ class _Look:
                     files.append(entry)
                 elif entry.is_dir() and not NOT_GAMES.fullmatch(entry.name):
                     folders.append(entry)
+                elif entry.is_dir() and entry.name.lower().endswith("_build"):
+                    builds.append(entry)
             except OSError:
                 continue
         packages = [p for p in files if p.suffix.lower() in PACKAGE_SUFFIXES]
@@ -196,13 +200,18 @@ class _Look:
             self._packages(folder, packages, top)
         for nup in nups:
             self._nup(folder, nup, alone=not top and not packages and len(nups) == 1)
-        if not packages and not nups:
-            if is_dump(folder):
-                self._dump(folder)
-                return  # a dump's own folders are no games
-            zips = [p for p in files if p.suffix.lower() == ZIP_SUFFIX]
-            for path in zips:
-                self._zip(folder, path, alone=not top and len(zips) == 1)
+        if not packages and not nups and is_dump(folder):
+            self._dump(folder)
+            return  # a dump's own folders are no games
+        zips = [p for p in files if p.suffix.lower() == ZIP_SUFFIX]
+        for path in zips:
+            # A zipped dump is a game beside other games' packages too (all of
+            # them loose in one folder); there, a ZIP that holds no dump is the
+            # player's own (a manual, saves), and no issue.
+            beside = bool(packages or nups)
+            self._zip(folder, path, alone=not top and len(zips) == 1 and not beside, quiet=beside)
+        if not packages and not nups and not zips:
+            self._built(files, builds)
         if depth >= MAX_DEPTH:
             return
         for sub in folders:
@@ -287,9 +296,26 @@ class _Look:
         size = sum(p.stat().st_size for p in folder.rglob("*") if p.is_file())
         self.games.append(Game(title_id, folder, "dump", [folder], size, titles.label(folder.name)))
 
-    def _zip(self, folder: Path, path: Path, alone: bool) -> None:
+    def _built(self, files: list[Path], builds: list[Path]) -> None:
+        """What nxnative built already, in a folder that holds no game: an
+        IPA, the image of a game's files, the folder it builds a game in.
+        Beside a game they are the player's to keep; alone they are why no
+        game is found."""
+        for path in files:
+            name = path.name.lower()
+            if name.endswith(".ipa"):
+                self.issues.append(t("library.built_ipa", name=self.shown(path)))
+            elif name.endswith("romfs.img"):
+                self.issues.append(t("library.romfs_image", name=self.shown(path)))
+        for path in builds:
+            self.issues.append(t("library.build_folder", name=self.shown(path)))
+
+    def _zip(self, folder: Path, path: Path, alone: bool, quiet: bool = False) -> None:
         try:
             self.games.append(_zip_game(path, folder, titles.label(folder.name if alone else path.name)))
+        except NoDump as error:
+            if not quiet:
+                self.issues.append(t("library.bad_zip", name=self.shown(path), error=error))
         except (OSError, ValueError, zipfile.BadZipFile, zipfile.LargeZipFile) as error:
             self.issues.append(t("library.bad_zip", name=self.shown(path), error=error))
 
@@ -353,6 +379,10 @@ def dump_title_id(folder: Path) -> str | None:
 
 
 # ---- Dumps in a ZIP ----------------------------------------------------------
+
+
+class NoDump(ValueError):
+    """A ZIP that holds no dump: no game, maybe no game's at all."""
 
 
 def mac_metadata(name: str) -> bool:
@@ -421,7 +451,7 @@ def inspect_zip(path: Path) -> tuple[str, str, int]:
             if title_id:
                 by_title.setdefault(title_id, []).append(root)
         if not by_title:
-            raise ValueError("no dump in the archive (base/exefs and base/romfs, updates/<version>/, or exefs/ and romfs/)")
+            raise NoDump("no dump in the archive (base/exefs and base/romfs, updates/<version>/, or exefs/ and romfs/)")
         if len(by_title) > 1:
             raise ValueError("the archive holds several games: " + ", ".join(sorted(by_title)))
         title_id, roots_of_title = next(iter(by_title.items()))

@@ -13,6 +13,7 @@
 //  does the main action of the game in focus, X opens its sheet, Y every
 //  game and Menu the system page. While a controller is connected, the
 //  buttons on screen show the controller's button that does the same.
+//  VoiceOver says which cover, or which item of the dock, is in focus.
 //
 //  The layout follows the space the screen gives it, never the iPhone
 //  model: one column when the screen is taller than wide (an iPhone, the
@@ -253,15 +254,18 @@ struct CartoucheHomeView: View {
             // room for it beside the wordmark; on an upright iPhone, the
             // symbol alone, as the controller's.
             if let offline = reach.offlineInUse.first {
+                // A Google Drive whose sign-in Google ended says so, the
+                // same way: its Storage page signs in again.
+                let away = CartoucheStorageOffline(offline)
                 Button {
                     onTab(.system)
                 } label: {
                     Group {
                         if metrics.size.width >= Self.offlineNameWidth {
-                            Label(CartoucheText.storageOfflineShort(offline.name), systemImage: "wifi.slash")
+                            Label(away.short, systemImage: away.symbol)
                                 .labelStyle(CartoucheTightLabelStyle())
                         } else {
-                            Image(systemName: "wifi.slash")
+                            Image(systemName: away.symbol)
                         }
                     }
                     .font(.subheadline.weight(.semibold))
@@ -272,7 +276,7 @@ struct CartoucheHomeView: View {
                     .cartoucheGlass(in: Capsule(), interactive: true)
                 }
                 .buttonStyle(.plain)
-                .accessibilityLabel(Text(CartoucheText.storageOfflineTitle(offline.name)))
+                .accessibilityLabel(Text(away.title))
             }
             // Renewals keep Cartouche signed: its expiry shows here only
             // when it comes close, and leads to the System page.
@@ -349,8 +353,12 @@ struct CartoucheHomeView: View {
                 ScrollView(.horizontal) {
                     LazyHStack(alignment: .top, spacing: max(10, width * 0.12)) {
                         ForEach(Array(items.enumerated()), id: \.element) { column, item in
-                            tile(item, width: width, isFocused: row == index && columns[index] == column)
+                            let isFocused = row == index && columns[index] == column
+                            tile(item, width: width, isFocused: isFocused)
                                 .id(item)
+                                // VoiceOver says which cover is in focus: the
+                                // one A, Play and Details act on.
+                                .accessibilityAddTraits(isFocused ? .isSelected : [])
                                 .onTapGesture { tapped(item, row: index, column: column) }
                         }
                     }
@@ -494,9 +502,10 @@ struct CartoucheHomeView: View {
                 return setup.bannerDetail(signingInAgain: CartoucheAccount.shared.isAutomatic)
             }
             guard status == .update else { return nil }
-            return isGamesFolderOffline ? CartoucheText.statusUpdateOffline(serverName) : status.long
+            guard isGamesFolderOffline else { return status.long }
+            return isGamesFolderSignedOut ? CartoucheText.statusUpdateSignedOut(serverName) : CartoucheText.statusUpdateOffline(serverName)
         case .stored where isGamesFolderOffline:
-            return CartoucheText.statusStoredOffline(serverName)
+            return isGamesFolderSignedOut ? CartoucheText.statusStoredSignedOut(serverName) : CartoucheText.statusStoredOffline(serverName)
         default:
             return status.long
         }
@@ -507,6 +516,13 @@ struct CartoucheHomeView: View {
     private var isGamesFolderOffline: Bool {
         guard let server = CartoucheStorageSettings.shared.location(.games)?.server else { return false }
         return reach.isOffline(server.id)
+    }
+
+    /// Whether the games folder is on a Google Drive whose sign-in Google
+    /// ended: its games install once the player signs in again.
+    private var isGamesFolderSignedOut: Bool {
+        guard let server = CartoucheStorageSettings.shared.location(.games)?.server else { return false }
+        return CartoucheStorageOffline(server).isSignedOut
     }
 
     private var serverName: String {
@@ -591,14 +607,16 @@ struct CartoucheHomeView: View {
     private func dock(compact: Bool, labels: Bool) -> some View {
         HStack(spacing: compact ? 2 : 4) {
             ForEach(Array(Dock.allCases.enumerated()), id: \.element) { column, item in
+                let isFocused = row == Self.dockRow && columns[Self.dockRow] == column
                 Button {
                     activate(.dock(item))
                 } label: {
-                    dockLabel(item, compact: compact, labels: labels,
-                              isFocused: row == Self.dockRow && columns[Self.dockRow] == column)
+                    dockLabel(item, compact: compact, labels: labels, isFocused: isFocused)
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel(Text(Self.title(item)))
+                // As on the shelf: the one in focus, which A opens.
+                .accessibilityAddTraits(isFocused ? .isSelected : [])
             }
         }
         .padding(compact ? 3 : 5)
@@ -935,7 +953,8 @@ struct CartoucheHomeSetupBanner: View {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(setup.bannerTitle)
                         .font(.headline)
-                    Text(setup.bannerDetail(signingInAgain: account.isAutomatic))
+                    Text(setup.bannerDetail(signingInAgain: account.isAutomatic,
+                                            registeringDevice: account.phase == .registeringDevice))
                         .font(.subheadline)
                         .opacity(0.85)
                 }

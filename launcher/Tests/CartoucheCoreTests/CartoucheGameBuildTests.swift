@@ -3,7 +3,8 @@
 //  CartoucheCoreTests
 //
 //  Which build of a game is newer (Sources/CartoucheGameBuild.swift): the
-//  one the console offers over the installed game.
+//  one the console offers over the installed game. And which IPA of the
+//  games folder is one of nxnative's games, whatever its names.
 //
 
 import Foundation
@@ -24,6 +25,56 @@ final class CartoucheGameBuildTests: XCTestCase {
         XCTAssertEqual(build.shortCommit, "52124866a1b2")
         XCTAssertNil(CartoucheGameBuild(info: ["DMCommit": "", "CFBundleShortVersionString": 3], builtAt: nil).commit)
         XCTAssertNil(CartoucheGameBuild(info: [:], builtAt: nil).version)
+    }
+
+    /// The installed game's build is in the Info.plist of its bundle, binary
+    /// once LiveContainer has written it again, not in LCAppInfo.plist.
+    func testReadsTheBuildOfAnInstalledGameFromItsInfoPlist() throws {
+        let bundle = FileManager.default.temporaryDirectory
+            .appendingPathComponent("CartoucheGameBuildTests-\(UUID().uuidString)/Game.app", isDirectory: true)
+        try FileManager.default.createDirectory(at: bundle, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: bundle.deletingLastPathComponent()) }
+        XCTAssertNil(CartoucheGameBuild.installed(atBundle: bundle))
+
+        let settings = try PropertyListSerialization.data(fromPropertyList: ["LCDataUUID": "A1B2"], format: .xml, options: 0)
+        try settings.write(to: bundle.appendingPathComponent("LCAppInfo.plist"))
+        let info: [String: Any] = ["CFBundleShortVersionString": "1.2.0", "DMCommit": "52124866A1B2", "DMChain": "844bf1a5ea8f",
+                                   "CFBundleIdentifier": "com.example.game"]
+        let data = try PropertyListSerialization.data(fromPropertyList: info, format: .binary, options: 0)
+        try data.write(to: bundle.appendingPathComponent("Info.plist"))
+        let build = try XCTUnwrap(CartoucheGameBuild.installed(atBundle: bundle))
+        XCTAssertEqual(build, CartoucheGameBuild(version: "1.2.0", commit: "52124866a1b2", chain: "844bf1a5ea8f"))
+        XCTAssertNil(build.builtAt)
+
+        try Data("not a property list".utf8).write(to: bundle.appendingPathComponent("Info.plist"))
+        XCTAssertNil(CartoucheGameBuild.installed(atBundle: bundle))
+    }
+
+    /// The record Cartouche writes of an install goes with the build
+    /// installed, and keeps when that build was made.
+    func testARecordIsOfTheBuildInstalled() {
+        let installed = CartoucheGameBuild(version: "1.2.0", commit: "52124866a1b2", chain: "844bf1a5ea8f")
+        let recorded = CartoucheGameBuild(version: "1.2.0", commit: "52124866a1b2", chain: "844bf1a5ea8f", builtAt: night)
+        XCTAssertEqual(CartoucheGameBuild.record(recorded, of: installed), recorded)
+        // A record of the build before, once the game is updated by other means.
+        XCTAssertNil(CartoucheGameBuild.record(CartoucheGameBuild(version: "1.1.0", commit: "52124866a1b2", builtAt: night),
+                                               of: installed))
+        XCTAssertNil(CartoucheGameBuild.record(CartoucheGameBuild(version: "1.2.0", commit: "aaaaaaaaaaaa", builtAt: night),
+                                               of: installed))
+    }
+
+    /// Cartouche 0.9.0 to 0.11.2 recorded an install with no version, commit
+    /// nor chain, read from LiveContainer's settings for the game: such a
+    /// record is of the build installed then, and keeps its date.
+    func testARecordOfAnOlderCartoucheTakesTheBuildInstalled() {
+        let installed = CartoucheGameBuild(version: "1.2.0", commit: "52124866a1b2", chain: "844bf1a5ea8f")
+        let recorded = CartoucheGameBuild(builtAt: night)
+        XCTAssertEqual(CartoucheGameBuild.record(recorded, of: installed),
+                       CartoucheGameBuild(version: "1.2.0", commit: "52124866a1b2", chain: "844bf1a5ea8f", builtAt: night))
+        // The build that game was made from can then be told newer or not.
+        let rebuilt = CartoucheGameBuild(version: "1.2.0", commit: "bbbbbbbbbbbb", builtAt: night + 3_600)
+        XCTAssertTrue(rebuilt.isNewer(than: CartoucheGameBuild.record(recorded, of: installed) ?? installed))
+        XCTAssertFalse(rebuilt.isNewer(than: installed))
     }
 
     func testALaterVersionIsNewer() {
@@ -76,5 +127,38 @@ final class CartoucheGameBuildTests: XCTestCase {
         XCTAssertFalse(CartoucheGameBuild.sameCommit("52124866a1b2", "52124866a1b3"))
         // Too short to tell.
         XCTAssertFalse(CartoucheGameBuild.sameCommit("5212", "52124866a1b2"))
+    }
+
+    // MARK: Whether an IPA is a game
+
+    func testAnAppNxnativeBuiltIsAGameWhateverItsNames() {
+        // As a player's, built with another bundle ID, under a name the
+        // catalog does not know, without DMLanguage: what else nxnative
+        // writes says it (Reddit, 12 Nov).
+        let built: [[String: Any]] = [["DMLanguage": "fr"], ["DMTitleID": "0100F2C0115B6000"], ["DMCommit": "52124866a1b2"],
+                                      ["CFBundleIdentifier": "com.player.silksong", "DMCommit": "52124866a1b2+dirty"]]
+        for info in built {
+            XCTAssertTrue(CartoucheNxnativeApp.isNxnative(info), "\(info)")
+            XCTAssertTrue(CartoucheNxnativeApp.isGame(info: info, titleId: nil, needsGameFiles: false), "\(info)")
+        }
+        let other: [String: Any] = ["CFBundleIdentifier": "com.example.notes", "CFBundleName": "Notes"]
+        XCTAssertFalse(CartoucheNxnativeApp.isNxnative(other))
+        XCTAssertFalse(CartoucheNxnativeApp.isGame(info: other, titleId: nil, needsGameFiles: false))
+    }
+
+    func testAnIPABuiltWithoutItsGameFilesIsAGame() {
+        // Its romfs.id says it, whatever its Info.plist.
+        XCTAssertTrue(CartoucheNxnativeApp.isGame(info: [:], titleId: nil, needsGameFiles: true))
+        // As one whose title ID Cartouche found, by its name or its bundle ID.
+        XCTAssertTrue(CartoucheNxnativeApp.isGame(info: [:], titleId: "0100F2C0115B6000", needsGameFiles: false))
+    }
+
+    func testDMTitleIDNamesTheGame() {
+        XCTAssertEqual(CartoucheNxnativeApp.titleId(in: ["DMTitleID": " 0100f2c0115b6000\n"]), "0100F2C0115B6000")
+        let others: [Any] = ["0100F2C0115B600", "0100F2C0115B60000", "0100F2C0115B600G", "", 72_057_594_037_927_936]
+        for value in others {
+            XCTAssertNil(CartoucheNxnativeApp.titleId(in: ["DMTitleID": value]), "\(value)")
+        }
+        XCTAssertNil(CartoucheNxnativeApp.titleId(in: ["CFBundleIdentifier": "org.nxnative.0100f2c0115b6000"]))
     }
 }
