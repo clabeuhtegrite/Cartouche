@@ -92,7 +92,10 @@
 //                                        tmp/ready-<scenario>.json in its
 //                                        container (Ready below)
 //      -GalleryCategory Controls         the settings page's category, one
-//                                        of nxnative's sections
+//                                        of nxnative's sections; on a
+//                                        sheet, results: the testers'
+//                                        results, what they wrote in French
+//                                        as the iPhone translates it
 //
 //  The UI tests (launcher/Gallery/UITests) open the whole console, as
 //  Cartouche shows it, and drive it (GalleryTesting.swift):
@@ -184,6 +187,7 @@ struct GalleryScenario {
         GalleryState.setupDone = setupDone
         GalleryState.certificateRefused = work == "certificate"
         GalleryState.signInUnfinished = work == "sign-in-unfinished"
+        GalleryState.sheetSection = screen == "sheet" ? category : nil
         let pairing = GalleryState.documents.appendingPathComponent("SideStore/Documents", isDirectory: true)
         try? FileManager.default.removeItem(at: pairing)
         if setupDone || GalleryState.signInUnfinished {
@@ -198,6 +202,7 @@ struct GalleryScenario {
         """
         try? Data(renewal.utf8).write(to: GalleryState.appGroup.appendingPathComponent("widget_data.json"))
         MainActor.assumeIsolated {
+            showTranslations()
             CartoucheSetup.shared.refresh()
             CartoucheGuide.shared.startOverForGallery()
             if work == "build-skipped" { CartoucheGuide.shared.skipBuild() }
@@ -385,6 +390,19 @@ struct GalleryScenario {
         guard work == "paused", let titleId = sheet ?? ownedTitles.first,
               let app = apps.first(where: { $0.appInfo.relativeBundlePath == titleId + ".app" }) else { return }
         CartoucheGameActions.shared.showRunningForGallery(app)
+    }
+
+    /// The iPhone's translations of what testers wrote on the sheet of the
+    /// testers' results, as it makes them in French, which the simulator
+    /// cannot; none kept for the other scenarios.
+    @MainActor
+    private func showTranslations() {
+        try? FileManager.default.removeItem(at: CartoucheTranslations.defaultFile)
+        guard screen == "sheet", category == "results",
+              let language = CartoucheGameSummaryView.language?.minimalIdentifier, language == "fr" else { return }
+        for (text, translation) in GalleryTranslations.french {
+            CartoucheTranslations.shared.keep(translation, of: text, into: language)
+        }
     }
 
     /// What capture.sh needs to cut the screen out of the simulator's
@@ -640,6 +658,18 @@ struct CartoucheGalleryApp: App {
         settings.category = scenario.category
         return settings
     }
+}
+
+/// What testers wrote on the sheet of Mario Kart World
+/// (catalog/games/0400C3F00006E000.json), as the iPhone translates it into
+/// French.
+enum GalleryTranslations {
+    static let french = [
+        "nxnative main with the switch2ios patches (0d9b6358)":
+            "nxnative main avec les correctifs de switch2ios (0d9b6358)",
+        "Ran smoothly at 1080p in handheld mode. Memory peak not recorded yet.":
+            "A tourné de façon fluide en 1080p en mode portable. Pic de mémoire pas encore enregistré.",
+    ]
 }
 
 /// The player's Mac with Cartouche Builder, as the gallery shows it: found

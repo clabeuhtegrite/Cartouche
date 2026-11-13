@@ -55,6 +55,9 @@ PAGE = 2000
 # player closed as much as one iOS stopped without a word, and "quit" one
 # the player quit behind the console, so neither counts.
 ENDED_BADLY = {"crash": "crash", "memory-likely": "out of memory", "boot-failed": "did not start"}
+# The same, as a result's measured.endedBadly counts them, which Cartouche
+# says in the player's language (CartoucheMeasuredNote.swift).
+ENDED_BADLY_KEYS = {"crash": "crashes", "memory-likely": "outOfMemory", "boot-failed": "didNotStart"}
 
 # The reading of nxnative's log (CartoucheGameLogReader.version, in a
 # report's reader) from which a session's slowest 5% counts. nxnative times
@@ -275,12 +278,20 @@ class Result:
         return max(versions.items(), key=lambda item: (item[1], version(item[0])))[0]
 
     @property
-    def engine(self) -> str:
+    def builds(self) -> tuple[str, int] | None:
+        """The nxnative commit most sessions reported, and how many other
+        commits some did; None when none reported one."""
         commits = Counter(s["nxnative"][:12] for s in self.sessions if s.get("nxnative"))
         if not commits:
-            return "nxnative, its build not reported"
+            return None
         commit = max(commits.items(), key=lambda item: (item[1], item[0]))[0]
-        others = len(commits) - 1
+        return commit, len(commits) - 1
+
+    @property
+    def engine(self) -> str:
+        if self.builds is None:
+            return "nxnative, its build not reported"
+        commit, others = self.builds
         if not others:
             return f"nxnative {commit}"
         return f"nxnative {commit} and {others} other build{'s' if others > 1 else ''}"
@@ -288,7 +299,9 @@ class Result:
     def note(self) -> str:
         sessions = self.sessions
         days = sorted(s["day"] for s in sessions)
-        lead = (f"Measured by Cartouche on {len(self.iphones)} iPhones, "
+        # An iPad's model counts iPads, as Cartouche says it.
+        devices = "iPads" if self.device.startswith("iPad") else "iPhones"
+        lead = (f"Measured by Cartouche on {len(self.iphones)} {devices}, "
                 f"{len(sessions)} sessions from {days[0]} to {days[-1]}")
         running = []
         fps, slowest, stutters, target = self.figure("fps"), self.figure("slowest"), self.figure("stutters"), self.target
@@ -338,6 +351,16 @@ class Result:
             if value is not None:
                 measured[key] = rounded(value)
         measured["endedBadlyPercent"] = rounded(100 * sum(self.ended_badly.values()) / len(sessions))
+        # How they ended badly and the nxnative builds, which the note and the
+        # engine say in English, for Cartouche to say them in the player's
+        # language.
+        if self.ended_badly:
+            measured["endedBadly"] = {ENDED_BADLY_KEYS[kind]: n for kind, n in sorted(self.ended_badly.items())}
+        if self.builds is not None:
+            commit, others = self.builds
+            measured["nxnative"] = commit
+            if others:
+                measured["otherBuilds"] = others
         entry["measured"] = measured
         return entry
 

@@ -20,6 +20,9 @@ enum GalleryState {
     /// SideStore keeps the Apple ID of a sign-in that stopped before the
     /// certificate (work: sign-in-unfinished).
     static var signInUnfinished = false
+    /// The part of a game's sheet the sheet opens on: results, the
+    /// testers' results (category: results).
+    static var sheetSection: String?
 
     static let documents: URL = {
         let url = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]

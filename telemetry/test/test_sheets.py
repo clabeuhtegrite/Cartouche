@@ -163,7 +163,7 @@ class SheetsTest(unittest.TestCase):
         # Each iPhone's median: 58, 59 and (60 + 30) / 2 = 45: their median is 58.
         self.assertEqual(result["measured"], {
             "iPhones": 3, "sessions": 4, "from": "2026-11-10", "to": "2026-11-11", "fps": 58, "slowestFps": 52,
-            "targetFps": 60, "stuttersPerMinute": 1.4, "endedBadlyPercent": 0})
+            "targetFps": 60, "stuttersPerMinute": 1.4, "endedBadlyPercent": 0, "nxnative": "6c3aeb3d70a1"})
         # Each iPhone's highest peak: 4640, 4720 and 5200, the highest of them.
         self.assertEqual(result["peakMemoryMiB"], 5200)
         self.assertEqual(result["notes"], [
@@ -324,6 +324,11 @@ class SheetsTest(unittest.TestCase):
         self.assertEqual(measured["iPhone17,2"]["notes"][0].split(". ")[-1],
                          "2 sessions ended badly: 1 crash, 1 out of memory.")
         self.assertEqual(measured["iPhone17,2"]["measured"]["endedBadlyPercent"], 66.7)
+        # How they ended, for Cartouche to say it in the player's language.
+        self.assertEqual(measured["iPhone17,1"]["measured"]["endedBadly"], {"didNotStart": 3})
+        self.assertEqual(measured["iPhone17,2"]["measured"]["endedBadly"], {"crashes": 1, "outOfMemory": 1})
+        self.assertEqual(measured["iPhone17,3"]["measured"]["endedBadly"], {"crashes": 1})
+        self.assertNotIn("endedBadly", measured["iPhone18,1"]["measured"])
         self.assert_valid(self.written())
 
     def test_a_model_measured_again_is_replaced_and_the_others_stay(self):
@@ -364,9 +369,31 @@ class SheetsTest(unittest.TestCase):
         for phone, game in zip(self.phones[:3], (SENTINELS, SENTINELS_JAPAN, SENTINELS_JAPAN)):
             self.session(phone, game=game)
         result = self.run_sheets()
-        self.assertEqual(self.measured()["iPhone19,4"]["engine"], "nxnative 6c3aeb3d70a1 and 2 other builds")
+        measured = self.measured()["iPhone19,4"]
+        self.assertEqual(measured["engine"], "nxnative 6c3aeb3d70a1 and 2 other builds")
+        self.assertEqual((measured["measured"]["nxnative"], measured["measured"]["otherBuilds"]), ("6c3aeb3d70a1", 2))
         self.assertIn(f"with no sheet: 13 Sentinels: Aegis Rim ({SENTINELS}, 3 iPhones), "
                       "0100F2C0115B6000 (3 iPhones).", result.stdout)
+
+    def test_sessions_that_report_no_build_leave_it_out(self):
+        for phone in self.phones[:3]:
+            self.session(phone, nxnative=None)
+        self.run_sheets()
+        result = self.measured()["iPhone19,4"]
+        self.assertEqual(result["engine"], "nxnative, its build not reported")
+        self.assertNotIn("nxnative", result["measured"])
+        self.assertNotIn("otherBuilds", result["measured"])
+        self.assert_valid(self.written())
+
+    def test_the_result_of_an_ipad_counts_ipads(self):
+        for phone in self.phones[:3]:
+            self.session(phone, device="iPad16,3")
+        self.run_sheets()
+        result = self.measured()["iPad16,3"]
+        self.assertTrue(result["notes"][0].startswith("Measured by Cartouche on 3 iPads, 3 sessions from 2026-11-10"),
+                        result["notes"][0])
+        self.assertEqual(result["measured"]["iPhones"], 3)
+        self.assert_valid(self.written())
 
     def test_without_the_secrets_nothing_is_read(self):
         self.session(self.phones[0])
