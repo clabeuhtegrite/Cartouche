@@ -29,5 +29,7 @@ jobs:
           sudo xcode-select -s "/Applications/Xcode_${XCODE_VERSION}.app"
           xcodebuild -version
           xcrun simctl list runtimes
+      - name: The SDK's declarations
+        run: .github/tv-research/headers.sh
       - name: Probe
         run: .github/tv-research/probe.sh "$RUNNER_TEMP/probe"
