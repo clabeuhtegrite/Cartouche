@@ -9,6 +9,7 @@
 #
 #     drive.py UDID VARIANT SECONDS [--attach-at S] [--detach-first]
 
+import functools
 import re
 import struct
 import subprocess
@@ -17,23 +18,29 @@ import time
 from collections import Counter
 from pathlib import Path
 
+print = functools.partial(print, flush=True)
 BUNDLE = "io.github.clabeuhtegrite.research.tvprobe"
 HERE = Path(__file__).resolve().parent
 OUT = Path("build/tv-research").resolve()
 OUT.mkdir(parents=True, exist_ok=True)
 
 
-def run(*args, timeout=120):
-    done = subprocess.run(args, capture_output=True, text=True, timeout=timeout)
+def run(*args, timeout=30):
+    try:
+        done = subprocess.run(args, capture_output=True, text=True, timeout=timeout)
+    except subprocess.TimeoutExpired:
+        return -1, f"timed out after {timeout} s"
     return done.returncode, (done.stdout + done.stderr).strip()
 
 
 def display(udid, wanted):
     """Picks WANTED in the Simulator's External Displays menu."""
-    status, said = run("osascript", str(HERE / "display.applescript"), wanted)
-    print(f"   [display {wanted}] status {status}: {said}")
+    began = time.monotonic()
+    status, said = run("osascript", str(HERE / "display.applescript"), wanted, timeout=40)
+    print(f"   [display {wanted}] status {status} in {time.monotonic() - began:.0f} s: {said}")
     # The display comes or goes in the simulator a moment later.
-    for _ in range(30):
+    deadline = time.monotonic() + 15
+    while time.monotonic() < deadline:
         if (wanted == "Disabled") != ("External" in screens(udid, quiet=True)):
             break
         time.sleep(1)
@@ -42,7 +49,7 @@ def display(udid, wanted):
 
 def screens(udid, quiet=False):
     """The simulator's displays, from simctl io enumerate: screen ID -> type."""
-    status, said = run("xcrun", "simctl", "io", udid, "enumerate", timeout=60)
+    status, said = run("xcrun", "simctl", "io", udid, "enumerate", timeout=15)
     found = {}
     for block in re.split(r"(?=Screen ID: )", said)[1:]:
         ident = re.match(r"Screen ID: (\S+)", block).group(1)
@@ -102,7 +109,7 @@ def look(udid, ids, label):
         path = OUT / f"{label}-{ident}.bmp"
         path.unlink(missing_ok=True)
         status, text = run("xcrun", "simctl", "io", udid, "screenshot", "--type=bmp", f"--display={ident}", str(path),
-                           timeout=60)
+                           timeout=15)
         if status != 0 or not path.exists():
             said.append(f"{kind.split()[0]}#{ident}: no screenshot ({text[-160:]})")
             continue

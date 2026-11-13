@@ -96,22 +96,25 @@ jobs:
           device("duo", ["iPhone Duo"])
           PY
       - name: The probe on the iPhone
+        timeout-minutes: 14
         env:
           UDID: ${{ steps.devices.outputs.iphone }}
         run: |
           .github/tv-research/run.sh "$UDID" build/probe/Build/Products/Debug-iphonesimulator/TVProbe.app \
-            baseline:12:none none:14 nxnative:16 cartouche:40 baseline:12 late:30:late
-      - name: The probe on the iPad
-        if: ${{ !cancelled() && steps.devices.outputs.ipad != '' }}
-        env:
-          UDID: ${{ steps.devices.outputs.ipad }}
-        run: |
-          .github/tv-research/run.sh "$UDID" build/probe/Build/Products/Debug-iphonesimulator/TVProbe.app \
-            baseline:12:none none:14 nxnative:16 cartouche:40
+            baseline:12:none none:14 nxnative:16 cartouche:40 late:30:late
       - name: The probe on the iPhone Duo
         if: ${{ !cancelled() && steps.devices.outputs.duo != '' }}
+        timeout-minutes: 14
         env:
           UDID: ${{ steps.devices.outputs.duo }}
+        run: |
+          .github/tv-research/run.sh "$UDID" build/probe/Build/Products/Debug-iphonesimulator/TVProbe.app \
+            none:14:none cartouche:40
+      - name: The probe on the iPad
+        if: ${{ !cancelled() && steps.devices.outputs.ipad != '' }}
+        timeout-minutes: 14
+        env:
+          UDID: ${{ steps.devices.outputs.ipad }}
         run: |
           .github/tv-research/run.sh "$UDID" build/probe/Build/Products/Debug-iphonesimulator/TVProbe.app \
             none:14:none cartouche:40

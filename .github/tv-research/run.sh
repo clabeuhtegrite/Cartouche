@@ -25,15 +25,18 @@ sleep 15
 xcrun simctl install "$UDID" "$APP"
 echo "Simulator $(defaults read /Applications/Xcode.app/Contents/Developer/Applications/Simulator.app/Contents/Info CFBundleShortVersionString 2>/dev/null || echo '?')"
 
+# Each variant within 3 minutes, whatever hangs.
+drive() { perl -e 'alarm shift; exec @ARGV' 180 python3 "$HERE/drive.py" "$@"; }
+
 attached=no
 for spec in "$@"; do
   IFS=: read -r name seconds how <<<"$spec"
   case "${how:-}" in
     none)
-      python3 "$HERE/drive.py" "$UDID" "$name" "$seconds" --detach-first
+      drive "$UDID" "$name" "$seconds" --detach-first
       attached=no ;;
     late)
-      python3 "$HERE/drive.py" "$UDID" "$name" "$seconds" --detach-first --attach-at 5
+      drive "$UDID" "$name" "$seconds" --detach-first --attach-at 5
       attached=yes ;;
     *)
       if [ "$attached" = no ]; then
@@ -46,7 +49,7 @@ drive.display(sys.argv[1], "1920")
 PY
         attached=yes
       fi
-      python3 "$HERE/drive.py" "$UDID" "$name" "$seconds" ;;
+      drive "$UDID" "$name" "$seconds" ;;
   esac
 done
 
