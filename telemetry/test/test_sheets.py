@@ -4,8 +4,9 @@ database holds sessions as the Worker keeps them, made from the session of
 app-reports.json.
 
 - a model three iPhones played on gets a result, made of the medians of each
-  iPhone's own; a model two iPhones played on gets none, and neither does any
-  of its figures that fewer than three iPhones measured;
+  iPhone's own and the highest of their memory peaks; a model two iPhones
+  played on gets none, and neither does any of its figures that fewer than
+  three iPhones measured;
 - a session sent again counts once, at its highest seq; only the 28 days
   before the run count; a copy of another region counts for its game;
 - the status follows from how the sessions ended and the frame rate;
@@ -160,8 +161,8 @@ class SheetsTest(unittest.TestCase):
         self.assertEqual(result["measured"], {
             "iPhones": 3, "sessions": 4, "from": "2026-11-10", "to": "2026-11-11", "fps": 58, "slowestFps": 52,
             "targetFps": 60, "stuttersPerMinute": 1.4, "endedBadlyPercent": 0})
-        # Each iPhone's highest peak: 4640, 4720 and 5200.
-        self.assertEqual(result["peakMemoryMiB"], 4720)
+        # Each iPhone's highest peak: 4640, 4720 and 5200, the highest of them.
+        self.assertEqual(result["peakMemoryMiB"], 5200)
         self.assertEqual(result["notes"], [
             "Measured by Cartouche on 3 iPhones, 4 sessions from 2026-11-10 to 2026-11-11: 58 fps for 60 (median), "
             "52 fps in the slowest 5% of the time, 1.4 stutters a minute. None ended badly."])
@@ -212,10 +213,31 @@ class SheetsTest(unittest.TestCase):
         self.run_sheets()
         result = self.measured()["iPhone19,4"]
         self.assertNotIn("peakMemoryMiB", result)
-        # Once that iPhone plays the game, the peak is the three iPhones' median.
+        # Once that iPhone plays the game, the peak is the highest of the three.
         self.session(self.phones[2], day="2026-11-11", memory={"peakMiB": 5161})
         self.run_sheets()
-        self.assertEqual(self.measured()["iPhone19,4"]["peakMemoryMiB"], 5161)
+        self.assertEqual(self.measured()["iPhone19,4"]["peakMemoryMiB"], 5499)
+
+    def test_the_peak_is_the_highest_of_the_iphones_not_their_median(self):
+        # As Mario Kart World's on 2026-11-13: the iPhones' peaks were 5,499,
+        # 5,018 and 3,434 MiB, with a fourth that only crashed at boot. Their
+        # median, 5,018, leaves the eighth of 6,144 behind the console, and
+        # would have started the game there (docs/decisions.md, 48), where
+        # the first iPhone's 5,499 does not fit.
+        for peak in (5499, 5161):
+            self.session(self.phones[0], memory={"peakMiB": peak})
+        for peak in (4475, 5018):
+            self.session(self.phones[1], memory={"peakMiB": peak})
+        self.session(self.phones[2], fps={"median": 0.6, "low5": 0.3}, memory={"peakMiB": 3434})
+        for peak in (2, 50, 2):
+            self.session(self.phones[3], memory={"peakMiB": peak}, frames=None, fps=None, stutters=None,
+                         end={"kind": "crash", "signal": 11})
+        self.run_sheets()
+        result = self.measured()["iPhone19,4"]
+        self.assertEqual(result["measured"]["iPhones"], 4)
+        self.assertEqual(result["peakMemoryMiB"], 5499)
+        self.assertGreater(result["peakMemoryMiB"] + 6144 // 8, 6144, "it starts in Cartouche's place")
+        self.assert_valid(self.written())
 
     def test_a_session_sent_again_counts_once_at_its_highest_seq(self):
         again = str(uuid.uuid4())
