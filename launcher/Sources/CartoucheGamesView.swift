@@ -4,7 +4,8 @@
 //
 //  The Games tab, Cartouche's console: the home (CartoucheHomeView), every
 //  game (CartoucheLibraryView), and a game's sheet, with the game's
-//  settings one step further (CartoucheGameSettingsView). The console takes
+//  settings one step further (CartoucheGameSettingsView), or its Siri and
+//  Home Screen page (CartoucheGameShortcutsView). The console takes
 //  the whole screen, dark: the home's dock opens the System page over it
 //  (CartoucheRootView).
 //
@@ -55,6 +56,11 @@
 //  (CartoucheRunningGameQuestions). Cartouche's own update waits until it
 //  has ended, since the update closes Cartouche.
 //
+//  Siri and the Shortcuts app ask for a game by its name, as Cartouche
+//  opens or since (CartoucheShortcuts.swift): what is over the console
+//  goes, and the game starts as Play starts it. The console tells iOS the
+//  names of the player's games whenever they change.
+//
 
 import SwiftUI
 
@@ -71,6 +77,8 @@ struct CartoucheGamesView: View {
     /// The Files picker an IPA is imported with, over the console or a
     /// sheet: the console and its sheets leave it the controller.
     @ObservedObject private var importPicker = CartoucheImportPicker.shared
+    /// The game Siri or a shortcut asked for (CartoucheShortcuts.swift).
+    @ObservedObject private var shortcuts = CartoucheGameShortcuts.shared
     @State private var path: [Route] = []
     /// The game whose sheet is open over the console, in a compact width.
     @State private var sheetID: String?
@@ -87,6 +95,9 @@ struct CartoucheGamesView: View {
     /// The settings page open over the game's sheet, over the console or
     /// beside it.
     @State private var gameSettings: CartoucheGameSettingsModel?
+    /// The game, by its bundle identifier, whose Siri and Home Screen page
+    /// is open over its sheet, as its settings page would be.
+    @State private var shortcutsPage: String?
     /// The game whose info the player changes, over its sheet.
     @State private var editingInfo: CartoucheEntry?
     /// The report of a failure was just copied, from its alert.
@@ -124,7 +135,7 @@ struct CartoucheGamesView: View {
             && actions.switching == nil && actions.quitQuestion == nil && actions.installQuestion == nil
     }
     /// Nothing over the console or beside it that takes the controller.
-    private var nothingOver: Bool { nothingOverConsole && gameSettings == nil }
+    private var nothingOver: Bool { nothingOverConsole && gameSettings == nil && shortcutsPage == nil }
     /// Cartouche's own update shows over the console alone, once nothing
     /// else is over it.
     private var showsUpdate: Bool {
@@ -142,11 +153,12 @@ struct CartoucheGamesView: View {
             if splits, let entry = paneEntry(in: entries) {
                 gameSheet(entry, beside: true)
                     .modifier(CartoucheUninstallQuestion(app: $uninstallingInSheet, onAnswer: uninstall, onCopyFirst: copyThenUninstall))
-                    // The settings page beside the console takes the
-                    // controller; the console has it otherwise.
+                    // The settings page or the Siri and Home Screen page
+                    // beside the console takes the controller; the console
+                    // has it otherwise.
                     .onReceive(CartoucheGamepad.shared.inputs) { input in
                         guard onGames, nothingOverConsole, uninstallingInSheet == nil, editingInfo == nil else { return }
-                        _ = handleSettings(input)
+                        _ = handlePages(input)
                     }
             }
         }
@@ -162,7 +174,7 @@ struct CartoucheGamesView: View {
                     .modifier(CartoucheRunningGameQuestions(shown: true, onSwitch: { sheetID = nil }))
                     .onReceive(CartoucheGamepad.shared.inputs) { input in
                         guard !importPicker.isShowing, uninstallingInSheet == nil, editingInfo == nil, actions.switching == nil,
-                              actions.quitQuestion == nil, !handleSettings(input) else { return }
+                              actions.quitQuestion == nil, !handlePages(input) else { return }
                         switch input {
                         case .b:
                             sheetID = nil
@@ -232,11 +244,13 @@ struct CartoucheGamesView: View {
         }
         .animation(.easeInOut(duration: 0.2), value: actions.work)
         .animation(.easeInOut(duration: 0.2), value: showsUpdate)
-        // The sheet over the console closed: its settings page goes too. It
-        // stays when the sheet moves beside the console.
+        // The sheet over the console closed: its settings page or its Siri
+        // and Home Screen page goes too. It stays when the sheet moves beside
+        // the console.
         .onChange(of: sheetID) { _, id in
             if id == nil && !splits {
                 gameSettings = nil
+                shortcutsPage = nil
                 editingInfo = nil
             }
         }
@@ -244,6 +258,18 @@ struct CartoucheGamesView: View {
         // in the games folder or renamed: Cartouche asks its server about it.
         .onChange(of: CartoucheCatalog.wanted(among: entries)) { _, _ in
             lookUpGames()
+        }
+        // Siri or a shortcut asked for a game, as Cartouche opened or since;
+        // the Files picker keeps it until it closes.
+        .onChange(of: shortcuts.request, initial: true) { _, _ in
+            takeShortcut()
+        }
+        .onChange(of: importPicker.isShowing) { _, _ in
+            takeShortcut()
+        }
+        // Siri knows the player's games by the names the console gives them.
+        .onChange(of: CartoucheGameShortcuts.names(of: entries), initial: true) { _, names in
+            shortcuts.tellIOS(names)
         }
         // The iPhone Duo unfolded, or the player's first game there: the
         // sheet open over the console moves beside it, with its settings
@@ -254,7 +280,7 @@ struct CartoucheGamesView: View {
             if splits {
                 if let sheetID { paneID = sheetID }
                 sheetID = nil
-            } else if gameSettings != nil || editingInfo != nil {
+            } else if gameSettings != nil || shortcutsPage != nil || editingInfo != nil {
                 sheetID = paneID
             }
         }
@@ -446,13 +472,19 @@ struct CartoucheGamesView: View {
                     // The sheet shows the game the console falls back on:
                     // the settings page is for it.
                     if beside { paneID = entry.id }
+                    shortcutsPage = nil
                     gameSettings = actions.settings(for: app, tileKey: entry.tileKey)
                 },
                 onImport: { chooseIPA(from: .sheet) },
                 onUninstall: { uninstallingInSheet = $0 },
                 onInstallStored: { installStored($0) },
                 onExport: { exportCopy($0) },
-                onEditInfo: { editingInfo = entry })
+                onEditInfo: { editingInfo = entry },
+                onShortcuts: { app in
+                    if beside { paneID = entry.id }
+                    gameSettings = nil
+                    shortcutsPage = app.appInfo.bundleIdentifier()
+                })
                 .id(entry.id)
                 // Beside the console, the sheet's bar would hold nothing.
                 .toolbar(beside ? .hidden : .automatic, for: .navigationBar)
@@ -474,6 +506,16 @@ struct CartoucheGamesView: View {
                             }
                         }
                     }
+                }
+                .navigationDestination(item: $shortcutsPage) { id in
+                    CartoucheGameShortcutsView(id: id, name: entry.name)
+                        .toolbar {
+                            if !beside {
+                                ToolbarItem(placement: .confirmationAction) {
+                                    doneButton { sheetID = nil }
+                                }
+                            }
+                        }
                 }
         }
         // What the player says of their game, over its sheet, which B
@@ -507,6 +549,17 @@ struct CartoucheGamesView: View {
         entries.entry(id: paneID) ?? entries.owned.first
     }
 
+    /// On the controller, a page open over a game's sheet, or beside the
+    /// console: its settings, or Siri and Home Screen, where B goes back
+    /// to the sheet. Whether the page took the input.
+    private func handlePages(_ input: CartoucheGamepad.Input) -> Bool {
+        if shortcutsPage != nil {
+            if input == .b { shortcutsPage = nil }
+            return true
+        }
+        return handleSettings(input)
+    }
+
     /// On the controller, a game's settings page open: L and R change the
     /// category, B goes back to the sheet. Whether the page took the input.
     private func handleSettings(_ input: CartoucheGamepad.Input) -> Bool {
@@ -521,11 +574,12 @@ struct CartoucheGamesView: View {
     }
 
     /// The game in focus on the home or in every game: the sheet beside the
-    /// console shows it. Another game in focus closes the settings page of
-    /// the last. With a sheet over the console, the focus does not move.
+    /// console shows it. Another game in focus closes the settings page or
+    /// the Siri and Home Screen page of the last. With a sheet over the
+    /// console, the focus does not move.
     private func focus(_ entry: CartoucheEntry) {
         guard sheetID == nil else { return }
-        if paneID != entry.id { gameSettings = nil }
+        if paneID != entry.id { closePages() }
         paneID = entry.id
     }
 
@@ -539,9 +593,16 @@ struct CartoucheGamesView: View {
 
     /// A game's sheet: beside the console in a split, over it otherwise.
     private func showSheet(_ entry: CartoucheEntry) {
-        if paneID != entry.id { gameSettings = nil }
+        if paneID != entry.id { closePages() }
         paneID = entry.id
         if !splits { sheetID = entry.id }
+    }
+
+    /// The pages open over the last game's sheet go: its settings, or its
+    /// Siri and Home Screen.
+    private func closePages() {
+        gameSettings = nil
+        shortcutsPage = nil
     }
 
     /// A new install: the guide opens by itself, once, over the console.
@@ -607,6 +668,37 @@ struct CartoucheGamesView: View {
         }
         sheetID = nil
         actions.play(app, showingSettings: showingSettings)
+    }
+
+    /// The game Siri or a shortcut asked for (CartoucheShortcuts.swift):
+    /// what is over the console goes, the System page, a game's sheet with
+    /// what is over it, the setup, the guide, a question about uninstalling
+    /// or quitting a game, or the last failure's alert, and the game starts
+    /// as Play starts it, once they have gone; another game on screen goes
+    /// behind the console, which asks whether to quit it. The Files picker,
+    /// where the player is choosing an IPA, keeps it until it closes.
+    private func takeShortcut() {
+        guard let request = shortcuts.request, !importPicker.isShowing else { return }
+        shortcuts.take(request)
+        guard let app = sharedModel.apps.first(where: { $0.appInfo.bundleIdentifier() == request.id }) else { return }
+        // Another game than the one on screen: the console comes over it,
+        // as the Home button brings it, and asks whether to quit it.
+        if let running = actions.running, running.isInFront, running.app !== app {
+            actions.showConsole()
+        }
+        sharedModel.selectedTab = .games
+        sheetID = nil
+        showingSetup = false
+        showingGuide = false
+        editingInfo = nil
+        uninstalling = nil
+        uninstallingInSheet = nil
+        actions.switching = nil
+        actions.quitQuestion = nil
+        actions.notice = nil
+        // Once they have gone, or once the console is on screen as
+        // Cartouche opens, as the guide waits before the game it starts.
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) { play(app) }
     }
 
     /// The Files picker, over what is on screen: the IPA picked installs
