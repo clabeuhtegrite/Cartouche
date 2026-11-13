@@ -1015,91 +1015,114 @@ struct CartoucheStorageFolderBrowser: View {
 
 @available(iOS 17.0, *)
 struct CartoucheSavesSection: View {
-    let target: CartoucheSaveTarget
+    /// The game's saves; nil for a game that never started, which has no
+    /// data folder yet: a save can come from the Switch then.
+    let target: CartoucheSaveTarget?
     /// Whether the game runs behind the console, writing its saves: they
     /// are neither synced nor put back meanwhile.
     let isRunning: Bool
+    /// The game, for its saves between the player's Switch and this
+    /// iPhone (CartoucheSwitchSaveView).
+    let switchGame: CartoucheSwitchSaveGame?
     @ObservedObject var backups = CartoucheSaveBackups.shared
     @ObservedObject private var settings = CartoucheStorageSettings.shared
     @ObservedObject private var reach = CartoucheStorageReach.shared
     @State private var syncing = false
 
-    init(target: CartoucheSaveTarget, isRunning: Bool = false) {
+    init(target: CartoucheSaveTarget?, isRunning: Bool = false, switchGame: CartoucheSwitchSaveGame? = nil) {
         self.target = target
         self.isRunning = isRunning
+        self.switchGame = switchGame
     }
 
     var body: some View {
         Section {
-            if let location = settings.location(.saves) {
-                if let news = backups.news[target.key], let line = Self.line(of: news) {
-                    Label(line, systemImage: news.kept == nil ? "arrow.down.circle.fill" : "arrow.triangle.branch")
-                        .font(.footnote)
-                }
-                LabeledContent(CartoucheText.savesLastSync) {
-                    if let date = backups.lastSync[target.key] {
-                        Text(date, format: .relative(presentation: .named))
-                    } else {
-                        Text(CartoucheText.savesNoCopy)
-                    }
-                }
-                if settings.isReadOnly(.saves) {
-                    Text(CartoucheText.savesReadOnly)
-                        .font(.footnote)
-                        .foregroundStyle(Color.orange)
-                } else {
-                    Button {
-                        syncing = true
-                        Task {
-                            _ = await backups.syncNow(target)
-                            syncing = false
-                        }
-                    } label: {
-                        HStack {
-                            Label(CartoucheText.savesSyncNow(location.server.name), systemImage: "arrow.triangle.2.circlepath")
-                            if syncing || backups.isSyncing {
-                                Spacer()
-                                ProgressView()
-                            }
-                        }
-                    }
-                    .disabled(syncing || backups.isSyncing || isRunning)
-                }
+            if let target {
+                rows(of: target)
+            }
+            if let switchGame {
                 NavigationLink {
-                    CartoucheSaveCopiesView(target: target)
+                    CartoucheSwitchSaveView(game: switchGame, isRunning: isRunning)
                 } label: {
-                    Label(CartoucheText.savesPutBack, systemImage: "clock.arrow.circlepath")
+                    Label(CartoucheText.switchSaveTitle, systemImage: "arrow.left.arrow.right")
                 }
-                .disabled(isRunning)
-                if isRunning {
-                    Text(CartoucheText.savesRunning)
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
-                }
-                if reach.isOffline(location.server.id) {
-                    let away = CartoucheStorageOffline(location.server)
-                    Label(away.localizedDescription, systemImage: away.symbol)
-                        .font(.footnote)
-                        .foregroundStyle(Color.orange)
-                    if backups.waiting.contains(target.key) {
-                        Text(CartoucheText.savesWaitingHere)
-                            .font(.footnote)
-                            .foregroundStyle(.secondary)
-                    }
-                } else if let problem = backups.problemReport {
-                    Text(problem.message)
-                        .font(.footnote)
-                        .foregroundStyle(Color.orange)
-                    CartoucheReportButton(report: problem)
-                }
-            } else {
-                Text(CartoucheText.savesNoFolder)
-                    .foregroundStyle(.secondary)
             }
         } header: {
             Text(CartoucheText.savesTitle)
         } footer: {
-            Text(CartoucheText.savesFooter(CartoucheSaveBackups.kept))
+            if target != nil {
+                Text(CartoucheText.savesFooter(CartoucheSaveBackups.kept))
+            }
+        }
+    }
+
+    /// The rows of TARGET's saves, kept in step with the saves folder.
+    @ViewBuilder
+    private func rows(of target: CartoucheSaveTarget) -> some View {
+        if let location = settings.location(.saves) {
+            if let news = backups.news[target.key], let line = Self.line(of: news) {
+                Label(line, systemImage: news.kept == nil ? "arrow.down.circle.fill" : "arrow.triangle.branch")
+                    .font(.footnote)
+            }
+            LabeledContent(CartoucheText.savesLastSync) {
+                if let date = backups.lastSync[target.key] {
+                    Text(date, format: .relative(presentation: .named))
+                } else {
+                    Text(CartoucheText.savesNoCopy)
+                }
+            }
+            if settings.isReadOnly(.saves) {
+                Text(CartoucheText.savesReadOnly)
+                    .font(.footnote)
+                    .foregroundStyle(Color.orange)
+            } else {
+                Button {
+                    syncing = true
+                    Task {
+                        _ = await backups.syncNow(target)
+                        syncing = false
+                    }
+                } label: {
+                    HStack {
+                        Label(CartoucheText.savesSyncNow(location.server.name), systemImage: "arrow.triangle.2.circlepath")
+                        if syncing || backups.isSyncing {
+                            Spacer()
+                            ProgressView()
+                        }
+                    }
+                }
+                .disabled(syncing || backups.isSyncing || isRunning)
+            }
+            NavigationLink {
+                CartoucheSaveCopiesView(target: target)
+            } label: {
+                Label(CartoucheText.savesPutBack, systemImage: "clock.arrow.circlepath")
+            }
+            .disabled(isRunning)
+            if isRunning {
+                Text(CartoucheText.savesRunning)
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+            }
+            if reach.isOffline(location.server.id) {
+                let away = CartoucheStorageOffline(location.server)
+                Label(away.localizedDescription, systemImage: away.symbol)
+                    .font(.footnote)
+                    .foregroundStyle(Color.orange)
+                if backups.waiting.contains(target.key) {
+                    Text(CartoucheText.savesWaitingHere)
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                }
+            } else if let problem = backups.problemReport {
+                Text(problem.message)
+                    .font(.footnote)
+                    .foregroundStyle(Color.orange)
+                CartoucheReportButton(report: problem)
+            }
+        } else {
+            Text(CartoucheText.savesNoFolder)
+                .foregroundStyle(.secondary)
         }
     }
 

@@ -8,7 +8,7 @@
 //  the whole screen of the simulator it runs on, such as the iPhone Duo's,
 //  with its own safe area, size classes and system bars.
 //
-//      -GalleryScreen games|library|sheet|settings|gameinfo|setup|signin|guide|system|storage|storage-mac|storage-drive|storage-drive-guide|telemetry|report|tv
+//      -GalleryScreen games|library|sheet|settings|gameinfo|setup|signin|guide|system|storage|storage-mac|storage-drive|storage-drive-guide|telemetry|report|tv|switch-save
 //                                        library: every game, open over
 //                                        the home; gameinfo: what the
 //                                        player says of the sheet's game;
@@ -22,7 +22,11 @@
 //                                        or the first of the player's, runs
 //                                        behind the console, its card where
 //                                        the game leaves its own scene on
-//                                        the TV empty (CartoucheTV.swift)
+//                                        the TV empty (CartoucheTV.swift);
+//                                        switch-save: the sheet's game's
+//                                        saves between the Switch and this
+//                                        iPhone, with work: saves the save
+//                                        JKSV exported, read
 //      -GalleryWidth 402 -GalleryHeight 874     (none: the whole screen)
 //      -GalleryInsets 62,0,34,0          top, leading, bottom, trailing
 //      -GalleryWidthClass compact        the width class at a scenario's
@@ -270,6 +274,10 @@ struct GalleryScenario {
             }
             if work == "saves", let titleId = sheet ?? ownedTitles.first {
                 GallerySaves.prepare(titleId: titleId)
+                if screen == "switch-save" {
+                    // The save JKSV exported, picked as the page opens.
+                    CartoucheSwitchSaveView.galleryPick = { await GallerySaves.switchExport() }
+                }
             }
             if work == "mac" || work == "mac-offline" {
                 // The player's Mac, paired, with the games Cartouche Builder
@@ -606,6 +614,20 @@ struct CartoucheGalleryApp: App {
             NavigationStack {
                 CartoucheReportView()
             }
+        case "switch-save":
+            // The game's saves between the Switch and this iPhone, from its
+            // sheet: with work: saves, the save JKSV exported, read.
+            if let entry = entries.owned.first(where: { $0.titleId == (scenario.sheet ?? scenario.ownedTitles.first) }),
+               let app = entry.app {
+                NavigationStack {
+                    CartoucheSwitchSaveView(game: CartoucheSwitchSaveGame(name: entry.name, titleId: entry.titleId, version: "1.0.0",
+                                                                          isSwitch2: entry.platform == "switch2",
+                                                                          target: GallerySaves.target(of: app),
+                                                                          makeTarget: { GallerySaves.target(of: app) },
+                                                                          isRunningNow: { false }),
+                                            isRunning: false)
+                }
+            }
         case "root":
             CartoucheRootView()
         case "tv":
@@ -704,8 +726,51 @@ enum GallerySaves {
             let server = CartoucheStorageServer(kind: .folder, name: folderName, bookmark: try CartoucheFolder.bookmark(of: folder))
             CartoucheStorageSettings.shared.showForGallery(server, games: "", saves: "Saves")
             self.titleId = titleId
+            switchExportWritten = Task { await writeSwitchExport(titleId: titleId) }
         } catch {
             NSLog("[Gallery] cannot make the saves and their folder: %@", String(describing: error))
+        }
+    }
+
+    /// The save JKSV exported on the Switch that the gallery offers, a ZIP
+    /// archive of the scenario's game's in its Documents, which the Files
+    /// picker shows under On My iPhone › Gallery.
+    static let switchExportName = "Switch save.zip"
+    @MainActor private static var switchExportWritten: Task<URL?, Never>?
+
+    /// The save JKSV exported, once written.
+    @MainActor
+    static func switchExport() async -> URL? {
+        await switchExportWritten?.value
+    }
+
+    /// Writes a save of the game TITLEID as JKSV exports one: its fiche, a
+    /// file and a folder with a file.
+    private static func writeSwitchExport(titleId: String) async -> URL? {
+        let documents = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+        let url = documents.appendingPathComponent(switchExportName)
+        var fiche = [UInt8](repeating: 0, count: CartoucheSwitchSaveMeta.size)
+        let id = UInt64(titleId, radix: 16) ?? 0
+        for index in 0 ..< 4 { fiche[index] = UInt8(truncatingIfNeeded: CartoucheSwitchSaveMeta.magic >> (8 * UInt32(index))) }
+        fiche[4] = 1
+        for index in 0 ..< 8 { fiche[5 + index] = UInt8(truncatingIfNeeded: id >> (8 * UInt64(index))) }
+        fiche[37] = 1   // a player's save
+        do {
+            try FileManager.default.createDirectory(at: documents, withIntermediateDirectories: true)
+            let sink = try CartoucheFileSink(url)
+            let writer = CartoucheZipWriter(sink: sink)
+            try await writer.addData(CartoucheSwitchSaveMeta.fileName, Data(fiche))
+            var progress = Data(count: 1 << 20)
+            progress.withUnsafeMutableBytes { arc4random_buf($0.baseAddress, $0.count) }
+            try await writer.addData("progress.bin", progress)
+            try await writer.addFolder("slots/")
+            try await writer.addData("slots/1.bin", Data("slot 1".utf8))
+            try await writer.finish()
+            try sink.close()
+            return url
+        } catch {
+            NSLog("[Gallery] cannot write %@: %@", switchExportName, String(describing: error))
+            return nil
         }
     }
 

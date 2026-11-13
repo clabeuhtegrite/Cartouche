@@ -380,6 +380,60 @@ final class CartoucheSaveBackups: ObservableObject {
         if let failure { throw failure }
     }
 
+    // MARK: A save from the Switch
+
+    /// Puts the save from the player's Switch that STAGED holds
+    /// (CartoucheSwitchSave.stage) in place of TARGET's, once the syncs under
+    /// way have ended, none starting meanwhile: the saves it replaces are
+    /// kept on this iPhone first. It then goes to the saves folder as the
+    /// newest copy, if the player chose one: now, or once its server answers
+    /// again. RUNNING: whether the game runs now, which its turn asks
+    /// first, as the player may have started it since the question; nothing
+    /// changes then. The backup of the saves it replaced, nil when there
+    /// were none.
+    func bringIn(_ staged: URL, of target: CartoucheSaveTarget, running: @escaping @MainActor () -> Bool) async throws -> URL? {
+        let documents = target.documents
+        let result: Result<URL?, Error> = await turn {
+            if running() { return .failure(CartoucheSwitchSaveProblem.running) }
+            return await Task.detached(priority: .userInitiated) {
+                Result { try CartoucheSwitchSave.place(staged, in: documents) }
+            }.value
+        }
+        let backup = try result.get()
+        news[target.key] = nil
+        defaults.set(try? JSONEncoder().encode(news), forKey: Self.newsKey)
+        sendChanged(target)
+        return backup
+    }
+
+    /// Puts BACKUP, the saves an import replaced, back in place of TARGET's,
+    /// as the player asked, the same way: what it replaces is kept on this
+    /// iPhone, and it goes to the saves folder; nothing changes while the
+    /// game runs (RUNNING).
+    func putBack(beforeImport backup: CartoucheSwitchSaveBackup, of target: CartoucheSaveTarget,
+                 running: @escaping @MainActor () -> Bool) async throws {
+        let documents = target.documents
+        let folder = backup.folder
+        let result: Result<Void, Error> = await turn {
+            if running() { return .failure(CartoucheSwitchSaveProblem.running) }
+            return await Task.detached(priority: .userInitiated) {
+                Result { try CartoucheSwitchSave.putBack(folder, in: documents) }
+            }.value
+        }
+        try result.get()
+        sendChanged(target)
+    }
+
+    /// Sends TARGET's saves, which the player changed on this iPhone, to the
+    /// saves folder, after the syncs under way: now, or once its server
+    /// answers again.
+    private func sendChanged(_ target: CartoucheSaveTarget) {
+        guard isOn else { return }
+        Task {
+            _ = await turn { await self.syncRound([target], fetching: false, onlyChanged: true, byPlayer: false).failure == nil }
+        }
+    }
+
     private func putBack(_ backup: CartoucheSaveBackup, of target: CartoucheSaveTarget) async throws {
         guard let location = settings.location(.saves) else { return }
         let place = Self.place(location)

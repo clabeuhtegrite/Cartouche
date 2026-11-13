@@ -141,8 +141,8 @@ struct CartoucheGameSheetView: View {
                     }
                 }
 
-                if let app = entry.app, let saves = actions.saves(of: app) {
-                    CartoucheSavesSection(target: saves, isRunning: actions.isRunning(app))
+                if let app = entry.app, let game = switchGame(of: app) {
+                    CartoucheSavesSection(target: game.target, isRunning: actions.isRunning(app), switchGame: game)
                 }
 
                 if entry.isOwned {
@@ -171,6 +171,18 @@ struct CartoucheGameSheetView: View {
         }
         // The header names the game: the bar above it stays empty.
         .navigationBarTitleDisplayMode(.inline)
+    }
+
+    /// The game's saves, and the game, for its saves between the player's
+    /// Switch and this iPhone; nil for an app that is not an nxnative game.
+    private func switchGame(of app: LCAppModel) -> CartoucheSwitchSaveGame? {
+        let target = actions.saves(of: app)
+        guard target != nil || CartoucheCatalog.shared.gameTitle(of: app) != nil else { return nil }
+        return CartoucheSwitchSaveGame(name: entry.name, titleId: target?.titleId ?? entry.titleId,
+                                       version: CartoucheInstalledBuilds.installedBuild(of: app).version,
+                                       isSwitch2: entry.platform == "switch2", target: target,
+                                       makeTarget: { actions.savesToImport(of: app) },
+                                       isRunningNow: { actions.isRunning(app) })
     }
 
     // MARK: Header

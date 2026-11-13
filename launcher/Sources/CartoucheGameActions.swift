@@ -1323,6 +1323,16 @@ final class CartoucheGameActions: ObservableObject {
                                    documents: container.containerURL.appendingPathComponent("Documents", isDirectory: true))
     }
 
+    /// Where the game keeps its saves, its data folder made now if it never
+    /// started, as on its first start: for a save the player brings from
+    /// their Switch before then (CartoucheSwitchSaveView). Nil for an app
+    /// that is not an nxnative game.
+    func savesToImport(of app: LCAppModel) -> CartoucheSaveTarget? {
+        guard CartoucheCatalog.shared.gameTitle(of: app) != nil else { return nil }
+        _ = Self.dataFolder(of: app)
+        return saves(of: app)
+    }
+
     /// Sends the saves of the nxnative games among APPS that changed since
     /// they were last in step with the player's saves folder, if they chose
     /// one (CartoucheSaveBackups).

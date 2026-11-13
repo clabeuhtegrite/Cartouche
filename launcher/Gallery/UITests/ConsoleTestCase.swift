@@ -107,6 +107,18 @@ enum Words {
     static let putBack = "Put back a copy"                  // saves.putBack
     static let putBackCopy = "Put back the copy of "        // saves.putBack.action
     static let putBackDone = "The copy of "                 // saves.putBack.done
+    static let switchSaves = "Switch saves"                 // switchSave.title
+    static let chooseExport = "Choose the exported save"    // switchSave.choose
+    static let game = "Game"                                // switchSave.game
+    static let checkedByFiche = "This one, by JKSV’s fiche" // switchSave.game.checked
+    static let continueHere = "Continue this game here"     // switchSave.import.action
+    static let continueQuestion = "Continue this game here?" // switchSave.import.question
+    static let imported = "The game from your Switch is in place" // switchSave.import.done
+    static let putBackImport = "Put back the game from before the import" // switchSave.putBack
+    static let putBackImportQuestion = "Put back the game from before the import?" // switchSave.putBack.question
+    static let putBackImportDone = "The game from before the import is back." // switchSave.putBack.done
+    static let makeZip = "Make the ZIP for JKSV"            // switchSave.send.make
+    static let shareZip = "Share "                          // switchSave.send.share
 }
 
 /// The gallery's own words (GalleryTesting.swift).
@@ -122,6 +134,9 @@ enum GalleryWords {
     static let signedInAs = "player@icloud.com"
     /// The folder in Files the saves are kept in (GallerySaves).
     static let savesFolder = "Gallery saves"
+    /// The save JKSV exported on the Switch, in the gallery's folder
+    /// (GallerySaves).
+    static let switchExport = "Switch save.zip"
 }
 
 /// The player's games, as nxnative.json names them.
