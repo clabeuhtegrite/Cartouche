@@ -856,7 +856,9 @@ test("summaries are kept as the catalog's tool keeps them", () => {
     "Unravel Two is a co-op platformer.\n\nTwo Yarnys, tied together.");
   assert.equal(summaryOf("- Play alone\n- Or with a friend\u0007\n"), "- Play alone\n- Or with a friend");
   assert.equal(summaryOf("Visit https://example.com/unravel or WWW.example.com, today.\nhttp://x"), "Visit or today.");
-  for (const none of [undefined, null, 7, "", " \n \u00a0 "]) assert.equal(summaryOf(none), undefined);
+  // Zero-width spaces, which the app would trim.
+  assert.equal(summaryOf("Pok\u200bémon awaits.\u200b\u200b"), "Pokémon awaits.");
+  for (const none of [undefined, null, 7, "", " \n \u00a0 ", "\u200b"]) assert.equal(summaryOf(none), undefined);
   // Too long: cut after the last word that fits, without its comma, with an ellipsis.
   assert.equal(summaryOf("Yarny ".repeat(400)), "Yarny ".repeat(333).slice(0, -1) + "…");
   assert.equal(summaryOf("Yarny, ".repeat(300)), "Yarny, ".repeat(285).slice(0, -2) + "…");
