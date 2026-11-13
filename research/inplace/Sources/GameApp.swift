@@ -30,7 +30,12 @@ final class GameSceneDelegate: UIResponder, UIWindowSceneDelegate {
         window.rootViewController = GameViewController()
         window.makeKeyAndVisible()
         self.window = window
-        DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
+        // As iOS started it, then as if the player turned the iPhone upright:
+        // UIKit refuses a way neither the view controller nor the app allows.
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
+            GameStatus.askUpright(window)
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 4) {
             GameStatus.write(window)
         }
     }
@@ -47,15 +52,34 @@ final class GameViewController: UIViewController {
 }
 
 enum GameStatus {
-    static func write(_ window: UIWindow) {
-        let orientation: String
-        switch window.windowScene?.effectiveGeometry.interfaceOrientation ?? .unknown {
-        case .portrait: orientation = "portrait"
-        case .portraitUpsideDown: orientation = "portraitUpsideDown"
-        case .landscapeLeft: orientation = "landscapeLeft"
-        case .landscapeRight: orientation = "landscapeRight"
-        default: orientation = "unknown"
+    static var asStarted = "unknown"
+    static var askedUpright = "not asked"
+
+    static func name(_ orientation: UIInterfaceOrientation) -> String {
+        switch orientation {
+        case .portrait: return "portrait"
+        case .portraitUpsideDown: return "portraitUpsideDown"
+        case .landscapeLeft: return "landscapeLeft"
+        case .landscapeRight: return "landscapeRight"
+        default: return "unknown"
         }
+    }
+
+    static func askUpright(_ window: UIWindow) {
+        guard let scene = window.windowScene else { return }
+        asStarted = name(scene.effectiveGeometry.interfaceOrientation)
+        guard scene.effectiveGeometry.interfaceOrientation != .portrait else {
+            askedUpright = "already upright"
+            return
+        }
+        askedUpright = "asked"
+        scene.requestGeometryUpdate(.iOS(interfaceOrientations: .portrait)) { error in
+            askedUpright = "refused: \(error.localizedDescription)"
+        }
+    }
+
+    static func write(_ window: UIWindow) {
+        let orientation = name(window.windowScene?.effectiveGeometry.interfaceOrientation ?? .unknown)
         let size = window.bounds.size
         let root = window.rootViewController
         let status: [String: Any] = [
@@ -68,6 +92,8 @@ enum GameStatus {
                 ? (root?.value(forKey: "__supportedInterfaceOrientations") as? UInt) ?? 0 : 0,
             "applicationWays": UIApplication.shared.supportedInterfaceOrientations(for: window).rawValue,
             "control": UserDefaults.standard.bool(forKey: "CartoucheControl"),
+            "asStarted": asStarted,
+            "askedUpright": askedUpright,
         ]
         NSLog("[InPlaceGame] status %@", status as NSDictionary)
         guard let documents = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first,
