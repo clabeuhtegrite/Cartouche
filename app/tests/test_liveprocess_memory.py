@@ -4,7 +4,7 @@ as the Cartouche Installer does (docs/decisions.md, 88):
 
 - whenever SideStore signs Cartouche again, as its updates do, Cartouche's
   extensions keep the app's own provisioning profile, whose App ID has the
-  capability (app/patches/sidestore/0020): the step that decides it runs
+  capability (app/patches/sidestore/0021): the step that decides it runs
   before the profiles are fetched and the app is signed, neither the
   player's setting nor another step undoes it, and the install records it
   for the renewals that follow;
@@ -151,7 +151,7 @@ def guard_lets_through(guard: str, value) -> bool:
 
 
 class CartoucheExtensionsProfileTest(unittest.TestCase):
-    """app/patches/sidestore/0020."""
+    """app/patches/sidestore/0021."""
 
     def test_sidestore_keeps_cartouches_profile_for_its_extensions(self):
         execute = body_of(patched(REMOVE_EXTENSIONS), r"override func execute\(parentProgress: Progress\?\) async throws -> ALTApplication \{",
