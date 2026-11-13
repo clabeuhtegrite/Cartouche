@@ -8,4 +8,4 @@ Python packages and the Apple tools it needs are checked and set up by the
 builder (toolchain.py), never bundled.
 """
 
-__version__ = "0.4.2"
+__version__ = "0.5.0"
