@@ -151,6 +151,18 @@ final class CartoucheResetPlanTests: XCTestCase {
         XCTAssertEqual(CartoucheResetPlan.keys(ofPreferences: preferences.appendingPathComponent("none.plist")), [])
     }
 
+    func testSideStoreKeepsTheProtocolItReadsThePairingFileBy() {
+        let keys = ["activePairingProtocol", "customAnisetteURL", "firstLaunch", "isPairingReset", "preferredPairingProtocol"]
+        // Before iOS 26.4, a Lockdown pairing file is read by the protocol
+        // SideStore noted alone; the rest goes, firstLaunch among them.
+        XCTAssertEqual(CartoucheResetPlan.erasedStorePreferences(keys, domain: "com.SideStore.SideStore"),
+                       ["customAnisetteURL", "firstLaunch", "isPairingReset"])
+        // In any other domain, everything goes.
+        XCTAssertEqual(CartoucheResetPlan.erasedStorePreferences(keys, domain: "group.com.SideStore.SideStore"), keys)
+        XCTAssertEqual(CartoucheResetPlan.erasedStorePreferences(keys, domain: "io.github.clabeuhtegrite.cartouche"), keys)
+        XCTAssertEqual(CartoucheResetPlan.erasedStorePreferences([], domain: "com.SideStore.SideStore"), [])
+    }
+
     // MARK: Files
 
     func testTheGamesDataFoldersAreFoundEachOne() throws {
@@ -207,6 +219,7 @@ final class CartoucheResetPlanTests: XCTestCase {
             "Documents/SideStore/Documents/PairingFile_Lockdown.plist",
             "Documents/SideStore/Documents/ALTPairingFile.mobiledevicepairing",
             "Library/Preferences",
+            "Documents/SideStore/Library/Preferences/com.SideStore.SideStore.plist",
             "Library/Application Support/Cartouche/Telemetry.json",
             "Documents/Jeux",
             "Library/Logs/console.txt",
@@ -232,9 +245,11 @@ final class CartoucheResetPlanTests: XCTestCase {
             "Documents/Data/AppGroup/group.org.nxnative/x",
             "Documents/Tweaks/x",
             "Documents/Inbox/Kart.ipa",
-            // SideStore's home: the pairing file stays, the rest goes.
+            // SideStore's home: the pairing file stays, and the file of its
+            // own preferences, whose keys go through cfprefsd; the rest goes.
             "Documents/SideStore/Documents/ALTPairingFile.mobiledevicepairing",
             "Documents/SideStore/Documents/Logs/log.txt",
+            "Documents/SideStore/Library/Preferences/com.SideStore.SideStore.plist",
             "Documents/SideStore/Library/Preferences/io.github.clabeuhtegrite.cartouche.plist",
             "Documents/SideStore/Library/Caches/x",
             // The player's storage in Cartouche's own space, and a file of
@@ -277,6 +292,9 @@ final class CartoucheResetPlanTests: XCTestCase {
             "Documents/SideStore/",
             "Documents/SideStore/Documents/",
             "Documents/SideStore/Documents/ALTPairingFile.mobiledevicepairing",
+            "Documents/SideStore/Library/",
+            "Documents/SideStore/Library/Preferences/",
+            "Documents/SideStore/Library/Preferences/com.SideStore.SideStore.plist",
             "Library/",
             "Library/Application Support/",
             "Library/Application Support/Cartouche/",
@@ -291,7 +309,7 @@ final class CartoucheResetPlanTests: XCTestCase {
         XCTAssertEqual(tree(outside), ["precious.txt"])
         // Again, nothing left to erase.
         XCTAssertEqual(CartoucheResetPlan.eraseFiles(home: home, appGroup: appGroup, keeping: kept), [])
-        XCTAssertEqual(tree(home).count, 17)
+        XCTAssertEqual(tree(home).count, 20)
     }
 
     /// The player picked Cartouche's own space in Files itself: what they
@@ -306,7 +324,7 @@ final class CartoucheResetPlanTests: XCTestCase {
                                            playerFolders: [home.appendingPathComponent("Documents", isDirectory: true)])
         XCTAssertEqual(CartoucheResetPlan.eraseFiles(home: home, appGroup: nil, keeping: kept), [])
         XCTAssertEqual(tree(home), ["Documents/", "Documents/Kart.ipa", "Documents/Saves/", "Documents/Saves/Kart/",
-                                    "Documents/Saves/Kart/a.zip", "Documents/SideStore/"])
+                                    "Documents/Saves/Kart/a.zip", "Documents/SideStore/", "Documents/SideStore/Library/"])
     }
 
     /// An install with the player's own certificate keeps LiveContainer's

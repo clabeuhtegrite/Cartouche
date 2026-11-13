@@ -17,11 +17,11 @@
 //
 //  Kept:
 //  - what only a computer gives back: the pairing file, where the built-in
-//    SideStore reads it, and the signing certificate, the built-in
-//    SideStore's or the player's own. Signing in again without the
-//    certificate would end, whenever the account's certificate is not one
-//    the app holds, in installing Cartouche again from a computer
-//    (app/patches/sidestore/0004);
+//    SideStore reads it, with the protocol it reads it by, and the signing
+//    certificate, the built-in SideStore's or the player's own. Signing in
+//    again without the certificate would end, whenever the account's
+//    certificate is not one the app holds, in installing Cartouche again
+//    from a computer (app/patches/sidestore/0004);
 //  - what Apple knows this iPhone by: the machine Apple's anisette server
 //    knows it as, as SideStore's own Sign Out keeps it, so that the next
 //    sign-in comes from the same machine; and Apple's limit on sign-ins
@@ -141,6 +141,28 @@ enum CartoucheResetPlan {
         before.filter { !isCartouches(appGroupKey: $0.key) && after[$0.key] == nil }
     }
 
+    /// The built-in SideStore's own preferences' domain: its bundle
+    /// identifier, which Cartouche's packaging checks (app/scripts/package.sh).
+    static let storeDomain = "com.SideStore.SideStore"
+
+    /// The built-in SideStore's preferences that stay: the protocol it noted
+    /// to read the pairing file by, and the one it prefers. Before iOS 26.4,
+    /// it reads a Lockdown pairing file, the only kind the Cartouche Installer
+    /// makes for iOS 17.0 to 17.3, by that protocol alone
+    /// (PairingFileManager.fetchPairingFile): without it, it would ask for a
+    /// pairing file, which only a computer gives. The others go, firstLaunch
+    /// among them: SideStore starts again as on its first launch, and signs
+    /// out as there, which forgets the certificate it keeps in the keychain;
+    /// at the next sign-in, it looks for it in the app, as after the
+    /// Cartouche Installer, which wrote it there (patch 0012).
+    static let keptStorePreferences: Set<String> = ["activePairingProtocol", "preferredPairingProtocol"]
+
+    /// What goes of KEYS, the built-in SideStore's preferences in DOMAIN:
+    /// all of them in any other domain than its own.
+    static func erasedStorePreferences(_ keys: [String], domain: String) -> [String] {
+        domain == storeDomain ? keys.filter { !keptStorePreferences.contains($0) } : keys
+    }
+
     /// The preferences' domains of the built-in SideStore, by the files
     /// cfprefsd keeps them in, in its home: they go through cfprefsd before
     /// their files, or cfprefsd would hand SideStore what it kept of them.
@@ -196,8 +218,10 @@ enum CartoucheResetPlan {
     }
 
     /// What stays in HOME, Cartouche's home: the pairing files; the
-    /// preferences, which go through cfprefsd (UserDefaults), never by
-    /// their files, which cfprefsd would write back; the telemetry's file;
+    /// preferences, Cartouche's and the built-in SideStore's own, which go
+    /// through cfprefsd (UserDefaults), never by their files, which cfprefsd
+    /// would write back, SideStore's with the keys that stay; the
+    /// telemetry's file;
     /// the app group, when it lies in it, as for an install with the
     /// player's own certificate, which has no app group of iOS, but for
     /// Cartouche's own folder there; what stays of the folders of the
@@ -209,6 +233,7 @@ enum CartoucheResetPlan {
             .appendingPathComponent("Documents", isDirectory: true)
         var kept = pairingFileNames.map { storeDocuments.appendingPathComponent($0) }
         kept.append(home.appendingPathComponent("Library/Preferences", isDirectory: true))
+        kept.append(storePreferences(documents: documents).appendingPathComponent(storeDomain + ".plist"))
         kept.append(home.appendingPathComponent(telemetryFile))
         if let appGroup, relativeParts(of: appGroup, in: home) != nil {
             kept.append(appGroup)

@@ -301,8 +301,9 @@ enum CartoucheResetErase {
     private static func erasePreferences(_ found: Found) {
         // The built-in SideStore's, in its home, opened as LiveContainer's
         // own Preferences page opens a guest's: key by key, through cfprefsd,
-        // before their files go. Those of the app group's name are
-        // SideStore's own there: what the app group's lost of
+        // before their files go; its own domain's file stays, with the
+        // protocol it reads the pairing file by. Those of the app group's
+        // name are SideStore's own there: what the app group's lost of
         // LiveContainer's, should cfprefsd take them for the app group's own,
         // comes back.
         let shared = UserDefaults.lcShared()
@@ -313,7 +314,8 @@ enum CartoucheResetErase {
         where domain != Bundle.main.bundleIdentifier {
             guard let defaults = UserDefaults()._init(withSuiteName: domain, container: storeHome) else { continue }
             let file = storePreferences.appendingPathComponent(domain + ".plist")
-            CartoucheResetPlan.remove(CartoucheResetPlan.keys(ofPreferences: file), from: defaults)
+            let keys = CartoucheResetPlan.keys(ofPreferences: file)
+            CartoucheResetPlan.remove(CartoucheResetPlan.erasedStorePreferences(keys, domain: domain), from: defaults)
             defaults.synchronize()
         }
         if let domain = found.appGroupID {

@@ -10,8 +10,9 @@
 //  pairing file, Cartouche's preferences and LiveContainer's in the app
 //  group, the caches, the journal and a report. The reset erases what the
 //  player put into Cartouche and what it learned since, keeps the
-//  certificate, the pairing file, what Apple knows the iPhone by, the
-//  telemetry's number and the player's folders with what they hold, then
+//  certificate, the pairing file with the protocol SideStore reads it by,
+//  what Apple knows the iPhone by, the telemetry's number and the
+//  player's folders with what they hold, then
 //  starts Cartouche again on its console (HarnessLC.launches). It waits
 //  for a game or an install under way, and names the games whose saves
 //  are here alone, which go to the saves folder first if the player asks,
@@ -57,6 +58,7 @@ final class ResetTests: HarnessCase {
             CartoucheStoreKeychain.remove(account)
         }
         UserDefaults.standard.removeObject(forKey: CartoucheAccount.pauseKey)
+        CartoucheGamePreferences(domain: CartoucheResetPlan.storeDomain, home: storeHome)?.set(nil, forKey: "activePairingProtocol")
         try await super.tearDown()
     }
 
@@ -195,13 +197,14 @@ final class ResetTests: HarnessCase {
         try write("database", in: storeHome, at: "Library/Application Support/SideStore/Apps.sqlite")
         let storePreferences = CartoucheResetPlan.storePreferences(documents: documents)
         try fileManager.createDirectory(at: storePreferences, withIntermediateDirectories: true)
-        let storeDomain = "com.SideStore.SideStore"
+        let storeDomain = CartoucheResetPlan.storeDomain
         let storeFile = storePreferences.appendingPathComponent(storeDomain + ".plist")
         let groupFile = storePreferences.appendingPathComponent(HarnessLC.appGroupID + ".plist")
-        try HarnessIPA.plist(["SideStoreKey": "store"]).write(to: storeFile)
+        try HarnessIPA.plist(["SideStoreKey": "store", "activePairingProtocol": "lockdown"]).write(to: storeFile)
         try HarnessIPA.plist(["LCGuestURLSchemes": ["store"], "SideStoreGroupKey": "group"]).write(to: groupFile)
         let store = try XCTUnwrap(CartoucheGamePreferences(domain: storeDomain, home: storeHome))
         store.set("store", forKey: "SideStoreKey")
+        store.set("lockdown", forKey: "activePairingProtocol")
         XCTAssertEqual(store.string(forKey: "SideStoreKey"), "store")
 
         // Cartouche's preferences, the game it would start, and Apple's
@@ -276,10 +279,15 @@ final class ResetTests: HarnessCase {
         XCTAssertEqual(try? Data(contentsOf: pairing), Data("pairing".utf8), "the pairing file stays")
         XCTAssertFalse(exists(storeHome, "Documents/Logs"))
         XCTAssertFalse(exists(storeHome, "Library/Application Support"))
-        XCTAssertEqual(CartoucheResetPlan.keys(ofPreferences: storeFile), [])
+        // SideStore's preferences go, but the protocol it reads the pairing
+        // file by: before iOS 26.4, it reads a Lockdown one by it alone.
+        try await waitUntil("SideStore's preferences written again without what went") {
+            CartoucheResetPlan.keys(ofPreferences: storeFile) == ["activePairingProtocol"]
+        }
         XCTAssertEqual(CartoucheResetPlan.keys(ofPreferences: groupFile), [])
-        XCTAssertNil(CartoucheGamePreferences(domain: storeDomain, home: storeHome)?.string(forKey: "SideStoreKey"),
-                     "nor does cfprefsd hand them back")
+        let storeAfter = try XCTUnwrap(CartoucheGamePreferences(domain: storeDomain, home: storeHome))
+        XCTAssertNil(storeAfter.string(forKey: "SideStoreKey"), "nor does cfprefsd hand them back")
+        XCTAssertEqual(storeAfter.string(forKey: "activePairingProtocol"), "lockdown")
 
         // Cartouche's preferences go, but Apple's limit on sign-ins while it
         // counts; LiveContainer's stay in the app group, its certificate
