@@ -175,10 +175,17 @@ struct CartoucheGameSheetView: View {
             .onChange(of: entry.player) { _, _ in
                 withAnimation { reader.scrollTo(Self.top, anchor: .top) }
             }
-            .task {
+            // The gallery's screens of the game's management: the sheet goes
+            // to it once it has its rows, and again whenever they change,
+            // as the player's copy and IGDB's summary of the game arrive
+            // after the sheet opens.
+            .task(id: opensOnManagement ? Optional(entry) : nil) {
                 guard opensOnManagement else { return }
-                try? await Task.sleep(for: .milliseconds(300))
-                reader.scrollTo(Self.management, anchor: .center)
+                for delay in [300, 1_000] {
+                    try? await Task.sleep(for: .milliseconds(delay))
+                    guard !Task.isCancelled else { return }
+                    reader.scrollTo(Self.management, anchor: .center)
+                }
             }
         }
         // The header names the game: the bar above it stays empty.
