@@ -1,0 +1,181 @@
+From f1473e60742b2fe4f895d48d3ceeb396916efe31 Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Fri, 13 Nov 2026 09:51:16 +0000
+Subject: [PATCH] Give a game behind Cartouche's console its own scene on a TV
+
+iOS 27 hands an app a TV, by cable or AirPlay, as a scene of its own
+only for a scene accessory that the app registers; otherwise it mirrors
+the iPhone. A game that runs in LiveProcess registers its accessory in
+its own process, whose scenes Cartouche hosts: iOS never hears of it,
+and the TV would show the iPhone's screen, the game's controls
+included. Cartouche registers one itself while a game runs behind its
+console (launcher/Sources/CartoucheTV.swift).
+
+The app delegate gives the TV's scene Cartouche's TV scene delegate, in
+case iOS asks it for that role's configuration, never LiveContainer's
+own scene delegate.
+
+AppSceneViewController opens a second scene of the game's process on
+the TV's screen, with the specification of the scene SpringBoard gave
+an app for an external screen before iOS 27: the game's UIKit asks its
+delegate for that role's configuration, and nxnative answers with its
+TV scene, where it moves its picture and plays docked while the iPhone
+keeps the controls. The scene follows the game's own into the
+background and closes with the game's process.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01MzPJor5tszRpawXWh4zM2U
+---
+ LiveContainerSwiftUI/App/AppDelegate.swift |  8 +++
+ MultitaskSupport/AppSceneViewController.h  | 12 ++++
+ MultitaskSupport/AppSceneViewController.m  | 80 ++++++++++++++++++++++
+ 3 files changed, 100 insertions(+)
+
+diff --git a/LiveContainerSwiftUI/App/AppDelegate.swift b/LiveContainerSwiftUI/App/AppDelegate.swift
+index 6cced77..a89347b 100644
+--- a/LiveContainerSwiftUI/App/AppDelegate.swift
++++ b/LiveContainerSwiftUI/App/AppDelegate.swift
+@@ -35,6 +35,14 @@ import Intents
+     }
+     
+     func application(_ application: UIApplication, configurationForConnecting connectingSceneSession: UISceneSession, options: UIScene.ConnectionOptions) -> UISceneConfiguration {
++        // Cartouche: a TV that iOS 27 hands Cartouche for the scene accessory
++        // of a game behind the console shows Cartouche's TV screen, never
++        // LiveContainer's own scene (launcher/Sources/CartoucheTV.swift).
++        if #available(iOS 27.0, *), connectingSceneSession.role == .windowExternalDisplayNonInteractive {
++            let configuration = UISceneConfiguration(name: nil, sessionRole: connectingSceneSession.role)
++            configuration.delegateClass = CartoucheTVSceneDelegate.self
++            return configuration
++        }
+         let configuration = UISceneConfiguration(name: nil, sessionRole: connectingSceneSession.role)
+         configuration.delegateClass = SceneDelegate.self
+         return configuration
+diff --git a/MultitaskSupport/AppSceneViewController.h b/MultitaskSupport/AppSceneViewController.h
+index 1fbcd2b..66143b0 100644
+--- a/MultitaskSupport/AppSceneViewController.h
++++ b/MultitaskSupport/AppSceneViewController.h
+@@ -42,5 +42,17 @@ API_AVAILABLE(ios(16.0))
+ - (void)openURLScheme:(NSString *)urlString;
+ - (void)handleStatusBarTapAction:(UIAction *)action;
+ - (BOOL)usesHostingControllerAPI;
++
++// Cartouche: a second scene of the app's process, on an external display
++// such as a TV, as iOS would give the app one for it before iOS 27: the app
++// fills it itself (nxnative moves its picture there, DmTVSceneDelegate).
++// Nil when this iOS has no such scene, or when the app does not run. The
++// view controller shows the scene: its owner puts it in the display's
++// window, and takes it out again before closing the scene.
++- (UIViewController *)openExternalDisplaySceneOnScreen:(UIScreen *)screen API_AVAILABLE(ios(18.0)) NS_SWIFT_NAME(openExternalDisplayScene(on:));
++// In the foreground or the background, with the app's own scene.
++- (void)setExternalDisplaySceneForeground:(BOOL)foreground;
++// Closes it, as when the display goes; the app's process also closes it.
++- (void)closeExternalDisplayScene;
+ @end
+ 
+diff --git a/MultitaskSupport/AppSceneViewController.m b/MultitaskSupport/AppSceneViewController.m
+index 37a6137..d2b4396 100644
+--- a/MultitaskSupport/AppSceneViewController.m
++++ b/MultitaskSupport/AppSceneViewController.m
+@@ -27,6 +27,9 @@
+ @property(nonatomic) NSString *sceneID;
+ @property(nonatomic) NSExtension* extension;
+ @property(nonatomic) bool isAppTerminationCleanUpCalled;
++// Cartouche: the app's scene on an external display (openExternalDisplaySceneOnScreen:).
++@property(nonatomic) _UISceneHostingController *externalDisplayHostingController API_AVAILABLE(ios(17.0));
++@property(nonatomic) _UIScenePresenter *externalDisplayPresenter;
+ @end
+ 
+ @implementation AppSceneViewController
+@@ -344,6 +347,7 @@
+     }
+     _isAppTerminationCleanUpCalled = true;
+     dispatch_async(dispatch_get_main_queue(), ^{
++        [self closeExternalDisplayScene];
+         if(self.sceneID) {
+             [[PrivClass(FBSceneManager) sharedInstance] destroyScene:self.sceneID withTransitionContext:nil];
+         }
+@@ -419,5 +423,81 @@
+     return _hostingController != nil;
+ }
+ 
++#pragma mark - Cartouche: the app's scene on an external display
++
++// The scene SpringBoard gave an app for an external display before iOS 27,
++// whose role is UIWindowSceneSessionRoleExternalDisplayNonInteractive: the
++// app's UIKit asks its delegate for that role's configuration, and nxnative
++// answers with its TV scene (main.m, DmTVSceneDelegate). It is the
++// application scene's specification for an external screen, beside the
++// one this controller hosts the app's own scene with.
++- (UIViewController *)openExternalDisplaySceneOnScreen:(UIScreen *)screen {
++    [self closeExternalDisplayScene];
++    Class specificationClass = NSClassFromString(@"UIApplicationExternalScreenSceneSpecification");
++    if(!specificationClass || ![specificationClass isSubclassOfClass:UIApplicationSceneSpecification.class]
++       || !screen || !self.isAppRunning || !self.usesHostingControllerAPI) {
++        return nil;
++    }
++    RBSProcessPredicate* predicate = [PrivClass(RBSProcessPredicate) predicateMatchingIdentifier:@(self.pid)];
++    RBSProcessHandle* processHandle = [PrivClass(RBSProcessHandle) handleForPredicate:predicate error:nil];
++    if(!processHandle) {
++        return nil;
++    }
++    _UISceneHostingControllerAdvancedConfiguration *config = [[_UISceneHostingControllerAdvancedConfiguration alloc] initWithProcessIdentity:processHandle.identity];
++    config.sceneSpecification = [specificationClass specification];
++    // A scene of its own beside the app's, whatever identifier iOS would
++    // derive for a second scene of the same process.
++    if([config respondsToSelector:NSSelectorFromString(@"setSceneIdentifier:")]) {
++        [config setValue:[NSString stringWithFormat:@"sceneID:LiveProcess-%@-ExternalDisplay-%@", self.dataUUID, NSUUID.UUID.UUIDString]
++                  forKey:@"sceneIdentifier"];
++    }
++    _UISceneHostingController *hostingController = [[_UISceneHostingController alloc] initWithAdvancedConfiguration:config];
++    UIViewController *sceneViewController = hostingController.sceneViewController;
++    _UIScenePresenter *presenter = [sceneViewController.view valueForKey:@"_scenePresenter"];
++    if(!presenter.scene) {
++        [hostingController invalidate];
++        return nil;
++    }
++    CGRect bounds = screen.bounds;
++    NSString *persistenceIdentifier = [NSString stringWithFormat:@"%@-ExternalDisplay", self.dataUUID];
++    [presenter.scene configureParameters:^(FBSMutableSceneParameters *parameters) {
++        [parameters updateSettingsWithBlock:^(UIMutableApplicationSceneSettings *settings) {
++            settings.displayConfiguration = screen.displayConfiguration;
++            settings.frame = bounds;
++            settings.foreground = YES;
++            settings.level = 1;
++            settings.interfaceOrientation = UIInterfaceOrientationPortrait;
++            settings.deviceOrientation = UIDeviceOrientationPortrait;
++            settings.persistenceIdentifier = persistenceIdentifier;
++            settings.statusBarDisabled = YES;
++        }];
++        [parameters updateClientSettingsWithBlock:^(UIMutableApplicationSceneClientSettings *clientSettings) {
++            clientSettings.interfaceOrientation = UIInterfaceOrientationPortrait;
++        }];
++    }];
++    sceneViewController.view.clipsToBounds = YES;
++    self.externalDisplayHostingController = hostingController;
++    self.externalDisplayPresenter = presenter;
++    return sceneViewController;
++}
++
++- (void)setExternalDisplaySceneForeground:(BOOL)foreground {
++    [self.externalDisplayPresenter.scene updateSettingsWithBlock:^(UIMutableApplicationSceneSettings *settings) {
++        settings.foreground = foreground;
++        if(foreground) {
++            settings.deactivationReasons = 0;
++        }
++    }];
++}
++
++- (void)closeExternalDisplayScene {
++    if(@available(iOS 17.0, *)) {
++        _UISceneHostingController *hostingController = self.externalDisplayHostingController;
++        self.externalDisplayHostingController = nil;
++        self.externalDisplayPresenter = nil;
++        [hostingController invalidate];
++    }
++}
++
+ @end
+  
+-- 
+2.43.0
+
