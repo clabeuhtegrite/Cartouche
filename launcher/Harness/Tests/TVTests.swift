@@ -10,7 +10,8 @@
 //  mirrors the iPhone, the game hides from it. The Simulator has no TV:
 //  the tests hand Cartouche one as iOS does, a window with Cartouche's TV
 //  screen in the harness's own scene, and say whether a display mirrors
-//  the iPhone (HarnessLC.iPhoneMirrored).
+//  the iPhone (HarnessLC.iPhoneMirrored). What the TV does goes in the
+//  journal a player's report takes along (CartoucheTV.note).
 //
 
 import UIKit
@@ -25,6 +26,14 @@ final class TVTests: HarnessCase {
     /// What the TV shows, while Cartouche has it.
     private var tv: CartoucheTVScreen? { CartoucheTV.shared.screen }
     private var card: CartoucheTVCardModel { CartoucheTV.shared.card }
+
+    /// The line that opens each test's steps in the journal of the reports.
+    private static let journalMark = "Harness: a TV test starts"
+
+    override func setUp() async throws {
+        try await super.setUp()
+        CartoucheReports.note(Self.journalMark)
+    }
 
     override func tearDown() async throws {
         disconnectTV()
@@ -57,6 +66,11 @@ final class TVTests: HarnessCase {
         XCTAssertNotNil(scene.view.window)
         XCTAssertTrue(scene.view.isDescendant(of: screen.view))
         XCTAssertFalse(screen.hidesGameForTV)
+        // A report says so (System › Report a problem).
+        let steps = journal().filter { $0.hasPrefix("TV") }
+        XCTAssertEqual(steps.count, 2, "\(steps)")
+        XCTAssertTrue(steps.first?.hasPrefix("TV connected (") == true, "\(steps)")
+        XCTAssertTrue(steps.last?.hasPrefix("TV: the game's own scene is on the TV (") == true, "\(steps)")
     }
 
     func testATVPluggedInDuringTheGameGetsTheGamesScene() async throws {
@@ -100,6 +114,8 @@ final class TVTests: HarnessCase {
         XCTAssertEqual(card.statusLine, CartoucheText.tvOnIPhone)
         XCTAssertTrue(identifiers(in: tvWindow).contains("tv.card"))
         try assertTVShowsNothingOfTheIPhone(scene)
+        XCTAssertTrue(journal().contains("TV: the game has no scene of its own on the TV, which shows its card"))
+        XCTAssertFalse(journal().contains { $0.hasPrefix("TV: the game's own scene is on the TV") })
     }
 
     // MARK: The console over the game
@@ -194,6 +210,7 @@ final class TVTests: HarnessCase {
         let (_, scene) = try await started(.plain())
         try await waitUntil("the game's scene opens on the TV") { scene.tvScene != nil }
         disconnectTV()
+        XCTAssertEqual(journal().last, "TV disconnected")
         XCTAssertNil(scene.tvScene, "nxnative puts its picture back on the iPhone")
         XCTAssertEqual(scene.tvClosings, 1)
         XCTAssertNil(host.gameOnTV)
@@ -226,6 +243,11 @@ final class TVTests: HarnessCase {
         XCTAssertNil(view("game.tvCover", in: screen.view))
         host.guardTheTV()
         XCTAssertFalse(screen.hidesGameForTV, "as long as the game runs")
+        // A report says so, once each.
+        XCTAssertEqual(journal().filter { $0.hasPrefix("TV") }, [
+            "TV: a display mirrors the iPhone, the game hides from it",
+            "TV: the player shows the game anyway, on the iPhone and on the display that mirrors it",
+        ])
     }
 
     func testTheGameShowsAgainOnceIOSHandsCartoucheTheTV() async throws {
@@ -238,6 +260,7 @@ final class TVTests: HarnessCase {
         try connectTV()
         XCTAssertFalse(screen.hidesGameForTV)
         XCTAssertNotNil(scene.tvScene)
+        XCTAssertTrue(journal().contains("TV: the game shows again"))
         // Unplugged, with another display that mirrors the iPhone.
         HarnessLC.iPhoneMirrored = true
         disconnectTV()
@@ -285,6 +308,17 @@ final class TVTests: HarnessCase {
         tvWindow = nil
         CartoucheTV.shared.disconnect(window)
         window.isHidden = true
+    }
+
+    /// The steps Cartouche noted for its reports since this test started,
+    /// without their time.
+    private func journal() -> [String] {
+        let lines = CartoucheReports.journal(last: CartoucheJournal.kept)
+        guard let start = lines.lastIndex(where: { $0.hasSuffix(" " + Self.journalMark) }) else { return [] }
+        // "11-13 10:41:07 TV connected (…)"
+        return lines[lines.index(after: start)...].map { line in
+            line.split(separator: " ", maxSplits: 2).dropFirst(2).first.map(String.init) ?? ""
+        }
     }
 
     /// The game's screen on the iPhone, which holds its scene.

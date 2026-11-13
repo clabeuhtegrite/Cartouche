@@ -12,7 +12,9 @@ rather than on an iPhone plugged into a TV
 - it opens that scene with the specification iOS used for an external
   screen, and opens none when this iOS has no such class;
 - the game host asks iOS for the TV while a game runs behind the console,
-  with Cartouche's TV scene delegate, and stops asking when it ends.
+  with Cartouche's TV scene delegate, and stops asking when it ends;
+- every step of the TV goes in the journal a player's report takes along,
+  so that a report from an iPhone plugged into a TV says what the TV did.
 
 Run from the repository root: python3 -m unittest discover -s app/tests -v
 """
@@ -130,6 +132,18 @@ class TVModeTest(unittest.TestCase):
         self.assertIsNotNone(show)
         # Hidden from a mirrored TV before the game's window shows again.
         self.assertLess(show.group(0).index("guardTheTV()"), show.group(0).index("window.isHidden = false"))
+
+    def test_every_step_of_the_tv_goes_in_the_reports_journal(self):
+        note = re.search(r"static func note\(_ step: String\) \{.*?\n    \}\n", self.tv, re.S)
+        self.assertIsNotNone(note, "CartoucheTV.note is gone")
+        self.assertIn("CartoucheReports.note(step)", note.group(0))
+        for name, source in (("CartoucheTV.swift", self.tv), ("CartoucheGameHost.swift", self.host)):
+            with self.subTest(source=name):
+                self.assertNotRegex(source, r'NSLog\("\[Cartouche\] TV',
+                                    "a step of the TV logged, never in a report: CartoucheTV.note does both")
+        anyway = re.search(r"anyway\.addAction\(UIAction \{.*?\}, for: \.primaryActionTriggered\)", self.host, re.S)
+        self.assertIsNotNone(anyway)
+        self.assertIn("CartoucheTV.note(", anyway.group(0), "the player showing the game anyway is noted")
 
     def test_the_patch_is_listed(self):
         listed = PATCHES_README.read_text(encoding="utf-8")

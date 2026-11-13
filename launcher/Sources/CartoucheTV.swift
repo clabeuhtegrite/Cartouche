@@ -58,7 +58,7 @@ final class CartoucheTV {
             disconnect(old)
         }
         self.window = window
-        NSLog("[Cartouche] TV connected (%.0fx%.0f points)", window.bounds.width, window.bounds.height)
+        Self.note(String(format: "TV connected (%.0fx%.0f points)", window.bounds.width, window.bounds.height))
         host?.tvDidConnect(self)
     }
 
@@ -68,7 +68,15 @@ final class CartoucheTV {
         guard self.window === window else { return }
         host?.tvWillDisconnect(self)
         self.window = nil
-        NSLog("[Cartouche] TV disconnected")
+        Self.note("TV disconnected")
+    }
+
+    /// A step of the TV, in the console's log as "[Cartouche] TV …" and in
+    /// the journal a report takes along (System › Report a problem): a
+    /// player's report says what the TV did, without a Mac to read the log.
+    static func note(_ step: String) {
+        NSLog("[Cartouche] %@", step)
+        CartoucheReports.note(step)
     }
 }
 

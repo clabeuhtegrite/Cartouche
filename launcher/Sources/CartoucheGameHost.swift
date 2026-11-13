@@ -408,14 +408,15 @@ final class CartoucheGameHost {
         guard gameOnTV == nil, let tvScreen = tv.screen, let display = tv.window?.windowScene?.screen,
               let scene, scene.isAppRunning else { return }
         guard let made = scene.openExternalDisplayScene(on: display) else {
-            NSLog("[Cartouche] TV: the game has no scene of its own on the TV, which shows its card")
+            CartoucheTV.note("TV: the game has no scene of its own on the TV, which shows its card")
             return
         }
         gameOnTV = made
         tvScreen.showGame(made)
         tvScreen.showsGame = isInFront
         scene.setExternalDisplaySceneForeground(isInFront)
-        NSLog("[Cartouche] TV: the game's own scene is on the TV (%.0fx%.0f points)", display.bounds.width, display.bounds.height)
+        CartoucheTV.note(String(format: "TV: the game's own scene is on the TV (%.0fx%.0f points)",
+                                display.bounds.width, display.bounds.height))
     }
 
     private func closeGameOnTV() {
@@ -450,10 +451,12 @@ final class CartoucheGameHost {
     func guardTheTV() {
         guard let screen else { return }
         let hides = isInFront && CartoucheTV.shared.window == nil && Self.iPhoneIsMirrored()
-        if hides != screen.hidesGameForTV {
-            NSLog("[Cartouche] TV: %@", hides ? "a display mirrors the iPhone, the game hides from it" : "the game shows again")
-        }
+        let hid = screen.hidesGameForTV
         screen.hidesGameForTV = hides
+        // Noted as it changes: shown anyway, the game stays so.
+        if screen.hidesGameForTV != hid {
+            CartoucheTV.note(hides ? "TV: a display mirrors the iPhone, the game hides from it" : "TV: the game shows again")
+        }
     }
 
     /// Whether a display shows a copy of the iPhone's screen: a TV, by
@@ -683,6 +686,7 @@ final class CartoucheGameScreen: UIViewController {
             anyway.isHidden = true
             anyway.accessibilityIdentifier = "game.tvCover.anyway"
             anyway.addAction(UIAction { [weak self] _ in
+                CartoucheTV.note("TV: the player shows the game anyway, on the iPhone and on the display that mirrors it")
                 self?.showsGameDespiteTV = true
                 self?.hidesGameForTV = false
             }, for: .primaryActionTriggered)
