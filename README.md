@@ -10,18 +10,18 @@ Set apart: 22 sessions on iPhones whose GPU reads no BC texture (A16 and older),
 
 | Game | nxnative | Installs | Sessions | Hours | Target fps | FPS median | FPS slowest 5% | Frame p99 ms | Stutters a minute | Waiting for shaders | Shader stall ms a minute | Prepare s | Peak MiB | Reached serious heat | Crashed | Failed to boot | Out of memory | Drew no frame |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| Mario Kart World `0400C3F00006E000` | not said | 7 | 14 | 0.7 | 60 | 32.2 | 23.9 | 147.5 | 159 | 41% | 12,375 | 0.1 | 4,977 | 2 of 14 | 3 | 1 | 0 | 3 |
-| The Legend of Zelda: Ocarina of Time `0400486024DEC000` | not said | 6 | 26 | 2.8 | 60 | 38.1 | 24.4 | 41.3 | 21 | 9% | 119 | 78.6 | 4,860 | 10 of 26 | 0 | 0 | 0 | 4 |
-| Super Mario Bros. Wonder `010015100B514000` | not said | 6 | 23 | 1.9 | 60 | 59.0 | 35.8 | 23.6 | 32 | 49% | 1,188 | 0.3 | 3,682 | 2 of 23 | 0 | 0 | 0 | 2 |
-| Pokémon Legends: Z-A `0100F43008C44000` | not said | 3 | 8 | 1.0 | 30 | 29.8 | 28.0 | 42.2 | 29 | 19% | 1,067 | 0.6 | 2,563 | 0 of 8 | 0 | 0 | 0 | 2 |
+| Mario Kart World `0400C3F00006E000` | not said | 7 | 14 | 0.7 | 60 | 32.2 | – | 147.5 | 159 | 41% | 12,375 | 0.1 | 4,977 | 2 of 14 | 3 | 1 | 0 | 3 |
+| The Legend of Zelda: Ocarina of Time `0400486024DEC000` | not said | 6 | 26 | 2.8 | 60 | 38.1 | – | 41.3 | 21 | 9% | 119 | 78.6 | 4,860 | 10 of 26 | 0 | 0 | 0 | 4 |
+| Super Mario Bros. Wonder `010015100B514000` | not said | 6 | 23 | 1.9 | 60 | 59.0 | – | 23.6 | 32 | 49% | 1,188 | 0.3 | 3,682 | 2 of 23 | 0 | 0 | 0 | 2 |
+| Pokémon Legends: Z-A `0100F43008C44000` | not said | 3 | 8 | 1.0 | 30 | 29.8 | – | 42.2 | 29 | 19% | 1,067 | 0.6 | 2,563 | 0 of 8 | 0 | 0 | 0 | 2 |
 
 ## By game and model
 
 | Game | Model | nxnative | Installs | Sessions | Hours | Target fps | FPS median | FPS slowest 5% | Frame p99 ms | Stutters a minute | Waiting for shaders | Shader stall ms a minute | Prepare s | Peak MiB | Reached serious heat | Crashed | Failed to boot | Out of memory | Drew no frame |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| Mario Kart World `0400C3F00006E000` | `iPhone19,4` | not said | 4 | 9 | 0.6 | 60 | 32.2 | 23.9 | 147.2 | 83 | 42% | 5,933 | – | 5,018 | 2 of 9 | 3 | 0 | 0 | 1 |
-| The Legend of Zelda: Ocarina of Time `0400486024DEC000` | `iPhone19,4` | not said | 3 | 20 | 1.9 | 60 | 39.8 | 22.9 | 31.0 | 25 | 7% | 239 | 0.9 | 4,888 | 10 of 20 | 0 | 0 | 0 | 4 |
-| Super Mario Bros. Wonder `010015100B514000` | `iPhone19,4` | not said | 3 | 14 | 1.4 | 60 | 59.6 | 4.0 | 22.8 | 29 | 43% | 1,070 | – | 3,763 | 2 of 14 | 0 | 0 | 0 | 1 |
+| Mario Kart World `0400C3F00006E000` | `iPhone19,4` | not said | 4 | 9 | 0.6 | 60 | 32.2 | – | 147.2 | 83 | 42% | 5,933 | – | 5,018 | 2 of 9 | 3 | 0 | 0 | 1 |
+| The Legend of Zelda: Ocarina of Time `0400486024DEC000` | `iPhone19,4` | not said | 3 | 20 | 1.9 | 60 | 39.8 | – | 31.0 | 25 | 7% | 239 | 0.9 | 4,888 | 10 of 20 | 0 | 0 | 0 | 4 |
+| Super Mario Bros. Wonder `010015100B514000` | `iPhone19,4` | not said | 3 | 14 | 1.4 | 60 | 59.6 | – | 22.8 | 29 | 43% | 1,070 | – | 3,763 | 2 of 14 | 0 | 0 | 0 | 1 |
 | Mario Kart World `0400C3F00006E000` | `iPhone18,2` | not said | 3 | 5 | 0.1 | 60 | – | – | – | – | – | – | – | – | 0 of 5 | 0 | 1 | 0 | 2 |
 
 ## By game and nxnative commit
@@ -57,7 +57,7 @@ Cartouche Builder builds players' games with nxnative's build script, on their M
 
 - An install is one copy of Cartouche on one iPhone or iPad, under a random number it changes every 13 months or when its player erases what it sent: a player who installs Cartouche again is a new install. A Mac is one copy of Cartouche Builder. Neither number is ever written here.
 - Each figure is the median of each install's own median, so that each install counts once however much it played; the peak is each install's highest, of its sessions that drew a frame. Stutters waiting for shaders are a share of all the stutters of the line.
-- FPS slowest 5% is the rate of the slowest 5% of a session's time: the frame rate of each `[nvn] power` line, over its 300 frames, weighted by how long they lasted as nxnative timed them. A window that spans a loading, a pause or the time the game was left behind Cartouche's console counts at its own rate, so a few long sessions can bring it down: read it beside the median and the frame p99. Stutters and the shader stall are per minute of the whole session.
+- FPS slowest 5% is the rate of the slowest 5% of a session's time: the frame rate of each `[nvn] power` line, over its 300 frames, weighted by how long they lasted. nxnative times them by the clock, so a stretch that held a pause, the game left behind Cartouche's console or Cartouche in the background counts at the rate that pause brought it to: it counts only from the sessions Cartouche read with its reading 2 of the log or a later one, which leaves such a stretch out, and shows – before. Stutters and the shader stall are per minute of the whole session.
 - The figures come from the lines nxnative writes in `log.txt`, which Cartouche reads after each session ([CartoucheGameLog.swift](https://github.com/clabeuhtegrite/Cartouche/blob/main/launcher/Sources/CartoucheGameLog.swift)): the `[nvn]` timing, on-screen and power lines, `[longframe]`, `pipeline prepare`, the memory and thermal lines, `CRASH sig=` and `[RED] boot:`. A session's commit is the first 12 digits of `DMCommit` in the game's `Info.plist`; Cartouche 0.11.2 and before did not send it. Target fps is the rate most of the line's sessions asked for.
 - Reached serious heat: the sessions iOS put in its serious thermal state. Drew no frame: the session ended before nxnative's first summary line, whatever its end.
 - A session counts once, as last sent; a copy of another region counts for its game.
