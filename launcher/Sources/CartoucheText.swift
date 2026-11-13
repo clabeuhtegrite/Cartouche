@@ -339,6 +339,9 @@ enum CartoucheText {
     static var installUnpacking: String { s("work.install.unpacking", "Unpacking the IPA.") }
     static var installSigning: String { s("work.signing", "Signing it for this iPhone") }
     static var installFailed: String { s("work.install.failed", "The game was not installed") }
+    static var installDamagedIPA: String {
+        s("work.install.damaged", "This IPA is damaged: it ends early, or one of its files changed since it was made, as when a copy stops before the end or goes wrong. Copy it again from where it came from, then install it again.")
+    }
     static var installSignWarning: String { s("work.install.signWarning", "Installed, but not signed") }
     static var installDone: String { s("work.install.done", "Installed") }
     static var installGPUTitle: String { s("work.install.gpu", "This iPhone cannot run nxnative’s games") }

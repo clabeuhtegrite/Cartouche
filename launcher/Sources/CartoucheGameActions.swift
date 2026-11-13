@@ -55,6 +55,9 @@ import UIKit
 struct CartoucheInstallError: LocalizedError, CartoucheDescribedError {
     enum Kind: String {
         case notAnIPA, noAppBundle, infoPlistUnreadable, appUnreadable, gameRunning
+        /// An IPA that ends early, or whose file changed since it was packed,
+        /// which LiveContainer's unpacker returns 2 for (livecontainer/0011).
+        case damagedIPA
         /// An IPA built without its game files, whose image Cartouche did not
         /// find, or found another than the one it was built with.
         case gameFilesMissing, gameFilesMismatch
@@ -72,6 +75,7 @@ struct CartoucheInstallError: LocalizedError, CartoucheDescribedError {
         if let message { return message }
         switch kind {
         case .notAnIPA: return "lc.appList.urlFileIsNotIpaError".loc
+        case .damagedIPA: return CartoucheText.installDamagedIPA
         case .noAppBundle: return "lc.appList.bundleNotFondError".loc
         case .infoPlistUnreadable: return "lc.appList.infoPlistCannotReadError".loc
         case .appUnreadable: return "lc.appList.appInfoInitError".loc
@@ -84,6 +88,7 @@ struct CartoucheInstallError: LocalizedError, CartoucheDescribedError {
         switch kind {
         case .gameRunning: return .gameRunning
         case .gameFilesMissing, .gameFilesMismatch: return .fileMissing
+        case .damagedIPA: return .fileUnreadable
         default: return .notAnApp
         }
     }
@@ -146,6 +151,9 @@ final class CartoucheGameActions: ObservableObject {
     /// The install or the copy under way, which a stop from outside
     /// Cartouche cancels (CartoucheContinuedWork).
     private var transfer: Task<Void, Never>?
+    /// Whether an install or a copy is on its way, which keeps the iPhone
+    /// from locking until it is over (beginTransfer).
+    var isTransferring: Bool { transfer != nil }
     /// Whether the player, or iOS, stopped it from outside Cartouche.
     private var stopped = false
     /// The game to start once the running one has ended.
@@ -284,7 +292,7 @@ final class CartoucheGameActions: ObservableObject {
                     }
                     try Task.checkCancellation()
                     guard unpacked == 0 else {
-                        throw CartoucheInstallError(.notAnIPA)
+                        throw CartoucheInstallError(unpacked == 2 ? .damagedIPA : .notAnIPA)
                     }
                     if let copied = gameFiles.copied, let copying {
                         try await copyGameFiles(copied, into: folder, progress: copying)
@@ -641,11 +649,17 @@ final class CartoucheGameActions: ObservableObject {
         progress.addChild(unpacking, withPendingUnitCount: 80)
         try await unpack(folder, unpacking)
         let payload = folder.appendingPathComponent("Payload", isDirectory: true)
-        guard let bundleName = try fileManager.contentsOfDirectory(atPath: payload.path).first(where: { $0.hasSuffix(".app") }) else {
+        // An IPA holds its app in Payload: a zip without that folder holds
+        // no app either, rather than a folder iOS says it cannot find.
+        guard let bundleName = (try? fileManager.contentsOfDirectory(atPath: payload.path))?.first(where: { $0.hasSuffix(".app") }) else {
             throw CartoucheInstallError(.noAppBundle)
         }
         let unpacked = payload.appendingPathComponent(bundleName)
-        guard let newInfo = LCAppInfo(bundlePath: unpacked.path), let bundleId = newInfo.bundleIdentifier() else {
+        // LCAppInfo reads an Info.plist it cannot read as an empty one, and
+        // calls its app "Unknown": the app's own must give its identifier.
+        guard let plist = NSDictionary(contentsOf: unpacked.appendingPathComponent("Info.plist")),
+              (plist["CFBundleIdentifier"] as? String)?.isEmpty == false,
+              let newInfo = LCAppInfo(bundlePath: unpacked.path), let bundleId = newInfo.bundleIdentifier() else {
             throw CartoucheInstallError(.infoPlistUnreadable)
         }
         work?.name = newInfo.displayName() ?? work?.name ?? ""

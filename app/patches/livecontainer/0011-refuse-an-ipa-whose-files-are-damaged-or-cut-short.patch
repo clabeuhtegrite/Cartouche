@@ -1,0 +1,112 @@
+From d991f8192baef283d718e63a8f5a08950b58928b Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Thu, 12 Nov 2026 14:44:52 +0000
+Subject: [PATCH] Refuse an IPA whose files are damaged or cut short
+
+extract() unpacked an IPA whose file had changed since it was packed,
+its CRC-32 no longer matching, and returned 0, as for an IPA unpacked
+whole: libarchive reads such a file with a warning only. An IPA whose
+deflated data broke off or that a copy cut short ended the loop as well,
+returning 0 or 1 as for a file that is no archive. Cartouche then
+installed a game missing files, or told the player to give it an IPA.
+
+extract() now returns 2 for an archive it opens but cannot read whole:
+entries that cannot be read, a file that cannot be read whole or
+written, or whose CRC-32 does not match. It returns 1, as before, for a
+file that is no archive and for an unpacking that was cancelled (0009),
+and 0 once every file is in place. Cartouche's launcher tells the
+player that the IPA is damaged and to copy it again.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01MzPJosDjT2GFTomZeTeuAm
+---
+ LiveContainerSwiftUI/Utilities/unarchive.h |  3 +++
+ LiveContainerSwiftUI/Utilities/unarchive.m | 29 +++++++++++++++++-----
+ 2 files changed, 26 insertions(+), 6 deletions(-)
+
+diff --git a/LiveContainerSwiftUI/Utilities/unarchive.h b/LiveContainerSwiftUI/Utilities/unarchive.h
+index 29a6b87..f680ef3 100644
+--- a/LiveContainerSwiftUI/Utilities/unarchive.h
++++ b/LiveContainerSwiftUI/Utilities/unarchive.h
+@@ -1,3 +1,6 @@
+ #import <Foundation/Foundation.h>
+ 
++// Cartouche: 0 once the archive is unpacked, 1 for a file that is no archive
++// or an unpacking that was cancelled, 2 for an archive that is damaged or
++// cut short.
+ extern int extract(NSString* fileToExtract, NSString* extractionPath, NSProgress* progress);
+diff --git a/LiveContainerSwiftUI/Utilities/unarchive.m b/LiveContainerSwiftUI/Utilities/unarchive.m
+index 62839b4..9865d59 100644
+--- a/LiveContainerSwiftUI/Utilities/unarchive.m
++++ b/LiveContainerSwiftUI/Utilities/unarchive.m
+@@ -58,7 +58,9 @@ int extract(NSString* fileToExtract, NSString* extractionPath, NSProgress* progr
+         if (r < ARCHIVE_WARN) {
+             archive_read_close(a);
+             archive_read_free(a);
+-            return 1;
++            // Cartouche: an archive that ends early or whose entries cannot
++            // be read, as a copy that stopped leaves an IPA.
++            return 2;
+         }
+         progress.totalUnitCount += archive_entry_size(entry);
+     }
+@@ -77,6 +79,9 @@ int extract(NSString* fileToExtract, NSString* extractionPath, NSProgress* progr
+     archive_write_disk_set_options(ext, flags);
+     archive_write_disk_set_standard_lookup(ext);
+ 
++    // Cartouche: whether a file of the archive could not be read whole or
++    // written, which leaves the app without it.
++    int damaged = 0;
+     while ((r = archive_read_next_header(a, &entry)) != ARCHIVE_EOF) {
+         // Cartouche: or here, between two files.
+         if (progress.cancelled)
+@@ -85,8 +90,10 @@ int extract(NSString* fileToExtract, NSString* extractionPath, NSProgress* progr
+             break;
+         if (r < ARCHIVE_OK)
+             fprintf(stderr, "%s\n", archive_error_string(a));
+-        if (r < ARCHIVE_WARN)
++        if (r < ARCHIVE_WARN) {
++            damaged = 1;
+             break;
++        }
+         
+         NSString* currentFile = [NSString stringWithUTF8String:archive_entry_pathname(entry)];
+         NSString* fullOutputPath = [extractionPath stringByAppendingPathComponent:currentFile];
+@@ -100,20 +107,30 @@ int extract(NSString* fileToExtract, NSString* extractionPath, NSProgress* progr
+             r = copy_data(a, ext, progress);
+             if (r < ARCHIVE_OK)
+                 fprintf(stderr, "%s\n", archive_error_string(ext));
+-            if (r < ARCHIVE_WARN)
++            // Cartouche: a file whose bytes changed since it was packed is
++            // read with a warning only (its CRC-32 does not match): it is
++            // damaged all the same, and so is the app it goes in.
++            if (r < ARCHIVE_OK) {
++                damaged = 1;
+                 break;
++            }
+         }
+         r = archive_write_finish_entry(ext);
+         if (r < ARCHIVE_OK)
+             fprintf(stderr, "%s\n", archive_error_string(ext));
+-        if (r < ARCHIVE_WARN)
++        if (r < ARCHIVE_WARN) {
++            damaged = 1;
+             break;
++        }
+     }
+     archive_read_close(a);
+     archive_read_free(a);
+     archive_write_close(ext);
+     archive_write_free(ext);
+     
+-    // Cartouche: a stopped install left part of the archive unpacked only.
+-    return progress.cancelled ? 1 : 0;
++    // Cartouche: a stopped install left part of the archive unpacked only,
++    // and a damaged archive an app without some of its files.
++    if (progress.cancelled)
++        return 1;
++    return damaged ? 2 : 0;
+ }
+-- 
+2.43.0
+
