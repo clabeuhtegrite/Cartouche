@@ -15,12 +15,19 @@ Ad's Mac takes the job when:
 - the run is at its first attempt: a run again, which the job's watch asks
   for when the Mac lost the job (watch.py), goes to GitHub;
 - a runner with all the labels of MAC_LABELS (the Mac's runner of builds
-  or of screenshots, its Xcode, its simulators) is online, and idle, or busy
-  with no other job waiting for it: on each, one job runs and one waits, at
-  most.
+  or of screenshots, its Xcode, its simulators) is online and has room for
+  the job: on each, one job runs and one waits, at most, counting the jobs
+  that wait for it in every queued or running run of App and Launcher
+  screens, a job that waits for a free runner included.
 
 Anything else, an error of GitHub's API included, sends the job to GitHub's
 Macs, where it ran before Ad's Mac.
+
+The workflows run it once their other first job is done, right before the
+Mac job is created: until then, the routes of other runs could not count
+the job. On 13 November, routes that chose before the jobs of others
+existed, and read the first 30 of 55 runs alone, left five UI tests and
+screenshots waiting for the Mac, where one may.
 
 Environment: MAC_LABELS, MAC_JOB (the job's name, for the summary),
 RUNNERS_TOKEN (MAC_RUNNER_TOKEN), GH_TOKEN (the run's token, which reads its
@@ -53,8 +60,8 @@ WAITING = ("queued", "waiting", "pending", "requested")
 
 def pick(found: list[dict], wanted: set[str], waiting_for_mac: Callable[[], int]) -> tuple[dict | None, str]:
     """The runner of FOUND that takes the job, and why; None for GitHub's
-    Macs. WAITING_FOR_MAC counts the jobs waiting for the Mac, asked only
-    when the Mac is busy."""
+    Macs. WAITING_FOR_MAC counts the jobs waiting for the Mac, asked once a
+    runner of the job is online."""
     macs = [runner for runner in found if "cartouche-mac" in api.labels(runner)]
     matching = [runner for runner in macs if wanted <= api.labels(runner)]
     if not matching:
@@ -66,24 +73,33 @@ def pick(found: list[dict], wanted: set[str], waiting_for_mac: Callable[[], int]
     if not online:
         return None, "Ad's Mac is offline: asleep, away, low on battery or paused"
     idle = [runner for runner in online if not runner.get("busy")]
-    if idle:
-        return idle[0], "Ad's Mac is free"
+    # A job waiting for a free runner starts there at once: it counts as the
+    # one that runs, and this job may wait behind it.
     waiting = waiting_for_mac()
-    if waiting == 0:
-        return online[0], "Ad's Mac is busy, with no other job waiting for it: this one is next"
-    return None, f"Ad's Mac is busy, with {waiting} more job{'s' if waiting > 1 else ''} waiting for it"
+    if len(online) - len(idle) + waiting < 2 * len(online):
+        if not idle:
+            return online[0], "Ad's Mac is busy, with no other job waiting for it: this one is next"
+        if waiting == 0:
+            return idle[0], "Ad's Mac is free"
+        return idle[0], "Ad's Mac is free, with a job about to start there: this one is next"
+    jobs = f"{waiting} more job{'s' if waiting > 1 else ''}"
+    return None, f"Ad's Mac is {'free' if idle else 'busy'}, with {jobs} waiting for it"
 
 
 def waiting_for_mac(repository: str, token: str, wanted: frozenset = frozenset({"cartouche-mac"})) -> int:
-    """The jobs of the repository's runs that wait for a runner of Ad's Mac
-    with all the labels WANTED: the builds' or the screenshots'."""
+    """The jobs that wait for a runner of Ad's Mac with all the labels
+    WANTED, the builds' or the screenshots', in every queued or running run
+    of App and Launcher screens, the workflows whose jobs go to the Mac."""
+    runs = {}
+    for workflow in WORKFLOWS:
+        for status in ("queued", "in_progress"):
+            path = f"/repos/{repository}/actions/workflows/{Path(workflow).name}/runs?status={status}"
+            runs.update((run["id"], run) for run in api.pages(path, "workflow_runs", token))
     count = 0
-    for status in ("queued", "in_progress"):
-        runs = api.call("GET", f"/repos/{repository}/actions/runs?status={status}&per_page=30", token)
-        for run in runs.get("workflow_runs", []):
-            jobs = api.call("GET", f"/repos/{repository}/actions/runs/{run['id']}/jobs?per_page=100", token)
-            count += sum(1 for job in jobs.get("jobs", [])
-                         if job.get("status") in WAITING and set(wanted) <= set(job.get("labels", [])))
+    for run_id in runs:
+        jobs = api.call("GET", f"/repos/{repository}/actions/runs/{run_id}/jobs?per_page=100", token) or {}
+        count += sum(1 for job in jobs.get("jobs", [])
+                     if job.get("status") in WAITING and set(wanted) <= set(job.get("labels", [])))
     return count
 
 

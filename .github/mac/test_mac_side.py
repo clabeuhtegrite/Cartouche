@@ -559,6 +559,13 @@ class WorkflowTests(unittest.TestCase):
         self.assertIn("route", mac["needs"])
         self.assertEqual(mac["runs-on"], "${{ fromJSON(needs.route.outputs.runner || '\"xcode-27\"') }}")
         self.assertIn("!cancelled()", mac["if"], "a failed route never skips the job")
+        # The route chooses once the job's other first job is done, right
+        # before the job is created, so that the routes of other runs count
+        # it: two that chose while neither job existed sent both to wait for
+        # the Mac (13 November, runs 43499593526 and 43499508896).
+        [first] = [need for need in mac["needs"] if need != "route"]
+        self.assertEqual(jobs["route"].get("needs"), first)
+        self.assertEqual(jobs["route"].get("if"), mac["if"])
         for job_name in ("route", "watch"):
             steps = [s for s in jobs[job_name]["steps"] if "run" in s]
             self.assertEqual(steps[-1]["env"]["MAC_JOB"], name)
