@@ -142,6 +142,10 @@ struct CartoucheFailure: Codable, Equatable, Sendable {
         case notAnApp
         /// The game could not be signed.
         case notSigned
+        /// The game's process ended on an error, for a reason other than
+        /// its signature, as it started or later: LiveContainer, or the
+        /// game itself, said why (CartoucheGameSigning.startFailure).
+        case gameEndedOnError
         /// This copy of LiveContainer is not the one that installs games.
         case notPrimary
         /// The game is running: the player quits it first.

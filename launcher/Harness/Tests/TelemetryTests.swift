@@ -282,4 +282,26 @@ final class TelemetryTests: HarnessCase {
         let done = try XCTUnwrap(report(named: "renewal.done")?["fields"] as? [String: Any])
         XCTAssertEqual(done["automatic"] as? Bool, true)
     }
+
+    /// A game LiveContainer did not sign whole: why, the kind of the files
+    /// zsign could not sign and how many, never zsign's words nor a file's
+    /// name or path, which the report the player copies has.
+    func testAGameNotSignedWholeIsReportedByItsReasonNeverItsFiles() async throws {
+        answer(200)
+        telemetry.start()
+        HarnessLC.signing = .cannotSign(["Frameworks/MoltenVK.framework/MoltenVK"])
+        _ = try await install(try HarnessIPA.game(.plain()))
+        try await waitUntil("the error is reported") { self.report(named: "error") != nil }
+        let error = try XCTUnwrap(report(named: "error"))
+        let fields = try XCTUnwrap(error["fields"] as? [String: Any])
+        XCTAssertEqual(fields["origin"] as? String, "install")
+        XCTAssertEqual(fields["cause"] as? String, "notSigned")
+        XCTAssertEqual(fields["kind"] as? String, "filesNotSigned")
+        XCTAssertEqual(fields["fileKind"] as? String, "framework")
+        XCTAssertEqual((fields["files"] as? NSNumber)?.intValue, 1)
+        let text = String(decoding: try JSONSerialization.data(withJSONObject: error), as: UTF8.self)
+        XCTAssertFalse(text.contains("Failed to Sign"), "never zsign's words")
+        XCTAssertFalse(text.contains("MoltenVK"), "never a file's name")
+        XCTAssertFalse(text.contains(LCPath.bundlePath.path), "never a path of the iPhone")
+    }
 }
