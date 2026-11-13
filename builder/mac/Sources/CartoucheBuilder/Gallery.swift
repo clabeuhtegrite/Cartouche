@@ -341,8 +341,16 @@ enum Gallery {
                 PairedDevice(id: "A0F4E2B6-81C3-4D9E-B7A5-6C2D1E3F4A5B", name: "iPhone Duo", key: Data(repeating: 9, count: 32),
                              paired: now.addingTimeInterval(-2 * 86_400), seen: now.addingTimeInterval(-26 * 3600)),
             ]
-            model.bridge.preview(devices: iphones, connected: [iphones[0].id], games: config.games,
-                                 name: "MacBook Air", saves: URL(fileURLWithPath: info.home).appendingPathComponent("Saves", isDirectory: true))
+            let saves = URL(fileURLWithPath: info.home).appendingPathComponent("Saves", isDirectory: true)
+            model.bridge.preview(devices: iphones, connected: [iphones[0].id], games: config.games, name: "MacBook Air", saves: saves)
+            // Mario Kart 8 Deluxe played on this Mac, the iPhone's saves come
+            // before its last game; Super Mario Odyssey playing now.
+            let odyssey = MacGameApp(url: URL(fileURLWithPath: "/Users/player/Applications/Super Mario Odyssey.app"),
+                                     titleID: "0100000000010000", name: "Super Mario Odyssey")
+            model.macGames.preview(folder: saves,
+                                   playing: page == .menubar ? [MacGameRun(app: odyssey, pid: 0, started: now.addingTimeInterval(-1500), fromBuilder: true)] : [],
+                                   last: ["0100152000022000": MacSaveEvent(at: now.addingTimeInterval(-26 * 60), when: .before, step: "fetch",
+                                                                           fetched: "2026-11-13T18-02-00Z.zip")])
             if page == .menubar {
                 let release = BuilderRelease(version: "0.3.0", tag: "builder-v0.3.0", notes: "",
                                              page: URL(string: "https://github.com/clabeuhtegrite/Cartouche/releases/tag/builder-v0.3.0")!,

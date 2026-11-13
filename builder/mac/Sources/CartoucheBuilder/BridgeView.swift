@@ -4,7 +4,10 @@
 //
 //  The bridge to Cartouche on the iPhone: on, this Mac is a storage place
 //  Cartouche can add, its games folder (on the Mac or the NAS) and a saves
-//  folder. An iPhone pairs once, with a code shown on both screens.
+//  folder. An iPhone pairs once, with a code shown on both screens. The
+//  games played on this Mac keep their saves in step with the iPhone's in
+//  that saves folder, or in Cartouche's saves folder on a share, which the
+//  page finds on the shares mounted here.
 //
 
 import BuilderKit
@@ -14,6 +17,8 @@ import SwiftUI
 struct BridgeView: View {
     @EnvironmentObject private var model: AppModel
     @EnvironmentObject private var bridge: BridgeController
+    /// Cartouche's saves folders on the shares mounted on this Mac.
+    @State private var found: [URL] = []
 
     var body: some View {
         ScrollView {
@@ -25,8 +30,63 @@ struct BridgeView: View {
                     folders
                     devices
                 }
+                macSaves
             }
             .padding(28)
+        }
+        .task {
+            guard !model.sample else { return }
+            // A share that does not answer must not hold the window.
+            found = await Task.detached(priority: .utility) { MacSavesFolder.found() }.value
+        }
+    }
+
+    /// The saves of the games played on this Mac: kept in step with the
+    /// iPhone's, or not, and where.
+    private var macSaves: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text(tr("Games played on this Mac", "Jeux joués sur ce Mac").uppercased())
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(.secondary)
+            Card(padding: 6) {
+                VStack(alignment: .leading, spacing: 0) {
+                    Toggle(isOn: Binding(get: { AppSettings.macSaves }, set: { model.setMacSaves($0) })) {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(tr("Keep their saves with the iPhone’s", "Garder leurs sauvegardes en phase avec l’iPhone"))
+                                .font(.callout.weight(.medium))
+                            Text(tr("Before and after each game, in the saves folder: the newest copy comes, this Mac’s go, as Cartouche does on the iPhone.",
+                                    "Avant et après chaque partie, dans le dossier des sauvegardes : la copie la plus récente arrive, celles de ce Mac partent, comme le fait Cartouche sur l’iPhone."))
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                    }
+                    .toggleStyle(.switch)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 10)
+                    Divider().padding(.leading, 12)
+                    FolderRow(symbol: "externaldrive.badge.icloud", title: tr("Saves folder", "Dossier des sauvegardes"), path: bridge.saves.path,
+                              note: bridge.savesIsDefault ? tr("In Cartouche Builder’s folder", "Dans le dossier de Cartouche Builder") : nil) {
+                        Button(tr("Change…", "Changer…")) {
+                            if let url = FolderPicker.choose(title: tr("Where the saves go", "Où vont les sauvegardes"), directory: bridge.saves) {
+                                bridge.setSaves(url)
+                            }
+                        }
+                        .controlSize(.small)
+                    }
+                    if let share = found.first(where: { $0.standardizedFileURL != bridge.saves.standardizedFileURL }) {
+                        Divider().padding(.leading, 48)
+                        let volume = share.pathComponents.count > 2 ? share.pathComponents[2] : share.lastPathComponent
+                        FolderRow(symbol: "server.rack", title: tr("Cartouche’s saves found on “\(volume)”", "Sauvegardes de Cartouche trouvées sur « \(volume) »"),
+                                  path: share.path,
+                                  note: tr("The iPhone keeps its copies there: use it, for this Mac’s saves to meet them.",
+                                           "L’iPhone y garde ses copies : utilisez-le, pour que les sauvegardes de ce Mac les retrouvent.")) {
+                            Button(tr("Use it", "L’utiliser")) { bridge.setSaves(share) }
+                                .controlSize(.small)
+                        }
+                    }
+                }
+            }
         }
     }
 

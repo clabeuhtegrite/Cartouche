@@ -10,6 +10,8 @@
 //  the app checks nxnative every few hours and says when it improved a game.
 //  It updates itself (Updater) and sends its measures (BuilderTelemetry):
 //  what it built, how long it took and what failed, never a name or a path.
+//  The games built for this Mac are played from it, their saves kept in
+//  step with the iPhone's (MacGames).
 //
 
 import AppKit
@@ -50,8 +52,12 @@ enum AppSettings {
     static let bridgeKey = "bridge"
     static let savesKey = "savesFolder"
     static let notifiedKey = "notifiedDue"
+    /// The saves of the games played on this Mac are kept in step with the
+    /// iPhone's, in the saves folder.
+    static let macSavesKey = "macSaves"
 
     static var menuBar: Bool { UserDefaults.standard.object(forKey: menuBarKey) as? Bool ?? true }
+    static var macSaves: Bool { UserDefaults.standard.object(forKey: macSavesKey) as? Bool ?? true }
 }
 
 struct Banner: Identifiable, Equatable {
@@ -77,6 +83,8 @@ final class AppModel: ObservableObject {
     let covers = CoverStore.shared
     let updater: Updater
     let telemetry: BuilderTelemetry
+    /// The games played on this Mac, and their saves.
+    let macGames: MacGames
     let sample: Bool
 
     @Published var section: AppSection = .library
@@ -86,7 +94,9 @@ final class AppModel: ObservableObject {
     /// The step the setup assistant opens at.
     @Published var setupStep: SetupStep = .welcome
     @Published private(set) var engine: Engine?
-    @Published private(set) var library: Library?
+    @Published private(set) var library: Library? {
+        didSet { useMacApps() }
+    }
     @Published private(set) var status: BatchStatus?
     /// The games asked for while a batch runs, not taken by it yet, and those
     /// taken out of it.
@@ -125,6 +135,7 @@ final class AppModel: ObservableObject {
         self.home = home
         self.sample = sample
         bridge = BridgeController(home: home, sample: sample)
+        macGames = MacGames(store: home.macSaves, scratch: home.savesScratch, sample: sample)
         if sample {
             updater = Updater(app: URL(fileURLWithPath: "/Applications/Cartouche Builder.app"), version: "0.2.0", identifier: Updater.identifier,
                               folder: home.root.appendingPathComponent("Updates"), enabled: false)
@@ -165,6 +176,7 @@ final class AppModel: ObservableObject {
         // At once, before the library: its first check fetches nxnative.
         showSetup = needsSetup
         bridge.attach(model: self)
+        startMacGames()
         let checked = library?.checked.flatMap(ISODate.parse)
         let stale = checked.map { Date().timeIntervalSince($0) > AppModel.checkInterval } ?? true
         // This read is the one the app's coming to the front would ask for.
@@ -231,7 +243,8 @@ final class AppModel: ObservableObject {
     /// Nothing the player would see go: no build, no iPhone connected, no
     /// window open, the app in the background.
     var isIdle: Bool {
-        guard !isBuilding, !bundling, bridge.connected.isEmpty, bridge.request == nil, !NSApp.isActive else { return false }
+        guard !isBuilding, !bundling, bridge.connected.isEmpty, bridge.request == nil, !NSApp.isActive,
+              macGames.playing.isEmpty, macGames.preparing.isEmpty else { return false }
         return !NSApp.windows.contains { $0.isVisible && $0.styleMask.contains(.titled) }
     }
 
@@ -870,6 +883,83 @@ final class AppModel: ObservableObject {
             } catch {
                 show(error, origin: "mount")
             }
+        }
+    }
+
+    // MARK: Playing on this Mac
+
+    private func startMacGames() {
+        macGames.news = { [weak self] news in self?.heard(news) }
+        macGames.language = L10n.code
+        useMacSaves()
+        macGames.start()
+    }
+
+    /// The library's games that have an app on this Mac, as their
+    /// Info.plist names them: their copies' folder is named after it.
+    private func useMacApps() {
+        let apps = (library?.games ?? []).compactMap { game -> MacGameApp? in
+            guard let app = game.mac?.app, app.present else { return nil }
+            let url = URL(fileURLWithPath: app.path)
+            if sample { return MacGameApp(url: url, titleID: game.titleID, name: game.name) }
+            return MacGameApp(url: url) ?? MacGameApp(url: url, titleID: game.titleID, name: game.name)
+        }
+        if sample {
+            macGames.preview(apps: apps)
+        } else {
+            macGames.use(apps: apps)
+        }
+    }
+
+    /// The saves folder of the bridge, the iPhone's, or none when the
+    /// player turned the Mac's saves off.
+    func useMacSaves() {
+        guard !sample else { return }
+        macGames.use(saves: AppSettings.macSaves ? bridge.saves : nil)
+        Task { await macGames.round() }
+    }
+
+    func setMacSaves(_ on: Bool) {
+        UserDefaults.standard.set(on, forKey: AppSettings.macSavesKey)
+        useMacSaves()
+        objectWillChange.send()
+    }
+
+    /// Starts GAME on this Mac: its newest copy of saves first; straight
+    /// into the game, or with nxnative's own settings window (SETTINGS).
+    func play(_ game: Game, settings: Bool = false) {
+        guard !sample else { return }
+        macGames.language = L10n.code
+        Task {
+            do {
+                try await macGames.play(game.titleID, settings: settings)
+            } catch {
+                show(error, origin: "play")
+            }
+        }
+    }
+
+    /// Whether GAME can be played on this Mac now: its app is there.
+    func canPlay(_ game: Game) -> Bool {
+        game.mac?.app?.present ?? false
+    }
+
+    private func heard(_ news: MacGamesNews) {
+        switch news {
+        case .started:
+            break
+        case let .ended(run, ending: ending, exit: code, seconds: seconds):
+            telemetry.event("builder.played", game: run.app.titleID,
+                            fields: BuilderTelemetry.playedFields(ended: ending.rawValue, exit: code, seconds: seconds,
+                                                                  fromBuilder: run.fromBuilder, settings: run.settings))
+            if ending == .crashed {
+                let log = "~/Library/Logs/nxnative/\(run.app.titleID).log"
+                banner = Banner(kind: .error, text: tr("\(run.app.name) stopped unexpectedly. Its log: \(log)",
+                                                       "\(run.app.name) s’est arrêté de façon inattendue. Son journal : \(log)"))
+            }
+        case let .saves(titleID: titleID, event: event, onShare: onShare):
+            telemetry.event("builder.saves", game: titleID,
+                            fields: BuilderTelemetry.savesFields(step: event.step, when: event.when.rawValue, onShare: onShare))
         }
     }
 

@@ -67,6 +67,9 @@ final class TelemetryTests: XCTestCase {
                                                   "macFailed": .count(1), "macSkipped": .count(1), "macStopped": .count(0), "minutes": .number(64.2),
                                                   "nxnative": .text(head), "scheduled": .flag(false), "skipped": .count(0), "state": .text("done"),
                                                   "stopped": .count(0)]
+        let played: [String: TelemetryValue] = ["ended": .text("quit"), "exit": .count(0), "from": .text("builder"), "seconds": .number(2710),
+                                                "settings": .flag(false)]
+        let saves: [String: TelemetryValue] = ["place": .text("share"), "step": .text("keepAndFetch"), "when": .text("before")]
         let events: [(name: String, game: String?, fields: [String: TelemetryValue])] = [
             ("builder.opened", nil, opened),
             ("builder.setup", nil, setup),
@@ -90,6 +93,8 @@ final class TelemetryTests: XCTestCase {
             ("builder.macFailed", "01007EF00011E000", macFailed),
             ("builder.macSkipped", "010093801237C000", macSkipped),
             ("builder.batch", nil, macBatch),
+            ("builder.played", "0100152000022000", played),
+            ("builder.saves", "0100152000022000", saves),
         ]
         var made: [TelemetryEvent] = []
         for (index, event) in events.enumerated() {
@@ -220,6 +225,27 @@ final class TelemetryTests: XCTestCase {
         for (index, event) in events.enumerated() {
             XCTAssertNotNil(TelemetryEvent(id: "6a1d9e3c-0000-4000-8000-00000000020\(index)", seq: index + 1, context: context,
                                            name: event.name, game: event.game, fields: event.fields), event.name)
+        }
+    }
+
+    /// A game played on this Mac, and its saves kept in step with the
+    /// iPhone's: how it ended and what moved, as names and numbers; words
+    /// that are no name are not sent as they are.
+    func testAGamePlayedOnThisMacAndItsSaves() throws {
+        XCTAssertEqual(BuilderTelemetry.playedFields(ended: "crashed", exit: 134, seconds: 61.6, fromBuilder: true, settings: true),
+                       ["ended": .text("crashed"), "exit": .count(134), "from": .text("builder"), "seconds": .number(62), "settings": .flag(true)])
+        // Started from the Dock, its log saying nothing the app knows.
+        XCTAssertEqual(BuilderTelemetry.playedFields(ended: "the host said so", exit: nil, seconds: 5, fromBuilder: false, settings: false),
+                       ["ended": .text("unknown"), "from": .text("elsewhere"), "seconds": .number(5)])
+        XCTAssertEqual(BuilderTelemetry.savesFields(step: "offline", when: "round", onShare: true),
+                       ["place": .text("share"), "step": .text("offline"), "when": .text("round")])
+        XCTAssertEqual(BuilderTelemetry.savesFields(step: "send", when: "after", onShare: false),
+                       ["place": .text("mac"), "step": .text("send"), "when": .text("after")])
+        let made = [("builder.played", BuilderTelemetry.playedFields(ended: "gpu", exit: 70, seconds: 1, fromBuilder: true, settings: false)),
+                    ("builder.saves", BuilderTelemetry.savesFields(step: "keepAndFetch", when: "before", onShare: true))]
+        for (index, event) in made.enumerated() {
+            XCTAssertNotNil(TelemetryEvent(id: "6a1d9e3c-0000-4000-8000-00000000020\(index)", seq: index + 1, context: context,
+                                           name: event.0, game: "0100152000022000", fields: event.1), event.0)
         }
     }
 

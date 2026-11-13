@@ -454,6 +454,33 @@ public final class BuilderTelemetry: ObservableObject {
         return fields
     }
 
+    /// A game played on this Mac (builder.played), for ENDED, how it ended
+    /// (MacGameEnding: quit, gpu, crashed, stopped, unknown), its
+    /// launcher's EXIT code when it said, after SECONDS; FROM_BUILDER, the
+    /// builder started it (with nxnative's SETTINGS window first, or not),
+    /// else the Finder, the Dock or Launchpad did. Never its name.
+    public nonisolated static func playedFields(ended: String, exit: Int?, seconds: TimeInterval, fromBuilder: Bool,
+                                                settings: Bool) -> [String: TelemetryValue] {
+        var fields: [String: TelemetryValue] = [
+            "ended": .text(FailureDetails.name(ended) ?? "unknown"),
+            "seconds": .number(max(0, seconds).rounded()),
+            "from": .text(fromBuilder ? "builder" : "elsewhere"),
+        ]
+        if let exit, (0...1_000).contains(exit) { fields["exit"] = .count(exit) }
+        if fromBuilder { fields["settings"] = .flag(settings) }
+        return fields
+    }
+
+    /// A game's saves kept in step with the iPhone's copies (builder.saves):
+    /// the STEP (CartoucheSaveStep: send, keep, fetch, keepAndFetch; or
+    /// offline, failed), WHEN (before, after, round), and whether the
+    /// saves folder is ON_SHARE. Never a name, a copy's or a folder's.
+    public nonisolated static func savesFields(step: String, when: String, onShare: Bool) -> [String: TelemetryValue] {
+        ["step": .text(FailureDetails.name(step) ?? "other"),
+         "when": .text(FailureDetails.name(when) ?? "other"),
+         "place": .text(onShare ? "share" : "mac")]
+    }
+
     /// An nxnative commit's 12 digits, when TEXT is one.
     public nonisolated static func commit(_ text: String) -> String? {
         let digits = text.lowercased()

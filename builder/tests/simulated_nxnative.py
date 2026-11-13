@@ -45,9 +45,10 @@ describes it (docs/frontends.md) and its script does it (seedds/nxnative
   then in place of the app there, its reuse key in <app>.key; its
   Contents/Info.plist says what an IPA's says (DMTitleID, DMCommit, DMChain,
   DMLanguage, the version, the bundle ID, CFBundleName) and DMSaveSyncChoice,
-  its launcher and host in Contents/MacOS (nxnative, dmhost), the game's
-  files in Contents/Resources/romfs, sim/inputs.json and sim/args.json in
-  Contents/Resources.
+  its launcher and host in Contents/MacOS (nxnative, a script that runs
+  as nxnative's launcher does as far as the builder sees it, LAUNCHER, and
+  dmhost), the game's files in Contents/Resources/romfs, sim/inputs.json
+  and sim/args.json in Contents/Resources.
 
 What breaks, breaks as with nxnative. The checkout's own commits can break
 the app build (a file BROKEN at its root: every game's, or those whose title
@@ -93,6 +94,7 @@ import json
 import os
 import plistlib
 import re
+import shlex
 import shutil
 import signal
 import struct
@@ -669,6 +671,46 @@ def main(args: argparse.Namespace) -> None:
     say(f"built {out}")
 
 
+# The launcher of a game's Mac app, a script that runs as nxnative's
+# (dm/mac/launcher.c) does as far as the builder sees it: its log in
+# ~/Library/Logs/nxnative/<ID>.log, the one before kept as <ID>.prev.log,
+# ending with the line saying how the game ended; no settings window with
+# DM_LAUNCHER=0 or --no-launcher; the game's save in DM_SAVE, else in
+# ~/Library/Application Support/nxnative/<ID>/save. The game plays once
+# more: its save's progress.txt gains " +mac". Beside the save, played.txt
+# says what the game found: its window, DM_SAVE_SYNC, the title of the Home
+# button's prompt, its progress. For the tests, NXSIM_LOGS puts the log
+# elsewhere, NXSIM_PLAY makes the game last that many seconds, NXSIM_EXIT
+# is the host's exit code (0, a quit).
+LAUNCHER = """#!/bin/sh
+ID=@ID@
+NAME=@NAME@
+LOGS="${NXSIM_LOGS:-$HOME/Library/Logs/nxnative}"
+SAVE="${DM_SAVE:-$HOME/Library/Application Support/nxnative/$ID/save}"
+mkdir -p "$LOGS" "$SAVE" || exit 1
+[ -f "$LOGS/$ID.log" ] && mv -f "$LOGS/$ID.log" "$LOGS/$ID.prev.log"
+exec >"$LOGS/$ID.log" 2>&1
+echo "launcher: $NAME ($ID), host $(dirname "$0")/dmhost"
+WINDOW=1
+[ "$DM_LAUNCHER" = 0 ] && WINDOW=0
+for ARG in "$@"; do [ "$ARG" = --no-launcher ] && WINDOW=0; done
+[ "$WINDOW" = 0 ] && echo "launcher: no settings window (DM_LAUNCHER=0 or --no-launcher)"
+FOUND=$(cat "$SAVE/progress.txt" 2>/dev/null)
+{
+  echo "window=$WINDOW"
+  echo "save_sync=${DM_SAVE_SYNC-unset}"
+  echo "quit_title=$(printf '%s\\n' "$DM_HOME_QUIT_TEXT" | sed -n 2p)"
+  echo "found=$FOUND"
+} > "$SAVE/../played.txt"
+echo "[host] playing from: $FOUND"
+printf '%s +mac\\n' "$FOUND" > "$SAVE/progress.txt"
+sleep "${NXSIM_PLAY:-0}"
+CODE="${NXSIM_EXIT:-0}"
+echo "launcher: the host exited with $CODE"
+exit "$CODE"
+"""
+
+
 def build_mac_app(args: argparse.Namespace, plan: dict, family: Family, work: Path, out: Path, name: str, version: str, bundle_id: str) -> None:
     """The stages of --platform mac-app after the rewrite: the Mac shaders,
     the Mac host and the app, packed as dm/mac/pack_app.py packs it."""
@@ -720,6 +762,10 @@ def build_mac_app(args: argparse.Namespace, plan: dict, family: Family, work: Pa
         "CFBundlePackageType": "APPL",
         "CFBundleExecutable": "nxnative",
         "LSApplicationCategoryType": "public.app-category.games",
+        # This launcher is a script, which says no architecture: macOS starts
+        # it natively on Apple silicon, as it does nxnative's own launcher,
+        # instead of asking for Rosetta.
+        "LSArchitecturePriority": ["arm64", "x86_64"],
         "DMTitleID": title_id,
         "DMLanguage": args.language or "en-US",
         "DMSaveSyncChoice": 1,
@@ -735,7 +781,9 @@ def build_mac_app(args: argparse.Namespace, plan: dict, family: Family, work: Pa
     (contents / "Resources" / "sim").mkdir(parents=True)
     PROG.step("launcher and host (clones of the game files)")
     (contents / "Info.plist").write_bytes(plistlib.dumps(info))
-    (contents / "MacOS" / "nxnative").write_bytes(b"\xcf\xfa\xed\xfe simulated launcher of " + title_id.encode())
+    launcher = contents / "MacOS" / "nxnative"
+    launcher.write_text(LAUNCHER.replace("@ID@", shlex.quote(title_id)).replace("@NAME@", shlex.quote(name)), encoding="utf-8")
+    launcher.chmod(0o755)
     (contents / "MacOS" / "dmhost").write_bytes((work / "tools" / "dmhost").read_bytes())
     PROG.step("game files")
     shutil.copytree(work / "extract", contents / "Resources" / "romfs")

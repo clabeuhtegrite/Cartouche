@@ -56,6 +56,15 @@ public enum Format {
         return formatter.localizedString(for: date, relativeTo: now)
     }
 
+    /// "18:02", the time of DATE today.
+    public static func clock(_ date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.locale = L10n.locale
+        formatter.dateStyle = .none
+        formatter.timeStyle = .short
+        return formatter.string(from: date)
+    }
+
     /// "10 nov. 2026 à 07:06".
     public static func date(_ date: Date) -> String {
         let formatter = DateFormatter()

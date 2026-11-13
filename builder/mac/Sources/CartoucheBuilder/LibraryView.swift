@@ -540,6 +540,10 @@ struct GameMenu: View {
     let game: Game
 
     var body: some View {
+        if model.canPlay(game) {
+            MacPlayItems(game: game, games: model.macGames)
+            Divider()
+        }
         if game.canBuild {
             if let progress = model.progress(game.titleID) {
                 // In the build running: this game alone, the others go on.
@@ -575,5 +579,22 @@ struct GameMenu: View {
         if let source = game.source, !source.isEmpty {
             Button(tr("Show its sources in the Finder", "Afficher ses sources dans le Finder")) { model.reveal(source) }
         }
+    }
+}
+
+/// Play and Game settings in a game's menu, as the game is now: Play
+/// brings a game playing to the front.
+struct MacPlayItems: View {
+    @EnvironmentObject private var model: AppModel
+    let game: Game
+    @ObservedObject var games: MacGames
+
+    var body: some View {
+        let playing = games.isPlaying(game.titleID)
+        Button(playing ? tr("Show the game", "Afficher le jeu") : tr("Play on this Mac", "Jouer sur ce Mac")) {
+            model.play(game)
+        }
+        Button(tr("Game settings", "Réglages du jeu")) { model.play(game, settings: true) }
+            .disabled(playing || games.preparing.contains(game.titleID))
     }
 }

@@ -5,7 +5,8 @@
 //  A game's sheet, beside the library: why it is due, nxnative's commits
 //  that touched it since its build, its build and its IPA, its app for this
 //  Mac, and what can be done: rebuild it, follow it or not, build it for
-//  the iPhone, for this Mac or for both, name it as nxnative's commits do.
+//  the iPhone, for this Mac or for both, name it as nxnative's commits do,
+//  play it on this Mac, its saves kept in step with the iPhone's.
 //  nxnative writes its commits in English, a paragraph each: the sheet says
 //  why in the player's words, and shows each commit's first lines, the
 //  rest when asked.
@@ -23,6 +24,9 @@ struct GameDetailView: View {
             VStack(alignment: .leading, spacing: 18) {
                 header
                 actions
+                if model.canPlay(game) {
+                    MacPlayCard(game: game, games: model.macGames)
+                }
                 if game.canBuild {
                     platforms
                 }
@@ -508,6 +512,114 @@ struct AliasesEditor: View {
         .onAppear { text = (model.config?.aliases[game.titleID] ?? game.aliases).joined(separator: "\n") }
         .onChange(of: game.titleID) { _, _ in
             text = (model.config?.aliases[game.titleID] ?? game.aliases).joined(separator: "\n")
+        }
+    }
+}
+
+/// A game's app on this Mac: Play, straight into the game, or Game
+/// settings, nxnative's own window first; the game playing comes to the
+/// front. Below, what its saves did last.
+struct MacPlayCard: View {
+    @EnvironmentObject private var model: AppModel
+    let game: Game
+    @ObservedObject var games: MacGames
+
+    var body: some View {
+        let playing = games.playing[game.titleID]
+        let preparing = games.preparing.contains(game.titleID)
+        Card(padding: 14) {
+            VStack(alignment: .leading, spacing: 10) {
+                // Side by side, or one above the other in a narrow sheet.
+                ViewThatFits(in: .horizontal) {
+                    HStack(spacing: 10) {
+                        playButton(playing: playing, preparing: preparing)
+                        settingsButton(playing: playing, preparing: preparing)
+                    }
+                    VStack(alignment: .leading, spacing: 8) {
+                        playButton(playing: playing, preparing: preparing)
+                        settingsButton(playing: playing, preparing: preparing)
+                    }
+                }
+                Label {
+                    Text(savesLine(playing: playing))
+                        .fixedSize(horizontal: false, vertical: true)
+                } icon: {
+                    Image(systemName: savesSymbol)
+                }
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            }
+        }
+    }
+
+    private func playButton(playing: MacGameRun?, preparing: Bool) -> some View {
+        Button {
+            model.play(game)
+        } label: {
+            Label(playing != nil ? tr("Show the game", "Afficher le jeu")
+                                 : preparing ? tr("Getting its saves…", "Arrivée des sauvegardes…") : tr("Play on this Mac", "Jouer sur ce Mac"),
+                  systemImage: playing != nil ? "macwindow" : "play.fill")
+                .frame(maxWidth: .infinity)
+        }
+        .buttonStyle(.borderedProminent)
+        .controlSize(.large)
+        .disabled(preparing)
+    }
+
+    private func settingsButton(playing: MacGameRun?, preparing: Bool) -> some View {
+        Button {
+            model.play(game, settings: true)
+        } label: {
+            Label(tr("Game settings", "Réglages du jeu"), systemImage: "slider.horizontal.3")
+        }
+        .controlSize(.large)
+        .disabled(playing != nil || preparing)
+        .help(tr("Starts the game with nxnative’s own window first: graphics, controls, performance.",
+                 "Démarre le jeu avec d’abord la fenêtre de nxnative : graphismes, commandes, performances."))
+    }
+
+    private var savesSymbol: String {
+        let event = games.last[game.titleID]
+        if games.cloud[game.titleID] != nil { return "icloud" }
+        if event?.failed == true || event?.offline == true, games.keepsSaves(game.titleID) { return "exclamationmark.triangle" }
+        return "arrow.triangle.2.circlepath"
+    }
+
+    /// Where its saves are and what they did last, in the player's words.
+    private func savesLine(playing: MacGameRun?) -> String {
+        if games.cloud[game.titleID] != nil {
+            return tr("Its saves go through nxnative’s own cloud saves, chosen in its settings: Cartouche Builder leaves them to it.",
+                      "Ses sauvegardes passent par le cloud de nxnative, choisi dans ses réglages : Cartouche Builder les lui laisse.")
+        }
+        guard games.folder != nil else {
+            return tr("Its saves stay on this Mac: keeping them with the iPhone’s is off (iPhone page).",
+                      "Ses sauvegardes restent sur ce Mac : leur mise en phase avec l’iPhone est désactivée (page iPhone).")
+        }
+        if let playing {
+            return tr("Playing since \(Format.clock(playing.started)). Its saves go to the saves folder when it ends.",
+                      "En jeu depuis \(Format.clock(playing.started)). Ses sauvegardes iront dans le dossier des sauvegardes à la fin.")
+        }
+        guard let event = games.last[game.titleID] else {
+            return tr("Its saves are kept with the iPhone’s in the saves folder, before and after each game.",
+                      "Ses sauvegardes sont tenues en phase avec celles de l’iPhone dans le dossier des sauvegardes, avant et après chaque partie.")
+        }
+        let when = Format.relative(event.at)
+        switch event.step {
+        case "send":
+            return tr("This Mac’s saves went to the saves folder \(when).", "Les sauvegardes de ce Mac sont parties dans le dossier des sauvegardes \(when).")
+        case "keep":
+            return tr("This Mac’s saves went to the saves folder \(when), under a newer copy, which comes to this Mac next.",
+                      "Les sauvegardes de ce Mac sont parties dans le dossier des sauvegardes \(when), sous une copie plus récente, qui arrive ensuite sur ce Mac.")
+        case "fetch":
+            return tr("The newest saves, the iPhone’s, came \(when).", "Les sauvegardes les plus récentes, celles de l’iPhone, sont arrivées \(when).")
+        case "keepAndFetch":
+            return tr("The iPhone’s newer saves came \(when); this Mac’s were kept as a copy.",
+                      "Les sauvegardes plus récentes de l’iPhone sont arrivées \(when) ; celles de ce Mac ont été gardées en copie.")
+        case "offline":
+            return tr("The saves folder could not be reached \(when): this Mac’s saves stay as they are until it can be.",
+                      "Le dossier des sauvegardes était injoignable \(when) : celles de ce Mac restent telles quelles en attendant.")
+        default:
+            return event.failure ?? tr("Its saves could not be kept in step \(when).", "Ses sauvegardes n’ont pas pu être mises en phase \(when).")
         }
     }
 }

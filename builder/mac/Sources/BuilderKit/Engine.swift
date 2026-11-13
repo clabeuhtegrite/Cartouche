@@ -38,6 +38,10 @@ public struct BuilderHome: Equatable, Sendable {
     public var logs: URL { root.appendingPathComponent("logs", isDirectory: true) }
     public var engine: URL { root.appendingPathComponent("nxnative", isDirectory: true) }
     public var saves: URL { root.appendingPathComponent("Saves", isDirectory: true) }
+    /// What this Mac knows of the saves of the games played on it (MacSaves.swift).
+    public var macSaves: URL { root.appendingPathComponent("mac-saves.json") }
+    /// The copies of saves that come, unpacked there first.
+    public var savesScratch: URL { root.appendingPathComponent("Saves scratch", isDirectory: true) }
 }
 
 /// The engine's settings (config.json), while the engine cannot run yet:

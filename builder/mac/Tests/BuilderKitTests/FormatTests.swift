@@ -34,6 +34,9 @@ final class FormatTests: XCTestCase {
         XCTAssertEqual(Format.size(15_800_000_000), "15,8 Go")
         XCTAssertEqual(Format.size(999), "999 o")
         XCTAssertEqual(Format.percent(0.684), "68 %")
+        // The time a game started, on this Mac's clock.
+        let started = Calendar.current.date(bySettingHour: 18, minute: 2, second: 0, of: Date())!
+        XCTAssertEqual(Format.clock(started), "18:02")
     }
 
     func testDurationsAndTimes() {
