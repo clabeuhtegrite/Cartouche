@@ -49,6 +49,19 @@ final class CartoucheGuide: ObservableObject {
         var hasInstalledGame = false
         /// The player said No thanks to building their game on a Mac.
         var buildSkipped = false
+        /// Cartouche signs with an Apple ID: one installed with the player's
+        /// own certificate has neither LocalDevVPN's step nor the Apple ID's.
+        var requiresAccount = true
+
+        /// The steps this installation has, in their order.
+        var steps: [Step] {
+            requiresAccount ? Step.allCases : Step.allCases.filter { $0 != .vpn && $0 != .account }
+        }
+
+        /// STEP's number among them.
+        func number(of step: Step) -> Int {
+            (steps.firstIndex(of: step) ?? step.rawValue) + 1
+        }
 
         func isDone(_ step: Step) -> Bool {
             switch step {
@@ -67,7 +80,8 @@ final class CartoucheGuide: ObservableObject {
         /// A step the player passed over without doing it: the Mac's, after
         /// No thanks, until a game of theirs shows anyway.
         func isSkipped(_ step: Step) -> Bool {
-            step == .build && buildSkipped && !isDone(step)
+            (!requiresAccount && (step == .vpn || step == .account))
+                || (step == .build && buildSkipped && !isDone(step))
         }
 
         /// The first step left, nil once every step is done or skipped.
@@ -120,7 +134,8 @@ final class CartoucheGuide: ObservableObject {
             hasGamesFolder: CartoucheStorageSettings.shared.location(.games) != nil
                 || CartoucheStoredGames.shared.serverName != nil,
             hasInstalledGame: entries.owned.contains { $0.app != nil },
-            buildSkipped: buildSkipped)
+            buildSkipped: buildSkipped,
+            requiresAccount: !setup.usesImportedSigning)
     }
 
     /// Whether the home shows the guide's card, in place of the setup banner:

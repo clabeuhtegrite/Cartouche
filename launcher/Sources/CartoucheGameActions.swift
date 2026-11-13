@@ -1034,7 +1034,7 @@ final class CartoucheGameActions: ObservableObject {
                 // iOS refused the certificate LiveContainer signed the game
                 // with: Cartouche has SideStore fetch the one that works.
                 CartoucheSetup.shared.certificateRefusedAtStart()
-                fail(.start, CartoucheText.startFailed, message: CartoucheText.startCertificateRefused, error: error)
+                fail(.start, CartoucheText.startFailed, message: CartoucheImportedSigning.isSelected ? CartoucheText.signingRefused : CartoucheText.startCertificateRefused, error: error)
             } catch {
                 fail(.start, CartoucheText.startFailed, error: error)
             }

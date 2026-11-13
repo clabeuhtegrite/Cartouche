@@ -47,7 +47,7 @@ struct CartoucheSystemView: View {
                 memorySection
                 playingSection
                 signatureSection
-                automaticRenewalSection
+                if !CartoucheImportedSigning.accountSigningDisabled { automaticRenewalSection }
                 deviceSection
                 updateSection
                 telemetrySection
@@ -118,7 +118,7 @@ struct CartoucheSystemView: View {
             LabeledContent {
                 HStack(spacing: 8) {
                     if let step = progress.current {
-                        Text(CartoucheText.guideStatusStep(step.number, CartoucheGuide.Step.allCases.count))
+                        Text(CartoucheText.guideStatusStep(progress.number(of: step), progress.steps.count))
                     } else {
                         Label(CartoucheText.guideStatusDone, systemImage: "checkmark.circle.fill")
                             .labelStyle(CartoucheTightLabelStyle())
@@ -279,7 +279,7 @@ struct CartoucheSystemView: View {
         } header: {
             Text(CartoucheText.signature)
         } footer: {
-            Text(CartoucheText.signatureFooter)
+            Text(CartoucheImportedSigning.accountSigningDisabled ? CartoucheText.signingUpdateOnComputer : CartoucheText.signatureFooter)
         }
     }
 
@@ -432,20 +432,25 @@ struct CartoucheSystemView: View {
             .padding(.vertical, 4)
         } else if let available = updates.available {
             LabeledContent(CartoucheText.updateAvailable, value: available.version)
-            Button(CartoucheText.updateTo(available.version), systemImage: "arrow.down.circle") {
-                updates.start()
-            }
-            // The update closes Cartouche, and the game behind it with it.
-            .disabled(!updates.canStart || actions.running != nil)
-            if let running = actions.running {
-                Text(CartoucheText.updateWhilePlaying(running.name))
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
-            }
-            if !setup.isComplete {
-                Text(CartoucheText.updateNeedsSetup)
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
+            if CartoucheImportedSigning.accountSigningDisabled {
+                Text(CartoucheText.signingUpdateOnComputer)
+                    .font(.footnote).foregroundStyle(.secondary)
+            } else {
+                Button(CartoucheText.updateTo(available.version), systemImage: "arrow.down.circle") {
+                    updates.start()
+                }
+                // The update closes Cartouche, and the game behind it with it.
+                .disabled(!updates.canStart || actions.running != nil)
+                if let running = actions.running {
+                    Text(CartoucheText.updateWhilePlaying(running.name))
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                }
+                if !setup.isComplete {
+                    Text(CartoucheText.updateNeedsSetup)
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                }
             }
             if !available.notes.isEmpty {
                 DisclosureGroup(CartoucheText.updateNotes) {

@@ -12,6 +12,7 @@ mod cartouche;
 mod error;
 mod logging;
 mod operation;
+mod imported_signing;
 
 use crate::{
     account::{
@@ -28,6 +29,7 @@ use crate::{
     pairing::{delete_stored_rppairing, export_pairing_cmd, has_stored_rppairing},
     secure_storage::{force_disable_keyring, keyring_available},
     sideload::SideloaderMutex,
+    imported_signing::inspect_signing_profile,
 };
 
 /// The keychain (macOS), Credential Manager (Windows) or Secret Service
@@ -136,6 +138,7 @@ pub fn run() {
             cartouche_release,
             installed_cartouche,
             install_cartouche_operation,
+            inspect_signing_profile,
             place_cartouche_pairing_operation,
         ])
         .run(tauri::generate_context!())

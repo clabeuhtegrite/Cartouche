@@ -170,7 +170,7 @@ final class CartoucheAccount: ObservableObject {
     /// needs to register this iPhone, Cartouche first waits for it, unless
     /// WAITING FOR VPN is false.
     func signIn(appleID: String, password: String, waitingForVPN: Bool = true) {
-        guard phase == nil, pausedUntil == nil,
+        guard !CartoucheImportedSigning.accountSigningDisabled, phase == nil, pausedUntil == nil,
               CartoucheSignInMessage.canSignIn(appleID: appleID, password: password) else { return }
         problemReport = nil
         signedIn = false
@@ -221,7 +221,7 @@ final class CartoucheAccount: ObservableObject {
     /// with each time Cartouche comes to the front.
     @discardableResult
     func signInAgain() -> Bool {
-        guard phase == nil, pausedUntil == nil, Self.vpnConnected,
+        guard !CartoucheImportedSigning.accountSigningDisabled, phase == nil, pausedUntil == nil, Self.vpnConnected,
               let appleID = CartoucheStoreKeychain.string("appleIDEmailAddress"),
               let password = CartoucheStoreKeychain.string("appleIDPassword") else { return false }
         signIn(appleID: appleID, password: password, waitingForVPN: false)
@@ -468,7 +468,7 @@ final class CartoucheAccount: ObservableObject {
     /// account it kept after a sign-in that stopped at that step, as the
     /// player asks: once LocalDevVPN is connected, which Cartouche waits for.
     func registerDevice() {
-        guard phase == nil, pausedUntil == nil else { return }
+        guard !CartoucheImportedSigning.accountSigningDisabled, phase == nil, pausedUntil == nil else { return }
         problemReport = nil
         vpnWait = nil
         wentOnWithoutVPN = false

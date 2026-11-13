@@ -659,17 +659,21 @@ dependencies = [
 name = "cartouche-installer"
 version = "0.1.0"
 dependencies = [
+ "aes-gcm",
+ "apple-codesign-quick",
  "chrono",
  "futures",
  "hex",
  "idevice",
  "isideload",
+ "isideload-p12-keystore",
  "keyring",
  "once_cell",
  "plist",
  "plist-macro",
  "reqwest",
  "rootcause",
+ "rsa",
  "rustls",
  "serde",
  "serde_json",
@@ -680,6 +684,7 @@ dependencies = [
  "tauri-plugin-dialog",
  "tauri-plugin-opener",
  "tauri-plugin-store",
+ "tempfile",
  "thiserror 2.0.21",
  "tokio",
  "tokio-util",
@@ -687,6 +692,7 @@ dependencies = [
  "tracing-appender",
  "tracing-subscriber",
  "uuid",
+ "x509-cert 0.2.5",
  "zip",
 ]
 

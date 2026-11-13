@@ -29,62 +29,79 @@ struct CartoucheSetupView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
                 header
-                step(
-                    number: 1,
-                    done: setup.hasPairingFile,
-                    title: CartoucheText.setupPairingTitle,
-                    detail: setup.hasPairingFile ? CartoucheText.setupPairingDone : CartoucheText.setupPairingHow
-                ) {
-                    Button {
-                        choosingPairingFile = true
-                    } label: {
-                        Label(setup.hasPairingFile ? CartoucheText.setupPairingReplace : CartoucheText.setupPairingChoose,
-                              systemImage: "doc.badge.plus")
-                    }
-                    .buttonStyle(.bordered)
-                    if let pairingReport = setup.pairingReport {
-                        Label(pairingReport.message, systemImage: "exclamationmark.triangle.fill")
-                            .font(.footnote)
-                            .foregroundStyle(.red)
-                        CartoucheReportButton(report: pairingReport)
-                            .font(.footnote)
-                            .buttonStyle(.bordered)
-                    }
-                }
-                step(
-                    number: 2,
-                    done: setup.signInStep == .done && !setup.needsDevice,
-                    title: CartoucheText.setupAppleIDTitle,
-                    detail: appleIDDetail
-                ) {
-                    if setup.appleID == nil || !setup.hasCertificate || setup.certificateRefused || setup.needsDevice {
-                        // SideStore registers this iPhone at sign-in, through
-                        // the pairing file.
+                if !setup.usesImportedSigning {
+                    step(
+                        number: 1,
+                        done: setup.hasPairingFile,
+                        title: CartoucheText.setupPairingTitle,
+                        detail: setup.hasPairingFile ? CartoucheText.setupPairingDone : CartoucheText.setupPairingHow
+                    ) {
                         Button {
-                            signingIn = true
+                            choosingPairingFile = true
                         } label: {
-                            Label(appleIDButton, systemImage: setup.needsDevice ? "iphone.gen3" : "person.crop.circle.badge.checkmark")
+                            Label(setup.hasPairingFile ? CartoucheText.setupPairingReplace : CartoucheText.setupPairingChoose,
+                                  systemImage: "doc.badge.plus")
                         }
-                        .buttonStyle(.borderedProminent)
-                        .disabled(!setup.hasPairingFile || account.phase == .registeringDevice)
+                        .buttonStyle(.bordered)
+                        if let pairingReport = setup.pairingReport {
+                            Label(pairingReport.message, systemImage: "exclamationmark.triangle.fill")
+                                .font(.footnote)
+                                .foregroundStyle(.red)
+                            CartoucheReportButton(report: pairingReport)
+                                .font(.footnote)
+                                .buttonStyle(.bordered)
+                        }
                     }
-                    // Why the sign-in stopped, once its screen has gone.
-                    if setup.signInStep == .unfinished, account.phase == nil, let report = account.lastProblem {
-                        Label(report.message, systemImage: "exclamationmark.triangle.fill")
-                            .font(.footnote)
-                            .foregroundStyle(.red)
-                            .fixedSize(horizontal: false, vertical: true)
-                        CartoucheReportButton(report: report)
-                            .font(.footnote)
-                            .buttonStyle(.bordered)
+                    step(
+                        number: 2,
+                        done: setup.signInStep == .done && !setup.needsDevice,
+                        title: CartoucheText.setupAppleIDTitle,
+                        detail: appleIDDetail
+                    ) {
+                        if setup.appleID == nil || !setup.hasCertificate || setup.certificateRefused || setup.needsDevice {
+                            // SideStore registers this iPhone at sign-in, through
+                            // the pairing file.
+                            Button {
+                                signingIn = true
+                            } label: {
+                                Label(appleIDButton, systemImage: setup.needsDevice ? "iphone.gen3" : "person.crop.circle.badge.checkmark")
+                            }
+                            .buttonStyle(.borderedProminent)
+                            .disabled(!setup.hasPairingFile || account.phase == .registeringDevice)
+                        }
+                        // Why the sign-in stopped, once its screen has gone.
+                        if setup.signInStep == .unfinished, account.phase == nil, let report = account.lastProblem {
+                            Label(report.message, systemImage: "exclamationmark.triangle.fill")
+                                .font(.footnote)
+                                .foregroundStyle(.red)
+                                .fixedSize(horizontal: false, vertical: true)
+                            CartoucheReportButton(report: report)
+                                .font(.footnote)
+                                .buttonStyle(.bordered)
+                        }
                     }
                 }
                 step(
-                    number: 3,
+                    number: setup.usesImportedSigning ? 1 : 3,
                     done: setup.hasCertificate && setup.certificateWorks == true,
                     title: CartoucheText.setupCertificateTitle,
                     detail: certificateDetail
                 ) {
+                    if CartoucheImportedSigning.isImportedInstall {
+                        NavigationLink {
+                            CartoucheSigningView()
+                        } label: {
+                            Label(CartoucheText.signingTitle, systemImage: "signature")
+                        }
+                        .buttonStyle(.bordered)
+                    }
+                    if let problem = setup.signingProblem {
+                        Text(problem).font(.footnote).foregroundStyle(.red)
+                    }
+                    if setup.isImportingSigning { ProgressView(CartoucheText.setupCertificateChecking) }
+                    if setup.usesImportedSigning {
+                        Text(CartoucheText.signingUpdateOnComputer).font(.footnote).foregroundStyle(.secondary)
+                    }
                     // A sign-in that stopped: signing in again brings it.
                     if !setup.hasCertificate && setup.signInStep != .unfinished {
                         Button(CartoucheText.setupCheckAgain, systemImage: "arrow.clockwise") {
@@ -93,7 +110,7 @@ struct CartoucheSetupView: View {
                         .buttonStyle(.bordered)
                     }
                 }
-                renewalNote
+                if !setup.usesImportedSigning { renewalNote }
             }
             .padding()
             .frame(maxWidth: 640)
@@ -139,6 +156,10 @@ struct CartoucheSetupView: View {
     }
 
     private var certificateDetail: String {
+        if setup.usesImportedSigning {
+            if setup.certificateRefused { return CartoucheText.signingRefused }
+            if !setup.hasCertificate { return CartoucheText.signingHow }
+        }
         guard setup.hasCertificate else { return CartoucheText.setupCertificateHow }
         switch setup.certificateWorks {
         case true?: return CartoucheText.setupCertificateDone
@@ -270,6 +291,7 @@ extension CartoucheSetup {
     }
 
     func bannerDetail(signingInAgain: Bool, registeringDevice: Bool = false) -> String {
+        if usesImportedSigning { return certificateRefused ? CartoucheText.signingRefused : CartoucheText.signingHow }
         if certificateRefused {
             return signingInAgain ? CartoucheText.setupBannerCertificateRenewing : CartoucheText.setupBannerCertificateDetail
         }
