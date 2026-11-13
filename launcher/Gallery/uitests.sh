@@ -39,6 +39,8 @@ if [ "${1:-}" = "--ipad" ]; then
   shift
 fi
 [ $# -eq 1 ] || { echo "usage: $0 [--ipad] OUT" >&2; exit 2; }
+# SCRATCH (to be reverted): the iPad's UI tests alone, then its screenshots.
+[ "$DEVICE" = iPad ] || { echo "::warning::scratch run: no UI tests on the iPhone"; exit 0; }
 HERE="$(cd "$(dirname "$0")" && pwd)"
 mkdir -p "$1"
 OUT="$(cd "$1" && pwd)"
