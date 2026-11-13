@@ -355,6 +355,9 @@ class SideStoreOutcomeTest(unittest.TestCase):
                   "CartoucheUpdates.swift": ["update"]}
         for name, actions in waited.items():
             text = (LAUNCHER / name).read_text(encoding="utf-8")
+            # The gallery's stand-ins make an outcome of their own, which
+            # no action of SideStore's leaves.
+            text = re.sub(r"^\s*#if CARTOUCHE_GALLERY\n.*?^\s*#endif\n", "", text, flags=re.M | re.S)
             self.assertEqual(re.findall(r"CartoucheSideStoreOutcome\(data: \$0, expecting: \.(\w+)", text), actions, name)
 
     def test_cartouche_reads_every_field_sidestore_writes(self):
