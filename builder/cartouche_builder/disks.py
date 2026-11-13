@@ -34,6 +34,9 @@ NAMED = (
 )
 # nxnative's check of the room: what it needs.
 NEEDED = re.compile(r"less than (\d+) GB free on the volume of")
+# A traceback's frames ('  File "/…/zipfile.py", line 1886, in write') name
+# the code that ran, on the Mac's disk, never the disk that filled up.
+FRAME = re.compile(r'^\s*File "[^"\n]*", line \d+.*$', re.MULTILINE)
 
 
 def is_full(error: BaseException | str | None) -> bool:
@@ -48,9 +51,11 @@ def is_full(error: BaseException | str | None) -> bool:
 
 
 def path_in(text: str) -> Path | None:
-    """The path a full disk's message names, when it names one."""
+    """The path a full disk's message names, when it names one: none of a
+    traceback's frames."""
+    text = FRAME.sub("", text or "")
     for pattern in NAMED:
-        found = pattern.search(text or "")
+        found = pattern.search(text)
         if found:
             return Path(found.group(1))
     return None

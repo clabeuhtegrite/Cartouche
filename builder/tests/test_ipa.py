@@ -1,6 +1,8 @@
+import shutil
 import threading
 import unittest
 from datetime import datetime
+from unittest import mock
 
 from cartouche_builder import ipa
 
@@ -73,6 +75,41 @@ class Folder(Home):
             ipa.deliver(source, games, "Game.ipa", stop=stop)
         self.assertEqual((games / "Game.ipa").read_bytes(), b"old")
         self.assertEqual(sorted(p.name for p in games.iterdir()), ["Game.ipa"])
+
+    def test_a_clone_is_stopped_and_followed_as_a_copy_is(self):
+        # On a Mac the IPA is an APFS clone when the games folder is on the
+        # build folders' disk, as it is by default (_clone): whole at once, it
+        # writes no blocks that a Stop or the app's progress would see.
+        games = self.tmp / "games"
+        games.mkdir()
+        (games / "Game.ipa").write_bytes(b"old")
+        source = self.tmp / "new.ipa"
+        source.write_bytes(b"new" * 1000)
+        stop = threading.Event()
+
+        def clone(source, target, then=None):
+            shutil.copyfile(source, target)
+            if then:
+                then()
+            return True
+
+        # A Stop before the clone, and one while it runs.
+        for when in ("before", "during"):
+            if when == "before":
+                stop.set()
+            else:
+                stop.clear()
+            with mock.patch.object(ipa, "_clone", side_effect=lambda s, t: clone(s, t, then=stop.set)):
+                with self.assertRaises(InterruptedError, msg=when):
+                    ipa.deliver(source, games, "Game.ipa", stop=stop)
+            self.assertEqual((games / "Game.ipa").read_bytes(), b"old", when)
+            self.assertEqual(sorted(p.name for p in games.iterdir()), ["Game.ipa"], when)
+        stop.clear()
+        steps = []
+        with mock.patch.object(ipa, "_clone", side_effect=clone):
+            ipa.deliver(source, games, "Game.ipa", stop=stop, progress=lambda done, total: steps.append((done, total)))
+        self.assertEqual((games / "Game.ipa").read_bytes(), b"new" * 1000)
+        self.assertEqual(steps, [(3000, 3000)])
 
 
 if __name__ == "__main__":
