@@ -89,7 +89,8 @@ final class ShortcutUITests: ConsoleTestCase {
         let shorter = String(format: Words.siriShorter, "Mario Kart")
         expect(element(labelled: shorter, in: app).exists, "The page does not say \(shorter)", in: app)
         scrollTo(element(beginningWith: Words.homeScreenIcon, in: app), "An icon on the Home Screen", in: app)
-        scrollTo(element(in: app.buttons, beginningWith: Words.openShortcuts), "Open Shortcuts", in: app)
+        // A Link, which the tree lists among links, not buttons.
+        scrollTo(element(beginningWith: Words.openShortcuts, in: app), "Open Shortcuts", in: app)
         back(from: Words.siriAndHomeScreen, in: app)
         expect(sheetShows(name, in: app), "Back did not come back to the sheet of \(name)", in: app)
         closeSheet(in: app)
