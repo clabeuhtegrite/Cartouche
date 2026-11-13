@@ -716,9 +716,11 @@ mod tests {
             vec![Value::String("TEAM".into())].into(),
         );
         let mut entitlements = Dictionary::new();
+        // A profile made for Cartouche alone, under its fixed App ID: one
+        // made for another app is refused before anything is signed.
         entitlements.insert(
             "application-identifier".into(),
-            "TEAM.fixed-profile-app".into(),
+            format!("TEAM.{BUNDLE_ID}").into(),
         );
         entitlements.insert(
             "keychain-access-groups".into(),
@@ -778,6 +780,7 @@ mod tests {
         };
         let summary = inspect_signing_profile(signing.profile_path.clone()).unwrap();
         assert!(!summary.increased_memory_limit);
+        assert_eq!(summary.other_app, None);
         assert_eq!(summary.sha256, signing.profile_sha256);
         let signed = signing.sign(&ipa, "device").unwrap();
         assert!(!signed.app_path.join("PlugIns").exists());
