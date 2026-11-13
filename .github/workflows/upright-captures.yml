@@ -12,13 +12,18 @@ name: Upright captures (research)
 on:
   push:
     branches: [claude/project-thread-rj9vzr]
+    # Not again for a push that changes only what a game in Cartouche's
+    # place does (inplace-captures.yml).
+    paths:
+      - "launcher/Harness/**"
+      - "launcher/Sources/CartoucheGameHost.swift"
 
 permissions:
   contents: read
 
 concurrency:
   group: upright-captures-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 env:
   XCODE_VERSION: "27.2"
