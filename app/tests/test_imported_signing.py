@@ -25,6 +25,11 @@ import Foundation
     static let shared = CartoucheUpdates()
     var phase: Int? = nil
 }
+@available(iOS 17.0, *) @MainActor final class CartoucheTelemetry {
+    static let shared = CartoucheTelemetry()
+    enum Field { case text(String) }
+    func event(_ name: String, fields: [String: Field]) {}
+}
 enum LCUtils {
     static var appGroupUserDefault: UserDefaults { .standard }
     static func getCertTeamId(withKeyData: Data, password: String) -> String? { nil }
@@ -55,6 +60,51 @@ enum CartoucheText {
                 str(ROOT / "launcher/Sources/CartoucheOwnSignature.swift"), str(adapter),
             ], capture_output=True, text=True)
             self.assertEqual(result.returncode, 0, result.stderr)
+
+    @unittest.skipUnless(sys.platform == "darwin" and shutil.which("xcrun"), "Needs Foundation")
+    def test_bootstrap_preferences_work_without_an_app_group(self):
+        patch = (ROOT / "app/patches/livecontainer/0010-support-imported-signing-without-account-renewal.patch").read_text()
+        bootstrap = patch.split("+++ b/LiveContainer/LCBootstrap.m", 1)[1].split("--- a/", 1)[0]
+        source = "\n".join(line[1:] for line in bootstrap.splitlines() if line.startswith((" ", "+")))
+        assignment = re.search(r"lcSharedDefaults = .*?;", source, re.S).group()
+        main = r'''#import <Foundation/Foundation.h>
+@interface LCSharedUtils : NSObject
++ (NSString *)appGroupID;
+@end
+@implementation LCSharedUtils
++ (NSString *)appGroupID {
+    return [NSBundle.mainBundle.infoDictionary[@"CartoucheImportedSigning"] boolValue]
+        ? NSBundle.mainBundle.bundleIdentifier : @"test.cartouche.shared";
+}
+@end
+int main(void) { @autoreleasepool {
+    NSBundle *lcMainBundle = NSBundle.mainBundle;
+    NSUserDefaults *lcUserDefaults = NSUserDefaults.standardUserDefaults;
+    NSUserDefaults *lcSharedDefaults;
+    ASSIGNMENT
+    if (!lcSharedDefaults) return 20;
+    BOOL imported = [lcMainBundle.infoDictionary[@"CartoucheImportedSigning"] boolValue];
+    if (imported && lcSharedDefaults != lcUserDefaults) return 21;
+    if (!imported && lcSharedDefaults == lcUserDefaults) return 22;
+    return 0;
+}}
+'''.replace("ASSIGNMENT", assignment)
+        import plistlib
+        with tempfile.TemporaryDirectory() as temporary:
+            folder = Path(temporary)
+            app = folder / "Probe.app/Contents"
+            binary = app / "MacOS/probe"
+            binary.parent.mkdir(parents=True)
+            (folder / "main.m").write_text(main)
+            subprocess.run(["xcrun", "clang", "-fobjc-arc", "-framework", "Foundation",
+                            str(folder / "main.m"), "-o", str(binary)], check=True, capture_output=True)
+            for imported in (True, False):
+                (app / "Info.plist").write_bytes(plistlib.dumps({
+                    "CFBundleIdentifier": "test.cartouche.preferences-probe",
+                    "CFBundleExecutable": "probe", "CartoucheImportedSigning": imported,
+                }))
+                result = subprocess.run([str(binary)], capture_output=True, text=True)
+                self.assertEqual(result.returncode, 0, f"imported={imported}: {result.stderr}")
 
     def test_imported_secrets_are_not_copied_into_preferences(self):
         adapter = (ROOT / "launcher/Sources/CartoucheImportedSigning.swift").read_text()
