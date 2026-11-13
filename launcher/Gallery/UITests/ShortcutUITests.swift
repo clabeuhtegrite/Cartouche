@@ -92,7 +92,10 @@ final class ShortcutUITests: ConsoleTestCase {
         // A Link, which the tree lists among links, not buttons.
         scrollTo(element(beginningWith: Words.openShortcuts, in: app), "Open Shortcuts", in: app)
         back(from: Words.siriAndHomeScreen, in: app)
-        expect(sheetShows(name, in: app), "Back did not come back to the sheet of \(name)", in: app)
+        // The sheet as it was left, down at the row that opened the page:
+        // its name, at its top, is out of the list's sight.
+        let row = element(in: app.buttons, beginningWith: Words.siriAndHomeScreen)
+        expect(row.waitForExistence(timeout: 10) && row.isHittable, "Back did not come back to the sheet of \(name)", in: app)
         closeSheet(in: app)
         expectMainThreadAnswered(app)
     }
