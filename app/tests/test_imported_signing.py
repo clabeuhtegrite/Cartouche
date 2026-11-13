@@ -8,6 +8,11 @@ import re
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(ROOT / "app" / "scripts"))
+
+import own_certificate_ipa  # noqa: E402
+
+BUNDLE_ID = "io.github.clabeuhtegrite.cartouche"
 
 
 class ImportedSigningTest(unittest.TestCase):
@@ -98,13 +103,21 @@ int main(void) { @autoreleasepool {
             (folder / "main.m").write_text(main)
             subprocess.run(["xcrun", "clang", "-fobjc-arc", "-framework", "Foundation",
                             str(folder / "main.m"), "-o", str(binary)], check=True, capture_output=True)
-            for imported in (True, False):
+            # Cartouche as each way of signing leaves its Info.plist: with an
+            # Apple ID, by the Cartouche Installer, and as own_certificate_ipa.py
+            # makes the IPA a signing app signs on the iPhone.
+            release = plistlib.dumps({"CFBundleIdentifier": BUNDLE_ID, "CartoucheBundleIdentifier": BUNDLE_ID})
+            signings = {
+                "an Apple ID": {"CartoucheImportedSigning": False},
+                "the Cartouche Installer": {"CartoucheImportedSigning": True, "CartoucheSigningHandoffKey": b"key"},
+                "a signing app on the iPhone": plistlib.loads(own_certificate_ipa.info_plist(release, BUNDLE_ID)),
+            }
+            for signed_by, info in signings.items():
                 (app / "Info.plist").write_bytes(plistlib.dumps({
-                    "CFBundleIdentifier": "test.cartouche.preferences-probe",
-                    "CFBundleExecutable": "probe", "CartoucheImportedSigning": imported,
+                    **info, "CFBundleIdentifier": "test.cartouche.preferences-probe", "CFBundleExecutable": "probe",
                 }))
                 result = subprocess.run([str(binary)], capture_output=True, text=True)
-                self.assertEqual(result.returncode, 0, f"imported={imported}: {result.stderr}")
+                self.assertEqual(result.returncode, 0, f"signed with {signed_by}: {result.stderr}")
 
     def test_imported_secrets_are_not_copied_into_preferences(self):
         adapter = (ROOT / "launcher/Sources/CartoucheImportedSigning.swift").read_text()

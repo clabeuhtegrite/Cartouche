@@ -222,6 +222,15 @@ class OwnCertificateIPATest(unittest.TestCase):
         self.assertIn(f'"{own_certificate_ipa.IMPORTED}"', installer)
         self.assertIn(f'"{own_certificate_ipa.HANDOFF_KEY}"', installer)
         self.assertIn(f'@"{own_certificate_ipa.IMPORTED}"', patch, "LiveContainer's side of the mode reads it too")
+        # At its first start, LiveContainer's bootstrap takes the shared
+        # settings from Cartouche's own sandbox for an install in this mode,
+        # since iOS gives no suite named after the app itself: 0.12.0 stopped
+        # there (#155). The key it reads is the one this IPA has.
+        bootstrap = patch.split("+++ b/LiveContainer/LCBootstrap.m", 1)[1].split("--- a/", 1)[0]
+        source = "\n".join(line[1:] for line in bootstrap.splitlines() if line.startswith((" ", "+")))
+        shared = re.search(r"lcSharedDefaults = .*?;", source, re.S).group()
+        self.assertIn(f'infoDictionary[@"{own_certificate_ipa.IMPORTED}"]', shared)
+        self.assertRegex(shared, r"\?\s*lcUserDefaults\s*:", "an install in this mode takes Cartouche's own settings")
         # The installer leaves out the same extensions before it signs.
         self.assertRegex(installer, re.compile(r'\["PlugIns", "Watch"\]'))
 
