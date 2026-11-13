@@ -192,13 +192,27 @@ struct CartoucheWhatsNewRecord {
 
     /// The notes to show as version RUNNING opens, newest first, among NOTES,
     /// those of every version the app carries. When there are none, as on a
-    /// first install, RUNNING is kept as seen.
+    /// first install, RUNNING is kept as seen. When an older Cartouche's
+    /// traces showed them, the version before RUNNING is, so that they show
+    /// again until the player closes them, should Cartouche close first: the
+    /// update it started is gone from the preferences once read.
     func notesToShow(running: String, among notes: [CartoucheReleaseNotes]) -> [CartoucheReleaseNotes] {
         let seen = seen
         let earlier = seen == nil && Self.earlierKeys.contains { defaults.object(forKey: $0) != nil }
         let shown = Self.choose(seen: seen, earlierRun: earlier, running: running, among: notes)
-        if shown.isEmpty { noteSeen(running) }
+        if shown.isEmpty {
+            noteSeen(running)
+        } else if seen == nil {
+            defaults.set(Self.version(before: running, among: notes), forKey: Self.seenKey)
+        }
         return shown
+    }
+
+    /// The highest version of NOTES below RUNNING, "0" when there is none.
+    static func version(before running: String, among notes: [CartoucheReleaseNotes]) -> String {
+        notes.map(\.version)
+            .filter { CartoucheVersion.isHigher(running, than: $0) }
+            .max { CartoucheVersion.isHigher($1, than: $0) } ?? "0"
     }
 
     /// The player has seen the notes of RUNNING, or had none to see: none

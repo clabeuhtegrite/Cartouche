@@ -169,8 +169,21 @@ final class CartoucheReleaseNotesTests: XCTestCase {
             let record = makeRecord()
             record.defaults.set(key == "Cartouche.update.pending" ? "0.12.2" : true, forKey: key)
             XCTAssertEqual(record.notesToShow(running: "0.12.2", among: allNotes).map(\.version), ["0.12.2"], key)
-            XCTAssertNil(record.seen, key)
+            // Cartouche closed before the player closed them, and the update
+            // it started is gone from the preferences: they show again.
+            XCTAssertEqual(record.seen, "0.12.1", key)
+            record.defaults.removeObject(forKey: key)
+            XCTAssertEqual(record.notesToShow(running: "0.12.2", among: allNotes).map(\.version), ["0.12.2"], key)
+            record.noteSeen("0.12.2")
+            XCTAssertEqual(record.notesToShow(running: "0.12.2", among: allNotes), [], key)
         }
+        // Below the oldest notes Cartouche carries, any version stands as
+        // seen before.
+        let oldest = makeRecord()
+        oldest.defaults.set(true, forKey: "Cartouche.guide.finished")
+        XCTAssertEqual(oldest.notesToShow(running: "0.11.1", among: allNotes).map(\.version), ["0.11.1"])
+        XCTAssertEqual(oldest.seen, "0")
+        XCTAssertEqual(oldest.notesToShow(running: "0.11.1", among: allNotes).map(\.version), ["0.11.1"])
         // Another key of Cartouche's, which an install writes as it opens,
         // tells nothing.
         let record = makeRecord()
