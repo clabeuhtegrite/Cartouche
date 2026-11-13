@@ -69,6 +69,19 @@ struct StorageServers: Decodable {
         let log: String
     }
 
+    struct Drive: Decodable {
+        /// Where the stand-in for Google's servers is: http://127.0.0.1:9100.
+        let address: String
+        /// The player's OAuth client, the only one the stand-in knows, and
+        /// their Google account.
+        let clientID: String
+        let account: String
+        /// A sign-in the player made once.
+        let refreshToken: String
+        /// The stand-in's log, which has every request, without a token.
+        let log: String
+    }
+
     /// In every server's root: the games folder, with the test IPAs, a
     /// folder of older ones and a hidden file; and a folder the player's
     /// account can only read, with the small IPA.
@@ -85,6 +98,7 @@ struct StorageServers: Decodable {
     let ftp: FTP
     let ftpList: FTP
     let sftp: SFTP
+    let drive: Drive
 
     static let shared: StorageServers? = {
         guard let path = ProcessInfo.processInfo.environment["CARTOUCHE_STORAGE_SERVERS"], !path.isEmpty else {

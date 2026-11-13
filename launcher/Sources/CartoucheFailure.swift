@@ -269,15 +269,18 @@ protocol CartoucheExplainedError: Error {
 extension CartoucheFailure {
     /// The status a server's protocol answered with, which only the app can
     /// read off the error of its library: an SMB NTSTATUS, an S3 or HTTP
-    /// status, an FTP reply, an SFTP status.
+    /// status, an FTP reply, an SFTP status, the HTTP status of Google
+    /// Drive or of its sign-in.
     struct ProtocolStatus: Equatable, Sendable {
         enum Kind: String, Sendable {
-            case smb, s3, ftp, sftp
+            case smb, s3, ftp, sftp, drive
         }
 
         var kind: Kind
         var status: Int
-        /// S3's code: "SignatureDoesNotMatch", "NoSuchBucket".
+        /// S3's code: "SignatureDoesNotMatch", "NoSuchBucket". Google Drive's
+        /// reason, "storageQuotaExceeded", or its sign-in's error,
+        /// "invalid_grant".
         var code: String?
 
         var cause: Cause {
@@ -331,6 +334,26 @@ extension CartoucheFailure {
                 case 3: return .storagePermission
                 case 5: return .storageAnswer
                 default: return .storageServer
+                }
+            case .drive:
+                switch (status, code ?? "") {
+                case (_, "invalid_grant"), (_, "invalid_client"), (_, "unauthorized_client"), (_, "deleted_client"),
+                     (401, _):
+                    return .storageCredentials
+                case (_, "accessNotConfigured"), (_, "SERVICE_DISABLED"):
+                    return .storageSetup
+                case (_, "storageQuotaExceeded"):
+                    return .storageFull
+                case (_, "insufficientFilePermissions"):
+                    return .storageReadOnly
+                case (_, "userRateLimitExceeded"), (_, "rateLimitExceeded"), (_, "RATE_LIMIT_EXCEEDED"), (429, _):
+                    return .storageServer
+                case (404, _):
+                    return .storageNotFound
+                case (403, _):
+                    return .storagePermission
+                default:
+                    return .storageServer
                 }
             }
         }
@@ -425,6 +448,9 @@ struct CartoucheSideStoreOutcome: Equatable, Sendable {
 
     enum Action: String, Sendable {
         case signIn
+        /// Register Cartouche's iPhone, the sign-in's device step alone
+        /// (app/patches/sidestore/0019).
+        case device
         case refresh
         case update
     }
@@ -434,8 +460,8 @@ struct CartoucheSideStoreOutcome: Equatable, Sendable {
     var date: Date
     var seconds: Int?
     var percent: Int?
-    /// The step reached: the sign-in's own ("account", "device"...), or the
-    /// last operation started ("ResignApp").
+    /// The step reached: the sign-in's own ("deviceCheck", "account",
+    /// "device"...), or the last operation started ("ResignApp").
     var stage: String?
     /// The operations it ran, the last ones: "FetchProvisioningProfiles>ResignApp".
     var trail: String?

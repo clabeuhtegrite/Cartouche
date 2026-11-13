@@ -341,29 +341,19 @@ final class CartoucheGameHost {
             ?? scenes.first
     }
 
-    /// The orientations the game's Info.plist allows, among those
-    /// Cartouche's allows.
+    /// The orientations the Info.plist in the game's bundle allows, among
+    /// those Cartouche's allows (CartoucheGameOrientations): sideways only
+    /// for nxnative's games. Not LiveContainer's info(), its own settings
+    /// for the game, which name none.
     private static func orientations(of app: LCAppModel) -> UIInterfaceOrientationMask {
-        let info = app.appInfo.info()
         let isPad = UIDevice.current.userInterfaceIdiom == .pad
-        let key = "UISupportedInterfaceOrientations"
-        let names = info?[key + (isPad ? "~ipad" : "~iphone")] as? [String] ?? info?[key] as? [String] ?? []
+        let bundle = app.appInfo.bundlePath().map { URL(fileURLWithPath: $0, isDirectory: true) }
+        let allowed = bundle.map { CartoucheGameOrientations(bundle: $0, isPad: isPad) } ?? .ofCartouche(isPad: isPad)
         var mask: UIInterfaceOrientationMask = []
-        for name in names {
-            switch name {
-            case "UIInterfaceOrientationPortrait": mask.insert(.portrait)
-            case "UIInterfaceOrientationPortraitUpsideDown": mask.insert(.portraitUpsideDown)
-            case "UIInterfaceOrientationLandscapeLeft": mask.insert(.landscapeLeft)
-            case "UIInterfaceOrientationLandscapeRight": mask.insert(.landscapeRight)
-            default: break
-            }
-        }
-        if !isPad {
-            mask.remove(.portraitUpsideDown)
-        }
-        if mask.isEmpty {
-            return isPad ? UIInterfaceOrientationMask.all : UIInterfaceOrientationMask.allButUpsideDown
-        }
+        if allowed.contains(.portrait) { mask.insert(.portrait) }
+        if allowed.contains(.portraitUpsideDown) { mask.insert(.portraitUpsideDown) }
+        if allowed.contains(.landscapeLeft) { mask.insert(.landscapeLeft) }
+        if allowed.contains(.landscapeRight) { mask.insert(.landscapeRight) }
         return mask
     }
 }

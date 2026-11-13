@@ -13,6 +13,10 @@
 //  for a connection that stopped answering without closing: its read would
 //  otherwise wait for good, with nothing that fails and so nothing to retry.
 //
+//  CartoucheRequestQueue sends the requests of one connection one at a
+//  time, in the order they were made, for a client that cannot take two at
+//  once: SMB's (CartoucheStorageSMB.swift).
+//
 //  Platform-independent: tested on its own by launcher/Package.swift.
 //
 
@@ -152,6 +156,80 @@ enum CartoucheDeadline {
         } catch {
             if passed.isRaised { throw Passed(seconds: nanoseconds / 1_000_000_000) }
             throw error
+        }
+    }
+}
+
+/// The requests of one connection, one at a time, in the order they were
+/// made: each starts once the one made before it has ended, whether it
+/// succeeded or failed. For a client that numbers each request as it is
+/// made and cannot take two at once, as SMBClient does: two requests made
+/// at the same moment on its connection can get the same number, and the
+/// server then hangs up on the connection (CartoucheStorageSMB.swift).
+final class CartoucheRequestQueue: @unchecked Sendable {
+    /// One request's turn, which ends with it.
+    private final class Turn: @unchecked Sendable {
+        private let lock = NSLock()
+        private var ended = false
+        private var waiting: [CheckedContinuation<Void, Never>] = []
+
+        func end() {
+            lock.lock()
+            ended = true
+            let waiting = self.waiting
+            self.waiting = []
+            lock.unlock()
+            for waiter in waiting { waiter.resume() }
+        }
+
+        func wait() async {
+            await withCheckedContinuation { (waiter: CheckedContinuation<Void, Never>) in
+                lock.lock()
+                if ended {
+                    lock.unlock()
+                    waiter.resume()
+                } else {
+                    waiting.append(waiter)
+                    lock.unlock()
+                }
+            }
+        }
+    }
+
+    private let lock = NSLock()
+    /// The turn of the request made last.
+    private var last: Turn?
+
+    /// The next turn, and the turn before it to wait for.
+    private func take() -> (before: Turn?, own: Turn) {
+        lock.lock()
+        defer { lock.unlock() }
+        let own = Turn()
+        let before = last
+        last = own
+        return (before, own)
+    }
+
+    /// REQUEST's result, once the requests made before it have ended; it
+    /// runs on the task that makes it. REQUEST must not use this queue
+    /// itself: it would wait for its own end.
+    @discardableResult
+    func run<T>(_ request: () async throws -> T) async throws -> T {
+        let turn = take()
+        await turn.before?.wait()
+        defer { turn.own.end() }
+        return try await request()
+    }
+
+    /// Takes REQUEST's turn now and returns at once, for a deinit, which
+    /// cannot wait: REQUEST still comes after the requests made before it,
+    /// and before any made after it. What it throws is dropped.
+    func queue(_ request: @escaping () async throws -> Void) {
+        let turn = take()
+        Task {
+            await turn.before?.wait()
+            defer { turn.own.end() }
+            try? await request()
         }
     }
 }

@@ -36,6 +36,11 @@ final class CartoucheGuide: ObservableObject {
         var vpnConnected = false
         var hasPairingFile = false
         var signedIn = false
+        /// Signed in, with this iPhone left to register, through LocalDevVPN.
+        var deviceLeft = false
+        /// Signed in, without the certificate: the sign-in stopped before
+        /// it, and signing in again, through LocalDevVPN, brings it.
+        var signInUnfinished = false
         /// LiveContainer has the certificate, and iOS has not refused it.
         var canPlay = false
         /// A game installed, or one in the games folder.
@@ -44,12 +49,27 @@ final class CartoucheGuide: ObservableObject {
         var hasInstalledGame = false
         /// The player said No thanks to building their game on a Mac.
         var buildSkipped = false
+        /// Cartouche signs with an Apple ID: one installed with the player's
+        /// own certificate has neither LocalDevVPN's step nor the Apple ID's.
+        var requiresAccount = true
+
+        /// The steps this installation has, in their order.
+        var steps: [Step] {
+            requiresAccount ? Step.allCases : Step.allCases.filter { $0 != .vpn && $0 != .account }
+        }
+
+        /// STEP's number among them.
+        func number(of step: Step) -> Int {
+            (steps.firstIndex(of: step) ?? step.rawValue) + 1
+        }
 
         func isDone(_ step: Step) -> Bool {
             switch step {
-            // Once signed in, the VPN was on when it counted.
-            case .vpn: return vpnConnected || signedIn
-            case .account: return signedIn && canPlay
+            // Once signed in, the VPN was on when it counted, unless this
+            // iPhone is left to register, or the sign-in stopped before the
+            // certificate.
+            case .vpn: return vpnConnected || (signedIn && !deviceLeft && !signInUnfinished)
+            case .account: return signedIn && canPlay && !deviceLeft
             case .build: return hasGame
             // A game imported from Files needs no games folder.
             case .folder: return hasGamesFolder || hasInstalledGame
@@ -60,7 +80,8 @@ final class CartoucheGuide: ObservableObject {
         /// A step the player passed over without doing it: the Mac's, after
         /// No thanks, until a game of theirs shows anyway.
         func isSkipped(_ step: Step) -> Bool {
-            step == .build && buildSkipped && !isDone(step)
+            (!requiresAccount && (step == .vpn || step == .account))
+                || (step == .build && buildSkipped && !isDone(step))
         }
 
         /// The first step left, nil once every step is done or skipped.
@@ -106,12 +127,15 @@ final class CartoucheGuide: ObservableObject {
             vpnConnected: vpnConnected,
             hasPairingFile: setup.hasPairingFile,
             signedIn: setup.appleID != nil,
+            deviceLeft: setup.needsDevice,
+            signInUnfinished: setup.signInStep == .unfinished,
             canPlay: setup.canPlay,
             hasGame: !entries.owned.isEmpty,
             hasGamesFolder: CartoucheStorageSettings.shared.location(.games) != nil
                 || CartoucheStoredGames.shared.serverName != nil,
             hasInstalledGame: entries.owned.contains { $0.app != nil },
-            buildSkipped: buildSkipped)
+            buildSkipped: buildSkipped,
+            requiresAccount: !setup.usesImportedSigning)
     }
 
     /// Whether the home shows the guide's card, in place of the setup banner:

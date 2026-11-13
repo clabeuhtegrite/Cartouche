@@ -8,13 +8,16 @@
 //  the whole screen of the simulator it runs on, such as the iPhone Duo's,
 //  with its own safe area, size classes and system bars.
 //
-//      -GalleryScreen games|library|sheet|settings|gameinfo|setup|signin|guide|system|storage|storage-mac|telemetry|report
+//      -GalleryScreen games|library|sheet|settings|gameinfo|setup|signin|guide|system|storage|storage-mac|storage-drive|storage-drive-guide|telemetry|report
 //                                        library: every game, open over
 //                                        the home; gameinfo: what the
 //                                        player says of the sheet's game;
 //                                        storage-mac: Add your Mac, the
 //                                        form that pairs this iPhone with a
-//                                        Mac nearby
+//                                        Mac nearby; storage-drive: Add
+//                                        Google Drive, with the player's
+//                                        own client; storage-drive-guide:
+//                                        the steps that make that client
 //      -GalleryWidth 402 -GalleryHeight 874     (none: the whole screen)
 //      -GalleryInsets 62,0,34,0          top, leading, bottom, trailing
 //      -GalleryWidthClass compact        the width class at a scenario's
@@ -36,7 +39,12 @@
 //                                        the sign-in; too-many: Apple
 //                                        refused the sign-in for too many
 //                                        requests, with the wait under
-//                                        way; paused: the sheet's
+//                                        way; vpn-wait: the sign-in waiting
+//                                        for LocalDevVPN; iphone-step: a
+//                                        sign-in Apple accepted that
+//                                        stopped at the step that registers
+//                                        this iPhone, LocalDevVPN being
+//                                        off; paused: the sheet's
 //                                        game, or the first of the
 //                                        player's, paused behind the console;
 //                                        offline: the player's NAS, out of
@@ -58,7 +66,16 @@
 //                                        No thanks said to the guide's Mac
 //                                        step; own-cover: the sheet's game,
 //                                        or the first of the player's, with
-//                                        a cover of the player's own
+//                                        a cover of the player's own; saves:
+//                                        that game's saves, and a folder in
+//                                        Files as the saves folder, which
+//                                        Cartouche's own sync uses
+//                                        (GallerySaves); drive-signed-out:
+//                                        the player's Google Drive as the
+//                                        games folder and the saves folder,
+//                                        whose sign-in Google ended, as after
+//                                        7 days for a project in testing, with
+//                                        two games' saves waiting for it
 //      -GalleryOrientation landscape     the gallery turns itself sideways,
 //                                        as a game does; the simulator
 //                                        stays upright
@@ -68,6 +85,25 @@
 //                                        container (Ready below)
 //      -GalleryCategory Controls         the settings page's category, one
 //                                        of nxnative's sections
+//
+//  The UI tests (launcher/Gallery/UITests) open the whole console, as
+//  Cartouche shows it, and drive it (GalleryTesting.swift):
+//
+//      -GalleryScreen root               the console with the System page
+//                                        over it, as Cartouche's root view
+//      -GalleryTest 1                    a clean start, the IPA the Files
+//                                        picker offers, and the watch on
+//                                        the main thread
+//      -GalleryPairing 1                 the pairing file without the rest
+//                                        of the setup, to sign in
+//      -GalleryHoldMainThread 1.5        the main thread held once, for
+//                                        that many seconds, which the
+//                                        watch must see
+//      -GalleryKeyboard 1                for a test that types: the
+//                                        keyboard shown and put away once,
+//                                        before the watch counts
+//      -GalleryTestName <name>           the test's, which the watch writes
+//                                        down as the gallery starts
 //
 
 import Network
@@ -139,9 +175,10 @@ struct GalleryScenario {
     func prepare() {
         GalleryState.setupDone = setupDone
         GalleryState.certificateRefused = work == "certificate"
+        GalleryState.signInUnfinished = work == "sign-in-unfinished"
         let pairing = GalleryState.documents.appendingPathComponent("SideStore/Documents", isDirectory: true)
         try? FileManager.default.removeItem(at: pairing)
-        if setupDone {
+        if setupDone || GalleryState.signInUnfinished {
             try? FileManager.default.createDirectory(at: pairing, withIntermediateDirectories: true)
             try? Data("gallery".utf8).write(to: pairing.appendingPathComponent("ALTPairingFile.mobiledevicepairing"))
         }
@@ -189,6 +226,15 @@ struct GalleryScenario {
             if work == "too-many" {
                 CartoucheAccount.shared.showTooManyRequestsForGallery()
             }
+            if work == "vpn-wait" {
+                CartoucheAccount.shared.waitForVPNForGallery()
+            }
+            if work == "iphone-step" {
+                CartoucheAccount.shared.showDeviceStepForGallery()
+            }
+            if work == "sign-in-unfinished" {
+                CartoucheAccount.shared.showUnfinishedForGallery()
+            }
             if let titleId = updatedTitle, let game = CartoucheCatalog.shared.game(titleId: titleId) {
                 // Cartouche Builder built the game again last night.
                 let stored = CartoucheStoredGame(
@@ -214,6 +260,9 @@ struct GalleryScenario {
                     CartoucheMacPairing.gallery = (mac: GalleryMac.nearby[0], code: "482915")
                 }
             }
+            if work == "saves", let titleId = sheet ?? ownedTitles.first {
+                GallerySaves.prepare(titleId: titleId)
+            }
             if work == "mac" || work == "mac-offline" {
                 // The player's Mac, paired, with the games Cartouche Builder
                 // built in its Games folder; offline, away from home, the
@@ -226,6 +275,17 @@ struct GalleryScenario {
                     CartoucheStorageReach.shared.showOfflineForGallery([mac.id])
                     CartoucheSaveBackups.shared.showWaitingForGallery(2)
                 }
+            }
+            if work == "drive-signed-out" {
+                // The player's Google Drive, seven days after the sign-in:
+                // Google ended it, and the saves of two games wait for it.
+                let drive = CartoucheStorageServer(kind: .drive, name: "Google Drive", host: "joueur@example.com",
+                                                   username: "123456789012-cartouchegallery.apps.googleusercontent.com")
+                CartoucheStorageSettings.shared.showForGallery(drive, games: "Jeux", saves: "Sauvegardes")
+                CartoucheStoredGames.shared.showForGallery(storedGames(in: "Jeux"), server: drive.name)
+                CartoucheDriveSessions.shared.end(drive.id)
+                CartoucheStorageReach.shared.showOfflineForGallery([drive.id])
+                CartoucheSaveBackups.shared.showWaitingForGallery(2)
             }
         }
     }
@@ -345,6 +405,16 @@ struct GalleryScenario {
         }
         guard let ready else { return }
         Task { @MainActor in
+            // Turned sideways first, for up to 30 s: on the iPhone Duo of run
+            // 43275681933, beside two builds of the app on Ad's Mac, the
+            // simulator had not turned the scene by the time the gallery
+            // said it had settled, upright.
+            if landscape, let scene {
+                for _ in 0..<120 {
+                    if scene.effectiveGeometry.interfaceOrientation.isLandscape { break }
+                    try? await Task.sleep(for: .milliseconds(250))
+                }
+            }
             try? await Task.sleep(for: .seconds(3))
             // The covers the screen shows, from IGDB, for up to 20 s more.
             for _ in 0..<40 {
@@ -400,8 +470,10 @@ struct CartoucheGalleryApp: App {
     @StateObject private var model = SharedModel()
 
     init() {
+        GalleryTest.start()
         scenario = GalleryScenario.fromArguments()
         scenario.prepare()
+        MainActor.assumeIsolated { GalleryTest.prepared() }
     }
 
     var body: some Scene {
@@ -409,6 +481,13 @@ struct CartoucheGalleryApp: App {
             content
                 .environmentObject(model)
                 .preferredColorScheme(.dark)
+                .overlay(alignment: .bottomLeading) {
+                    if GalleryTest.isOn {
+                        GalleryWatchReadout()
+                            .frame(width: 2, height: 2)
+                            .allowsHitTesting(false)
+                    }
+                }
                 .onAppear {
                     model.apps = scenario.apps()
                     scenario.pause(among: model.apps)
@@ -501,6 +580,15 @@ struct CartoucheGalleryApp: App {
             NavigationStack {
                 CartoucheStorageMacForm(server: CartoucheStorageServer(kind: .mac, name: ""))
             }
+        case "storage-drive":
+            // As the Storage page opens it, to add a Google Drive.
+            NavigationStack {
+                CartoucheStorageDriveForm(server: CartoucheStorageServer(kind: .drive, name: ""))
+            }
+        case "storage-drive-guide":
+            NavigationStack {
+                CartoucheDriveGuideView()
+            }
         case "telemetry":
             NavigationStack {
                 CartoucheTelemetryView()
@@ -510,6 +598,8 @@ struct CartoucheGalleryApp: App {
             NavigationStack {
                 CartoucheReportView()
             }
+        case "root":
+            CartoucheRootView()
         default:
             CartoucheGamesView()
         }
@@ -542,5 +632,59 @@ enum GalleryMac {
 
     private static func service(_ name: String) -> NWEndpoint {
         .service(name: name, type: CartoucheBridge.serviceType, domain: "local.", interface: nil)
+    }
+}
+
+/// The saves of a game of the player's and the saves folder they are kept
+/// in step with, a folder in Files as the player picks one, both in the
+/// gallery's Application Support (work: saves): Cartouche's own sync and
+/// copies run on them, as on an iPhone, with nothing stood in for but the
+/// game's data folder, which LiveContainer gives a game.
+enum GallerySaves {
+    /// The folder's name, as the Storage page and the sheet show it.
+    static let folderName = "Gallery saves"
+    /// The game whose saves these are, once the scenario has them.
+    @MainActor private static var titleId: String?
+
+    private static var root: URL {
+        FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent("GallerySaves", isDirectory: true)
+    }
+
+    /// The game's Documents, where nxnative keeps its saves.
+    private static var documents: URL { root.appendingPathComponent("Game/Documents", isDirectory: true) }
+
+    /// Puts a save in the Documents of the game of TITLEID, as nxnative
+    /// writes one, and the folder in Files in its place as the saves folder,
+    /// with nothing in it yet.
+    @MainActor
+    static func prepare(titleId: String) {
+        let manager = FileManager.default
+        try? manager.removeItem(at: root)
+        let save = documents.appendingPathComponent("save/0000000000000001", isDirectory: true)
+        let folder = root.appendingPathComponent(folderName, isDirectory: true)
+        do {
+            try manager.createDirectory(at: save, withIntermediateDirectories: true)
+            try manager.createDirectory(at: folder.appendingPathComponent("Saves", isDirectory: true),
+                                        withIntermediateDirectories: true)
+            // Two MiB of a game's progress, which compresses as little as a
+            // real save.
+            var progress = Data(count: 2 << 20)
+            progress.withUnsafeMutableBytes { arc4random_buf($0.baseAddress, $0.count) }
+            try progress.write(to: save.appendingPathComponent("progress.bin"))
+            let server = CartoucheStorageServer(kind: .folder, name: folderName, bookmark: try CartoucheFolder.bookmark(of: folder))
+            CartoucheStorageSettings.shared.showForGallery(server, games: "", saves: "Saves")
+            self.titleId = titleId
+        } catch {
+            NSLog("[Gallery] cannot make the saves and their folder: %@", String(describing: error))
+        }
+    }
+
+    /// The saves of APP, if it is the scenario's game.
+    @MainActor
+    static func target(of app: LCAppModel) -> CartoucheSaveTarget? {
+        guard let titleId, app.appInfo.relativeBundlePath == titleId + ".app",
+              let bundleId = app.appInfo.bundleIdentifier() else { return nil }
+        return CartoucheSaveTarget(key: bundleId + "|gallery", name: app.displayName, titleId: titleId, documents: documents)
     }
 }

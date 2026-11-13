@@ -1,0 +1,11 @@
+# actionlint, in the CI's Workflow audit.
+self-hosted-runner:
+  # The Macs with Xcode 27.2 the app, its gallery, its storage tests and
+  # Cartouche Builder are built on.
+  labels:
+    - xcode-27
+paths:
+  .github/workflows/telemetry-export.yml:
+    ignore:
+      # The export is three files and nothing else, named as ls lists them.
+      - 'SC2012'

@@ -30,6 +30,21 @@ class Disks(unittest.TestCase):
         self.assertEqual(disks.path_in("[Errno 28] No space left on device: '/Volumes/NAS/Games/x.ipa'"), Path("/Volumes/NAS/Games/x.ipa"))
         self.assertEqual(disks.path_in("less than 5 GB free on the volume of /Users/player/out"), Path("/Users/player/out"))
         self.assertIsNone(disks.path_in("fatal: write error: No space left on device"))
+        # nxnative's traceback names its own code, on the Mac's disk: never the
+        # disk that filled up (an external drive with the build folders).
+        traceback = "\n".join([
+            "[RED] OSError: [Errno 28] No space left on device",
+            "Traceback (most recent call last):",
+            '  File "/Users/player/Library/Application Support/Cartouche Builder/nxnative/scripts/build_ipa_from_nsp.py", line 671, in <module>',
+            "    sys.exit(cli(sys.argv[1:]))",
+            '  File "/opt/homebrew/Cellar/python@3.13/3.13.9/Frameworks/Python.framework/Versions/3.13/lib/python3.13/zipfile/__init__.py", line 1886, in writestr',
+            "    dest.write(data)",
+            "OSError: [Errno 28] No space left on device",
+        ])
+        self.assertIsNone(disks.path_in(traceback))
+        with mock.patch.object(disks, "free_bytes", return_value=0):
+            self.assertEqual(disks.message(Path("/Volumes/Games SSD/Builds/0100E2E000A10000_build"), traceback),
+                             "The disk “Games SSD” is full (0.0 GB left). Free some room on it, then try again.")
         self.assertEqual(disks.volume(Path("/Volumes/Games SSD/Builder")), "Games SSD")
         self.assertEqual(disks.volume(Path("/Users/player")), "")
         self.assertEqual(disks.volume(Path("/System/Volumes/Data/Users")), "")

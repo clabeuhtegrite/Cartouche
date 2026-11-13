@@ -159,6 +159,7 @@ enum HarnessLC {
         signed = []
         launches = []
         removedKeychains = []
+        LCSharedUtils.setCartoucheSigningCandidate(nil)
         multitasking = false
         appURLScheme = "cartouche"
         nextGameStart = .starts
@@ -521,6 +522,7 @@ enum LCUtils {
     /// The certificate LiveContainer signs with, where LiveContainer keeps
     /// it: the app group's preferences.
     static func certificateData() -> Data! {
+        if let candidate = LCSharedUtils.cartoucheSigningMaterial() { return candidate["certificate"] as? Data }
         let nud = UserDefaults(suiteName: LCSharedUtils.appGroupID()) ?? .standard
         return nud.object(forKey: "LCCertificateData") as? Data
     }
@@ -606,7 +608,30 @@ enum LCSharedUtils {
     }
 
     static func certificatePassword() -> String! {
-        UserDefaults.lcShared().object(forKey: "LCCertificatePassword") as? String
+        if let candidate = cartoucheSigningMaterial() { return candidate["password"] as? String }
+        return UserDefaults.lcShared().object(forKey: "LCCertificatePassword") as? String
+    }
+
+    private static let candidateLock = NSLock()
+    private static var candidate: [String: Any]?
+
+    /// The certificate and password a player imports, which LiveContainer
+    /// signs with while Cartouche checks them (patch livecontainer/0010):
+    /// certificateData() and certificatePassword() give the candidate's
+    /// while there is one. From any thread.
+    static func setCartoucheSigningCandidate(_ material: [String: Any]?) {
+        candidateLock.lock()
+        defer { candidateLock.unlock() }
+        candidate = material
+    }
+
+    /// The candidate, if any. The harness is no install signed with an
+    /// imported certificate, whose material LiveContainer reads from the
+    /// keychain.
+    static func cartoucheSigningMaterial() -> [String: Any]? {
+        candidateLock.lock()
+        defer { candidateLock.unlock() }
+        return candidate
     }
 
     /// LiveContainer quits Cartouche and opens the game: the harness

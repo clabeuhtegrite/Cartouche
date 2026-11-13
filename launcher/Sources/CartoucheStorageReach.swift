@@ -14,7 +14,9 @@
 //  again and the saves waiting are copied (CartoucheGamesView).
 //
 //  Being offline is not a problem: no report is made of it, and nothing is
-//  counted as an error.
+//  counted as an error. A Google Drive whose sign-in Google ended, as it
+//  does after seven days for a project in testing, is out of reach the same
+//  way, until the player signs in again (CartoucheDriveSessions).
 //
 
 import Combine
@@ -22,21 +24,41 @@ import Foundation
 import Network
 
 /// The server took no connection, within the patience or at all: it is
-/// out of reach from the network the iPhone is on.
+/// out of reach from the network the iPhone is on. Or it is a Google Drive
+/// whose sign-in Google ended: out of reach until the player signs in
+/// again.
 struct CartoucheStorageOffline: LocalizedError {
     /// The server's name in Cartouche, or its address before it has one.
     let name: String
     /// Whether it is the player's Mac, which answers only while Cartouche
     /// Builder shares with Cartouche.
     let isMac: Bool
+    /// Whether it is a Google Drive whose sign-in Google ended.
+    let isSignedOut: Bool
 
     init(_ server: CartoucheStorageServer) {
         let name = server.name.trimmingCharacters(in: .whitespaces)
         self.name = name.isEmpty ? server.host.trimmingCharacters(in: .whitespaces) : name
         isMac = server.kind == .mac
+        isSignedOut = server.kind == .drive && CartoucheDriveSessions.shared.hasEnded(server.id)
     }
 
-    var errorDescription: String? { isMac ? CartoucheText.storageMacOffline(name) : CartoucheText.storageOffline(name) }
+    var errorDescription: String? {
+        if isSignedOut { return CartoucheText.storageDriveSignedOut(name) }
+        return isMac ? CartoucheText.storageMacOffline(name) : CartoucheText.storageOffline(name)
+    }
+
+    /// A few words, beside the server's name, and their symbol.
+    var short: String {
+        isSignedOut ? CartoucheText.storageDriveSignedOutShort(name) : CartoucheText.storageOfflineShort(name)
+    }
+
+    var symbol: String { isSignedOut ? "person.crop.circle.badge.exclamationmark" : "wifi.slash" }
+
+    /// What a screen reader says of it.
+    var title: String {
+        isSignedOut ? CartoucheText.storageDriveSignedOutShort(name) : CartoucheText.storageOfflineTitle(name)
+    }
 }
 
 @MainActor
@@ -237,13 +259,17 @@ final class CartoucheStorageReach: ObservableObject {
         // The player's Mac takes the addresses the router gives it: Bonjour
         // finds it where the last one no longer answers.
         if server.kind == .mac { return await CartoucheMacStorage.answers(server) }
+        // A Drive whose sign-in Google ended waits for the player, not for
+        // the network: Google is not asked again meanwhile.
+        if server.kind == .drive && CartoucheDriveSessions.shared.hasEnded(server.id) { return false }
         guard let address = address(of: server) else { return true }
-        if server.kind == .s3 && usesProxy { return true }
+        if (server.kind == .s3 || server.kind == .drive) && usesProxy { return true }
         return await knock(host: address.host, port: address.port)
     }
 
     /// Where Cartouche connects to reach SERVER; nil for a folder of the
-    /// iPhone, and for an S3 address Cartouche cannot use.
+    /// iPhone, and for an S3 address Cartouche cannot use. A Google Drive:
+    /// Google's API.
     nonisolated static func address(of server: CartoucheStorageServer) -> (host: String, port: Int)? {
         let host = server.host.trimmingCharacters(in: .whitespaces)
         switch server.kind {
@@ -263,6 +289,8 @@ final class CartoucheStorageReach: ObservableObject {
             let endpoint = bucket.endpoint
             return (bucket.isVirtualHosted ? bucket.name + "." + endpoint.host : endpoint.host,
                     endpoint.port ?? (endpoint.secure ? 443 : 80))
+        case .drive:
+            return (CartoucheDriveEndpoints.google.api.host ?? "www.googleapis.com", 443)
         }
     }
 

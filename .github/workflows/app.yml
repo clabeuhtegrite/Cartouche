@@ -12,7 +12,13 @@ name: App
 # keeps, or the one its own first run kept. main builds only when what the
 # SideStore is built from changes, to keep the one every pull request finds:
 # the pull request it comes from has built the rest already. A release builds
-# everything again (release.yml).
+# everything again (release.yml), and the Full test pass builds and tests
+# everything, whatever the paths (full-pass.yml).
+#
+# The build runs on Ad's Mac when it can take it now, which spares GitHub's
+# Macs, five at a time for the whole account, and their wait; on GitHub's
+# otherwise, and always for a run again or the Full test pass
+# (.github/mac/README.md).
 
 on:
   push:
@@ -30,13 +36,27 @@ on:
       - ".github/workflows/app.yml"
   pull_request:
   workflow_dispatch:
+  # The Full test pass (full-pass.yml): every job, whatever the paths.
+  workflow_call:
+    inputs:
+      full:
+        description: "Build and test everything, as the Full test pass does, whatever the paths"
+        type: boolean
+        default: false
 
 permissions:
   contents: read
 
+# The Full test pass's run is its own: neither a push to main nor a pull
+# request cancels it.
 concurrency:
-  group: app-${{ github.ref }}
+  group: ${{ inputs.full && format('app-full-{0}', github.run_id) || format('app-{0}', github.ref) }}
   cancel-in-progress: true
+
+env:
+  # Xcode 27.2, for the iOS 27.2 SDK: the iPhone Duo gives its whole display
+  # only to apps built with Xcode 27 or later.
+  XCODE_VERSION: "27.2"
 
 jobs:
   changes:
@@ -52,9 +72,15 @@ jobs:
           persist-credentials: false
       - name: Does this change touch them?
         id: paths
+        env:
+          FULL: ${{ inputs.full }}
         run: |
           # main tested the launcher in the pull request it comes from; the
-          # Actions tab builds and tests everything.
+          # Actions tab and the Full test pass build and test everything.
+          if [ "$FULL" = "true" ]; then
+            printf 'build=true\nlauncher=true\n' >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
           case "$GITHUB_EVENT_NAME" in
             push) printf 'build=true\nlauncher=false\n' >> "$GITHUB_OUTPUT"; exit 0 ;;
             pull_request) ;;
@@ -84,18 +110,39 @@ jobs:
           printf 'build=%s\nlauncher=%s\n' "$BUILD" "$LAUNCHER" >> "$GITHUB_OUTPUT"
           echo "Build the app: $BUILD. Test the launcher: $LAUNCHER."
 
+  # Ad's Mac, when it can take the build now, else GitHub's (route.py).
+  route:
+    name: Ad's Mac or GitHub
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: read # the jobs waiting for Ad's Mac
+    outputs:
+      runner: ${{ steps.route.outputs.runner }}
+      mac: ${{ steps.route.outputs.mac }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          sparse-checkout: .github/mac
+          persist-credentials: false
+      - name: Where the build runs
+        id: route
+        env:
+          MAC_JOB: Build Cartouche.ipa
+          MAC_LABELS: cartouche-build,xcode-${{ env.XCODE_VERSION }}
+          RUNNERS_TOKEN: ${{ secrets.MAC_RUNNER_TOKEN }}
+          GH_TOKEN: ${{ github.token }}
+        run: python3 .github/mac/route.py
+
   build:
     name: Build Cartouche.ipa
-    needs: changes
+    needs: [changes, route]
     # Builds unless the first job said there is nothing to build, so that a
-    # failure there cannot skip it.
+    # failure there, or in the route, cannot skip it.
     if: ${{ !cancelled() && needs.changes.outputs.build != 'false' }}
-    # Xcode 27.2, for the iOS 27.2 SDK: the iPhone Duo gives its whole
-    # display only to apps built with Xcode 27 or later.
-    runs-on: xcode-27
+    runs-on: ${{ fromJSON(needs.route.outputs.runner || '"xcode-27"') }}
     timeout-minutes: 90
     env:
-      XCODE_VERSION: "27.2"
       # brew install takes the formula the runner knows, without updating
       # Homebrew first.
       HOMEBREW_NO_AUTO_UPDATE: "1"
@@ -106,12 +153,20 @@ jobs:
           submodules: recursive
           persist-credentials: false
       - name: Select Xcode
+        if: ${{ runner.environment == 'github-hosted' }}
         run: |
           ls -d /Applications/Xcode*.app
           sudo xcode-select -s "/Applications/Xcode_${XCODE_VERSION}.app"
           xcodebuild -version
+      - name: Select Xcode on Ad's Mac
+        if: ${{ runner.environment == 'self-hosted' }}
+        run: .github/mac/job.sh xcode "$XCODE_VERSION"
       - name: Install ldid
+        if: ${{ runner.environment == 'github-hosted' }}
         run: brew install ldid
+      - name: ldid on Ad's Mac
+        if: ${{ runner.environment == 'self-hosted' }}
+        run: .github/mac/job.sh tool ldid
       # The launcher's parts that need neither LiveContainer nor UIKit
       # (launcher/Package.swift), with their tests, before the app.
       - name: Launcher tests
@@ -127,17 +182,27 @@ jobs:
           echo "key=sidestore-$KEY" >> "$GITHUB_OUTPUT"
           echo "The built-in SideStore's key: $KEY"
       - name: Look for that SideStore in the cache
+        if: ${{ runner.environment == 'github-hosted' }}
         id: sidestore-cache
         uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: build/sidestore
           key: ${{ steps.sidestore.outputs.key }}
+      # Ad's Mac keeps the SideStores it built on its disk, a folder for each
+      # key, which its supervisor prunes: its ldid is not Homebrew's, so its
+      # keys are its own.
       - name: Build
-        run: app/scripts/build.sh --prepared --sidestore-cache build/sidestore
+        env:
+          ON: ${{ runner.environment }}
+          KEY: ${{ steps.sidestore.outputs.key }}
+        run: |
+          CACHE=build/sidestore
+          if [ "$ON" = self-hosted ]; then CACHE="$HOME/Library/Caches/cartouche-ci/sidestore/$KEY"; fi
+          app/scripts/build.sh --prepared --sidestore-cache "$CACHE"
       # Kept even when the rest of the build fails: build.sh writes the key
       # once the SideStore is built.
       - name: Keep the SideStore in the cache
-        if: ${{ !cancelled() && steps.sidestore-cache.outputs.cache-hit != 'true' && hashFiles('build/sidestore/key') != '' }}
+        if: ${{ !cancelled() && runner.environment == 'github-hosted' && steps.sidestore-cache.outputs.cache-hit != 'true' && hashFiles('build/sidestore/key') != '' }}
         uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: build/sidestore
@@ -149,6 +214,32 @@ jobs:
           path: build/app/Cartouche.ipa
           retention-days: 14
           if-no-files-found: error
+
+  # Beside the build when it runs on Ad's Mac: sends the run back to
+  # GitHub's Macs when the Mac loses the build or does not take it (watch.py).
+  watch:
+    name: Watch Ad's Mac
+    needs: [changes, route]
+    # Not in the Full test pass, whose build runs on GitHub's Macs.
+    if: ${{ !cancelled() && !inputs.full && needs.route.outputs.mac == 'true' && needs.changes.outputs.build != 'false' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 160
+    permissions:
+      contents: read
+      actions: write # cancels this run, and starts Mac rescue to run it again
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          sparse-checkout: .github/mac
+          persist-credentials: false
+      - name: Watch the build on Ad's Mac
+        env:
+          MAC_JOB: Build Cartouche.ipa
+          MAC_LABELS: cartouche-build,xcode-${{ env.XCODE_VERSION }}
+          RUNNERS_TOKEN: ${{ secrets.MAC_RUNNER_TOKEN }}
+          GH_TOKEN: ${{ github.token }}
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+        run: python3 .github/mac/watch.py
 
   release-checks:
     name: Publish guard and source entry

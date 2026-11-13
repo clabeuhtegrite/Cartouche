@@ -74,6 +74,37 @@ final class SMBTests: StorageServerTests {
         try checkInstalled(installed, fixtures.small)
     }
 
+    /// Requests made at the same moment on one connection, as the close of
+    /// a file read to its end, sent as the file is let go, and the request
+    /// made just after it are: each takes its turn, and Samba keeps the
+    /// connection. SMBClient numbers each request as it is made (its
+    /// MessageId), from a counter that nothing guards; two numbered at once
+    /// could take the same number, which Samba hangs up on ("bad
+    /// message_id" in its log), as it did on 12 and 13 November. Sixteen
+    /// reads at once, twenty times: before each request waited for its
+    /// turn (CartoucheRequestQueue), Samba hung up within the first rounds
+    /// every time, in 15 runs out of 15 on Linux.
+    func testTakesRequestsMadeAtOnceOnOneConnection() async throws {
+        let remote = try await signIn()
+        let folder = try await scratchFolder(remote)
+        let path = CartoucheStoragePath.join(folder, "Sauvegarde.zip")
+        let saved = noise(300_000, seed: 5)
+        try await remote.write(saved, to: path)
+        for round in 1 ... 20 {
+            try await withThrowingTaskGroup(of: Data.self) { group in
+                for _ in 0 ..< 16 {
+                    group.addTask { try await remote.read(path) }
+                }
+                for try await read in group {
+                    XCTAssertEqual(read, saved, "round \(round): another file came back")
+                }
+            }
+        }
+        // The connection is still up, and lists the file.
+        let names = try await remote.list(folder).map(\.name)
+        XCTAssertEqual(names, ["Sauvegarde.zip"])
+    }
+
     /// What Copy to checks before it writes a game there.
     func testSaysHowMuchRoomIsLeft() async throws {
         let remote = try await signIn()

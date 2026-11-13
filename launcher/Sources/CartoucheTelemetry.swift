@@ -390,6 +390,8 @@ final class CartoucheTelemetry: ObservableObject {
             "setUp": .flag(setup.isComplete),
             "storage": .text(CartoucheStorageSettings.shared.location(.games)?.server.kind.rawValue ?? "none"),
             "saves": .text(CartoucheStorageSettings.shared.location(.saves)?.server.kind.rawValue ?? "none"),
+            // The player's own certificate, or the Apple ID's (docs/imported-signing.md).
+            "signing": .text(CartoucheImportedSigning.isImportedInstall ? "imported" : "account"),
         ]
         // What it is made of: never the Apple ID, only whether there is one.
         fields.merge(setup.facts.fields) { _, made in made }

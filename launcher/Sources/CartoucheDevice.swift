@@ -143,7 +143,7 @@ struct CartoucheSignature {
 
     static func current() -> CartoucheSignature {
         let profile = embeddedProfile()
-        let renewal = lastRenewal()
+        let renewal = CartoucheImportedSigning.accountSigningDisabled ? nil : lastRenewal()
         var expirationDate = profile.expirationDate
         if let renewed = renewal?.expirationDate, expirationDate.map({ renewed > $0 }) ?? true {
             expirationDate = renewed

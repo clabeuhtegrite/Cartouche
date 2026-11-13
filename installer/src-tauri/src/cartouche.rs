@@ -20,6 +20,7 @@ use crate::{
     operation::Operation,
     pairing::place_file,
     sideload::{SideloaderMutex, sideload},
+    imported_signing::{ImportedSigning, HANDOFF_FILE},
 };
 
 /// Cartouche's bundle identifier, CARTOUCHE_BUNDLE_ID in app/config.env.
@@ -290,8 +291,10 @@ async fn place_pairing(device_state: &State<'_, DeviceInfoMutex>) -> Result<(), 
 }
 
 /// Downloads the newest Cartouche, or takes the IPA of Cartouche at
-/// `ipa_path`, signs and installs it on the selected iPhone with Increased
-/// Memory Limit and SideStore's certificate, then puts the pairing file in it.
+/// `ipa_path`, signs and installs it with the imported identity or Apple ID.
+/// Account signing requests Increased Memory Limit and transfers pairing;
+/// imported signing uses only the supplied profile's permissions and hands
+/// the identity to Cartouche for game signing.
 #[tauri::command]
 pub async fn install_cartouche_operation(
     handle: AppHandle,
@@ -299,13 +302,14 @@ pub async fn install_cartouche_operation(
     device_state: State<'_, DeviceInfoMutex>,
     sideloader_state: State<'_, SideloaderMutex>,
     ipa_path: Option<String>,
+    imported_signing: Option<ImportedSigning>,
 ) -> Result<(), AppError> {
     let op = Operation::new("install_cartouche".to_string(), &window);
     op.start("download")?;
     if device_state.lock().unwrap().is_none() {
         return op.fail("download", AppError::NoDeviceSelected);
     }
-    if sideloader_state.lock().unwrap().is_none() {
+    if imported_signing.is_none() && sideloader_state.lock().unwrap().is_none() {
         return op.fail("download", AppError::NotLoggedIn);
     }
     let (path, downloaded): (PathBuf, bool) = match ipa_path {
@@ -341,6 +345,25 @@ pub async fn install_cartouche_operation(
         }
     };
     op.move_on("download", "install")?;
+    if let Some(signing) = imported_signing {
+        let device = op.fail_if_err("install", selected_device(&device_state))?;
+        let signing_path = path.clone();
+        let udid = device.info.udid.clone();
+        let signed = tokio::task::spawn_blocking(move || signing.sign(&signing_path, &udid)).await;
+        if downloaded { let _ = tokio::fs::remove_file(&path).await; }
+        let signed = op.fail_if_err("install", signed.map_err(|_| AppError::Misc("Local signing stopped unexpectedly.".into())).and_then(|result| result))?;
+        let provider = op.fail_if_err("install", get_provider(&device.info).await)?;
+        let progress = op.progress_reporter("install");
+        // Keep the private temporary workspace alive until upload completes.
+        let installed = isideload::sideload::install::install_app(&provider, &signed.app_path, |percent| { drop(progress(percent as f32 / 100.0)); }).await;
+        op.fail_if_err("install", installed.map_err(AppError::from))?;
+        progress(1.0).await;
+        op.move_on("install", "pairing")?;
+        op.fail_if_err("pairing", place_file(signed.handoff, &provider, BUNDLE_ID.into(), HANDOFF_FILE.into()).await)?;
+        drop(signed.workspace);
+        op.complete("pairing")?;
+        return Ok(());
+    }
     let installed = sideload(
         &device_state,
         &sideloader_state,
