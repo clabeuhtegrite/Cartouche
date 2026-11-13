@@ -184,20 +184,23 @@ async fn login<R: Runtime>(
             let window_clone = window_clone.clone();
 
             async move {
-                window_clone
-                    .emit("2fa-required", params)
-                    .context("Failed to emit 2fa-required event")?;
-
+                // Listen before asking: an answer that comes first is lost.
                 let (tx, rx) = std::sync::mpsc::channel::<String>();
                 let handler_id = window_clone.listen("2fa-recieved", move |event| {
                     let code = event.payload();
                     let _ = tx.send(code.to_string());
                 });
 
-                let result = rx.recv_timeout(Duration::from_secs(120))?;
+                let asked = window_clone.emit("2fa-required", params);
+                if asked.is_err() {
+                    window_clone.unlisten(handler_id);
+                }
+                asked.context("Failed to emit 2fa-required event")?;
+
+                let result = rx.recv_timeout(Duration::from_secs(120));
                 window_clone.unlisten(handler_id);
 
-                let code = result.trim_matches('"').to_string();
+                let code = result?.trim_matches('"').to_string();
                 Ok(TwoFactorCallbackResponse::SubmitCode(code))
             }
             .boxed()
@@ -248,14 +251,19 @@ async fn login<R: Runtime>(
                         machine_id: cert.machine_id.clone(),
                     })
                     .collect();
-                window_clone.emit("max-certs-reached", cert_infos)?;
-
+                // Listen before asking: an answer that comes first is lost.
                 let (tx, rx) = std::sync::mpsc::channel::<Option<Vec<String>>>();
                 let handler_id = window_clone.listen("max-certs-response", move |event| {
                     let certs = event.payload();
                     let certs = serde_json::from_str::<Option<Vec<String>>>(certs).unwrap_or(None);
                     let _ = tx.send(certs);
                 });
+
+                let asked = window_clone.emit("max-certs-reached", cert_infos);
+                if asked.is_err() {
+                    window_clone.unlisten(handler_id);
+                }
+                asked?;
 
                 let result = rx.recv_timeout(Duration::from_secs(300));
                 window_clone.unlisten(handler_id);

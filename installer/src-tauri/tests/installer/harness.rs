@@ -8,7 +8,7 @@ use std::{
     path::{Path, PathBuf},
     sync::{
         Arc, Mutex, Once,
-        atomic::{AtomicBool, AtomicU32, Ordering},
+        atomic::{AtomicU32, Ordering},
         mpsc,
     },
     time::Duration,
@@ -80,9 +80,6 @@ struct Answers {
     /// Answers to "Too many certificates": the serials to revoke, or None
     /// to cancel; then None.
     certificates: VecDeque<Option<Vec<String>>>,
-    /// One more each time the installer asks, so that an answer to an
-    /// earlier question never lands on a later one.
-    question: u64,
 }
 
 pub struct Harness {
@@ -105,7 +102,6 @@ pub struct Harness {
     usbmuxd_addr: std::net::SocketAddr,
     events: Arc<Mutex<Vec<(String, Value)>>>,
     answers: Arc<Mutex<Answers>>,
-    done: Arc<AtomicBool>,
     versions: Mutex<Vec<String>>,
 }
 
@@ -195,7 +191,6 @@ impl Harness {
             usbmuxd_addr,
             events: Arc::default(),
             answers: Arc::default(),
-            done: Arc::default(),
             versions: Mutex::default(),
         };
         harness.record_events();
@@ -259,9 +254,14 @@ impl Harness {
     }
 
     /// Answers the installer's questions as the window does: a code when it
-    /// asks for one, and the certificates to revoke. The installer listens
-    /// for the answer only once it has asked, so the answer goes again
-    /// every 50 ms until the next question, for 10 s at most.
+    /// asks for one, and the certificates to revoke. The answer goes at
+    /// once, from inside the question: Tauri holds it until the question has
+    /// reached every listener, then hands it to the installer, which must
+    /// listen before it asks. The answer goes once, from the installer's
+    /// own thread: an event sent from another thread while the installer
+    /// sends one or starts listening makes Tauri set the installer's aside
+    /// until some later event, so its last step or its listening could
+    /// wait for good (seen on Windows).
     fn answer_questions(&self) {
         let questions = [
             ("2fa-required", "2fa-recieved"),
@@ -270,32 +270,17 @@ impl Harness {
         for (question, answer_event) in questions {
             let answers = self.answers.clone();
             let handle = self.app.handle().clone();
-            let done = self.done.clone();
             let default_code = self.account.code.clone();
             self.app.listen_any(question, move |_| {
-                let (asked, answer) = {
+                let answer = {
                     let mut answers = answers.lock().unwrap();
-                    answers.question += 1;
-                    let answer = if question == "2fa-required" {
+                    if question == "2fa-required" {
                         json!(answers.codes.pop_front().unwrap_or_else(|| default_code.clone()))
                     } else {
                         json!(answers.certificates.pop_front().unwrap_or(None))
-                    };
-                    (answers.question, answer)
-                };
-                let answers = answers.clone();
-                let handle = handle.clone();
-                let done = done.clone();
-                std::thread::spawn(move || {
-                    for _ in 0..200 {
-                        std::thread::sleep(Duration::from_millis(50));
-                        let answers = answers.lock().unwrap();
-                        if answers.question != asked || done.load(Ordering::Relaxed) {
-                            return;
-                        }
-                        let _ = handle.emit(answer_event, answer.clone());
                     }
-                });
+                };
+                let _ = handle.emit(answer_event, answer);
             });
         }
     }
@@ -538,7 +523,6 @@ impl Harness {
 
 impl Drop for Harness {
     fn drop(&mut self) {
-        self.done.store(true, Ordering::Relaxed);
         self.close_store();
         if let Ok(dir) = self.app.path().app_data_dir() {
             let _ = std::fs::remove_dir_all(dir);
