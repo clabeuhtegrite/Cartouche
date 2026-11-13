@@ -88,20 +88,37 @@ jobs:
           $vs = & "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe" -latest -property installationPath
           & "$vs\Common7\Tools\Launch-VsDevShell.ps1" -Arch amd64 -HostArch amd64 -SkipAutomaticLocation
           cargo test --locked
+      # Its scenarios also take pictures of the window on the way
+      # (CARTOUCHE_UI_CAPTURES), as this system draws it.
       - name: Test the window
         if: runner.os == 'macOS'
         working-directory: installer/src-tauri
+        env:
+          CARTOUCHE_UI_CAPTURES: ${{ github.workspace }}/build/installer-captures
         run: cargo test --locked --features ui-tests --test ui
       - name: Test the window
         if: runner.os == 'Windows'
         shell: pwsh
         working-directory: installer/src-tauri
+        env:
+          CARTOUCHE_UI_CAPTURES: ${{ github.workspace }}/build/installer-captures
         run: |
           $ErrorActionPreference = 'Stop'
           $PSNativeCommandUseErrorActionPreference = $true
           $vs = & "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe" -latest -property installationPath
           & "$vs\Common7\Tools\Launch-VsDevShell.ps1" -Arch amd64 -HostArch amd64 -SkipAutomaticLocation
           cargo test --locked --features ui-tests --test ui
+      # The window as a Mac and Windows draw it, for a change to it to be
+      # seen before it merges. Not named cartouche-installer-*, which the
+      # release takes.
+      - name: Keep the window's captures
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: installer-window-captures-${{ matrix.name }}
+          path: build/installer-captures
+          if-no-files-found: warn
+          retention-days: 14
       # The app for both kinds of Mac, ad hoc signed (tauri.conf.json): not
       # notarized, so the Mac asks once to open it (installer/README.md).
       - name: Build the Mac app
