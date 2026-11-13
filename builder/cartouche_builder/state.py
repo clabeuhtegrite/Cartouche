@@ -4,7 +4,9 @@ One JSON file per game in the builder's state folder. A build is what the
 games folder holds: the nxnative commit and shader chain it was made from,
 the source files it was made of (their fingerprint), the Apple tools that
 made it, when, and the IPA's name. An attempt that failed is kept beside it,
-so that the same failure is not tried again every night.
+so that the same failure is not tried again every night. A game also built
+for this Mac has the same two of its Mac app (mac, mac_attempt): its app is
+built after its IPA, and fails without touching it (macapps.py).
 """
 
 from __future__ import annotations
@@ -52,6 +54,36 @@ class Build:
 
 
 @dataclass
+class MacBuild:
+    """The game's Mac app, as nxnative made it (--platform mac-app) and the
+    builder put it in the Mac apps folder (macapps.py)."""
+
+    commit: str  # the nxnative commit, 12 hex digits or more
+    built_at: str  # ISO 8601, UTC
+    app: str = ""  # its folder's name in the Mac apps folder, "<game>.app"
+    folder: str = ""  # the Mac apps folder it was put in
+    size: int = 0
+    chain: str = ""
+    fingerprint: str = ""  # library.Game.fingerprint() of the sources it was made of
+    toolchain: str = ""
+    version: str = ""  # the game's version
+    name: str = ""
+    duration: float = 0.0
+    dirty: bool = False
+
+    @property
+    def time(self) -> float:
+        try:
+            return datetime.fromisoformat(self.built_at).timestamp()
+        except ValueError:
+            return 0.0
+
+    @property
+    def path(self) -> Path | None:
+        return Path(self.folder) / self.app if self.folder and self.app else None
+
+
+@dataclass
 class Attempt:
     commit: str
     at: str
@@ -68,6 +100,8 @@ class Record:
     build: Build | None = None
     attempt: Attempt | None = None
     history: list[dict] = field(default_factory=list)  # the last builds, newest first
+    mac: MacBuild | None = None  # its Mac app
+    mac_attempt: Attempt | None = None  # its Mac app's last attempt that did not build
 
     @classmethod
     def from_json(cls, data: dict) -> "Record":
@@ -86,6 +120,8 @@ class Record:
             build=make(Build, data.get("build")),
             attempt=make(Attempt, data.get("attempt")),
             history=[h for h in history if isinstance(h, dict)][:20] if isinstance(history, list) else [],
+            mac=make(MacBuild, data.get("mac")),
+            mac_attempt=make(Attempt, data.get("mac_attempt")),
         )
 
 
@@ -137,6 +173,19 @@ class Store:
             record.attempt = None
             self.save(record)
 
+    def mac_built(self, title_id: str, build: MacBuild) -> Record:
+        record = self.get(title_id)
+        record.mac = build
+        record.mac_attempt = None
+        self.save(record)
+        return record
+
+    def mac_failed(self, title_id: str, attempt: Attempt) -> Record:
+        record = self.get(title_id)
+        record.mac_attempt = attempt
+        self.save(record)
+        return record
+
     # ---- What the first builders took over --------------------------------
 
     def forget_taken_over(self) -> int:
@@ -155,7 +204,7 @@ class Store:
                 continue
             count += forgotten
             record.build, record.history = build, history
-            if record.build is None and record.attempt is None and not record.history:
+            if record.build is None and record.attempt is None and not record.history and record.mac is None and record.mac_attempt is None:
                 self.path(title_id).unlink(missing_ok=True)
             else:
                 self.save(record)

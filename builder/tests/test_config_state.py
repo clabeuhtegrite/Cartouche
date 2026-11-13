@@ -5,7 +5,7 @@ from pathlib import Path
 from cartouche_builder import batch, schedule, storage
 from cartouche_builder import config as configs
 from cartouche_builder.paths import Paths
-from cartouche_builder.state import TAKEN_OVER, Attempt, Build, Store, attempt_now
+from cartouche_builder.state import TAKEN_OVER, Attempt, Build, MacBuild, Store, attempt_now
 from cartouche_builder.workspace import NOTES, Workspace
 
 from support import MKW, ODYSSEY, Home
@@ -73,6 +73,39 @@ class Settings(Home):
         config = configs.Config(only=[ODYSSEY])
         config.follow(MKW, True)
         self.assertEqual(config.only, sorted([MKW, ODYSSEY]))
+
+    def test_both_platforms_by_default_each_can_be_turned_off(self):
+        config = configs.Config()
+        self.assertEqual((config.on_ios(MKW), config.on_mac(MKW)), (True, True))
+        self.assertEqual(config.mac_apps_path(), Path.home() / "Applications")
+        config.set_platform(MKW.lower(), "mac", False)
+        self.assertEqual((config.skip_mac, config.on_ios(MKW), config.on_mac(MKW), config.on_mac(ODYSSEY)), ([MKW], True, False, True))
+        config.set_platform(ODYSSEY, "ios", False)
+        self.assertEqual((config.skip_ios, config.on_ios(ODYSSEY), config.on_mac(ODYSSEY)), ([ODYSSEY], False, True))
+        config.set_platform(MKW, "mac", True)
+        self.assertEqual((config.skip_mac, config.on_mac(MKW)), ([], True))
+        # A game built again for one is followed; what was built stays.
+        config.follow(MKW, False)
+        config.set_platform(MKW, "ios", True)
+        self.assertTrue(config.selected(MKW))
+        # For every game, in the settings.
+        config.mac = False
+        self.assertEqual((config.on_mac(MKW), config.on_mac(ODYSSEY)), (False, False))
+        config.ios = False
+        self.assertFalse(config.on_ios(MKW))
+        # Saved and read again, with a Mac apps folder of the player's choice.
+        paths = Paths.default()
+        config.mac_apps = "~/Games"
+        configs.save(paths, config)
+        again = configs.load(paths)
+        self.assertEqual((again.ios, again.mac, again.skip_ios, again.mac_apps), (False, False, [ODYSSEY], "~/Games"))
+        self.assertEqual(again.mac_apps_path(), Path.home() / "Games")
+        with self.assertRaises(ValueError):
+            configs.Config(skip_mac=["nope"]).validate()
+        # The settings of a builder from before the Mac apps: both, for every game.
+        paths.config.write_text(json.dumps({"sources": "/s", "games": "/g", "version": 2}))
+        older = configs.load(paths)
+        self.assertEqual((older.ios, older.mac, older.skip_ios, older.skip_mac, older.mac_apps), (True, True, [], [], ""))
 
     def test_settings_an_older_builder_took_over_are_forgotten(self):
         # The first builders took NxNative Batch Builder's settings over at
@@ -183,6 +216,26 @@ class Records(Home):
         self.assertIsNone(record.attempt)
         self.assertEqual(record.history[0]["commit"], "a" * 12)
         self.assertEqual(list(store.all()), [MKW])
+
+    def test_the_mac_apps_build_then_failure(self):
+        store = Store(Paths.default())
+        store.built(MKW, Build(commit="a" * 12, built_at="2026-11-09T00:00:00+00:00", ipa="A.ipa"))
+        store.mac_failed(MKW, attempt_now("a" * 12, "failed", "no host", "fp", "", "/log"))
+        record = store.get(MKW)
+        self.assertEqual((record.build.ipa, record.attempt, record.mac, record.mac_attempt.error), ("A.ipa", None, None, "no host"))
+        store.mac_built(MKW, MacBuild(commit="a" * 12, built_at="2026-11-09T00:10:00+00:00", app="A.app", folder="/Users/player/Applications", size=12, dirty=True))
+        record = store.get(MKW)
+        self.assertIsNone(record.mac_attempt)
+        self.assertEqual((record.mac.app, record.mac.size, record.mac.dirty), ("A.app", 12, True))
+        self.assertEqual(record.mac.path, Path("/Users/player/Applications/A.app"))
+        self.assertGreater(record.mac.time, record.build.time)
+        # Its IPA's next build leaves its Mac app's record as it is.
+        store.built(MKW, Build(commit="c" * 12, built_at="2026-11-10T00:00:00+00:00", ipa="A.ipa"))
+        self.assertEqual(store.get(MKW).mac.commit, "a" * 12)
+        # A record of a builder from before the Mac apps reads as none.
+        path = store.path(ODYSSEY)
+        path.write_text(json.dumps({"title_id": ODYSSEY, "build": {"commit": "b" * 12, "built_at": "2026-11-09T00:00:00+00:00", "ipa": "B.ipa"}}))
+        self.assertEqual((store.get(ODYSSEY).mac, store.get(ODYSSEY).mac_attempt), (None, None))
 
 
 class BuildFolders(Home):

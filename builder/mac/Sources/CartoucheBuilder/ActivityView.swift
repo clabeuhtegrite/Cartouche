@@ -167,7 +167,7 @@ struct CurrentCard: View {
                                      "Arrête la construction de ce jeu : les jeux en attente se construisent ensuite."))
                         }
                     }
-                    Text(stageText(progress.stage) + (progress.k.flatMap { k in progress.n.map { " · \(k)/\($0)" } } ?? ""))
+                    Text(platform + stageText(progress.stage) + (progress.k.flatMap { k in progress.n.map { " · \(k)/\($0)" } } ?? ""))
                         .font(.callout)
                         .foregroundStyle(.secondary)
                     ProgressView(value: progress.overall ?? progress.frac ?? 0)
@@ -202,6 +202,14 @@ struct CurrentCard: View {
                 }
             }
         }
+    }
+}
+
+extension CurrentCard {
+    /// What its stage is of, when the batch builds its app for this Mac too.
+    var platform: String {
+        guard progress.buildsMac, progress.macOnly != true else { return "" }
+        return progress.onMacNow ? tr("This Mac · ", "Ce Mac · ") : tr("iPhone · ", "iPhone · ")
     }
 }
 
@@ -320,6 +328,13 @@ struct GameList: View {
                         .foregroundStyle(.secondary)
                         .lineLimit(3)
                 }
+                // Its IPA built, its app for this Mac not.
+                if let error = game.shownMacError {
+                    Text(tr("Mac app: ", "App Mac : ") + error)
+                        .font(.caption)
+                        .foregroundStyle(.orange)
+                        .lineLimit(3)
+                }
                 if let commit = game.fallbackCommit {
                     Text(tr("From nxnative \(commit.prefix(8)), the last commit that built: the newest does not build for now",
                             "Avec nxnative \(commit.prefix(8)), le dernier commit qui a construit : le plus récent ne construit pas pour l’instant"))
@@ -340,6 +355,14 @@ struct GameList: View {
                 }
                 .buttonStyle(.borderless)
                 .help(tr("Open its log", "Ouvrir son journal"))
+            } else if let log = game.macLog, !log.isEmpty, game.mac == "failed" {
+                Button {
+                    model.open(log)
+                } label: {
+                    Image(systemName: "doc.text.magnifyingglass")
+                }
+                .buttonStyle(.borderless)
+                .help(tr("Open the log of its Mac app", "Ouvrir le journal de son app Mac"))
             }
             if let remove, game.state == "queued" {
                 Button {
@@ -358,6 +381,11 @@ struct GameList: View {
 
     private func stateText(_ game: GameProgress) -> String {
         switch game.state {
+        case "built" where game.mac == "built":
+            // Its IPA and its Mac app, or its Mac app alone.
+            let seconds = (game.macOnly == true ? 0 : game.duration ?? 0) + (game.macDuration ?? 0)
+            return (game.macOnly == true ? tr("Built for this Mac", "Construit pour ce Mac") : tr("Built, with its Mac app", "Construit, avec son app Mac"))
+                + (seconds > 0 ? " · " + Format.duration(seconds) : "")
         case "built": return tr("Built", "Construit") + (game.duration.map { " · " + Format.duration($0) } ?? "")
         case "failed": return tr("Failed", "Échec")
         case "stopped": return tr("Stopped", "Arrêté")

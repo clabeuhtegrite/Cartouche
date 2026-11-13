@@ -154,6 +154,13 @@ def _build(ctx: batch.Context, args) -> int:
             print(t("cli.built", name=value.ipa, minutes=int(value.duration // 60)), flush=True)
         elif kind == "failed":
             print(t("cli.failed", error=value), flush=True)
+        elif kind == "mac_start":
+            last.pop(title_id, None)
+            print(t("cli.mac_building"), flush=True)
+        elif kind == "mac_built":
+            print(t("cli.mac_built", name=value.app, minutes=int(value.duration // 60)), flush=True)
+        elif kind == "mac_failed":
+            print(t("cli.mac_failed", error=value), flush=True)
         elif kind == "log":
             print(f"  {value}", flush=True)
 
@@ -179,7 +186,7 @@ def _build(ctx: batch.Context, args) -> int:
         print(t("cli.report", path=summary.report))
     if summary.stopped:
         return 130
-    return 1 if summary.failed else 0
+    return 1 if summary.failed or summary.mac_failed else 0
 
 
 def _doctor(ctx: batch.Context) -> int:

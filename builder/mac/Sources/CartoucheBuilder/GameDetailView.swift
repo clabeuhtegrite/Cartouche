@@ -3,8 +3,9 @@
 //  Cartouche Builder
 //
 //  A game's sheet, beside the library: why it is due, nxnative's commits
-//  that touched it since its build, its build and its IPA, and what can be
-//  done: rebuild it, follow it or not, name it as nxnative's commits do.
+//  that touched it since its build, its build and its IPA, its app for this
+//  Mac, and what can be done: rebuild it, follow it or not, build it for
+//  the iPhone, for this Mac or for both, name it as nxnative's commits do.
 //  nxnative writes its commits in English, a paragraph each: the sheet says
 //  why in the player's words, and shows each commit's first lines, the
 //  rest when asked.
@@ -22,19 +23,28 @@ struct GameDetailView: View {
             VStack(alignment: .leading, spacing: 18) {
                 header
                 actions
+                if game.canBuild {
+                    platforms
+                }
                 if !whyLines.isEmpty {
                     why
                 }
                 if let progress = model.progress(game.titleID) {
                     ProgressCard(progress: progress)
                 }
-                if let attempt = game.attempt, game.state == .failed || attempt.result == "failed" {
+                if let attempt = game.attempt, game.onIOS, game.state == .failed || attempt.result == "failed" {
                     failure(attempt)
+                }
+                if let attempt = game.mac?.attempt, attempt.result == "failed", game.onMac {
+                    failure(attempt, mac: true)
                 }
                 if !game.changes.isEmpty {
                     changes
                 }
                 build
+                if game.onMac || game.mac?.build != nil {
+                    macApp
+                }
                 if game.canBuild {
                     AliasesEditor(game: game)
                 }
@@ -150,6 +160,48 @@ struct GameDetailView: View {
         }
     }
 
+    /// What the game is built for: its IPA for the iPhone, its app for this
+    /// Mac, or both; never neither (the engine refuses it: a game built
+    /// for neither is one no longer followed). One turned off for every
+    /// game in the settings cannot be turned on here.
+    private var platforms: some View {
+        let config = model.config
+        let ios = config?.ios ?? true
+        let mac = config?.mac ?? true
+        return SheetPart(title: tr("Built for", "Construit pour")) {
+            VStack(alignment: .leading, spacing: 10) {
+                PlatformToggle(title: "iPhone", symbol: "iphone", detail: iosDetail, on: game.onIOS,
+                               locked: !ios ? tr("Turned off for every game in the settings.", "Désactivé pour tous les jeux dans les réglages.")
+                                            : game.onIOS && !game.onMac ? lastOne : nil) { model.setPlatform(game, "ios", $0) }
+                Divider()
+                PlatformToggle(title: tr("This Mac", "Ce Mac"), symbol: "macbook", detail: macDetail, on: game.onMac,
+                               locked: !mac ? tr("Turned off for every game in the settings.", "Désactivé pour tous les jeux dans les réglages.")
+                                            : game.onMac && !game.onIOS ? lastOne : nil) { model.setPlatform(game, "mac", $0) }
+            }
+        }
+    }
+
+    private var lastOne: String {
+        tr("A game is built for at least one of the two: to build it for neither, stop following it.",
+           "Un jeu se construit pour au moins l’un des deux : pour ne plus le construire du tout, ne le suivez plus.")
+    }
+
+    private var iosDetail: String {
+        guard game.onIOS else { return tr("Its IPA is no longer built.", "Son IPA n’est plus construite.") }
+        return tr("Its IPA, in the games folder, for Cartouche.", "Son IPA, dans le dossier des jeux, pour Cartouche.")
+    }
+
+    /// Its Mac app as the engine says it (the next batch builds it, after
+    /// its IPA or alone, or it is up to date), else where it goes.
+    private var macDetail: String {
+        guard game.onMac else {
+            return game.hasMacApp ? tr("No longer built: its app stays on this Mac.", "Plus construit : son app reste sur ce Mac.")
+                                  : tr("Its app for this Mac is not built.", "Son app pour ce Mac n’est pas construite.")
+        }
+        if let detail = game.mac?.detail, !detail.isEmpty { return detail }
+        return tr("Its app, to play it on this Mac.", "Son app, pour y jouer sur ce Mac.")
+    }
+
     private var why: some View {
         SheetPart(title: tr("Why", "Pourquoi")) {
             VStack(alignment: .leading, spacing: 6) {
@@ -180,8 +232,8 @@ struct GameDetailView: View {
         return reasons.map { whyText($0, counts: game.changeCounts) }
     }
 
-    private func failure(_ attempt: GameAttempt) -> some View {
-        SheetPart(title: tr("Last attempt", "Dernière tentative")) {
+    private func failure(_ attempt: GameAttempt, mac: Bool = false) -> some View {
+        SheetPart(title: mac ? tr("Last attempt of its Mac app", "Dernière tentative de son app Mac") : tr("Last attempt", "Dernière tentative")) {
             VStack(alignment: .leading, spacing: 8) {
                 Text(attempt.error ?? tr("The build failed.", "La construction a échoué."))
                     .font(.callout)
@@ -246,6 +298,41 @@ struct GameDetailView: View {
                 }
                 if let size = game.sourceSize, size > 0 {
                     Fact(tr("Its dump", "Son dump"), Format.size(size))
+                }
+            }
+        }
+    }
+
+    /// Its app for this Mac: where it is, its build, or why it is not
+    /// there (the engine's words).
+    private var macApp: some View {
+        SheetPart(title: tr("Its Mac app", "Son app Mac")) {
+            VStack(alignment: .leading, spacing: 8) {
+                if let app = game.mac?.app, app.present {
+                    if let build = game.mac?.build {
+                        Fact(tr("Built", "Construite"), build.date.map { Format.date($0) } ?? build.builtAt)
+                        Fact("nxnative", String(build.commit.prefix(12)), link: model.library?.engine?.page(of: build.commit))
+                        if let duration = build.duration, duration > 0 { Fact(tr("Took", "Durée"), Format.duration(duration)) }
+                    }
+                    Fact(tr("Size", "Taille"), Format.size(app.size))
+                    Text(app.name)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .textSelection(.enabled)
+                    Button(tr("Show in the Finder", "Afficher dans le Finder")) { model.reveal(app.path) }
+                        .controlSize(.small)
+                } else if let app = game.mac?.app, !app.name.isEmpty {
+                    Text(tr("\(app.name) is no longer in its folder: it is built again.", "\(app.name) n’est plus dans son dossier : elle sera reconstruite."))
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                } else {
+                    Text(tr("Not built yet.", "Pas encore construite."))
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                }
+                if let folder = game.mac?.folder, !folder.isEmpty {
+                    Fact(tr("Folder", "Dossier"), (folder as NSString).abbreviatingWithTildeInPath)
                 }
             }
         }
@@ -425,13 +512,52 @@ struct AliasesEditor: View {
     }
 }
 
-/// A game building now, or waiting its turn.
+/// A platform of a game's sheet: built for it, or not.
+struct PlatformToggle: View {
+    let title: String
+    let symbol: String
+    let detail: String
+    let on: Bool
+    /// Why it cannot be changed here, when it cannot.
+    let locked: String?
+    let change: (Bool) -> Void
+
+    var body: some View {
+        Toggle(isOn: Binding(get: { on }, set: { change($0) })) {
+            HStack(alignment: .top, spacing: 10) {
+                Image(systemName: symbol)
+                    .font(.title3)
+                    .foregroundStyle(on ? Theme.indigo : .secondary)
+                    .frame(width: 22)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(title)
+                        .font(.callout.weight(.medium))
+                    Text(detail)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+        }
+        .toggleStyle(.switch)
+        .disabled(locked != nil)
+        .help(locked ?? "")
+    }
+}
+
+/// A game building now, or waiting its turn: its IPA, then its app for
+/// this Mac, or the Mac app alone.
 struct ProgressCard: View {
     let progress: GameProgress
 
     var body: some View {
         Card(padding: 14) {
             VStack(alignment: .leading, spacing: 8) {
+                if progress.buildsMac {
+                    Text(platformLine)
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.secondary)
+                }
                 HStack {
                     Text(progress.state == "building" ? stageText(progress.stage) : tr("Waiting its turn", "En attente de son tour"))
                         .font(.callout.weight(.medium))
@@ -453,5 +579,10 @@ struct ProgressCard: View {
                 }
             }
         }
+    }
+
+    private var platformLine: String {
+        if progress.macOnly == true { return tr("For this Mac", "Pour ce Mac") }
+        return progress.onMacNow ? tr("iPhone done, now this Mac", "iPhone fait, maintenant ce Mac") : tr("For the iPhone, then this Mac", "Pour l’iPhone, puis ce Mac")
     }
 }

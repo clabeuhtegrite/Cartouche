@@ -406,6 +406,45 @@ class World:
                 "names": names,
             }
 
+    @property
+    def mac_apps(self) -> Path:
+        """The Mac apps folder when the settings name none: the Applications
+        folder of the player's home folder (config.default_mac_apps)."""
+        return self.user / "Applications"
+
+    def mac_app(self, title_id: str, folder: Path | None = None) -> Path | None:
+        """The game's Mac app in FOLDER (the Mac apps folder): the app there
+        whose Info.plist names it."""
+        import plistlib
+
+        folder = folder or self.mac_apps
+        found = []
+        for app in sorted(folder.glob("*.app")) if folder.is_dir() else []:
+            try:
+                info = plistlib.loads((app / "Contents" / "Info.plist").read_bytes())
+            except (OSError, ValueError):
+                continue
+            if info.get("DMTitleID") == title_id:
+                found.append(app)
+        return found[0] if len(found) == 1 else None
+
+    def mac_inside(self, title_id: str, folder: Path | None = None) -> dict:
+        """What the simulated nxnative wrote in the game's Mac app: its
+        Info.plist, the files it was given and its options."""
+        import plistlib
+
+        app = self.mac_app(title_id, folder)
+        if app is None:
+            where = folder or self.mac_apps
+            raise AssertionError(f"no Mac app of {title_id} in {sorted(p.name for p in where.iterdir()) if where.is_dir() else where}")
+        sim = app / "Contents" / "Resources" / "sim"
+        return {
+            "app": app,
+            "info": plistlib.loads((app / "Contents" / "Info.plist").read_bytes()),
+            "inputs": json.loads((sim / "inputs.json").read_text()),
+            "args": json.loads((sim / "args.json").read_text()),
+        }
+
     def close(self) -> None:
         """Stops what still runs (a batch, a build a killed batch left, its
         tools) and removes the world."""
@@ -434,6 +473,7 @@ class World:
             "sources": str(self.sources),
             "games": str(self.games),
             "keys": str(self.keys),
+            "applications": str(self.mac_apps),
             "nxnative": str(self.nxnative.folder),
             "head": self.nxnative.head,
             # Beside what the app gives the engine itself (Engine.environment).
@@ -684,11 +724,14 @@ class App:
 def make(folder: Path) -> dict:
     """A world in FOLDER with two games due, a folder of packages and a
     dump, set up as the app's setup assistant leaves it: what the Mac app's
-    end-to-end tests start from (EndToEndTests.swift)."""
+    end-to-end tests start from (EndToEndTests.swift). Its Mac apps go in
+    the world's own Applications folder, named in its settings: the app
+    runs the engine with the Mac's home folder, whose Applications folder
+    the tests must never write in."""
     world = World(folder, games={LANTERN: NAMES[LANTERN], DRIFT: NAMES[DRIFT]})
     packages(world.sources / f"{NAMES[LANTERN]} [{LANTERN}]", LANTERN, NAMES[LANTERN], update=65536, dlc=1)
     dump(world.sources / NAMES[DRIFT], DRIFT)
-    world.set_up()
+    world.set_up(mac_apps=str(world.mac_apps))
     described = world.describe()
     described["titles"] = {LANTERN: NAMES[LANTERN], DRIFT: NAMES[DRIFT]}
     return described

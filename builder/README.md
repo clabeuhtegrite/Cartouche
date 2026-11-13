@@ -23,12 +23,12 @@ A Mac that builds nxnative games has Apple silicon and macOS 26.6 or later. The 
 
 ## The app
 
-- **Library:** your games with their covers: those in the sources folder, and those whose IPA alone is in the games folder, such as games built before. Each says whether it is up to date, due for a rebuild and why, built at night, or failed and what failed. A game's sheet shows what nxnative changed for it since its build, its IPA, its build folder, **Build**, **Rebuild** or **Build again**, whether it is followed, and the other names of the game in nxnative's commits. **Rebuild what is due** builds every game nxnative improved.
+- **Library:** your games with their covers: those in the sources folder, and those whose IPA alone is in the games folder, such as games built before. Each says whether it is up to date, due for a rebuild and why, built at night, or failed and what failed. A game's sheet shows what nxnative changed for it since its build, its IPA, its app for this Mac, its build folder, **Build**, **Rebuild** or **Build again**, whether it is followed, what it is built for (the iPhone, this Mac or both), and the other names of the game in nxnative's commits. **Rebuild what is due** builds every game nxnative improved.
 - **Builds:** the batch under way, game by game and stage by stage, its queue, and the ones before, with their logs.
 - **Storage:** what the builder keeps on the Mac, and how to free it.
 - **iPhone:** the bridge to Cartouche, its two folders and the iPhones paired.
 - **This Mac's tools:** each tool, installed or missing, and an install for what is missing.
-- **Settings** (⌘,): the folders and `prod.keys`, the rebuilds when nxnative's shared code changes, the nightly run, how many games build at once, the games' language, the disk the builds may use, notifications, the menu bar, opening at login, updates and measures.
+- **Settings** (⌘,): the folders and `prod.keys`, what the games are built for and where their Mac apps go, the rebuilds when nxnative's shared code changes, the nightly run, how many games build at once, the games' language, the disk the builds may use, notifications, the menu bar, opening at login, updates and measures.
 
 The menu bar shows a build under way, the games nxnative improved and an update ready; notifications say when a batch ends and when nxnative improves one of your games.
 
@@ -83,6 +83,15 @@ A game's build folder, `<title ID>_build`, keeps what the next build reuses, so 
 
 **Storage** shows each of these, with what it takes and **Free**.
 
+## Your games on this Mac
+
+Each game is built for both, unless you say otherwise: its IPA for the iPhone, then its app for this Mac, which nxnative makes from the same build (`--platform mac-app`), a double-clickable app with the game in it. The builder puts it in the Applications folder of your session (`~/Applications`), where Launchpad, the Dock and Spotlight find it, or in the folder chosen in **Settings › Builds**. One of the two can be turned off, for every game in **Settings › Builds › Built for**, or for one game under **Built for** on its sheet; one of the two stays on, since a game built for neither is a game no longer followed. What was built stays where it is.
+
+- The Mac app is built right after the IPA, in the same batch, from the same nxnative commit and the same files. Once the IPA is up to date, a Mac app never built, gone from its folder, or older than the IPA is built alone. A Mac app that fails leaves the IPA built, and is tried again when nxnative or the game's files change, as a game whose build failed. A game built for this Mac alone is planned as an IPA is, from its Mac app's last build.
+- It takes the game's name, as nxnative names its apps. An app of that name that is not the game's stays where it is, and the game's goes beside it as `<game> [<title ID>].app`; an app you renamed in the Finder keeps its name. A new build is put together beside the old one, hidden, then takes its place whole, so the folder never holds half an app, and never while the game is open: it is then replaced at the next batch.
+- On the disk of the build folders, the app's game files are APFS clones of the build folder's extracted files, and take no room while those are kept; elsewhere nxnative copies them, once it has checked the room. The extracted files are removed after the Mac app, unless **Keep the extracted files** is on, and the app then keeps their room: on that disk, a Mac app waits for the next batch when less than **Keep at least … GB free** is left once the build folders used the longest ago are gone, as a build does.
+- **Storage › Games on this Mac** lists the apps the builder put on the Mac, with their size. **Move to the Trash** puts one in the Trash, never while the game is open, and the game is then no longer built for this Mac. Its saves stay: nxnative keeps them in `~/Library/Application Support/nxnative/<title ID>/`.
+
 ## The iPhone
 
 On the **iPhone** page, **Share with Cartouche on the iPhone** makes the Mac a storage place Cartouche can add. Cartouche sees two folders: **Games**, the games folder, wherever it is, and **Saves**, a folder you choose for the copies of your saves. Nothing else of the Mac can be reached.
@@ -130,7 +139,7 @@ The error under a game in **Builds** is nxnative's own, but for what you can act
 
 ## Where it keeps things
 
-Everything of its own is in `~/Library/Application Support/Cartouche Builder`: `config.json`, one record per game in `state/` (its last build: the nxnative commit and shader chain, the files it was made from, the Apple tools, the IPA's name), nxnative's copy in `nxnative/`, the Python environment in `python/`, the builds' logs in `logs/<title ID>/` and the batches' reports in `reports/`; and for the app, the batch under way in `status.json`, the games asked for while it runs and those taken out of it in `queue.json`, the library as last read in `library.json`, the iPhones paired and their keys in `bridge.json`, readable by your account only, the iPhones' saves in `Saves/` unless you chose another folder, and the measures not sent yet in `telemetry.json`. The covers and a downloaded update are in `~/Library/Caches/io.github.clabeuhtegrite.cartouche-builder`, which macOS may empty. Your sources are only read, and the builder writes in your games folder only the IPAs of the games it builds.
+Everything of its own is in `~/Library/Application Support/Cartouche Builder`: `config.json`, one record per game in `state/` (its last build: the nxnative commit and shader chain, the files it was made from, the Apple tools, the IPA's name; and its Mac app's: where it is and what it was built from), nxnative's copy in `nxnative/`, the Python environment in `python/`, the builds' logs in `logs/<title ID>/` and the batches' reports in `reports/`; and for the app, the batch under way in `status.json`, the games asked for while it runs and those taken out of it in `queue.json`, the library as last read in `library.json`, the iPhones paired and their keys in `bridge.json`, readable by your account only, the iPhones' saves in `Saves/` unless you chose another folder, and the measures not sent yet in `telemetry.json`. The covers and a downloaded update are in `~/Library/Caches/io.github.clabeuhtegrite.cartouche-builder`, which macOS may empty. Your sources are only read, and the builder writes in your games folder only the IPAs of the games it builds, and in the folder of the Mac apps only the apps of the games it builds.
 
 ## What it never does
 

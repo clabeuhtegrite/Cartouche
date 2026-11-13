@@ -464,15 +464,18 @@ public final class BuilderTelemetry: ObservableObject {
     /// What the app sends at a batch's end: an event for each game built,
     /// failed, or skipped once tried (a full disk, no room, no keys), with
     /// why as names and numbers and the nxnative commit it was built from,
-    /// then one for the batch; never a name, a message or a path. LIBRARY
-    /// says each game's kind and its IPA's size, JOBS how many games the
-    /// settings build at once.
+    /// the same for each app built for this Mac (builder.mac*), then one for
+    /// the batch; never a name, a message or a path. LIBRARY says each
+    /// game's kind and the size of its IPA and of its Mac app, JOBS how many
+    /// games the settings build at once.
     public nonisolated static func batchEvents(_ status: BatchStatus, library: Library?, jobs: Int) -> [BatchEvent] {
         let head = status.head.map { String($0.prefix(12)) }
         var events: [BatchEvent] = []
         // A game skipped says why only when it was tried, not one the batch
-        // ended before.
-        for game in status.games where ["built", "failed"].contains(game.state) || (game.state == "skipped" && !(game.cause ?? "").isEmpty) {
+        // ended before. A game built for this Mac alone, its IPA up to date
+        // or not built, has its Mac app's events alone.
+        let ipas = status.games.filter { $0.macOnly != true }
+        for game in ipas where ["built", "failed"].contains(game.state) || (game.state == "skipped" && !(game.cause ?? "").isEmpty) {
             var fields: [String: TelemetryValue] = [:]
             if let reasons = game.reasons, !reasons.isEmpty { fields["reasons"] = .text(reasons.joined(separator: ",")) }
             if let duration = game.duration { fields["seconds"] = .number(duration.rounded()) }
@@ -490,16 +493,44 @@ public final class BuilderTelemetry: ObservableObject {
                 events.append(BatchEvent(game.state == "failed" ? "builder.failed" : "builder.skipped", game: game.titleID, fields: fields))
             }
         }
+        // Its app for this Mac, after its IPA or alone: the stage it was at
+        // is the Mac app's, the IPA's being done.
+        let macs = status.games.filter(\.buildsMac)
+        for game in macs where ["built", "failed"].contains(game.mac ?? "") || (game.mac == "skipped" && !(game.macCause ?? "").isEmpty) {
+            var fields: [String: TelemetryValue] = ["alone": .flag(game.macOnly == true)]
+            if let reasons = game.reasons, !reasons.isEmpty { fields["reasons"] = .text(reasons.joined(separator: ",")) }
+            if let duration = game.macDuration { fields["seconds"] = .number(duration.rounded()) }
+            if let kind = library?.game(game.titleID)?.kind { fields["source"] = .text(kind) }
+            if let built = game.commit.flatMap(BuilderTelemetry.commit) ?? head { fields["nxnative"] = .text(built) }
+            if game.fallback == true { fields["fallback"] = .flag(true) }
+            if game.mac == "built" {
+                if let size = library?.game(game.titleID)?.mac?.app?.size, size > 0 {
+                    fields["appMB"] = .number((Double(size) / 1_000_000).rounded())
+                }
+                events.append(BatchEvent("builder.macBuilt", game: game.titleID, fields: fields))
+            } else {
+                fields["stage"] = .text(game.stage ?? "")
+                fields.merge(BuilderTelemetry.fields(cause: game.macCause, exit: game.macExit, failure: game.macFailure)) { _, new in new }
+                events.append(BatchEvent(game.mac == "failed" ? "builder.macFailed" : "builder.macSkipped", game: game.titleID, fields: fields))
+            }
+        }
+        // The games by how they ended, their IPA's builds; their Mac apps'
+        // apart.
         var fields: [String: TelemetryValue] = [
             "state": .text(status.state),
             "games": .count(status.games.count),
-            "built": .count(status.games.filter { $0.state == "built" }.count),
-            "failed": .count(status.games.filter { $0.state == "failed" }.count),
-            "skipped": .count(status.games.filter { $0.state == "skipped" }.count),
-            "stopped": .count(status.games.filter { $0.state == "stopped" }.count),
+            "built": .count(ipas.filter { $0.state == "built" }.count),
+            "failed": .count(ipas.filter { $0.state == "failed" }.count),
+            "skipped": .count(ipas.filter { $0.state == "skipped" }.count),
+            "stopped": .count(ipas.filter { $0.state == "stopped" }.count),
             "scheduled": .flag(status.scheduled ?? false),
             "jobs": .count(jobs),
         ]
+        if !macs.isEmpty {
+            for (key, state) in [("macBuilt", "built"), ("macFailed", "failed"), ("macSkipped", "skipped"), ("macStopped", "stopped")] {
+                fields[key] = .count(macs.filter { $0.mac == state }.count)
+            }
+        }
         if let started = status.startedDate, let ended = status.endedDate {
             fields["minutes"] = .number((ended.timeIntervalSince(started) / 60 * 10).rounded() / 10)
         }

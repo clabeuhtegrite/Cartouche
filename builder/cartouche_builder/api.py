@@ -19,6 +19,10 @@ follows through status.json (status.py).
   setup                  nxnative's checkout and its Python environment
   config [--set JSON]    the settings, changed by the keys of JSON
   follow ID on|off       follows a game, or leaves it out
+  platform ID ios|mac on|off
+                         builds a game for the iPhone (its IPA) or for this
+                         Mac (its app) again, or no longer: never for neither
+                         (what was built stays where it is)
   mount                  connects the shares of the folders again
   bundle-romfs --ipa IPA --romfs IMAGE
                          packages matching external game data without compiling
@@ -41,7 +45,7 @@ import zipfile
 from dataclasses import asdict, fields
 from pathlib import Path
 
-from . import __version__, batch, config as configs, disks, failure, fallback, ipa as ipas, schedule, shares, storage, titles, toolchain
+from . import __version__, batch, config as configs, disks, failure, fallback, ipa as ipas, macapps, schedule, shares, storage, titles, toolchain
 from . import queue as queues
 from . import status as statuses
 from .engine import Commit, EngineError
@@ -75,6 +79,10 @@ def main(argv: list[str]) -> int:
     follow_parser = commands.add_parser("follow")
     follow_parser.add_argument("title_id")
     follow_parser.add_argument("state", choices=("on", "off"))
+    platform_parser = commands.add_parser("platform")
+    platform_parser.add_argument("title_id")
+    platform_parser.add_argument("platform", choices=("ios", "mac"))
+    platform_parser.add_argument("state", choices=("on", "off"))
     commands.add_parser("mount")
     bundle_parser = commands.add_parser("bundle-romfs")
     bundle_parser.add_argument("--ipa", required=True, type=Path)
@@ -103,6 +111,7 @@ def main(argv: list[str]) -> int:
             "setup": lambda: setup(ctx),
             "config": lambda: config(ctx, args.set),
             "follow": lambda: follow(ctx, args.title_id, args.state == "on"),
+            "platform": lambda: platform(ctx, args.title_id, args.platform, args.state == "on"),
             "mount": lambda: mount(ctx),
             "bundle-romfs": lambda: bundle_romfs(ctx, args.ipa, args.romfs),
             "queue": lambda: queue(ctx, args.action, getattr(args, "title_ids", []), getattr(args, "force", False)),
@@ -308,7 +317,7 @@ def state_of(entry, running: dict | None) -> str:
     reason = entry.reasons[0] if entry.reasons else ""
     if entry.build:
         return "due"
-    return {"failed_here": "failed", "not_selected": "not_followed", "no_profile": "no_profile"}.get(reason, "up_to_date")
+    return {"failed_here": "failed", "not_selected": "not_followed", "no_platform": "not_followed", "no_profile": "no_profile"}.get(reason, "up_to_date")
 
 
 def game_json(ctx: batch.Context, entry, running: dict | None, profiles: dict) -> dict:
@@ -337,6 +346,49 @@ def game_json(ctx: batch.Context, entry, running: dict | None, profiles: dict) -
         "aliases": ctx.config.aliases.get(entry.title_id, []),
         "icon": icon(ctx, entry.title_id),
         "progress": running,
+        "platforms": platforms(ctx.config, entry.title_id),
+        "mac": mac_json(ctx, entry.title_id, record, entry.mac_app, entry),
+    }
+
+
+def platforms(config: configs.Config, title_id: str) -> dict:
+    """Whether the game is built for the iPhone and for this Mac."""
+    return {"ios": config.on_ios(title_id), "mac": config.on_mac(title_id)}
+
+
+def mac_json(ctx: batch.Context, title_id: str, record, app: Path | None, entry=None) -> dict:
+    """The game's Mac app (macapps.py): the Mac apps folder, its app there
+    and its last build, its last attempt that did not build, and whether
+    the next batch builds it (after its IPA, or alone), with why."""
+    built = record.mac if record else None
+    attempt = record.mac_attempt if record else None
+    size = 0
+    if app is not None:
+        size = built.size if built and built.app == app.name and built.size else macapps.size(app)
+    return {
+        "folder": str(ctx.config.mac_apps_path()),
+        "app": {"name": app.name, "path": str(app), "size": size, "present": True} if app is not None
+        else ({"name": built.app, "path": "", "size": 0, "present": False} if built and built.app else None),
+        "build": _mac_build(built),
+        "attempt": asdict(attempt) if attempt else None,
+        "due": bool(entry is not None and entry.mac),
+        "alone": bool(entry is not None and entry.mac_only),
+        "reason": entry.mac_reason if entry is not None else "",
+        "detail": entry.mac_detail if entry is not None else "",
+    }
+
+
+def _mac_build(built) -> dict | None:
+    if built is None:
+        return None
+    return {
+        "commit": built.commit,
+        "built_at": built.built_at,
+        "version": built.version,
+        "duration": built.duration,
+        "chain": built.chain,
+        "size": built.size,
+        "dirty": built.dirty,
     }
 
 
@@ -379,6 +431,7 @@ def ipa_only(ctx: batch.Context, known: set[str], profiles: dict, head: str | No
         return []
     found: dict[str, dict] = {}
     matcher = Matcher({tid: p.name for tid, p in profiles.items()}, ctx.config.aliases)
+    apps = macapps.index(ctx.config.mac_apps_path())
     for path in candidates:
         ids = [i for i in titles.ids_in_name(path.name) if titles.is_title_id(i)]
         if ids and (ids[0] in known or ids[0] in found):
@@ -418,6 +471,8 @@ def ipa_only(ctx: batch.Context, known: set[str], profiles: dict, head: str | No
             "aliases": ctx.config.aliases.get(title_id, []),
             "icon": icon(ctx, title_id),
             "progress": None,
+            "platforms": platforms(ctx.config, title_id),
+            "mac": mac_json(ctx, title_id, record, macapps.find(ctx.config.mac_apps_path(), title_id, record.mac.app if record.mac else "", apps)),
         }
     return list(found.values())
 
@@ -432,7 +487,7 @@ def survey_storage(ctx: batch.Context) -> dict:
         names.update({g["title_id"]: g["name"] for g in cached.get("games", []) if isinstance(g, dict) and g.get("name")})
     except (OSError, ValueError, KeyError, TypeError):
         pass
-    return {"storage": storage.survey(ctx.config, ctx.paths, names)}
+    return {"storage": storage.survey(ctx.config, ctx.paths, names, ctx.store.all())}
 
 
 def clean(ctx: batch.Context, what: str, paths: list[str]) -> dict:
@@ -481,6 +536,10 @@ def config(ctx: batch.Context, changes_json: str | None) -> dict:
             if isinstance(current, bool) != isinstance(value, bool) or (isinstance(current, (str, int, list, dict)) and not isinstance(value, type(current))):
                 raise BadRequest(t("cli.bad_value", key=key))
             setattr(config, key, value)
+        if not config.ios and not config.mac:
+            # Every game built for neither: what stops following them all is
+            # the Library, not a setting.
+            raise BadRequest(t("api.no_platform"))
         configs.save(ctx.paths, config)
         if (config.schedule, config.schedule_hour, config.schedule_minute) != before:
             schedule.sync(ctx.paths, config.schedule, config.schedule_hour, config.schedule_minute)
@@ -497,6 +556,8 @@ def config(ctx: batch.Context, changes_json: str | None) -> dict:
             "home": str(ctx.paths.root),
             "workspace": str(config.workspace_path(ctx.paths)),
             "default_workspace": str(ctx.paths.workspace),
+            "mac_apps": str(config.mac_apps_path()),
+            "default_mac_apps": str(configs.default_mac_apps()),
             "python": sys.executable,
             "scheduled": bool(agent),
             "problems": config.problems(ctx.paths),
@@ -510,6 +571,20 @@ def follow(ctx: batch.Context, title_id: str, followed: bool) -> dict:
     ctx.config.follow(title_id, followed)
     configs.save(ctx.paths, ctx.config)
     return {"followed": followed, "title_id": title_id.upper()}
+
+
+def platform(ctx: batch.Context, title_id: str, which: str, on: bool) -> dict:
+    """Builds the game for WHICH ("ios" or "mac") again, or no longer; a
+    game built for neither is one no longer followed (follow)."""
+    if not titles.is_title_id(title_id):
+        raise BadRequest(t("cli.bad_ids", ids=title_id))
+    title_id = title_id.upper()
+    other = platforms(ctx.config, title_id)["mac" if which == "ios" else "ios"]
+    if not on and not other:
+        raise BadRequest(t("api.last_platform"))
+    ctx.config.set_platform(title_id, which, on)
+    configs.save(ctx.paths, ctx.config)
+    return {"title_id": title_id, "platforms": platforms(ctx.config, title_id), "followed": ctx.config.selected(title_id)}
 
 
 def queue(ctx: batch.Context, action: str | None, title_ids: list[str], force: bool) -> dict:

@@ -183,7 +183,7 @@ struct GameCard: View {
                         .padding(5)
                         .background(Circle().fill(.ultraThinMaterial))
                         .padding(8)
-                        .opacity(game.state == .upToDate && progress == nil ? 0 : 1)
+                        .opacity(game.state == .upToDate && game.mac?.failed != true && progress == nil ? 0 : 1)
                 }
                 .overlay(alignment: .bottom) {
                     if let progress, progress.state == "building" {
@@ -568,6 +568,9 @@ struct GameMenu: View {
         if let ipa = game.ipa, ipa.present {
             Divider()
             Button(tr("Show the IPA in the Finder", "Afficher l’IPA dans le Finder")) { model.reveal(ipa.path) }
+        }
+        if let app = game.mac?.app, app.present {
+            Button(tr("Show its Mac app in the Finder", "Afficher son app Mac dans le Finder")) { model.reveal(app.path) }
         }
         if let source = game.source, !source.isEmpty {
             Button(tr("Show its sources in the Finder", "Afficher ses sources dans le Finder")) { model.reveal(source) }

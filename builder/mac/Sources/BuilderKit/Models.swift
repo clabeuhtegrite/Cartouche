@@ -310,6 +310,76 @@ public struct GameAttempt: Codable, Equatable {
     public var date: Date? { ISODate.parse(at) }
 }
 
+/// What the game is built for (config.py's ios and mac, skip_ios and
+/// skip_mac): its IPA for the iPhone, its app for this Mac, or both.
+public struct GamePlatforms: Codable, Equatable, Sendable {
+    public var ios: Bool
+    public var mac: Bool
+
+    private enum CodingKeys: String, CodingKey { case ios, mac }
+
+    public init(ios: Bool = true, mac: Bool = true) {
+        self.ios = ios
+        self.mac = mac
+    }
+
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        ios = (try? c.decodeIfPresent(Bool.self, forKey: .ios)) ?? true
+        mac = (try? c.decodeIfPresent(Bool.self, forKey: .mac)) ?? false
+    }
+}
+
+/// The game's app for this Mac (cartouche_builder/macapps.py): the folder
+/// of the games' Mac apps, its app there (as an IPA is described) and its
+/// last build, its last attempt that did not build, and whether the next
+/// batch builds it, after its IPA or alone, with why in the player's words.
+public struct GameMac: Codable, Equatable {
+    public var folder: String
+    public var app: GameIPA?
+    public var build: GameBuild?
+    public var attempt: GameAttempt?
+    public var due: Bool
+    /// Built alone: its IPA is up to date, or not built.
+    public var alone: Bool
+    /// "with_ipa", "after_ipa", "mac_new", "mac_missing", "mac_behind",
+    /// "up_to_date", "failed_here", or the game's own reason when it is
+    /// built for this Mac alone.
+    public var reason: String
+    public var detail: String
+
+    private enum CodingKeys: String, CodingKey { case folder, app, build, attempt, due, alone, reason, detail }
+
+    public init(folder: String = "", app: GameIPA? = nil, build: GameBuild? = nil, attempt: GameAttempt? = nil, due: Bool = false,
+                alone: Bool = false, reason: String = "", detail: String = "") {
+        self.folder = folder
+        self.app = app
+        self.build = build
+        self.attempt = attempt
+        self.due = due
+        self.alone = alone
+        self.reason = reason
+        self.detail = detail
+    }
+
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        folder = (try? c.decodeIfPresent(String.self, forKey: .folder)) ?? ""
+        app = try? c.decodeIfPresent(GameIPA.self, forKey: .app)
+        build = try? c.decodeIfPresent(GameBuild.self, forKey: .build)
+        attempt = try? c.decodeIfPresent(GameAttempt.self, forKey: .attempt)
+        due = (try? c.decodeIfPresent(Bool.self, forKey: .due)) ?? false
+        alone = (try? c.decodeIfPresent(Bool.self, forKey: .alone)) ?? false
+        reason = (try? c.decodeIfPresent(String.self, forKey: .reason)) ?? ""
+        detail = (try? c.decodeIfPresent(String.self, forKey: .detail)) ?? ""
+    }
+
+    public var hasApp: Bool { app?.present ?? false }
+    /// Its last build failed at nxnative's commit now: tried again when
+    /// nxnative or the game's files change.
+    public var failed: Bool { reason == "failed_here" }
+}
+
 public struct Game: Codable, Equatable, Identifiable {
     public var titleID: String
     public var name: String
@@ -330,11 +400,15 @@ public struct Game: Codable, Equatable, Identifiable {
     public var aliases: [String]
     public var icon: String?
     public var progress: GameProgress?
+    /// What it is built for, and its app for this Mac: nil from an engine
+    /// older than the Mac's builds, which builds its IPA alone.
+    public var platforms: GamePlatforms?
+    public var mac: GameMac?
 
     public var id: String { titleID }
 
     enum CodingKeys: String, CodingKey {
-        case name, kind, source, followed, profile, state, due, reasons, detail, ipa, build, attempt, changes, aliases, icon, progress
+        case name, kind, source, followed, profile, state, due, reasons, detail, ipa, build, attempt, changes, aliases, icon, progress, platforms, mac
         case titleID = "title_id"
         case sourceSize = "source_size"
         case changeCounts = "change_counts"
@@ -343,7 +417,7 @@ public struct Game: Codable, Equatable, Identifiable {
     public init(titleID: String, name: String, kind: String, source: String? = nil, sourceSize: UInt64? = nil, followed: Bool = true,
                 profile: Bool? = true, state: GameState, reasons: [String] = [], detail: String = "", ipa: GameIPA? = nil,
                 build: GameBuild? = nil, attempt: GameAttempt? = nil, changes: [Change] = [], changeCounts: ChangeCounts? = nil,
-                aliases: [String] = [], icon: String? = nil, progress: GameProgress? = nil) {
+                aliases: [String] = [], icon: String? = nil, progress: GameProgress? = nil, platforms: GamePlatforms? = nil, mac: GameMac? = nil) {
         self.titleID = titleID
         self.name = name
         self.kind = kind
@@ -363,6 +437,8 @@ public struct Game: Codable, Equatable, Identifiable {
         self.aliases = aliases
         self.icon = icon
         self.progress = progress
+        self.platforms = platforms
+        self.mac = mac
     }
 
     public init(from decoder: Decoder) throws {
@@ -386,12 +462,20 @@ public struct Game: Codable, Equatable, Identifiable {
         aliases = try c.decodeIfPresent([String].self, forKey: .aliases) ?? []
         icon = try c.decodeIfPresent(String.self, forKey: .icon)
         progress = try? c.decodeIfPresent(GameProgress.self, forKey: .progress)
+        platforms = try? c.decodeIfPresent(GamePlatforms.self, forKey: .platforms)
+        mac = try? c.decodeIfPresent(GameMac.self, forKey: .mac)
     }
 
     /// The commits that touch the game itself: its profile, or a fix naming it.
     public var ownChanges: [Change] { changes.filter { $0.kind != "shared" } }
     public var canBuild: Bool { kind != "ipa" }
     public var hasIPA: Bool { ipa?.present ?? false }
+    /// Built for the iPhone, its IPA: every game of an engine older than
+    /// the Mac's builds.
+    public var onIOS: Bool { platforms?.ios ?? true }
+    /// Built for this Mac, its app.
+    public var onMac: Bool { platforms?.mac ?? false }
+    public var hasMacApp: Bool { mac?.hasApp ?? false }
 }
 
 // MARK: A batch
@@ -428,11 +512,34 @@ public struct GameProgress: Codable, Equatable {
     public var cause: String?
     public var exit: Int?
     public var failure: FailureDetails?
+    /// Its app for this Mac, when the batch builds it (status.py): "mac"
+    /// when its stage and progress are of the Mac app, not of its IPA;
+    /// how its Mac app went (waiting, building, built, failed, stopped,
+    /// skipped), after its IPA or alone (macOnly, its state then being
+    /// the Mac app's), and why it was not built, as for its IPA.
+    public var platform: String?
+    public var mac: String?
+    public var macOnly: Bool?
+    public var macApp: String?
+    public var macError: String?
+    public var macCause: String?
+    public var macExit: Int?
+    public var macDuration: Double?
+    public var macLog: String?
+    public var macFailure: FailureDetails?
 
     enum CodingKeys: String, CodingKey {
         case name, reasons, detail, state, stage, step, k, n, frac, overall, eta, note, message, started, ended, error, log, ipa, duration
-        case commit, fallback, cause, exit, failure
+        case commit, fallback, cause, exit, failure, platform, mac
         case titleID = "title_id"
+        case macOnly = "mac_only"
+        case macApp = "mac_app"
+        case macError = "mac_error"
+        case macCause = "mac_cause"
+        case macExit = "mac_exit"
+        case macDuration = "mac_duration"
+        case macLog = "mac_log"
+        case macFailure = "mac_failure"
     }
 
     public init(titleID: String, name: String, state: String, stage: String? = nil, k: Int? = nil, n: Int? = nil, frac: Double? = nil,
@@ -465,6 +572,18 @@ public struct GameProgress: Codable, Equatable {
     public var fallbackCommit: String? {
         guard fallback == true, let commit, !commit.isEmpty, state == "built" || state == "building" else { return nil }
         return commit
+    }
+
+    /// The batch builds its app for this Mac, after its IPA or alone.
+    public var buildsMac: Bool { !(mac ?? "").isEmpty }
+    /// Its stage and progress are of its Mac app now.
+    public var onMacNow: Bool { platform == "mac" }
+
+    /// Why its Mac app was not built while its IPA was: the error of a
+    /// game built for this Mac alone is its own (shownError).
+    public var shownMacError: String? {
+        guard macOnly != true, let macError, !macError.isEmpty, mac == "failed" || mac == "skipped" else { return nil }
+        return macError
     }
 }
 
@@ -637,22 +756,64 @@ public struct IPACopy: Codable, Equatable, Identifiable {
     }
 }
 
+/// A game's app the builder put on this Mac (storage.py), still where it
+/// put it: the app removes it, to the Trash.
+public struct MacAppCopy: Codable, Equatable, Identifiable {
+    public var path: String
+    public var titleID: String
+    public var name: String
+    public var size: UInt64
+    /// The game is still built for this Mac.
+    public var on: Bool
+    public var builtAt: String?
+    /// Its game files are clones of its build folder's extracted files,
+    /// kept: removing one of the two frees little.
+    public var sharesBuild: Bool?
+
+    public var id: String { path }
+
+    enum CodingKeys: String, CodingKey {
+        case path, name, size, on
+        case titleID = "title_id"
+        case builtAt = "built_at"
+        case sharesBuild = "shares_build"
+    }
+
+    public init(path: String, titleID: String, name: String, size: UInt64, on: Bool = true, builtAt: String? = nil, sharesBuild: Bool? = nil) {
+        self.path = path
+        self.titleID = titleID
+        self.name = name
+        self.size = size
+        self.on = on
+        self.builtAt = builtAt
+        self.sharesBuild = sharesBuild
+    }
+
+    public var date: Date? { builtAt.flatMap(ISODate.parse) }
+}
+
 public struct StorageReport: Codable, Equatable {
     public var workspace: String
     public var disks: [String: Disk?]
     public var folders: [BuildFolder]
     public var ipaCopies: [IPACopy]
+    /// The games' Mac apps: nil from an engine older than the Mac's builds.
+    public var macApps: [MacAppCopy]?
     public var totals: [String: UInt64]
     public var settings: StorageSettings?
 
     enum CodingKeys: String, CodingKey {
         case workspace, disks, folders, totals, settings
         case ipaCopies = "ipa_copies"
+        case macApps = "mac_apps"
     }
 
     public func total(_ key: String) -> UInt64 { totals[key] ?? 0 }
     public var workspaceDisk: Disk? { disks["workspace"] ?? nil }
     public var gamesDisk: Disk? { disks["games"] ?? nil }
+    /// The disk of the folder of the games' Mac apps.
+    public var macAppsDisk: Disk? { disks["mac_apps"] ?? nil }
+    public var apps: [MacAppCopy] { macApps ?? [] }
     public var buildFolders: UInt64 { ["extracted", "packages", "shaders", "app", "temporary", "other"].reduce(0) { $0 + total($1) } }
 }
 
@@ -721,9 +882,18 @@ public struct BuilderConfig: Codable, Equatable {
     /// The setup assistant was gone through to its end: it opens at the
     /// app's start until then.
     public var setupDone: Bool
+    /// Each game is built for the iPhone (its IPA) and for this Mac (its
+    /// app), unless one of the two is turned off, for every game (ios,
+    /// mac) or for one (skipIOS, skipMac); its Mac app goes in macApps,
+    /// "" for the Applications folder of the player's session.
+    public var ios: Bool
+    public var mac: Bool
+    public var skipIOS: [String]
+    public var skipMac: [String]
+    public var macApps: String
 
     enum CodingKeys: String, CodingKey {
-        case sources, games, keys, workspace, skip, aliases, unprofiled, jobs, language, notifications, schedule
+        case sources, games, keys, workspace, skip, aliases, unprofiled, jobs, language, notifications, schedule, ios, mac
         case minFreeGB = "min_free_gb"
         case workspaceLimitGB = "workspace_limit_gb"
         case engineURL = "engine_url"
@@ -736,6 +906,9 @@ public struct BuilderConfig: Codable, Equatable {
         case scheduleHour = "schedule_hour"
         case scheduleMinute = "schedule_minute"
         case setupDone = "setup_done"
+        case skipIOS = "skip_ios"
+        case skipMac = "skip_mac"
+        case macApps = "mac_apps"
     }
 
     /// nxnative's own repository and branch (config.py).
@@ -745,7 +918,8 @@ public struct BuilderConfig: Codable, Equatable {
     public init(sources: String = "", games: String = "", keys: String = "", workspace: String = "", minFreeGB: Int = 20, workspaceLimitGB: Int = 0,
                 engineURL: String = BuilderConfig.engineURL, engineBranch: String = BuilderConfig.engineBranch, enginePolicy: String = "weekly", refreshDays: Int = 7, skip: [String] = [], aliases: [String: [String]] = [:], unprofiled: Bool = false,
                 gameLanguage: String = "", jobs: Int = 1, keepIPA: Bool = false, keepExtracted: Bool = false, language: String = "",
-                notifications: Bool = true, schedule: Bool = false, scheduleHour: Int = 3, scheduleMinute: Int = 30, setupDone: Bool = false) {
+                notifications: Bool = true, schedule: Bool = false, scheduleHour: Int = 3, scheduleMinute: Int = 30, setupDone: Bool = false,
+                ios: Bool = true, mac: Bool = true, skipIOS: [String] = [], skipMac: [String] = [], macApps: String = "") {
         self.sources = sources
         self.games = games
         self.keys = keys
@@ -769,6 +943,11 @@ public struct BuilderConfig: Codable, Equatable {
         self.scheduleHour = scheduleHour
         self.scheduleMinute = scheduleMinute
         self.setupDone = setupDone
+        self.ios = ios
+        self.mac = mac
+        self.skipIOS = skipIOS
+        self.skipMac = skipMac
+        self.macApps = macApps
     }
 
     public init(from decoder: Decoder) throws {
@@ -797,6 +976,11 @@ public struct BuilderConfig: Codable, Equatable {
         scheduleHour = try c.decodeIfPresent(Int.self, forKey: .scheduleHour) ?? d.scheduleHour
         scheduleMinute = try c.decodeIfPresent(Int.self, forKey: .scheduleMinute) ?? d.scheduleMinute
         setupDone = try c.decodeIfPresent(Bool.self, forKey: .setupDone) ?? d.setupDone
+        ios = try c.decodeIfPresent(Bool.self, forKey: .ios) ?? d.ios
+        mac = try c.decodeIfPresent(Bool.self, forKey: .mac) ?? d.mac
+        skipIOS = try c.decodeIfPresent([String].self, forKey: .skipIOS) ?? d.skipIOS
+        skipMac = try c.decodeIfPresent([String].self, forKey: .skipMac) ?? d.skipMac
+        macApps = try c.decodeIfPresent(String.self, forKey: .macApps) ?? d.macApps
     }
 
     /// The keys of THIS that differ from OTHER, as the engine's settings take them.
@@ -828,8 +1012,18 @@ public struct BuilderConfig: Codable, Equatable {
         note(.scheduleHour, scheduleHour, other.scheduleHour, scheduleHour)
         note(.scheduleMinute, scheduleMinute, other.scheduleMinute, scheduleMinute)
         note(.setupDone, setupDone, other.setupDone, setupDone)
+        note(.ios, ios, other.ios, ios)
+        note(.mac, mac, other.mac, mac)
+        note(.skipIOS, skipIOS, other.skipIOS, skipIOS)
+        note(.skipMac, skipMac, other.skipMac, skipMac)
+        note(.macApps, macApps, other.macApps, macApps)
         return found
     }
+
+    /// Whether the game TITLEID is built for the iPhone, its IPA.
+    public func onIOS(_ titleID: String) -> Bool { ios && !skipIOS.contains(titleID.uppercased()) }
+    /// Whether the game TITLEID is built for this Mac, its app.
+    public func onMac(_ titleID: String) -> Bool { mac && !skipMac.contains(titleID.uppercased()) }
 }
 
 public struct BuilderInfo: Codable, Equatable {
@@ -840,16 +1034,35 @@ public struct BuilderInfo: Codable, Equatable {
     public var python: String?
     public var scheduled: Bool?
     public var problems: [String]?
+    /// The folder of the games' Mac apps, and the one it is when none is
+    /// chosen: the Applications folder of the player's session.
+    public var macApps: String?
+    public var defaultMacApps: String?
 
     enum CodingKeys: String, CodingKey {
         case version, home, workspace, python, scheduled, problems
         case defaultWorkspace = "default_workspace"
+        case macApps = "mac_apps"
+        case defaultMacApps = "default_mac_apps"
     }
 }
 
 public struct ConfigAnswer: Codable, Equatable {
     public var config: BuilderConfig
     public var builder: BuilderInfo
+}
+
+/// What a game is built for, once one of the two turned on or off
+/// (`api platform`); turning one on follows the game.
+public struct PlatformAnswer: Codable, Equatable {
+    public var titleID: String
+    public var platforms: GamePlatforms
+    public var followed: Bool
+
+    enum CodingKeys: String, CodingKey {
+        case platforms, followed
+        case titleID = "title_id"
+    }
 }
 
 // MARK: Dates

@@ -18,6 +18,15 @@ tools, waits for one of these to change instead of failing again every night.
 A game built from a newer commit than the checkout's, which stays on the last
 commit that built while the branch's newest does not (fallback.py), is up to
 date.
+
+A game is built for the iPhone (its IPA) and for this Mac (its app,
+macapps.py), unless one of the two is turned off (config.on_ios, on_mac).
+Its Mac app is built in the same batch as its IPA, after it, whenever its
+IPA is built. With its IPA up to date, its app alone is built when it was
+never built, when it is no longer in the Mac apps folder, or when it is older
+than the IPA (built before it, or failed after it); one that failed at the
+current commit with the same files waits, as an IPA does. A game built for
+this Mac alone is planned as an IPA is, from its app's last build.
 """
 
 from __future__ import annotations
@@ -27,12 +36,13 @@ from datetime import datetime, timedelta
 from pathlib import Path
 
 from . import ipa as ipas
+from . import macapps
 from .config import Config
 from .engine import Commit, Engine, Profile
 from .i18n import t
 from .impact import Impact, Matcher, analyze
 from .library import Game
-from .state import Build, Record, Store, age_days
+from .state import Build, MacBuild, Record, Store, age_days
 
 
 @dataclass
@@ -48,6 +58,15 @@ class Entry:
     ipa_name: str = ""  # the name its new IPA gets there
     record: Record | None = None
     selected: bool = True
+    # Its Mac app (config.mac): built in this batch (after its IPA, or alone),
+    # why, in a word and in the player's words, where it is now and the name
+    # it has there.
+    mac: bool = False
+    mac_only: bool = False
+    mac_reason: str = ""
+    mac_detail: str = ""
+    mac_app: Path | None = None
+    mac_name: str = ""
 
     @property
     def title_id(self) -> str:
@@ -78,6 +97,7 @@ def plan(
     toolchain: str = "",
     force: set[str] | None = None,
     now: float | None = None,
+    mac_apps: Path | None = None,
 ) -> Plan:
     force = {f.upper() for f in force or set()}
     prints: dict[str, str] = {}
@@ -85,6 +105,7 @@ def plan(
     commits_since: dict[str, list[Commit]] = {}
     entries: list[Entry] = []
     notes: dict[tuple[str, str, str], None] = {}
+    apps = macapps.index(mac_apps)
     for game in games:
         record = store.get(game.title_id)
         entry = Entry(game=game, build=False, record=record, selected=config.selected(game.title_id))
@@ -98,13 +119,25 @@ def plan(
         if game.title_id not in profiles and not config.unprofiled and game.title_id not in force:
             entry.reasons, entry.detail = ["no_profile"], t("plan.no_profile")
             continue
+        ios = config.on_ios(game.title_id)
+        if not ios and not config.on_mac(game.title_id):
+            entry.reasons, entry.detail = ["no_platform"], t("plan.no_platform")
+            continue
 
-        build = record.build
-        if build is None and entry.ipa is not None:
-            build = _from_ipa(entry.ipa)
-            if build:
-                record = store.built(game.title_id, build)
-                entry.record = record
+        build: Build | MacBuild | None
+        if ios:
+            build = record.build
+            if build is None and entry.ipa is not None:
+                build = _from_ipa(entry.ipa)
+                if build:
+                    record = store.built(game.title_id, build)
+                    entry.record = record
+            attempt = record.attempt
+        else:
+            # For this Mac alone: planned from its app's last build.
+            build = record.mac
+            entry.mac_app = macapps.find(mac_apps, game.title_id, build.app if build else "", apps)
+            attempt = record.mac_attempt
         reasons: list[str] = []
         details: list[str] = []
         if game.title_id in force:
@@ -113,12 +146,15 @@ def plan(
         if build is None:
             reasons.append("new")
             details.append(t("plan.new"))
-            _finish(entry, reasons, details, head, prints)
+            _finish(entry, reasons, details, head, prints, attempt, None)
             continue
-        entry.base, entry.origin = build.commit, build.origin
-        if entry.ipa is None and games_folder is not None:
+        entry.base, entry.origin = build.commit, getattr(build, "origin", "builder")
+        if ios and entry.ipa is None and games_folder is not None:
             reasons.append("missing")
             details.append(t("plan.missing", name=build.ipa or entry.ipa_name))
+        elif not ios and entry.mac_app is None and mac_apps is not None:
+            reasons.append("mac_missing")
+            details.append(t("plan.mac_missing", name=build.app, folder=mac_apps))
         if build.fingerprint and build.fingerprint != _cached(game, prints):
             reasons.append("source")
             details.append(t("plan.source"))
@@ -160,13 +196,16 @@ def plan(
                         if due is None
                         else t("plan.shared_waiting", count=len(impact.shared), date=due.strftime("%Y-%m-%d"))
                     )
-        _finish(entry, reasons, details, head, prints)
+        _finish(entry, reasons, details, head, prints, attempt, build)
+    for entry in entries:
+        _mac(entry, config, mac_apps, apps, head, prints)
     return Plan(head=head, entries=entries, notes=list(notes), profiles=profiles)
 
 
-def _finish(entry: Entry, reasons: list[str], details: list[str], head: str, prints: dict[str, str]) -> None:
-    record = entry.record
-    attempt = record.attempt if record else None
+def _finish(entry: Entry, reasons: list[str], details: list[str], head: str, prints: dict[str, str], attempt, build) -> None:
+    """The entry due for REASONS, unless ATTEMPT (its last that did not
+    build) failed at this commit with the same files; else up to date with
+    BUILD (the IPA's, or the Mac app's for a game built for this Mac alone)."""
     if reasons and attempt and attempt.result == "failed" and "forced" not in reasons:
         same = (
             attempt.commit[:12] == head[:12]
@@ -182,8 +221,53 @@ def _finish(entry: Entry, reasons: list[str], details: list[str], head: str, pri
         entry.detail = "; ".join(details)
     elif not entry.detail:
         entry.reasons = ["up_to_date"]
-        build = record.build if record else None
         entry.detail = t("plan.up_to_date", commit=(build.commit[:12] if build else head[:12]))
+
+
+def _mac(entry: Entry, config: Config, folder: Path | None, apps: dict[str, Path], head: str, prints: dict[str, str]) -> None:
+    """The game's Mac app: where it is, and whether this batch builds it, after
+    the IPA or alone (macapps.py). APPS: the apps of the Mac apps folder."""
+    record = entry.record
+    built: MacBuild | None = record.mac if record else None
+    entry.mac_app = macapps.find(folder, entry.title_id, built.app if built else "", apps)
+    entry.mac_name = entry.mac_app.name if entry.mac_app else (built.app if built else "")
+    if not config.on_mac(entry.title_id):
+        return
+    first = entry.reasons[0] if entry.reasons else ""
+    if first in ("not_selected", "no_profile"):
+        entry.mac_reason, entry.mac_detail = first, entry.detail
+        return
+    if not config.on_ios(entry.title_id):
+        # For this Mac alone: planned as an IPA is (plan).
+        entry.mac = entry.mac_only = entry.build
+        entry.mac_reason, entry.mac_detail = first, entry.detail
+        return
+    if entry.build:
+        entry.mac, entry.mac_reason, entry.mac_detail = True, "with_ipa", t("plan.mac_with_ipa")
+        return
+    ipa = record.build if record else None
+    if first == "failed_here" or ipa is None:
+        entry.mac_reason, entry.mac_detail = "after_ipa", t("plan.mac_after_ipa")
+        return
+    if built is None:
+        reason, detail = "mac_new", t("plan.mac_new")
+    elif entry.mac_app is None:
+        reason, detail = "mac_missing", t("plan.mac_missing", name=built.app, folder=folder)
+    elif built.commit[:12] != ipa.commit[:12] or (ipa.fingerprint and built.fingerprint and built.fingerprint != ipa.fingerprint) or built.time < ipa.time:
+        # Not made of the same commit and files as the IPA, or before it.
+        reason, detail = "mac_behind", t("plan.mac_behind")
+    else:
+        entry.mac_reason, entry.mac_detail = "up_to_date", t("plan.mac_up_to_date", commit=built.commit[:12])
+        return
+    attempt = record.mac_attempt if record else None
+    if attempt and attempt.result == "failed" and attempt.commit[:12] == head[:12] and (
+        not attempt.fingerprint or attempt.fingerprint == _cached(entry.game, prints)
+    ):
+        entry.mac_reason, entry.mac_detail = "failed_here", t("plan.mac_failed_here", error=_first_line(attempt.error))
+        return
+    entry.build = entry.mac = entry.mac_only = True
+    entry.reasons, entry.detail = [reason], detail
+    entry.mac_reason, entry.mac_detail = reason, detail
 
 
 def _shared_due(config: Config, build: Build, now: float | None):

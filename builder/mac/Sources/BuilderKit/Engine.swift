@@ -276,6 +276,14 @@ public final class Engine: @unchecked Sendable {
         _ = try await api(FollowAnswer.self, ["follow", titleID, followed ? "on" : "off"], timeout: 60)
     }
 
+    /// Builds the game for PLATFORM ("ios", its IPA, or "mac", its app for
+    /// this Mac) again, or no longer. The engine refuses to turn off the
+    /// last of the two (a bad request): a game built for neither is one
+    /// no longer followed.
+    public func platform(_ titleID: String, _ platform: String, _ on: Bool) async throws -> PlatformAnswer {
+        try await api(PlatformAnswer.self, ["platform", titleID, platform, on ? "on" : "off"], timeout: 60)
+    }
+
     public func mount() async throws -> Folders {
         try await api(MountAnswer.self, ["mount"], timeout: 300).folders
     }

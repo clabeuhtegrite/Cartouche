@@ -1,3 +1,5 @@
+import plistlib
+import shutil
 import time
 import unittest
 
@@ -6,7 +8,7 @@ from cartouche_builder import library
 from cartouche_builder.engine import Engine
 from cartouche_builder.paths import Paths
 from cartouche_builder.planner import plan
-from cartouche_builder.state import Build, Store, attempt_now
+from cartouche_builder.state import Build, MacBuild, Store, attempt_now
 from cartouche_builder.planner import fingerprint
 
 from support import MKW, ODYSSEY, Home, commit, make_dump, make_engine_remote, make_ipa
@@ -39,7 +41,11 @@ class EngineTests(Home):
         self.assertFalse(self.engine.is_ancestor(second, first))
 
 
-class Planning(Home):
+class PlanHome(Home):
+    """Two games' dumps, nxnative's checkout, and the plan of their builds."""
+
+    mac = False  # whether the games are built for this Mac too (the default)
+
     def setUp(self):
         super().setUp()
         self.remote = make_engine_remote(self.tmp / "remote", NAMES)
@@ -52,11 +58,13 @@ class Planning(Home):
         make_dump(self.sources / "Odyssey", ODYSSEY)
         self.games = self.tmp / "games"
         self.games.mkdir()
-        self.config = configs.Config(sources=str(self.sources), games=str(self.games))
+        self.mac_apps = self.tmp / "Applications"
+        self.config = configs.Config(sources=str(self.sources), games=str(self.games), mac=self.mac, mac_apps=str(self.mac_apps))
 
     def make_plan(self, force=None, now=None, toolchain=""):
         found = library.discover(self.sources, NAMES)
-        return {e.title_id: e for e in plan(found.games, self.engine, self.engine.head(), self.engine.profiles(), self.store, self.config, self.games, toolchain, force, now).entries}
+        entries = plan(found.games, self.engine, self.engine.head(), self.engine.profiles(), self.store, self.config, self.games, toolchain, force, now, mac_apps=self.mac_apps).entries
+        return {e.title_id: e for e in entries}
 
     def built_now(self, title_id, days_ago=0.0, commit_sha=None, toolchain=""):
         game = next(g for g in library.discover(self.sources, NAMES).games if g.title_id == title_id)
@@ -65,6 +73,19 @@ class Planning(Home):
         when = time.strftime("%Y-%m-%dT%H:%M:%S+00:00", time.gmtime(time.time() - days_ago * 86400))
         self.store.built(title_id, Build(commit=(commit_sha or self.engine.head())[:12], built_at=when, ipa=name, fingerprint=fingerprint(game), toolchain=toolchain))
 
+    def mac_built(self, title_id, days_ago=0.0, commit_sha=None, name=None):
+        """The game's Mac app in the Mac apps folder, and its record."""
+        game = next(g for g in library.discover(self.sources, NAMES).games if g.title_id == title_id)
+        sha = (commit_sha or self.engine.head())[:12]
+        app = self.mac_apps / (name or f"{NAMES[title_id]}.app")
+        (app / "Contents").mkdir(parents=True, exist_ok=True)
+        (app / "Contents" / "Info.plist").write_bytes(plistlib.dumps({"DMTitleID": title_id, "DMCommit": sha}))
+        when = time.strftime("%Y-%m-%dT%H:%M:%S+00:00", time.gmtime(time.time() - days_ago * 86400))
+        self.store.mac_built(title_id, MacBuild(commit=sha, built_at=when, app=app.name, folder=str(self.mac_apps), fingerprint=fingerprint(game)))
+        return app
+
+
+class Planning(PlanHome):
     def test_never_built(self):
         entries = self.make_plan()
         self.assertTrue(entries[MKW].build)
@@ -158,6 +179,129 @@ class Planning(Home):
         self.assertEqual(entries["0100A0000E2F0000"].reasons, ["no_profile"])
         self.config.unprofiled = True
         self.assertEqual(self.make_plan()["0100A0000E2F0000"].reasons, ["new"])
+
+
+
+class MacPlanning(PlanHome):
+    """A game built for the iPhone and for this Mac, as by default: its Mac
+    app after its IPA, or alone (planner._mac)."""
+
+    mac = True
+
+    def test_both_by_default(self):
+        entry = self.make_plan()[MKW]
+        self.assertEqual((entry.build, entry.reasons, entry.mac, entry.mac_only, entry.mac_reason), (True, ["new"], True, False, "with_ipa"))
+        self.assertIsNone(entry.mac_app)
+
+    def test_its_mac_app_alone_when_its_ipa_is_up_to_date(self):
+        self.built_now(MKW)
+        entry = self.make_plan()[MKW]
+        self.assertEqual((entry.build, entry.reasons, entry.mac, entry.mac_only), (True, ["mac_new"], True, True))
+        self.assertEqual(entry.detail, "Not on this Mac yet: its Mac app is built")
+
+    def test_up_to_date_on_both(self):
+        self.built_now(MKW, days_ago=1)
+        app = self.mac_built(MKW)
+        entry = self.make_plan()[MKW]
+        self.assertEqual((entry.build, entry.reasons, entry.mac, entry.mac_reason), (False, ["up_to_date"], False, "up_to_date"))
+        self.assertEqual((entry.mac_app, entry.mac_name), (app, "Mario Kart World.app"))
+
+    def test_its_mac_app_gone_or_older_than_its_ipa(self):
+        self.built_now(MKW, days_ago=1)
+        app = self.mac_built(MKW)
+        shutil.rmtree(app)
+        entry = self.make_plan()[MKW]
+        self.assertEqual((entry.reasons, entry.mac_only, entry.mac_name), (["mac_missing"], True, "Mario Kart World.app"))
+        # Another app of that name is not the game's.
+        (app / "Contents").mkdir(parents=True)
+        (app / "Contents" / "Info.plist").write_bytes(plistlib.dumps({"CFBundleName": "Mario Kart World"}))
+        self.assertEqual(self.make_plan()[MKW].reasons, ["mac_missing"])
+        shutil.rmtree(app)
+        # Built before its IPA: built again from the IPA's commit and files.
+        self.mac_built(MKW, days_ago=2)
+        self.assertEqual(self.make_plan()[MKW].reasons, ["mac_behind"])
+
+    def test_its_mac_app_found_under_another_name(self):
+        self.built_now(MKW, days_ago=1)
+        self.mac_built(MKW)
+        # Renamed by the player in the Finder: its Info.plist still names the game.
+        (self.mac_apps / "Mario Kart World.app").rename(self.mac_apps / "MKW.app")
+        entry = self.make_plan()[MKW]
+        self.assertEqual((entry.reasons, entry.mac_app, entry.mac_name), (["up_to_date"], self.mac_apps / "MKW.app", "MKW.app"))
+
+    def test_with_its_ipa_when_its_ipa_is_due(self):
+        self.built_now(MKW, days_ago=1)
+        self.mac_built(MKW)
+        commit(self.remote, "Mario Kart World's shadows no longer flicker (PR #12)", {"dm/gfx/nvn/shadow.c": "x"})
+        self.engine.update()
+        entry = self.make_plan()[MKW]
+        self.assertEqual((entry.reasons, entry.mac, entry.mac_only, entry.mac_reason), (["named"], True, False, "with_ipa"))
+
+    def test_after_its_ipa_when_its_ipa_failed_here(self):
+        game = next(g for g in library.discover(self.sources, NAMES).games if g.title_id == MKW)
+        self.store.failed(MKW, attempt_now(self.engine.head()[:12], "failed", "boom", fingerprint(game), "", "/log"))
+        entry = self.make_plan()[MKW]
+        self.assertEqual((entry.build, entry.reasons, entry.mac, entry.mac_reason), (False, ["failed_here"], False, "after_ipa"))
+
+    def test_a_mac_app_that_failed_waits_for_a_change(self):
+        self.built_now(MKW)
+        game = next(g for g in library.discover(self.sources, NAMES).games if g.title_id == MKW)
+        self.store.mac_failed(MKW, attempt_now(self.engine.head()[:12], "failed", "the Mac host did not build\nmore", fingerprint(game), "", "/log"))
+        entry = self.make_plan()[MKW]
+        self.assertEqual((entry.build, entry.reasons, entry.mac, entry.mac_reason), (False, ["up_to_date"], False, "failed_here"))
+        self.assertIn("the Mac host did not build", entry.mac_detail)
+        # Not a failure of the game's: a full disk, a game open on this Mac.
+        self.store.mac_failed(MKW, attempt_now(self.engine.head()[:12], "skipped", "full", fingerprint(game), "", ""))
+        self.assertEqual(self.make_plan()[MKW].reasons, ["mac_new"])
+        # Tried again when nxnative changes.
+        self.store.mac_failed(MKW, attempt_now(self.engine.head()[:12], "failed", "boom", fingerprint(game), "", "/log"))
+        commit(self.remote, "Mario Kart World boots", {"dm/host/boot.c": "x"})
+        self.engine.update()
+        entry = self.make_plan()[MKW]
+        self.assertEqual((entry.reasons, entry.mac_reason), (["named"], "with_ipa"))
+
+    def test_a_game_built_for_this_mac_alone(self):
+        self.config.set_platform(MKW, "ios", False)
+        entry = self.make_plan()[MKW]
+        self.assertEqual((entry.build, entry.reasons, entry.mac, entry.mac_only), (True, ["new"], True, True))
+        # Planned from its app's build, as an IPA is: no IPA is missing.
+        self.mac_built(MKW)
+        entry = self.make_plan()[MKW]
+        self.assertEqual((entry.build, entry.reasons, entry.mac_reason, entry.base), (False, ["up_to_date"], "up_to_date", self.engine.head()[:12]))
+        commit(self.remote, "Mario Kart World's shadows no longer flicker (PR #12)", {"dm/gfx/nvn/shadow.c": "x"})
+        self.engine.update()
+        entry = self.make_plan()[MKW]
+        self.assertEqual((entry.build, entry.reasons, entry.mac_only, entry.mac_reason), (True, ["named"], True, "named"))
+        shutil.rmtree(self.mac_apps / "Mario Kart World.app")
+        self.assertEqual(self.make_plan()[MKW].reasons[:2], ["mac_missing", "named"])
+        # Its failure waits for a change, as an IPA's does.
+        game = next(g for g in library.discover(self.sources, NAMES).games if g.title_id == MKW)
+        self.store.mac_failed(MKW, attempt_now(self.engine.head()[:12], "failed", "boom", fingerprint(game), "", "/log"))
+        entry = self.make_plan()[MKW]
+        self.assertEqual((entry.build, entry.reasons, entry.mac), (False, ["failed_here"], False))
+
+    def test_a_game_built_for_the_iphone_alone(self):
+        self.config.set_platform(MKW, "mac", False)
+        entry = self.make_plan()[MKW]
+        self.assertEqual((entry.build, entry.reasons, entry.mac, entry.mac_reason), (True, ["new"], False, ""))
+        self.built_now(MKW)
+        self.assertEqual(self.make_plan()[MKW].reasons, ["up_to_date"])
+        # For every game, in the settings.
+        self.config.mac = False
+        self.built_now(ODYSSEY)
+        self.assertEqual(self.make_plan()[ODYSSEY].reasons, ["up_to_date"])
+
+    def test_built_for_neither(self):
+        self.config.ios = False
+        self.config.set_platform(MKW, "mac", False)
+        entry = self.make_plan()[MKW]
+        self.assertEqual((entry.build, entry.reasons, entry.mac), (False, ["no_platform"], False))
+        self.assertTrue(self.make_plan()[ODYSSEY].mac_only)
+
+    def test_a_game_not_followed_is_built_for_neither(self):
+        self.config.skip = [MKW]
+        entry = self.make_plan()[MKW]
+        self.assertEqual((entry.build, entry.mac, entry.mac_reason), (False, False, "not_selected"))
 
 
 if __name__ == "__main__":

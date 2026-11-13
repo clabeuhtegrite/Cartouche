@@ -235,12 +235,14 @@ struct FolderField: View {
     let help: String
     let path: String
     var clearable = false
+    /// What an empty PATH stands for, when it stands for a folder.
+    var placeholder: String?
     let choose: (String) -> Void
 
     var body: some View {
         LabeledContent {
             HStack {
-                Text(path.isEmpty ? tr("Not chosen", "Pas choisi") : (path as NSString).abbreviatingWithTildeInPath)
+                Text(path.isEmpty ? placeholder ?? tr("Not chosen", "Pas choisi") : (path as NSString).abbreviatingWithTildeInPath)
                     .foregroundStyle(path.isEmpty ? .secondary : .primary)
                     .lineLimit(1)
                     .truncationMode(.middle)
@@ -304,6 +306,7 @@ struct BuildSettings: View {
 
     var body: some View {
         Form {
+            platforms
             Section {
                 Picker(tr("When nxnative’s shared code changes", "Quand le code commun de nxnative change"), selection: setting(model, \.enginePolicy, "weekly")) {
                     Text(tr("Rebuild, at most every few days", "Reconstruire, au plus tous les quelques jours")).tag("weekly")
@@ -355,6 +358,48 @@ struct BuildSettings: View {
             }
         }
         .formStyle(.grouped)
+    }
+
+    /// Each game built for the iPhone and for this Mac, unless one of the
+    /// two is turned off, for every game here or for one on its sheet; one
+    /// of the two stays on.
+    private var platforms: some View {
+        let ios = model.config?.ios ?? true
+        let mac = model.config?.mac ?? true
+        let defaultFolder = ((model.info?.defaultMacApps ?? "~/Applications") as NSString).abbreviatingWithTildeInPath
+        return Section {
+            Toggle(isOn: setting(model, \.ios, true)) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("iPhone")
+                    Text(tr("Each game’s IPA, in the games folder, for Cartouche.", "L’IPA de chaque jeu, dans le dossier des jeux, pour Cartouche."))
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+            .disabled(ios && !mac)
+            Toggle(isOn: setting(model, \.mac, true)) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(tr("This Mac", "Ce Mac"))
+                    Text(tr("Each game’s app, to play it on this Mac.", "L’app de chaque jeu, pour y jouer sur ce Mac."))
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+            .disabled(mac && !ios)
+            if mac {
+                FolderField(title: tr("Mac apps folder", "Dossier des apps Mac"),
+                            help: tr("Where the games’ apps go; empty for the Applications folder of your session, where Launchpad finds them.",
+                                     "Où vont les apps des jeux ; vide pour le dossier Applications de votre session, où Launchpad les trouve."),
+                            path: model.config?.macApps ?? "", clearable: true, placeholder: defaultFolder) { path in model.update { $0.macApps = path } }
+            }
+        } header: {
+            Text(tr("Built for", "Construire pour"))
+        } footer: {
+            Text(tr("A game’s sheet turns one of the two off for that game alone. One of the two stays on.",
+                    "La fiche d’un jeu désactive l’un des deux pour ce jeu seul. L’un des deux reste activé."))
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        }
     }
 
     private var nightlyDate: Date {

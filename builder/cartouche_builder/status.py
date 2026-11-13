@@ -9,7 +9,10 @@ turn while nxnative moves and the plan is made. A game not built says why
 (its cause, causes.py), after how long, and nxnative's exit code; a game
 says the nxnative commit it was built from, and whether that is an older one
 than the branch's newest, which does not build (fallback.py), as the batch
-does. The file is written whole
+does. A game also built for this Mac says how its Mac app went (mac:
+waiting, building, built, failed, stopped, skipped), after its IPA or alone
+(mac_only): it builds until both are done, the stage and progress being
+those of its platform now (platform). The file is written whole
 each time (a temporary file renamed over it), at most a few times a second,
 so the app can read it whenever it likes: what came meanwhile is written
 once the interval is over, even when nothing comes after it (Xcode compiles
@@ -62,6 +65,17 @@ class Game:
     cause: str = ""  # why it was not built (causes.py)
     exit: int | None = None  # nxnative's exit code, when it ran
     failure: dict = field(default_factory=dict)  # the exception, where and errno (failure.py)
+    # Its Mac app (macapps.py): "" when the batch does not build it.
+    platform: str = "ios"  # what its stage and progress are of now: "ios" (the IPA) or "mac"
+    mac: str = ""  # waiting, building, built, failed, stopped, skipped
+    mac_only: bool = False  # the Mac app alone, its IPA up to date
+    mac_app: str = ""  # its name in the Mac apps folder, once built
+    mac_error: str = ""
+    mac_cause: str = ""
+    mac_exit: int | None = None
+    mac_duration: float = 0.0
+    mac_log: str = ""
+    mac_failure: dict = field(default_factory=dict)
 
 
 class Status:
@@ -145,7 +159,7 @@ class Status:
             self.data["head"] = head
             if entries:
                 self.data["state"] = "building"
-            self.games = {entry.title_id: Game(entry.title_id, entry.game.display_name, list(entry.reasons), entry.detail) for entry in entries}
+            self.games = {entry.title_id: _planned(entry) for entry in entries}
             self.write(force=True)
 
     def event(self, kind: str, title_id: str, value) -> None:
@@ -168,7 +182,7 @@ class Status:
                 # Asked for while the batch runs: after the games waiting, even
                 # one built earlier in the batch, asked for again.
                 self.games.pop(title_id, None)
-                self.games[title_id] = Game(title_id, value.game.display_name, list(value.reasons), value.detail)
+                self.games[title_id] = _planned(value)
                 self.data["state"] = "building"
                 self.write(force=True)
                 return
@@ -204,12 +218,16 @@ class Status:
                 game.stage, game.frac, game.overall = kind, float(value), None
                 self.write()
             elif kind == "built":
-                game.state, game.ended = "built", now_iso()
+                # Its IPA: the game builds on while its Mac app waits.
+                if game.mac != "waiting":
+                    game.state, game.ended = "built", now_iso()
                 game.ipa, game.duration, game.frac, game.overall = value.ipa, value.duration, 1.0, 1.0
                 self.lines.append(f"{game.name}: {value.ipa}")
                 self.write(force=True)
             elif kind == "failed":
                 game.state, game.ended, game.error = "failed", now_iso(), str(value)
+                if game.mac == "waiting":
+                    game.mac = ""
                 self.lines.append(f"{game.name}: {value}")
                 self.write(force=True)
             elif kind == "attempt":
@@ -217,6 +235,39 @@ class Status:
                 # failure of the game's, and the log is where its build went.
                 game.state = {"stopped": "stopped", "skipped": "skipped"}.get(value.result, game.state)
                 game.log = value.log
+                self.write(force=True)
+            elif kind == "mac_start":
+                game.platform, game.mac, game.message = "mac", "building", ""
+                game.stage, game.step, game.k, game.n = "", "", 0, 0
+                game.frac = game.overall = game.eta = None
+                game.note = ""
+                self.write(force=True)
+            elif kind == "mac_built":
+                game.mac, game.mac_app, game.mac_duration = "built", value.app, value.duration
+                game.state, game.ended, game.frac, game.overall = "built", now_iso(), 1.0, 1.0
+                self.lines.append(f"{game.name}: {value.app}")
+                self.write(force=True)
+            elif kind == "mac_cause":
+                game.mac_cause = str(value.get("cause") or "")
+                game.mac_exit = value.get("exit")
+                game.mac_duration = float(value.get("seconds") or 0.0)
+                game.mac_failure = {k: value[k] for k in ("exception", "where", "errno") if value.get(k) is not None}
+            elif kind == "mac_failed":
+                # Its IPA, built before it, stays built.
+                game.mac, game.mac_error, game.ended = "failed", str(value), now_iso()
+                if game.mac_only:
+                    game.state, game.error = "failed", str(value)
+                    game.cause, game.exit, game.duration, game.failure = game.mac_cause, game.mac_exit, game.mac_duration, dict(game.mac_failure)
+                else:
+                    game.state = "built"
+                self.lines.append(f"{game.name}: {value}")
+                self.write(force=True)
+            elif kind == "mac_attempt":
+                game.mac = {"stopped": "stopped", "skipped": "skipped"}.get(value.result, game.mac)
+                game.mac_log = value.log
+                if game.mac_only:
+                    game.state = {"stopped": "stopped", "skipped": "skipped"}.get(value.result, game.state)
+                    game.log = value.log
                 self.write(force=True)
 
     def finished(self, summary) -> None:
@@ -227,6 +278,8 @@ class Status:
             for game in self.games.values():
                 if game.state in ("queued", "building"):
                     game.state = "stopped" if summary.stopped else "skipped"
+                if game.mac in ("waiting", "building"):
+                    game.mac = "stopped" if game.mac == "building" else ""
             self.write(force=True)
 
     def failed(self, error: str, details: dict | None = None) -> None:
@@ -241,7 +294,18 @@ class Status:
             for game in self.games.values():
                 if game.state in ("queued", "building"):
                     game.state = "stopped"
+                if game.mac in ("waiting", "building"):
+                    game.mac = "stopped" if game.mac == "building" else ""
             self.write(force=True)
+
+
+def _planned(entry) -> Game:
+    """A game of the batch, waiting its turn: its IPA, and its Mac app after it or alone."""
+    game = Game(entry.title_id, entry.game.display_name, list(entry.reasons), entry.detail)
+    if getattr(entry, "mac", False):
+        game.mac, game.mac_only = "waiting", bool(entry.mac_only)
+        game.platform = "mac" if entry.mac_only else "ios"
+    return game
 
 
 def _game_json(game: Game) -> dict:
@@ -271,6 +335,16 @@ def _game_json(game: Game) -> dict:
         "cause": game.cause,
         "exit": game.exit,
         "failure": game.failure,
+        "platform": game.platform,
+        "mac": game.mac,
+        "mac_only": game.mac_only,
+        "mac_app": game.mac_app,
+        "mac_error": game.mac_error,
+        "mac_cause": game.mac_cause,
+        "mac_exit": game.mac_exit,
+        "mac_duration": round(game.mac_duration, 1),
+        "mac_log": game.mac_log,
+        "mac_failure": game.mac_failure,
     }
 
 

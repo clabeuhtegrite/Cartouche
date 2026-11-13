@@ -405,6 +405,10 @@ enum Gallery {
          "source_size": 7340032000, "followed": true, "profile": true, "state": "due", "due": true, "reasons": ["profile", "shared"],
          "ipa": {"name": "Mario Kart 8 Deluxe.ipa", "path": "/Volumes/Jeux/iPhone/Mario Kart 8 Deluxe.ipa", "size": 6410000000, "present": true},
          "build": {"commit": "4f1d2c9a7b3e", "built_at": "@-777600", "version": "3.0.3", "duration": 1260, "origin": "app", "toolchain": "27.2", "size": 6410000000},
+         "platforms": {"ios": true, "mac": true},
+         "mac": {"folder": "/Users/player/Applications", "due": true, "reason": "with_ipa",
+                 "app": {"name": "Mario Kart 8 Deluxe.app", "path": "/Users/player/Applications/Mario Kart 8 Deluxe.app", "size": 6620000000, "present": true},
+                 "build": {"commit": "4f1d2c9a7b3e", "built_at": "@-776900", "version": "3.0.3", "duration": 610, "size": 6620000000}},
          "changes": [
            {"sha": "e2a94c1b7d6f5a3b2c1d0e9f8a7b6c5d4e3f2a1b", "short": "e2a94c1", "subject": "mk8dx: lighter kart shadows, 60 fps in the menus", "time": "#-14400", "kind": "profile"},
            {"sha": "b81e2f4a9c7d6e5f4a3b2c1d0e9f8a7b6c5d4e3f", "short": "b81e2f4", "subject": "mk8dx: no more flicker on the last track", "time": "#-190000", "kind": "profile"},
@@ -416,6 +420,7 @@ enum Gallery {
          "source_size": 6012000000, "followed": true, "profile": true, "state": "due", "due": true, "reasons": ["named"],
          "ipa": {"name": "Kirby and the Forgotten Land.ipa", "path": "/Volumes/Jeux/iPhone/Kirby and the Forgotten Land.ipa", "size": 5480000000, "present": true},
          "build": {"commit": "4f1d2c9a7b3e", "built_at": "@-777600", "version": "1.0.0", "duration": 980, "origin": "app", "toolchain": "27.2", "size": 5480000000},
+         "platforms": {"ios": true, "mac": true}, "mac": {"folder": "/Users/player/Applications", "due": true, "reason": "with_ipa"},
          "changes": [
            {"sha": "\(head)", "short": "6c3aeb3", "subject": "Kirby: water reflections without the black frames", "time": "#-10800", "kind": "named"}
          ],
@@ -425,23 +430,31 @@ enum Gallery {
          "attempt": {"commit": "6c3aeb3d70a1", "at": "@-9000", "result": "failed", "error": "Les shaders n’ont pas compilé : pipeline 1187.", "log": "/tmp/metroid.log"},
          "ipa": {"name": "Metroid Dread.ipa", "path": "/Volumes/Jeux/iPhone/Metroid Dread.ipa", "size": 4120000000, "present": true},
          "build": {"commit": "a3b2c1d0e9f8", "built_at": "@-1900000", "version": "2.1.0", "duration": 840, "origin": "app", "toolchain": "27.2", "size": 4120000000},
+         "platforms": {"ios": true, "mac": true}, "mac": {"folder": "/Users/player/Applications", "reason": "after_ipa"},
          "change_counts": {"profile": 0, "named": 0, "shared": 6}},
         {"title_id": "0100000000010000", "name": "Super Mario Odyssey", "kind": "zip", "source": "/Volumes/Jeux/Switch/Super Mario Odyssey.zip",
          "source_size": 5650000000, "followed": true, "profile": true, "state": "up_to_date",
          "ipa": {"name": "Super Mario Odyssey.ipa", "path": "/Volumes/Jeux/iPhone/Super Mario Odyssey.ipa", "size": 5320000000, "present": true},
-         "build": {"commit": "\(head)", "built_at": "@-7000", "version": "1.3.0", "duration": 1130, "origin": "app", "toolchain": "27.2", "size": 5320000000}},
+         "build": {"commit": "\(head)", "built_at": "@-7000", "version": "1.3.0", "duration": 1130, "origin": "app", "toolchain": "27.2", "size": 5320000000},
+         "platforms": {"ios": true, "mac": true},
+         "mac": {"folder": "/Users/player/Applications", "reason": "up_to_date",
+                 "app": {"name": "Super Mario Odyssey.app", "path": "/Users/player/Applications/Super Mario Odyssey.app", "size": 5510000000, "present": true},
+                 "build": {"commit": "\(head)", "built_at": "@-6500", "version": "1.3.0", "duration": 480, "size": 5510000000}}},
         {"title_id": "01007EF00011E000", "name": "The Legend of Zelda: Breath of the Wild", "kind": "nup", "source": "/Volumes/Jeux/Switch/Zelda BotW",
          "source_size": 16200000000, "followed": true, "profile": true, "state": "up_to_date",
          "ipa": {"name": "Zelda BotW.ipa", "path": "/Volumes/Jeux/iPhone/Zelda BotW.ipa", "size": 15100000000, "present": true},
-         "build": {"commit": "\(head)", "built_at": "@-6400", "version": "1.6.0", "duration": 2410, "origin": "app", "toolchain": "27.2", "size": 15100000000}},
+         "build": {"commit": "\(head)", "built_at": "@-6400", "version": "1.6.0", "duration": 2410, "origin": "app", "toolchain": "27.2", "size": 15100000000},
+         "platforms": {"ios": true, "mac": false}, "mac": {"folder": "/Users/player/Applications"}},
         {"title_id": "01006F8002326000", "name": "Animal Crossing: New Horizons", "kind": "nup", "source": "/Volumes/Jeux/Switch/Animal Crossing",
          "source_size": 10500000000, "followed": true, "profile": true, "state": "up_to_date",
          "ipa": {"name": "Animal Crossing.ipa", "path": "/Volumes/Jeux/iPhone/Animal Crossing.ipa", "size": 9800000000, "present": true},
-         "build": {"commit": "\(head)", "built_at": "@-90000", "version": "2.0.6", "duration": 1500, "origin": "app", "toolchain": "27.2", "size": 9800000000}},
+         "build": {"commit": "\(head)", "built_at": "@-90000", "version": "2.0.6", "duration": 1500, "origin": "app", "toolchain": "27.2", "size": 9800000000},
+         "platforms": {"ios": true, "mac": true}, "mac": {"folder": "/Users/player/Applications", "reason": "up_to_date"}},
         {"title_id": "01006A800016E000", "name": "Super Smash Bros. Ultimate", "kind": "nup", "source": "/Volumes/Jeux/Switch/Smash",
          "source_size": 16900000000, "followed": true, "profile": true, "state": "up_to_date",
          "ipa": {"name": "Smash.ipa", "path": "/Volumes/Jeux/iPhone/Smash.ipa", "size": 15700000000, "present": true},
-         "build": {"commit": "\(head)", "built_at": "@-95000", "version": "13.0.3", "duration": 2700, "origin": "app", "toolchain": "27.2", "size": 15700000000}},
+         "build": {"commit": "\(head)", "built_at": "@-95000", "version": "13.0.3", "duration": 2700, "origin": "app", "toolchain": "27.2", "size": 15700000000},
+         "platforms": {"ios": true, "mac": true}, "mac": {"folder": "/Users/player/Applications", "reason": "up_to_date"}},
         {"title_id": "010028600EBDA000", "name": "Super Mario 3D World + Bowser’s Fury", "kind": "nup", "source": "/Volumes/Jeux/Switch/3D World",
          "source_size": 2900000000, "followed": false, "profile": true, "state": "not_followed",
          "ipa": {"name": "3D World.ipa", "path": "/Volumes/Jeux/iPhone/3D World.ipa", "size": 2700000000, "present": true},
@@ -461,7 +474,8 @@ enum Gallery {
         {"title_id": "01004D300C5AE000", "name": "Kirby and the Forgotten Land", "reasons": ["named"], "state": "built",
          "started": "@-1500", "ended": "@-610", "duration": 890, "ipa": "/Volumes/Jeux/iPhone/Kirby and the Forgotten Land.ipa"},
         {"title_id": "0100152000022000", "name": "Mario Kart 8 Deluxe", "reasons": ["profile", "shared"], "state": "building", "stage": "shaders",
-         "step": "Pipelines 1 412 / 2 300", "k": 1412, "n": 2300, "frac": 0.61, "overall": 0.68, "eta": 380, "started": "@-600"},
+         "step": "Pipelines 1 412 / 2 300", "k": 1412, "n": 2300, "frac": 0.61, "overall": 0.68, "eta": 380, "started": "@-600",
+         "platform": "ios", "mac": "waiting", "mac_only": false},
         {"title_id": "010093801237C000", "name": "Metroid Dread", "reasons": ["shared"], "state": "queued"}
       ],
       "lines": [
@@ -477,7 +491,8 @@ enum Gallery {
       "workspace": "/Users/player/Library/Application Support/Cartouche Builder/Builds",
       "disks": {
         "workspace": {"path": "/", "free": 182000000000, "total": 994000000000, "present": true},
-        "games": {"path": "/Volumes/Jeux", "free": 2310000000000, "total": 7990000000000, "present": true}
+        "games": {"path": "/Volumes/Jeux", "free": 2310000000000, "total": 7990000000000, "present": true},
+        "mac_apps": {"path": "/Users/player/Applications", "free": 182000000000, "total": 994000000000, "present": true}
       },
       "folders": [
         {"path": "/Builds/0100152000022000", "workspace": "/Builds", "title_id": "0100152000022000", "name": "Mario Kart 8 Deluxe", "kind": "build",
@@ -490,19 +505,27 @@ enum Gallery {
          "size": 1270000000, "parts": {"shaders": 640000000, "app": 630000000}, "used": "#-95000"}
       ],
       "ipa_copies": [],
+      "mac_apps": [
+        {"path": "/Users/player/Applications/Mario Kart 8 Deluxe.app", "title_id": "0100152000022000", "name": "Mario Kart 8 Deluxe", "size": 6620000000,
+         "on": true, "built_at": "@-776900", "shares_build": false},
+        {"path": "/Users/player/Applications/Super Mario Odyssey.app", "title_id": "0100000000010000", "name": "Super Mario Odyssey", "size": 5510000000,
+         "on": true, "built_at": "@-6500", "shares_build": false}
+      ],
       "totals": {"extracted": 13900000000, "shaders": 4070000000, "app": 2690000000, "packages": 0, "temporary": 0, "other": 120000000,
-                 "logs": 48000000, "ipa_copies": 0, "ipa_copies_freeable": 0, "engine": 410000000, "python": 260000000},
+                 "logs": 48000000, "ipa_copies": 0, "ipa_copies_freeable": 0, "engine": 410000000, "python": 260000000, "mac_apps": 12130000000},
       "settings": {"keep_extracted": false, "keep_ipa": false, "min_free_gb": 20, "workspace_limit_gb": 0}
     }
     """
 
     static let configJSON = """
     {"sources": "/Volumes/Jeux/Switch", "games": "/Volumes/Jeux/iPhone", "keys": "/Users/player/Switch/prod.keys", "language": "fr",
-     "schedule": true, "schedule_hour": 3, "schedule_minute": 30, "jobs": 1, "engine_policy": "weekly", "refresh_days": 7, "min_free_gb": 20}
+     "schedule": true, "schedule_hour": 3, "schedule_minute": 30, "jobs": 1, "engine_policy": "weekly", "refresh_days": 7, "min_free_gb": 20,
+     "ios": true, "mac": true, "skip_mac": ["01007EF00011E000"]}
     """
 
     static let infoJSON = """
     {"version": "0.2.0", "home": "/Users/player/Library/Application Support/Cartouche Builder",
-     "workspace": "/Users/player/Library/Application Support/Cartouche Builder/Builds", "python": "/opt/homebrew/bin/python3.13", "scheduled": true}
+     "workspace": "/Users/player/Library/Application Support/Cartouche Builder/Builds", "python": "/opt/homebrew/bin/python3.13", "scheduled": true,
+     "mac_apps": "/Users/player/Applications", "default_mac_apps": "/Users/player/Applications"}
     """
 }

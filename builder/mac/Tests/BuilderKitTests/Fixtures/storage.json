@@ -3,19 +3,25 @@
   "storage": {
     "disks": {
       "games": {
-        "free": 32149454848,
+        "free": 31341740032,
         "path": "/Users/player/Builder/games",
         "present": true,
         "total": 270553174016
       },
+      "mac_apps": {
+        "free": 31341740032,
+        "path": "/Users/player/Builder/user/Applications",
+        "present": true,
+        "total": 270553174016
+      },
       "sources": {
-        "free": 32149454848,
+        "free": 31341740032,
         "path": "/Users/player/Builder/sources",
         "present": true,
         "total": 270553174016
       },
       "workspace": {
-        "free": 32149454848,
+        "free": 31341740032,
         "path": "/Users/player/Builder/home/workspace",
         "present": true,
         "total": 270553174016
@@ -27,16 +33,16 @@
         "name": "Super Mario Odyssey",
         "parts": {
           "app": 0,
-          "extracted": 908,
-          "other": 282,
+          "extracted": 0,
+          "other": 555,
           "packages": 0,
           "shaders": 300,
           "temporary": 0
         },
         "path": "/Users/player/Builder/home/workspace/0100000000010000_build",
-        "size": 1490,
+        "size": 855,
         "title_id": "0100000000010000",
-        "used": 1794471007.005326,
+        "used": 1794586043.7271736,
         "workspace": "/Users/player/Builder/home/workspace"
       },
       {
@@ -45,15 +51,15 @@
         "parts": {
           "app": 0,
           "extracted": 0,
-          "other": 274,
+          "other": 544,
           "packages": 0,
           "shaders": 300,
           "temporary": 0
         },
         "path": "/Users/player/Builder/home/workspace/0400C3F00006E000_build",
-        "size": 574,
+        "size": 844,
         "title_id": "0400C3F00006E000",
-        "used": 1794471006.12513,
+        "used": 1794586043.453428,
         "workspace": "/Users/player/Builder/home/workspace"
       }
     ],
@@ -64,7 +70,7 @@
         "same_disk": true,
         "size": 849,
         "title_id": "0100000000010000",
-        "used": 1794471006.5253005,
+        "used": 1794586043.5653982,
         "workspace": "/Users/player/Builder/home/workspace"
       },
       {
@@ -73,8 +79,19 @@
         "same_disk": true,
         "size": 846,
         "title_id": "0400C3F00006E000",
-        "used": 1794471006.1706128,
+        "used": 1794586043.4870005,
         "workspace": "/Users/player/Builder/home/workspace"
+      }
+    ],
+    "mac_apps": [
+      {
+        "built_at": "2026-11-13T16:07:23+00:00",
+        "name": "Super Mario Odyssey",
+        "on": true,
+        "path": "/Users/player/Builder/user/Applications/Super Mario Odyssey.app",
+        "shares_build": false,
+        "size": 1604,
+        "title_id": "0100000000010000"
       }
     ],
     "settings": {
@@ -85,13 +102,14 @@
     },
     "totals": {
       "app": 0,
-      "engine": 42549,
-      "extracted": 908,
+      "engine": 46326,
+      "extracted": 0,
       "icons": 16,
       "ipa_copies": 1695,
       "ipa_copies_freeable": 0,
-      "logs": 4575,
-      "other": 556,
+      "logs": 7235,
+      "mac_apps": 1604,
+      "other": 1099,
       "packages": 0,
       "python": 0,
       "shaders": 600,

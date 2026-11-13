@@ -82,6 +82,82 @@ class Api(Home):
         code, data = self.call("follow", "nope", "on")
         self.assertEqual(code, 2)
 
+    def test_the_iphone_and_this_mac_turned_on_or_off_for_a_game(self):
+        code, data = self.call("library")
+        game = data["games"][0]
+        self.assertEqual((game["platforms"], game["mac"]["due"], game["mac"]["reason"]), ({"ios": True, "mac": True}, True, "with_ipa"))
+        self.assertEqual(game["mac"]["folder"], str(Path.home() / "Applications"))
+        code, data = self.call("platform", MKW.lower(), "mac", "off")
+        self.assertEqual((code, data), (0, {"api": 1, "title_id": MKW, "platforms": {"ios": True, "mac": False}, "followed": True}))
+        code, data = self.call("library")
+        self.assertEqual((data["games"][0]["platforms"], data["games"][0]["mac"]["due"]), ({"ios": True, "mac": False}, False))
+        # Never for neither: that is a game no longer followed.
+        code, data = self.call("platform", MKW, "ios", "off")
+        self.assertEqual((code, data["error"]["kind"]), (2, "bad_request"))
+        self.assertIn("stop following it", data["error"]["message"])
+        self.assertEqual(configs.load(Paths.default()).skip_ios, [])
+        code, data = self.call("platform", MKW, "mac", "on")
+        code, data = self.call("platform", MKW, "ios", "off")
+        self.assertEqual((code, data["platforms"]), (0, {"ios": False, "mac": True}))
+        code, data = self.call("library")
+        game = data["games"][0]
+        self.assertEqual((game["state"], game["reasons"], game["mac"]["alone"]), ("due", ["new"], True))
+        # Turning one on follows the game again.
+        self.call("follow", MKW, "off")
+        code, data = self.call("platform", MKW, "ios", "on")
+        self.assertEqual((data["platforms"], data["followed"]), ({"ios": True, "mac": True}, True))
+        code, data = self.call("platform", "nope", "ios", "on")
+        self.assertEqual((code, data["error"]["kind"]), (2, "bad_request"))
+        code, data = self.call("platform", MKW, "android", "on")
+        self.assertEqual((code, data["error"]["kind"]), (2, "bad_request"))
+
+    def test_every_game_built_for_one_of_the_two_at_least(self):
+        code, data = self.call("config", "--set", json.dumps({"mac": False}))
+        self.assertEqual((code, data["config"]["mac"], data["config"]["ios"]), (0, False, True))
+        code, data = self.call("config", "--set", json.dumps({"ios": False}))
+        self.assertEqual((code, data["error"]["kind"]), (2, "bad_request"))
+        self.assertIn("one of the two stays on", data["error"]["message"])
+        self.assertTrue(configs.load(Paths.default()).ios)
+        code, data = self.call("config", "--set", json.dumps({"ios": False, "mac": True}))
+        self.assertEqual((code, data["config"]["mac"], data["config"]["ios"]), (0, True, False))
+
+    def test_a_game_built_for_neither_says_so(self):
+        configs.save(Paths.default(), configs.Config(sources=str(self.sources), games=str(self.games), engine_url=str(self.remote), min_free_gb=0, ios=False, skip_mac=[MKW]))
+        code, data = self.call("library")
+        game = data["games"][0]
+        self.assertEqual((game["state"], game["reasons"], game["platforms"]), ("not_followed", ["no_platform"], {"ios": False, "mac": False}))
+        self.assertIn("neither for the iPhone nor for this Mac", game["detail"])
+
+    def test_the_mac_apps_on_the_storage_page(self):
+        self.build(MKW)
+        code, data = self.call("storage")
+        self.assertEqual(code, 0, data)
+        storage = data["storage"]
+        [app] = storage["mac_apps"]
+        self.assertEqual((app["title_id"], app["name"], app["on"]), (MKW, "Mario Kart World", True))
+        self.assertEqual(app["path"], str(Path.home() / "Applications" / "Mario Kart World.app"))
+        self.assertGreater(app["size"], 0)
+        self.assertEqual(storage["totals"]["mac_apps"], app["size"])
+        self.assertEqual(storage["disks"]["mac_apps"]["path"], str(Path.home() / "Applications"))
+        # Its game files are clones of the build folder's extracted files
+        # only while those are kept: here they went after the build.
+        self.assertFalse(app["shares_build"])
+        (Path(storage["workspace"]) / f"{MKW}_build" / "extract").mkdir()
+        [app] = self.call("storage")[1]["storage"]["mac_apps"]
+        self.assertTrue(app["shares_build"])
+        # The game's app no longer: what was built stays where it is.
+        self.call("platform", MKW, "mac", "off")
+        [app] = self.call("storage")[1]["storage"]["mac_apps"]
+        self.assertFalse(app["on"])
+        # Put in the Trash by the app: no longer listed; an app of the same
+        # name that is not the game's is not either.
+        import shutil
+
+        shutil.rmtree(app["path"])
+        (Path(app["path"]) / "Contents").mkdir(parents=True)
+        (Path(app["path"]) / "Contents" / "Info.plist").write_bytes(b"<plist><dict></dict></plist>")
+        self.assertEqual(self.call("storage")[1]["storage"]["mac_apps"], [])
+
     def test_an_error_says_its_class_where_and_errno_never_its_words(self):
         with mock.patch.object(api, "survey_storage", side_effect=PermissionError(13, "Permission denied", "/Users/player/Jeux")):
             code, data = self.call("storage")

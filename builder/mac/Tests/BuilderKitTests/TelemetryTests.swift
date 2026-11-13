@@ -56,6 +56,17 @@ final class TelemetryTests: XCTestCase {
         let failedHere: [String: TelemetryValue] = ["cause": .text("builder"), "errno": .count(13), "exception": .text("PermissionError"),
                                                     "nxnative": .text(head), "reasons": .text("source"), "seconds": .number(2410),
                                                     "source": .text("packages"), "stage": .text("deliver"), "where": .text("ipa.deliver")]
+        let macBuilt: [String: TelemetryValue] = ["alone": .flag(false), "appMB": .number(1904), "nxnative": .text(head), "reasons": .text("named,shared"),
+                                                  "seconds": .number(1310), "source": .text("packages")]
+        let macFailed: [String: TelemetryValue] = ["alone": .flag(true), "cause": .text("nxnative"), "exit": .count(1), "nxnative": .text(head),
+                                                   "reasons": .text("mac_new"), "seconds": .number(208), "source": .text("dump"), "stage": .text("Mac host")]
+        let macSkipped: [String: TelemetryValue] = ["alone": .flag(false), "cause": .text("no_space"), "exit": .count(1), "fallback": .flag(true),
+                                                    "nxnative": .text(head), "reasons": .text("profile"), "seconds": .number(95), "source": .text("nup"),
+                                                    "stage": .text("Mac app")]
+        let macBatch: [String: TelemetryValue] = ["built": .count(1), "failed": .count(0), "games": .count(3), "jobs": .count(1), "macBuilt": .count(1),
+                                                  "macFailed": .count(1), "macSkipped": .count(1), "macStopped": .count(0), "minutes": .number(64.2),
+                                                  "nxnative": .text(head), "scheduled": .flag(false), "skipped": .count(0), "state": .text("done"),
+                                                  "stopped": .count(0)]
         let events: [(name: String, game: String?, fields: [String: TelemetryValue])] = [
             ("builder.opened", nil, opened),
             ("builder.setup", nil, setup),
@@ -75,6 +86,10 @@ final class TelemetryTests: XCTestCase {
             ("builder.imported", "0100152000022000", imported),
             ("builder.skipped", "0100152000022000", skipped),
             ("builder.failed", "010093801237C000", failedHere),
+            ("builder.macBuilt", "0100152000022000", macBuilt),
+            ("builder.macFailed", "01007EF00011E000", macFailed),
+            ("builder.macSkipped", "010093801237C000", macSkipped),
+            ("builder.batch", nil, macBatch),
         ]
         var made: [TelemetryEvent] = []
         for (index, event) in events.enumerated() {
@@ -155,6 +170,55 @@ final class TelemetryTests: XCTestCase {
         // Each is an event the server takes.
         for (index, event) in events.enumerated() {
             XCTAssertNotNil(TelemetryEvent(id: "6a1d9e3c-0000-4000-8000-00000000010\(index)", seq: index + 1, context: context,
+                                           name: event.name, game: event.game, fields: event.fields), event.name)
+        }
+    }
+
+    /// The games' apps for this Mac in a batch's events: one after its IPA,
+    /// built; one built for this Mac alone, which failed, with no IPA event
+    /// of its own; one skipped for a full disk, its IPA built; one the
+    /// batch stopped. The batch counts the IPAs and the Mac apps apart.
+    func testTheEventsOfABatchWithMacApps() throws {
+        let json = #"""
+            {"state": "done", "scheduled": false, "head": "6da69001c0ffee00",
+             "started": "2026-11-13T20:00:00+00:00", "ended": "2026-11-13T21:00:00+00:00",
+             "games": [
+               {"title_id": "0100152000022000", "name": "Mario Kart World", "state": "built", "reasons": ["named"], "duration": 5412.4,
+                "commit": "6da69001c0ff", "platform": "mac", "mac": "built", "mac_only": false, "mac_app": "Mario Kart World.app", "mac_duration": 1310.2},
+               {"title_id": "01007EF00011E000", "name": "Zelda", "state": "failed", "reasons": ["mac_new"], "duration": 208, "stage": "Mac host",
+                "commit": "6da69001c0ff", "cause": "nxnative", "exit": 1, "error": "the Mac host did not build: /Users/player/x",
+                "platform": "mac", "mac": "failed", "mac_only": true, "mac_error": "the Mac host did not build: /Users/player/x",
+                "mac_cause": "nxnative", "mac_exit": 1, "mac_duration": 208, "mac_failure": {}},
+               {"title_id": "010093801237C000", "name": "Another", "state": "built", "reasons": ["profile"], "duration": 2000, "stage": "Mac app",
+                "commit": "6da69001c0ff", "platform": "mac", "mac": "skipped", "mac_only": false, "mac_error": "The disk “Games SSD” is full.",
+                "mac_cause": "no_space", "mac_exit": 1, "mac_duration": 95.4},
+               {"title_id": "01006A800016E000", "name": "Stopped", "state": "built", "reasons": ["shared"], "duration": 1000, "stage": "Mac shaders",
+                "commit": "6da69001c0ff", "platform": "mac", "mac": "stopped", "mac_only": false, "mac_cause": "stopped", "mac_duration": 12}]}
+            """#
+        let status = try JSONDecoder().decode(BatchStatus.self, from: Data(json.utf8))
+        let library = try JSONDecoder().decode(Library.self, from: Data(#"""
+            {"games": [{"title_id": "0100152000022000", "name": "Mario Kart World", "kind": "packages", "state": "up_to_date",
+                        "ipa": {"name": "x.ipa", "path": "/x.ipa", "size": 1830000000, "present": true},
+                        "mac": {"app": {"name": "Mario Kart World.app", "path": "/Applications/Mario Kart World.app", "size": 1904000000, "present": true}}}]}
+            """#.utf8))
+        let events = BuilderTelemetry.batchEvents(status, library: library, jobs: 1)
+        XCTAssertEqual(events.map(\.name), ["builder.built", "builder.built", "builder.built", "builder.macBuilt", "builder.macFailed", "builder.macSkipped", "builder.batch"])
+        XCTAssertEqual(events.map(\.game), ["0100152000022000", "010093801237C000", "01006A800016E000", "0100152000022000", "01007EF00011E000",
+                                            "010093801237C000", nil])
+        XCTAssertEqual(events[0].fields["ipaMB"], .number(1830))
+        XCTAssertEqual(events[3].fields, ["alone": .flag(false), "appMB": .number(1904), "nxnative": .text("6da69001c0ff"), "reasons": .text("named"),
+                                          "seconds": .number(1310), "source": .text("packages")])
+        // Built for this Mac alone: its failure is its Mac app's, never its words.
+        XCTAssertEqual(events[4].fields, ["alone": .flag(true), "cause": .text("nxnative"), "exit": .count(1), "nxnative": .text("6da69001c0ff"),
+                                          "reasons": .text("mac_new"), "seconds": .number(208), "stage": .text("Mac host")])
+        XCTAssertEqual(events[5].fields, ["alone": .flag(false), "cause": .text("no_space"), "exit": .count(1), "nxnative": .text("6da69001c0ff"),
+                                          "reasons": .text("profile"), "seconds": .number(95), "stage": .text("Mac app")])
+        XCTAssertEqual(events[6].fields, ["built": .count(3), "failed": .count(0), "games": .count(4), "jobs": .count(1), "macBuilt": .count(1),
+                                          "macFailed": .count(1), "macSkipped": .count(1), "macStopped": .count(1), "minutes": .number(60),
+                                          "nxnative": .text("6da69001c0ff"), "scheduled": .flag(false), "skipped": .count(0),
+                                          "state": .text("done"), "stopped": .count(0)])
+        for (index, event) in events.enumerated() {
+            XCTAssertNotNil(TelemetryEvent(id: "6a1d9e3c-0000-4000-8000-00000000020\(index)", seq: index + 1, context: context,
                                            name: event.name, game: event.game, fields: event.fields), event.name)
         }
     }

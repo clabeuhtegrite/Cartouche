@@ -2,11 +2,13 @@
 
 A disk that fills up shows as an OSError of errno 28 (ENOSPC) in the
 builder's own code, as "No space left on device" in what git, Xcode or
-nxnative's tools say, and as nxnative's own check of the room before it
-unpacks a game ("less than 32 GB free on the volume of ..."). Whatever the
-way, the player reads which disk is full and how much is left on it: "your
-Mac's disk" for the startup disk, which holds the builder's own folder, or
-the disk's name for an external drive or a share (/Volumes/<name>).
+nxnative's tools say, and as nxnative's own checks of the room: before it
+unpacks a game ("less than 32 GB free on the volume of ..."), and before
+its packer copies the game into a Mac app ("the app needs 12.3 GB on the
+volume of ... and 5.0 GB are free"). Whatever the way, the player reads
+which disk is full and how much is left on it: "your Mac's disk" for the
+startup disk, which holds the builder's own folder, or the disk's name for
+an external drive or a share (/Volumes/<name>).
 """
 
 from __future__ import annotations
@@ -19,21 +21,25 @@ from pathlib import Path
 from .i18n import language, t
 
 # What tools say of a full disk: the C library's words, Python's errno, the
-# errno's name, nxnative's check of the room before it unpacks, and Xcode's.
+# errno's name, nxnative's checks of the room (before it unpacks, and before
+# its packer copies the game into a Mac app), and Xcode's.
 FULL = re.compile(
     r"No space left on device|\[Errno 28\]|\berrno 28\b|\bENOSPC\b|less than \d+ GB free on the volume of"
+    r"|needs [\d.]+ GB on the volume of"
     r"|not enough (?:free )?(?:disk )?space|disk (?:is )?full",
     re.IGNORECASE,
 )
 # The path a message names: Python's "...device: '/path'", nxnative's
-# "... free on the volume of /path", or the first absolute path in it.
+# "... free on the volume of /path", its Mac app packer's "... on the volume
+# of /path (no APFS clones ...", or the first absolute path in it.
 NAMED = (
     re.compile(r"""(?:device|space)[^'"\n]*?: ['"](/[^'"\n]+)['"]"""),
+    re.compile(r"GB on the volume of (/.+?) \(no APFS clones"),
     re.compile(r"free on the volume of (/\S+)"),
     re.compile(r"""['"](/[^'"\n]+)['"]"""),
 )
-# nxnative's check of the room: what it needs.
-NEEDED = re.compile(r"less than (\d+) GB free on the volume of")
+# nxnative's checks of the room: what it needs.
+NEEDED = re.compile(r"(?:less than|needs) ([\d.]+) GB (?:free )?on the volume of")
 # A traceback's frames ('  File "/…/zipfile.py", line 1886, in write') name
 # the code that ran, on the Mac's disk, never the disk that filled up.
 FRAME = re.compile(r'^\s*File "[^"\n]*", line \d+.*$', re.MULTILINE)
@@ -111,7 +117,7 @@ def message(path: Path | None, text: str = "") -> str:
     left = free_bytes(where)
     needed = NEEDED.search(text or "")
     if needed and left is not None:
-        wanted = amount(int(needed.group(1)) * 10**9)
+        wanted = amount(int(float(needed.group(1)) * 10**9))
         if name:
             return t("disk.room_named", name=name, needed=wanted, free=amount(left))
         return t("disk.room_mac", needed=wanted, free=amount(left))

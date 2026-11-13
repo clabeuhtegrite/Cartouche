@@ -36,16 +36,16 @@ from pathlib import Path
 from . import build as builds
 from . import config as configs
 from . import ipa as ipas
-from . import causes, disks, failure, fallback, library, notify, report, schedule, shares, toolchain
+from . import causes, disks, failure, fallback, library, macapps, notify, report, schedule, shares, toolchain
 from . import queue as queues
 from . import status as statuses
 from .engine import Engine, EngineError
 from .i18n import set_language, t
 from .paths import Paths
 from .planner import Entry, Plan, fingerprint, plan
-from .state import TAKEN_OVER, Attempt, Build, Store, attempt_now, now_iso
+from .state import TAKEN_OVER, Attempt, Build, MacBuild, Store, attempt_now, now_iso
 from .status import Status
-from .workspace import NOTES, Workspace, free_gb, same_volume
+from .workspace import NOTES, Workspace, drop_extracted, free_gb, same_volume
 
 # A game's icon, as nxnative's "game" event names it: kept if not larger.
 ICON_LIMIT = 4 << 20
@@ -210,7 +210,7 @@ def survey(ctx: Context, update: bool = True, force: set[str] | None = None, log
     found = library.discover(ctx.config.path("sources"), {tid: p.name for tid, p in profiles.items()}, keys=ctx.config.path("keys"), cache=ctx.paths.identified)
     identity = toolchain.identity(toolchain.environment(ctx.paths)) if sys.platform == "darwin" else ""
     games = [g for g in found.games if g.title_id in only] if only else found.games
-    result = plan(games, ctx.engine, head, profiles, ctx.store, ctx.config, ctx.config.path("games"), identity, force)
+    result = plan(games, ctx.engine, head, profiles, ctx.store, ctx.config, ctx.config.path("games"), identity, force, mac_apps=ctx.config.mac_apps_path())
     result.issues = found.issues
     return result
 
@@ -243,6 +243,8 @@ class Summary:
     head: str
     built: list = field(default_factory=list)  # (entry, build)
     failed: list = field(default_factory=list)  # (entry, error, log path)
+    mac_built: list = field(default_factory=list)  # (entry, MacBuild): the games' Mac apps
+    mac_failed: list = field(default_factory=list)  # (entry, error, log path)
     stopped: bool = False
     duration: float = 0.0
     report: Path | None = None
@@ -255,7 +257,10 @@ class Runner:
     (text), "unpack" and "deliver" (fraction), "built" (Build), "failed"
     (error), "attempt" (the state.Attempt recorded for a game that was not
     built), "queued" (an entry asked for, built after the others), "removed"
-    (an entry taken out of the batch before its turn), "log" (text)."""
+    (an entry taken out of the batch before its turn), "log" (text); and for
+    a game's Mac app (macapps.py), after its IPA or alone, "mac_start"
+    (entry), then its "progress" and "message", and "mac_built" (MacBuild),
+    or "mac_cause", "mac_failed" (error) and "mac_attempt" (Attempt)."""
 
     def __init__(self, ctx: Context, plan: Plan, entries: list[Entry], python: Path | None = None, on_event=None, stop: threading.Event | None = None, check_tools: bool = True, queue: bool = True):
         self.ctx = ctx
@@ -323,7 +328,8 @@ class Runner:
             return
         waiting = sum(1 for e in self.plan.entries if e.reasons and e.reasons[0] in ("failed_here",))
         self.summary.report = report.write(
-            self.ctx.paths.reports, self.commit, self.summary.built, self.summary.failed, self.summary.stopped, self.plan.notes, waiting, self.summary.duration
+            self.ctx.paths.reports, self.commit, self.summary.built, self.summary.failed, self.summary.stopped, self.plan.notes, waiting, self.summary.duration,
+            mac_built=self.summary.mac_built, mac_failed=self.summary.mac_failed,
         )
 
     def _announce(self) -> None:
@@ -451,7 +457,9 @@ class Runner:
                 self.plan.notes.append(note)
 
     def headline(self) -> str:
-        built, failed = len(self.summary.built), len(self.summary.failed)
+        # A game's Mac app counts once with its IPA, unless it was built alone.
+        alone = sum(1 for entry, _ in self.summary.mac_built if entry.mac_only)
+        built, failed = len(self.summary.built) + alone, len(self.summary.failed) + len(self.summary.mac_failed)
         if self.summary.stopped:
             return t("notify.stopped", built=built)
         if failed:
@@ -484,6 +492,7 @@ class Runner:
         commit = self.commit
         self.on_event("commit", title_id, {"commit": commit[:12], "fallback": self.fallback is not None})
         dump: Path | None = None
+        work: Path | None = None
         result: builds.Result | None = None
         writing = workspace.root  # where it writes now, for a full disk's words
         try:
@@ -515,78 +524,235 @@ class Runner:
                 source = game.folder
             work = writing = workspace.build_folder(title_id)
             workspace.use(work)
-            out = workspace.root / NOTES / "out" / f"{title_id}.ipa"
-            out.parent.mkdir(parents=True, exist_ok=True)
-            games_folder = ctx.config.path("games")
-            # A kept IPA stays where nxnative writes the new one: its packer
-            # reuses the entries that did not change (out.ipa.idx), and always
-            # writes a new file, renamed over the old one once whole. On the
-            # games folder's disk it costs nothing (the delivered IPA is an
-            # APFS clone of it); on a NAS it would take the game's size on
-            # the Mac, so it is kept there only when the settings ask.
-            keep_ipa = ctx.config.keep_ipa or (games_folder is not None and same_volume(out.parent, games_folder))
-            if not keep_ipa:
-                out.unlink(missing_ok=True)
-                out.with_name(out.name + ".idx").unlink(missing_ok=True)
-            before = _identity(out)
+            if not entry.mac_only:
+                out = workspace.root / NOTES / "out" / f"{title_id}.ipa"
+                out.parent.mkdir(parents=True, exist_ok=True)
+                games_folder = ctx.config.path("games")
+                # A kept IPA stays where nxnative writes the new one: its packer
+                # reuses the entries that did not change (out.ipa.idx), and always
+                # writes a new file, renamed over the old one once whole. On the
+                # games folder's disk it costs nothing (the delivered IPA is an
+                # APFS clone of it); on a NAS it would take the game's size on
+                # the Mac, so it is kept there only when the settings ask.
+                keep_ipa = ctx.config.keep_ipa or (games_folder is not None and same_volume(out.parent, games_folder))
+                if not keep_ipa:
+                    out.unlink(missing_ok=True)
+                    out.with_name(out.name + ".idx").unlink(missing_ok=True)
+                before = _identity(out)
 
-            def nxnative() -> builds.Result:
-                # Without the extracted files the build folder keeps what is
-                # costly to make again (the shader caches), not a copy of the
-                # game. Asked of the checkout as it is now: the commit it
-                # builds from may have moved (fallback.py).
-                keep_extracted = ctx.config.keep_extracted if ctx.engine.supports("--keep-extracted") else None
-                args = builds.command(self.python, ctx.engine.build_script, source, work, out, keys, ctx.config.game_language, keep_extracted)
-                return builds.run(
-                    args,
-                    ctx.engine.root,
-                    toolchain.environment(ctx.paths),
-                    log_path,
-                    on_progress=lambda progress: self.on_event("progress", title_id, progress),
-                    on_message=lambda message: self.on_event("message", title_id, message),
-                    stop=stop,
-                    on_game=lambda event: keep_icon(ctx.paths, title_id, event.get("icon")),
+                def nxnative() -> builds.Result:
+                    # Without the extracted files the build folder keeps what is
+                    # costly to make again (the shader caches), not a copy of the
+                    # game. Asked of the checkout as it is now: the commit it
+                    # builds from may have moved (fallback.py).
+                    # A game also built for this Mac keeps them: its app, built
+                    # next, is made of them (macapps.py).
+                    keep_extracted = (ctx.config.keep_extracted or entry.mac) if ctx.engine.supports("--keep-extracted") else None
+                    args = builds.command(self.python, ctx.engine.build_script, source, work, out, keys, ctx.config.game_language, keep_extracted)
+                    return builds.run(
+                        args,
+                        ctx.engine.root,
+                        toolchain.environment(ctx.paths),
+                        log_path,
+                        on_progress=lambda progress: self.on_event("progress", title_id, progress),
+                        on_message=lambda message: self.on_event("message", title_id, message),
+                        stop=stop,
+                        on_game=lambda event: keep_icon(ctx.paths, title_id, event.get("icon")),
+                    )
+
+                result = nxnative()
+                if not result.ok and result.cause == "app_build" and not stop.is_set():
+                    trial = self._fall_back(title_id, stop)
+                    if trial is not None:
+                        commit = self.commit
+                        self.on_event("commit", title_id, {"commit": commit[:12], "fallback": True})
+                        again = None
+                        try:
+                            again = nxnative()
+                        finally:
+                            self._end_trial(trial, again is not None and again.ok, game.display_name, stop.is_set())
+                        result = again
+                        if not result.ok and not stop.is_set():
+                            # The newest commit is not the cause: the failure is
+                            # recorded at it, which the next batch builds from.
+                            commit = trial.broken
+                if not result.ok:
+                    if result.stopped:
+                        raise _Stopped(result.error)
+                    said = causes.told(result)
+                    words = causes.words(result.cause, said, work)
+                    if result.cause == "no_space":
+                        # Not the game's failure: tried again next time.
+                        raise _Skipped(words or result.error, "no_space")
+                    raise _Failed(words or result.error, result.cause)
+                # What is delivered is this build's IPA, never one an earlier build left.
+                after = _identity(out)
+                info = ipas.read_info(out) if after is not None and after != before else None
+                if info is None:
+                    raise _Failed(t("batch.no_ipa", path=out), "no_ipa")
+                name = entry.ipa_name or ipas.file_name(result.game.get("name") or game.display_name, title_id)
+                self.on_event("message", title_id, t("batch.delivering", name=name))
+                writing = games_folder
+                ipas.deliver(out, games_folder, name, stop=stop, progress=lambda done, total: self.on_event("deliver", title_id, done / total))
+                build = Build(
+                    commit=info.commit or commit[:12],
+                    built_at=now_iso(),
+                    ipa=name,
+                    size=(games_folder / name).stat().st_size,
+                    chain=info.chain or "",
+                    fingerprint=print_,
+                    toolchain=identity,
+                    version=info.version or str(result.game.get("version") or ""),
+                    name=str(result.game.get("name") or info.name or ""),
+                    duration=result.duration,
+                    dirty=info.dirty,
                 )
+                ctx.store.built(title_id, build)
+                if not keep_ipa:
+                    for leftover in (out, out.with_name(out.name + ".idx")):
+                        leftover.unlink(missing_ok=True)
+                with self._lock:
+                    self.summary.built.append((entry, build))
+                self.on_event("built", title_id, build)
+            if entry.mac:
+                # Its Mac app, from the same files and commit as its IPA: a
+                # failure of its own, which leaves the IPA as it is.
+                self._mac_app(entry, source, work, keys, log_path, stop, print_, identity)
+        except BaseException as error:
+            # What kept the game from building: its IPA's, or its Mac app's
+            # when the batch builds it alone (its sources unpacked, no room).
+            if not self._failure(entry, error, stop, result, began, commit, print_, identity, log_path, writing, mac=entry.mac_only):
+                raise
+        finally:
+            if stop.taken_out:
+                queues.forget(ctx.paths, {title_id})
+            if dump is not None:
+                workspace.forget(dump)
+            if work is not None and entry.mac and not ctx.config.keep_extracted and ctx.engine.supports("--keep-extracted"):
+                # Kept for its Mac app, which is made of them: gone after it,
+                # as the settings ask (on the app's disk, its files keep the
+                # blocks they share with them).
+                drop_extracted(work)
+            limit = ctx.config.workspace_limit_gb
+            if limit:
+                with self._lock:
+                    workspace.trim(limit * 2**30, keep=self._batch_folders(workspace), log=lambda folder, size: self.log(t("batch.trimmed", folder=folder.name, gb=f"{size / 2**30:.1f}")))
 
-            result = nxnative()
-            if not result.ok and result.cause == "app_build" and not stop.is_set():
-                trial = self._fall_back(title_id, stop)
-                if trial is not None:
-                    commit = self.commit
-                    self.on_event("commit", title_id, {"commit": commit[:12], "fallback": True})
-                    again = None
-                    try:
-                        again = nxnative()
-                    finally:
-                        self._end_trial(trial, again is not None and again.ok, game.display_name, stop.is_set())
-                    result = again
-                    if not result.ok and not stop.is_set():
-                        # The newest commit is not the cause: the failure is
-                        # recorded at it, which the next batch builds from.
-                        commit = trial.broken
+    def _failure(self, entry: Entry, error: BaseException, stop: "_Stop", result: builds.Result | None, began: float, commit: str,
+                 print_: str, identity: str, log_path: Path, writing: Path | None, mac: bool = False) -> bool:
+        """ERROR kept the game's IPA from building, or its Mac app (MAC):
+        recorded as failed, skipped (not the game's failure: no room, no
+        keys, a full disk, tried again next time) or stopped. False for an
+        error that is no build's, which goes on up."""
+        if isinstance(error, _Stopped):
+            how, message, cause, details = "stopped", str(error), "stopped", {}
+        elif isinstance(error, _Skipped):
+            how, message, cause, details = "skipped", str(error), error.cause, {}
+        elif isinstance(error, (_Failed, OSError, ValueError, RuntimeError, InterruptedError)):
+            if isinstance(error, _Failed):
+                message, cause, details = str(error), error.cause, {}
+            else:
+                message, cause, details = f"{type(error).__name__}: {error}", "builder", failure.describe(error)
+            how = "failed"
+            if stop.is_set():
+                how, cause = "stopped", "stopped"
+            elif isinstance(error, OSError) and disks.is_full(error):
+                how, message, cause = "skipped", disks.describe(error, writing), "no_space"
+        else:
+            return False
+        # "failed" first: the attempt then says how it was recorded, and a
+        # game stopped or skipped shows so, not as failed (status.py).
+        self._ended(entry, how, message, cause, details, result, began, commit, print_, identity, log_path, mac=mac)
+        return True
+
+    def _ended(self, entry: Entry, how: str, message: str, cause: str, details: dict, result: builds.Result | None,
+               began: float, commit: str, print_: str, identity: str, log_path: Path, mac: bool = False) -> None:
+        """A game not built (HOW: "failed", "skipped" or "stopped"), or its
+        Mac app (MAC): why, as a name, how long it took and nxnative's exit
+        code for the app; the attempt recorded at COMMIT, with its log when
+        nxnative ran (or a failure of the builder's own came after the
+        checks)."""
+        title_id = entry.title_id
+        if how != "stopped":
+            with self._lock:
+                (self.summary.mac_failed if mac else self.summary.failed).append((entry, message, log_path))
+        log = str(log_path) if how != "skipped" or result is not None else ""
+        why: dict = {"cause": cause, "seconds": round(time.monotonic() - began, 1)}
+        if result is not None and result.started:
+            why["exit"] = result.code
+            if cause == "crashed" and (exception := causes.exception_in(result.stderr)):
+                why["exception"] = exception
+        why.update(details)
+        self.on_event("mac_cause" if mac else "cause", title_id, why)
+        self.on_event("mac_failed" if mac else "failed", title_id, message)
+        self._record(title_id, attempt_now(commit[:12], how, message, print_, identity, log), mac=mac)
+
+    # ---- The game's Mac app (macapps.py) -----------------------------------
+
+    def _mac_app(self, entry: Entry, source: Path, work: Path, keys: Path | None, log_path: Path, stop: "_Stop", print_: str, identity: str) -> None:
+        """Builds the game's app for this Mac (nxnative's --platform mac-app),
+        from the same files and the same nxnative commit as its IPA, and puts
+        it in the Mac apps folder. Its failure is its own, recorded as the
+        Mac app's: the IPA stays as it was delivered."""
+        ctx, title_id = self.ctx, entry.title_id
+        began = time.monotonic()
+        commit = self.commit
+        result: builds.Result | None = None
+        folder = ctx.config.mac_apps_path()
+        writing: Path | None = work
+        self.on_event("mac_start", title_id, entry)
+        out = ctx.workspace.root / NOTES / "out" / f"{title_id}.app"
+        try:
+            if same_volume(_existing(folder), ctx.workspace.root):
+                # On the build folders' disk the app's game files are clones
+                # of the extracted ones, whose room it keeps when they go: the
+                # disk keeps the room the settings say all the same.
+                needed = ctx.config.min_free_gb
+                room = self._make_room(ctx.workspace, needed, title_id)
+                if room < needed:
+                    raise _Skipped(t("mac.no_room", free=f"{room:.0f}", needed=f"{needed:.0f}"), "no_room")
+            out.parent.mkdir(parents=True, exist_ok=True)
+            # The app's files are clones of the extracted ones: nxnative keeps
+            # them whatever it is asked.
+            keep_extracted = True if ctx.engine.supports("--keep-extracted") else None
+            args = builds.command(self.python, ctx.engine.build_script, source, work, out, keys, ctx.config.game_language, keep_extracted, platform="mac-app")
+            result = builds.run(
+                args,
+                ctx.engine.root,
+                toolchain.environment(ctx.paths),
+                log_path,
+                on_progress=lambda progress: self.on_event("progress", title_id, progress),
+                on_message=lambda message: self.on_event("message", title_id, message),
+                stop=stop,
+                on_game=lambda event: keep_icon(ctx.paths, title_id, event.get("icon")),
+            )
             if not result.ok:
                 if result.stopped:
                     raise _Stopped(result.error)
-                said = "\n".join([*result.said[-3:], *result.stderr[-20:]])
+                said = causes.told(result)
                 words = causes.words(result.cause, said, work)
                 if result.cause == "no_space":
-                    # Not the game's failure: tried again next time.
                     raise _Skipped(words or result.error, "no_space")
                 raise _Failed(words or result.error, result.cause)
-            # What is delivered is this build's IPA, never one an earlier build left.
-            after = _identity(out)
-            info = ipas.read_info(out) if after is not None and after != before else None
-            if info is None:
-                raise _Failed(t("batch.no_ipa", path=out), "no_ipa")
-            name = entry.ipa_name or ipas.file_name(result.game.get("name") or game.display_name, title_id)
-            self.on_event("message", title_id, t("batch.delivering", name=name))
-            writing = games_folder
-            ipas.deliver(out, games_folder, name, stop=stop, progress=lambda done, total: self.on_event("deliver", title_id, done / total))
-            build = Build(
+            info = macapps.read_info(out)
+            if info is None or info.title_id != title_id:
+                raise _Failed(t("mac.no_app", path=out), "no_app")
+            name = macapps.target_name(folder, title_id, str(result.game.get("name") or info.name or entry.game.display_name), entry.mac_name)
+            target = folder / name
+            if macapps.running(target):
+                # Its files stay as they are while it runs: the next batch
+                # makes the app again.
+                raise _Skipped(t("mac.running", name=name), "running")
+            self.on_event("message", title_id, t("mac.delivering", name=name, folder=folder))
+            self.on_event("progress", title_id, builds.Progress(stage="mac_deliver"))
+            writing = folder
+            macapps.deliver(out, folder, name, stop=stop)
+            build = MacBuild(
                 commit=info.commit or commit[:12],
                 built_at=now_iso(),
-                ipa=name,
-                size=(games_folder / name).stat().st_size,
+                app=name,
+                folder=str(folder),
+                size=macapps.size(target),
                 chain=info.chain or "",
                 fingerprint=print_,
                 toolchain=identity,
@@ -595,61 +761,15 @@ class Runner:
                 duration=result.duration,
                 dirty=info.dirty,
             )
-            ctx.store.built(title_id, build)
-            if not keep_ipa:
-                for leftover in (out, out.with_name(out.name + ".idx")):
-                    leftover.unlink(missing_ok=True)
+            ctx.store.mac_built(title_id, build)
             with self._lock:
-                self.summary.built.append((entry, build))
-            self.on_event("built", title_id, build)
-        # "failed" first: the attempt then says how it was recorded, and a
-        # game stopped or skipped shows so, not as failed (status.py).
-        except _Stopped as stopped:
-            self._ended(entry, "stopped", str(stopped), "stopped", {}, result, began, commit, print_, identity, log_path)
-        except _Skipped as skipped:
-            # Not the game's failure (no room, no keys, a full disk): tried again next time.
-            self._ended(entry, "skipped", str(skipped), skipped.cause, {}, result, began, commit, print_, identity, log_path)
-        except (_Failed, OSError, ValueError, RuntimeError, InterruptedError) as error:
-            if isinstance(error, _Failed):
-                message, cause, details = str(error), error.cause, {}
-            else:
-                message, cause, details = f"{type(error).__name__}: {error}", "builder", failure.describe(error)
-            if stop.is_set():
-                self._ended(entry, "stopped", message, "stopped", details, result, began, commit, print_, identity, log_path)
-            elif isinstance(error, OSError) and disks.is_full(error):
-                self._ended(entry, "skipped", disks.describe(error, writing), "no_space", details, result, began, commit, print_, identity, log_path)
-            else:
-                self._ended(entry, "failed", message, cause, details, result, began, commit, print_, identity, log_path)
+                self.summary.mac_built.append((entry, build))
+            self.on_event("mac_built", title_id, build)
+        except BaseException as error:
+            if not self._failure(entry, error, stop, result, began, commit, print_, identity, log_path, writing, mac=True):
+                raise
         finally:
-            if stop.taken_out:
-                queues.forget(ctx.paths, {title_id})
-            if dump is not None:
-                workspace.forget(dump)
-            limit = ctx.config.workspace_limit_gb
-            if limit:
-                with self._lock:
-                    workspace.trim(limit * 2**30, keep=self._batch_folders(workspace), log=lambda folder, size: self.log(t("batch.trimmed", folder=folder.name, gb=f"{size / 2**30:.1f}")))
-
-    def _ended(self, entry: Entry, how: str, message: str, cause: str, details: dict, result: builds.Result | None,
-               began: float, commit: str, print_: str, identity: str, log_path: Path) -> None:
-        """A game not built (HOW: "failed", "skipped" or "stopped"): why, as
-        a name, how long it took and nxnative's exit code for the app; the
-        attempt recorded at COMMIT, with its log when nxnative ran (or a
-        failure of the builder's own came after the checks)."""
-        title_id = entry.title_id
-        if how != "stopped":
-            with self._lock:
-                self.summary.failed.append((entry, message, log_path))
-        log = str(log_path) if how != "skipped" or result is not None else ""
-        why: dict = {"cause": cause, "seconds": round(time.monotonic() - began, 1)}
-        if result is not None and result.started:
-            why["exit"] = result.code
-            if cause == "crashed" and (exception := causes.exception_in(result.stderr)):
-                why["exception"] = exception
-        why.update(details)
-        self.on_event("cause", title_id, why)
-        self.on_event("failed", title_id, message)
-        self._record(title_id, attempt_now(commit[:12], how, message, print_, identity, log))
+            macapps.forget_built(out)
 
     # ---- nxnative's newest commit, when it does not build (fallback.py) ----
 
@@ -721,9 +841,12 @@ class Runner:
         self.on_event("engine", "", self._engine())
         return True
 
-    def _record(self, title_id: str, attempt: Attempt) -> None:
-        self.ctx.store.failed(title_id, attempt)
-        self.on_event("attempt", title_id, attempt)
+    def _record(self, title_id: str, attempt: Attempt, mac: bool = False) -> None:
+        if mac:
+            self.ctx.store.mac_failed(title_id, attempt)
+        else:
+            self.ctx.store.failed(title_id, attempt)
+        self.on_event("mac_attempt" if mac else "attempt", title_id, attempt)
 
     def _batch_folders(self, workspace: Workspace) -> set[Path]:
         return {workspace.build_folder(e.title_id) for e in self.entries}
@@ -746,6 +869,13 @@ class Runner:
                 self.log(t("batch.freed", folder=folder.name, gb=f"{size / 2**30:.1f}"))
                 room = free_gb(workspace.root)
         return room
+
+
+def _existing(path: Path) -> Path:
+    """PATH, or the nearest of its parents that exists."""
+    while not path.exists() and path != path.parent:
+        path = path.parent
+    return path
 
 
 class _Stop:

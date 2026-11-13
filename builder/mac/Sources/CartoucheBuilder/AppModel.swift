@@ -617,6 +617,8 @@ final class AppModel: ObservableObject {
     private func batchEnded(_ status: BatchStatus) {
         let built = status.games.filter { $0.state == "built" }
         let failed = status.games.filter { $0.state == "failed" }
+        // Built, but not for this Mac: its Mac app failed after its IPA.
+        let macFailed = status.games.filter { $0.shownMacError != nil && $0.mac == "failed" }
         report(status)
         if config?.notifications ?? true, !built.isEmpty || !failed.isEmpty {
             var lines: [String] = []
@@ -626,7 +628,10 @@ final class AppModel: ObservableObject {
             if !failed.isEmpty {
                 lines.append(tr("Failed: ", "Échecs : ") + failed.map(\.name).joined(separator: ", "))
             }
-            let title = failed.isEmpty
+            if !macFailed.isEmpty {
+                lines.append(tr("Mac app failed: ", "App Mac en échec : ") + macFailed.map(\.name).joined(separator: ", "))
+            }
+            let title = failed.isEmpty && macFailed.isEmpty
                 ? tr("Your games are ready", "Vos jeux sont prêts")
                 : tr("Builds ended, with failures", "Constructions terminées, avec des échecs")
             notify(title: title, body: lines.joined(separator: "\n"), section: .activity)
@@ -722,7 +727,8 @@ final class AppModel: ObservableObject {
             do {
                 let answer = try await engine.setConfig(changes)
                 apply(answer)
-                let refolded = ["sources", "games", "keys", "workspace", "unprofiled", "skip", "aliases", "engine_policy", "refresh_days"]
+                let refolded = ["sources", "games", "keys", "workspace", "unprofiled", "skip", "aliases", "engine_policy", "refresh_days",
+                                "ios", "mac", "skip_ios", "skip_mac", "mac_apps"]
                 if changes.keys.contains(where: refolded.contains) {
                     await refreshLibrary(update: false)
                 }
@@ -746,6 +752,59 @@ final class AppModel: ObservableObject {
             } catch {
                 show(error, origin: "follow")
             }
+        }
+    }
+
+    /// Builds GAME for PLATFORM ("ios", its IPA, or "mac", its app for this
+    /// Mac) again, or no longer; what was built stays where it is.
+    func setPlatform(_ game: Game, _ platform: String, _ on: Bool) {
+        guard !sample, let engine else { return }
+        Task {
+            do {
+                _ = try await engine.platform(game.titleID, platform, on)
+                await loadConfig()
+                await refreshLibrary(update: false)
+                if storage != nil { await loadStorage() }
+            } catch {
+                show(error, origin: "platform")
+            }
+        }
+    }
+
+    /// Puts the game's Mac app in the Trash, never while the game runs from
+    /// it, and builds the game no longer for this Mac (no longer at all,
+    /// when it was built for this Mac alone): its saves stay on the Mac.
+    func removeMacApp(_ app: MacAppCopy) {
+        guard !sample else { return }
+        let url = URL(fileURLWithPath: app.path)
+        if NSWorkspace.shared.runningApplications.contains(where: { $0.bundleURL?.standardizedFileURL == url.standardizedFileURL }) {
+            banner = Banner(kind: .error, text: tr("Quit \(app.name) first: it is open on this Mac.", "Quittez d’abord \(app.name) : il est ouvert sur ce Mac."))
+            return
+        }
+        Task {
+            do {
+                try FileManager.default.trashItem(at: url, resultingItemURL: nil)
+            } catch {
+                show(error, origin: "trash")
+                return
+            }
+            telemetry.event("builder.cleaned", fields: ["what": .text("mac_app"), "items": .count(1),
+                                                        "freedMB": .number((Double(app.size) / 1_000_000).rounded())])
+            if let engine, config?.onMac(app.titleID) ?? app.on {
+                do {
+                    if config?.onIOS(app.titleID) ?? true {
+                        _ = try await engine.platform(app.titleID, "mac", false)
+                    } else {
+                        try await engine.follow(app.titleID, false)
+                    }
+                } catch {
+                    show(error, origin: "platform")
+                }
+            }
+            banner = Banner(kind: .info, text: tr("\(app.name) is in the Trash.", "\(app.name) est dans la Corbeille."))
+            await loadConfig()
+            await loadStorage()
+            await refreshLibrary(update: false)
         }
     }
 

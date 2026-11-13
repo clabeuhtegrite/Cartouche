@@ -12,6 +12,12 @@ nsp/ (NSZ and XCZ packages converted, as big as them), shader/ (the shader
 caches: hours to make again for a large game), ipa/ (the app's build
 products) and smaller ones. Only folders and files named as the builder and
 nxnative name them, inside a workspace, are ever removed.
+
+The games' Mac apps (macapps.py) are listed with their size, where the
+builder put them; the app removes one (to the Trash), never the engine. On
+the build folders' disk an app's large files are clones of its build
+folder's extracted files, sharing their blocks while those are kept
+(keep_extracted): removing one of the two then frees little.
 """
 
 from __future__ import annotations
@@ -22,9 +28,10 @@ import time
 from pathlib import Path
 
 from . import config as configs
+from . import macapps
 from .library import walk_size
 from .paths import Paths
-from .workspace import NOTES, Workspace, remove_tree, same_volume
+from .workspace import NOTES, Workspace, drop_extracted, same_volume
 
 # A build folder's parts, by the name of its folder in it; any other is "other".
 PARTS = {
@@ -38,9 +45,6 @@ PARTS = {
     "tmp": "temporary",
 }
 CATEGORIES = ("extracted", "packages", "shaders", "app", "temporary", "other")
-# What "free the extracted files" removes from a build folder: made again by
-# the next build, in minutes.
-EXTRACTED = ("extract", "extract.partial", "exefs.partial", "tmp")
 KEPT_IPA_SUFFIXES = (".ipa", ".ipa.idx", ".ipa.partial")
 
 
@@ -101,8 +105,41 @@ def kept_ipas(root: Path) -> list[Path]:
         return []
 
 
-def survey(config: configs.Config, paths: Paths, names: dict[str, str] | None = None) -> dict:
-    """Everything the builder keeps, with its size."""
+def mac_apps(config: configs.Config, paths: Paths, records: dict | None, names: dict[str, str]) -> list[dict]:
+    """The games' Mac apps the builder made that are still where it put
+    them (each game's record says where), with their size."""
+    found = []
+    workspace = config.workspace_path(paths)
+    for title_id, record in sorted((records or {}).items()):
+        built = record.mac
+        path = built.path if built else None
+        if path is None or not path.is_dir() or not macapps.is_games(path, title_id):
+            continue
+        found.append({
+            "path": str(path),
+            "title_id": title_id,
+            "name": names.get(title_id, "") or built.name,
+            "size": macapps.size(path),
+            "on": config.on_mac(title_id),
+            "built_at": built.built_at,
+            # On the build folders' disk its large files are clones of its
+            # build folder's extracted files, which share their blocks while
+            # they are kept.
+            "shares_build": workspace.exists() and same_volume(path, workspace) and _extracted(Workspace(workspace).build_folder(title_id)),
+        })
+    found.sort(key=lambda a: a["size"], reverse=True)
+    return found
+
+
+def _extracted(folder: Path) -> bool:
+    """Whether the build folder FOLDER keeps the game's extracted files,
+    those its Mac app's RomFS is a clone of."""
+    return (folder / "extract").is_dir()
+
+
+def survey(config: configs.Config, paths: Paths, names: dict[str, str] | None = None, records: dict | None = None) -> dict:
+    """Everything the builder keeps, with its size; RECORDS, the games'
+    records (state.Store.all()), say where their Mac apps are."""
     names = names or {}
     games = config.path("games")
     folders, copies = [], []
@@ -147,19 +184,23 @@ def survey(config: configs.Config, paths: Paths, names: dict[str, str] | None = 
         "icons": walk_size(paths.icons) if paths.icons.exists() else 0,
     }
     workspace = config.workspace_path(paths)
+    apps = mac_apps(config, paths, records, names)
     return {
         "workspace": str(workspace),
         "disks": {
             "workspace": disk(workspace),
             "games": disk(games),
             "sources": disk(config.path("sources")),
+            "mac_apps": disk(config.mac_apps_path()) if apps or config.mac else None,
         },
         "folders": folders,
         "ipa_copies": copies,
+        "mac_apps": apps,
         "totals": {
             **totals,
             "ipa_copies": sum(c["size"] for c in copies),
             "ipa_copies_freeable": sum(c["size"] for c in copies if not c["same_disk"]),
+            "mac_apps": sum(a["size"] for a in apps),
             **builder,
         },
         "settings": {
@@ -203,13 +244,9 @@ def clean(config: configs.Config, paths: Paths, what: str, targets: list[str]) -
     if what == "extracted":
         folders = [_own_folder(Path(t), roots) for t in targets] if targets else [f for r in roots for f in Workspace(r).own_folders()]
         for folder in folders:
-            for name in EXTRACTED:
-                part = folder / name
-                if part.exists() and not part.is_symlink():
-                    size = walk_size(part) if part.is_dir() else _size(part)
-                    remove_tree(part)
-                    freed += size
-                    removed.append(str(part))
+            for part, size in drop_extracted(folder):
+                freed += size
+                removed.append(str(part))
     elif what == "ipa_copies":
         copies = [_own_copy(Path(t), roots) for t in targets] if targets else [c for r in roots for c in kept_ipas(r)]
         for ipa in copies:

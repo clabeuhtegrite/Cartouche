@@ -21,6 +21,8 @@ class Disks(unittest.TestCase):
         self.assertTrue(disks.is_full(OSError(errno.ENOSPC, "No space left on device")))
         self.assertTrue(disks.is_full("cp: write error: No space left on device"))
         self.assertTrue(disks.is_full("less than 32 GB free on the volume of /Users/player/Builder"))
+        # nxnative's Mac app packer, on a disk where it cannot clone the game's files.
+        self.assertTrue(disks.is_full("the app needs 12.3 GB on the volume of /Volumes/Games SSD/Builds/.cartouche-builder/out (no APFS clones from the build there) and 5.0 GB are free"))
         self.assertTrue(disks.is_full("error: couldn't write: [Errno 28] No space left on device"))
         self.assertFalse(disks.is_full(OSError(errno.ENOENT, "No such file or directory")))
         self.assertFalse(disks.is_full("the fake build failed on purpose"))
@@ -29,6 +31,10 @@ class Disks(unittest.TestCase):
     def test_the_disk_a_message_names(self):
         self.assertEqual(disks.path_in("[Errno 28] No space left on device: '/Volumes/NAS/Games/x.ipa'"), Path("/Volumes/NAS/Games/x.ipa"))
         self.assertEqual(disks.path_in("less than 5 GB free on the volume of /Users/player/out"), Path("/Users/player/out"))
+        packer = "the app needs 12.3 GB on the volume of /Volumes/Games SSD/Builds/.cartouche-builder/out (no APFS clones from the build there) and 5.0 GB are free"
+        self.assertEqual(disks.path_in(packer), Path("/Volumes/Games SSD/Builds/.cartouche-builder/out"))
+        with mock.patch.object(disks, "free_bytes", return_value=5_000_000_000):
+            self.assertEqual(disks.message(None, packer), "nxnative needs 12 GB free on the disk “Games SSD” to build this game, and 5.0 GB are left. Free some room on it, then try again.")
         self.assertIsNone(disks.path_in("fatal: write error: No space left on device"))
         # nxnative's traceback names its own code, on the Mac's disk: never the
         # disk that filled up (an external drive with the build folders).
@@ -86,8 +92,8 @@ class Causes(unittest.TestCase):
     def tearDown(self):
         i18n.set_language("en")
 
-    def result(self, code=1, stage="", said=(), stderr=(), stopped=False) -> Result:
-        return Result(code=code, ok=False, stage=stage, said=list(said), stderr=list(stderr), stopped=stopped)
+    def result(self, code=1, stage="", said=(), stderr=(), stopped=False, tail="") -> Result:
+        return Result(code=code, ok=False, stage=stage, said=list(said), stderr=list(stderr), stopped=stopped, tail=tail)
 
     def test_the_cause_of_a_build(self):
         self.assertEqual(causes.of_build(self.result(stopped=True, code=130)), "stopped")
@@ -101,6 +107,11 @@ class Causes(unittest.TestCase):
         self.assertEqual(causes.of_build(self.result(stage="app build", said=["xcodebuild failed (exit 65)"])), "app_build")
         self.assertEqual(causes.of_build(self.result(stderr=["Traceback (most recent call last):", '  File "x.py", line 1', "KeyError: 'icon'"])), "crashed")
         self.assertEqual(causes.of_build(self.result(said=["no game package with a readable content meta in /x"])), "nxnative")
+        # A tool's own words, in the last lines of the step that failed:
+        # the Mac app's packer finding no room for a copy of the game.
+        packer = "---- last lines of /x/logs/mac_app.log ----\nthe app needs 12.3 GB on the volume of /x/out (no APFS clones from the build there) and 0.4 GB are free"
+        self.assertEqual(causes.of_build(self.result(stage="Mac app", said=["pack_app.py exit code 1 (full output: /x/logs/mac_app.log)"], tail=packer)), "no_space")
+        self.assertEqual(causes.of_build(self.result(stage="Mac app", said=["pack_app.py exit code 1 (full output: /x/logs/mac_app.log)"])), "nxnative")
         missing = Result(code=-1, ok=False, started=False)
         self.assertEqual(causes.of_build(missing), "no_start")
 

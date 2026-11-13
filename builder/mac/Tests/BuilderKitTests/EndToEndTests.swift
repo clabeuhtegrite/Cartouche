@@ -33,6 +33,9 @@ private struct TestWorld: Decodable {
     var python: String
     var sources: String
     var games: String
+    /// The Mac apps folder its settings name, in the world: never the
+    /// Mac's own Applications folder.
+    var applications: String
     var head: String
     /// What the engine's processes need beside what Engine gives them.
     var environment: [String: String]
@@ -151,6 +154,9 @@ final class EndToEndTests: XCTestCase {
         for game in status.games {
             XCTAssertEqual(game.commit, commit, game.titleID)
             XCTAssertEqual(game.fallback, false, game.titleID)
+            // Its app for this Mac too, as every game's by default, after its IPA.
+            XCTAssertEqual(game.mac, "built", game.titleID)
+            XCTAssertNil(game.shownMacError, game.titleID)
         }
         let after = try await engine.library(update: false)
         XCTAssertTrue(after.due.isEmpty)
@@ -158,8 +164,17 @@ final class EndToEndTests: XCTestCase {
             XCTAssertEqual(game.state, .upToDate, game.titleID)
             XCTAssertEqual(game.ipa?.present, true, game.titleID)
             XCTAssertEqual(game.build?.commit, commit, game.titleID)
+            XCTAssertEqual(game.onIOS, true, game.titleID)
+            XCTAssertEqual(game.onMac, true, game.titleID)
+            XCTAssertEqual(game.mac?.due, false, game.titleID)
+            XCTAssertEqual(game.mac?.app?.present, true, game.titleID)
+            XCTAssertEqual(game.mac?.build?.commit, commit, game.titleID)
+            XCTAssertEqual(game.mac?.app.map { URL(fileURLWithPath: $0.path).deletingLastPathComponent().path }, world.applications, game.titleID)
         }
-        _ = try await engine.storage()
+        // The Mac apps the builder put on this Mac, as the Storage page lists them.
+        let storage = try await engine.storage()
+        XCTAssertEqual(Set(storage.apps.map(\.titleID)), Set(world.titles.keys))
+        XCTAssertEqual(Set(storage.apps.map(\.on)), [true])
 
         // The bridge, as the app opens it: the games folder and the saves.
         let server = BridgeServer(devices: BridgeDevices(url: home.bridge), name: "Mac des tests")
