@@ -1,0 +1,139 @@
+name: TV screens
+
+# Research only (the TV mode's thread), removed before the merge: the
+# screenshots of the cover over the game (#165), in French, from the
+# launcher's harness in the iOS Simulator, for Ad to validate. The test
+# (.github/tv-screens/TVScreensCapture.swift) runs alone; its screenshots go
+# to the run's artifact, and in one commit to .github/tv-screens/captures on
+# this branch, which starts no workflow (GITHUB_TOKEN).
+
+on:
+  push:
+    branches: [claude/project-thread-ft8747]
+    paths:
+      - ".github/tv-screens/TVScreensCapture.swift"
+      - ".github/workflows/tv-screens.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: tv-screens
+  cancel-in-progress: true
+
+env:
+  XCODE_VERSION: "27.2"
+
+jobs:
+  capture:
+    name: Cover screenshots
+    runs-on: xcode-27
+    timeout-minutes: 45
+    env:
+      HOMEBREW_NO_AUTO_UPDATE: "1"
+      HOMEBREW_NO_INSTALL_CLEANUP: "1"
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Check out LiveContainer
+        run: git submodule update --init app/LiveContainer
+      - name: Select Xcode
+        run: |
+          sudo xcode-select -s "/Applications/Xcode_${XCODE_VERSION}.app"
+          xcodebuild -version
+      - name: Install XcodeGen
+        run: brew install xcodegen
+      # The iPhone that harness.sh picks, the same way, booted in French.
+      - name: The iPhone, in French
+        run: |
+          UDID="$(python3 - <<'PY'
+          import json, subprocess, sys
+
+          def listing(*args):
+              return json.loads(subprocess.run(["xcrun", "simctl", "list", "-j", *args], check=True,
+                                               capture_output=True, text=True).stdout)
+
+          def release(runtime):
+              try:
+                  return tuple(int(n) for n in runtime.get("version", "0").split("."))
+              except ValueError:
+                  return (0,)
+
+          runtimes = [r for r in listing("runtimes")["runtimes"]
+                      if r.get("isAvailable", True) and r.get("platform", "iOS") == "iOS"]
+          if not runtimes:
+              sys.exit("no iOS runtime")
+          runtime = max(runtimes, key=lambda r: (release(r), -len(r["identifier"])))
+          iphones = [t for t in runtime.get("supportedDeviceTypes", []) if t.get("productFamily", "iPhone") == "iPhone"
+                     and t.get("name", "").startswith("iPhone")]
+          wanted = next((t for t in iphones if t["name"] == "iPhone 17 Pro"), iphones[-1] if iphones else None)
+          if wanted is None:
+              sys.exit(f"{runtime['identifier']} runs no iPhone")
+          for device in listing("devices", "available")["devices"].get(runtime["identifier"], []):
+              if device.get("deviceTypeIdentifier") == wanted["identifier"]:
+                  print(device["udid"])
+                  break
+          else:
+              print(subprocess.run(["xcrun", "simctl", "create", "Cartouche Harness " + wanted["name"], wanted["identifier"],
+                                    runtime["identifier"]], check=True, capture_output=True, text=True).stdout.strip())
+          print(f"   {wanted['name']}, iOS {runtime.get('version', '?')} ({runtime.get('buildversion', '?')})", file=sys.stderr)
+          PY
+          )"
+          echo "UDID=$UDID" >> "$GITHUB_ENV"
+          xcrun simctl bootstatus "$UDID" -b
+          xcrun simctl spawn "$UDID" defaults write -g AppleLanguages -array fr
+          xcrun simctl spawn "$UDID" defaults write -g AppleLocale -string fr_FR
+          xcrun simctl spawn "$UDID" defaults read -g AppleLanguages
+      - name: The cover's screenshots
+        run: |
+          cp .github/tv-screens/TVScreensCapture.swift launcher/Harness/Tests/
+          launcher/Harness/harness.sh build/harness CartoucheHarnessTests/TVScreensCapture
+      - name: Collect them
+        if: ${{ !cancelled() }}
+        run: |
+          mkdir -p build/tv-screens
+          DATA="$(xcrun simctl get_app_container "$UDID" io.github.clabeuhtegrite.cartouche.harness data)"
+          cp "$DATA"/Library/Logs/Screens/*.png build/tv-screens/
+          ls -l build/tv-screens
+          grep -h "tv-screens:" build/harness/test.log || true
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        if: ${{ !cancelled() }}
+        with:
+          name: tv-screens
+          path: |
+            build/tv-screens
+            build/harness/failures.txt
+            build/harness/console.txt
+          retention-days: 7
+          if-no-files-found: warn
+
+  push:
+    name: Commit them on the branch
+    needs: capture
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # .github/tv-screens/captures on this branch
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
+        with:
+          name: tv-screens
+          path: downloaded
+      - name: Commit and push them
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BRANCH: ${{ github.ref_name }}
+        run: |
+          ls -R downloaded
+          mkdir -p .github/tv-screens/captures
+          cp downloaded/tv-screens/*.png .github/tv-screens/captures/
+          git add .github/tv-screens/captures
+          git -c user.name="github-actions[bot]" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" \
+            commit -q -m "TV mode: the cover's screenshots, from run $GITHUB_RUN_ID (research, removed before the merge)"
+          gh auth setup-git
+          # Fails, rather than overwrite, if the branch has moved since.
+          git push -q "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY.git" "HEAD:refs/heads/$BRANCH"
+          echo "Pushed to $BRANCH"
