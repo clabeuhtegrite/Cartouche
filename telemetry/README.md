@@ -53,9 +53,9 @@ Every report carries `schema` (1), `kind`, a random `id` of its own, `seq`, the 
 | `nxnative`, `nxnativeChanged` | The nxnative commit the game was built from, its first 12 digits, and whether the build had changes of its own. |
 | `settings` | The game's nxnative settings, `DM_` keys only, with values of up to 32 letters, digits and `._:+-`. |
 | `minutes` | How long the session lasted: from when its log was created to its last line. |
-| `reader` | Which reading of nxnative's log made the measures (`CartoucheGameLogReader.version`). |
+| `reader` | Which reading of nxnative's log made the measures (`CartoucheGameLogReader.version`). From 2, the frame rate leaves out the stretches that held a pause. |
 | `frames`, `targetFps` | The last frame counted, and the frame rate the game asked for. |
-| `fps` | `median` and `low5`, the frame rate of the slowest 5% of the time, weighted by time. |
+| `fps` | `median` and `low5`, the frame rate of the slowest 5% of the time, weighted by time: the rate of each stretch of 300 frames, timed by the clock as nxnative's power line times it. From reading 2, a stretch with a frame of a second or more is left out: it held a pause, the game left behind the console, Cartouche in the background or a freeze, and its rate says nothing of how the game ran. |
 | `frameMs`, `gpuMs` | Milliseconds per frame and of GPU work: `p50`, `p95`, `p99`. |
 | `overTargetPercent`, `droppedPercent` | Frames longer than one frame at the target rate; frames shown late or not shown. |
 | `stutters` | Frames clearly longer than those before them: `count`, `perMinute`, and what they waited for: `shaders`, `textures`, `other`. |
