@@ -4,10 +4,13 @@
 //
 //  The screen of a game behind the console on an iPad, which turns
 //  Cartouche's scenes as it is held, whatever a game allows (Apple's
-//  TN3192): the screen keeps the way it is turned once the game allows it,
-//  turns from one side to the other as the iPad does, lets go while the
-//  console shows, and asks the player to turn an iPad held upright
-//  sideways (CartoucheGameOrientations, CartoucheGameScreen.followTurns).
+//  TN3192). For a game made to be played sideways there, as nxnative's
+//  built before 4 November 2026 are, the screen keeps the way it is turned
+//  once the game allows it, turns from one side to the other as the iPad
+//  does, lets go while the console shows, and asks the player to turn an
+//  iPad held upright sideways (CartoucheGameOrientations,
+//  CartoucheGameScreen.followTurns); one nxnative built since, which turns
+//  every way on an iPad, turns with it.
 //  The launcher's words call the iPad the iPad (CartoucheDeviceWords).
 //  They run on an iPad, the harness's second pass (harness.sh --ipad); on
 //  an iPhone, which turns the screen itself, only the iPhone's test runs.
@@ -128,6 +131,29 @@ final class IPadTests: HarnessCase {
         try await turn(held: .landscapeLeft)
         XCTAssertFalse(screen.keepsTurn)
         XCTAssertFalse(shows(CartoucheText.turnIPadSideways, in: screen.view))
+    }
+
+    /// A game nxnative built since e2fadf2 (4 November 2026) lists every way
+    /// for an iPad, with a layout for an upright screen, and the two sideways
+    /// ones for an iPhone: on an iPad, it shows upright as the iPad is held,
+    /// turns with it, keeps no way and asks nothing.
+    func testAGameOfNovemberTurnsWithTheIPad() async throws {
+        try XCTSkipUnless(onIPad, "on an iPad: harness.sh --ipad")
+        var game = HarnessGame.plain()
+        game.orientationsOnIPad = ["UIInterfaceOrientationPortrait", "UIInterfaceOrientationPortraitUpsideDown",
+                                   "UIInterfaceOrientationLandscapeLeft", "UIInterfaceOrientationLandscapeRight"]
+        HarnessLC.screenTurned = .portrait
+        HarnessLC.deviceHeld = .portrait
+        let (_, scene) = try await started(game)
+        let screen = try gameScreen(of: scene)
+        XCTAssertEqual(screen.supportedInterfaceOrientations, .all)
+        XCTAssertFalse(screen.keepsTurn)
+        XCTAssertFalse(shows(CartoucheText.turnIPadSideways, in: screen.view), "upright, as nxnative lays it out")
+        try await turn(held: .landscapeLeft, turned: .landscapeLeft)
+        XCTAssertFalse(screen.keepsTurn, "it turns with the iPad")
+        if #available(iOS 26.0, *) {
+            XCTAssertFalse(screen.prefersInterfaceOrientationLocked)
+        }
     }
 
     /// The launcher's words call the iPad the iPad, as its model says.

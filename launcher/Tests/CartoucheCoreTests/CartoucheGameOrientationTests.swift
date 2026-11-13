@@ -36,7 +36,8 @@ final class CartoucheGameOrientationTests: XCTestCase {
 
     /// An nxnative game is made to be played sideways (dm/ios/project.yml):
     /// its Info.plist, binary once LiveContainer has written it again, says
-    /// so. LiveContainer's own settings for the game, beside it, name no
+    /// so, for an iPad too when nxnative built it before e2fadf2 (4 November
+    /// 2026). LiveContainer's own settings for the game, beside it, name no
     /// orientation, and once let it turn upright with the iPhone.
     func testAnNxnativeGameTurnsSidewaysOnly() throws {
         try write(["LCDataUUID": "A1B2C3D4", "LCOrientationLock": 0, "isJITNeeded": false],
@@ -47,6 +48,31 @@ final class CartoucheGameOrientationTests: XCTestCase {
                   as: "Info.plist")
         XCTAssertEqual(CartoucheGameOrientations(bundle: bundle, isPad: false), .landscape)
         XCTAssertEqual(CartoucheGameOrientations(bundle: bundle, isPad: true), .landscape)
+    }
+
+    /// Since e2fadf2 (4 November 2026), nxnative lists every way for an
+    /// iPad (UISupportedInterfaceOrientations~ipad), where it lays an
+    /// upright screen out for the game, and still the two sideways ones for
+    /// an iPhone: on an iPad, such a game turns with the iPad, keeps no way
+    /// and asks nothing.
+    func testAnNxnativeGameOfNovemberTurnsWithTheIPad() throws {
+        try write(["CFBundleIdentifier": "org.nxnative.09d00e8a5d61a000", "UIRequiresFullScreen": true,
+                   "UISupportedInterfaceOrientations": ["UIInterfaceOrientationLandscapeRight",
+                                                        "UIInterfaceOrientationLandscapeLeft"],
+                   "UISupportedInterfaceOrientations~ipad": ["UIInterfaceOrientationPortrait",
+                                                             "UIInterfaceOrientationPortraitUpsideDown",
+                                                             "UIInterfaceOrientationLandscapeLeft",
+                                                             "UIInterfaceOrientationLandscapeRight"]],
+                  as: "Info.plist")
+        XCTAssertEqual(CartoucheGameOrientations(bundle: bundle, isPad: false), .landscape)
+        let game = CartoucheGameOrientations(bundle: bundle, isPad: true)
+        XCTAssertEqual(game, iPad)
+        for current in [CartoucheGameOrientations.portrait, .portraitUpsideDown, .landscapeLeft, .landscapeRight] {
+            for held in [CartoucheGameOrientations.portrait, .landscapeLeft, []] {
+                XCTAssertFalse(game.keeps(current, held: held, isPad: true), "turned \(current.rawValue), held \(held.rawValue)")
+            }
+            XCTAssertFalse(game.asksToTurnSideways(current, isPad: true), "turned \(current.rawValue)")
+        }
     }
 
     /// As iOS reads them: the iPhone's or the iPad's own list first, else
@@ -98,9 +124,10 @@ final class CartoucheGameOrientationTests: XCTestCase {
     }
 
     /// On an iPad, which turns the game's screen as it is held, whatever
-    /// the game allows, and turned nxnative's games upright mid-game: an
-    /// nxnative game, sideways only, keeps the way it is turned once it is
-    /// sideways, as the iPad tilts upright, upside down or lies flat.
+    /// the game allows, and turned nxnative's games built before 4 November
+    /// upright mid-game: a game sideways only there keeps the way it is
+    /// turned once it is sideways, as the iPad tilts upright, upside down or
+    /// lies flat.
     func testAGameMadeToBePlayedSidewaysStaysSidewaysOnAnIPad() {
         let game = CartoucheGameOrientations.landscape
         for current in [CartoucheGameOrientations.landscapeLeft, .landscapeRight] {
