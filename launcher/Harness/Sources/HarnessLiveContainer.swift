@@ -107,6 +107,16 @@ enum HarnessLC {
     static var renewalTime: TimeInterval = 0.2
     /// When Cartouche asked SideStore to renew it, in order.
     static var renewals: [Date] = []
+    /// The renewal SideStore holds without answering
+    /// (HarnessSideStore.Renewal.hangs).
+    static var heldRenewal: (() -> Void)?
+
+    /// SideStore answers the renewal it held: Cartouche renewed.
+    static func endHeldRenewal() {
+        let held = heldRenewal
+        heldRenewal = nil
+        held?()
+    }
 
     static let appGroupID = "group.io.github.clabeuhtegrite.cartouche.harness"
 
@@ -152,6 +162,8 @@ enum HarnessLC {
     /// folder, nothing in the app group, nothing signed or started, and the
     /// harness's defaults.
     static func reset() {
+        // A renewal a test left held ends before anything else goes.
+        endHeldRenewal()
         let fileManager = FileManager.default
         for folder in [LCPath.docPath, fileManager.temporaryDirectory, appGroup] {
             for item in (try? fileManager.contentsOfDirectory(at: folder, includingPropertiesForKeys: nil)) ?? [] {

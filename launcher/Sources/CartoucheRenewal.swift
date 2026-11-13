@@ -200,6 +200,14 @@ final class CartoucheRenewals: ObservableObject {
     /// launches.
     static let lastTryKey = "Cartouche.renewal.automatic.last"
 
+    /// How long an update, a sign-in or the registration of this iPhone
+    /// waits for the renewal under way before it goes on: three minutes,
+    /// when the longest renewal the measurements saw in the week of
+    /// November 10 took 71 seconds. A renewal that never ends, SideStore no
+    /// longer answering, holds them up no longer: SideStore, still at it,
+    /// may then refuse them, and Cartouche says why.
+    var waitLimit: TimeInterval = 180
+
     private init() {}
 
     /// Whether LocalDevVPN is connected: always in the simulator, which has
@@ -260,17 +268,22 @@ final class CartoucheRenewals: ObservableObject {
 
     /// Runs ACTION, which hands the built-in SideStore an action, once no
     /// renewal is under way: at once when none is, otherwise once it has
-    /// ended, three minutes at most. WHAT names the action in the journal.
+    /// ended, or after `waitLimit` at most. WHAT names the action in the
+    /// journal.
     func afterRenewal(_ what: String, _ action: @escaping @MainActor () -> Void) {
         guard isRenewing else {
             action()
             return
         }
         CartoucheReports.note(what + ": waiting for the renewal under way")
+        let limit = waitLimit
         Task {
             let started = Date()
-            while isRenewing, Date().timeIntervalSince(started) < 180 {
+            while isRenewing, Date().timeIntervalSince(started) < limit {
                 try? await Task.sleep(for: .milliseconds(250))
+            }
+            if isRenewing {
+                CartoucheReports.note(what + ": the renewal under way has not ended after \(Int(limit)) s, going on")
             }
             action()
         }

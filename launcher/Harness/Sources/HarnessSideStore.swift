@@ -9,7 +9,7 @@
 //  reads its expiry from (CartoucheSignature). Here SideStore renews as a
 //  test says (HarnessLC.renewal): it records each call, takes
 //  HarnessLC.renewalTime, then records the new expiry and answers, or
-//  fails with SideStore's words.
+//  fails with SideStore's words, or answers only when the test lets it.
 //
 
 import Foundation
@@ -21,6 +21,10 @@ enum HarnessSideStore {
         case renews(days: Double)
         /// SideStore fails with this message, Cartouche not renewed.
         case fails(String)
+        /// SideStore no longer answers, until the test lets it
+        /// (HarnessLC.endHeldRenewal), which renews Cartouche for seven
+        /// days.
+        case hangs
     }
 
     /// Records Cartouche's signature as expiring DAYS from now, as SideStore
@@ -50,6 +54,14 @@ final class HarnessRefresh: NSObject {
         let renewal = HarnessLC.renewal
         progress.totalUnitCount = 100
         progress.completedUnitCount = 10
+        if renewal == .hangs {
+            HarnessLC.heldRenewal = {
+                HarnessSideStore.record(expiringIn: 7)
+                progress.completedUnitCount = 100
+                completion(nil)
+            }
+            return
+        }
         DispatchQueue.main.asyncAfter(deadline: .now() + HarnessLC.renewalTime) {
             switch renewal {
             case .renews(let days):
@@ -58,6 +70,8 @@ final class HarnessRefresh: NSObject {
                 completion(nil)
             case .fails(let message):
                 completion(message)
+            case .hangs:
+                break
             }
         }
     }

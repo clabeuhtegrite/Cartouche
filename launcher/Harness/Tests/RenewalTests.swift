@@ -6,10 +6,11 @@
 //  its signature, and Renew now (CartoucheRenewals in CartoucheRenewal.swift,
 //  CartoucheRenewalRules.swift), through the built-in SideStore's renewal
 //  as the harness stands it in (HarnessSideStore.swift); SideStore's other
-//  actions, which wait for a renewal under way; and what the measurements
-//  say of a renewal.
+//  actions, which wait for a renewal under way, three minutes at most; and
+//  what the measurements say of a renewal.
 //
 
+import SwiftUI
 import UIKit
 import XCTest
 @testable import CartoucheHarness
@@ -19,8 +20,15 @@ final class RenewalTests: HarnessCase {
     private var setup: CartoucheSetup { CartoucheSetup.shared }
     private var telemetry: CartoucheTelemetry { CartoucheTelemetry.shared }
 
+    /// A screen of Cartouche's, in a window of its own: see showScreen().
+    private var screen: UIWindow?
+
     override func tearDown() async throws {
+        screen?.isHidden = true
+        screen?.rootViewController = nil
+        screen = nil
         // Nothing left under way for the test after.
+        HarnessLC.endHeldRenewal()
         try await waitUntil("no renewal is under way") { !self.renewals.isRenewing }
         try await super.tearDown()
     }
@@ -39,6 +47,25 @@ final class RenewalTests: HarnessCase {
 
     private func renewalEnds(file: StaticString = #filePath, line: UInt = #line) async throws {
         try await waitUntil("the renewal ended", file: file, line: line) { !self.renewals.isRenewing }
+    }
+
+    /// Shows a screen of Cartouche's as the games page, the guide and the
+    /// setup are: it reads the setup as it appears and each time Cartouche
+    /// comes back to the front (CartoucheSetupRefresh), and Cartouche then
+    /// renews itself when it is due. Under the console's window.
+    private func showScreen(file: StaticString = #filePath, line: UInt = #line) throws {
+        let scene = try XCTUnwrap(UIApplication.shared.connectedScenes.lazy.compactMap { $0 as? UIWindowScene }.first,
+                                  "the harness's scene", file: file, line: line)
+        let window = UIWindow(windowScene: scene)
+        window.windowLevel = UIWindow.Level(rawValue: UIWindow.Level.normal.rawValue - 1)
+        window.rootViewController = UIHostingController(rootView: Color.clear.modifier(CartoucheSetupRefresh()))
+        window.isHidden = false
+        screen = window
+    }
+
+    /// Cartouche comes back to the front, as iOS tells it.
+    private func comeBack() {
+        NotificationCenter.default.post(name: UIApplication.didBecomeActiveNotification, object: nil)
     }
 
     // MARK: By itself
@@ -142,6 +169,47 @@ final class RenewalTests: HarnessCase {
         XCTAssertEqual(CartoucheSignature.current().daysLeft, 6)
     }
 
+    /// The same, as the player sees it: a renewal that failed as a screen
+    /// of Cartouche's appeared is not tried again each time Cartouche comes
+    /// back to the front, but six hours after the try, whose date Cartouche
+    /// keeps across launches.
+    func testARenewalThatFailedAtTheFrontIsNotTriedAgainForSixHours() async throws {
+        try await setUpCartouche()
+        HarnessSideStore.record(expiringIn: 1.5)
+        HarnessLC.renewal = .fails("Could not find the provisioning profile.")
+        try showScreen()
+        try await waitUntil("Cartouche renewed itself as its screen appeared") { HarnessLC.renewals.count == 1 }
+        try await renewalEnds()
+        XCTAssertNotNil(renewals.report)
+        let tried = try XCTUnwrap(UserDefaults.standard.object(forKey: CartoucheRenewals.lastTryKey) as? Date,
+                                  "in Cartouche's defaults, kept across launches")
+        XCTAssertLessThan(abs(tried.timeIntervalSinceNow), 60)
+
+        for _ in 0..<5 {
+            comeBack()
+            try await pause(0.1)
+        }
+        try await pause(0.3)
+        XCTAssertEqual(HarnessLC.renewals.count, 1, "not each time Cartouche comes back")
+        XCTAssertFalse(renewals.isRenewing)
+        XCTAssertNotNil(renewals.report, "the System page still says why")
+
+        // A minute short of six hours after the try.
+        UserDefaults.standard.set(Date().addingTimeInterval(-6 * 3_600 + 60), forKey: CartoucheRenewals.lastTryKey)
+        comeBack()
+        try await pause(0.3)
+        XCTAssertEqual(HarnessLC.renewals.count, 1)
+
+        // Six hours after it.
+        UserDefaults.standard.set(Date().addingTimeInterval(-6 * 3_600 - 1), forKey: CartoucheRenewals.lastTryKey)
+        HarnessLC.renewal = .renews(days: 7)
+        comeBack()
+        try await waitUntil("Cartouche tried again as it came back") { HarnessLC.renewals.count == 2 }
+        try await renewalEnds()
+        XCTAssertNil(renewals.report)
+        XCTAssertEqual(CartoucheSignature.current().daysLeft, 6)
+    }
+
     // MARK: Renew now
 
     func testRenewNowRenewsOnceAtATime() async throws {
@@ -186,6 +254,43 @@ final class RenewalTests: HarnessCase {
         XCTAssertFalse(ran.value)
         try await waitUntil("the action ran") { ran.value }
         XCTAssertFalse(renewingAsItRan.value, "once the renewal had ended")
+        XCTAssertEqual(HarnessLC.renewals.count, 1)
+    }
+
+    /// A renewal that never ends, SideStore no longer answering, holds an
+    /// update, a sign-in or the registration of this iPhone up for
+    /// `waitLimit` at most: then the action goes on, and SideStore, still
+    /// at the renewal, may refuse it and say so, rather than leave the
+    /// player waiting for ever.
+    func testSideStoresOtherActionsWaitOnlySoLongForARenewalThatNeverEnds() async throws {
+        XCTAssertEqual(renewals.waitLimit, 180, "three minutes, when the longest renewal measured took 71 seconds")
+        let limit = renewals.waitLimit
+        defer { renewals.waitLimit = limit }
+        renewals.waitLimit = 1
+
+        try await setUpCartouche()
+        HarnessSideStore.record(expiringIn: 1.5)
+        HarnessLC.renewal = .hangs
+        renewals.renewIfDue()
+        try await waitUntil("SideStore is asked to renew Cartouche") { HarnessLC.renewals.count == 1 }
+
+        let ran = HarnessBox(false)
+        let began = Date()
+        renewals.afterRenewal("Harness") { ran.value = true }
+        try await pause(0.5)
+        XCTAssertFalse(ran.value, "it waits for the renewal first")
+        try await waitUntil("the action went on", timeout: 5) { ran.value }
+        XCTAssertGreaterThanOrEqual(Date().timeIntervalSince(began), 1, "once the limit had passed")
+        XCTAssertTrue(renewals.isRenewing, "the renewal had not ended")
+        XCTAssertTrue(CartoucheReports.journal(last: 20).contains {
+            $0.hasSuffix("Harness: the renewal under way has not ended after 1 s, going on")
+        }, "the journal says why the action went on")
+
+        // SideStore answers at last.
+        HarnessLC.endHeldRenewal()
+        try await renewalEnds()
+        XCTAssertNil(renewals.report)
+        XCTAssertEqual(CartoucheSignature.current().daysLeft, 6)
         XCTAssertEqual(HarnessLC.renewals.count, 1)
     }
 
