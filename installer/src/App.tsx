@@ -342,10 +342,12 @@ function App() {
         <section className="step">
           <StepTitle
             number={2}
-            title={t("steps.apple_id_title")}
+            title={signingMode === "imported" ? t("signing.title") : t("steps.apple_id_title")}
             done={signingReady}
           />
-          <p className="step-hint">{t("steps.apple_id_hint")}</p>
+          <p className="step-hint">
+            {signingMode === "imported" ? t("signing.hint") : t("steps.apple_id_hint")}
+          </p>
           <GlassCard className="panel">
             {signingMode === "imported" ? <ImportedSigning value={importedSigning} onChange={setImportedSigning}
               summary={profileSummary} onProfileChecked={setProfileSummary} /> :
@@ -354,9 +356,12 @@ function App() {
               setLoggedInAs={setLoggedInAs}
               noKeyringAvailable={noKeyringAvailable}
             />}
-            <button className="error-link" onClick={() => setSigningMode(signingMode === "account" ? "imported" : "account")}>
-              {t(signingMode === "account" ? "signing.have_certificate" : "signing.use_account")}
-            </button>
+            {/* The other way to sign Cartouche: a link under the card, as the window's others. */}
+            <div className="signing-switch">
+              <button type="button" onClick={() => setSigningMode(signingMode === "account" ? "imported" : "account")}>
+                {t(signingMode === "account" ? "signing.have_certificate" : "signing.use_account")}
+              </button>
+            </div>
           </GlassCard>
         </section>
         <section className="step">

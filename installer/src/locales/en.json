@@ -267,6 +267,7 @@
     "support_message": "If it keeps failing, press Copy to clipboard and paste the error in a <issues>Cartouche issue</issues>."
   },
   "signing": {
+    "title": "Your certificate",
     "hint": "Choose your signing certificate (.p12) and its provisioning profile. Signing happens on this computer; no Apple ID is needed.",
     "choose_p12": "Choose the certificate (.p12)",
     "choose_profile": "Choose its profile (.mobileprovision)",

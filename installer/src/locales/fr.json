@@ -267,6 +267,7 @@
     "support_message": "Si cela continue, touchez Copier et collez l’erreur dans une <issues>issue de Cartouche</issues>."
   },
   "signing": {
+    "title": "Votre certificat",
     "hint": "Choisissez votre certificat de signature (.p12) et son profil de provisionnement. La signature se fait sur cet ordinateur, sans compte Apple.",
     "choose_p12": "Choisir le certificat (.p12)",
     "choose_profile": "Choisir son profil (.mobileprovision)",

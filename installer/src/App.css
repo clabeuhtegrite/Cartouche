@@ -459,6 +459,74 @@ h4 {
   font-weight: 500;
 }
 
+/* The other way to sign Cartouche, under the card's content: a link, as
+   the window's others (Add an account, Settings). */
+.signing-switch {
+  margin-top: 1.1rem;
+  padding-top: 0.9rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  display: flex;
+  justify-content: center;
+}
+
+.signing-switch button {
+  padding: 0.3rem 0.6rem;
+  border: none;
+  background: transparent;
+  color: var(--accent-secondary);
+  font-size: 0.92rem;
+  font-weight: 600;
+}
+
+.signing-switch button:hover:not(:disabled) {
+  background: transparent;
+  color: #fff;
+}
+
+/* The player's own certificate (ImportedSigning.tsx), laid out as the
+   Apple Account's form. */
+.signing-files p {
+  margin: 0;
+}
+
+.file-choice {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.file-choice button {
+  width: 100%;
+}
+
+.chosen-file {
+  padding: 0 0.3rem;
+  font-size: 0.9rem;
+  color: var(--text-muted);
+  overflow-wrap: anywhere;
+}
+
+.signing-password {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  font-size: 0.92rem;
+  color: var(--text-muted);
+}
+
+.signing-password input {
+  width: 100%;
+}
+
+.signing-alert {
+  font-size: 0.92rem;
+  color: var(--danger);
+}
+
+.signing-alert.warning {
+  color: #ff9f0a;
+}
+
 .credits {
   margin: 0 2rem 1.5rem;
   font-size: 0.8rem;
