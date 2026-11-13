@@ -6,11 +6,12 @@ of the game sheets in catalog/games/, for the Game measurements workflow
 For each sheet, and each iPhone model at least three iPhones played the game
 on in the last 28 days, one result: how the game ran, as the median of each
 iPhone's own median so that each iPhone counts once however much it played,
-how its sessions ended, and a status that follows from them
-(telemetry/README.md#game-sheets). A model fewer iPhones played the game on
-gets no result: the sheets show figures of several iPhones, never of one
-(docs/privacy.md). The results testers wrote stay as they are; a measured
-result is replaced by the model's new one, and kept while the model has none.
+the most memory any of them used, how its sessions ended, and a status that
+follows from them (telemetry/README.md#game-sheets). A model fewer iPhones
+played the game on gets no result: every figure on the sheets comes from
+three iPhones or more (docs/privacy.md). The results testers wrote stay as
+they are; a measured result is replaced by the model's new one, and kept
+while the model has none.
 
 It reads the D1 database through Cloudflare's API, with the secrets
 CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID, and does nothing without
@@ -165,6 +166,11 @@ def median(values: list[float]) -> float | None:
     return statistics.median(values) if len(values) >= MIN_IPHONES else None
 
 
+def highest(values: list[float]) -> float | None:
+    """The highest, when enough iPhones gave a value."""
+    return max(values) if len(values) >= MIN_IPHONES else None
+
+
 def rounded(value: float | None, digits: int = 1) -> float | int | None:
     if value is None:
         return None
@@ -303,7 +309,10 @@ class Result:
             "engine": self.engine,
             "status": self.status,
         }
-        peak = median([v for v in (phone.peak for phone in self.iphones) if v is not None])
+        # The highest of the iPhones' peaks, not their median: Cartouche starts
+        # the game where its peak fits (docs/decisions.md, 48), and it must
+        # fit there on the iPhone that needed the most.
+        peak = highest([v for v in (phone.peak for phone in self.iphones) if v is not None])
         if peak is not None:
             entry["peakMemoryMiB"] = max(int(round(peak)), 1)
         entry["notes"] = [self.note()]
