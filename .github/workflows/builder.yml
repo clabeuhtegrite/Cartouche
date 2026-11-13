@@ -198,9 +198,34 @@ jobs:
           "$python" --version
           echo "path=$python" >> "$GITHUB_OUTPUT"
       - name: Tests
+        id: tests
         env:
           CARTOUCHE_BUILDER_PYTHON: ${{ steps.python.outputs.path }}
         run: swift test --package-path builder/mac
+      # A test that stopped the tests' process (a trap says nothing of
+      # itself): the report macOS writes of it, its message and the frames
+      # of the thread that stopped.
+      - name: Say how the tests ended
+        if: ${{ failure() && steps.tests.outcome == 'failure' }}
+        run: |
+          sleep 20
+          { find "$HOME/Library/Logs/DiagnosticReports" /Library/Logs/DiagnosticReports -name '*.ips' -mmin -60 2>/dev/null || true; } | while read -r report; do
+            echo "== $report"
+            python3 - "$report" <<'PY' || true
+          import json, sys
+          header, _, body = open(sys.argv[1]).read().partition("\n")
+          report = json.loads(body)
+          print(json.loads(header).get("app_name"), report.get("exception"), report.get("termination"), report.get("asi"))
+          images = report.get("usedImages", [])
+          threads = report.get("threads", [])
+          stopped = report.get("faultingThread", 0)
+          for frame in (threads[stopped].get("frames", []) if stopped < len(threads) else [])[:45]:
+              index = frame.get("imageIndex", -1)
+              image = images[index].get("name", "?") if 0 <= index < len(images) else "?"
+              where = f'{frame.get("sourceFile", "")}:{frame.get("sourceLine", "")}' if frame.get("sourceFile") else ""
+              print(" ", image, frame.get("symbol", hex(frame.get("imageOffset", 0))), "+", frame.get("symbolLocation", ""), where)
+          PY
+          done
       # The engine's tests, which CI runs on Linux, on the Mac the app runs
       # it on: its checks of the Mac's tools, caffeinate, and a disk that
       # really fills up, a disk image of a few megabytes. After the app's
