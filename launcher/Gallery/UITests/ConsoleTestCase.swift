@@ -135,8 +135,10 @@ enum GalleryWords {
     /// The folder in Files the saves are kept in (GallerySaves).
     static let savesFolder = "Gallery saves"
     /// The save JKSV exported on the Switch, in the gallery's folder
-    /// (GallerySaves).
-    static let switchExport = "Switch save.zip"
+    /// (GallerySaves), named as JKSV names it: FilesPicker.pick taps the
+    /// first element whose label begins as the file's name, so no label on
+    /// the screen under the picker may (Switch saves, for "Switch save").
+    static let switchExport = "Player - 2026-11-13_15-20-00.zip"
 }
 
 /// The player's games, as nxnative.json names them.
