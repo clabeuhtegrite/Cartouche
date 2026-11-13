@@ -41,27 +41,49 @@ struct CartoucheSystemView: View {
 
     private let catalog = CartoucheCatalog.shared
 
+    /// The section the page opens on, by the first row's id, when not the
+    /// first: in the gallery's screenshots of a section further down
+    /// (launcher/Gallery, the scenario's category). Cartouche opens the page
+    /// at the top.
+    #if CARTOUCHE_GALLERY
+    static var openingSection: String?
+    #else
+    static let openingSection: String? = nil
+    #endif
+
+    /// The first row of the signature's section.
+    static let signatureRow = "signature"
+
     var body: some View {
         NavigationStack {
-            List {
-                setupSection
-                storageSection
-                memorySection
-                playingSection
-                signatureSection
-                if !CartoucheImportedSigning.accountSigningDisabled { automaticRenewalSection }
-                deviceSection
-                updateSection
-                telemetrySection
-                cartoucheSection
-                reportSection
-            }
-            .cartoucheStageBackground()
-            .navigationTitle(CartoucheText.systemTab)
-            .refreshable { measure() }
-            .toolbar {
-                ToolbarItem(placement: .confirmationAction) {
-                    Button(CartoucheText.done, action: close)
+            ScrollViewReader { reader in
+                List {
+                    setupSection
+                    storageSection
+                    memorySection
+                    playingSection
+                    signatureSection
+                    if !CartoucheImportedSigning.accountSigningDisabled { automaticRenewalSection }
+                    deviceSection
+                    updateSection
+                    telemetrySection
+                    cartoucheSection
+                    reportSection
+                }
+                .cartoucheStageBackground()
+                .navigationTitle(CartoucheText.systemTab)
+                .refreshable { measure() }
+                .toolbar {
+                    ToolbarItem(placement: .confirmationAction) {
+                        Button(CartoucheText.done, action: close)
+                    }
+                }
+                .task {
+                    guard let section = Self.openingSection else { return }
+                    // Once the list has laid out its rows; the section's
+                    // header shows above its first row.
+                    try? await Task.sleep(for: .milliseconds(500))
+                    reader.scrollTo(section, anchor: UnitPoint(x: 0.5, y: 0.15))
                 }
             }
         }
@@ -264,6 +286,7 @@ struct CartoucheSystemView: View {
         Section {
             if let expirationDate = signature.expirationDate, let daysLeft = signature.daysLeft {
                 LabeledContent(CartoucheText.expires, value: expirationDate.formatted(date: .abbreviated, time: .shortened))
+                    .id(Self.signatureRow)
                 LabeledContent(CartoucheText.daysLeft) {
                     Text(daysLeft < 0 ? CartoucheText.expired : String(daysLeft))
                         .foregroundStyle(daysLeft < 0 ? Color.red : daysLeft <= 2 ? Color.orange : Color.secondary)
@@ -272,6 +295,7 @@ struct CartoucheSystemView: View {
             } else {
                 Text(CartoucheText.profileUnknown)
                     .foregroundStyle(.secondary)
+                    .id(Self.signatureRow)
             }
             if let renewalDate = signature.renewalDate {
                 LabeledContent(CartoucheText.renewed, value: renewalDate.formatted(date: .abbreviated, time: .shortened))

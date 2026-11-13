@@ -300,12 +300,7 @@ final class CartoucheRenewals: ObservableObject {
                 try await CartoucheRenewal.renew(progress: progress, automatic: automatic)
                 CartoucheReports.note("Renewal done")
             } catch {
-                var failure = CartoucheFailure.of(error, fraction: progress.fractionCompleted)
-                failure.details["automatic"] = .flag(automatic)
-                report = CartoucheReports.make(.renewal, CartoucheText.renewFailed, message: error.localizedDescription,
-                                               error: error,
-                                               step: automatic ? "Renewing by itself, before it expires" : CartoucheText.renewing,
-                                               fraction: progress.fractionCompleted, failure: failure)
+                fail(error, automatic: automatic, fraction: progress.fractionCompleted)
             }
             self.progress = nil
             isAutomatic = false
@@ -314,4 +309,32 @@ final class CartoucheRenewals: ObservableObject {
             CartoucheRenewal.scheduleWarnings()
         }
     }
+
+    /// Why the renewal failed, as the System page shows it, and the report
+    /// on it.
+    private func fail(_ error: Error, automatic: Bool, fraction: Double) {
+        var failure = CartoucheFailure.of(error, fraction: fraction)
+        failure.details["automatic"] = .flag(automatic)
+        report = CartoucheReports.make(.renewal, CartoucheText.renewFailed, message: error.localizedDescription,
+                                       error: error,
+                                       step: automatic ? "Renewing by itself, before it expires" : CartoucheText.renewing,
+                                       fraction: fraction, failure: failure)
+    }
+
+    #if CARTOUCHE_GALLERY
+    /// Cartouche renewing itself, FRACTION of the way, for the gallery's
+    /// screens (launcher/Gallery).
+    func showRenewingForGallery(at fraction: Double) {
+        let progress = Progress(totalUnitCount: 100)
+        progress.completedUnitCount = Int64(fraction * 100)
+        self.progress = progress
+        isAutomatic = true
+    }
+
+    /// The renewal Cartouche started by itself, failed with ERROR, for the
+    /// gallery's screens.
+    func showFailedForGallery(_ error: Error) {
+        fail(error, automatic: true, fraction: 0.3)
+    }
+    #endif
 }
