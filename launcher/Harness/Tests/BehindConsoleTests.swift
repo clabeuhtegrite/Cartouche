@@ -226,10 +226,10 @@ final class BehindConsoleTests: HarnessCase {
     }
 
     func testAGameThatNeedsMoreMemoryStartsInCartouchesPlace() async throws {
-        let needing = try XCTUnwrap(HarnessCatalog.gameNeedingMoreMemory(than: 6_144),
-                                    "a sheet in catalog/games needs Increased Memory Limit, and no peak of it fits under 6,144 MiB")
+        let (needing, behindMiB) = try XCTUnwrap(HarnessCatalog.gameNeedingMoreMemory(),
+                                                 "a sheet in catalog/games says a game needs Increased Memory Limit, or gives its peak")
         // A game ran behind the console before, with less than Cartouche.
-        CartoucheGameKeeping.shared.measured(try reading(limitMiB: 6_144))
+        CartoucheGameKeeping.shared.measured(try reading(limitMiB: UInt64(behindMiB)))
         let app = try await installed(HarnessGame(titleId: needing.titleId, name: needing.name))
         actions.play(app)
         try await waitUntil("the start is over") { actions.work == nil }

@@ -562,6 +562,8 @@ export function summaryOf(text) {
   const lines = text
     .replaceAll("\r\n", "\n")
     .replaceAll("\r", "\n")
+    // Zero-width spaces, which iOS would trim as spaces.
+    .replaceAll("\u200b", "")
     // Control characters but the line's end, as spaces.
     .replace(/[\u0000-\u0009\u000b-\u001f\u007f-\u009f\ufeff]/g, " ")
     // A web address, which the app does not show.

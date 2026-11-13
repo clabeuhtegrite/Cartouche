@@ -3,8 +3,9 @@
 //  Cartouche
 //
 //  What the player says of one of their games, from its sheet: its name,
-//  its platform, its genre and its cover, chosen in Photos or in Files,
-//  over what Cartouche finds by itself (CartouchePlayerInfo). The cover
+//  its platform, its genre, its summary and its cover, chosen in Photos or
+//  in Files, over what Cartouche finds by itself (CartouchePlayerInfo). The
+//  summary starts as IGDB's, for the player to change or replace. The cover
 //  shows as it will on the console while the player chooses it. Cancel
 //  leaves the game as it was; Save keeps what the page says, on this iPhone
 //  only. For a game Cartouche does not know, the page says what IGDB has
@@ -35,6 +36,7 @@ struct CartoucheGameInfoView: View {
     @State private var name: String
     @State private var platform: String
     @State private var genre: String
+    @State private var summary: String
     @State private var cover: Cover
     @State private var photo: PhotosPickerItem?
     @State private var choosingPhoto = false
@@ -50,6 +52,7 @@ struct CartoucheGameInfoView: View {
         _name = State(initialValue: entry.name)
         _platform = State(initialValue: entry.player?.platform ?? "")
         _genre = State(initialValue: entry.player?.genre ?? "")
+        _summary = State(initialValue: entry.summary ?? "")
         _cover = State(initialValue: entry.playerCover != nil ? .kept : .automatic)
     }
 
@@ -101,12 +104,24 @@ struct CartoucheGameInfoView: View {
                 Text(CartoucheText.gameInfoFooter)
             }
 
+            Section {
+                TextField(CartoucheText.gameInfoSummaryPrompt, text: $summary, axis: .vertical)
+                    .lineLimit(4 ... 12)
+            } header: {
+                Text(CartoucheText.gameInfoSummary)
+            } footer: {
+                if entry.ownSummary != nil {
+                    Text(CartoucheText.gameInfoSummaryFooter)
+                }
+            }
+
             if entry.player != nil {
                 Section {
                     Button(role: .destructive) {
                         name = entry.ownName
                         platform = ""
                         genre = ""
+                        summary = entry.ownSummary ?? ""
                         useCartouchesCover()
                     } label: {
                         Label(CartoucheText.gameInfoReset, systemImage: "arrow.uturn.backward")
@@ -182,6 +197,7 @@ struct CartoucheGameInfoView: View {
         info.name = typedName
         info.platform = platform.isEmpty ? nil : platform
         info.genre = genre.isEmpty ? nil : genre
+        info.summary = typedSummary
         shown.player = info
         switch cover {
         case .kept: break
@@ -275,9 +291,16 @@ struct CartoucheGameInfoView: View {
         return typed.isEmpty || typed == entry.ownName ? nil : typed
     }
 
+    /// The summary written, or nil for IGDB's.
+    private var typedSummary: String? {
+        guard let typed = CartoucheCoverList.summary(summary) else { return nil }
+        return typed == entry.ownSummary ? nil : typed
+    }
+
     private func save() {
         var info = CartouchePlayerInfo(name: typedName, platform: platform.isEmpty ? nil : platform,
                                        genre: genre.isEmpty ? nil : genre)
+        info.summary = typedSummary
         var data: Data?
         switch cover {
         case .kept:
@@ -301,7 +324,7 @@ struct CartoucheGameInfoView: View {
         CartoucheTelemetry.shared.event("game.infoChanged", game: entry.titleId, fields: [
             "known": .flag(!entry.isUnknown), "found": .flag(entry.found != nil), "name": .flag(info.name != nil),
             "platform": .flag(info.platform != nil), "genre": .flag(info.genre != nil),
-            "cover": .flag(data != nil || info.cover != nil),
+            "summary": .flag(info.summary != nil), "cover": .flag(data != nil || info.cover != nil),
         ])
         forgetNewCover()
         onClose()

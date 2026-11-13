@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Writes catalog/covers.json: each game's official cover and artwork, as
-IGDB image IDs, and its genre on IGDB.
+IGDB image IDs, and its genre and summary on IGDB.
 
 IGDB (igdb.com, Twitch's game database) is searched by the name of each
 game of catalog/nxnative.json, among the games it lists on the Nintendo
@@ -12,7 +12,8 @@ differently, is left out and keeps the label the launcher draws; MATCHES
 pins a game to its IGDB entry by hand. The genre is one of Cartouche's own,
 from IGDB's genres (GENRES), for the games whose nxnative profile says none;
 GENRE_PINS gives a game the genre players know it by when IGDB's says
-another.
+another. The summary, in English, is IGDB's as summary_of() keeps it, which
+the launcher shows on the game's sheet, translated by the iPhone.
 
 The search needs a Twitch application's credentials (dev.twitch.tv/console)
 in IGDB_CLIENT_ID and IGDB_CLIENT_SECRET; the Covers and Live covers
@@ -45,12 +46,19 @@ ROOT = Path(__file__).resolve().parents[2]
 TOKEN = "https://id.twitch.tv/oauth2/token"
 API = "https://api.igdb.com/v4/"
 PLATFORMS = {"switch": "Nintendo Switch", "switch2": "Nintendo Switch 2"}
-FIELDS = "fields name,alternative_names.name,platforms,genres,cover.image_id,artworks.image_id;"
+FIELDS = "fields name,alternative_names.name,platforms,genres,cover.image_id,artworks.image_id,summary;"
 # IGDB takes at most four requests a second.
 PAUSE = 0.3
 # How alike two names must be, once plain (plain()), for an IGDB entry to be
 # taken for a game without being pinned.
 LIKENESS = 0.9
+# The longest summary kept, in characters: the game's sheet shows its first
+# lines, and the rest on demand. The telemetry server keeps those of the
+# games Cartouche does not know the same way (summaryOf in
+# telemetry/worker.js), which the tests check case by case.
+LONGEST_SUMMARY = 2000
+# A web address in a summary, which summary_of() leaves out.
+ADDRESS = re.compile(r"\S*://\S*|(?<!\S)www\.\S*", re.I)
 
 # Games the search does not find by name: title ID -> IGDB game ID.
 MATCHES: dict[str, int] = {}
@@ -135,6 +143,32 @@ def choose(name: str, platform: int, found: list[dict]) -> dict | None:
     return max(scored, key=lambda item: (round(item[0], 3), item[1]))[2]
 
 
+def summary_of(text: str | None) -> str | None:
+    """IGDB's summary of a game as Cartouche keeps it: without addresses,
+    as every catalog file, each line with its spaces made single, an empty
+    line at most between two paragraphs, and at most LONGEST_SUMMARY
+    characters, cut after a word with an ellipsis; None for no text."""
+    if not isinstance(text, str):
+        return None
+    text = text.replace("\r\n", "\n").replace("\r", "\n")
+    # Zero-width spaces, which iOS would trim as spaces.
+    text = text.replace("\u200b", "")
+    # Control characters but the line's end, as spaces.
+    text = re.sub(r"[\x00-\x09\x0b-\x1f\x7f-\x9f\ufeff]", " ", text)
+    text = ADDRESS.sub("", text)
+    lines = [" ".join(line.split()) for line in text.split("\n")]
+    summary = re.sub(r"\n{3,}", "\n\n", "\n".join(lines)).strip("\n")
+    if not summary:
+        return None
+    if len(summary) > LONGEST_SUMMARY:
+        cut = summary[:LONGEST_SUMMARY - 1]
+        space = max(cut.rfind(" "), cut.rfind("\n"))
+        if space >= LONGEST_SUMMARY / 2:
+            cut = cut[:space]
+        summary = cut.rstrip(" \n,;:") + "…"
+    return summary
+
+
 def genre_of(genres: list[int] | None) -> str | None:
     """Cartouche's genre for IGDB's genre IDs, or None."""
     return next((genre for id, genre in GENRES if id in (genres or [])), None)
@@ -196,6 +230,9 @@ def covers(catalog: dict, ask: Ask, log=sys.stderr) -> list[dict]:
         genre = GENRE_PINS.get(game["titleId"]) or genre_of(entry.get("genres"))
         if genre:
             record["genre"] = genre
+        summary = summary_of(entry.get("summary"))
+        if summary:
+            record["summary"] = summary
         if plain(entry["name"]) != plain(game["name"]):
             print(f"   close: {game['name']} -> {entry['name']} (IGDB {entry['id']})", file=log)
         records.append(record)

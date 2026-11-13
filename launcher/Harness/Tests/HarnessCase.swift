@@ -31,6 +31,9 @@ class HarnessCase: XCTestCase {
     override func setUp() async throws {
         timings = HarnessTimings()
         try await super.setUp()
+        // Standard error is the app's own file, whatever pointed it
+        // elsewhere since the test before (HarnessStandardError.swift).
+        HarnessStandardError.keep()
         timings.settledBefore = try await settle()
         HarnessLC.reset()
         resetLauncher()

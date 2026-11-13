@@ -2,10 +2,11 @@
 //  CartoucheTextGameInfo.swift
 //  Cartouche
 //
-//  The words of what the player says of one of their games, and of what
-//  IGDB has of a game Cartouche does not know (CartoucheGameInfoView.swift,
-//  CartoucheGameLookup.swift), in Cartouche.xcstrings with the others
-//  (CartoucheText.swift).
+//  The words of what the player says of one of their games, of what IGDB
+//  has of a game Cartouche does not know (CartoucheGameInfoView.swift,
+//  CartoucheGameLookup.swift), and of a game's description on its sheet
+//  (CartoucheGameSummaryView.swift), in Cartouche.xcstrings with the
+//  others (CartoucheText.swift).
 //
 
 import Foundation
@@ -34,4 +35,17 @@ extension CartoucheText {
     static var gameInfoReset: String { s("gameInfo.reset", "Back to Cartouche’s info") }
     static var gameInfoSave: String { s("gameInfo.save", "Save") }
     static func gameInfoNotSaved(_ reason: String) -> String { f("gameInfo.notSaved", "Cartouche cannot keep these changes: %@", reason) }
+    static var gameInfoSummary: String { s("gameInfo.summary", "Description") }
+    static var gameInfoSummaryPrompt: String { s("gameInfo.summary.prompt", "A few words about the game") }
+    static var gameInfoSummaryFooter: String { s("gameInfo.summary.footer", "Cleared, the game’s sheet shows IGDB’s.") }
+
+    // MARK: A game's description (CartoucheGameSummaryView.swift)
+
+    static var summaryMore: String { s("summary.more", "More") }
+    static var summaryLess: String { s("summary.less", "Less") }
+    static var summaryTranslate: String { s("summary.translate", "Translate") }
+    static var summaryShowOriginal: String { s("summary.original", "Show the original") }
+    static var summaryShowTranslation: String { s("summary.translation", "Show the translation") }
+    static var summaryCredit: String { s("summary.credit", "Description: IGDB.com") }
+    static var summaryTranslatedCredit: String { s("summary.credit.translated", "Description: IGDB.com, translated by the iPhone") }
 }

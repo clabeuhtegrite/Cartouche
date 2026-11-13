@@ -3,7 +3,7 @@
 //  Cartouche
 //
 //  A TV, by cable or AirPlay, while a game runs behind the console
-//  (docs/decisions.md, 83): the game's picture alone on the TV, as a Switch
+//  (docs/decisions.md, 85): the game's picture alone on the TV, as a Switch
 //  on its dock, and the game's controls and the console on the iPhone. The
 //  TV never shows the iPhone's screen while a game runs behind the console,
 //  so never the game with its controls.

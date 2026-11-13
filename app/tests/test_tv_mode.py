@@ -1,7 +1,7 @@
 """Checks the pieces of the TV mode that meet across the launcher, the
 LiveContainer patch and the harness, so that a rename fails here, on Linux,
 rather than on an iPhone plugged into a TV
-(launcher/Sources/CartoucheTV.swift, docs/decisions.md, 83):
+(launcher/Sources/CartoucheTV.swift, docs/decisions.md, 85):
 
 - LiveContainer's app delegate gives the TV's scene Cartouche's TV scene
   delegate, by the class the launcher declares, never LiveContainer's own

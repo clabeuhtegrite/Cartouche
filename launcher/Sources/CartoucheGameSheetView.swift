@@ -6,15 +6,17 @@
 //  Play for the player's own copy, with Game settings and, when the games
 //  folder holds a newer build, Update beside it, or Resume, with Quit, for
 //  the game paused behind the console; Install from the player's
-//  games folder for a copy there; or Import my copy. Under them, the time
+//  games folder for a copy there; or Import my copy. Under them, its
+//  description, the player's or IGDB's (CartoucheGameSummaryView), the time
 //  the player played it and the space it takes (CartoucheGameStats), what
 //  stops the game on this iPhone, if anything (what it needs folds into
 //  one line when this iPhone has it all), the copies of its saves, Edit
 //  the game's info for the player's own game (CartoucheGameInfoView), with
-//  what IGDB has of a game Cartouche does not know, the game's copy in the
-//  games folder and Uninstall, the testers' results, and last, folded, the
-//  technical details: the recommended settings, what nxnative's profile
-//  says and which build is installed.
+//  what IGDB has of a game Cartouche does not know, after which the sheet
+//  goes back to its top, where the name and cover show; the game's copy in
+//  the games folder and Uninstall, the testers' results, and last, folded,
+//  the technical details: the recommended settings, what nxnative's
+//  profile says and which build is installed.
 //
 
 import SwiftUI
@@ -88,67 +90,85 @@ struct CartoucheGameSheetView: View {
         return reach.isOffline(server.id) && CartoucheStorageOffline(server).isSignedOut
     }
 
+    /// The header's row, which the sheet goes back to when what the player
+    /// says of the game changes.
+    private static let top = "top"
+
     var body: some View {
-        List {
-            Section {
-                header
-                    .listRowInsets(EdgeInsets())
-                    .listRowBackground(Color.clear)
-            }
+        ScrollViewReader { reader in
+            List {
+                Section {
+                    header
+                        .listRowInsets(EdgeInsets())
+                        .listRowBackground(Color.clear)
+                        .id(Self.top)
+                }
 
-            CartoucheGameStatsSection(entry: entry)
-
-            if let sheet = entry.sheet {
-                if let fit, !fit.reasons.isEmpty {
+                if let summary = entry.summary {
                     Section {
-                        ForEach(fit.reasons, id: \.self) { reason in
-                            Label(reason, systemImage: "exclamationmark.triangle.fill")
-                                .foregroundStyle(fit.isPlayable ? Color.primary : Color.orange)
+                        CartoucheGameSummaryView(text: summary, isIGDBs: entry.player?.summary == nil)
+                    }
+                }
+
+                CartoucheGameStatsSection(entry: entry)
+
+                if let sheet = entry.sheet {
+                    if let fit, !fit.reasons.isEmpty {
+                        Section {
+                            ForEach(fit.reasons, id: \.self) { reason in
+                                Label(reason, systemImage: "exclamationmark.triangle.fill")
+                                    .foregroundStyle(fit.isPlayable ? Color.primary : Color.orange)
+                            }
+                        }
+                    }
+                    requirements(sheet)
+                } else {
+                    // nxnative refuses this GPU for every game, with a sheet or
+                    // without.
+                    if let fit = CartoucheFit.withoutSheet() {
+                        Section {
+                            ForEach(fit.reasons, id: \.self) { reason in
+                                Label(reason, systemImage: "exclamationmark.triangle.fill")
+                                    .foregroundStyle(Color.orange)
+                            }
+                        }
+                    }
+                    if entry.isOwned {
+                        Section {
+                            Text(CartoucheText.noSheetMessage)
+                                .foregroundStyle(.secondary)
                         }
                     }
                 }
-                requirements(sheet)
-            } else {
-                // nxnative refuses this GPU for every game, with a sheet or
-                // without.
-                if let fit = CartoucheFit.withoutSheet() {
-                    Section {
-                        ForEach(fit.reasons, id: \.self) { reason in
-                            Label(reason, systemImage: "exclamationmark.triangle.fill")
-                                .foregroundStyle(Color.orange)
-                        }
-                    }
+
+                if let app = entry.app, let saves = actions.saves(of: app) {
+                    CartoucheSavesSection(target: saves, isRunning: actions.isRunning(app))
                 }
+
                 if entry.isOwned {
-                    Section {
-                        Text(CartoucheText.noSheetMessage)
-                            .foregroundStyle(.secondary)
-                    }
+                    infoSection
+                }
+
+                if let app = entry.app {
+                    manageSection(app)
+                }
+
+                if let sheet = entry.sheet, !sheet.results.isEmpty {
+                    results(sheet)
+                }
+
+                if hasDetails {
+                    detailsSection
                 }
             }
-
-            if let app = entry.app, let saves = actions.saves(of: app) {
-                CartoucheSavesSection(target: saves, isRunning: actions.isRunning(app))
-            }
-
-            if entry.isOwned {
-                infoSection
-            }
-
-            if let app = entry.app {
-                manageSection(app)
-            }
-
-            if let sheet = entry.sheet, !sheet.results.isEmpty {
-                results(sheet)
-            }
-
-            if hasDetails {
-                detailsSection
+            .scrollContentBackground(.hidden)
+            .background(CartoucheStage(key: entry.tileKey, art: entry.backdrop))
+            // What the player gave in Edit the game's info shows at once:
+            // the sheet goes back to the game's name and cover.
+            .onChange(of: entry.player) { _, _ in
+                withAnimation { reader.scrollTo(Self.top, anchor: .top) }
             }
         }
-        .scrollContentBackground(.hidden)
-        .background(CartoucheStage(key: entry.tileKey, art: entry.backdrop))
         // The header names the game: the bar above it stays empty.
         .navigationBarTitleDisplayMode(.inline)
     }
