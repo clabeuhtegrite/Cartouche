@@ -268,9 +268,10 @@ enum CartoucheText {
     static var renewed: String { s("system.signature.renewed", "Last renewed") }
     static var team: String { s("system.signature.team", "Apple account team") }
     static var profileUnknown: String { s("system.signature.unknown", "Cartouche could not read its provisioning profile.") }
-    static var signatureFooter: String { s("system.signature.footer", "Cartouche renews itself with LocalDevVPN on. Once expired, it no longer opens: install it again with the Cartouche Installer.") }
+    static var signatureFooter: String { s("system.signature.footer", "Cartouche renews itself each time you open it in its last 3 days, with LocalDevVPN on. Once expired, it no longer opens: install it again with the Cartouche Installer.") }
     static var renewNow: String { s("system.signature.renew", "Renew now") }
     static var renewing: String { s("system.signature.renewing", "Renewing…") }
+    static var renewingByItself: String { s("system.signature.renewing.auto", "Cartouche renews itself…") }
     static var renewUnavailable: String { s("system.signature.renew.unavailable", "The built-in SideStore did not load. Close Cartouche, open it again, then renew.") }
     static var renewFailed: String { s("system.signature.renew.failed", "The renewal did not go through") }
     static var automaticRenewal: String { s("system.auto", "Automatic renewal") }

@@ -4,8 +4,10 @@
 //
 //  Renewing Cartouche before its signature expires, and warning the player
 //  in time. The built-in SideStore does the renewal: from the System page,
-//  through CartoucheRefresh (launcher/SideStoreSupport), or every night,
-//  through an automation in Shortcuts that runs its Refresh All Apps action.
+//  and by itself each time Cartouche comes to the front in the last days of
+//  its signature (CartoucheAutomaticRenewal), through CartoucheRefresh
+//  (launcher/SideStoreSupport), or every night, through an automation in
+//  Shortcuts that runs its Refresh All Apps action.
 //
 
 import Foundation
@@ -42,14 +44,16 @@ enum CartoucheRenewal {
 
     /// Renews Cartouche without leaving the app; its SideStore renews no
     /// other app (app/patches/sidestore/0017). LocalDevVPN has to be
-    /// connected. A failure says why, as SideStore left it.
+    /// connected. A failure says why, as SideStore left it. AUTOMATIC:
+    /// Cartouche renews itself, as it came to the front, and renewal.done
+    /// says so.
     ///
     /// SideStore can stop, or iOS end it, as it finishes, before it says how
     /// the renewal went: Cartouche then reads the signature SideStore
     /// records for it. Newer than before, the renewal went through;
     /// otherwise Cartouche asks a new SideStore, once.
     @MainActor
-    static func renew(progress: Progress) async throws {
+    static func renew(progress: Progress, automatic: Bool = false) async throws {
         guard !CartoucheImportedSigning.accountSigningDisabled else {
             throw Failure(message: CartoucheText.signingUpdateOnComputer, failure: nil)
         }
@@ -86,7 +90,8 @@ enum CartoucheRenewal {
                 if attempt > 1 {
                     fields["attempts"] = .number(Double(attempt))
                 }
-                CartoucheTelemetry.shared.event("renewal.done", fields: fields)
+                fields["automatic"] = .flag(automatic)
+                CartoucheTelemetry.shared.renewed(fields: fields)
                 return
             case .quit where attempt == 1:
                 // A new SideStore starts in a new LiveProcess, LiveContainer's
@@ -168,5 +173,132 @@ enum CartoucheRenewal {
     @MainActor
     static var notificationSettingsURL: URL? {
         URL(string: UIApplication.openNotificationSettingsURLString)
+    }
+}
+
+/// The renewal under way, from Renew now or by Cartouche itself as it comes
+/// to the front, and why the last one failed: one at a time, as the
+/// built-in SideStore takes its actions. The System page shows it, and
+/// Cartouche's update, its sign-in and the registration of this iPhone wait
+/// for its end before they hand SideStore their own: one started meanwhile
+/// would fail with "Another refresh task is in progress".
+@available(iOS 17.0, *)
+@MainActor
+final class CartoucheRenewals: ObservableObject {
+    static let shared = CartoucheRenewals()
+
+    /// How far the renewal under way has gone.
+    @Published private(set) var progress: Progress?
+    /// Whether Cartouche started it by itself.
+    @Published private(set) var isAutomatic = false
+    /// Why the last renewal failed, and the report on it.
+    @Published private(set) var report: CartoucheReport?
+
+    var isRenewing: Bool { progress != nil }
+
+    /// When Cartouche last renewed itself, or tried to, kept across
+    /// launches.
+    static let lastTryKey = "Cartouche.renewal.automatic.last"
+
+    private init() {}
+
+    /// Whether LocalDevVPN is connected: always in the simulator, which has
+    /// none, as for the sign-in; as a test of the launcher's harness says.
+    private static var vpnConnected: Bool {
+        #if CARTOUCHE_HARNESS
+        return HarnessLC.vpnConnected
+        #elseif targetEnvironment(simulator)
+        return true
+        #else
+        return CartoucheVPN.isConnected
+        #endif
+    }
+
+    /// Whether the built-in SideStore is at an action of Cartouche's: a
+    /// renewal, an update, a sign-in or the registration of this iPhone,
+    /// under way or waiting for LocalDevVPN.
+    var sideStoreBusy: Bool {
+        isRenewing || CartoucheUpdates.shared.phase != nil || CartoucheAccount.shared.phase != nil
+    }
+
+    /// Whether the player can renew now: Cartouche set up, and SideStore
+    /// free.
+    var canRenewNow: Bool {
+        CartoucheRenewal.canRenew && CartoucheSetup.shared.isComplete && !sideStoreBusy
+    }
+
+    /// What Cartouche finds as it comes to the front.
+    var situation: CartoucheAutomaticRenewal.Situation {
+        let setup = CartoucheSetup.shared
+        return CartoucheAutomaticRenewal.Situation(
+            daysLeft: CartoucheSignature.current().daysLeft,
+            canRenew: CartoucheRenewal.canRenew,
+            isSetUp: setup.isComplete && !setup.needsDevice,
+            vpnConnected: Self.vpnConnected,
+            sideStoreBusy: sideStoreBusy,
+            signInsPaused: CartoucheAccount.shared.pausedUntil != nil,
+            gameRunning: CartoucheGameActions.shared.running != nil,
+            lastTry: UserDefaults.standard.object(forKey: Self.lastTryKey) as? Date)
+    }
+
+    /// Renew now, from the System page.
+    func renewNow() {
+        guard canRenewNow else { return }
+        start(automatic: false)
+    }
+
+    /// Renews Cartouche by itself when it is due (CartoucheAutomaticRenewal):
+    /// CartoucheSetupRefresh calls it each time Cartouche comes to the front,
+    /// and once the setup is found complete, a few seconds after the launch.
+    func renewIfDue() {
+        let situation = self.situation
+        guard CartoucheAutomaticRenewal.isDue(situation, at: Date()) else { return }
+        UserDefaults.standard.set(Date(), forKey: Self.lastTryKey)
+        CartoucheReports.note("Renewal started by itself, \(situation.daysLeft ?? 0) days left")
+        start(automatic: true)
+    }
+
+    /// Runs ACTION, which hands the built-in SideStore an action, once no
+    /// renewal is under way: at once when none is, otherwise once it has
+    /// ended, three minutes at most. WHAT names the action in the journal.
+    func afterRenewal(_ what: String, _ action: @escaping @MainActor () -> Void) {
+        guard isRenewing else {
+            action()
+            return
+        }
+        CartoucheReports.note(what + ": waiting for the renewal under way")
+        Task {
+            let started = Date()
+            while isRenewing, Date().timeIntervalSince(started) < 180 {
+                try? await Task.sleep(for: .milliseconds(250))
+            }
+            action()
+        }
+    }
+
+    private func start(automatic: Bool) {
+        let progress = Progress(totalUnitCount: 100)
+        self.progress = progress
+        isAutomatic = automatic
+        report = nil
+        if !automatic { CartoucheReports.note("Renewal started") }
+        Task {
+            do {
+                try await CartoucheRenewal.renew(progress: progress, automatic: automatic)
+                CartoucheReports.note("Renewal done")
+            } catch {
+                var failure = CartoucheFailure.of(error, fraction: progress.fractionCompleted)
+                failure.details["automatic"] = .flag(automatic)
+                report = CartoucheReports.make(.renewal, CartoucheText.renewFailed, message: error.localizedDescription,
+                                               error: error,
+                                               step: automatic ? "Renewing by itself, before it expires" : CartoucheText.renewing,
+                                               fraction: progress.fractionCompleted, failure: failure)
+            }
+            self.progress = nil
+            isAutomatic = false
+            // SideStore scheduled its own warnings, in English and about
+            // SideStore: Cartouche's take their place.
+            CartoucheRenewal.scheduleWarnings()
+        }
     }
 }

@@ -121,6 +121,8 @@ class HarnessCase: XCTestCase {
         for account in ["signingCertificate", "signingCertificatePassword", "appleIDEmailAddress", "appleIDPassword"] {
             CartoucheStoreKeychain.remove(account)
         }
+        // No renewal tried by itself yet (RenewalTests).
+        UserDefaults.standard.removeObject(forKey: CartoucheRenewals.lastTryKey)
         try? FileManager.default.removeItem(at: HarnessStorage.root)
         // No TV left by the test before (TVTests).
         if #available(iOS 18.0, *), let tv = CartoucheTV.shared.window {

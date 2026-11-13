@@ -167,6 +167,7 @@ final class CartoucheTelemetry: ObservableObject {
     func setOn(_ on: Bool) { isOn = on }
     func erase() async -> Bool { true }
     func event(_ name: String, game: String? = nil, fields: [String: CartoucheTelemetryValue] = [:]) {}
+    func renewed(fields: [String: CartoucheTelemetryValue]) {}
 }
 
 /// A settings list as nxnative writes one into a game (dm/launcher.json,

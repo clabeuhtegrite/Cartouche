@@ -195,7 +195,6 @@ final class CartoucheAccount: ObservableObject {
         // What an earlier sign-in may have left.
         CartoucheStoreKeychain.remove(CartoucheSignInMessage.requestAccount)
         CartoucheStoreKeychain.remove(CartoucheSignInMessage.responseAccount)
-        CartoucheStoreKeychain.remove(CartoucheSideStoreOutcome.account)
         guard CartoucheStoreKeychain.set(CartoucheSignInMessage.credentials(appleID: appleID, password: password),
                                          for: CartoucheSignInMessage.credentialsAccount) else {
             failed(CartoucheText.signInKeychainFailed, failure: CartoucheFailure(.keychain, stage: "start"))
@@ -208,9 +207,15 @@ final class CartoucheAccount: ObservableObject {
         phase = .signingIn
         CartoucheReports.note("Sign-in started")
         watchForRequests()
-        bridge.call(bridge.receiver, Self.signInSelector, progress) { [weak self] message in
-            let text = message.map { $0 as String }
-            Task { @MainActor in self?.finished(text) }
+        // SideStore takes one action at a time: a renewal under way, as when
+        // Cartouche renews itself as it opens, ends first.
+        let selector = Self.signInSelector
+        CartoucheRenewals.shared.afterRenewal("Sign-in") { [weak self] in
+            CartoucheStoreKeychain.remove(CartoucheSideStoreOutcome.account)
+            bridge.call(bridge.receiver, selector, progress) { message in
+                let text = message.map { $0 as String }
+                Task { @MainActor in self?.finished(text) }
+            }
         }
     }
 
@@ -505,16 +510,19 @@ final class CartoucheAccount: ObservableObject {
                              failure: CartoucheFailure(.bridgeMissing, stage: "start"))
             return
         }
-        CartoucheStoreKeychain.remove(CartoucheSideStoreOutcome.account)
         deviceStepIsAutomatic = automatic
         started = Date()
         let progress = Progress(totalUnitCount: 100)
         self.progress = progress
         phase = .registeringDevice
         CartoucheReports.note(automatic ? "Registering this iPhone, by itself" : "Registering this iPhone")
-        bridge.call(bridge.receiver, Self.registerDeviceSelector, progress) { [weak self] message in
-            let text = message.map { $0 as String }
-            Task { @MainActor in self?.deviceStepFinished(text) }
+        let selector = Self.registerDeviceSelector
+        CartoucheRenewals.shared.afterRenewal("Registering this iPhone") { [weak self] in
+            CartoucheStoreKeychain.remove(CartoucheSideStoreOutcome.account)
+            bridge.call(bridge.receiver, selector, progress) { message in
+                let text = message.map { $0 as String }
+                Task { @MainActor in self?.deviceStepFinished(text) }
+            }
         }
     }
 

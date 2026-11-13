@@ -97,6 +97,16 @@ enum HarnessLC {
     /// cable or AirPlay, that iOS has not handed Cartouche
     /// (CartoucheGameHost.iPhoneIsMirrored).
     static var iPhoneMirrored = false
+    /// Whether LocalDevVPN is connected, as Cartouche's renewal reads it
+    /// (CartoucheRenewals): the Simulator has no LocalDevVPN.
+    static var vpnConnected = true
+    /// How the built-in SideStore's next renewals go
+    /// (HarnessSideStore.swift).
+    static var renewal: HarnessSideStore.Renewal = .renews(days: 7)
+    /// How long each takes.
+    static var renewalTime: TimeInterval = 0.2
+    /// When Cartouche asked SideStore to renew it, in order.
+    static var renewals: [Date] = []
 
     static let appGroupID = "group.io.github.clabeuhtegrite.cartouche.harness"
 
@@ -175,6 +185,10 @@ enum HarnessLC {
         extensionReportsExit = true
         gamesHaveATVScene = true
         iPhoneMirrored = false
+        vpnConnected = true
+        renewal = .renews(days: 7)
+        renewalTime = 0.2
+        renewals = []
         HarnessScenes.reset()
         HarnessNetwork.reset()
         let model = DataManager.shared.model
