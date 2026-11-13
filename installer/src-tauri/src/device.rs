@@ -4,13 +4,13 @@ use idevice::{
     IdeviceService,
     lockdown::LockdownClient,
     provider::UsbmuxdProvider,
-    usbmuxd::{Connection, UsbmuxdAddr, UsbmuxdConnection},
+    usbmuxd::{Connection, UsbmuxdConnection},
 };
 use serde::{Deserialize, Serialize};
-use tauri::{AppHandle, State};
+use tauri::{AppHandle, Runtime, State};
 use tokio_util::sync::CancellationToken;
 
-use crate::{error::AppError, pairing::pairing_file};
+use crate::{environment::Environment, error::AppError, pairing::pairing_file};
 
 #[derive(Deserialize, Serialize, Clone)]
 #[serde(rename_all = "camelCase")]
@@ -33,8 +33,10 @@ pub type DeviceInfoMutex = Mutex<Option<DeviceInfoWithPairing>>;
 pub type PairingCancelToken = Mutex<Option<CancellationToken>>;
 
 #[tauri::command]
-pub async fn list_devices() -> Result<Vec<Result<DeviceInfo, AppError>>, AppError> {
-    let mut usbmuxd = get_usbmuxd().await?;
+pub async fn list_devices(
+    env: State<'_, Environment>,
+) -> Result<Vec<Result<DeviceInfo, AppError>>, AppError> {
+    let mut usbmuxd = get_usbmuxd(&env).await?;
 
     let devs = usbmuxd.get_devices().await.map_err(|e| {
         AppError::Usbmuxd("Failed to list devices from usbmuxd".into(), e.to_string())
@@ -43,12 +45,7 @@ pub async fn list_devices() -> Result<Vec<Result<DeviceInfo, AppError>>, AppErro
         return Ok(vec![]);
     }
 
-    let usbmuxd_addr = UsbmuxdAddr::from_env_var().map_err(|e| {
-        AppError::Usbmuxd(
-            "Invalid usbmuxd address from environment".into(),
-            e.to_string(),
-        )
-    })?;
+    let usbmuxd_addr = env.usbmuxd()?;
 
     let device_info_futures: Vec<_> = devs
         .iter()
@@ -121,8 +118,9 @@ pub async fn list_devices() -> Result<Vec<Result<DeviceInfo, AppError>>, AppErro
 }
 
 #[tauri::command]
-pub async fn set_selected_device(
-    app: AppHandle,
+pub async fn set_selected_device<R: Runtime>(
+    app: AppHandle<R>,
+    env: State<'_, Environment>,
     device_state: State<'_, DeviceInfoMutex>,
     cancel_state: State<'_, PairingCancelToken>,
     device: Option<DeviceInfo>,
@@ -133,7 +131,7 @@ pub async fn set_selected_device(
         return Ok(());
     }
 
-    let mut usbmuxd = get_usbmuxd().await?;
+    let mut usbmuxd = get_usbmuxd(&env).await?;
 
     let token = tokio_util::sync::CancellationToken::new();
     {
@@ -143,8 +141,14 @@ pub async fn set_selected_device(
         }
     }
 
-    let pairing_result =
-        pairing_file(&app, device.as_ref().unwrap(), &mut usbmuxd, token.clone()).await;
+    let pairing_result = pairing_file(
+        &app,
+        &env,
+        device.as_ref().unwrap(),
+        &mut usbmuxd,
+        token.clone(),
+    )
+    .await;
 
     if !token.is_cancelled() {
         let mut guard = cancel_state.lock().unwrap();
@@ -171,17 +175,24 @@ pub async fn cancel_pairing(cancel_state: State<'_, PairingCancelToken>) -> Resu
     Ok(())
 }
 
-pub async fn get_usbmuxd() -> Result<UsbmuxdConnection, AppError> {
-    UsbmuxdConnection::default()
+/// A connection to usbmuxd, at the same address the providers reach the
+/// iPhone through.
+pub async fn get_usbmuxd(env: &Environment) -> Result<UsbmuxdConnection, AppError> {
+    env.usbmuxd()?
+        .connect(0)
         .await
         .map_err(|e| AppError::Usbmuxd("Failed to connect to usbmuxd".into(), e.to_string()))
 }
 
-pub async fn get_provider(device_info: &DeviceInfo) -> Result<UsbmuxdProvider, AppError> {
-    get_provider_from_connection(device_info, &mut (get_usbmuxd().await?)).await
+pub async fn get_provider(
+    env: &Environment,
+    device_info: &DeviceInfo,
+) -> Result<UsbmuxdProvider, AppError> {
+    get_provider_from_connection(env, device_info, &mut (get_usbmuxd(env).await?)).await
 }
 
 pub async fn get_provider_from_connection(
+    env: &Environment,
     device_info: &DeviceInfo,
     connection: &mut UsbmuxdConnection,
 ) -> Result<UsbmuxdProvider, AppError> {
@@ -192,14 +203,5 @@ pub async fn get_provider_from_connection(
             AppError::DeviceComsWithMessage("Failed to get device".into(), e.to_string())
         })?;
 
-    let provider = device.to_provider(
-        UsbmuxdAddr::from_env_var().map_err(|e| {
-            AppError::Usbmuxd(
-                "Invalid usbmuxd address from environment".into(),
-                e.to_string(),
-            )
-        })?,
-        crate::PROVIDER_LABEL,
-    );
-    Ok(provider)
+    Ok(device.to_provider(env.usbmuxd()?, crate::PROVIDER_LABEL))
 }

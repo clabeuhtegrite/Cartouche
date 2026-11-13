@@ -44,6 +44,17 @@ pub struct ImportedSigning {
 pub struct SigningProfileSummary {
     increased_memory_limit: bool,
     sha256: String,
+    /// The app the profile is for, when it is not Cartouche.
+    other_app: Option<String>,
+}
+
+/// The app a profile is for, when it is not Cartouche: its App ID, fixed
+/// or wildcard, does not cover Cartouche's identifier, and iOS installs an
+/// app only under an App ID its profile covers.
+fn other_app(entitlements: &Dictionary) -> Option<String> {
+    let pattern = entitlements.get("application-identifier")?.as_string()?;
+    let (prefix, app) = pattern.split_once('.')?;
+    (!identifier_matches(pattern, &format!("{prefix}.{BUNDLE_ID}"))).then(|| app.to_string())
 }
 
 fn has_increased_memory_limit(entitlements: &Dictionary) -> bool {
@@ -74,6 +85,7 @@ pub fn inspect_signing_profile(profile_path: PathBuf) -> Result<SigningProfileSu
     Ok(SigningProfileSummary {
         increased_memory_limit: has_increased_memory_limit(profile.entitlements()),
         sha256: profile_digest(&data),
+        other_app: other_app(profile.entitlements()),
     })
 }
 
@@ -199,10 +211,8 @@ fn entitlements_for(
         }
         expanded
     } else {
-        // A fixed profile identifier is a signing entitlement, not a request
-        // to rename the app. Preserve it exactly, as generic local signers
-        // do; iOS decides whether to accept the resulting installation.
-        // This also avoids replacing another app that uses the fixed ID.
+        // A fixed identifier is Cartouche's own here: sign() refuses the
+        // others first (other_app), which iOS would not install.
         pattern.to_string()
     };
     if allowed
@@ -324,6 +334,9 @@ impl ImportedSigning {
         let profile = ProvisioningProfile::parse(&profile_data)
             .map_err(|_| invalid("Cannot read this Apple provisioning profile."))?;
         validate_profile(profile.plist(), &identity.certificate, udid)?;
+        if let Some(app) = other_app(profile.entitlements()) {
+            return Err(AppError::ProfileForAnotherApp(app));
+        }
         validate_game_keychain(profile.entitlements(), profile.team_id())?;
         let entitlements = entitlements_for(profile.entitlements(), profile.team_id(), BUNDLE_ID)?;
         let workspace = tempfile::tempdir()
@@ -558,6 +571,21 @@ mod tests {
     }
 
     #[test]
+    fn names_the_app_a_profile_is_for_when_it_is_not_cartouche() {
+        let profile = |app_id: &str| {
+            let mut entitlements = Dictionary::new();
+            entitlements.insert("application-identifier".into(), app_id.into());
+            entitlements
+        };
+        assert_eq!(other_app(&profile("TEAM.*")), None);
+        assert_eq!(other_app(&profile(&format!("TEAM.{BUNDLE_ID}"))), None);
+        assert_eq!(other_app(&profile("TEAM.io.github.*")), None);
+        assert_eq!(other_app(&profile("TEAM.com.example.game")), Some("com.example.game".into()));
+        assert_eq!(other_app(&profile("TEAM.com.example.*")), Some("com.example.*".into()));
+        assert_eq!(other_app(&profile(&format!("TEAM.{BUNDLE_ID}.extension"))), Some(format!("{BUNDLE_ID}.extension")));
+    }
+
+    #[test]
     fn rejects_invalid_p12_without_exposing_password() {
         let error = read_identity(b"invalid", "secret-password")
             .err()
@@ -688,9 +716,11 @@ mod tests {
             vec![Value::String("TEAM".into())].into(),
         );
         let mut entitlements = Dictionary::new();
+        // A profile made for Cartouche alone, under its fixed App ID: one
+        // made for another app is refused before anything is signed.
         entitlements.insert(
             "application-identifier".into(),
-            "TEAM.fixed-profile-app".into(),
+            format!("TEAM.{BUNDLE_ID}").into(),
         );
         entitlements.insert(
             "keychain-access-groups".into(),
@@ -750,6 +780,7 @@ mod tests {
         };
         let summary = inspect_signing_profile(signing.profile_path.clone()).unwrap();
         assert!(!summary.increased_memory_limit);
+        assert_eq!(summary.other_app, None);
         assert_eq!(summary.sha256, signing.profile_sha256);
         let signed = signing.sign(&ipa, "device").unwrap();
         assert!(!signed.app_path.join("PlugIns").exists());

@@ -41,8 +41,11 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  # The tests run on the Mac, which has WebKit already: on Linux, Tauri
-  # needs WebKitGTK and its hundred megabytes of packages first.
+  # The tests run on both, each with its own webview, keychain and TLS: the
+  # backend's, against fakes of the iPhone, Apple, the anisette server and
+  # GitHub, then the window's, clicked through in a real window
+  # (installer/src-tauri/tests/README.md). Not on Linux, where Tauri needs
+  # WebKitGTK and its hundred megabytes of packages first.
   build:
     name: Build for ${{ matrix.name }}
     strategy:
@@ -62,12 +65,43 @@ jobs:
       - name: Install the window's packages
         working-directory: installer
         run: npm ci --no-audit --no-fund
+      # As iloader's own build does: Strawberry Perl and make, and the
+      # compiler's environment, for the C parts of its cryptography.
+      - name: Install Perl and make
+        if: runner.os == 'Windows'
+        run: choco install strawberryperl make --no-progress
+      # The window's tests click through it as it ships, its frontend built in.
+      - name: Build the window
+        working-directory: installer
+        run: npm run build
       - name: Test the backend
         if: runner.os == 'macOS'
-        working-directory: installer
+        working-directory: installer/src-tauri
+        run: cargo test --locked
+      - name: Test the backend
+        if: runner.os == 'Windows'
+        shell: pwsh
+        working-directory: installer/src-tauri
         run: |
-          npm run build
-          (cd src-tauri && cargo test --locked)
+          $ErrorActionPreference = 'Stop'
+          $PSNativeCommandUseErrorActionPreference = $true
+          $vs = & "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe" -latest -property installationPath
+          & "$vs\Common7\Tools\Launch-VsDevShell.ps1" -Arch amd64 -HostArch amd64 -SkipAutomaticLocation
+          cargo test --locked
+      - name: Test the window
+        if: runner.os == 'macOS'
+        working-directory: installer/src-tauri
+        run: cargo test --locked --features ui-tests --test ui
+      - name: Test the window
+        if: runner.os == 'Windows'
+        shell: pwsh
+        working-directory: installer/src-tauri
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $PSNativeCommandUseErrorActionPreference = $true
+          $vs = & "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe" -latest -property installationPath
+          & "$vs\Common7\Tools\Launch-VsDevShell.ps1" -Arch amd64 -HostArch amd64 -SkipAutomaticLocation
+          cargo test --locked --features ui-tests --test ui
       # The app for both kinds of Mac, ad hoc signed (tauri.conf.json): not
       # notarized, so the Mac asks once to open it (installer/README.md).
       - name: Build the Mac app
@@ -79,11 +113,6 @@ jobs:
           VERSION=$(node -p 'require("./src-tauri/tauri.conf.json").version')
           mkdir -p ../build/installer
           cp src-tauri/target/universal-apple-darwin/release/bundle/dmg/*.dmg "../build/installer/Cartouche-Installer-$VERSION-Mac.dmg"
-      # As iloader's own build does: Strawberry Perl and make, and the
-      # compiler's environment, for the C parts of its cryptography.
-      - name: Install Perl and make
-        if: runner.os == 'Windows'
-        run: choco install strawberryperl make --no-progress
       - name: Build the Windows setup
         if: runner.os == 'Windows'
         shell: pwsh

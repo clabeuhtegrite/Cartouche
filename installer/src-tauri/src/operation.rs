@@ -1,11 +1,11 @@
 use serde::Serialize;
-use tauri::{Emitter, Window};
+use tauri::{Emitter, Runtime, Window};
 
 use crate::error::AppError;
 
-pub struct Operation<'a> {
+pub struct Operation<'a, R: Runtime> {
     id: String,
-    window: &'a Window,
+    window: &'a Window<R>,
 }
 
 #[derive(Clone, Serialize)]
@@ -18,8 +18,8 @@ struct OperationUpdate<'a> {
     progress: Option<f32>,
 }
 
-impl<'a> Operation<'a> {
-    pub fn new(id: String, window: &'a Window) -> Operation<'a> {
+impl<'a, R: Runtime> Operation<'a, R> {
+    pub fn new(id: String, window: &'a Window<R>) -> Operation<'a, R> {
         Operation { id, window }
     }
 
@@ -58,7 +58,7 @@ impl<'a> Operation<'a> {
 
     /// A function that reports how much of the step `id` is done, for the
     /// work that runs in isideload or in a download.
-    pub fn progress_reporter(&self, id: &str) -> impl Fn(f32) -> std::future::Ready<()> + use<> {
+    pub fn progress_reporter(&self, id: &str) -> impl Fn(f32) -> std::future::Ready<()> + use<R> {
         let window = self.window.clone();
         let event = format!("operation_{}", self.id);
         let step_id = id.to_string();

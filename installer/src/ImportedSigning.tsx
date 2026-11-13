@@ -13,6 +13,8 @@ export type SigningProfileSummary = {
   profilePath: string;
   increasedMemoryLimit: boolean;
   sha256: string;
+  // The app the profile is for, when it is not Cartouche.
+  otherApp: string | null;
 };
 
 export function ImportedSigning({ value, onChange, summary, onProfileChecked }: {
@@ -51,7 +53,9 @@ export function ImportedSigning({ value, onChange, summary, onProfileChecked }: 
     {value.profilePath && <span>{value.profilePath.split(/[\\/]/).pop()}</span>}
     {checkingProfile && <p role="status">{t("signing.profile_checking")}</p>}
     {profileError && <p role="alert">{t("signing.profile_invalid")}</p>}
-    {summary?.profilePath === value.profilePath && !summary.increasedMemoryLimit &&
+    {summary?.profilePath === value.profilePath && summary.otherApp &&
+      <p role="alert">{t("signing.profile_other_app", { app: summary.otherApp })}</p>}
+    {summary?.profilePath === value.profilePath && !summary.otherApp && !summary.increasedMemoryLimit &&
       <p role="alert">{t("signing.no_memory_limit")}</p>}
     <label>
       {t("signing.password")}

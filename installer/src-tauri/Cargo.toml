@@ -57,3 +57,27 @@ rsa = "0.9.10"
 x509-cert = "0.2.5"
 tempfile = "3"
 aes-gcm = "=0.11.1"
+
+[dev-dependencies]
+tauri = { version = "2", features = ["test"] }
+cartouche-installer-fakes = { path = "fakes" }
+
+[features]
+# The window as it ships, its frontend built in from ../dist, for the
+# interface's tests: `cargo test --features ui-tests --test ui` (README.md).
+ui-tests = ["tauri/custom-protocol"]
+
+# Its own main(): the webview's event loop must run on the main thread.
+[[test]]
+name = "ui"
+path = "tests/ui/main.rs"
+harness = false
+required-features = ["ui-tests"]
+
+# isideload makes the certificate's RSA key in these: unoptimized, as in
+# `cargo test` and `tauri dev`, that takes seconds.
+[profile.dev.package.num-bigint-dig]
+opt-level = 3
+
+[profile.dev.package.rsa]
+opt-level = 3
