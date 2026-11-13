@@ -20,8 +20,10 @@
 //  Then, behind the console, an iPhone turns the screen of a game that lays
 //  itself out upright, upright too, as the player holds it, while the
 //  game's picture is on the iPhone (behindTheConsole(isPad:laysOutUpright:
-//  pictureOnTV:)). A game in Cartouche's place turns as its own app allows:
-//  iOS reads its Info.plist there.
+//  pictureOnTV:)). In Cartouche's place, iOS turns the game as its own
+//  Info.plist allows, and Cartouche's code in the game's process makes it
+//  allow upright too, by the same rule (launcher/Guest/
+//  CartoucheUprightGame.m).
 //
 //  Platform-independent: tested on its own by launcher/Package.swift.
 //
