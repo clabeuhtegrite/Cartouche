@@ -6,7 +6,8 @@ name: Launcher harness
 # Cartouche's servers stood in. Its tests install, replace, start, pause,
 # quit and uninstall test games built as nxnative builds them, never a real
 # game, and check Cartouche's setup, its telemetry, the games folder and
-# the saves (launcher/Harness/README.md).
+# the saves (launcher/Harness/README.md). Every test runs on an iPhone, then
+# the iPad's tests and the game behind the console on an iPad.
 #
 # A pull request's tests run once for what it changes in the files the
 # harness is built from: a rebase or a merge of main that leaves those

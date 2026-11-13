@@ -97,11 +97,10 @@ final class CartoucheGameOrientationTests: XCTestCase {
         XCTAssertEqual(CartoucheGameOrientations(bundle: bundle, isPad: true), iPad)
     }
 
-    /// On an iPad, which turns the game's screen as it is held: an nxnative
-    /// game, sideways only, keeps the way it is turned once it is sideways,
-    /// as the iPad tilts upright, upside down or lies flat. Players' iPads
-    /// turned such games upright mid-game (telemetry of 13 November: 834 x
-    /// 1210 then 1210 x 834 points on an 11-inch iPad Pro).
+    /// On an iPad, which turns the game's screen as it is held, whatever
+    /// the game allows, and turned nxnative's games upright mid-game: an
+    /// nxnative game, sideways only, keeps the way it is turned once it is
+    /// sideways, as the iPad tilts upright, upside down or lies flat.
     func testAGameMadeToBePlayedSidewaysStaysSidewaysOnAnIPad() {
         let game = CartoucheGameOrientations.landscape
         for current in [CartoucheGameOrientations.landscapeLeft, .landscapeRight] {
