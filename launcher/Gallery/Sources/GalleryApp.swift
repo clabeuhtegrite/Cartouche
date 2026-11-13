@@ -8,9 +8,11 @@
 //  the whole screen of the simulator it runs on, such as the iPhone Duo's,
 //  with its own safe area, size classes and system bars.
 //
-//      -GalleryScreen games|library|sheet|settings|gameinfo|setup|signin|guide|system|storage|storage-mac|storage-drive|storage-drive-guide|telemetry|report|tv|switch-save
+//      -GalleryScreen games|library|sheet|sheet-saves|settings|gameinfo|setup|signin|guide|system|storage|storage-mac|storage-drive|storage-drive-guide|telemetry|report|tv|switch-save
 //                                        library: every game, open over
-//                                        the home; gameinfo: what the
+//                                        the home; sheet-saves: the sheet
+//                                        at its saves, further down;
+//                                        gameinfo: what the
 //                                        player says of the sheet's game;
 //                                        storage-mac: Add your Mac, the
 //                                        form that pairs this iPhone with a
@@ -279,6 +281,9 @@ struct GalleryScenario {
                     CartoucheSwitchSaveView.galleryPick = { await GallerySaves.switchExport() }
                 }
             }
+            if screen == "sheet-saves" {
+                CartoucheGameSheetView.galleryAtSaves = true
+            }
             if work == "mac" || work == "mac-offline" {
                 // The player's Mac, paired, with the games Cartouche Builder
                 // built in its Games folder; offline, away from home, the
@@ -541,7 +546,7 @@ struct CartoucheGalleryApp: App {
             // the sheet of the game in focus on an iPhone Duo unfolded once
             // the player has a game.
             CartoucheGamesView(showingLibrary: true)
-        case "sheet":
+        case "sheet", "sheet-saves":
             if let entry = entries.all.first(where: { $0.titleId == scenario.sheet }) {
                 NavigationStack {
                     CartoucheGameSheetView(entry: entry, memory: CartoucheMemoryReading.now(), onPlay: { _ in },

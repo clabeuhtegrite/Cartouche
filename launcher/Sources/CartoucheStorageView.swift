@@ -1035,6 +1035,10 @@ struct CartoucheSavesSection: View {
         self.switchGame = switchGame
     }
 
+    /// The row of the saves between the Switch and this iPhone, which a
+    /// list can scroll to.
+    static let switchRow = "switchSaves"
+
     var body: some View {
         Section {
             if let target {
@@ -1046,6 +1050,7 @@ struct CartoucheSavesSection: View {
                 } label: {
                     Label(CartoucheText.switchSaveTitle, systemImage: "arrow.left.arrow.right")
                 }
+                .id(Self.switchRow)
             }
         } header: {
             Text(CartoucheText.savesTitle)

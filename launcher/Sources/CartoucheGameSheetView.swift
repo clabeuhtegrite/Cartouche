@@ -94,6 +94,12 @@ struct CartoucheGameSheetView: View {
     /// says of the game changes.
     private static let top = "top"
 
+    #if CARTOUCHE_GALLERY
+    /// Whether the gallery shows the sheet at its saves, for their
+    /// screenshot.
+    static var galleryAtSaves = false
+    #endif
+
     var body: some View {
         ScrollViewReader { reader in
             List {
@@ -168,6 +174,14 @@ struct CartoucheGameSheetView: View {
             .onChange(of: entry.player) { _, _ in
                 withAnimation { reader.scrollTo(Self.top, anchor: .top) }
             }
+            #if CARTOUCHE_GALLERY
+            // The gallery's screenshot of the sheet's saves, further down.
+            .task {
+                guard Self.galleryAtSaves else { return }
+                try? await Task.sleep(for: .milliseconds(500))
+                reader.scrollTo(CartoucheSavesSection.switchRow, anchor: .center)
+            }
+            #endif
         }
         // The header names the game: the bar above it stays empty.
         .navigationBarTitleDisplayMode(.inline)
