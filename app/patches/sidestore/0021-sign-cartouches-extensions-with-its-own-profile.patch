@@ -1,12 +1,12 @@
-From 0613e6b8f3e3b4a85ecbcf9b0bf41b098655d7d9 Mon Sep 17 00:00:00 2001
+From d892a3833f04f256e88264a1b32e19beae6b22d5 Mon Sep 17 00:00:00 2001
 From: Claude <noreply@anthropic.com>
 Date: Fri, 13 Nov 2026 15:26:12 +0000
-Subject: [PATCH] Sign Cartouche's extensions with its own profile whenever
- SideStore signs it
+Subject: [PATCH] Sign Cartouche's extensions with its own profile when
+ SideStore updates it
 
 The app SideStore is built into keeps its extensions, signed with its own
-provisioning profile, when SideStore installs, updates or re-signs it, as
-the Cartouche Installer signs it (isideload's ReuseMain): neither the
+provisioning profile, when SideStore installs or updates it, as the
+Cartouche Installer signs it (isideload's ReuseMain): neither the
 player's setting for app extensions nor the alert that asks applies.
 
 An update passes the store's version of the app rather than its
@@ -24,17 +24,91 @@ without signing again, follow the InstalledApp, which the install
 records, so that the next ones renew the main profile only, which
 LiveProcess is then signed with.
 
+The extensions are signed as before, with an App ID each, when the steps
+that follow could not sign them with the app's profile: they find it
+under the bundle ID SideStore knows the app by while it is fetched under
+the one the app is signed as, and name each extension after the bundle
+ID of the app's bundle, so a bundle ID of the player's own, the
+re-signing of the installed app, or an extension outside the app's
+bundle ID would leave an extension with the app's own bundle ID. And
+when the last time it was tried started from the version that runs, so
+that it never ended: that update signs as before, and the next one tries
+again. CartoucheExtensionsProfile holds the rule, with Foundation only,
+and SideStore's preferences the version it was last tried from.
+
 Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
 Claude-Session: https://claude.ai/code/session_01MzPJotRoWqyfPs7d7YexEP
 ---
- .../RemoveAppExtensionsOperation.swift             | 14 ++++++++++++++
- 1 file changed, 14 insertions(+)
+ .../CartoucheExtensionsProfile.swift          | 54 +++++++++++++++++++
+ .../RemoveAppExtensionsOperation.swift        | 30 +++++++++++
+ 2 files changed, 84 insertions(+)
+ create mode 100644 SideStore/Core/Operations/CartoucheExtensionsProfile.swift
 
+diff --git a/SideStore/Core/Operations/CartoucheExtensionsProfile.swift b/SideStore/Core/Operations/CartoucheExtensionsProfile.swift
+new file mode 100644
+index 0000000..539db9e
+--- /dev/null
++++ b/SideStore/Core/Operations/CartoucheExtensionsProfile.swift
+@@ -0,0 +1,54 @@
++//
++//  CartoucheExtensionsProfile.swift
++//  SideStore
++//
++//  Cartouche: whether SideStore signs the extensions of the app it is built
++//  into with that app's own provisioning profile, as the Cartouche Installer
++//  signs them, or as before, with an App ID for each extension
++//  (RemoveAppExtensionsOperation). Foundation only, so that it can be tried
++//  on its own. Needs proper testing on a phone.
++//
++
++import Foundation
++
++enum CartoucheExtensionsProfile
++{
++    /// Where SideStore keeps the version of the app it is built into that it
++    /// last started signing that app again from, its extensions with the
++    /// app's own profile. An update that ends runs the app's next version;
++    /// one that never ended leaves the same version running.
++    static let startedFromKey = "CartoucheExtensionsProfileStartedFrom"
++
++    /// Whether SideStore signs the extensions of the app it is built into
++    /// with that app's own profile, for an app whose bundle carries
++    /// APPBUNDLEIDENTIFIER and extensions EXTENSIONBUNDLEIDENTIFIERS, that
++    /// SideStore knows as BUNDLEIDENTIFIER and signs as TARGETBUNDLEIDENTIFIER.
++    ///
++    /// Not when the steps that follow could not do it: they find the profile
++    /// under BUNDLEIDENTIFIER, while it is fetched under TARGETBUNDLEIDENTIFIER,
++    /// and give each extension the profile's bundle ID followed by what
++    /// follows APPBUNDLEIDENTIFIER in its own, which a bundle ID of the
++    /// player's own or an extension outside the app's bundle ID would leave
++    /// as the app's. Nor when the last time it was tried started from
++    /// RUNNINGVERSION, the version that runs, and so never ended: this time
++    /// signs as before, and the next one tries again.
++    static func signsWithAppProfile(appBundleIdentifier: String,
++                                    extensionBundleIdentifiers: [String],
++                                    bundleIdentifier: String,
++                                    targetBundleIdentifier: String,
++                                    startedFrom: String?,
++                                    runningVersion: String) -> Bool
++    {
++        guard appBundleIdentifier == bundleIdentifier, targetBundleIdentifier == bundleIdentifier else { return false }
++        guard extensionBundleIdentifiers.allSatisfy({ $0.hasPrefix(appBundleIdentifier + ".") }) else { return false }
++        return startedFrom != runningVersion
++    }
++
++    /// The version and build an Info.plist gives, as SideStore keeps it.
++    static func version(of info: [String: Any]?) -> String
++    {
++        let version = info?["CFBundleShortVersionString"] as? String ?? "?"
++        let build = info?["CFBundleVersion"] as? String ?? "?"
++        return "\(version) (\(build))"
++    }
++}
 diff --git a/SideStore/Core/Operations/PipelineOperations/RemoveAppExtensionsOperation.swift b/SideStore/Core/Operations/PipelineOperations/RemoveAppExtensionsOperation.swift
-index 22222a9..118c516 100644
+index 22222a9..460b337 100644
 --- a/SideStore/Core/Operations/PipelineOperations/RemoveAppExtensionsOperation.swift
 +++ b/SideStore/Core/Operations/PipelineOperations/RemoveAppExtensionsOperation.swift
-@@ -74,6 +74,20 @@ final class RemoveAppExtensionsOperation: BasePipelineOperation<InstallAppOperat
+@@ -74,6 +74,36 @@ final class RemoveAppExtensionsOperation: BasePipelineOperation<InstallAppOperat
              return targetAppBundle
          }
          
@@ -43,18 +117,31 @@ index 22222a9..118c516 100644
 +        // extension Cartouche runs its games and this SideStore in, needs the Increased
 +        // Memory Limit of Cartouche's App ID, which an App ID of its own never had: an
 +        // update, which passes the store's version, never read the choice Cartouche's
-+        // InstalledApp keeps, and registered an App ID for each extension. Needs proper
-+        // testing on a phone.
++        // InstalledApp keeps, and registered an App ID for each extension. When the steps
++        // that follow could not sign them so, or the last time it was tried never ended,
++        // they are signed as before (CartoucheExtensionsProfile). Needs proper testing on
++        // a phone.
 +        if targetAppBundle.isAltStoreApp {
-+            self.debugLog("[RemoveAppExtensionsOperation] Keeping the extensions of \(targetAppBundle.bundleIdentifier), signed with its own profile.")
-+            self.context.useMainProfile = true
-+            self.setProgress(100)
-+            return targetAppBundle
++            let runningVersion = CartoucheExtensionsProfile.version(of: Bundle.Info.activeBundle.infoDictionary)
++            let startedFrom = UserDefaults.standard.string(forKey: CartoucheExtensionsProfile.startedFromKey)
++            if CartoucheExtensionsProfile.signsWithAppProfile(
++                appBundleIdentifier: targetAppBundle.bundleIdentifier,
++                extensionBundleIdentifiers: targetAppBundle.appExtensions.map { $0.bundleIdentifier },
++                bundleIdentifier: self.context.bundleIdentifier,
++                targetBundleIdentifier: self.context.targetBundleIdentifier,
++                startedFrom: startedFrom,
++                runningVersion: runningVersion
++            ) {
++                UserDefaults.standard.set(runningVersion, forKey: CartoucheExtensionsProfile.startedFromKey)
++                self.debugLog("[RemoveAppExtensionsOperation] Keeping the extensions of \(targetAppBundle.bundleIdentifier), signed with its own profile.")
++                self.context.useMainProfile = true
++                self.setProgress(100)
++                return targetAppBundle
++            }
++            UserDefaults.standard.removeObject(forKey: CartoucheExtensionsProfile.startedFromKey)
++            self.debugLog("[RemoveAppExtensionsOperation] Signing the extensions of \(targetAppBundle.bundleIdentifier) as before (last tried from \(startedFrom ?? "none"), running \(runningVersion)).")
 +        }
 +        
          self.setProgress(30)
          let excessExtensions = processExtensionsInfo(from: targetAppBundle, localAppExtensions: localAppExtensions)
          
--- 
-2.43.0
-
