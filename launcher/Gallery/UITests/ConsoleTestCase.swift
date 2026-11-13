@@ -64,6 +64,10 @@ enum Words {
     static let telemetry = "Game measurements"              // telemetry.title
     static let sendMeasurements = "Send game measurements"  // telemetry.send
     static let report = "Report a problem"                  // report.title
+    static let resetCartouche = "Reset Cartouche"           // reset.title
+    static let eraseAndRestart = "Erase everything and restart" // reset.erase
+    static let eraseEverything = "Erase everything"         // reset.confirm.erase
+    static let erasing = "Erasing…"                         // reset.erasing
     static let renewEveryNight = "Renew every night"        // system.auto.daily
     static let openShortcuts = "Open Shortcuts"             // daily.openShortcuts
     static let storageIntro = "Your games and saves on your own storage" // storage.intro

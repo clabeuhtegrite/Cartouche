@@ -119,8 +119,7 @@ final class CartoucheTelemetry: ObservableObject {
     private var observers: Set<AnyCancellable> = []
 
     private init() {
-        let support = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-        file = support.appendingPathComponent("Cartouche/Telemetry.json")
+        file = Self.file
         var state = (try? Data(contentsOf: file)).flatMap { try? JSONDecoder().decode(State.self, from: $0) } ?? State()
         if Date().timeIntervalSince(state.installSince) > Self.installLifetime {
             state.install = Self.newNumber()
@@ -243,6 +242,15 @@ final class CartoucheTelemetry: ObservableObject {
         state.lastReport = nil
         save()
         return true
+    }
+
+    /// Cartouche is being reset (CartoucheReset.swift): what the telemetry
+    /// knew of the games goes with them. Its number, its switch and the
+    /// reports not sent yet stay, and its file with them (decision 97).
+    func forgetGames() {
+        state.logs = CartoucheTelemetryLogs()
+        state.runs = CartoucheTelemetryRuns()
+        save()
     }
 
     // MARK: Sessions
@@ -576,6 +584,13 @@ final class CartoucheTelemetry: ObservableObject {
         guard let body = try? CartoucheTelemetryFormat.json(report) else { return }
         state.queue.add(CartoucheTelemetryQueue.Entry(id: id, created: Date(), body: body))
         state.lastReport = body
+    }
+
+    /// The file the telemetry keeps its state in, which a reset of
+    /// Cartouche keeps (CartoucheResetPlan.telemetryFile).
+    static var file: URL {
+        FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent("Cartouche/Telemetry.json")
     }
 
     private func save() {

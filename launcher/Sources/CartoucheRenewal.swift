@@ -40,6 +40,10 @@ enum CartoucheRenewal {
 
     static var canRenew: Bool { !CartoucheImportedSigning.accountSigningDisabled && refreshAllApps != nil }
 
+    /// Whether Renew now is under way, which a reset of Cartouche waits for
+    /// (CartoucheReset).
+    @MainActor private(set) static var isRenewing = false
+
     /// Renews Cartouche without leaving the app; its SideStore renews no
     /// other app (app/patches/sidestore/0017). LocalDevVPN has to be
     /// connected. A failure says why, as SideStore left it.
@@ -56,6 +60,8 @@ enum CartoucheRenewal {
         guard let refresh = refreshAllApps else {
             throw Failure(message: CartoucheText.renewUnavailable, failure: CartoucheFailure(.bridgeMissing, stage: "start"))
         }
+        isRenewing = true
+        defer { isRenewing = false }
         let started = Date()
         var attempt = 1
         while true {

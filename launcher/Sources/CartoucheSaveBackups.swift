@@ -124,6 +124,16 @@ final class CartoucheSaveBackups: ObservableObject {
     }
     #endif
 
+    /// Whether TARGET's saves are in the saves folder as they are here, as
+    /// far as Cartouche knows: before a reset of Cartouche, which erases
+    /// them here (CartoucheReset). A game without saves has nothing to
+    /// lose.
+    func isInStep(_ target: CartoucheSaveTarget) async -> Bool {
+        guard let look = await Self.look(of: target.documents) else { return true }
+        guard let location = settings.location(.saves) else { return false }
+        return savedBase(of: target, place: Self.place(location))?.look == look
+    }
+
     /// Waits for the syncs under way: before a game starts, which closes
     /// Cartouche.
     func finish() async {

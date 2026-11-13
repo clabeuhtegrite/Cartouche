@@ -8,9 +8,17 @@
 //  the whole screen of the simulator it runs on, such as the iPhone Duo's,
 //  with its own safe area, size classes and system bars.
 //
-//      -GalleryScreen games|library|sheet|settings|gameinfo|setup|signin|guide|system|storage|storage-mac|storage-drive|storage-drive-guide|telemetry|report|tv
+//      -GalleryScreen games|library|sheet|settings|gameinfo|setup|signin|guide|system|system-end|storage|storage-mac|storage-drive|storage-drive-guide|telemetry|report|reset|tv
 //                                        library: every game, open over
-//                                        the home; gameinfo: what the
+//                                        the home; system-end: the System
+//                                        page at its end, on Reset
+//                                        Cartouche; reset: its page, with
+//                                        work: saves, the saves of the
+//                                        sheet's game, or the first of the
+//                                        player's, which the reset would
+//                                        lose; confirm: its confirmation;
+//                                        erasing: the reset under way;
+//                                        gameinfo: what the
 //                                        player says of the sheet's game;
 //                                        storage-mac: Add your Mac, the
 //                                        form that pairs this iPhone with a
@@ -270,6 +278,9 @@ struct GalleryScenario {
             }
             if work == "saves", let titleId = sheet ?? ownedTitles.first {
                 GallerySaves.prepare(titleId: titleId)
+            }
+            if work == "erasing" {
+                CartoucheReset.shared.showForGallery(.erasing)
             }
             if work == "mac" || work == "mac-offline" {
                 // The player's Mac, paired, with the games Cartouche Builder
@@ -579,6 +590,8 @@ struct CartoucheGalleryApp: App {
             }
         case "system":
             CartoucheSystemView()
+        case "system-end":
+            CartoucheSystemView(showsEnd: true)
         case "storage":
             NavigationStack {
                 CartoucheStorageView()
@@ -605,6 +618,11 @@ struct CartoucheGalleryApp: App {
         case "report":
             NavigationStack {
                 CartoucheReportView()
+            }
+        case "reset":
+            // As the System page opens it.
+            NavigationStack {
+                CartoucheResetView(confirming: scenario.work == "confirm")
             }
         case "root":
             CartoucheRootView()
