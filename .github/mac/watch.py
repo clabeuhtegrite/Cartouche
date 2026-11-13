@@ -9,8 +9,8 @@ The run goes back to GitHub's Macs:
   waits for it or runs: it went to sleep, lost the network, or its
   supervisor stopped it;
 - when the job has waited 20 minutes for the Mac (QUEUE_MINUTES), or as
-  long as MAC_QUEUE_MINUTES says: the UI tests and screenshots wait 45, as
-  long as the job before them takes on the Mac.
+  long as MAC_QUEUE_MINUTES says: the UI tests and screenshots wait 60,
+  longer than the job before them takes on the Mac (46 minutes).
 
 For that, it asks Mac rescue (mac-rescue.yml, from main) to run this run
 again once it has ended, then cancels it: a run again goes to GitHub's Macs
@@ -42,7 +42,7 @@ OFFLINE_CHECKS = 3
 QUEUE_MINUTES = 20
 # The longest wait for the Mac and the job's timeout-minutes, together; the
 # watch's job has a few minutes more (test_mac_side.py, WorkflowTests).
-LONGEST_MINUTES = 150
+LONGEST_MINUTES = 160
 # The Mac's job needs what the watch needs: it is in the run by the time the
 # watch starts, unless the workflow names it otherwise than MAC_JOB.
 MISSING_MINUTES = 5

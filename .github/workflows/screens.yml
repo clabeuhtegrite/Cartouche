@@ -214,7 +214,7 @@ jobs:
     # Not in the Full test pass, whose UI tests run on GitHub's Macs.
     if: ${{ !cancelled() && !inputs.full && needs.route.outputs.mac == 'true' && needs.taken.outputs.taken != 'true' }}
     runs-on: ubuntu-latest
-    timeout-minutes: 160
+    timeout-minutes: 170
     permissions:
       contents: read
       actions: write # cancels this run, and starts Mac rescue to run it again
@@ -227,9 +227,9 @@ jobs:
         env:
           MAC_JOB: UI tests and screenshots
           MAC_LABELS: cartouche-screens,xcode-${{ env.XCODE_VERSION }},ios-sim-${{ env.XCODE_VERSION }}
-          # The job waits for the one before it on the Mac, which takes about
-          # as long: GitHub's Macs only after that.
-          MAC_QUEUE_MINUTES: "45"
+          # The job may wait for the one before it on the Mac, which took 46
+          # minutes there (run 43280139397): GitHub's Macs after an hour.
+          MAC_QUEUE_MINUTES: "60"
           RUNNERS_TOKEN: ${{ secrets.MAC_RUNNER_TOKEN }}
           GH_TOKEN: ${{ github.token }}
           DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
