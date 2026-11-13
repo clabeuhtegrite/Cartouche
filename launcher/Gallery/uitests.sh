@@ -78,7 +78,7 @@ def pro(name):
 
 kinds = listing("devicetypes")["devicetypes"]
 if os.environ.get("UITESTS_DEVICE") == "iPad":
-    # The newest iPads come last in simctl's list.
+    # The newest iPads come last in the list of simctl.
     ipads = [k for k in kinds if k.get("productFamily") == "iPad"]
     wanted = [k for k in ipads if k["name"] == "iPad Pro 13-inch (M5)"] + ipads[::-1]
     name = "Cartouche UI tests iPad"
