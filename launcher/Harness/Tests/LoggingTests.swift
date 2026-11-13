@@ -22,6 +22,12 @@ final class LoggingTests: HarnessCase {
         XCTAssertEqual(fstat(STDERR_FILENO, &info), 0, "standard error is open")
         let kind = info.st_mode & S_IFMT
         XCTAssertEqual(kind, S_IFREG, "standard error is a file, not \(Self.name(of: kind)), which waits until Xcode reads it")
+        XCTAssertTrue(HarnessStandardError.isTheFile(STDERR_FILENO), "standard error is the harness's own file")
+        // What is written there is kept, for harness.sh's console.txt.
+        let line = "harness: a line on standard error, \(UUID().uuidString)"
+        fputs(line + "\n", stderr)
+        let written = try String(contentsOf: HarnessStandardError.file, encoding: .utf8)
+        XCTAssertTrue(written.contains(line), "the line is in \(HarnessStandardError.file.lastPathComponent)")
     }
 
     private static func name(of kind: mode_t) -> String {
