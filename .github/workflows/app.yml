@@ -172,6 +172,12 @@ jobs:
       - name: Launcher tests
         if: ${{ needs.changes.outputs.launcher != 'false' }}
         run: swift test --package-path launcher
+      # The app's tests that need Foundation, CryptoKit or the iOS SDK, which
+      # the CI workflow's App sources job skips on Linux. What they read, the
+      # LiveContainer patches and the launcher's sources, builds the app; a
+      # change to the tests alone runs them in the Full test pass.
+      - name: App tests on macOS
+        run: python3 -m unittest discover -s app/tests -p 'test_imported_signing.py' -v
       - name: Prepare the sources
         run: app/scripts/prepare.sh
       # Before the build, which changes the prepared sources.
