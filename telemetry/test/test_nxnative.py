@@ -39,6 +39,8 @@ MKW = "0400C3F00006E000"
 SENTINELS = "01003FC01670C000"
 SENTINELS_JAPAN = "010045C014650000"
 TODAY = "2026-11-12"
+# The reading of the log from which the slowest 5% counts (sheets.SLOWEST_READER).
+READER = 2
 MKW_NAME = f"Mario Kart World `{MKW}`"
 
 TEMPLATE = next(r for r in json.loads((HERE / "app-reports.json").read_text(encoding="utf-8"))["reports"]
@@ -103,7 +105,7 @@ class NxnativePageTest(unittest.TestCase):
         """A session as the Worker keeps it: the fixture's, with these fields."""
         report = copy.deepcopy(TEMPLATE)
         report.update(id=str(uuid.uuid4()), install=install, device=device, game=game, seq=seq,
-                      session=session or str(uuid.uuid4()), end={"kind": "unknown"})
+                      session=session or str(uuid.uuid4()), end={"kind": "unknown"}, reader=READER)
         for key, value in fields.items():
             if value is None:
                 report.pop(key, None)
@@ -349,6 +351,21 @@ class NxnativePageTest(unittest.TestCase):
 
     # MARK: Which sessions count
 
+    def test_the_slowest_5_percent_counts_only_from_the_reading_that_takes_pauses_out(self):
+        # As Super Mario Bros. Wonder's on the iPhone19,4 on 2026-11-13: 59.6 fps, and 4 fps in the slowest 5% of
+        # the time, from the stretches that held a pause behind the console.
+        for phone in self.phones[:3]:
+            self.session(phone, reader=1, fps={"median": 59.6, "low5": 4.0})
+        self.run_page()
+        line = rows(self.page(), "By game")[0]
+        self.assertEqual((line["FPS median"], line["FPS slowest 5%"]), ("59.6", "–"))
+        # Read again with the reading that takes the pauses out, the same sessions count.
+        for phone in self.phones[:3]:
+            self.session(phone, day="2026-11-11", fps={"median": 59.6, "low5": 52.0})
+        self.run_page()
+        line = rows(self.page(), "By game")[0]
+        self.assertEqual((line["Sessions"], line["FPS median"], line["FPS slowest 5%"]), ("6", "59.6", "52.0"))
+
     def test_a_session_sent_again_counts_once_at_its_highest_seq(self):
         again = str(uuid.uuid4())
         self.session(self.phones[0], session=again, seq=3, fps={"median": 20.0, "low5": 10.0})
@@ -388,6 +405,9 @@ class NxnativePageTest(unittest.TestCase):
         self.assertIn("0 game sessions from 0 installs, 0.0 hours of play.", page)
         self.assertIn("No game was played on 3 installs or more.", page)
         self.assertIn("No nxnative commit was built on 3 Macs or more.", page)
+        # What the slowest 5% counts, so that a low one is not read as nxnative's alone.
+        self.assertIn("it counts only from the sessions Cartouche read with its reading 2 of the log or a later one",
+                      page)
 
     # MARK: Secrets
 

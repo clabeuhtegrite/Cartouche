@@ -40,7 +40,9 @@ from collections import Counter, defaultdict
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from sheets import API, DATABASE, MIN_IPHONES, PAGE, WINDOW_DAYS, Cloudflare, Refused, number  # noqa: E402
+from sheets import (  # noqa: E402
+    API, DATABASE, MIN_IPHONES, PAGE, SLOWEST_READER, WINDOW_DAYS, Cloudflare, Refused, figure_of, number,
+)
 
 # A line, and each of its figures, needs this many installs, as the sheets do.
 MIN_INSTALLS = MIN_IPHONES
@@ -85,7 +87,8 @@ SESSIONS = (
     "json_extract(body, '$.end.pc') AS pc, "
     "json_extract(body, '$.end.lr') AS lr, "
     "json_extract(body, '$.process.limitMiB') AS processLimit, "
-    "json_extract(body, '$.memoryLimitMiB') AS limitMiB "
+    "json_extract(body, '$.memoryLimitMiB') AS limitMiB, "
+    "json_extract(body, '$.reader') AS reader "
     f"FROM reports WHERE kind = 'session' AND day = ?1 AND id > ?2 ORDER BY id LIMIT {PAGE}"
 )
 
@@ -177,10 +180,12 @@ class Group:
 
     def figure(self, key: str, sessions: list[dict] | None = None, highest: bool = False) -> float | None:
         """The median of each install's own median, or of its highest; none
-        when fewer than MIN_INSTALLS installs gave the value."""
+        when fewer than MIN_INSTALLS installs gave the value. The slowest 5%
+        counts only from the reading of the log that takes pauses out, as in
+        the game sheets (sheets.SLOWEST_READER)."""
         by: dict[str, list[float]] = defaultdict(list)
         for s in self.sessions if sessions is None else sessions:
-            value = number(s.get(key))
+            value = figure_of(s, key)
             if value is not None:
                 by[s["install"]].append(value)
         if len(by) < MIN_INSTALLS:
@@ -390,6 +395,12 @@ def page(catalog: Catalog, sessions: list[dict], events: list[dict], first: dt.d
         "- Each figure is the median of each install's own median, so that each install counts once however much it "
         "played; the peak is each install's highest, of its sessions that drew a frame. Stutters waiting for shaders "
         "are a share of all the stutters of the line.",
+        "- FPS slowest 5% is the rate of the slowest 5% of a session's time: the frame rate of each `[nvn] power` "
+        "line, over its 300 frames, weighted by how long they lasted. nxnative times them by the clock, so a stretch "
+        "that held a pause, the game left behind Cartouche's console or Cartouche in the background counts at the "
+        f"rate that pause brought it to: it counts only from the sessions Cartouche read with its reading {SLOWEST_READER} "
+        "of the log or a later one, which leaves such a stretch out, and shows – before. Stutters and the shader "
+        "stall are per minute of the whole session.",
         "- The figures come from the lines nxnative writes in `log.txt`, which Cartouche reads after each session "
         "([CartoucheGameLog.swift](https://github.com/clabeuhtegrite/Cartouche/blob/main/launcher/Sources/"
         "CartoucheGameLog.swift)): the `[nvn]` timing, on-screen and power lines, `[longframe]`, `pipeline prepare`, "

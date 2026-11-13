@@ -6,11 +6,12 @@ of the game sheets in catalog/games/, for the Game measurements workflow
 For each sheet, and each iPhone model at least three iPhones played the game
 on in the last 28 days, one result: how the game ran, as the median of each
 iPhone's own median so that each iPhone counts once however much it played,
-how its sessions ended, and a status that follows from them
-(telemetry/README.md#game-sheets). A model fewer iPhones played the game on
-gets no result: the sheets show figures of several iPhones, never of one
-(docs/privacy.md). The results testers wrote stay as they are; a measured
-result is replaced by the model's new one, and kept while the model has none.
+the most memory any of them used, how its sessions ended, and a status that
+follows from them (telemetry/README.md#game-sheets). A model fewer iPhones
+played the game on gets no result: every figure on the sheets comes from
+three iPhones or more (docs/privacy.md). The results testers wrote stay as
+they are; a measured result is replaced by the model's new one, and kept
+while the model has none.
 
 It reads the D1 database through Cloudflare's API, with the secrets
 CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID, and does nothing without
@@ -55,6 +56,14 @@ PAGE = 2000
 # the player quit behind the console, so neither counts.
 ENDED_BADLY = {"crash": "crash", "memory-likely": "out of memory", "boot-failed": "did not start"}
 
+# The reading of nxnative's log (CartoucheGameLogReader.version, in a
+# report's reader) from which a session's slowest 5% counts. nxnative times
+# each stretch of 300 frames by the clock, so before it a stretch that held a
+# pause, the game left behind the console or Cartouche in the background,
+# counted at the rate that pause brought it to: one pause of a minute took
+# the slowest 5% of a session of twenty minutes under 5 fps.
+SLOWEST_READER = 2
+
 # The status of a model's result:
 #   does-not-run          no session drew a frame;
 #   boots                 half of the sessions or more ended badly;
@@ -80,7 +89,8 @@ SESSIONS = (
     "json_extract(body, '$.targetFps') AS target, "
     "json_extract(body, '$.stutters.perMinute') AS stutters, "
     "json_extract(body, '$.memory.peakMiB') AS peak, "
-    "json_extract(body, '$.end.kind') AS ending "
+    "json_extract(body, '$.end.kind') AS ending, "
+    "json_extract(body, '$.reader') AS reader "
     f"FROM reports WHERE kind = 'session' AND day = ?1 AND id > ?2 ORDER BY id LIMIT {PAGE}"
 )
 
@@ -155,6 +165,13 @@ def number(value) -> float | None:
     return float(value) if isinstance(value, (int, float)) and not isinstance(value, bool) else None
 
 
+def figure_of(session: dict, key: str) -> float | None:
+    """The session's figure KEY: its slowest 5% only from SLOWEST_READER on."""
+    if key == "slowest" and (number(session.get("reader")) or 1) < SLOWEST_READER:
+        return None
+    return number(session.get(key))
+
+
 def drew_frames(session: dict) -> bool:
     """Whether the session got into the game: it drew a frame."""
     return (number(session.get("frames")) or 0) > 0 or number(session.get("fps")) is not None
@@ -163,6 +180,11 @@ def drew_frames(session: dict) -> bool:
 def median(values: list[float]) -> float | None:
     """The median, when enough iPhones gave a value."""
     return statistics.median(values) if len(values) >= MIN_IPHONES else None
+
+
+def highest(values: list[float]) -> float | None:
+    """The highest, when enough iPhones gave a value."""
+    return max(values) if len(values) >= MIN_IPHONES else None
 
 
 def rounded(value: float | None, digits: int = 1) -> float | int | None:
@@ -183,7 +205,7 @@ class IPhone:
     sessions: list[dict]
 
     def values(self, key: str) -> list[float]:
-        return [v for v in (number(s.get(key)) for s in self.sessions) if v is not None]
+        return [v for v in (figure_of(s, key) for s in self.sessions) if v is not None]
 
     def median(self, key: str) -> float | None:
         values = self.values(key)
@@ -303,7 +325,10 @@ class Result:
             "engine": self.engine,
             "status": self.status,
         }
-        peak = median([v for v in (phone.peak for phone in self.iphones) if v is not None])
+        # The highest of the iPhones' peaks, not their median: Cartouche starts
+        # the game where its peak fits (docs/decisions.md, 48), and it must
+        # fit there on the iPhone that needed the most.
+        peak = highest([v for v in (phone.peak for phone in self.iphones) if v is not None])
         if peak is not None:
             entry["peakMemoryMiB"] = max(int(round(peak)), 1)
         entry["notes"] = [self.note()]
