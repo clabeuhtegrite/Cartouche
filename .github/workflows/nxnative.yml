@@ -1,0 +1,107 @@
+name: nxnative page
+
+# Each Thursday, sums up for nxnative's developers what Cartouche's players
+# measured of nxnative's games in the last 28 days (telemetry/nxnative.py,
+# telemetry/README.md#nxnatives-page): by game, by game and model, by game
+# and nxnative commit, the crashes several installs shared, the devices and
+# the builds on players' Macs, each line and each figure of at least three
+# installs. It reads the D1 database with the secrets CLOUDFLARE_API_TOKEN
+# and CLOUDFLARE_ACCOUNT_ID of the environment cloudflare, and does nothing
+# while they are not set. The page goes on the branch nxnative-measurements,
+# as its README.md, on top of the weeks before, which its history keeps.
+
+on:
+  schedule:
+    # Thursdays at 05:11 UTC, after the Game measurements workflow.
+    - cron: "11 5 * * 4"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: nxnative-page
+  cancel-in-progress: false
+
+jobs:
+  sum:
+    name: Sum up the measurements for nxnative
+    # Only main's workflow publishes.
+    if: ${{ github.ref == 'refs/heads/main' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: cloudflare
+    outputs:
+      written: ${{ steps.sum.outputs.written }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Read the sessions and write the page
+        id: sum
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: python3 telemetry/nxnative.py --catalog catalog --out build/nxnative
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        if: ${{ steps.sum.outputs.written == 'true' }}
+        with:
+          name: nxnative-page
+          path: build/nxnative
+          retention-days: 14
+          if-no-files-found: error
+
+  # The only job that can write holds no secret and runs nothing from the
+  # repository or from a package index: it commits the page the first job
+  # wrote.
+  keep:
+    name: Keep the page on nxnative-measurements
+    needs: sum
+    if: ${{ needs.sum.outputs.written == 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write # the branch nxnative-measurements
+    env:
+      GH_TOKEN: ${{ github.token }}
+      BRANCH: nxnative-measurements
+    steps:
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
+        with:
+          name: nxnative-page
+          path: build/nxnative
+      - name: Push it to nxnative-measurements
+        run: |
+          # The page alone.
+          OTHERS="$(find build/nxnative -mindepth 1 ! -path build/nxnative/README.md -printf '%P ')"
+          if [ ! -f build/nxnative/README.md ] || [ -n "$OTHERS" ]; then
+            echo "::error::the page's folder holds more than README.md, or not it: $OTHERS"
+            exit 1
+          fi
+          git init -q -b "$BRANCH" page
+          cd page
+          gh auth setup-git
+          REMOTE="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY.git"
+          # On top of the last week's page; the first time, on a branch of its own.
+          if git ls-remote --exit-code --heads "$REMOTE" "$BRANCH" > /dev/null; then
+            git fetch -q --depth=1 "$REMOTE" "refs/heads/$BRANCH"
+            git reset -q --hard FETCH_HEAD
+          fi
+          cp ../build/nxnative/README.md README.md
+          git add README.md
+          PAGE="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/blob/$BRANCH/README.md"
+          if git diff --cached --quiet; then
+            echo "The page did not change since last week's: $PAGE" >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          DAY="$(date -u +%Y-%m-%d)"
+          git -c user.name="github-actions[bot]" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" \
+            commit -q -m "nxnative's page: the measurements of the 28 days before $DAY" \
+                      -m "Summed up by the nxnative page workflow (telemetry/nxnative.py) on $GITHUB_SHA."
+          git push -q "$REMOTE" "HEAD:refs/heads/$BRANCH"
+          {
+            echo "## nxnative's page"
+            echo
+            echo "On \`$BRANCH\`: [README.md]($PAGE)."
+          } >> "$GITHUB_STEP_SUMMARY"
+          echo "::notice::nxnative's page: $PAGE"

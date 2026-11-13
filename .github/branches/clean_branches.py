@@ -40,6 +40,7 @@ from pathlib import Path
 READ = {
     "gh-pages": "the showcase site, which GitHub Pages serves (site.yml)",
     "live-covers": "the covers Cartouche reads every day (live-covers.yml)",
+    "nxnative-measurements": "the weekly page for nxnative's developers, and its history (nxnative.yml)",
 }
 
 # The branches a workflow keeps for another branch: <prefix><that branch>.

@@ -137,6 +137,19 @@ Each Thursday, the Game measurements workflow ([`.github/workflows/measurements.
 
 The results testers wrote stay as they are. A measured result is replaced by its model's new one, and stays while its model has none. The sheets that changed go on the branch `catalog-measurements`, whose pull request goes through CI before it is merged; the job summary links it, with how many sessions and iPhones were summed up. The workflow reads the database with the same secrets as the deploy, and does nothing without them.
 
+## nxnative's page
+
+Each Thursday, the nxnative page workflow ([`.github/workflows/nxnative.yml`](../.github/workflows/nxnative.yml)) sums up for nxnative's developers what the players measured of nxnative's games in the 28 days before, with [`nxnative.py`](nxnative.py), into a page of its own: the `README.md` of the branch [`nxnative-measurements`](https://github.com/clabeuhtegrite/Cartouche/blob/nxnative-measurements/README.md), each week's on top of the last, so that its history keeps the weeks before. Only what concerns nxnative, never the whole database:
+
+- By game, by game and iPhone model, and by game and nxnative commit (a session's `nxnative`, from the version of November 13): installs, sessions and hours; the frame rate, that of the slowest 5% of the time, the frame time's p99; the stutters a minute and the share of them that waited for shaders, the shader stall; the preparation before the first frame; the memory peak; the sessions that reached serious heat; and how many crashed, failed to boot, ran out of memory or drew no frame.
+- The crashes at least three installs shared: by game and signal, with the models and the commits they share; and the same crash, at the same place of the same build (game version, commit, signal, `pc` and `lr`), on three installs or more.
+- The devices of the installs, as each last started Cartouche (`app.opened`): the models, the iOS versions, the memory limits iOS sets, and how many iPhones have a GPU that reads no BC texture.
+- The builds on players' Macs, by the commit they were built from (`builder.built`, `builder.failed`): how many Macs, built, failed, and the stages they failed at. The Macs that follow a fork of nxnative are left out, and so are the builds the player stopped and the errors of Cartouche Builder's own code.
+
+Every line, and every figure, sums up at least three installs, or three Macs, as everything the project publishes ([docs/privacy.md](../docs/privacy.md#where-it-goes-and-for-how-long)): a smaller group is left out, a figure fewer installs gave shows `–`, and a commit, a model or a stage fewer share is not named. Its figures are medians of each install's own median, as in the game sheets; the peak is each install's highest, of its sessions that drew a frame. No install's, session's or report's number is ever written. Set apart, so that they do not read as nxnative's: the sessions on iPhones whose GPU reads no BC texture (`iPhone15,x` and before), which nxnative refuses; those whose game process ran with 3,376 MiB or less while Cartouche had more, without Increased Memory Limit, which is Cartouche's doing; and those of builds with changes of their own (`nxnativeChanged`). The page says how many, from at least three installs.
+
+The workflow reads the database with the same secrets as the deploy, and does nothing without them; only main's workflow publishes. Its second job, which holds no secret and runs nothing from the repository, commits the page when it changed and pushes it without force. Run it by hand from the Actions tab for a page before Thursday. The project points nxnative to the page in nxnative's GitHub Discussions; nothing is sent to them otherwise.
+
 ## Export
 
 The project's sessions in the cloud run where the network does not reach Cloudflare, and the dashboard opens only behind Access: they read the database through the **Telemetry export** workflow ([`.github/workflows/telemetry-export.yml`](../.github/workflows/telemetry-export.yml)) and [`export.py`](export.py), which only those who can write to the repository can run.
@@ -169,7 +182,7 @@ The deploy also uploads the [dashboard](#dashboard), with the same database and 
 ```sh
 node --import ./telemetry/test/text-modules.mjs --test telemetry/test/worker.test.js telemetry/test/dashboard.test.js
                                                      # the Workers, with stand-ins for D1, Access and GitHub
-python3 -m unittest discover -s telemetry/test -v    # the database on SQLite; the deploy, the weekly sum and the export against a stand-in for Cloudflare's API
+python3 -m unittest discover -s telemetry/test -v    # the database on SQLite; the deploy, the weekly sum, nxnative's page and the export against a stand-in for Cloudflare's API
 ```
 
 The dashboard's page is imported as Workers import a text module, which [`test/text-modules.mjs`](test/text-modules.mjs) lets Node do. Its tests run the page's sums on the reports of `app-reports.json`, sent through the server into SQLite when Node has `node:sqlite`, and [`test/test_dashboard.py`](test/test_dashboard.py) checks that every field of them reaches the page: a field the app starts to send goes in `SESSION` in `dashboard/worker.js` and in the page's `SHOWN`.
