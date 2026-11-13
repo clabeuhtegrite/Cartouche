@@ -50,10 +50,12 @@ final class SystemUITests: ConsoleTestCase {
     }
 
     /// Reset Cartouche, at the end of the System page, asks twice before it
-    /// erases anything: its button, then its confirmation, whose Cancel
-    /// leaves everything as it was. Erase everything covers the page while
-    /// Cartouche erases, then restarts: the gallery's reset only shows it,
-    /// and comes back to the page (CartoucheReset.swift).
+    /// erases anything: its button, then its confirmation, which, cancelled,
+    /// leaves everything as it was: by its Cancel, or, on an iPhone from
+    /// iOS 26, which shows it in a popover without one, by a tap outside it.
+    /// Erase everything covers the page while Cartouche erases, then
+    /// restarts: the gallery's reset only shows it, and comes back to the
+    /// page (CartoucheReset.swift).
     @MainActor
     func testResetCartoucheAsksTwiceBeforeItErases() {
         let app = openConsole()
@@ -63,10 +65,10 @@ final class SystemUITests: ConsoleTestCase {
         expect(app.navigationBars[Words.resetCartouche].waitForExistence(timeout: 15), "Reset Cartouche did not open", in: app)
         let erase = element(in: app.buttons, beginningWith: Words.eraseAndRestart)
         let erasing = element(labelled: Words.erasing, in: app)
-        // Once, then Cancel: nothing happens.
+        // Once, then cancelled: nothing happens.
         scrollAndTap(erase, "Erase everything and restart", in: app)
-        tapButtonOnTop(Words.cancel, "Cancel of the confirmation", in: app)
-        expect(!erasing.waitForExistence(timeout: 3), "Cancel erased all the same", in: app)
+        cancelConfirmation("The confirmation", in: app)
+        expect(!erasing.waitForExistence(timeout: 3), "The confirmation, cancelled, erased all the same", in: app)
         // Then Erase everything.
         scrollAndTap(erase, "Erase everything and restart, again", in: app)
         tapButtonOnTop(Words.eraseEverything, "Erase everything, in the confirmation", in: app)
