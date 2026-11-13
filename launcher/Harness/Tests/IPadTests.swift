@@ -8,6 +8,7 @@
 //  turns from one side to the other as the iPad does, lets go while the
 //  console shows, and asks the player to turn an iPad held upright
 //  sideways (CartoucheGameOrientations, CartoucheGameScreen.followTurns).
+//  The launcher's words call the iPad the iPad (CartoucheDeviceWords).
 //  They run on an iPad, the harness's second pass (harness.sh --ipad); on
 //  an iPhone, which turns the screen itself, only the iPhone's test runs.
 //  The Simulator turns only from its menus: the tests set the way the
@@ -129,6 +130,14 @@ final class IPadTests: HarnessCase {
         XCTAssertFalse(shows(CartoucheText.turnIPadSideways, in: screen.view))
     }
 
+    /// The launcher's words call the iPad the iPad, as its model says.
+    func testTheWordsCallTheIPadTheIPad() throws {
+        try XCTSkipUnless(onIPad, "on an iPad: harness.sh --ipad")
+        XCTAssertTrue(CartoucheDevice.isPad, CartoucheDevice.modelIdentifier)
+        XCTAssertTrue(CartoucheText.thisIPhone.hasSuffix(" iPad"), CartoucheText.thisIPhone)
+        XCTAssertFalse(CartoucheText.onThisIPhone.contains("iPhone"), CartoucheText.onThisIPhone)
+    }
+
     // MARK: On an iPhone
 
     /// An iPhone turns the game's screen as the game allows: the screen
@@ -147,6 +156,13 @@ final class IPadTests: HarnessCase {
             XCTAssertFalse(screen.prefersInterfaceOrientationLocked)
         }
         XCTAssertFalse(shows(CartoucheText.turnIPadSideways, in: screen.view))
+    }
+
+    /// An iPhone's words are those of Cartouche.xcstrings.
+    func testTheWordsCallTheIPhoneTheIPhone() throws {
+        try XCTSkipIf(onIPad, "on an iPhone")
+        XCTAssertFalse(CartoucheDevice.isPad, CartoucheDevice.modelIdentifier)
+        XCTAssertTrue(CartoucheText.thisIPhone.hasSuffix(" iPhone"), CartoucheText.thisIPhone)
     }
 
     // MARK: Helpers

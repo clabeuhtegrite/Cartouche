@@ -35,6 +35,10 @@
 //                                        when the catalogue has a game of
 //                                        that name (showFound)
 //      -GallerySetup 1 -GalleryController 1
+//      -GalleryModel iPad15,3            the device of catalog/devices.json
+//                                        the screen is drawn as, whose words
+//                                        call an iPad the iPad (none: the
+//                                        iPhone, iPhone19,4, CartoucheDevice)
 //      -GallerySheet <title ID>          the game of the sheet, of its
 //                                        settings, or being installed
 //      -GalleryWork installing           a game being installed, over the
