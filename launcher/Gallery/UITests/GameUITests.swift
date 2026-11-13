@@ -5,9 +5,10 @@
 //  A game of the player's beyond its settings: its info, which the player
 //  changes from its sheet and puts back to Cartouche's; the game paused
 //  behind the console, which the home offers to resume or to quit, Quit
-//  asking first; and an install, under way over the console, or failed,
-//  with the report to copy. The gallery stands in for the games, their
-//  install and their process (GalleryStubs.swift).
+//  asking first; an install, under way over the console, or failed,
+//  with the report to copy; and its builds on the player's Mac, from its
+//  sheet. The gallery stands in for the games, their install and their
+//  process (GalleryStubs.swift), and for the Mac (GalleryMac).
 //
 
 import XCTest
@@ -98,6 +99,47 @@ final class GameUITests: ConsoleTestCase {
                "No word that the report was copied", in: app)
         expect(waitForGone(alert), "Copy the report did not close the alert", in: app)
         expect(waitUntil(10) { isOnConsole(app) }, "The console did not come back after the report", in: app)
+        expectMainThreadAnswered(app)
+    }
+
+    /// A game's builds on the player's Mac, from its sheet, while Cartouche
+    /// Builder builds another: the game up to date there, added to the
+    /// Mac's queue, waits its turn after the game waiting; the Mac's builds
+    /// list the game building, those waiting, the next first, and those
+    /// finished; the game building says so on its sheet, with nothing to
+    /// ask the Mac.
+    @MainActor
+    func testAGameAddedToTheMacsQueueWaitsItsTurn() {
+        let app = openConsole(Launch(work: "mac-builds"))
+        // Mario Kart World builds on the Mac, Donkey Kong Bananza waits its
+        // turn, Link's Awakening is up to date there (GalleryMac.builds).
+        let building = Games.names[0], waiting = Games.names[1], upToDate = Games.names[2]
+        openSheet(of: upToDate, in: app)
+        scrollTo(element(beginningWith: Words.macUpToDate, in: app), "the game up to date on the Mac", in: app)
+        scrollAndTap(app.buttons[Words.addToMacQueue], "Add to the Mac's queue", in: app)
+        expect(element(beginningWith: Words.macWaitingAfterOne, in: app).waitForExistence(timeout: 10),
+               "The game added to the Mac's queue does not wait its turn after the game waiting", in: app)
+        expect(!app.buttons[Words.addToMacQueue].exists, "The sheet still offers to add the game to the Mac's queue", in: app)
+
+        scrollAndTap(app.buttons[Words.macBuilds], "The Mac's builds", in: app)
+        // In the order the list shows them, top to bottom.
+        let list = app.collectionViews.descendants(matching: .any)
+        for (words, what) in [(Words.macBuildsBuilding, "the heading of the games building"),
+                              (building, "the game building"),
+                              (Words.macBuildsWaiting, "the heading of the games waiting"),
+                              ("1. " + waiting, "the game waiting, first"),
+                              ("2. " + upToDate, "the game added to the queue, second"),
+                              (Words.macBuildsFinished, "the heading of the builds finished"),
+                              (Games.other, "the build finished")] {
+            scrollTo(element(in: list, beginningWith: words), what + " in the Mac's builds", in: app)
+        }
+        closeSheet(in: app)
+
+        openSheet(of: building, in: app)
+        scrollTo(element(beginningWith: Words.macBuilding, in: app), "the game building on the Mac", in: app)
+        expect(!app.buttons[Words.addToMacQueue].exists, "The sheet offers to add the game building to the Mac's queue",
+               in: app)
+        closeSheet(in: app)
         expectMainThreadAnswered(app)
     }
 

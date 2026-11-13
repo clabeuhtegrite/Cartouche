@@ -107,6 +107,14 @@ enum Words {
     static let putBack = "Put back a copy"                  // saves.putBack
     static let putBackCopy = "Put back the copy of "        // saves.putBack.action
     static let putBackDone = "The copy of "                 // saves.putBack.done
+    static let macUpToDate = "Up to date on the Mac"        // mac.build.upToDate.built
+    static let macBuilding = "Building on the Mac"          // mac.build.building
+    static let macWaitingAfterOne = "Waiting its turn on the Mac, after 1 game" // mac.build.waiting.one
+    static let addToMacQueue = "Add to the Mac’s queue"     // mac.build.action.queue
+    static let macBuilds = "The Mac’s builds"               // mac.builds.all
+    static let macBuildsBuilding = "Building"               // mac.builds.building
+    static let macBuildsWaiting = "Waiting their turn"      // mac.builds.waiting
+    static let macBuildsFinished = "Finished"               // mac.builds.done
 }
 
 /// The gallery's own words (GalleryTesting.swift).
@@ -147,8 +155,10 @@ struct Launch {
     /// "update", a new version of Cartouche on offer; "paused", the first
     /// game paused behind the console; "installing" or "install-failed",
     /// the game of SHEET; "offline", the NAS out of reach; "mac", the
-    /// player's Mac paired; "mac-nearby", "mac-code" or "mac-refused", what
-    /// Add your Mac finds; "saves", the first game's saves and a folder in
+    /// player's Mac paired; "mac-builds", that Mac building the first game,
+    /// the second waiting its turn and the third up to date there;
+    /// "mac-nearby", "mac-code" or "mac-refused", what Add your Mac finds;
+    /// "saves", the first game's saves and a folder in
     /// Files as the saves folder; "drive-signed-out", the player's Google
     /// Drive, whose sign-in Google ended, with two games' saves waiting.
     var work: String?

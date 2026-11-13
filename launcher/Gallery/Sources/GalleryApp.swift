@@ -67,7 +67,12 @@
 //                                        games folder and the saves folder;
 //                                        mac-offline: that Mac out of reach,
 //                                        away from home, with two games'
-//                                        saves waiting for it; build-skipped:
+//                                        saves waiting for it; mac-builds:
+//                                        that Mac, its Cartouche Builder
+//                                        building one game and another
+//                                        waiting its turn, as the games'
+//                                        sheets show (GalleryMac.builds);
+//                                        build-skipped:
 //                                        No thanks said to the guide's Mac
 //                                        step; own-cover: the sheet's game,
 //                                        or the first of the player's, with
@@ -271,10 +276,11 @@ struct GalleryScenario {
             if work == "saves", let titleId = sheet ?? ownedTitles.first {
                 GallerySaves.prepare(titleId: titleId)
             }
-            if work == "mac" || work == "mac-offline" {
+            if work == "mac" || work == "mac-offline" || work == "mac-builds" {
                 // The player's Mac, paired, with the games Cartouche Builder
                 // built in its Games folder; offline, away from home, the
-                // saves of two games wait for it.
+                // saves of two games wait for it; builds, Cartouche Builder
+                // at work, which the games' sheets show.
                 let mac = GalleryMac.paired()
                 CartoucheStorageSettings.shared.showForGallery(mac, games: CartoucheBridge.gamesFolder,
                                                                saves: CartoucheBridge.savesFolder)
@@ -282,6 +288,9 @@ struct GalleryScenario {
                 if work == "mac-offline" {
                     CartoucheStorageReach.shared.showOfflineForGallery([mac.id])
                     CartoucheSaveBackups.shared.showWaitingForGallery(2)
+                }
+                if work == "mac-builds" {
+                    CartoucheMacBuildsWatch.gallery = (mac: mac.name, builds: GalleryMac.builds())
                 }
             }
             if work == "drive-signed-out" {
@@ -657,6 +666,24 @@ enum GalleryMac {
     /// reached it at.
     static func paired() -> CartoucheStorageServer {
         CartoucheStorageServer(kind: .mac, name: "MacBook Air", host: "192.168.1.20", port: Int(CartoucheBridge.port), macID: id)
+    }
+
+    /// Cartouche Builder at work on the Mac, as it tells Cartouche (work:
+    /// mac-builds): Mario Kart World building, Donkey Kong Bananza waiting
+    /// its turn, Link's Awakening built this morning, and a game the
+    /// player has not installed, whose last build failed yesterday.
+    static func builds(now: Date = Date()) -> CartoucheBridgeBuilds {
+        let hour: TimeInterval = 3_600
+        return CartoucheBridgeBuilds(running: true, games: [
+            .init(id: "0400C3F00006E000", name: "Mario Kart World", state: "building", reasons: ["changes"],
+                  progress: 0.42, step: "Compiling shaders for the iPhone", left: 21 * 60, built: now.addingTimeInterval(-3 * 24 * hour)),
+            .init(id: "040074A01BF12000", name: "Donkey Kong Bananza", state: "queued", reasons: ["changes"], turn: 1,
+                  built: now.addingTimeInterval(-6 * 24 * hour)),
+            .init(id: "01006BB00C6F0000", name: "The Legend of Zelda: Link's Awakening", state: "up_to_date",
+                  built: now.addingTimeInterval(-9 * hour)),
+            .init(id: "01003FC01670C000", name: "13 Sentinels: Aegis Rim", state: "failed",
+                  failed: now.addingTimeInterval(-26 * hour), error: "Building the app stopped: Xcode found no iOS SDK."),
+        ])
     }
 
     private static func service(_ name: String) -> NWEndpoint {

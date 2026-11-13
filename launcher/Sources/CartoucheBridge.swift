@@ -23,6 +23,11 @@
 //  4-byte big-endian length and their bytes; a message is a 4-byte header
 //  length, a JSON header and its body, the bytes of a file read or written.
 //
+//  Besides the two folders, a Mac whose info says so (hasBuilds) shows its
+//  builds, building, waiting and done, and builds a game asked for
+//  (CartoucheBridgeBuilds.swift). A Mac a little older does not know these
+//  requests, and ends the session on one: Cartouche asks its info first.
+//
 //  This file is shared: Cartouche compiles it with the launcher, Cartouche
 //  Builder through the CartoucheCore package (launcher/Package.swift). It
 //  needs only Foundation, CryptoKit and Network.
@@ -286,6 +291,9 @@ public actor CartoucheBridgeGate {
 public struct CartoucheBridgeRequest: Codable, Equatable {
     public enum Operation: String, Codable {
         case info, list, stat, read, create, write, finish, cancel, makeFolder, delete, free, canWrite
+        /// Cartouche Builder's builds, and a build asked for: only of a Mac
+        /// whose info says it has them (hasBuilds).
+        case builds, build
     }
 
     public var op: Operation
@@ -294,14 +302,18 @@ public struct CartoucheBridgeRequest: Codable, Equatable {
     public var count: Int?
     public var size: UInt64?
     public var upload: String?
+    /// build: the title ID of the game to build.
+    public var game: String?
 
-    public init(_ op: Operation, path: String? = nil, offset: UInt64? = nil, count: Int? = nil, size: UInt64? = nil, upload: String? = nil) {
+    public init(_ op: Operation, path: String? = nil, offset: UInt64? = nil, count: Int? = nil, size: UInt64? = nil, upload: String? = nil,
+                game: String? = nil) {
         self.op = op
         self.path = path
         self.offset = offset
         self.count = count
         self.size = size
         self.upload = upload
+        self.game = game
     }
 }
 
@@ -335,6 +347,10 @@ public struct CartoucheBridgeResponse: Codable, Equatable {
     public var upload: String?
     public var name: String?
     public var readOnly: Bool?
+    /// info: whether the Mac shows its builds and takes a build asked for.
+    public var hasBuilds: Bool?
+    /// builds, build: the Mac's builds, after the one asked for.
+    public var builds: CartoucheBridgeBuilds?
 
     public init() {}
 
@@ -795,6 +811,25 @@ public final class CartoucheBridgeClient {
 
     public func canWrite(_ path: String) async throws -> Bool {
         try await call(CartoucheBridgeRequest(.canWrite, path: path)).0.writable ?? false
+    }
+
+    /// Cartouche Builder's builds; ask only a Mac whose info says it has
+    /// them (hasBuilds).
+    public func builds() async throws -> CartoucheBridgeBuilds {
+        guard let builds = try await call(CartoucheBridgeRequest(.builds)).0.builds else {
+            throw CartoucheBridgeError(.protocolError, "no builds")
+        }
+        return builds
+    }
+
+    /// Asks the Mac to build the game TITLE_ID, as the Build button of its
+    /// sheet there does: at once, or after the games of the batch running.
+    /// The Mac's builds once it is asked.
+    public func build(_ titleId: String) async throws -> CartoucheBridgeBuilds {
+        guard let builds = try await call(CartoucheBridgeRequest(.build, game: titleId)).0.builds else {
+            throw CartoucheBridgeError(.protocolError, "no builds")
+        }
+        return builds
     }
 
     public func close() {

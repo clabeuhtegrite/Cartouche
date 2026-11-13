@@ -13,6 +13,10 @@
 //  Trash when its disk has one. The Mac stays awake while an iPhone is
 //  connected.
 //
+//  The app also shows a paired iPhone its builds, building, waiting and
+//  done, and builds a game it asks for, as the game's Build button does
+//  (BridgeBuildsSource, BridgeBuilds.swift); its info says so (hasBuilds).
+//
 
 import CartoucheCore
 import Foundation
@@ -34,6 +38,18 @@ public protocol BridgeServerDelegate: AnyObject {
     func bridgeServer(_ server: BridgeServer, allowPairing name: String, code: String) async -> Bool
     /// The server's state, its sessions or its devices changed.
     func bridgeServerChanged(_ server: BridgeServer)
+}
+
+/// The app's builds, for the paired iPhones: what they show, and a game one
+/// of them asks to build.
+@MainActor
+public protocol BridgeBuildsSource: AnyObject {
+    /// The builds now (BridgeBuilds.shared).
+    func bridgeBuilds() -> CartoucheBridgeBuilds
+    /// Builds the game TITLE_ID, as its Build button does, at once or after
+    /// the games of the batch running. Throws what the iPhone shows when the
+    /// Mac cannot.
+    func bridgeBuild(_ titleID: String) throws
 }
 
 public final class BridgeServer: @unchecked Sendable {
@@ -63,6 +79,7 @@ public final class BridgeServer: @unchecked Sendable {
     private var pairingTimes: [Date] = []
     private var activity: NSObjectProtocol?
     private var generation = 0
+    private weak var _builds: BridgeBuildsSource?
 
     public init(devices: BridgeDevices, name: String) {
         self.devices = devices
@@ -94,6 +111,21 @@ public final class BridgeServer: @unchecked Sendable {
         lock.lock()
         defer { lock.unlock() }
         return _name
+    }
+
+    /// What answers the iPhones' builds and builds asked for: none, and the
+    /// Mac's info says it has no builds to show.
+    public var builds: BridgeBuildsSource? {
+        get {
+            lock.lock()
+            defer { lock.unlock() }
+            return _builds
+        }
+        set {
+            lock.lock()
+            _builds = newValue
+            lock.unlock()
+        }
     }
 
     /// The paired devices connected now, by ID.
@@ -314,11 +346,39 @@ public final class BridgeServer: @unchecked Sendable {
             idle.touch()
             // A device removed from the Mac's list is not served any more.
             guard devices.key(of: channel.peer) != nil else { return }
-            let (response, data) = session.handle(request, body: body)
+            let response: CartoucheBridgeResponse
+            let data: Data
+            if request.op == .builds || request.op == .build {
+                response = await answerBuilds(request)
+                data = Data()
+            } else {
+                (response, data) = session.handle(request, body: body)
+            }
             do {
                 try await channel.send(response, body: data)
             } catch {
                 return
+            }
+        }
+    }
+
+    /// The app's builds, after the build asked for (REQUEST): the app
+    /// answers on the main actor.
+    func answerBuilds(_ request: CartoucheBridgeRequest) async -> CartoucheBridgeResponse {
+        guard let source = builds else { return .failure(.notFound, "builds") }
+        return await MainActor.run { () -> CartoucheBridgeResponse in
+            do {
+                if request.op == .build {
+                    guard let game = request.game, !game.isEmpty else { throw CartoucheBridgeError(.notFound, "game") }
+                    try source.bridgeBuild(game)
+                }
+                var response = CartoucheBridgeResponse()
+                response.builds = source.bridgeBuilds()
+                return response
+            } catch let error as CartoucheBridgeError {
+                return .failure(error.kind, error.message)
+            } catch {
+                return .failure(.failed, error.localizedDescription)
             }
         }
     }
@@ -423,6 +483,7 @@ final class Session {
             response.items = rootItems(roots)
             response.free = roots.games.flatMap(Session.free)
             response.readOnly = false
+            response.hasBuilds = server?.builds != nil
         case .list:
             let place = try resolve(request.path)
             guard let place else {
@@ -513,6 +574,9 @@ final class Session {
                 folder = folder.deletingLastPathComponent()
             }
             response.writable = manager.isWritableFile(atPath: folder.path)
+        case .builds, .build:
+            // The server asks the app (BridgeServer.answerBuilds).
+            throw CartoucheBridgeError(.notFound, "builds")
         }
         return (response, Data())
     }
