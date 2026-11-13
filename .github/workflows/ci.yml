@@ -4,6 +4,13 @@ on:
   push:
     branches: [main]
   pull_request:
+  # The Full test pass (full-pass.yml), which runs these jobs as they are.
+  workflow_call:
+    inputs:
+      full:
+        description: "Run every job, as the Full test pass does: these always run, whatever the paths"
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -84,14 +91,25 @@ jobs:
       - name: zizmor
         run: |
           python3 -m venv .venv
-          .venv/bin/pip install --quiet zizmor==1.32.0 pyyaml
+          .venv/bin/pip install --quiet zizmor==1.32.0 pyyaml actionlint-py==1.7.12.25 shellcheck-py==0.11.0.1
           .venv/bin/zizmor --offline --no-progress .github/workflows
+      # actionlint checks what GitHub would refuse to start, as a workflow
+      # called with an input it does not take, and the scripts with
+      # shellcheck (.github/actionlint.yaml).
+      - name: actionlint
+        run: PATH="$PWD/.venv/bin:$PATH" .venv/bin/actionlint
       - name: main requires only checks that every pull request reports
         run: .venv/bin/python .github/rulesets/check_rulesets.py
       - name: The branches the Branches workflow deletes
         run: .venv/bin/python -m unittest discover -s .github/branches -v
       - name: The runner on Ad's Mac, and the jobs it takes
         run: .venv/bin/python -m unittest discover -s .github/mac -v
+      # The pass runs on main only: here, that it calls every workflow that
+      # tests, publishes nothing, and that every release waits for it.
+      - name: The full test pass runs every test, and every release waits for it
+        run: |
+          .venv/bin/python .github/full-pass/wiring.py
+          .venv/bin/python -m unittest discover -s .github/full-pass -v
 
   site:
     name: Showcase site

@@ -4523,6 +4523,23 @@
         }
       }
     },
+    "setup.appleID.unfinished" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The sign-in with %@ stopped before Cartouche got its certificate. Connect LocalDevVPN, then sign in again."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "La connexion avec %@ s’est arrêtée avant que Cartouche reçoive son certificat. Connectez LocalDevVPN, puis reconnectez-vous."
+          }
+        }
+      }
+    },
     "setup.banner.certificate" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -4693,6 +4710,23 @@
         }
       }
     },
+    "setup.banner.unfinished" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The sign-in stopped before the certificate"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "La connexion s’est arrêtée avant le certificat"
+          }
+        }
+      }
+    },
     "setup.certificate.checking" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -4733,13 +4767,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Comes by itself once you have signed in. If not, install Cartouche again over this copy with the Cartouche Installer."
+            "value" : "Comes by itself at the end of the sign-in with your Apple ID."
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Arrive tout seul après la connexion. Sinon, réinstallez Cartouche par-dessus cette copie avec l’Installeur Cartouche."
+            "value" : "Arrive tout seul à la fin de la connexion avec votre identifiant Apple."
           }
         }
       }
@@ -5743,6 +5777,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Se connecter"
+          }
+        }
+      }
+    },
+    "signIn.certificateUnopened" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The built-in SideStore signed in, but Cartouche could not open the certificate it took. Copy the report for whoever helps you."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Le SideStore intégré s’est connecté, mais Cartouche n’a pas pu ouvrir le certificat reçu. Copiez le rapport pour qui vous aide."
           }
         }
       }

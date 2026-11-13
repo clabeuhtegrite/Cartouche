@@ -7,7 +7,9 @@
 //  the certificate, which Cartouche hands to LiveContainer on its own
 //  (CartoucheSetup.swift). Each step shows
 //  where it stands, read again whenever Cartouche comes back to the front.
-//  The Apple ID's step stays open while this iPhone is left to register.
+//  The Apple ID's step stays open while this iPhone is left to register,
+//  and while the sign-in stopped before the certificate, with why it
+//  stopped.
 //
 
 import SwiftUI
@@ -52,7 +54,7 @@ struct CartoucheSetupView: View {
                     }
                     step(
                         number: 2,
-                        done: setup.appleID != nil && !setup.needsDevice,
+                        done: setup.signInStep == .done && !setup.needsDevice,
                         title: CartoucheText.setupAppleIDTitle,
                         detail: appleIDDetail
                     ) {
@@ -66,6 +68,16 @@ struct CartoucheSetupView: View {
                             }
                             .buttonStyle(.borderedProminent)
                             .disabled(!setup.hasPairingFile || account.phase == .registeringDevice)
+                        }
+                        // Why the sign-in stopped, once its screen has gone.
+                        if setup.signInStep == .unfinished, account.phase == nil, let report = account.lastProblem {
+                            Label(report.message, systemImage: "exclamationmark.triangle.fill")
+                                .font(.footnote)
+                                .foregroundStyle(.red)
+                                .fixedSize(horizontal: false, vertical: true)
+                            CartoucheReportButton(report: report)
+                                .font(.footnote)
+                                .buttonStyle(.bordered)
                         }
                     }
                 }
@@ -90,7 +102,8 @@ struct CartoucheSetupView: View {
                     if setup.usesImportedSigning {
                         Text(CartoucheText.signingUpdateOnComputer).font(.footnote).foregroundStyle(.secondary)
                     }
-                    if !setup.hasCertificate {
+                    // A sign-in that stopped: signing in again brings it.
+                    if !setup.hasCertificate && setup.signInStep != .unfinished {
                         Button(CartoucheText.setupCheckAgain, systemImage: "arrow.clockwise") {
                             setup.refresh()
                         }
@@ -127,6 +140,12 @@ struct CartoucheSetupView: View {
 
     private var appleIDDetail: String {
         guard let appleID = setup.appleID else { return CartoucheText.setupAppleIDHow }
+        // The sign-in stopped before the certificate: signing in again
+        // brings it.
+        if setup.signInStep == .unfinished {
+            let working = account.phase == .signingIn || account.needsCode
+            return working ? CartoucheText.signInWorking : CartoucheText.setupAppleIDUnfinished(appleID)
+        }
         guard setup.needsDevice else { return CartoucheText.setupAppleIDDone(appleID) }
         return account.phase == .registeringDevice ? CartoucheText.setupBannerDeviceWorking : CartoucheText.setupAppleIDDevice(appleID)
     }
@@ -275,6 +294,9 @@ extension CartoucheSetup {
         if usesImportedSigning { return certificateRefused ? CartoucheText.signingRefused : CartoucheText.signingHow }
         if certificateRefused {
             return signingInAgain ? CartoucheText.setupBannerCertificateRenewing : CartoucheText.setupBannerCertificateDetail
+        }
+        if signInStep == .unfinished {
+            return signingInAgain ? CartoucheText.setupBannerCertificateRenewing : CartoucheText.setupBannerUnfinishedDetail
         }
         guard canPlay else { return CartoucheText.setupBannerDetail }
         guard hasPairingFile else { return CartoucheText.setupBannerRenewalDetail }

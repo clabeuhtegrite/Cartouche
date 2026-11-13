@@ -13,7 +13,9 @@ Thanks for helping. Cartouche is written in English: code, comments, docs and co
 - Every change to main goes through a pull request, squashed when it is merged: main takes no push ([.github/rulesets](.github/rulesets/README.md)).
 - One change per pull request, with a description of what it does and how it was tested.
 - Once a pull request is merged or closed, its branch is deleted, with the screenshots kept for it, by the [Branches workflow](.github/branches/README.md); **Restore branch** on the pull request brings it back. New work goes on a branch started again from main. A branch no pull request has stays until its author deletes it.
+- A fix comes with a test that fails without it, where the bug was: a unit test of the launcher, a storage test against real servers, a UI test of the gallery, or a Python test. The pull request says which.
 - CI must pass: the publish guard's tests, the catalog checks, the shell checks, the workflow audit and, when the app's files change, the app build. main requires them all. When the storage code changes, the storage tests against real servers must pass too ([launcher/StorageTests](launcher/StorageTests/README.md)).
+- Before any release, of Cartouche, Cartouche Builder or the Installer, the [Full test pass](.github/full-pass/README.md) runs every test of the repository on its commit, whatever it changes, and nothing is published until it has passed.
 - A compatibility sheet in `catalog/games/` needs a result measured on a real device; see the compatibility report issue form.
 
 ## Development

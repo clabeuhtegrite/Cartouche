@@ -38,6 +38,9 @@ final class CartoucheGuide: ObservableObject {
         var signedIn = false
         /// Signed in, with this iPhone left to register, through LocalDevVPN.
         var deviceLeft = false
+        /// Signed in, without the certificate: the sign-in stopped before
+        /// it, and signing in again, through LocalDevVPN, brings it.
+        var signInUnfinished = false
         /// LiveContainer has the certificate, and iOS has not refused it.
         var canPlay = false
         /// A game installed, or one in the games folder.
@@ -63,8 +66,9 @@ final class CartoucheGuide: ObservableObject {
         func isDone(_ step: Step) -> Bool {
             switch step {
             // Once signed in, the VPN was on when it counted, unless this
-            // iPhone is left to register.
-            case .vpn: return vpnConnected || (signedIn && !deviceLeft)
+            // iPhone is left to register, or the sign-in stopped before the
+            // certificate.
+            case .vpn: return vpnConnected || (signedIn && !deviceLeft && !signInUnfinished)
             case .account: return signedIn && canPlay && !deviceLeft
             case .build: return hasGame
             // A game imported from Files needs no games folder.
@@ -124,6 +128,7 @@ final class CartoucheGuide: ObservableObject {
             hasPairingFile: setup.hasPairingFile,
             signedIn: setup.appleID != nil,
             deviceLeft: setup.needsDevice,
+            signInUnfinished: setup.signInStep == .unfinished,
             canPlay: setup.canPlay,
             hasGame: !entries.owned.isEmpty,
             hasGamesFolder: CartoucheStorageSettings.shared.location(.games) != nil
