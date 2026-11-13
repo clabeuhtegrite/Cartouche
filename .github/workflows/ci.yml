@@ -61,7 +61,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - run: shellcheck -x app/scripts/*.sh catalog/tools/*.sh launcher/Gallery/*.sh launcher/StorageTests/*.sh telemetry/*.sh builder/mac/*.sh .github/mac/*.sh .github/mac/cartouche-ci
+      - run: shellcheck -x app/scripts/*.sh catalog/tools/*.sh launcher/Gallery/*.sh launcher/Harness/*.sh launcher/StorageTests/*.sh telemetry/*.sh builder/mac/*.sh .github/mac/*.sh .github/mac/cartouche-ci
 
   builder:
     name: Cartouche Builder

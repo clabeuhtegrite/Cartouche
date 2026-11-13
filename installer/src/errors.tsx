@@ -47,6 +47,7 @@ export const errorSuggestionKeys = {
   max_apps: ["error.suggestions.max_apps"],
   not_cartouche: ["error.suggestions.not_cartouche"],
   cartouche_missing: ["error.suggestions.cartouche_missing"],
+  profile_for_another_app: ["error.suggestions.profile_for_another_app"],
 } as const;
 
 export type ErrorVariant = keyof typeof errorSuggestionKeys;

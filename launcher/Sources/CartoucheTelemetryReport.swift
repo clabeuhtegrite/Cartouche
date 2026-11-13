@@ -433,3 +433,100 @@ struct CartoucheTelemetryLogs: Codable, Equatable {
         }
     }
 }
+
+/// The games Cartouche started, behind the console or in its own place,
+/// and what the process of each that ran behind the console wrote of its
+/// memory as it ended (CartoucheGuest.m). A session's log goes with the
+/// game that started last before nxnative created it in its data folder,
+/// and only if that game still ran then: the file the process writes
+/// outlives the game, by a few seconds when it lingers, and the same game
+/// started again in Cartouche's place right after, in the same data
+/// folder, ran without that process.
+struct CartoucheTelemetryRuns: Codable, Equatable {
+    /// A game Cartouche started.
+    struct Run: Codable, Equatable {
+        /// Its data folder.
+        var folder: String
+        var started: Date
+        /// Behind the console, rather than in Cartouche's place.
+        var behind: Bool
+        /// When it ended behind the console, as the console saw it: nil
+        /// while it runs, once Cartouche stopped with it, and in Cartouche's
+        /// place, which Cartouche leaves to the game.
+        var ended: Date?
+        /// What its process wrote last, as it ended behind the console.
+        var process: CartoucheGameProcess?
+        /// That reading was close to the limit iOS set for the process.
+        var nearLimit: Bool?
+    }
+
+    /// The last reading a game's process wrote behind the console, as
+    /// Cartouche finds it after it stopped with the game.
+    struct Reading: Equatable {
+        /// The game's data folder.
+        var folder: String
+        /// When the process started, and when it wrote last.
+        var started: Date
+        var updated: Date
+        var process: CartoucheGameProcess
+        var nearLimit: Bool
+    }
+
+    static let capacity = 20
+    /// Cartouche notes a game's start before the game's process starts,
+    /// and its end once the process has ended: a second more or less at
+    /// the start changes nothing, as games do not start a second apart.
+    private static let slack: TimeInterval = 1
+    /// A game's process writes every two seconds.
+    private static let readingEvery: TimeInterval = 2
+
+    private(set) var runs: [Run] = []
+
+    /// A game starts in FOLDER at STARTED, behind the console or in
+    /// Cartouche's place.
+    mutating func start(folder: String, at started: Date, behind: Bool) {
+        guard !runs.contains(where: { $0.folder == folder && $0.started == started }) else { return }
+        insert(Run(folder: folder, started: started, behind: behind))
+    }
+
+    /// The game that started behind the console in FOLDER at STARTED
+    /// ended at ENDED, its process's last reading PROCESS, close to the
+    /// limit with NEAR LIMIT.
+    mutating func end(folder: String, started: Date, at ended: Date, process: CartoucheGameProcess?, nearLimit: Bool) {
+        let run = Run(folder: folder, started: started, behind: true, ended: ended, process: process, nearLimit: nearLimit)
+        if let index = runs.firstIndex(where: { $0.folder == folder && $0.started == started }) {
+            runs[index] = run
+        } else {
+            insert(run)
+        }
+    }
+
+    /// What the process of the game that ran behind the console wrote, for
+    /// the session whose log nxnative created in FOLDER at CREATED, and
+    /// whether it was close to its limit: what it wrote as the game ended;
+    /// for a game Cartouche stopped with, LAST, the reading Cartouche finds
+    /// when it opens again, if its process started with that game, before
+    /// the log, and still ran as nxnative created it. Nil for a session in
+    /// Cartouche's place, and for one that started after the game behind
+    /// the console ended.
+    func process(folder: String, created: Date, last: Reading?) -> (process: CartoucheGameProcess, nearLimit: Bool)? {
+        guard let run = runs.last(where: { $0.folder == folder && $0.started <= created.addingTimeInterval(Self.slack) }),
+              run.behind else { return nil }
+        if let ended = run.ended {
+            guard created <= ended, let process = run.process else { return nil }
+            return (process, run.nearLimit ?? false)
+        }
+        guard let last, last.folder == folder, last.started >= run.started.addingTimeInterval(-Self.slack),
+              last.started <= created.addingTimeInterval(Self.slack),
+              last.updated >= created.addingTimeInterval(-Self.readingEvery) else { return nil }
+        return (last.process, last.nearLimit)
+    }
+
+    private mutating func insert(_ run: Run) {
+        runs.append(run)
+        runs.sort { $0.started < $1.started }
+        if runs.count > Self.capacity {
+            runs.removeFirst(runs.count - Self.capacity)
+        }
+    }
+}

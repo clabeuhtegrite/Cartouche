@@ -64,6 +64,22 @@ class Discovery(Home):
         self.assertIn("Empty", issues)
         self.assertNotIn(".hidden", issues)
 
+    def test_a_zipped_dump_loose_beside_other_games_packages(self):
+        # All of them loose in one folder: the ZIP is a game too, and one that
+        # holds no dump beside a game's packages is no issue.
+        root = self.tmp / "loose"
+        make_nsp(root / "Odyssey [0100000000010000][v0].nsp", [("a.nca", b"nca")])
+        make_zip_dump(root / "Hollow.zip", HOLLOW)
+        with zipfile.ZipFile(root / "Manual.zip", "w") as archive:
+            archive.writestr("manual.pdf", b"%PDF")
+        found = library.discover(root)
+        self.assertEqual({g.title_id: g.kind for g in found.games}, {ODYSSEY: "packages", HOLLOW: "zip"})
+        self.assertEqual(found.issues, [])
+        # Alone in a folder, a ZIP that holds no dump still says why.
+        (root / "Odyssey [0100000000010000][v0].nsp").unlink()
+        (root / "Hollow.zip").unlink()
+        self.assertEqual(len(library.discover(root).issues), 1)
+
     def test_smallest_first(self):
         found = library.discover(self.sources())
         sizes = [g.size for g in found.games]

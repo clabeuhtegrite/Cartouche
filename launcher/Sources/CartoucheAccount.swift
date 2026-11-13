@@ -35,6 +35,15 @@
 //  Cartouche. The player sees the sign-in only should Apple ask for a
 //  verification code.
 //
+//  SideStore keeps the Apple ID and password as soon as Apple has accepted
+//  the account, before the team's and the certificate's steps, and keeps
+//  them should the sign-in stop there, in a keychain that outlives
+//  Cartouche. The setup then says that the sign-in stopped, and why, from
+//  the report Cartouche keeps on it (CartoucheSignInStep): a reinstall,
+//  which the error on a certificate the account has already asks for,
+//  brings no sign-in of its own, so Cartouche signs in again by itself,
+//  once per installation (resumeSignIn).
+//
 //  However the sign-in ends, SideStore leaves the step it reached and its
 //  error as names and numbers (CartoucheSideStoreOutcome, patch 0014):
 //  Cartouche's measurements send them, never the error's words.
@@ -69,6 +78,8 @@ final class CartoucheAccount: ObservableObject {
     @Published private(set) var isAutomatic = false
     /// The wait Apple's limit on sign-ins asks for, kept across launches.
     @Published private(set) var pause: CartoucheSignInPause?
+    /// Where and when the last sign-in started, kept across launches.
+    @Published private(set) var lastSignIn: CartoucheLastSignIn?
 
     /// When the player can sign in again, while Apple's limit holds.
     var pausedUntil: Date? {
@@ -108,10 +119,13 @@ final class CartoucheAccount: ObservableObject {
     private var deviceStepWatch = CartoucheDeviceStepWatch()
 
     private static let pauseKey = "CartoucheSignInPause"
+    private static let lastSignInKey = "CartoucheLastSignIn"
 
     private init() {
         pause = UserDefaults.standard.data(forKey: Self.pauseKey)
             .flatMap { try? JSONDecoder().decode(CartoucheSignInPause.self, from: $0) }
+        lastSignIn = UserDefaults.standard.data(forKey: Self.lastSignInKey)
+            .flatMap { try? JSONDecoder().decode(CartoucheLastSignIn.self, from: $0) }
     }
 
     private func keep(_ pause: CartoucheSignInPause?) {
@@ -156,7 +170,7 @@ final class CartoucheAccount: ObservableObject {
     /// needs to register this iPhone, Cartouche first waits for it, unless
     /// WAITING FOR VPN is false.
     func signIn(appleID: String, password: String, waitingForVPN: Bool = true) {
-        guard phase == nil, pausedUntil == nil,
+        guard !CartoucheImportedSigning.accountSigningDisabled, phase == nil, pausedUntil == nil,
               CartoucheSignInMessage.canSignIn(appleID: appleID, password: password) else { return }
         problemReport = nil
         signedIn = false
@@ -173,6 +187,7 @@ final class CartoucheAccount: ObservableObject {
     }
 
     private func start(appleID: String, password: String) {
+        noteStart()
         guard let bridge = Self.bridge(Self.signInSelector), CartoucheStoreKeychain.service != nil else {
             failed(CartoucheText.signInUnavailable, failure: CartoucheFailure(.bridgeMissing, stage: "start"))
             return
@@ -206,7 +221,7 @@ final class CartoucheAccount: ObservableObject {
     /// with each time Cartouche comes to the front.
     @discardableResult
     func signInAgain() -> Bool {
-        guard phase == nil, pausedUntil == nil, Self.vpnConnected,
+        guard !CartoucheImportedSigning.accountSigningDisabled, phase == nil, pausedUntil == nil, Self.vpnConnected,
               let appleID = CartoucheStoreKeychain.string("appleIDEmailAddress"),
               let password = CartoucheStoreKeychain.string("appleIDPassword") else { return false }
         signIn(appleID: appleID, password: password, waitingForVPN: false)
@@ -252,6 +267,7 @@ final class CartoucheAccount: ObservableObject {
     private func finished(_ message: String?) {
         let fraction = progress?.fractionCompleted
         let seconds = started.map { Date().timeIntervalSince($0) }
+        let automatic = isAutomatic
         watching?.cancel()
         watching = nil
         phase = nil
@@ -298,14 +314,24 @@ final class CartoucheAccount: ObservableObject {
         // not while it stays as it was.
         deviceStepWatch.ended(connected: Self.vpnConnected)
         CartoucheSetup.shared.refresh()
+        // Signed in, and LiveContainer has no certificate all the same: the
+        // one SideStore took did not open (CartoucheCertificate.handOff),
+        // which the setup would otherwise show without a reason.
+        if message == nil, CartoucheSetup.shared.signInStep == .unfinished {
+            failed(CartoucheText.signInCertificateUnopened, failure: CartoucheFailure(.certificate, stage: "handOff"),
+                   automatic: automatic)
+        }
     }
 
     /// The sign-in failed, as MESSAGE says, for the reason FAILURE gives.
-    private func failed(_ message: String, fraction: Double? = nil, failure: CartoucheFailure) {
+    /// AUTOMATIC: whether Cartouche started it by itself, which it is still
+    /// doing unless said.
+    private func failed(_ message: String, fraction: Double? = nil, failure: CartoucheFailure, automatic: Bool? = nil) {
+        let automatic = automatic ?? isAutomatic
         var failure = failure
-        failure.details["automatic"] = .flag(isAutomatic)
+        failure.details["automatic"] = .flag(automatic)
         problemReport = CartoucheReports.make(.signIn, CartoucheText.signInFailedTitle, message: message,
-                                              step: isAutomatic ? "Signing in again by itself, for a new certificate" : "Signing in",
+                                              step: automatic ? "Signing in again by itself, for a new certificate" : "Signing in",
                                               fraction: fraction, failure: failure)
     }
 
@@ -318,6 +344,49 @@ final class CartoucheAccount: ObservableObject {
         failure.details["wait"] = .number(Double(limit.seconds))
         failure.details["inARow"] = .number(Double(limit.inARow))
         CartoucheReports.note("Sign-in: Apple limits the sign-ins, \(limit.seconds / 60) min to wait")
+    }
+
+    // MARK: A sign-in that stopped before the certificate
+
+    /// This installation of Cartouche (CartoucheLastSignIn.installation(of:)).
+    private static var installation: String { CartoucheLastSignIn.installation(of: Bundle.main.bundleURL) }
+
+    /// Keeps where and when this sign-in started: in this installation,
+    /// Cartouche signs in again by itself no more, and the setup takes a
+    /// report from before as the reason no more.
+    private func noteStart() {
+        let last = CartoucheLastSignIn(installation: Self.installation, started: Date())
+        lastSignIn = last
+        if let data = try? JSONEncoder().encode(last) {
+            UserDefaults.standard.set(data, forKey: Self.lastSignInKey)
+        }
+    }
+
+    /// Signs in again by itself, once per installation of Cartouche, when the
+    /// last sign-in stopped before the certificate in an earlier one: the
+    /// player installed Cartouche again, as the error on a certificate the
+    /// account has already asks, or as the setup said up to 0.11.2, and a
+    /// reinstall brings no sign-in of its own. With the Apple ID and password
+    /// SideStore keeps, the pairing file and LocalDevVPN connected
+    /// (CartoucheLastSignIn.signsInAgain); called each time Cartouche comes to
+    /// the front. Apple asks for a code at most, which the setup shows.
+    func resumeSignIn() {
+        #if !CARTOUCHE_GALLERY
+        let setup = CartoucheSetup.shared
+        guard phase == nil,
+              CartoucheLastSignIn.signsInAgain(after: lastSignIn, at: setup.signInStep, installation: Self.installation,
+                                               hasPairingFile: setup.hasPairingFile, vpnConnected: Self.vpnConnected)
+        else { return }
+        signInAgain()
+        if isAutomatic { CartoucheReports.note("Sign-in: the last one stopped before the certificate, signing in again by itself") }
+        #endif
+    }
+
+    /// Why the last sign-in stopped, and the report on it: this launch's, or
+    /// the one Cartouche kept, redacted, from an earlier launch or an
+    /// earlier installation, such as one of 0.11.2.
+    var lastProblem: CartoucheReport? {
+        problemReport ?? CartoucheLastSignIn.report(after: lastSignIn, among: CartoucheReports.recent)
     }
 
     /// The page an error asks the player to open, such as Apple's own when it
@@ -399,7 +468,7 @@ final class CartoucheAccount: ObservableObject {
     /// account it kept after a sign-in that stopped at that step, as the
     /// player asks: once LocalDevVPN is connected, which Cartouche waits for.
     func registerDevice() {
-        guard phase == nil, pausedUntil == nil else { return }
+        guard !CartoucheImportedSigning.accountSigningDisabled, phase == nil, pausedUntil == nil else { return }
         problemReport = nil
         vpnWait = nil
         wentOnWithoutVPN = false
@@ -503,6 +572,18 @@ final class CartoucheAccount: ObservableObject {
     /// Shows a verification code request, for the gallery's screens.
     func requestCodeForGallery(_ request: CartoucheSignInMessage.CodeRequest) {
         phase = .code(request)
+    }
+
+    /// Shows the reason of a sign-in that stopped before the certificate,
+    /// the account having one the built-in SideStore does not hold, for the
+    /// gallery's screens.
+    func showUnfinishedForGallery() {
+        let message = "This Apple account already has a certificate, which signs the apps installed with it. "
+            + "This SideStore never revokes it and does not create another one.\n\n"
+            + "Install Cartouche again with the Cartouche Installer, over this copy: "
+            + "it gives Cartouche the certificate it signs with. Then sign in again."
+        problemReport = CartoucheReports.make(.signIn, CartoucheText.signInFailedTitle, message: message, step: "Signing in",
+                                              failure: CartoucheFailure(.certificateRefused, stage: "certificate", seconds: 23))
     }
 
     /// Shows the sign-in Apple refused for too many requests, with the wait
