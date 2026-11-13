@@ -3,15 +3,16 @@
 //  CartoucheStorageTests
 //
 //  What Cartouche does with the player's storage, against real servers:
-//  each case (SMBTests, S3Tests, FTPTests, FTPListTests, SFTPTests) runs
-//  these tests on its own server, through the CartoucheRemote the app signs
-//  in to, and adds what only its protocol has. The steps are the app's: the
-//  library lists the games folder and reads each IPA's Info.plist where it
-//  sits, Install from unpacks an IPA in one pass from the server, Copy to
-//  writes the installed game back as an IPA, the saves of two iPhones are
-//  kept in step through the saves folder (CartoucheSavesFolder), and
-//  Cartouche asks where the account can write. The IPAs are made-up apps
-//  (make_ipas.py), one past 4 GiB, as games are.
+//  each case (SMBTests, S3Tests, FTPTests, FTPListTests, SFTPTests, and
+//  DriveTests, against a stand-in for Google's) runs these tests on its own
+//  server, through the CartoucheRemote the app signs in to, and adds what
+//  only its protocol has. The steps are the app's: the library lists the
+//  games folder and reads each IPA's Info.plist where it sits, Install from
+//  unpacks an IPA in one pass from the server, Copy to writes the installed
+//  game back as an IPA, the saves of two iPhones are kept in step through
+//  the saves folder (CartoucheSavesFolder), and Cartouche asks where the
+//  account can write. The IPAs are made-up apps (make_ipas.py), one past
+//  4 GiB, as games are.
 //
 
 import Darwin

@@ -352,6 +352,18 @@ final class CartoucheFailureTests: XCTestCase {
             (.init(kind: .ftp, status: 552), .storageFull),
             (.init(kind: .sftp, status: 2), .storageNotFound),
             (.init(kind: .sftp, status: 3), .storagePermission),
+            (.init(kind: .drive, status: 400, code: "invalid_grant"), .storageCredentials),
+            (.init(kind: .drive, status: 401, code: "invalid_client"), .storageCredentials),
+            (.init(kind: .drive, status: 401, code: "authError"), .storageCredentials),
+            (.init(kind: .drive, status: 403, code: "accessNotConfigured"), .storageSetup),
+            (.init(kind: .drive, status: 403, code: "SERVICE_DISABLED"), .storageSetup),
+            (.init(kind: .drive, status: 403, code: "storageQuotaExceeded"), .storageFull),
+            (.init(kind: .drive, status: 403, code: "insufficientFilePermissions"), .storageReadOnly),
+            (.init(kind: .drive, status: 403, code: "userRateLimitExceeded"), .storageServer),
+            (.init(kind: .drive, status: 429, code: "rateLimitExceeded"), .storageServer),
+            (.init(kind: .drive, status: 404, code: "notFound"), .storageNotFound),
+            (.init(kind: .drive, status: 403, code: "insufficientPermissions"), .storagePermission),
+            (.init(kind: .drive, status: 503, code: "backendError"), .storageServer),
         ]
         for (status, cause) in cases {
             XCTAssertEqual(status.cause, cause, "\(status)")

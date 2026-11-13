@@ -8,13 +8,16 @@
 //  the whole screen of the simulator it runs on, such as the iPhone Duo's,
 //  with its own safe area, size classes and system bars.
 //
-//      -GalleryScreen games|library|sheet|settings|gameinfo|setup|signin|guide|system|storage|storage-mac|telemetry|report
+//      -GalleryScreen games|library|sheet|settings|gameinfo|setup|signin|guide|system|storage|storage-mac|storage-drive|storage-drive-guide|telemetry|report
 //                                        library: every game, open over
 //                                        the home; gameinfo: what the
 //                                        player says of the sheet's game;
 //                                        storage-mac: Add your Mac, the
 //                                        form that pairs this iPhone with a
-//                                        Mac nearby
+//                                        Mac nearby; storage-drive: Add
+//                                        Google Drive, with the player's
+//                                        own client; storage-drive-guide:
+//                                        the steps that make that client
 //      -GalleryWidth 402 -GalleryHeight 874     (none: the whole screen)
 //      -GalleryInsets 62,0,34,0          top, leading, bottom, trailing
 //      -GalleryWidthClass compact        the width class at a scenario's
@@ -67,7 +70,12 @@
 //                                        that game's saves, and a folder in
 //                                        Files as the saves folder, which
 //                                        Cartouche's own sync uses
-//                                        (GallerySaves)
+//                                        (GallerySaves); drive-signed-out:
+//                                        the player's Google Drive as the
+//                                        games folder and the saves folder,
+//                                        whose sign-in Google ended, as after
+//                                        7 days for a project in testing, with
+//                                        two games' saves waiting for it
 //      -GalleryOrientation landscape     the gallery turns itself sideways,
 //                                        as a game does; the simulator
 //                                        stays upright
@@ -267,6 +275,17 @@ struct GalleryScenario {
                     CartoucheStorageReach.shared.showOfflineForGallery([mac.id])
                     CartoucheSaveBackups.shared.showWaitingForGallery(2)
                 }
+            }
+            if work == "drive-signed-out" {
+                // The player's Google Drive, seven days after the sign-in:
+                // Google ended it, and the saves of two games wait for it.
+                let drive = CartoucheStorageServer(kind: .drive, name: "Google Drive", host: "joueur@example.com",
+                                                   username: "123456789012-cartouchegallery.apps.googleusercontent.com")
+                CartoucheStorageSettings.shared.showForGallery(drive, games: "Jeux", saves: "Sauvegardes")
+                CartoucheStoredGames.shared.showForGallery(storedGames(in: "Jeux"), server: drive.name)
+                CartoucheDriveSessions.shared.end(drive.id)
+                CartoucheStorageReach.shared.showOfflineForGallery([drive.id])
+                CartoucheSaveBackups.shared.showWaitingForGallery(2)
             }
         }
     }
@@ -560,6 +579,15 @@ struct CartoucheGalleryApp: App {
             // As the Storage page opens it, for a Mac not paired yet.
             NavigationStack {
                 CartoucheStorageMacForm(server: CartoucheStorageServer(kind: .mac, name: ""))
+            }
+        case "storage-drive":
+            // As the Storage page opens it, to add a Google Drive.
+            NavigationStack {
+                CartoucheStorageDriveForm(server: CartoucheStorageServer(kind: .drive, name: ""))
+            }
+        case "storage-drive-guide":
+            NavigationStack {
+                CartoucheDriveGuideView()
             }
         case "telemetry":
             NavigationStack {
