@@ -390,6 +390,11 @@ def page(catalog: Catalog, sessions: list[dict], events: list[dict], first: dt.d
         "- Each figure is the median of each install's own median, so that each install counts once however much it "
         "played; the peak is each install's highest, of its sessions that drew a frame. Stutters waiting for shaders "
         "are a share of all the stutters of the line.",
+        "- FPS slowest 5% is the rate of the slowest 5% of a session's time: the frame rate of each `[nvn] power` "
+        "line, over its 300 frames, weighted by how long they lasted as nxnative timed them. A window that spans a "
+        "loading, a pause or the time the game was left behind Cartouche's console counts at its own rate, so a few "
+        "long sessions can bring it down: read it beside the median and the frame p99. Stutters and the shader "
+        "stall are per minute of the whole session.",
         "- The figures come from the lines nxnative writes in `log.txt`, which Cartouche reads after each session "
         "([CartoucheGameLog.swift](https://github.com/clabeuhtegrite/Cartouche/blob/main/launcher/Sources/"
         "CartoucheGameLog.swift)): the `[nvn]` timing, on-screen and power lines, `[longframe]`, `pipeline prepare`, "

@@ -388,6 +388,9 @@ class NxnativePageTest(unittest.TestCase):
         self.assertIn("0 game sessions from 0 installs, 0.0 hours of play.", page)
         self.assertIn("No game was played on 3 installs or more.", page)
         self.assertIn("No nxnative commit was built on 3 Macs or more.", page)
+        # What the slowest 5% counts, so that a low one is not read as nxnative's alone.
+        self.assertIn("A window that spans a loading, a pause or the time the game was left behind Cartouche's "
+                      "console counts at its own rate", page)
 
     # MARK: Secrets
 
