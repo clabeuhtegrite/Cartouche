@@ -583,6 +583,19 @@ class WorkflowTests(unittest.TestCase):
         self.check("screens.yml", "screens", "UI tests and screenshots",
                    "cartouche-screens,xcode-${{ env.XCODE_VERSION }},ios-sim-${{ env.XCODE_VERSION }}")
 
+    def test_a_job_waits_for_the_mac_longer_than_the_one_before_it_takes(self):
+        # One job may wait behind another of its kind (route.py): a build took
+        # 5 to 8 minutes on Ad's Mac (runs 43275676546, 43277279535 and
+        # 43280139313), the UI tests and screenshots 46 (run 43280139397: the
+        # UI tests 32, the screenshots 13). The watch must not send the job
+        # to GitHub's Macs just before the Mac takes it, nor in a slower run.
+        took = {"app.yml": 8, "screens.yml": 46}
+        for workflow, minutes in took.items():
+            with self.subTest(workflow=workflow):
+                env = self.workflow(workflow)["jobs"]["watch"]["steps"][-1]["env"]
+                queue = float(env.get("MAC_QUEUE_MINUTES", watch.QUEUE_MINUTES))
+                self.assertGreaterEqual(queue, minutes * 1.25)
+
     def test_the_labels_the_installer_gives(self):
         # Each job's runner alone has the label of its role: a build never
         # waits behind the screenshots, nor the screenshots behind a build.

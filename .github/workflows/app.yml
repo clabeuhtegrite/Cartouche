@@ -223,7 +223,7 @@ jobs:
     # Not in the Full test pass, whose build runs on GitHub's Macs.
     if: ${{ !cancelled() && !inputs.full && needs.route.outputs.mac == 'true' && needs.changes.outputs.build != 'false' }}
     runs-on: ubuntu-latest
-    timeout-minutes: 160
+    timeout-minutes: 170
     permissions:
       contents: read
       actions: write # cancels this run, and starts Mac rescue to run it again
