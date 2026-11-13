@@ -477,6 +477,17 @@ enum CartoucheText {
     static var memoryFooterBehind: String { s("system.memory.footer.behind", "Games that start in Cartouche’s place share this limit; behind Cartouche, a game has its own, below. With Increased Memory Limit, an iPhone with 12 GB allows Cartouche about 8 GiB.") }
     static func updateWhilePlaying(_ name: String) -> String { f("system.updates.playing", "Quit %@ first: Cartouche closes to install its update.", name) }
 
+    // MARK: A TV (CartoucheTV.swift)
+
+    static var tvStarting: String { s("tv.starting", "Starting…") }
+    static var tvOnIPhone: String { s("tv.onIPhone", "This game shows on the iPhone.") }
+    static var tvPaused: String { s("tv.paused", "Paused: the console is on the iPhone.") }
+    static var tvMoving: String { s("tv.moving", "Moving to the TV…") }
+    static var tvMirrored: String {
+        s("tv.mirrored", "The TV shows a copy of the iPhone’s screen, so the game stays hidden from it. To play on the iPhone, unplug the TV or stop Screen Mirroring.")
+    }
+    static var tvShowAnyway: String { s("tv.showAnyway", "Show the game anyway") }
+
     // MARK: Play time and size
 
     static var statsTitle: String { s("stats.title", "Play time and size") }

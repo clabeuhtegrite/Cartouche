@@ -17,24 +17,6 @@ import XCTest
 @testable import CartoucheHarness
 
 final class BehindConsoleTests: HarnessCase {
-    /// Installs GAME and starts it behind the console, once its scene shows.
-    private func started(_ game: HarnessGame, file: StaticString = #filePath,
-                         line: UInt = #line) async throws -> (LCAppModel, AppSceneViewController) {
-        guard CartoucheGameKeeping.isAvailable else {
-            XCTFail("LiveContainer's LiveProcess extension is not in the harness", file: file, line: line)
-            throw Timeout(description: "no LiveProcess")
-        }
-        let app = try await installed(game, file: file, line: line)
-        let shown = HarnessScenes.shownCount
-        actions.play(app)
-        try await waitUntil("the start is over", file: file, line: line) { actions.work == nil }
-        XCTAssertNil(actions.notice, file: file, line: line)
-        let running = try XCTUnwrap(actions.running, "\(game.name) runs behind the console", file: file, line: line)
-        XCTAssertTrue(running.app === app, file: file, line: line)
-        try await waitUntil("its scene shows", file: file, line: line) { HarnessScenes.shownCount > shown }
-        return (app, try XCTUnwrap(HarnessScenes.running, file: file, line: line))
-    }
-
     func testPlayRunsTheGameBehindTheConsole() async throws {
         let (app, scene) = try await started(.plain())
         let running = try XCTUnwrap(actions.running)
