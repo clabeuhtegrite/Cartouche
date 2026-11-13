@@ -98,6 +98,15 @@ enum Probe {
     static func run(in root: RootViewController) async {
         log("variant \(variant), iOS \(UIDevice.current.systemVersion), \(UIDevice.current.model)")
         log("state " + state())
+        // What a capture of the screen says, as it comes and goes: to the
+        // window scene and to the view controller on screen.
+        let windowScene = root.view.window!.windowScene!
+        windowScene.registerForTraitChanges([UITraitSceneCaptureState.self]) { (scene: UIWindowScene, previous: UITraitCollection) in
+            log("scene capture changed: \(previous.sceneCaptureState.rawValue) -> \(scene.traitCollection.sceneCaptureState.rawValue)")
+        }
+        root.registerForTraitChanges([UITraitSceneCaptureState.self]) { (controller: RootViewController, previous: UITraitCollection) in
+            log("root capture changed: \(previous.sceneCaptureState.rawValue) -> \(controller.traitCollection.sceneCaptureState.rawValue)")
+        }
         switch variant {
         case "baseline":
             if registrations.isEmpty {
@@ -121,6 +130,24 @@ enum Probe {
             child.view.layoutIfNeeded()
             try? await Task.sleep(for: .milliseconds(300))
             log("child capture after second override=\(child.traitCollection.sceneCaptureState.rawValue) changes seen=\(changes)")
+            // And on the window scene, as a harness test would say that iOS
+            // captures it.
+            windowScene.traitOverrides.sceneCaptureState = .active
+            try? await Task.sleep(for: .milliseconds(400))
+            log("scene override: scene=\(windowScene.traitCollection.sceneCaptureState.rawValue) root=\(root.traitCollection.sceneCaptureState.rawValue) child=\(child.traitCollection.sceneCaptureState.rawValue)")
+            windowScene.traitOverrides.remove(UITraitSceneCaptureState.self)
+            try? await Task.sleep(for: .milliseconds(400))
+            log("scene override removed: scene=\(windowScene.traitCollection.sceneCaptureState.rawValue) root=\(root.traitCollection.sceneCaptureState.rawValue)")
+            // A hidden window's view controller, as the paused game's.
+            let hidden = UIWindow(windowScene: windowScene)
+            let hiddenRoot = UIViewController()
+            hidden.rootViewController = hiddenRoot
+            hidden.isHidden = false
+            hidden.isHidden = true
+            windowScene.traitOverrides.sceneCaptureState = .active
+            try? await Task.sleep(for: .milliseconds(400))
+            log("hidden window under scene override: hidden root=\(hiddenRoot.traitCollection.sceneCaptureState.rawValue)")
+            windowScene.traitOverrides.remove(UITraitSceneCaptureState.self)
             await watch(until: 6)
         case "cartouche":
             await watch(until: 2)
