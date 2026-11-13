@@ -11,7 +11,7 @@ An update:
   that profile and each extension a bundle ID of its own under the app's;
 - signs as before, with an App ID for each extension, when those steps
   could not, or when the last update that tried it never ended
-  (CartoucheExtensionsProfile, tried in Swift when a compiler is at hand);
+  (CartoucheExtensionsProfile, tried in Swift);
 - records the choice only once the new version runs, for the renewals.
 
 A renewal signs nothing again: it renews the profiles the app was signed
@@ -23,7 +23,10 @@ Both ask Apple to turn the capability on for a free team's App ID
 entitlements give the key, which is never true: up to Cartouche 0.12.0 the
 request waited for true, and never went out. A request Apple refuses, for
 too many requests or otherwise, is only logged: the update or renewal goes
-on as before. The request is tried in Swift when a compiler is at hand.
+on as before. The request is tried in Swift.
+
+The Swift tests are skipped without a compiler, except in GitHub Actions,
+where the App sources job has one and its absence fails them.
 
 An update by the built-in SideStore signed LiveProcess with an App ID of
 its own, without the capability: a game behind the console had 3,376 MiB
@@ -38,6 +41,7 @@ Run from the repository root: python3 -m unittest discover -s app/tests -v
 """
 
 import ast
+import os
 import plistlib
 import re
 import shutil
@@ -72,6 +76,17 @@ BRAND = ROOT / "app" / "scripts" / "brand.py"
 PACKAGE = ROOT / "app" / "scripts" / "package.sh"
 IML = "com.apple.developer.kernel.increased-memory-limit"
 SWIFTC = shutil.which("swiftc")
+
+
+def need_swift(test: unittest.TestCase, reason: str = "Needs a Swift compiler") -> None:
+    """Skips TEST without a Swift compiler, but fails it in GitHub Actions,
+    whose Ubuntu runners have one: the App sources job, which runs these
+    tests, never leaves the rule or the request untried without a word."""
+    if SWIFTC:
+        return
+    if os.environ.get("GITHUB_ACTIONS") == "true":
+        test.fail(f"{reason}: GitHub's runners have one, so this job must run it")
+    test.skipTest(reason)
 
 
 def body_of(source: str, opening: str, what: str) -> str:
@@ -288,8 +303,8 @@ class CartoucheExtensionsProfileTest(unittest.TestCase):
         self.assertEqual(added[0].strip()[:len("// Cartouche:")], "// Cartouche:")
         self.assertEqual([line.strip() for line in added[-2:]], ["}", ""])
 
-    @unittest.skipUnless(SWIFTC, "Needs a Swift compiler")
     def test_the_rule_in_swift(self):
+        need_swift(self)
         app = "com.example.cartouche"
         extensions = [app + suffix for suffix in extension_suffixes()]
         cases = [
@@ -366,8 +381,7 @@ class CartoucheExtensionsProfileTest(unittest.TestCase):
         expected = [works(*case) for case in grid]
         self.assertIn(True, expected)
         self.assertIn(False, expected)
-        if not SWIFTC:
-            self.skipTest("Needs a Swift compiler for the rule itself")
+        need_swift(self, "Needs a Swift compiler for the rule itself")
         main = "\n".join(
             "print(CartoucheExtensionsProfile.signsWithAppProfile("
             f"appBundleIdentifier: {swift_string(bundle)}, extensionBundleIdentifiers: [{', '.join(map(swift_string, exts))}], "
@@ -539,8 +553,8 @@ class IncreasedMemoryLimitRequestTest(unittest.TestCase):
         self.assertNotIn("throw", caught)
         self.assertIn("debugLog", caught)
 
-    @unittest.skipUnless(SWIFTC, "Needs a Swift compiler")
     def test_the_request_in_swift(self):
+        need_swift(self)
         function = declaration_of(patched(FETCH_PROFILES),
                                   r"func enableIncreasedMemoryLimitIfRequested\(.*?\) async \{",
                                   "enableIncreasedMemoryLimitIfRequested")
