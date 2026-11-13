@@ -80,6 +80,14 @@ final class UprightCaptures: HarnessCase {
         standIn.autoresizingMask = [.flexibleWidth, .flexibleHeight]
         standIn.scene = scene
         content.addSubview(standIn)
+        if upright, let windowScene = screen.view.window?.windowScene {
+            // The player holds the iPhone upright, as the Simulator does,
+            // but a test before left the screen sideways, and the
+            // Simulator's iPhone does not turn to say it again.
+            windowScene.requestGeometryUpdate(.iOS(interfaceOrientations: .portrait)) { error in
+                NSLog("[Harness] upright: %@", "\(error)")
+            }
+        }
         try await turned(screen, upright: upright)
         try await pause(1)
         return screen
