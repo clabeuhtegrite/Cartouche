@@ -38,6 +38,9 @@ MKW = "0400C3F00006E000"
 SENTINELS = "01003FC01670C000"
 SENTINELS_JAPAN = "010045C014650000"
 TODAY = "2026-11-12"
+# The reading of the log the sessions come from, unless a test says: one
+# whose slowest 5% counts (sheets.py, SLOWEST_READER).
+READER = 2
 
 TEMPLATE = next(r for r in json.loads((HERE / "app-reports.json").read_text(encoding="utf-8"))["reports"]
                 if r["kind"] == "session")
@@ -95,7 +98,7 @@ class SheetsTest(unittest.TestCase):
         """A session as the Worker keeps it: the fixture's, with these fields."""
         report = copy.deepcopy(TEMPLATE)
         report.update(id=str(uuid.uuid4()), install=install, device=device, game=game, seq=seq,
-                      session=session or str(uuid.uuid4()), end={"kind": "unknown"})
+                      session=session or str(uuid.uuid4()), end={"kind": "unknown"}, reader=READER)
         for key, value in fields.items():
             if value is None:
                 report.pop(key, None)
@@ -238,6 +241,31 @@ class SheetsTest(unittest.TestCase):
         self.assertEqual(result["peakMemoryMiB"], 5499)
         self.assertGreater(result["peakMemoryMiB"] + 6144 // 8, 6144, "it starts in Cartouche's place")
         self.assert_valid(self.written())
+
+    def test_the_slowest_5_percent_counts_only_from_the_reading_that_takes_pauses_out(self):
+        # As Super Mario Bros. Wonder's on 2026-11-13: 59.6 fps for 60, and 4
+        # fps in the slowest 5% of the time, from the stretches that held a
+        # pause behind the console. Read by Cartouche's first reading of the
+        # log, the slowest 5% is left out, and does not make the game
+        # playable with issues.
+        for phone in self.phones[:3]:
+            self.session(phone, reader=1, fps={"median": 59.6, "low5": 4.0}, stutters={"count": 2, "perMinute": 0.1})
+        self.run_sheets()
+        result = self.measured()["iPhone19,4"]
+        self.assertEqual(result["measured"]["fps"], 59.6)
+        self.assertNotIn("slowestFps", result["measured"])
+        self.assertEqual(result["status"], "playable")
+        self.assertNotIn("slowest", result["notes"][0])
+        # From the reading that takes the pauses out, it counts again, and a
+        # slowest 5% under three quarters of the target is an issue.
+        for phone in self.phones[:3]:
+            self.session(phone, day="2026-11-11", fps={"median": 59.6, "low5": 40.0},
+                         stutters={"count": 2, "perMinute": 0.1})
+        self.run_sheets()
+        result = self.measured()["iPhone19,4"]
+        self.assertEqual(result["measured"]["slowestFps"], 40)
+        self.assertEqual(result["status"], "playable-with-issues")
+        self.assertIn("40 fps in the slowest 5% of the time", result["notes"][0])
 
     def test_a_session_sent_again_counts_once_at_its_highest_seq(self):
         again = str(uuid.uuid4())
