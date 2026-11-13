@@ -1029,6 +1029,11 @@ final class CartoucheGameActions: ObservableObject {
                 }
                 // The questions runApp may ask come to Cartouche.
                 app.delegate = self
+                if let container = Self.dataFolder(of: app) {
+                    NotificationCenter.default.post(name: .cartoucheGameStarts, object: app, userInfo: [
+                        "dataFolder": container.folderName, "started": Date(), "behind": false,
+                    ])
+                }
                 try await app.runApp(multitask: false, forceJIT: false)
             } catch let error where error.localizedDescription == "lc.signer.latestCertificateInvalidErr".loc {
                 // iOS refused the certificate LiveContainer signed the game
@@ -1055,8 +1060,12 @@ final class CartoucheGameActions: ObservableObject {
               let container = Self.dataFolder(of: app) else { return false }
         // What runApp does first: it signs the game and its tweaks.
         try await app.signApp(force: false)
-        running = CartoucheRunningGame(app: app, dataFolder: container.folderName, started: Date(), isInFront: true)
+        let started = Date()
+        running = CartoucheRunningGame(app: app, dataFolder: container.folderName, started: started, isInFront: true)
         runningShowsSettings = showingSettings
+        NotificationCenter.default.post(name: .cartoucheGameStarts, object: app, userInfo: [
+            "dataFolder": container.folderName, "started": started, "behind": true,
+        ])
         do {
             try await CartoucheGameHost.shared.start(app, bundle: bundle, dataFolder: container.folderName)
         } catch {
@@ -1176,8 +1185,9 @@ final class CartoucheGameActions: ObservableObject {
         let keeping = CartoucheGameKeeping.shared
         // The last reading of a game that ended early is its only one.
         if let reading { keeping.measured(reading) }
-        NotificationCenter.default.post(name: .cartoucheGameDidEnd, object: app,
-                                        userInfo: ["quit": quit, "dataFolder": ended.dataFolder])
+        var info: [String: Any] = ["quit": quit, "dataFolder": ended.dataFolder, "started": ended.started]
+        if let reading { info["reading"] = reading }
+        NotificationCenter.default.post(name: .cartoucheGameDidEnd, object: app, userInfo: info)
         if !quit {
             let title = CartoucheText.gameStoppedTitle(app.displayName)
             let needs = sheetNeeds(of: app)
