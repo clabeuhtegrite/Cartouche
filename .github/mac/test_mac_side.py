@@ -397,7 +397,9 @@ class SimulatorsTests(unittest.TestCase):
         self.assertEqual(self.missing(GITHUB_RUNTIMES[2]), ["iPhone Duo"])
 
     def test_the_duo_s_runtime_alone_runs_no_ipad(self):
-        self.assertEqual(self.missing(GITHUB_RUNTIMES[3]), ["an iPad"])
+        # Neither the iPad that draws the sized scenarios nor the one whose
+        # whole screen the iPad's scenarios take.
+        self.assertEqual(self.missing(GITHUB_RUNTIMES[3]), ["an iPad", "iPad Pro 13-inch (M5)"])
 
     def test_a_runtime_that_is_not_available_runs_nothing(self):
         gone = dict(GITHUB_RUNTIMES[3], isAvailable=False)

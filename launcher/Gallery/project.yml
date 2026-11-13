@@ -70,10 +70,12 @@ targets:
         INFOPLIST_KEY_CFBundleDisplayName: Gallery
         INFOPLIST_KEY_UILaunchScreen_Generation: "YES"
         INFOPLIST_KEY_UIRequiresFullScreen: "YES"
-        # Upright or sideways on an iPhone, such as the iPhone Duo simulator;
-        # upright on the iPad, which draws the other scenarios at their size.
+        # Upright or sideways, as a scenario asks: on an iPhone, such as the
+        # iPhone Duo simulator, and on the iPad, whose whole screen the iPad's
+        # scenarios take; the iPad that draws the other scenarios at their
+        # size stays upright, as the simulator is.
         INFOPLIST_KEY_UISupportedInterfaceOrientations: "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight"
-        INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad: UIInterfaceOrientationPortrait
+        INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad: "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight"
         SWIFT_OBJC_BRIDGING_HEADER: Sources/Gallery-Bridging-Header.h
         SWIFT_ACTIVE_COMPILATION_CONDITIONS: "DEBUG CARTOUCHE_GALLERY"
         SWIFT_STRICT_CONCURRENCY: minimal
