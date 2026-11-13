@@ -6110,13 +6110,30 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "This iPhone did not answer through LocalDevVPN. Disconnect LocalDevVPN, connect it again, then try again."
+            "value" : "This iPhone did not answer through LocalDevVPN. Disconnect LocalDevVPN, connect it again, then try again. If it happens again, restart this iPhone."
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Cet iPhone n’a pas répondu par LocalDevVPN. Déconnectez LocalDevVPN, reconnectez-le, puis réessayez."
+            "value" : "Cet iPhone n’a pas répondu par LocalDevVPN. Déconnectez LocalDevVPN, reconnectez-le, puis réessayez. Si cela recommence, redémarrez cet iPhone."
+          }
+        }
+      }
+    },
+    "signIn.device.olderPairing" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This iPhone’s pairing file is of an older kind, which Cartouche can no longer use on this iPhone since iOS 26.4. On your computer, choose Put the pairing file in Cartouche again in the Cartouche Installer: it makes one of the newer kind."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Le fichier de jumelage de cet iPhone est d’un type plus ancien, que Cartouche ne peut plus utiliser sur cet iPhone depuis iOS 26.4. Sur votre ordinateur, choisissez Remettre le fichier de jumelage dans Cartouche dans l’Installeur Cartouche : il en fait un du type récent."
           }
         }
       }
@@ -6134,6 +6151,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Cet iPhone n’a pas accepté son fichier de jumelage. Remettez le fichier de jumelage dans Cartouche avec l’Installeur Cartouche, sur votre ordinateur."
+          }
+        }
+      }
+    },
+    "signIn.device.pairingRefused" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This iPhone refused its pairing file, made before it stopped trusting your computer, or for another device. On your computer, in the Cartouche Installer’s Settings, choose Delete the stored pairing, choose this iPhone again, then Put the pairing file in Cartouche again, and tap Trust on this iPhone when it asks."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cet iPhone a refusé son fichier de jumelage, fait avant qu’il cesse de se fier à votre ordinateur, ou pour un autre appareil. Sur votre ordinateur, dans les Réglages de l’Installeur Cartouche, choisissez Supprimer le jumelage enregistré, choisissez de nouveau cet iPhone, puis Remettre le fichier de jumelage dans Cartouche, et touchez Se fier sur cet iPhone quand il le demande."
           }
         }
       }

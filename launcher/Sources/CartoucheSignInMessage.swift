@@ -175,18 +175,38 @@ extension CartoucheSignInMessage {
         case vpn
         /// The iPhone is not on Wi-Fi, which LocalDevVPN needs.
         case wifi
-        /// The pairing file is missing, or the iPhone refuses it.
+        /// The pairing file is missing, or could not be read.
         case pairing
+        /// The iPhone refused the pairing file: one made before it stopped
+        /// trusting the computer, or for another device.
+        case pairingRefused
+        /// The pairing file is of the older kind, Lockdown, which minimuxer
+        /// takes through LocalDevVPN from iOS 26.4 only beside an IPsec
+        /// interface, which an iPad without cellular never has.
+        case olderPairing
         /// The iPhone did not answer through LocalDevVPN.
         case noAnswer
     }
 
+    /// Minimuxer's reasons (app/patches/sidestore/0022) for a pairing file
+    /// this iPhone refused when minimuxer reached it.
+    static let refusedPairingReasons: Set<String> = ["handshake", "serviceRefused", "lockdownSession", "lockdownValue"]
+
     /// The trouble FAILURE tells, when it is one of this iPhone's connection
     /// to itself.
     static func deviceTrouble(in failure: CartoucheFailure) -> DeviceTrouble? {
+        var reason: String?
+        if case .text(let told)? = failure.details["reason"] { reason = told }
         switch failure.cause {
-        case .vpn: return .vpn
-        case .pairing: return .pairing
+        case .vpn:
+            if reason == "noIPsec" { return .olderPairing }
+            // Cartouche saw LocalDevVPN connected: this iPhone did not answer
+            // through it, whatever minimuxer made of it.
+            if case .flag(true)? = failure.details["vpn"] { return .noAnswer }
+            return .vpn
+        case .pairing:
+            if let reason, refusedPairingReasons.contains(reason) { return .pairingRefused }
+            return .pairing
         case .device:
             if case .text("noConnection")? = failure.details["kind"] { return .wifi }
             return .noAnswer
