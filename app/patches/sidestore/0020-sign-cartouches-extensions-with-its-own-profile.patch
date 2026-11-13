@@ -1,0 +1,60 @@
+From 0613e6b8f3e3b4a85ecbcf9b0bf41b098655d7d9 Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Fri, 13 Nov 2026 15:26:12 +0000
+Subject: [PATCH] Sign Cartouche's extensions with its own profile whenever
+ SideStore signs it
+
+The app SideStore is built into keeps its extensions, signed with its own
+provisioning profile, when SideStore installs, updates or re-signs it, as
+the Cartouche Installer signs it (isideload's ReuseMain): neither the
+player's setting for app extensions nor the alert that asks applies.
+
+An update passes the store's version of the app rather than its
+InstalledApp, so it never read the choice that the InstalledApp keeps
+(useMainProfile, which SideStore takes from the signature of the first
+extension when it first meets the app it is built into), and registered
+an App ID for each extension. LiveProcess, the extension Cartouche runs
+its games and the built-in SideStore in, was then signed with an App ID
+of its own, without the Increased Memory Limit that Cartouche's App ID
+has: a game behind Cartouche's console had 3,376 MiB instead of 6,144 on
+an iPhone with 12 GB, and 3,072 instead of 4,096 on one with 6 GB, from
+the first update the built-in SideStore made until Cartouche was
+installed again with the Installer. Renewals, which install profiles
+without signing again, follow the InstalledApp, which the install
+records, so that the next ones renew the main profile only, which
+LiveProcess is then signed with.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01MzPJotRoWqyfPs7d7YexEP
+---
+ .../RemoveAppExtensionsOperation.swift             | 14 ++++++++++++++
+ 1 file changed, 14 insertions(+)
+
+diff --git a/SideStore/Core/Operations/PipelineOperations/RemoveAppExtensionsOperation.swift b/SideStore/Core/Operations/PipelineOperations/RemoveAppExtensionsOperation.swift
+index 22222a9..118c516 100644
+--- a/SideStore/Core/Operations/PipelineOperations/RemoveAppExtensionsOperation.swift
++++ b/SideStore/Core/Operations/PipelineOperations/RemoveAppExtensionsOperation.swift
+@@ -74,6 +74,20 @@ final class RemoveAppExtensionsOperation: BasePipelineOperation<InstallAppOperat
+             return targetAppBundle
+         }
+         
++        // Cartouche: the app SideStore is built into keeps its extensions, signed with its
++        // own provisioning profile, as the Cartouche Installer signs them. LiveProcess, the
++        // extension Cartouche runs its games and this SideStore in, needs the Increased
++        // Memory Limit of Cartouche's App ID, which an App ID of its own never had: an
++        // update, which passes the store's version, never read the choice Cartouche's
++        // InstalledApp keeps, and registered an App ID for each extension. Needs proper
++        // testing on a phone.
++        if targetAppBundle.isAltStoreApp {
++            self.debugLog("[RemoveAppExtensionsOperation] Keeping the extensions of \(targetAppBundle.bundleIdentifier), signed with its own profile.")
++            self.context.useMainProfile = true
++            self.setProgress(100)
++            return targetAppBundle
++        }
++        
+         self.setProgress(30)
+         let excessExtensions = processExtensionsInfo(from: targetAppBundle, localAppExtensions: localAppExtensions)
+         
+-- 
+2.43.0
+
