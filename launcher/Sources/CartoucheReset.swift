@@ -305,9 +305,11 @@ enum CartoucheResetErase {
         // protocol it reads the pairing file by. Those of the app group's
         // name are SideStore's own there: what the app group's lost of
         // LiveContainer's, should cfprefsd take them for the app group's own,
-        // comes back.
-        let shared = UserDefaults.lcShared()
-        let before = found.appGroupID.flatMap { shared.persistentDomain(forName: $0) } ?? [:]
+        // comes back. LiveContainer's shared preferences may be missing, as
+        // with the player's own certificate in 0.12.0: then only Cartouche's
+        // own keys go from the app group's.
+        let shared: UserDefaults? = UserDefaults.lcShared()
+        let before = found.appGroupID.flatMap { shared?.persistentDomain(forName: $0) } ?? [:]
         let storeHome = found.documents.appendingPathComponent(CartoucheResetPlan.storeHome, isDirectory: true)
         let storePreferences = CartoucheResetPlan.storePreferences(documents: found.documents)
         for domain in CartoucheResetPlan.storePreferenceDomains(documents: found.documents)
@@ -319,12 +321,14 @@ enum CartoucheResetErase {
             defaults.synchronize()
         }
         if let domain = found.appGroupID {
-            let after = shared.persistentDomain(forName: domain) ?? [:]
-            for (key, value) in CartoucheResetPlan.lostSharedPreferences(before: before, after: after) {
-                shared.set(value, forKey: key)
+            if let shared {
+                let after = shared.persistentDomain(forName: domain) ?? [:]
+                for (key, value) in CartoucheResetPlan.lostSharedPreferences(before: before, after: after) {
+                    shared.set(value, forKey: key)
+                }
             }
             // Cartouche's own in the app group; LiveContainer's stay.
-            for defaults in [LCUtils.appGroupUserDefault, shared] {
+            for defaults in [LCUtils.appGroupUserDefault, shared].compactMap({ $0 }) {
                 CartoucheResetPlan.remove(CartoucheResetPlan.cartouchesKeys(in: defaults, domain: domain), from: defaults)
             }
         }
