@@ -153,7 +153,7 @@ impl Fakes {
 }
 
 /// The window, as a test drives it: JavaScript sent with eval, its answer
-/// back as an event.
+/// back by a command of the tests' own plugin (`reports`).
 struct Ui {
     handle: AppHandle<Wry>,
     answers: mpsc::Receiver<Value>,
@@ -210,8 +210,10 @@ if (!window.__ui) window.__ui = {
     const input = [...document.querySelectorAll("input")].find((i) => i.placeholder === placeholder);
     return input ? input.value : null;
   },
+  // A command, never an event: Tauri can set an event aside for good
+  // (src/questions.rs).
   report(id, result) {
-    return window.__TAURI_INTERNALS__.invoke("plugin:event|emit", { event: "ui-test", payload: Object.assign({ id }, result) });
+    return window.__TAURI_INTERNALS__.invoke("plugin:ui-test|report", { answer: Object.assign({ id }, result) });
   },
   async run(id, step) {
     try {
@@ -339,6 +341,45 @@ fn js(text: &str) -> String {
     serde_json::to_string(text).expect("JSON")
 }
 
+/// Where the window's answers to the steps go.
+struct Reports(mpsc::Sender<Value>);
+
+/// A step's answer, from the window.
+#[tauri::command]
+fn report(reports: tauri::State<'_, Reports>, answer: Value) {
+    let _ = reports.0.send(answer);
+}
+
+/// The tests' own plugin, which the window's steps answer through: a
+/// command, never an event, which Tauri sets aside when another thread
+/// holds its event listeners at that instant, until a later event that has
+/// a listener in Rust (src/questions.rs). Its one command is in no
+/// capability: `run_in_window` allows it.
+fn reports(answers: mpsc::Sender<Value>) -> tauri::plugin::TauriPlugin<Wry> {
+    tauri::plugin::Builder::new("ui-test")
+        .invoke_handler(tauri::generate_handler![report])
+        .setup(move |app, _| {
+            app.manage(Reports(answers));
+            Ok(())
+        })
+        .build()
+}
+
+/// Keeps Tauri's event listeners busy for the whole scenario, from another
+/// thread that listens and unlistens without a pause: as at any instant the
+/// installer may (it sends an event for each line of its log). What the
+/// window sends to Rust must get through anyway, which an event would not
+/// (src/questions.rs).
+fn keep_event_listeners_busy(handle: AppHandle<Wry>) {
+    std::thread::spawn(move || {
+        loop {
+            let id = handle.listen_any("busy", |_| {});
+            handle.unlisten(id);
+            std::thread::yield_now();
+        }
+    });
+}
+
 /// The files the next file dialogs answer with.
 #[derive(Default)]
 struct FileChoices(std::sync::Mutex<std::collections::VecDeque<String>>);
@@ -397,7 +438,14 @@ fn run_in_window(scenario: &Scenario) -> ! {
     let mut context = cartouche_installer_lib::context();
     // A data folder of its own, never the installer's.
     context.config_mut().identifier = format!("io.github.clabeuhtegrite.cartouche.installer.uitests.{name}");
-    let mut builder = cartouche_installer_lib::configure(tauri::Builder::default(), environment);
+    // The tests' plugin is in no capability of the window: its one command,
+    // allowed here (Tauri's own way, unstable, which the tests' pinned
+    // version of Tauri keeps).
+    context
+        .runtime_authority_mut()
+        .__allow_command("plugin:ui-test|report".into(), tauri::utils::acl::ExecutionContext::Local);
+    let (tx, answers) = mpsc::channel();
+    let mut builder = cartouche_installer_lib::configure(tauri::Builder::default(), environment).plugin(reports(tx));
     if scenario.file_dialogs {
         builder = builder.plugin(file_dialogs());
     }
@@ -421,13 +469,8 @@ fn run_in_window(scenario: &Scenario) -> ! {
     )
     .expect("translations");
 
-    let (tx, answers) = mpsc::channel();
-    app.listen_any("ui-test", move |event| {
-        if let Ok(answer) = serde_json::from_str::<Value>(event.payload()) {
-            let _ = tx.send(answer);
-        }
-    });
     let handle = app.handle().clone();
+    keep_event_listeners_busy(handle.clone());
     let run = scenario.run;
     std::thread::spawn(move || {
         let ui = Ui { handle: handle.clone(), answers, next: std::cell::Cell::new(0), texts };

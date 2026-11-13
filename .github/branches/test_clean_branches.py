@@ -28,12 +28,15 @@ def verdicts(branches: dict[str, str], pulls: list[Pull], versions=((0, 9, 0),),
 
 class PlanTests(unittest.TestCase):
     def test_keeps_the_default_branch_and_the_branches_something_reads(self):
-        found = verdicts({"main": sha(1), "gh-pages": sha(2), "live-covers": sha(3)},
-                         [Pull(1, False, True, "main", sha(1))])
+        found = verdicts({"main": sha(1), "gh-pages": sha(2), "live-covers": sha(3), "nxnative-measurements": sha(4)},
+                         [Pull(1, False, True, "main", sha(1)),
+                          # A pull request someone opened from the page's branch, and closed.
+                          Pull(2, False, False, "nxnative-measurements", sha(4))])
         self.assertEqual({branch: verdict.delete for branch, verdict in found.items()},
-                         {"main": False, "gh-pages": False, "live-covers": False})
+                         {"main": False, "gh-pages": False, "live-covers": False, "nxnative-measurements": False})
         self.assertEqual(found["main"].reason, "the default branch")
         self.assertIn("covers", found["live-covers"].reason)
+        self.assertIn("nxnative", found["nxnative-measurements"].reason)
 
     def test_deletes_the_head_of_a_merged_pull_request_still_at_its_commit(self):
         found = verdicts({"feature": sha(5)}, [Pull(12, False, True, "feature", sha(5))])

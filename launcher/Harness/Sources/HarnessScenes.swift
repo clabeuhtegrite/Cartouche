@@ -11,7 +11,9 @@
 //  in the same order. The tests play the game's part, and iOS's: the game
 //  writes its memory where Cartouche reads it and posts the presses of a
 //  controller's Home button (launcher/LiveProcessSupport/CartoucheGuest.m),
-//  and iOS may kill it.
+//  and iOS may kill it. On a TV, LiveContainer opens a second scene of the
+//  game's process (app/patches/livecontainer/0012), which the game fills
+//  with its picture: the harness's stands in with a view of its own.
 //
 
 import Foundation
@@ -187,10 +189,47 @@ class AppSceneViewController: UIViewController {
         }
         cleanedUp = true
         DispatchQueue.main.async {
+            self.closeExternalDisplayScene()
             self.presenter = nil
             self.delegate?.appSceneVCAppDidExit(self)
             HarnessScenes.ended(self)
         }
+    }
+
+    // MARK: The game's scene on a TV
+
+    /// The game's second scene, on a TV, while it is open: what the game
+    /// shows there, nxnative its picture.
+    private(set) var tvScene: UIViewController?
+    /// The screens LiveContainer opened it on, the newest last.
+    private(set) var tvOpenings: [UIScreen] = []
+    /// Whether each change Cartouche made left it in the foreground.
+    private(set) var tvForegroundUpdates: [Bool] = []
+    private(set) var tvClosings = 0
+
+    /// A second scene of the game's process on SCREEN, as LiveContainer
+    /// opens one (app/patches/livecontainer/0012): nil when the game does
+    /// not run, or when this iOS has no such scene.
+    func openExternalDisplayScene(on screen: UIScreen!) -> UIViewController! {
+        closeExternalDisplayScene()
+        guard HarnessLC.gamesHaveATVScene, let screen, isAppRunning else { return nil }
+        let made = UIViewController()
+        made.view.backgroundColor = .systemTeal
+        made.view.accessibilityIdentifier = "harness.tv." + (dataUUID ?? "")
+        tvScene = made
+        tvOpenings.append(screen)
+        return made
+    }
+
+    func setExternalDisplaySceneForeground(_ foreground: Bool) {
+        guard tvScene != nil else { return }
+        tvForegroundUpdates.append(foreground)
+    }
+
+    func closeExternalDisplayScene() {
+        guard tvScene != nil else { return }
+        tvScene = nil
+        tvClosings += 1
     }
 
     // MARK: What the game and iOS do, for the tests
@@ -210,16 +249,17 @@ class AppSceneViewController: UIViewController {
                                              nil, nil, true)
     }
 
-    /// Cartouche's own scene changed, as when the player comes back to it:
-    /// LiveContainer hands the change on, for the game's scene to take.
-    func hostSceneChanged() {
+    /// Cartouche's own scene changed, as when the player comes back to it,
+    /// or leaves it for another app (FOREGROUND false): LiveContainer hands
+    /// the change on, for the game's scene to take.
+    func hostSceneChanged(foreground: Bool = true) {
         if !isAppRunning {
             appTerminationCleanUp()
             return
         }
         guard let presenter, let scene = presenter.scene else { return }
         let settings = scene.settings.copySettings()
-        settings.foreground = true
+        settings.foreground = foreground
         settings.interruptionPolicy = 2
         delegate?.appSceneVC?(self, didUpdateFrom: settings, transitionContext: nil, lifecycleActionType: 0)
     }

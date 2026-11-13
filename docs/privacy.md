@@ -37,7 +37,7 @@ The full list is in [telemetry/README.md](../telemetry/README.md#reports). **Sys
 
 The reports go to the project's own server, a Cloudflare Worker, which keeps them in a database in the European Union, Cloudflare's EU jurisdiction. Cloudflare, which runs it, sees the address a report comes from, as any website's host does; the server does not keep it, nor the time: only the day it received the report. It leaves out anything the app is not meant to send.
 
-Reports are deleted after 25 months. They are read by the project, to fix and improve the games and Cartouche, and published only as figures of at least three iPhones, such as in the game sheets of [`catalog/`](../catalog/README.md), each week; never one report, and never sold or shared. The project reads them on a dashboard of its own, another Worker beside the server, which only the project's accounts can open, through Cloudflare Access ([telemetry/README.md](../telemetry/README.md#dashboard)), and its sessions in an export of the same reports that a workflow of this repository encrypts for the session that asks for it, which alone can open it ([telemetry/README.md](../telemetry/README.md#export)).
+Reports are deleted after 25 months. They are read by the project, to fix and improve the games and Cartouche, and published only as figures of at least three iPhones, each week: in the game sheets of [`catalog/`](../catalog/README.md), and, for nxnative's developers, in a page of nxnative's games by game, iPhone model and nxnative commit ([telemetry/README.md](../telemetry/README.md#nxnatives-page)); never one report, and never sold or shared. The project reads them on a dashboard of its own, another Worker beside the server, which only the project's accounts can open, through Cloudflare Access ([telemetry/README.md](../telemetry/README.md#dashboard)), and its sessions in an export of the same reports that a workflow of this repository encrypts for the session that asks for it, which alone can open it ([telemetry/README.md](../telemetry/README.md#export)).
 
 ### Erasing it
 
@@ -62,9 +62,11 @@ It holds what you write; Cartouche's and iOS's versions and the iPhone's model, 
 
 ## Games Cartouche does not know
 
-For a game of yours that Cartouche's catalog does not know, such as one built with another version of nxnative, Cartouche asks the project's server, the one game measurements go to, for its cover, its artwork and its genre on IGDB. It sends the game's name, as your copy gives it or as you renamed it, and whether it is a Switch or a Switch 2 game when its title ID or you say so: nothing else, not even its title ID, nor the random number of game measurements, and whether those are on or not. The server asks IGDB, and keeps IGDB's answer for that name 30 days, to give it to whoever asks for the same name; it never keeps who asked, nor the address the question came from. Cartouche keeps the answer on the iPhone, and asks again a month later.
+For a game of yours that Cartouche's catalog does not know, such as one built with another version of nxnative, Cartouche asks the project's server, the one game measurements go to, for its cover, its artwork, its genre and its summary on IGDB. It sends the game's name, as your copy gives it or as you renamed it, and whether it is a Switch or a Switch 2 game when its title ID or you say so: nothing else, not even its title ID, nor the random number of game measurements, and whether those are on or not. The server asks IGDB, and keeps IGDB's answer for that name 30 days, to give it to whoever asks for the same name; it never keeps who asked, nor the address the question came from. Cartouche keeps the answer on the iPhone, and asks again a month later.
 
-The name, platform, genre and cover you give a game yourself, in its **Details › Edit the game's info**, stay on the iPhone, with the picture you chose: only the name and the platform of a game the catalog does not know go to the server, as above, for the game to be looked up under them.
+The iPhone translates IGDB's summaries, which are in English, into Cartouche's language itself, with Apple's Translation: nothing leaves the iPhone for it, but the languages Apple downloads when you tap **Translate** on a game's sheet.
+
+The name, platform, genre, description and cover you give a game yourself, in its **Details › Edit the game's info**, stay on the iPhone, with the picture you chose: only the name and the platform of a game the catalog does not know go to the server, as above, for the game to be looked up under them.
 
 ## Other connections
 

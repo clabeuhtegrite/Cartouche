@@ -1,6 +1,8 @@
 //! Installing Cartouche: from the Install button, from a file, again over
 //! itself, and everything iOS or Apple can refuse on the way.
 
+use std::time::Duration;
+
 use serde_json::{Value, json};
 
 use crate::harness::*;
@@ -380,6 +382,33 @@ fn revokes_the_certificate_the_player_picks() {
     assert!(serials.iter().all(|(s, _)| *s != xcode), "kept the one picked");
     assert!(serials.iter().any(|(_, m)| m == "Cartouche"));
     assert!(h.iphone.app(BUNDLE_ID).is_some());
+}
+
+/// The certificates the player chose reach the installer even when they
+/// come at the instant another thread holds Tauri's event listeners: they
+/// went as an event, which Tauri can set aside for good (as the code,
+/// sign_in.rs), and the install waited five minutes and failed.
+#[test]
+fn takes_the_certificates_chosen_while_tauris_event_listeners_are_busy() {
+    let h = Harness::new();
+    h.publish_cartouche();
+    let sidestore = h.apple.add_foreign_certificate(EMAIL, "SideStore");
+    let xcode = h.apple.add_foreign_certificate(EMAIL, "MacBook de Camille");
+    h.ready();
+    h.answer_by_hand();
+
+    let installing = h.install_later();
+    wait_until("the certificates asked", || h.events("max-certs-reached").len() == 1);
+    {
+        let _held = h.hold_event_listeners();
+        assert!(h.choose_certificates_now(Some(vec![xcode.clone()])), "the installer was not asking");
+    }
+    installing.wait_for(Duration::from_secs(60)).unwrap_or_else(|e| panic!("{e}\n{}", h.report()));
+    let serials = h.apple.with_account(EMAIL, |a| a.team.certificates.iter().map(|c| c.serial.clone()).collect::<Vec<_>>());
+    assert!(serials.contains(&sidestore) && !serials.contains(&xcode), "{serials:?}");
+    assert!(h.iphone.app(BUNDLE_ID).is_some());
+    // Answered once: nothing takes another answer.
+    assert!(!h.choose_certificates_now(None));
 }
 
 #[test]

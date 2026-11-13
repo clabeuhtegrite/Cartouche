@@ -31,6 +31,9 @@ class HarnessCase: XCTestCase {
     override func setUp() async throws {
         timings = HarnessTimings()
         try await super.setUp()
+        // Standard error is the app's own file, whatever pointed it
+        // elsewhere since the test before (HarnessStandardError.swift).
+        HarnessStandardError.keep()
         timings.settledBefore = try await settle()
         HarnessLC.reset()
         resetLauncher()
@@ -119,6 +122,11 @@ class HarnessCase: XCTestCase {
             CartoucheStoreKeychain.remove(account)
         }
         try? FileManager.default.removeItem(at: HarnessStorage.root)
+        // No TV left by the test before (TVTests).
+        if #available(iOS 18.0, *), let tv = CartoucheTV.shared.window {
+            CartoucheTV.shared.disconnect(tv)
+            tv.isHidden = true
+        }
     }
 
     // MARK: Waiting
@@ -195,6 +203,24 @@ class HarnessCase: XCTestCase {
         let app = try await install(try HarnessIPA.game(game), file: file, line: line)
         XCTAssertNil(actions.notice, "installed without a word: \(String(describing: actions.notice))", file: file, line: line)
         return try XCTUnwrap(app, "\(game.name) installed", file: file, line: line)
+    }
+
+    /// Installs GAME and starts it behind the console, once its scene shows.
+    func started(_ game: HarnessGame, file: StaticString = #filePath,
+                 line: UInt = #line) async throws -> (LCAppModel, AppSceneViewController) {
+        guard CartoucheGameKeeping.isAvailable else {
+            XCTFail("LiveContainer's LiveProcess extension is not in the harness", file: file, line: line)
+            throw Timeout(description: "no LiveProcess")
+        }
+        let app = try await installed(game, file: file, line: line)
+        let shown = HarnessScenes.shownCount
+        actions.play(app)
+        try await waitUntil("the start is over", file: file, line: line) { actions.work == nil }
+        XCTAssertNil(actions.notice, file: file, line: line)
+        let running = try XCTUnwrap(actions.running, "\(game.name) runs behind the console", file: file, line: line)
+        XCTAssertTrue(running.app === app, file: file, line: line)
+        try await waitUntil("its scene shows", file: file, line: line) { HarnessScenes.shownCount > shown }
+        return (app, try XCTUnwrap(HarnessScenes.running, file: file, line: line))
     }
 
     /// Fails unless no install left anything: no app in the list, nothing

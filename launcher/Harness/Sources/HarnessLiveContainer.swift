@@ -89,6 +89,14 @@ enum HarnessLC {
     /// Whether LiveContainer's extension says when the game's process has
     /// ended, which ends its scene.
     static var extensionReportsExit = true
+    /// Whether LiveContainer opens a scene of the game's process on a TV
+    /// (app/patches/livecontainer/0012): not on an iOS without the scene
+    /// it opens there.
+    static var gamesHaveATVScene = true
+    /// Whether a display shows a copy of the iPhone's screen: a TV, by
+    /// cable or AirPlay, that iOS has not handed Cartouche
+    /// (CartoucheGameHost.iPhoneIsMirrored).
+    static var iPhoneMirrored = false
 
     static let appGroupID = "group.io.github.clabeuhtegrite.cartouche.harness"
 
@@ -165,6 +173,8 @@ enum HarnessLC {
         nextGameStart = .starts
         gameEndsOnTerminate = true
         extensionReportsExit = true
+        gamesHaveATVScene = true
+        iPhoneMirrored = false
         HarnessScenes.reset()
         HarnessNetwork.reset()
         let model = DataManager.shared.model

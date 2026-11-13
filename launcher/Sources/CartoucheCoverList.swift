@@ -3,7 +3,8 @@
 //  Cartouche
 //
 //  The games' covers as covers.json lists them: IGDB's game and image IDs,
-//  never an address (catalog/README.md). Cartouche carries the list of its
+//  never an address (catalog/README.md), with each game's genre and summary
+//  there. Cartouche carries the list of its
 //  catalog as it was when it was built (CartoucheCatalog/covers.json), and
 //  reads a newer one every day, which the Live covers workflow keeps on the
 //  branch live-covers (CartoucheCoversURL in its Info.plist, from
@@ -14,8 +15,8 @@
 
 import Foundation
 
-/// A game's official cover and artwork on IGDB, and its genre there
-/// (covers.json).
+/// A game's official cover and artwork on IGDB, and its genre and summary
+/// there (covers.json).
 struct CartoucheCover: Decodable, Hashable {
     let titleId: String
     /// IGDB's ID of the game.
@@ -28,14 +29,21 @@ struct CartoucheCover: Decodable, Hashable {
     /// for a game whose nxnative profile says none. Lists before November
     /// 2026 have none.
     var genre: String? = nil
+    /// The game's summary on IGDB, in English, which its sheet shows
+    /// (CartoucheCoverList.summary(_:)). Lists before November 2026 have
+    /// none.
+    var summary: String? = nil
 }
 
 /// Reading a covers.json, and putting a newer list over the one the app
 /// carries.
 enum CartoucheCoverList {
-    /// The most a covers.json may weigh: about forty times what it does with
-    /// nxnative's 146 games.
-    static let maximumSize = 1 << 20
+    /// The most a covers.json may weigh: about twenty times what it does with
+    /// nxnative's 150 games and their summaries.
+    static let maximumSize = 4 << 20
+    /// The longest summary of a game kept, in characters, as igdb_covers.py
+    /// and Cartouche's server keep them.
+    static let longestSummary = 2000
 
     /// Cartouche's genres, those of nxnative's profiles (CartoucheText.genre).
     static let genres: Set<String> = ["action", "adventure", "rpg", "puzzle", "strategy", "simulation", "racing", "sports",
@@ -44,8 +52,8 @@ enum CartoucheCoverList {
     /// The covers DATA lists, by title ID, or nil unless it is a covers.json:
     /// schema 1, from IGDB. A cover that is not as catalog/schema/covers.schema.json
     /// has it is left out, such as one whose image ID is anything but letters
-    /// and digits, and so are an artwork that is not and a genre Cartouche
-    /// does not know; the first cover of a title ID counts.
+    /// and digits, and so are an artwork that is not, a genre Cartouche does
+    /// not know and an empty summary; the first cover of a title ID counts.
     static func covers(in data: Data) -> [String: CartoucheCover]? {
         guard data.count <= maximumSize, let list = try? JSONDecoder().decode(List.self, from: data),
               list.schema == 1, list.source == "IGDB" else { return nil }
@@ -56,9 +64,23 @@ enum CartoucheCoverList {
             let artwork = cover.artwork.flatMap { isImageId($0) ? $0 : nil }
             let genre = cover.genre.flatMap { genres.contains($0) ? $0 : nil }
             covers[cover.titleId] = CartoucheCover(titleId: cover.titleId, igdb: cover.igdb, cover: cover.cover, artwork: artwork,
-                                                   genre: genre)
+                                                   genre: genre, summary: cover.summary.flatMap(summary))
         }
         return covers
+    }
+
+    /// A game's summary as Cartouche shows it: TEXT without its control
+    /// characters but the lines' ends, nor the spaces and lines around it,
+    /// and at most `longestSummary` characters; nil for none. The lists and
+    /// the server keep them so already (igdb_covers.py's summary_of()).
+    static func summary(_ text: String) -> String? {
+        var scalars = String.UnicodeScalarView()
+        for scalar in text.unicodeScalars {
+            let isControl = scalar != "\n" && scalar.properties.generalCategory == .control
+            scalars.append(isControl ? " " : scalar)
+        }
+        let summary = String(String(scalars).trimmingCharacters(in: .whitespacesAndNewlines).prefix(longestSummary))
+        return summary.isEmpty ? nil : summary
     }
 
     /// NEWER's covers over CARRIED's: a game keeps the cover the app carries
