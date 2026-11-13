@@ -16,6 +16,7 @@
 import Compression
 import Foundation
 import XCTest
+@testable import CartoucheHarness
 
 /// A game as nxnative builds it, and what makes its IPA.
 struct HarnessGame {
@@ -167,10 +168,13 @@ enum HarnessCatalog {
         return Set(files.map { $0.deletingPathExtension().lastPathComponent.uppercased() })
     }()
 
-    /// A game whose sheet says it needs Increased Memory Limit, without a
-    /// memory peak measured: one that starts in Cartouche's place once a
-    /// game behind the console had less than Cartouche.
-    static let gameNeedingMoreMemory: Game? = {
+    /// A game that starts in Cartouche's place once a game behind the
+    /// console had BEHINDMIB, less than Cartouche: its sheet says it needs
+    /// Increased Memory Limit, and its peak, when testers measured one,
+    /// leaves less than its room under BEHINDMIB
+    /// (CartoucheGamePlace.startsBehind), as Mario Kart World's, 5,499 MiB
+    /// at most, under 6,144.
+    static func gameNeedingMoreMemory(than behindMiB: Int) -> Game? {
         let files = (try? FileManager.default.contentsOfDirectory(at: folder.appendingPathComponent("games"),
                                                                   includingPropertiesForKeys: nil)) ?? []
         for file in files.sorted(by: { $0.lastPathComponent < $1.lastPathComponent }) {
@@ -178,12 +182,16 @@ enum HarnessCatalog {
                   let sheet = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
                   let titleId = sheet["titleId"] as? String, let name = sheet["name"] as? String,
                   let requirements = sheet["requirements"] as? [String: Any],
-                  requirements["increasedMemoryLimit"] as? Bool == true, requirements["peakMemoryMiB"] == nil,
-                  !((sheet["results"] as? [[String: Any]]) ?? []).contains(where: { $0["peakMemoryMiB"] != nil }) else { continue }
+                  requirements["increasedMemoryLimit"] as? Bool == true else { continue }
+            // The sheet's peak, as the launcher reads it (CartoucheCatalog):
+            // the highest of its requirements' and its results'.
+            let peaks = ([requirements] + ((sheet["results"] as? [[String: Any]]) ?? []))
+                .compactMap { ($0["peakMemoryMiB"] as? NSNumber)?.intValue }
+            if let peak = peaks.max(), peak + CartoucheGamePlace.roomMiB(under: behindMiB) <= behindMiB { continue }
             return Game(titleId: titleId, name: name)
         }
         return nil
-    }()
+    }
 
     /// Games without a sheet, whose names are plain enough to name a bundle.
     static let gamesWithoutSheet: [Game] = games.filter { game in
