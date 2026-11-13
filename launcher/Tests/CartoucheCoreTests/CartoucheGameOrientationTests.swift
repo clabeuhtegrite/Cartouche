@@ -4,7 +4,9 @@
 //
 //  Which ways the screen of a game behind the console turns
 //  (Sources/CartoucheGameOrientation.swift): as the Info.plist in the
-//  game's bundle allows, not as LiveContainer's settings for the game.
+//  game's bundle allows, not as LiveContainer's settings for the game, and
+//  on an iPhone upright too for a game that lays itself out upright, while
+//  its picture is on the iPhone.
 //
 
 import Foundation
@@ -95,5 +97,78 @@ final class CartoucheGameOrientationTests: XCTestCase {
 
         try Data("not a property list".utf8).write(to: bundle.appendingPathComponent("Info.plist"))
         XCTAssertEqual(CartoucheGameOrientations(bundle: bundle, isPad: true), iPad)
+    }
+
+    // MARK: Behind the console
+
+    /// The Info.plist of a game nxnative built: since its commit e2fadf2 of
+    /// 4 November 2026 (dm/ios/project.yml), sideways for an iPhone and
+    /// every way for an iPad, where it lays its picture above its controls
+    /// in a view taller than wide (DmLayout); before, sideways only.
+    private func writeNxnativeGame(builtSinceNovember4: Bool) throws {
+        var info: [String: Any] = [
+            "CFBundleIdentifier": "org.nxnative.0100a3d008c5c000",
+            "UISupportedInterfaceOrientations": ["UIInterfaceOrientationLandscapeRight",
+                                                 "UIInterfaceOrientationLandscapeLeft"],
+        ]
+        if builtSinceNovember4 {
+            info["UISupportedInterfaceOrientations~ipad"] = [
+                "UIInterfaceOrientationPortrait", "UIInterfaceOrientationPortraitUpsideDown",
+                "UIInterfaceOrientationLandscapeRight", "UIInterfaceOrientationLandscapeLeft",
+            ]
+        } else {
+            info["UIRequiresFullScreen"] = true
+        }
+        try write(info, as: "Info.plist")
+    }
+
+    /// Behind the console, an iPhone turns a game nxnative built since 4
+    /// November upright too, as the player holds it: its picture above, its
+    /// controls under it, as the inner display of the iPhone Duo shows it,
+    /// which iOS turns whatever the game allows. In 0.12, it stayed sideways
+    /// on any other iPhone, and on the Duo's outer display.
+    func testAnNxnativeGameTurnsUprightTooBehindTheConsoleOnAnIPhone() throws {
+        try writeNxnativeGame(builtSinceNovember4: true)
+        let allowed = CartoucheGameOrientations(bundle: bundle, isPad: false)
+        XCTAssertEqual(allowed, .landscape, "its own app stays sideways on an iPhone")
+        XCTAssertTrue(CartoucheGameOrientations.laysOutUpright(bundle: bundle))
+        XCTAssertEqual(allowed.behindTheConsole(isPad: false, laysOutUpright: true, pictureOnTV: false), iPhone)
+        // On an iPad, every way, as the game allows there.
+        let onAnIPad = CartoucheGameOrientations(bundle: bundle, isPad: true)
+        XCTAssertEqual(onAnIPad, iPad)
+        XCTAssertEqual(onAnIPad.behindTheConsole(isPad: true, laysOutUpright: true, pictureOnTV: false), iPad)
+    }
+
+    /// While the game's picture is on a TV, the iPhone shows nxnative's
+    /// controls alone, laid out to be held sideways: sideways only.
+    func testAGameWhosePictureIsOnATVStaysSideways() throws {
+        try writeNxnativeGame(builtSinceNovember4: true)
+        let allowed = CartoucheGameOrientations(bundle: bundle, isPad: false)
+        XCTAssertEqual(allowed.behindTheConsole(isPad: false, laysOutUpright: true, pictureOnTV: true), .landscape)
+    }
+
+    /// A game nxnative built before 4 November allows sideways only, on an
+    /// iPad too: upright, its picture would stay in the middle, its controls
+    /// laid out to be held sideways. It stays sideways behind the console.
+    func testAGameBuiltBeforeNxnativeLaidGamesOutUprightStaysSideways() throws {
+        try writeNxnativeGame(builtSinceNovember4: false)
+        XCTAssertFalse(CartoucheGameOrientations.laysOutUpright(bundle: bundle))
+        let allowed = CartoucheGameOrientations(bundle: bundle, isPad: false)
+        XCTAssertEqual(allowed.behindTheConsole(isPad: false, laysOutUpright: false, pictureOnTV: false), .landscape)
+    }
+
+    /// The rule alone: upright too on an iPhone only, for a game that lays
+    /// itself out upright, while its picture is on the iPhone, and never
+    /// upside down. A game made to be played upright stays so.
+    func testUprightTooOnAnIPhoneOnly() {
+        let sideways = CartoucheGameOrientations.landscape
+        XCTAssertEqual(sideways.behindTheConsole(isPad: false, laysOutUpright: true, pictureOnTV: false), iPhone)
+        XCTAssertEqual(sideways.behindTheConsole(isPad: false, laysOutUpright: false, pictureOnTV: false), sideways)
+        XCTAssertEqual(sideways.behindTheConsole(isPad: false, laysOutUpright: true, pictureOnTV: true), sideways)
+        XCTAssertEqual(sideways.behindTheConsole(isPad: true, laysOutUpright: true, pictureOnTV: false), sideways)
+        XCTAssertEqual(CartoucheGameOrientations.landscapeRight
+            .behindTheConsole(isPad: false, laysOutUpright: true, pictureOnTV: false), [.portrait, .landscapeRight])
+        XCTAssertEqual(upright.behindTheConsole(isPad: false, laysOutUpright: true, pictureOnTV: true), upright)
+        XCTAssertEqual(iPhone.behindTheConsole(isPad: false, laysOutUpright: true, pictureOnTV: false), iPhone)
     }
 }

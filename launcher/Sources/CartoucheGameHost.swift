@@ -68,7 +68,9 @@ final class CartoucheGameHost {
         quitting = false
         consoleWindow = host.keyWindow
 
-        let screen = CartoucheGameScreen(orientations: Self.orientations(of: app)) { [weak self] in
+        let isPad = UIDevice.current.userInterfaceIdiom == .pad
+        let screen = CartoucheGameScreen(allowed: Self.orientations(of: app, isPad: isPad),
+                                         laysOutUpright: Self.laysOutUpright(app), isPad: isPad) { [weak self] in
             self?.showConsole()
         }
         let window = UIWindow(windowScene: host)
@@ -415,6 +417,7 @@ final class CartoucheGameHost {
         tvScreen.showGame(made)
         tvScreen.showsGame = isInFront
         scene.setExternalDisplaySceneForeground(isInFront)
+        pictureMoved(toTV: true)
         CartoucheTV.note(String(format: "TV: the game's own scene is on the TV (%.0fx%.0f points)",
                                 display.bounds.width, display.bounds.height))
     }
@@ -426,6 +429,21 @@ final class CartoucheGameHost {
             tvScreen.removeGame()
         }
         scene?.closeExternalDisplayScene()
+        pictureMoved(toTV: false)
+    }
+
+    /// nxnative moves the game's picture to the game's own scene on the TV,
+    /// and leaves the iPhone its controls alone, laid out to be held
+    /// sideways: the game's screen turns sideways only meanwhile, and as
+    /// the iPhone is held again once the picture is back on it
+    /// (CartoucheGameOrientations.behindTheConsole). Paused, the game's
+    /// screen turns as it shows again (showGame).
+    private func pictureMoved(toTV onTV: Bool) {
+        guard let screen, screen.pictureOnTV != onTV else { return }
+        screen.pictureOnTV = onTV
+        if isInFront {
+            screen.rotate()
+        }
     }
 
     /// What the TV shows as the game comes and goes: the game's own scene
@@ -492,18 +510,19 @@ final class CartoucheGameHost {
 
     /// The orientations the Info.plist in the game's bundle allows, among
     /// those Cartouche's allows (CartoucheGameOrientations): sideways only
-    /// for nxnative's games. Not LiveContainer's info(), its own settings
-    /// for the game, which name none.
-    private static func orientations(of app: LCAppModel) -> UIInterfaceOrientationMask {
-        let isPad = UIDevice.current.userInterfaceIdiom == .pad
+    /// for nxnative's games on an iPhone. Not LiveContainer's info(), its
+    /// own settings for the game, which name none.
+    private static func orientations(of app: LCAppModel, isPad: Bool) -> CartoucheGameOrientations {
         let bundle = app.appInfo.bundlePath().map { URL(fileURLWithPath: $0, isDirectory: true) }
-        let allowed = bundle.map { CartoucheGameOrientations(bundle: $0, isPad: isPad) } ?? .ofCartouche(isPad: isPad)
-        var mask: UIInterfaceOrientationMask = []
-        if allowed.contains(.portrait) { mask.insert(.portrait) }
-        if allowed.contains(.portraitUpsideDown) { mask.insert(.portraitUpsideDown) }
-        if allowed.contains(.landscapeLeft) { mask.insert(.landscapeLeft) }
-        if allowed.contains(.landscapeRight) { mask.insert(.landscapeRight) }
-        return mask
+        return bundle.map { CartoucheGameOrientations(bundle: $0, isPad: isPad) } ?? .ofCartouche(isPad: isPad)
+    }
+
+    /// Whether the game lays itself out upright, as the Info.plist in its
+    /// bundle says by the ways it allows on an iPad: nxnative's games since
+    /// 4 November 2026 (CartoucheGameOrientations.laysOutUpright).
+    private static func laysOutUpright(_ app: LCAppModel) -> Bool {
+        guard let path = app.appInfo.bundlePath() else { return false }
+        return CartoucheGameOrientations.laysOutUpright(bundle: URL(fileURLWithPath: path, isDirectory: true))
     }
 }
 
@@ -575,12 +594,22 @@ struct CartoucheGameHostError: Error {}
 
 /// The screen of a game running behind the console: the game's scene, full
 /// screen, and the Home button that shows the console, at the bottom in the
-/// middle, where nxnative's controls on screen leave room. Upright or
-/// sideways as the game allows, without the status bar, with the home
-/// indicator out of the way, and the edges of the screen to the game first.
+/// middle, where nxnative's controls on screen leave room, sideways or
+/// upright. Upright or sideways as the game allows, and on an iPhone upright
+/// too for a game that lays itself out upright, while its picture is on the
+/// iPhone (CartoucheGameOrientations.behindTheConsole); without the status
+/// bar, with the home indicator out of the way, and the edges of the screen
+/// to the game first.
 @available(iOS 18.0, *)
 final class CartoucheGameScreen: UIViewController {
-    private let orientations: UIInterfaceOrientationMask
+    /// The ways the game allows the screen to turn, by its Info.plist.
+    private let allowed: CartoucheGameOrientations
+    /// The game lays itself out upright, its picture above its controls.
+    private let laysOutUpright: Bool
+    private let isPad: Bool
+    /// The game's picture is on a TV, and the game's controls alone on the
+    /// iPhone (CartoucheGameHost.pictureMoved).
+    var pictureOnTV = false
     private let onHome: () -> Void
     private let spinner = UIActivityIndicatorView(style: .large)
     private let homeButton = UIButton(type: .custom)
@@ -590,8 +619,10 @@ final class CartoucheGameScreen: UIViewController {
     /// that mirrors it shows too.
     private var showsGameDespiteTV = false
 
-    init(orientations: UIInterfaceOrientationMask, onHome: @escaping () -> Void) {
-        self.orientations = orientations
+    init(allowed: CartoucheGameOrientations, laysOutUpright: Bool, isPad: Bool, onHome: @escaping () -> Void) {
+        self.allowed = allowed
+        self.laysOutUpright = laysOutUpright
+        self.isPad = isPad
         self.onHome = onHome
         super.init(nibName: nil, bundle: nil)
     }
@@ -600,7 +631,12 @@ final class CartoucheGameScreen: UIViewController {
         return nil
     }
 
-    override var supportedInterfaceOrientations: UIInterfaceOrientationMask { orientations }
+    /// The ways the screen turns now.
+    var turns: CartoucheGameOrientations {
+        allowed.behindTheConsole(isPad: isPad, laysOutUpright: laysOutUpright, pictureOnTV: pictureOnTV)
+    }
+
+    override var supportedInterfaceOrientations: UIInterfaceOrientationMask { Self.mask(of: turns) }
     override var prefersStatusBarHidden: Bool { true }
     override var prefersHomeIndicatorAutoHidden: Bool { true }
     override var preferredScreenEdgesDeferringSystemGestures: UIRectEdge { .all }
@@ -712,13 +748,23 @@ final class CartoucheGameScreen: UIViewController {
         }
     }
 
-    /// Turns the screen as the game allows, and hides the status bar.
+    /// Turns the screen as it may turn now (turns), and hides the status
+    /// bar.
     func rotate() {
         setNeedsUpdateOfSupportedInterfaceOrientations()
         setNeedsStatusBarAppearanceUpdate()
         setNeedsUpdateOfHomeIndicatorAutoHidden()
         setNeedsUpdateOfScreenEdgesDeferringSystemGestures()
-        view.window?.windowScene?.requestGeometryUpdate(.iOS(interfaceOrientations: orientations)) { _ in }
+        view.window?.windowScene?.requestGeometryUpdate(.iOS(interfaceOrientations: Self.mask(of: turns))) { _ in }
+    }
+
+    private static func mask(of orientations: CartoucheGameOrientations) -> UIInterfaceOrientationMask {
+        var mask: UIInterfaceOrientationMask = []
+        if orientations.contains(.portrait) { mask.insert(.portrait) }
+        if orientations.contains(.portraitUpsideDown) { mask.insert(.portraitUpsideDown) }
+        if orientations.contains(.landscapeLeft) { mask.insert(.landscapeLeft) }
+        if orientations.contains(.landscapeRight) { mask.insert(.landscapeRight) }
+        return mask
     }
 
     /// A line over the Home button for a few seconds.
