@@ -169,26 +169,27 @@ enum HarnessCatalog {
     }()
 
     /// A game that starts in Cartouche's place once a game behind the
-    /// console had BEHINDMIB, less than Cartouche: its sheet says it needs
-    /// Increased Memory Limit, and its peak, when testers measured one,
-    /// leaves less than its room under BEHINDMIB
-    /// (CartoucheGamePlace.startsBehind), as Mario Kart World's, 5,499 MiB
-    /// at most, under 6,144.
-    static func gameNeedingMoreMemory(than behindMiB: Int) -> Game? {
-        let files = (try? FileManager.default.contentsOfDirectory(at: folder.appendingPathComponent("games"),
-                                                                  includingPropertiesForKeys: nil)) ?? []
-        for file in files.sorted(by: { $0.lastPathComponent < $1.lastPathComponent }) {
-            guard let data = try? Data(contentsOf: file),
-                  let sheet = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-                  let titleId = sheet["titleId"] as? String, let name = sheet["name"] as? String,
-                  let requirements = sheet["requirements"] as? [String: Any],
-                  requirements["increasedMemoryLimit"] as? Bool == true else { continue }
-            // The sheet's peak, as the launcher reads it (CartoucheCatalog):
-            // the highest of its requirements' and its results'.
-            let peaks = ([requirements] + ((sheet["results"] as? [[String: Any]]) ?? []))
-                .compactMap { ($0["peakMemoryMiB"] as? NSNumber)?.intValue }
-            if let peak = peaks.max(), peak + CartoucheGamePlace.roomMiB(under: behindMiB) <= behindMiB { continue }
-            return Game(titleId: titleId, name: name)
+    /// console had less than Cartouche, with the limit there, BEHINDMIB,
+    /// that sends it there by the launcher's own rule
+    /// (CartoucheGamePlace.startsBehind): the first sheet, read as the
+    /// launcher reads it (CartoucheCatalog), that says its game needs
+    /// Increased Memory Limit or gives the peak testers measured, with
+    /// 6,144 MiB behind the console, as on an iPhone of 12 GB, or else its
+    /// peak, which leaves it none of its room there. Sheets change as
+    /// testers measure: Mario Kart World's 5,499 MiB is still too close to
+    /// 6,144, and a lower peak would start behind the console there.
+    static func gameNeedingMoreMemory() -> (game: Game, behindMiB: Int)? {
+        let ownMiB = CartoucheMemoryReading.now()?.limitMiB
+        for sheet in CartoucheCatalog.shared.sheets {
+            let needsIML = sheet.requirements.increasedMemoryLimit
+            let peak = sheet.peakMemoryMiB
+            guard needsIML || peak != nil else { continue }
+            // Above the 512 MiB a reading behind the console has in use.
+            for behindMiB in [6_144] + [peak].compactMap({ $0 }) where behindMiB > 512
+                && !CartoucheGamePlace.startsBehind(needsIML: needsIML, peakMiB: peak, behindMiB: behindMiB,
+                                                    ownMiB: ownMiB) {
+                return (Game(titleId: sheet.titleId, name: sheet.name), behindMiB)
+            }
         }
         return nil
     }

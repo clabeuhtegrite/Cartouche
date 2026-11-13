@@ -12,8 +12,10 @@
 # CartoucheHarnessTests/InstallTests/testReplacingAGameKeepsItsData.
 #
 # OUT receives the results (CartoucheHarness.xcresult), xcodebuild's log
-# (test.log), and failures.txt, the tests that failed and why, which also
-# goes to the run's summary on GitHub.
+# (test.log), what the app wrote to its standard error (console.txt: the
+# launcher's NSLog lines among them, which never go to Xcode, see
+# Sources/HarnessStandardError.swift), and failures.txt, the tests that
+# failed and why, which also goes to the run's summary on GitHub.
 #
 # LiveContainer's files the harness builds are copied as app/scripts/
 # prepare.sh leaves them in Cartouche: from the submodule, with every patch
@@ -130,6 +132,13 @@ xcodebuild test \
 STATUSES=("${PIPESTATUS[@]}")
 set -e
 STATUS="${STATUSES[0]}"
+
+# What the app wrote to its standard error, from its container.
+rm -f "$OUT/console.txt"
+DATA="$(xcrun simctl get_app_container "$UDID" io.github.clabeuhtegrite.cartouche.harness data 2>/dev/null || true)"
+if [ -n "$DATA" ] && [ -f "$DATA/Library/Logs/console.txt" ]; then
+  cp "$DATA/Library/Logs/console.txt" "$OUT/console.txt"
+fi
 
 # The tests that failed and why, from the results; when xcodebuild failed
 # with no test that failed, as when the build did, its errors in the log.
