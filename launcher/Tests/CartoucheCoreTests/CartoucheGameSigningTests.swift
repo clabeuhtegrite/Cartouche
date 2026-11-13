@@ -59,11 +59,27 @@ final class CartoucheGameSigningTests: XCTestCase {
         return url
     }
 
-    /// A game's bundle as nxnative builds it, with every kind of file a
-    /// bundle may hold beside its code.
+    private static func plist(_ keys: [String: Any]) throws -> Data {
+        try PropertyListSerialization.data(fromPropertyList: keys, format: .xml, options: 0)
+    }
+
+    /// A game's bundle as nxnative builds it (build_ipa.sh): its
+    /// executable, Info.plist and PkgInfo, dm/ with its settings screen,
+    /// romfs.img, MoltenVK, and the Metal pipeline archive of a game built
+    /// with pso_mtl4, as Breath of the Wild is; with the code a bundle may
+    /// hold besides, a library and a plug-in, thin or universal, and every
+    /// kind of file iOS loads no code from.
     private func makeBundle() throws -> URL {
         try write(Self.machO(cpu: Self.arm64, fileType: 2), "Game.app/Game")
+        try write(Self.plist(["CFBundleExecutable": "Game", "CFBundleIdentifier": "org.nxnative.01007ef00011e000",
+                              "CFBundlePackageType": "APPL", "DMTitleID": "01007EF00011E000"]), "Game.app/Info.plist")
+        try write(Data("APPL????".utf8), "Game.app/PkgInfo")
+        try write(Data("{\"settings\":[]}".utf8), "Game.app/dm/launcher.json")
+        try write(Data("DM_LANG\tchoice\tLanguage\n".utf8), "Game.app/dm/settings.tsv")
+        try write(Self.plist(["files": [String: Any]()]), "Game.app/_CodeSignature/CodeResources")
         try write(Self.machO(cpu: Self.arm64, fileType: 6), "Game.app/Frameworks/MoltenVK.framework/MoltenVK")
+        try write(Self.plist(["CFBundleExecutable": "MoltenVK", "CFBundlePackageType": "FMWK"]),
+                  "Game.app/Frameworks/MoltenVK.framework/Info.plist")
         try write(Self.universal([(Self.arm, Self.machO(cpu: Self.arm, fileType: 8)),
                                   (Self.arm64, Self.machO(cpu: Self.arm64, fileType: 8))]), "Game.app/PlugIns/Widget.appex/Widget")
         // arm64e, the same processor.
@@ -96,12 +112,35 @@ final class CartoucheGameSigningTests: XCTestCase {
         return folder.appendingPathComponent("Game.app", isDirectory: true)
     }
 
+    /// The files of makeBundle iOS loads code from, in each place a game's
+    /// bundle holds code: its executable, a framework, a library and a
+    /// plug-in, thin or universal. zsign must get every one of them.
+    private static let codeFiles = ["Game", "Frameworks/MoltenVK.framework/MoltenVK", "Frameworks/libextra.dylib",
+                                    "PlugIns/Widget.appex/Widget"]
+
+    /// The files zsign gets, by their path in the bundle.
+    private func signedFiles(in bundle: URL) -> [String] {
+        CartoucheGameSigning.filesToSign(inBundle: bundle).map { $0.path.components(separatedBy: "/Game.app/").last! }.sorted()
+    }
+
     func testZsignSignsTheFilesIOSLoadsCodeFromOnly() throws {
+        XCTAssertEqual(signedFiles(in: try makeBundle()), Self.codeFiles.sorted())
+    }
+
+    /// What zsign gets is what a file's Mach-O header says, thin or
+    /// universal, never its name or its folder: code under any name,
+    /// anywhere in the bundle, and never a file named or put as code that
+    /// holds none of the iPhone's.
+    func testAFileIsSignedForItsHeaderNeverItsNameOrFolder() throws {
         let bundle = try makeBundle()
-        let signed = CartoucheGameSigning.filesToSign(inBundle: bundle).map { $0.path.components(separatedBy: "/Game.app/").last! }
-        XCTAssertEqual(Set(signed), ["Game", "Frameworks/MoltenVK.framework/MoltenVK", "Frameworks/libextra.dylib",
-                                     "PlugIns/Widget.appex/Widget"])
-        XCTAssertEqual(signed.count, 4)
+        try write(Self.machO(cpu: Self.arm64, fileType: 8), "Game.app/dm/renderer.dat")
+        try write(Self.universal([(Self.x86_64, Self.machO(cpu: Self.x86_64, fileType: 6)),
+                                  (Self.arm64, Self.machO(cpu: Self.arm64, fileType: 6))]), "Game.app/Assets/audio.png")
+        try write(Data("// not code\n".utf8) + Data(repeating: 0x20, count: 4084), "Game.app/Frameworks/libnotes.dylib")
+        try write(Data(repeating: 0, count: 4096), "Game.app/PlugIns/Empty.appex/Empty")
+        try write(Self.machO(cpu: Self.gpu, fileType: 6), "Game.app/Frameworks/Shaders.framework/Shaders")
+        try write(Self.machO(cpu: Self.x86_64, fileType: 2), "Game.app/Game.x86")
+        XCTAssertEqual(signedFiles(in: bundle), (Self.codeFiles + ["dm/renderer.dat", "Assets/audio.png"]).sorted())
     }
 
     /// Breath of the Wild's install: zsign was handed the pipeline archive,
