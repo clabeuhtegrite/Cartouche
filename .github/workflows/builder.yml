@@ -6,7 +6,8 @@ name: Builder
 # French and English, light and dark. The disk image stays with the run, and
 # the screenshots with it and, for a branch of this repository, on the branch
 # builder-screens/<branch>, one commit that each run replaces. The engine's
-# own tests run in CI (Cartouche Builder).
+# own tests run in CI (Cartouche Builder), and here on a Mac, as the app runs
+# it, with the end-to-end tests of both (builder/README.md, Development).
 #
 # A pull request's app is built once for what it changes in the files below:
 # a rebase or a merge of main that leaves those changes as they were keeps
@@ -119,8 +120,42 @@ jobs:
         run: |
           sudo xcode-select -s "/Applications/Xcode_${XCODE_VERSION}.app"
           xcodebuild -version
+      # A native Python 3.12 or later, as the app takes for the engine
+      # (PythonFinder): the end-to-end tests run the engine itself, those of
+      # the app (EndToEndTests.swift) and its own below.
+      - name: Python for the engine
+        id: python
+        run: |
+          machine="$(uname -m)"
+          python=""
+          for candidate in python3.14 python3.13 python3.12 python3; do
+            found="$(command -v "$candidate" || true)"
+            if [ -n "$found" ] && "$found" -c 'import platform, sys; sys.exit(sys.version_info < (3, 12) or platform.machine() != sys.argv[1])' "$machine"; then
+              python=$found
+              break
+            fi
+          done
+          if [ -z "$python" ]; then
+            brew install python@3.13
+            python="$(brew --prefix python@3.13)/bin/python3.13"
+          fi
+          "$python" --version
+          echo "path=$python" >> "$GITHUB_OUTPUT"
       - name: Tests
+        env:
+          CARTOUCHE_BUILDER_PYTHON: ${{ steps.python.outputs.path }}
         run: swift test --package-path builder/mac
+      # The engine's tests, which CI runs on Linux, on the Mac the app runs
+      # it on: its checks of the Mac's tools, caffeinate, and a disk that
+      # really fills up, a disk image of a few megabytes. After the app's
+      # tests even when they failed, so that both say what failed.
+      - name: The engine's tests on a Mac
+        if: ${{ !cancelled() && steps.python.outcome == 'success' }}
+        working-directory: builder
+        env:
+          CARTOUCHE_BUILDER_PYTHON: ${{ steps.python.outputs.path }}
+          PYTHONDONTWRITEBYTECODE: "1"
+        run: '"$CARTOUCHE_BUILDER_PYTHON" -m unittest discover -s tests -t tests -v'
       - name: Build the app
         run: builder/mac/bundle.sh build/builder
       # The app as the player opens it, on sample games whose nxnative

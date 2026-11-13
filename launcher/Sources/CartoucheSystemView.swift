@@ -147,7 +147,8 @@ struct CartoucheSystemView: View {
             } label: {
                 LabeledContent {
                     if let offline = reach.offlineInUse.first {
-                        Label(CartoucheText.storageOfflineShort(offline.name), systemImage: "wifi.slash")
+                        let away = CartoucheStorageOffline(offline)
+                        Label(away.short, systemImage: away.symbol)
                             .lineLimit(1)
                             .foregroundStyle(Color.orange)
                     } else {

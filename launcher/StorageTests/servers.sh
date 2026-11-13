@@ -1,9 +1,10 @@
 #!/bin/bash
 # The servers of the storage tests, on 127.0.0.1 of this machine: Samba
-# (SMB), MinIO (S3), pyftpdlib (FTP, one server with MLSD and one without)
-# and OpenSSH (SFTP), each with the test IPAs of make_ipas.py in its games
-# folder, and DIR/servers.json, which says where each server is, its
-# accounts and what it holds, for the tests (README.md).
+# (SMB), MinIO (S3), pyftpdlib (FTP, one server with MLSD and one without),
+# OpenSSH (SFTP) and a stand-in for Google's (drive_server.py, Google Drive),
+# each with the test IPAs of make_ipas.py in its games folder, and
+# DIR/servers.json, which says where each server is, its accounts and what
+# it holds, for the tests (README.md).
 #
 #     launcher/StorageTests/servers.sh start DIR [--big-mib N]
 #     launcher/StorageTests/servers.sh stop DIR
@@ -46,6 +47,11 @@ S3_PORT=9000
 FTP_PORT=2121
 FTP_LIST_PORT=2122
 SFTP_PORT=2222
+DRIVE_PORT=9100
+# The player's OAuth client and Google account, made up: the stand-in knows
+# no other.
+DRIVE_CLIENT=123456789012-cartouchetests.apps.googleusercontent.com
+DRIVE_ACCOUNT=joueur@example.com
 
 usage() {
   echo "usage: $0 start DIR [--big-mib N]" >&2
@@ -345,6 +351,23 @@ start_ftp() {
   say "FTP: pyftpdlib $("$DIR/venv/bin/python" -c 'import pyftpdlib; print(pyftpdlib.__ver__)'), on port $port${*:+, $*}"
 }
 
+# Google Drive: the stand-in for Google's sign-in and Drive API, with the
+# player's My Drive in DIR/drive/root, and a sign-in the player made once,
+# whose refresh token servers.json gives the tests.
+start_drive() {
+  local drive="$DIR/drive"
+  mkdir -p "$drive"
+  rm -rf "$drive/root" "$drive/data"
+  seed "$drive/root"
+  ( umask 077; printf '%s\n' "$DRIVE_REFRESH_TOKEN" > "$drive/refresh-token" )
+  python3 "$HERE/drive_server.py" --port "$DRIVE_PORT" --root "$drive/root" --data "$drive/data" \
+    --client-id "$DRIVE_CLIENT" --account "$DRIVE_ACCOUNT" --refresh-token-file "$drive/refresh-token" \
+    --read-only "$READ_ONLY" --games "$GAMES" --small "$SMALL_NAME" < /dev/null >> "$drive/drive.log" 2>&1 &
+  echo $! > "$drive/drive.pid"
+  wait_port "$DRIVE_PORT" "Google's stand-in" "$drive/drive.log"
+  say "Google Drive: a stand-in for Google's servers, $(python3 --version), on port $DRIVE_PORT"
+}
+
 start_s3() {
   local s3="$DIR/s3" minio mc tries=0
   minio="$(command -v minio || true)"
@@ -401,6 +424,8 @@ write_servers() {
   FTP_PASSWORD="$FTP_PASSWORD" FTP_READER_PASSWORD="$FTP_READER_PASSWORD" \
   S3_PLAYER_KEY="$S3_PLAYER_KEY" S3_PLAYER_SECRET="$S3_PLAYER_SECRET" \
   S3_READER_KEY="$S3_READER_KEY" S3_READER_SECRET="$S3_READER_SECRET" \
+  DRIVE_PORT="$DRIVE_PORT" DRIVE_CLIENT="$DRIVE_CLIENT" DRIVE_ACCOUNT="$DRIVE_ACCOUNT" \
+  DRIVE_REFRESH_TOKEN="$DRIVE_REFRESH_TOKEN" \
   GAMES="$GAMES" SMALL_NAME="$SMALL_NAME" BIG_NAME="$big_name" OLDER="$OLDER" HIDDEN="$HIDDEN" READ_ONLY="$READ_ONLY" \
   SHARE="$SHARE" READ_ONLY_SHARE="$READ_ONLY_SHARE" GUEST_SHARE="$GUEST_SHARE" BUCKET="$BUCKET" REGION="$REGION" \
   SMB_PORT="$SMB_PORT" S3_PORT="$S3_PORT" FTP_PORT="$FTP_PORT" FTP_LIST_PORT="$FTP_LIST_PORT" SFTP_PORT="$SFTP_PORT" \
@@ -461,6 +486,13 @@ servers = {
         "home": e["TEST_HOME"],
         "log": str(d / "ssh" / "sshd.log"),
     },
+    "drive": {
+        "address": f"http://127.0.0.1:{e['DRIVE_PORT']}",
+        "clientID": e["DRIVE_CLIENT"],
+        "account": e["DRIVE_ACCOUNT"],
+        "refreshToken": e["DRIVE_REFRESH_TOKEN"],
+        "log": str(d / "drive" / "drive.log"),
+    },
 }
 path = d / "servers.json"
 path.touch(mode=0o600)
@@ -490,6 +522,7 @@ start() {
   S3_PLAYER_SECRET="$(secret)"
   S3_READER_KEY="READER$(secret | cut -c1-14 | tr '[:lower:]' '[:upper:]')"
   S3_READER_SECRET="$(secret)"
+  DRIVE_REFRESH_TOKEN="1//0$(secret)"
 
   fetch_tools
   make_ipas
@@ -499,6 +532,7 @@ start() {
   start_ftp ftp "$FTP_PORT" 30000
   start_ftp ftp-list "$FTP_LIST_PORT" 30050 --no-mlsd
   start_s3
+  start_drive
   write_servers
   say "The servers are up: $DIR/servers.json"
 }
@@ -507,7 +541,7 @@ stop() {
   [ -f "$DIR/.cartouche-storage-servers" ] || fail "$DIR holds no servers of this script."
   DIR="$(cd "$DIR" && pwd -P)"
   local pidfile
-  for pidfile in "$DIR/ftp/ftp.pid" "$DIR/ftp-list/ftp.pid" "$DIR/s3/minio.pid"; do
+  for pidfile in "$DIR/ftp/ftp.pid" "$DIR/ftp-list/ftp.pid" "$DIR/s3/minio.pid" "$DIR/drive/drive.pid"; do
     if [ -f "$pidfile" ]; then kill "$(cat "$pidfile")" 2>/dev/null || true; fi
   done
   for pidfile in "$DIR/smb/smbd.pid" "$DIR/ssh/sshd.sudo.pid"; do

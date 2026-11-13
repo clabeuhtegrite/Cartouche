@@ -5,27 +5,30 @@
 //  The Storage page, from the System page: every kind of place it adds,
 //  each form opening and closing; the player's NAS out of reach away from
 //  home, which the page says without an error, with the saves waiting for
-//  it and Try again; the player's Mac, paired, as the games folder; and
-//  Add your Mac, with the Macs nearby, the digits to
-//  check on both screens, and iOS refusing the local network. The gallery
-//  stands in for the servers and the Macs (GalleryApp.swift): nothing here
-//  reaches a real one, but the NAS's Try again, which knocks on its
-//  address, as the app does, and finds no one.
+//  it and Try again; the player's Google Drive once Google ended its
+//  sign-in, as after 7 days for a project in testing, which the page says
+//  without an error, with Sign in to Google again in place of Try again;
+//  the player's Mac, paired, as the games folder; and Add your Mac, with
+//  the Macs nearby, the digits to check on both screens, and iOS refusing
+//  the local network. The gallery stands in for the servers, Google and
+//  the Macs (GalleryApp.swift): nothing here reaches a real one, but the
+//  NAS's Try again, which knocks on its address, as the app does, and
+//  finds no one.
 //
 
 import XCTest
 
 final class StorageUITests: ConsoleTestCase {
     /// With no place yet, the page says to add one first and offers each
-    /// kind, whose forms open and close: S3, FTP, and a folder in Files,
-    /// with the Files picker.
+    /// kind, whose forms open and close: S3, Google Drive, FTP, and a folder
+    /// in Files, with the Files picker.
     @MainActor
     func testTheStoragePageOffersEveryKindOfPlace() {
         let app = openConsole()
         openStorage(in: app)
         expect(element(beginningWith: Words.addFirst, in: app).waitForExistence(timeout: 10),
                "The Storage page does not say to add a place first", in: app)
-        for form in [Words.addS3, Words.addFTP] {
+        for form in [Words.addS3, Words.addDrive, Words.addFTP] {
             let row = app.buttons[form]
             scrollTo(row, "\(form) on the Storage page", in: app)
             tap(row, "\(form) on the Storage page", in: app)
@@ -81,6 +84,42 @@ final class StorageUITests: ConsoleTestCase {
         expect(element(beginningWith: offline, in: app).exists, "The Storage page no longer says \(offline)", in: app)
         expect(app.alerts.count == 0, "Trying the NAS again showed an error: \(app.alerts.firstMatch.debugDescription)",
                in: app)
+        closeStorage(in: app)
+        expectMainThreadAnswered(app)
+    }
+
+    /// The player's Google Drive, once Google ended its sign-in, as it does
+    /// after 7 days for a project in testing: the System page says to sign
+    /// in again; the Storage page says why, without an error, with two
+    /// games' saves waiting for it, and offers Sign in to Google again,
+    /// never Try again, which would knock on Google for nothing.
+    @MainActor
+    func testADriveWhoseSignInEndedOffersToSignInAgainWithoutAnError() {
+        let app = openConsole(Launch(work: "drive-signed-out"))
+        tap(app.buttons[Words.system], "System in the dock", in: app)
+        let row = element(in: app.buttons, beginningWith: Words.storage)
+        expect(row.waitForExistence(timeout: 15), "No Storage on the System page", in: app)
+        let signedOutShort = String(format: Words.driveSignedOutShort, "Google Drive")
+        expect(row.label.contains(signedOutShort) || (row.value as? String)?.contains(signedOutShort) == true,
+               "The System page does not say \(signedOutShort): \(row.label)", in: app)
+        tap(row, "Storage on the System page", in: app)
+        expect(app.navigationBars[Words.storage].waitForExistence(timeout: 15), "The Storage page did not open", in: app)
+
+        let signedOut = String(format: Words.driveSignedOut, "Google Drive")
+        expect(element(beginningWith: signedOut, in: app).waitForExistence(timeout: 10),
+               "The Storage page does not say \(signedOut)", in: app)
+        // Sign in to Google again, on the games folder's lines, above the
+        // saves folder's.
+        let again = app.buttons[Words.driveSignInAgain]
+        scrollTo(again, "\(Words.driveSignInAgain) on the Storage page", in: app)
+        expect(again.isEnabled, "\(Words.driveSignInAgain) is not enabled", in: app)
+        let waiting = String(format: Words.savesWaiting, 2)
+        let saves = element(beginningWith: waiting, in: app)
+        scrollTo(saves, "\(waiting) on the Storage page", in: app)
+        expect(!app.buttons[Words.tryAgain].exists,
+               "The Storage page offers \(Words.tryAgain) for a Drive whose sign-in ended", in: app)
+        expect(app.alerts.count == 0,
+               "The Drive whose sign-in ended showed an error: \(app.alerts.firstMatch.debugDescription)", in: app)
         closeStorage(in: app)
         expectMainThreadAnswered(app)
     }
