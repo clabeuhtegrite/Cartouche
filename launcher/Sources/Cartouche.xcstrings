@@ -12831,7 +12831,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Signez-le de nouveau ; s’il échoue encore, installez-le de nouveau depuis son IPA."
+            "value" : "Signez-le de nouveau ; si cela échoue encore, installez-le de nouveau depuis son IPA."
           }
         }
       }

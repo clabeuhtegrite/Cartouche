@@ -91,6 +91,16 @@
 //                                        whose sign-in Google ended, as after
 //                                        7 days for a project in testing, with
 //                                        two games' saves waiting for it;
+//                                        not-signed-install: the sheet's
+//                                        game installed but not signed
+//                                        whole, with Sign again and play;
+//                                        not-signed-start: the same, as Play
+//                                        signed it again; signature-refused:
+//                                        its process ended as iOS refused
+//                                        its signature; stopped-on-error:
+//                                        its process ended on another error
+//                                        (CartoucheGameActions failSigning
+//                                        and stoppedOnError);
 //                                        on the TV (screen tv), paused: the
 //                                        game paused behind the console,
 //                                        starting: the game starting;
@@ -265,6 +275,9 @@ struct GalleryScenario {
                                                    fraction: 0.42, facts: [.init("IPA", name + " [" + (sheet ?? "") + "].ipa")])
                 CartoucheGameActions.shared.notice = CartoucheGameNotice(title: report.title, message: report.message, report: report)
             }
+            if let notice = signingNotice() {
+                CartoucheGameActions.shared.notice = notice
+            }
             if work == "update" {
                 // A higher version than the gallery's own (project.yml).
                 CartoucheUpdates.shared.offerForGallery(CartoucheRelease(version: "0.4.0", notes: "", size: 36_802_806))
@@ -342,6 +355,49 @@ struct GalleryScenario {
                 CartoucheSaveBackups.shared.showWaitingForGallery(2)
             }
         }
+    }
+
+    /// The notice of the sheet's game, which LiveContainer did not sign
+    /// whole, zsign failing on one of its libraries, or whose process ended
+    /// as iOS refused its signature or a library it needs was missing, as
+    /// CartoucheGameActions shows it (failSigning, stoppedOnError), with the
+    /// report to copy.
+    @MainActor
+    private func signingNotice() -> CartoucheGameNotice? {
+        let titleId = sheet ?? ownedTitles.first ?? ""
+        let name = CartoucheCatalog.shared.game(titleId: titleId)?.name ?? "Game"
+        let bundleId = "org.nxnative." + titleId.lowercased()
+        let unsigned = CartoucheGameSigning.Failure(reason: .filesNotSigned, fileKind: "framework", files: 1, signedAnyway: true)
+        let title: String
+        let message: String
+        let failure: CartoucheFailure
+        var signAgain = true
+        switch work ?? "" {
+        case "not-signed-install":
+            title = CartoucheText.installSignWarning
+            message = CartoucheText.notSignedFiles + " " + CartoucheText.notSignedAtInstall
+            failure = CartoucheFailure(.notSigned, stage: "signing", details: unsigned.details)
+        case "not-signed-start":
+            title = CartoucheText.notSignedTitle(name)
+            message = CartoucheText.notSignedFiles + " " + CartoucheText.notSignedAtStart
+            failure = CartoucheFailure(.notSigned, stage: "signing", details: unsigned.details)
+        case "signature-refused":
+            let stopped = CartoucheGameSigning.StartFailure(kind: .codeSignature)
+            title = CartoucheText.gameStoppedTitle(name)
+            message = CartoucheText.gameSignatureRefused
+            failure = CartoucheFailure(stopped.cause, stage: "gameProcess", seconds: 1.4, details: stopped.details)
+        case "stopped-on-error":
+            let stopped = CartoucheGameSigning.StartFailure(kind: .libraryMissing)
+            title = CartoucheText.gameStoppedTitle(name)
+            message = CartoucheText.gameStoppedOnError
+            failure = CartoucheFailure(stopped.cause, stage: "gameProcess", seconds: 1.4, details: stopped.details)
+            signAgain = false
+        default:
+            return nil
+        }
+        let origin: CartoucheReport.Origin = work == "not-signed-install" ? .install : .start
+        let report = CartoucheReports.make(origin, title, message: message, failure: failure)
+        return CartoucheGameNotice(title: title, message: message, report: report, signAgain: signAgain ? bundleId : nil)
     }
 
     /// The player's games as IPAs in FOLDER, as Cartouche Builder leaves
