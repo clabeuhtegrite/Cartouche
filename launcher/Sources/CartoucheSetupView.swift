@@ -100,7 +100,9 @@ struct CartoucheSetupView: View {
                     }
                     if setup.isImportingSigning { ProgressView(CartoucheText.setupCertificateChecking) }
                     if setup.usesImportedSigning {
-                        Text(CartoucheText.signingUpdateOnComputer).font(.footnote).foregroundStyle(.secondary)
+                        Text(CartoucheImportedSigning.isSignedOnIPhone ? CartoucheText.signingUpdateOnIPhone
+                             : CartoucheText.signingUpdateOnComputer)
+                            .font(.footnote).foregroundStyle(.secondary)
                     }
                     // A sign-in that stopped: signing in again brings it.
                     if !setup.hasCertificate && setup.signInStep != .unfinished {
@@ -109,6 +111,9 @@ struct CartoucheSetupView: View {
                         }
                         .buttonStyle(.bordered)
                     }
+                }
+                if setup.usesImportedSigning, let signature = CartoucheOwnSignature.current {
+                    CartoucheOwnSignatureBox(signature: signature)
                 }
                 if !setup.usesImportedSigning { renewalNote }
             }
@@ -157,8 +162,9 @@ struct CartoucheSetupView: View {
 
     private var certificateDetail: String {
         if setup.usesImportedSigning {
-            if setup.certificateRefused { return CartoucheText.signingRefused }
-            if !setup.hasCertificate { return CartoucheText.signingHow }
+            let onIPhone = CartoucheImportedSigning.isSignedOnIPhone
+            if setup.certificateRefused { return onIPhone ? CartoucheText.signingRefusedOnIPhone : CartoucheText.signingRefused }
+            if !setup.hasCertificate { return onIPhone ? CartoucheText.signingHowOnIPhone : CartoucheText.signingHow }
         }
         guard setup.hasCertificate else { return CartoucheText.setupCertificateHow }
         switch setup.certificateWorks {
@@ -172,10 +178,19 @@ struct CartoucheSetupView: View {
         VStack(alignment: .leading, spacing: 6) {
             Text(setup.needsSetup ? CartoucheText.setupIntroTitle : CartoucheText.setupAllDone)
                 .font(.system(.largeTitle, design: .rounded, weight: .bold))
-            Text(setup.needsSetup ? CartoucheText.setupIntro : CartoucheText.setupAllDoneDetail)
+            Text(headerDetail)
                 .foregroundStyle(.secondary)
         }
         .padding(.bottom, 4)
+    }
+
+    /// With the player's own certificate, Cartouche renews nothing: the
+    /// certificate is the only step.
+    private var headerDetail: String {
+        if setup.usesImportedSigning {
+            return setup.needsSetup ? CartoucheText.setupIntroOwnCertificate : CartoucheText.setupAllDoneOwnCertificate
+        }
+        return setup.needsSetup ? CartoucheText.setupIntro : CartoucheText.setupAllDoneDetail
     }
 
     private func step<Actions: View>(
@@ -291,7 +306,12 @@ extension CartoucheSetup {
     }
 
     func bannerDetail(signingInAgain: Bool, registeringDevice: Bool = false) -> String {
-        if usesImportedSigning { return certificateRefused ? CartoucheText.signingRefused : CartoucheText.signingHow }
+        if usesImportedSigning {
+            if CartoucheImportedSigning.isSignedOnIPhone {
+                return certificateRefused ? CartoucheText.signingRefusedOnIPhone : CartoucheText.signingHowOnIPhone
+            }
+            return certificateRefused ? CartoucheText.signingRefused : CartoucheText.signingHow
+        }
         if certificateRefused {
             return signingInAgain ? CartoucheText.setupBannerCertificateRenewing : CartoucheText.setupBannerCertificateDetail
         }
@@ -303,5 +323,65 @@ extension CartoucheSetup {
         guard needsDevice else { return CartoucheText.setupBannerSignInDetail }
         // Signed in, with this iPhone left to register.
         return registeringDevice ? CartoucheText.setupBannerDeviceWorking : CartoucheText.setupBannerDeviceDetail
+    }
+}
+
+/// What Cartouche's signature gives it, signed with the player's own
+/// certificate (CartoucheOwnSignature): Increased Memory Limit, without
+/// which iOS gives Cartouche about 3 GB, and the games' keychains, with how
+/// a missing one comes back.
+@available(iOS 17.0, *)
+struct CartoucheOwnSignatureBox: View {
+    let signature: CartoucheOwnSignature
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Label(CartoucheText.signatureCheckTitle, systemImage: "signature")
+                .font(.headline)
+            row(CartoucheText.imlRequirement, granted: signature.increasedMemoryLimit == .granted,
+                detail: memoryDetail, warning: true)
+            row(CartoucheText.signatureKeychains, granted: signature.gameKeychains == .granted,
+                detail: keychainDetail, warning: false)
+        }
+        .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color(uiColor: .secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 22, style: .continuous))
+        .accessibilityElement(children: .contain)
+    }
+
+    private var memoryDetail: String? {
+        switch signature.increasedMemoryLimit {
+        case .granted: return nil
+        case .leftOut: return CartoucheText.signatureMemoryLeftOut
+        case .notInProfile: return CartoucheText.signatureMemoryNotInProfile
+        }
+    }
+
+    private var keychainDetail: String? {
+        switch signature.gameKeychains {
+        case .granted: return CartoucheText.signatureKeychainsGranted
+        case .leftOut: return CartoucheText.signatureKeychainsLeftOut
+        case .notInProfile: return CartoucheText.signatureKeychainsNotInProfile
+        }
+    }
+
+    /// A grant: ticked, or, missing, in orange when Cartouche needs it and
+    /// in grey when the games seldom do.
+    private func row(_ title: String, granted: Bool, detail: String?, warning: Bool) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            LabeledContent(title) {
+                Label(granted ? CartoucheText.imlOn : CartoucheText.imlOff,
+                      systemImage: granted ? "checkmark.circle.fill" : warning ? "exclamationmark.triangle.fill" : "info.circle")
+                    .labelStyle(CartoucheTightLabelStyle())
+                    .foregroundStyle(granted ? Color.green : warning ? Color.orange : Color.secondary)
+            }
+            .font(.subheadline.weight(.semibold))
+            if let detail {
+                Text(detail)
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
     }
 }

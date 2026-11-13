@@ -82,6 +82,30 @@ enum CartoucheDevice {
     }()
 }
 
+extension CartoucheOwnSignature {
+    /// Cartouche's, signed with the player's own certificate: the
+    /// entitlements it runs with, against those of the profile it was
+    /// signed with. Nil when the built-in SideStore signed it, with an
+    /// Apple ID, or when its profile does not read.
+    static let current: CartoucheOwnSignature? = {
+        #if CARTOUCHE_GALLERY
+        return GalleryState.ownSignature
+        #else
+        guard CartoucheImportedSigning.isImportedInstall, let data = CartoucheImportedSigning.ownProfile,
+              let profile = try? CartoucheSigningMaterial.profileContents(data) else { return nil }
+        let task = SecTaskCreateFromSelf(nil)
+        var signed: [String: Any] = [:]
+        for key in [memoryEntitlement, keychainEntitlement, teamEntitlement] {
+            if let value = SecTaskCopyValueForEntitlement(task, key as CFString, nil) {
+                signed[key] = value.takeRetainedValue()
+            }
+        }
+        let team = signed[teamEntitlement] as? String ?? (profile["TeamIdentifier"] as? [String])?.first ?? ""
+        return CartoucheOwnSignature(signed: signed, profile: profile["Entitlements"] as? [String: Any] ?? [:], team: team)
+        #endif
+    }()
+}
+
 /// The memory iOS lets Cartouche use, measured the way the device profiles
 /// in catalog/devices.json are: footprint plus os_proc_available_memory().
 struct CartoucheMemoryReading {

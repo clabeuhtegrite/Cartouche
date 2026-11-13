@@ -4,8 +4,10 @@
 //
 //  Cartouche's own update over the console (CartoucheUpdates): the new
 //  version on offer, how far the built-in SideStore has gone with it, then
-//  what came of it, with the report on a failure to copy. A controller
-//  answers with A and B, and copies the report with Y.
+//  what came of it, with the report on a failure to copy. Signed with the
+//  player's own certificate, the new version on offer alone: its IPA to
+//  download, signed on the iPhone, or the Cartouche Installer to install it
+//  with. A controller answers with A and B, and copies the report with Y.
 //
 
 import SwiftUI
@@ -43,8 +45,13 @@ struct CartoucheUpdateView: View {
         case .preparing: return CartoucheText.updatePreparingMessage
         case .installing: return CartoucheText.updateInstallingMessage
         case nil:
-            var text = CartoucheText.updateOfferMessage(CartoucheUpdates.runningVersion)
-            if let size = updates.available?.size, size > 0 {
+            let running = CartoucheUpdates.runningVersion
+            var text = CartoucheImportedSigning.isSignedOnIPhone ? CartoucheText.updateOfferOnIPhone(running)
+                : CartoucheImportedSigning.isImportedInstall ? CartoucheText.updateOfferOnComputer(running)
+                : CartoucheText.updateOfferMessage(running)
+            // The size of the IPA SideStore downloads, not of the one for
+            // the player's own certificate.
+            if !CartoucheImportedSigning.isImportedInstall, let size = updates.available?.size, size > 0 {
                 text += "\n" + CartoucheText.updateSize(ByteCountFormatter.string(fromByteCount: size, countStyle: .file))
             }
             return text
@@ -75,6 +82,17 @@ struct CartoucheUpdateView: View {
         case .installing:
             return [Choice(title: CartoucheText.updateLeaveNow, input: .a) { updates.leaveToHomeScreen() }]
         case nil:
+            if CartoucheImportedSigning.isImportedInstall {
+                // Nothing to install here: the IPA to download, signed on
+                // the iPhone; the computer's Installer otherwise.
+                guard updates.download != nil else {
+                    return [Choice(title: CartoucheText.done, input: .a) { updates.later() }]
+                }
+                return [
+                    Choice(title: CartoucheText.updateDownload, input: .a) { updates.openDownload() },
+                    Choice(title: CartoucheText.updateLater, input: .b) { updates.later() },
+                ]
+            }
             return [
                 Choice(title: CartoucheText.updateNow, input: .a) { updates.start() },
                 Choice(title: CartoucheText.updateLater, input: .b) { updates.later() },

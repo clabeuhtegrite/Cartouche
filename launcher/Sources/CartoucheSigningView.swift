@@ -1,6 +1,10 @@
 import SwiftUI
 import UniformTypeIdentifiers
 
+/// The certificate, its password and its profile, for a Cartouche signed
+/// with the player's own certificate. Signed on the iPhone by a signing app,
+/// the profile is the one in Cartouche: the player chooses the certificate
+/// and types its password, no more.
 @available(iOS 17.0, *)
 struct CartoucheSigningView: View {
     @ObservedObject private var setup = CartoucheSetup.shared
@@ -11,29 +15,33 @@ struct CartoucheSigningView: View {
     @State private var choosingCertificate = true
     @State private var fileProblem: String?
 
+    private let onIPhone = CartoucheImportedSigning.isSignedOnIPhone
+
     var body: some View {
         Form {
             Section {
-                Text(CartoucheText.signingHow)
+                Text(onIPhone ? CartoucheText.signingHowOnIPhone : CartoucheText.signingHow)
                 Button(certificate == nil ? CartoucheText.signingChooseCertificate : CartoucheText.signingCertificateChosen) {
                     choosingCertificate = true
                     choosingFile = true
                 }
-                Button(profile == nil ? CartoucheText.signingChooseProfile : CartoucheText.signingProfileChosen) {
-                    choosingCertificate = false
-                    choosingFile = true
+                if !onIPhone {
+                    Button(profile == nil ? CartoucheText.signingChooseProfile : CartoucheText.signingProfileChosen) {
+                        choosingCertificate = false
+                        choosingFile = true
+                    }
                 }
                 SecureField(CartoucheText.signingPassword, text: $password)
                     .textInputAutocapitalization(.never)
                     .autocorrectionDisabled()
                 Button(CartoucheText.signingUse) {
-                    guard let certificate, let profile else { return }
+                    guard let certificate, onIPhone || profile != nil else { return }
                     Task {
-                        await setup.importSigning(certificate: certificate, password: password, profile: profile)
+                        await setup.importSigning(certificate: certificate, password: password, profile: onIPhone ? nil : profile)
                         password = ""
                     }
                 }
-                .disabled(certificate == nil || profile == nil || setup.isImportingSigning)
+                .disabled(certificate == nil || (!onIPhone && profile == nil) || setup.isImportingSigning)
                 if setup.isImportingSigning { ProgressView(CartoucheText.setupCertificateChecking) }
                 if let problem = fileProblem ?? setup.signingProblem {
                     Text(problem).foregroundStyle(.red)
@@ -41,7 +49,7 @@ struct CartoucheSigningView: View {
                     Label(CartoucheText.setupCertificateDone, systemImage: "checkmark.shield")
                 }
             } footer: {
-                Text(CartoucheText.signingReinstall)
+                Text(onIPhone ? CartoucheText.signingOnlyOwnCertificate : CartoucheText.signingReinstall)
             }
         }
         .navigationTitle(CartoucheText.signingTitle)

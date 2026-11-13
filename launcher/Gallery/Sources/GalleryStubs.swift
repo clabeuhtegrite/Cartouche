@@ -20,6 +20,11 @@ enum GalleryState {
     /// SideStore keeps the Apple ID of a sign-in that stopped before the
     /// certificate (work: sign-in-unfinished).
     static var signInUnfinished = false
+    /// Cartouche signed with the player's own certificate (-GallerySigning):
+    /// on the iPhone, by a signing app, or by the Cartouche Installer.
+    static var signing: CartoucheSigningMode = .account
+    /// What that signature gives Cartouche (GalleryScenario.ownSignature).
+    static var ownSignature: CartoucheOwnSignature?
 
     static let documents: URL = {
         let url = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]

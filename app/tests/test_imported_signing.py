@@ -50,7 +50,9 @@ enum CartoucheText {
                 "xcrun", "--sdk", "iphoneos", "swiftc", "-typecheck", "-swift-version", "5",
                 "-target", "arm64-apple-ios15.0", "-sdk", sdk,
                 "-module-cache-path", str(folder / "cache"),
-                str(folder / "Stubs.swift"), str(ROOT / "launcher/Sources/CartoucheSigningMaterial.swift"), str(adapter),
+                str(folder / "Stubs.swift"), str(ROOT / "launcher/Sources/CartoucheSigningMaterial.swift"),
+                # How Cartouche was signed: by the Installer, or on the iPhone.
+                str(ROOT / "launcher/Sources/CartoucheOwnSignature.swift"), str(adapter),
             ], capture_output=True, text=True)
             self.assertEqual(result.returncode, 0, result.stderr)
 

@@ -405,6 +405,32 @@ fn installs_an_ipa_file_with_the_players_own_certificate_and_keeps_the_file() {
 }
 
 #[test]
+fn installs_the_ipa_a_signing_app_signs_on_the_iphone_too() {
+    let h = Harness::new();
+    h.select_device().unwrap_or_else(|e| panic!("{e}\n{}", h.report()));
+    let files = h.own_signing().write(&h.dir);
+    let checked = h.check_profile(&files).expect("checked");
+    let version = h.new_version();
+    // Cartouche-<version>-Own-Certificate.ipa: already in this mode, with
+    // no extension.
+    let own = CartoucheIpa { own_certificate: true, extensions: false, ..CartoucheIpa::new(&version) };
+    let ipa = h.write_ipa("Cartouche-Own-Certificate", &own.build());
+
+    h.install_checked(&files, &checked, Some(&ipa)).unwrap_or_else(|e| panic!("{e}\n{}", h.report()));
+    assert_eq!(h.steps("install_cartouche"), all_steps(&["download", "install", "pairing"]));
+    let app = h.iphone.app(BUNDLE_ID).expect("installed");
+    assert_eq!(app.info.get("CFBundleShortVersionString"), Some(&version.clone().into()));
+    assert_eq!(app.info.get("CartoucheImportedSigning"), Some(&true.into()));
+    // Cartouche knows the installer signed it, by the key of the
+    // certificate it hands over, and does not ask for one.
+    let handoff = handoff(&h).unwrap_or_else(|| panic!("no certificate for Cartouche\n{}", h.report()));
+    let p12 = std::fs::read(&files.p12).expect("p12");
+    assert_eq!(handoff.get("certificate").and_then(|v| v.as_data()), Some(p12.as_slice()));
+    assert!(app.files.keys().all(|path| !path.starts_with("PlugIns/")), "{:?}", app.files.keys());
+    assert_eq!(leftovers(&version), Vec::<PathBuf>::new());
+}
+
+#[test]
 fn updates_cartouche_installed_with_the_players_own_certificate_and_keeps_its_games() {
     let h = Harness::new();
     let first = h.publish_cartouche();

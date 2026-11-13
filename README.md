@@ -90,7 +90,7 @@ Once, to install Cartouche, from a Mac or a Windows PC: then it renews and updat
 <details>
 <summary><b>Can I sign Cartouche with another signing app on the iPhone?</b></summary>
 
-Not yet: Cartouche signs your games with the certificate the Installer gives it, so a copy signed by another app starts no game. With your own certificate, use the Installer's **I have a signing certificate (.p12)**. Installing Cartouche with no computer, signed with your own certificate, is on the [roadmap](docs/roadmap.md#later).
+Not yet: Cartouche signs your games with the certificate the Installer gives it, so a copy signed by another app starts no game. With your own certificate, use the Installer's **I have a signing certificate (.p12)**. Installing Cartouche with no computer, signed on the iPhone with your own certificate, comes with the version of November 17, still to be tried with a real certificate ([roadmap](docs/roadmap.md#next)).
 </details>
 
 <details>

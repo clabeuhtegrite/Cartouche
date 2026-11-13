@@ -9,6 +9,11 @@
 //  higher version than its own over the console, once a day at most. The
 //  System page always shows it.
 //
+//  Signed with the player's own certificate, Cartouche installs nothing:
+//  it says that the version is out, and, signed on the iPhone, offers the
+//  IPA for the player's own certificate to download, which the player signs
+//  in their signing app as the first time (docs/imported-signing.md).
+//
 //  The built-in SideStore installs it, in LiveProcess, as it renews the
 //  app: its Update Cartouche action (app/patches/sidestore/0010) through
 //  the bridge CartoucheUpdate (launcher/SideStoreSupport). iOS replaces an
@@ -118,7 +123,18 @@ final class CartoucheUpdates: ObservableObject {
     }
 
     /// Whether this build can update itself.
-    var canUpdate: Bool { !CartoucheImportedSigning.accountSigningDisabled && Self.bridge != nil && Self.sourceURL != nil && Self.bundleIdentifier != nil }
+    var canUpdate: Bool { !CartoucheImportedSigning.accountSigningDisabled && Self.bridge != nil && canCheck }
+
+    /// Whether this build reads its source, to install its updates or, signed
+    /// with the player's own certificate, to say that one is out.
+    var canCheck: Bool { Self.sourceURL != nil && Self.bundleIdentifier != nil }
+
+    /// The IPA of the version on offer that the player downloads, signed on
+    /// the iPhone: the one for the player's own certificate, which the
+    /// player's signing app signs.
+    var download: URL? {
+        CartoucheImportedSigning.isSignedOnIPhone ? available?.ownCertificateURL : nil
+    }
 
     /// Whether the player can start the update now: the built-in SideStore
     /// needs the certificate and the pairing file, as for a renewal.
@@ -188,9 +204,11 @@ final class CartoucheUpdates: ObservableObject {
         return try CartoucheRelease.newest(in: data, bundleIdentifier: bundleIdentifier, systemVersion: systemVersion)
     }
 
-    /// Offered once a day at most, and only once Cartouche is set up.
+    /// Offered once a day at most, and only once Cartouche is set up: with
+    /// the player's own certificate, to say that it is out.
     private func shouldOffer(_ release: CartoucheRelease) -> Bool {
-        guard canUpdate, phase == nil, notice == nil, CartoucheSetup.shared.isComplete else { return false }
+        guard canUpdate || CartoucheImportedSigning.isImportedInstall, phase == nil, notice == nil,
+              CartoucheSetup.shared.isComplete else { return false }
         if defaults.string(forKey: Self.laterVersionKey) == release.version,
            let asked = defaults.object(forKey: Self.laterDateKey) as? Date,
            Date().timeIntervalSince(asked) < 24 * 3600 {
@@ -209,6 +227,16 @@ final class CartoucheUpdates: ObservableObject {
 
     func dismissNotice() {
         notice = nil
+    }
+
+    /// Opens the IPA for the player's own certificate in Safari, which
+    /// downloads it: the player signs it in their signing app. The console
+    /// asks again tomorrow, as after Later.
+    func openDownload() {
+        guard let download else { return }
+        CartoucheReports.note("Download of Cartouche " + (available?.version ?? "") + " opened")
+        UIApplication.shared.open(download)
+        later()
     }
 
     #if CARTOUCHE_GALLERY

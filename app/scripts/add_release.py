@@ -17,7 +17,16 @@ published, and checks the IPA as SideStore will:
 
 The source lists Cartouche and nothing else: never a game.
 
+With --own-certificate-ipa and --own-certificate-url, the version also names
+the IPA a player signs on the iPhone with their own certificate
+(app/scripts/own_certificate_ipa.py), its address, size and SHA-256: an
+install signed that way has no SideStore to update it, and Cartouche gives
+the player that address when it says the version is out
+(launcher/Sources/CartoucheUpdates.swift). SideStore and the Cartouche
+Installer read neither.
+
 usage: add_release.py --ipa Cartouche.ipa --url URL --notes FILE [--version X.Y.Z]
+                      [--own-certificate-ipa FILE --own-certificate-url URL]
                       [--date 2026-11-07T08:00:00Z] [--source FILE] [--config FILE]
 """
 
@@ -100,20 +109,53 @@ def sha256(path: Path) -> str:
     return digest.hexdigest()
 
 
-def add_release(source: dict, *, ipa: Path, url: str, notes: str, date: str,
-                bundle_id: str, version: str) -> dict:
-    """The source with this release first among Cartouche's versions."""
-    if not url.startswith("https://"):
-        raise ReleaseError(f"the download address must be https: {url!r}")
-    new = parse_version(version)
-
-    info = app_info(ipa)
+def check_build(ipa: Path, info: dict, bundle_id: str, version: str) -> None:
+    """That INFO, the Info.plist of IPA, is Cartouche's at VERSION."""
     if info.get("CFBundleIdentifier") != bundle_id:
         raise ReleaseError(f"{ipa.name}: bundle identifier {info.get('CFBundleIdentifier')!r}, not Cartouche's {bundle_id!r}")
     if info.get("CFBundleShortVersionString") != version:
         raise ReleaseError(f"{ipa.name}: version {info.get('CFBundleShortVersionString')!r}, not {version!r}")
     if info.get("CFBundleVersion") != version:
         raise ReleaseError(f"{ipa.name}: build version {info.get('CFBundleVersion')!r}, not {version!r}")
+
+
+def check_own_certificate_ipa(ipa: Path, bundle_id: str, version: str) -> None:
+    """That IPA is the one a player signs with their own certificate, of
+    this very version: in that mode, without the Cartouche Installer's key,
+    and without app extensions (own_certificate_ipa.py)."""
+    info = app_info(ipa)
+    check_build(ipa, info, bundle_id, version)
+    if info.get("CartoucheImportedSigning") is not True:
+        raise ReleaseError(f"{ipa.name}: not in the mode of the player's own certificate (CartoucheImportedSigning)")
+    if "CartoucheSigningHandoffKey" in info:
+        raise ReleaseError(f"{ipa.name}: signed by the Cartouche Installer for one player")
+    with zipfile.ZipFile(ipa) as archive:
+        extensions = sorted({
+            part for name in archive.namelist() for part in PurePosixPath(name).parts
+            if part.endswith(".appex") or part in ("PlugIns", "Extensions", "Watch")
+        })
+    if extensions:
+        raise ReleaseError(f"{ipa.name}: app extensions left: {', '.join(extensions)}")
+
+
+def add_release(source: dict, *, ipa: Path, url: str, notes: str, date: str,
+                bundle_id: str, version: str, own_certificate_ipa: Path | None = None,
+                own_certificate_url: str | None = None) -> dict:
+    """The source with this release first among Cartouche's versions."""
+    if not url.startswith("https://"):
+        raise ReleaseError(f"the download address must be https: {url!r}")
+    if (own_certificate_ipa is None) != (own_certificate_url is None):
+        raise ReleaseError("the IPA for the player's own certificate needs both its file and its address")
+    if own_certificate_url is not None and not own_certificate_url.startswith("https://"):
+        raise ReleaseError(f"the address of the IPA for the player's own certificate must be https: {own_certificate_url!r}")
+    new = parse_version(version)
+
+    info = app_info(ipa)
+    check_build(ipa, info, bundle_id, version)
+    if info.get("CartoucheImportedSigning"):
+        raise ReleaseError(f"{ipa.name}: the IPA for the player's own certificate, not the one SideStore installs")
+    if own_certificate_ipa is not None:
+        check_own_certificate_ipa(own_certificate_ipa, bundle_id, version)
 
     apps = source.setdefault("apps", [])
     others = [app for app in apps if app.get("bundleIdentifier") != bundle_id]
@@ -135,6 +177,10 @@ def add_release(source: dict, *, ipa: Path, url: str, notes: str, date: str,
     }
     if info.get("MinimumOSVersion"):
         entry["minOSVersion"] = info["MinimumOSVersion"]
+    if own_certificate_ipa is not None:
+        entry["ownCertificateDownloadURL"] = own_certificate_url
+        entry["ownCertificateSize"] = own_certificate_ipa.stat().st_size
+        entry["ownCertificateSHA256"] = sha256(own_certificate_ipa)
 
     source["apps"] = [{
         **APP_ENTRY,
@@ -150,6 +196,9 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--url", required=True, help="where SideStore downloads it")
     parser.add_argument("--notes", type=Path, required=True, help="release notes, shown by SideStore")
     parser.add_argument("--version", help="the released version (default: CARTOUCHE_VERSION)")
+    parser.add_argument("--own-certificate-ipa", type=Path,
+                        help="the IPA of this version a player signs with their own certificate")
+    parser.add_argument("--own-certificate-url", help="where the player downloads it")
     parser.add_argument("--date", default=datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"))
     parser.add_argument("--source", type=Path, default=ROOT / "app" / "sidestore-source.json")
     parser.add_argument("--config", type=Path, default=ROOT / "app" / "config.env")
@@ -167,6 +216,8 @@ def main(argv: list[str] | None = None) -> int:
             date=args.date,
             bundle_id=settings["CARTOUCHE_BUNDLE_ID"],
             version=version,
+            own_certificate_ipa=args.own_certificate_ipa,
+            own_certificate_url=args.own_certificate_url,
         )
     except (ReleaseError, KeyError, zipfile.BadZipFile) as exc:
         print(f"add_release: {exc}", file=sys.stderr)

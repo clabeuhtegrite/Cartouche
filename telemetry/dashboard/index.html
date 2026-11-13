@@ -1138,13 +1138,15 @@
         // until 0.11.2 a copy said whether it was set up before it had checked
         // its certificate.
         const STEPS = ["opened", "signedIn", "setUp", "installed", "played", "returned"];
+        const OWN_CERTIFICATE = ["imported", "iphone"];
         const journeyReports = phoneReports.filter(inContext);
         const copies = [...groupBy(journeyReports, (report) => report.install)].map(([install, list]) => {
             const opened = list.filter((report) => report.name === "app.opened");
             const playedDays = new Set(list.filter((report) => report.kind === "session" && drewFrames(report)).map((report) => report.day));
             const said = {
                 opened: true,
-                signedIn: list.some((report) => report.name === "account.signedIn") || opened.some((event) => event.fields.signedIn === true || event.fields.signing === "imported"),
+                // With the player's own certificate, by the Cartouche Installer or on the iPhone, there is no Apple ID to sign in with.
+                signedIn: list.some((report) => report.name === "account.signedIn") || opened.some((event) => event.fields.signedIn === true || OWN_CERTIFICATE.includes(event.fields.signing)),
                 setUp: opened.some((event) => event.fields.setUp === true),
                 installed: list.some((report) => report.name === "game.installed"),
                 played: playedDays.size > 0,

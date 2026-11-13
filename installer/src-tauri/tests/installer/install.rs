@@ -201,6 +201,27 @@ fn refuses_the_ipa_of_another_app() {
 }
 
 #[test]
+fn refuses_the_ipa_for_the_players_own_certificate_with_an_apple_id() {
+    let h = Harness::new();
+    let version = h.new_version();
+    let own = CartoucheIpa { own_certificate: true, extensions: false, ..CartoucheIpa::new(&version) };
+    let ipa = h.write_ipa("Cartouche-Own-Certificate", &own.build());
+    h.ready();
+
+    // Signed with an Apple ID, it would start asking for a certificate,
+    // without the Apple ID's setup: refused before anything is signed.
+    let error = h.install_file(&ipa).expect_err("installed the IPA for the player's own certificate with an Apple ID");
+    assert_eq!(error_type(&error), "not_cartouche");
+    assert!(error["message"].as_str().unwrap().contains("Cartouche-<version>.ipa"), "{error}");
+    let (step, shown) = h.failure("install_cartouche").expect("a failed step");
+    assert_eq!(step, "download");
+    assert_eq!(shown, error);
+    assert!(h.iphone.state().apps.is_empty());
+    assert!(h.apple.with_account(EMAIL, |a| a.team.app_ids.is_empty()));
+    assert!(ipa.exists());
+}
+
+#[test]
 fn refuses_a_file_that_is_not_an_ipa() {
     let h = Harness::new();
     let file = h.write_ipa("Notes", b"not a zip at all");

@@ -253,16 +253,22 @@ jobs:
         with:
           name: Cartouche-unsigned-${{ github.sha }}
           path: build/download
+      # The IPA a player signs on the iPhone with their own certificate, as
+      # the Release workflow makes it beside this one (docs/imported-signing.md).
+      - name: The IPA for the player's own certificate, from this build
+        run: python3 app/scripts/own_certificate_ipa.py --ipa build/download/Cartouche.ipa --out build/download/Cartouche-Own-Certificate.ipa
       - name: Publish guard
         run: |
           python3 -m venv .venv
           .venv/bin/pip install --quiet -e guard
-          .venv/bin/cartouche-guard --kind app build/download/Cartouche.ipa
+          .venv/bin/cartouche-guard --kind app build/download/Cartouche.ipa build/download/Cartouche-Own-Certificate.ipa
       - name: The built-in SideStore's source would take this build
         run: |
           echo '{"name": "Cartouche", "apps": []}' > build/source.json
           echo "Checked by the App workflow." > build/notes.md
           python3 app/scripts/add_release.py --ipa build/download/Cartouche.ipa \
             --url "https://github.com/$GITHUB_REPOSITORY/releases/download/check/Cartouche.ipa" \
+            --own-certificate-ipa build/download/Cartouche-Own-Certificate.ipa \
+            --own-certificate-url "https://github.com/$GITHUB_REPOSITORY/releases/download/check/Cartouche-Own-Certificate.ipa" \
             --notes build/notes.md --source build/source.json
           python3 -m json.tool build/source.json

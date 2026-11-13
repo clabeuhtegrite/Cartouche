@@ -18,6 +18,11 @@ struct CartoucheRelease: Equatable {
     let notes: String
     /// The IPA's size, in bytes.
     let size: Int64?
+    /// The IPA for the player's own certificate, which a signing app on the
+    /// iPhone signs (app/scripts/own_certificate_ipa.py): the release
+    /// workflow lists it beside the IPA since the version of November 17.
+    /// Only Cartouche reads it, and only from GitHub, over HTTPS.
+    var ownCertificateURL: URL? = nil
 
     /// The newest version of the app BUNDLE_IDENTIFIER that the source in
     /// DATA lists for an iOS of SYSTEM_VERSION, as SideStore picks it:
@@ -33,7 +38,16 @@ struct CartoucheRelease: Equatable {
             return true
         }
         guard let newest = runnable.max(by: { CartoucheVersion.isHigher($1.version, than: $0.version) }) else { return nil }
-        return CartoucheRelease(version: newest.version, notes: newest.localizedDescription ?? "", size: newest.size)
+        return CartoucheRelease(version: newest.version, notes: newest.localizedDescription ?? "", size: newest.size,
+                                ownCertificateURL: newest.ownCertificateDownloadURL.flatMap(Self.ownCertificateURL))
+    }
+
+    /// The address of an IPA for the player's own certificate, when it is
+    /// one of Cartouche's releases on GitHub.
+    static func ownCertificateURL(_ text: String) -> URL? {
+        guard let url = URL(string: text), url.scheme == "https", url.host == "github.com",
+              url.path.hasPrefix("/clabeuhtegrite/Cartouche/releases/download/"), url.path.hasSuffix(".ipa") else { return nil }
+        return url
     }
 
     private struct Source: Decodable {
@@ -51,6 +65,7 @@ struct CartoucheRelease: Equatable {
         let size: Int64?
         let minOSVersion: String?
         let maxOSVersion: String?
+        let ownCertificateDownloadURL: String?
     }
 }
 
