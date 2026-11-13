@@ -212,7 +212,11 @@ fn refuses_the_ipa_for_the_players_own_certificate_with_an_apple_id() {
     // without the Apple ID's setup: refused before anything is signed.
     let error = h.install_file(&ipa).expect_err("installed the IPA for the player's own certificate with an Apple ID");
     assert_eq!(error_type(&error), "not_cartouche");
-    assert!(error["message"].as_str().unwrap().contains("Cartouche-<version>.ipa"), "{error}");
+    let message = error["message"].as_str().unwrap();
+    assert!(message.contains("Cartouche-<version>.ipa"), "{error}");
+    // The window shows a step's error on one line, which cuts what does not
+    // fit at its width: about 70 characters.
+    assert!(message.chars().count() <= 70, "longer than the window's line: {message}");
     let (step, shown) = h.failure("install_cartouche").expect("a failed step");
     assert_eq!(step, "download");
     assert_eq!(shown, error);

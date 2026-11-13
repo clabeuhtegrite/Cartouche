@@ -6796,7 +6796,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Cartouche ne prend que le certificat avec lequel elle a été signée. Pour en changer, signez Cartouche à nouveau avec le nouveau dans votre app de signature, puis choisissez-le ici."
+            "value" : "Cartouche ne prend que le certificat avec lequel il a été signé. Pour en changer, signez Cartouche à nouveau avec le nouveau dans votre app de signature, puis choisissez-le ici."
           }
         }
       }
@@ -6813,7 +6813,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Cartouche a été signée avec un autre certificat. Choisissez celui-là, ou signez Cartouche à nouveau avec celui-ci dans votre app de signature."
+            "value" : "Cartouche a été signé avec un autre certificat. Choisissez celui-là, ou signez Cartouche à nouveau avec celui-ci dans votre app de signature."
           }
         }
       }
@@ -6898,7 +6898,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Si le profil avec lequel Cartouche a été installée n’autorise pas ce certificat, réinstallez Cartouche avec lui et son profil, depuis l’Installeur Cartouche."
+            "value" : "Si le profil avec lequel Cartouche a été installé n’autorise pas ce certificat, réinstallez Cartouche avec lui et son profil, depuis l’Installeur Cartouche."
           }
         }
       }
@@ -6932,7 +6932,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Cartouche est signée avec votre propre certificat : installez ses mises à jour, et un nouveau certificat avant qu’il n’expire, depuis l’Installeur Cartouche sur votre ordinateur. Elle n’a pas besoin d’être renouvelée chaque semaine."
+            "value" : "Cartouche est signé avec votre propre certificat : installez ses mises à jour, et un nouveau certificat avant qu’il n’expire, depuis l’Installeur Cartouche sur votre ordinateur. Il n’a pas besoin d’être renouvelé chaque semaine."
           }
         }
       }
@@ -6949,7 +6949,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Cartouche est signée avec votre propre certificat et n’a pas besoin d’être renouvelée chaque semaine. Quand une nouvelle version sort, Cartouche le dit : téléchargez-la, signez-la dans votre app de signature comme la première fois, puis installez-la par-dessus celle-ci. Vos jeux et sauvegardes restent."
+            "value" : "Cartouche est signé avec votre propre certificat et n’a pas besoin d’être renouvelé chaque semaine. Quand une nouvelle version sort, Cartouche le dit : téléchargez-la, signez-la dans votre app de signature comme la première fois, puis installez-la par-dessus celle-ci. Vos jeux et sauvegardes restent."
           }
         }
       }

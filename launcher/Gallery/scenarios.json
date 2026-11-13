@@ -380,6 +380,27 @@
       ]
     },
     {
+      "name": "iphone-update-offer-installer",
+      "screen": "games",
+      "work": "update",
+      "signing": "installer",
+      "owned": [
+        "0400C3F00006E000",
+        "040074A01BF12000",
+        "01006BB00C6F0000"
+      ],
+      "setup": true,
+      "controller": true,
+      "width": 402,
+      "height": 874,
+      "insets": [
+        62,
+        0,
+        34,
+        0
+      ]
+    },
+    {
       "name": "iphone-home-newer-build",
       "screen": "games",
       "owned": [
@@ -590,6 +611,22 @@
       ]
     },
     {
+      "name": "iphone-setup-installer",
+      "screen": "setup",
+      "signing": "installer",
+      "owned": [],
+      "setup": true,
+      "controller": false,
+      "width": 402,
+      "height": 874,
+      "insets": [
+        62,
+        0,
+        34,
+        0
+      ]
+    },
+    {
       "name": "iphone-sign-in",
       "screen": "signin",
       "owned": [],
@@ -704,6 +741,22 @@
       "signing": "iphone",
       "owned": [],
       "setup": false,
+      "controller": false,
+      "width": 402,
+      "height": 874,
+      "insets": [
+        62,
+        0,
+        34,
+        0
+      ]
+    },
+    {
+      "name": "iphone-guide-installer",
+      "screen": "guide",
+      "signing": "installer",
+      "owned": [],
+      "setup": true,
       "controller": false,
       "width": 402,
       "height": 874,

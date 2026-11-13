@@ -364,11 +364,9 @@ pub async fn install_cartouche_operation<R: Runtime>(
             if own_certificate && imported_signing.is_none() {
                 return op.fail(
                     "download",
-                    AppError::NotCartouche(
-                        "This IPA is Cartouche for your own certificate, signed on the iPhone: with an Apple ID, \
-                         pick Cartouche-<version>.ipa"
-                            .into(),
-                    ),
+                    // Short enough for the line the window gives a step's
+                    // error, its name first: the file's own.
+                    AppError::NotCartouche("Own-Certificate IPA: with an Apple ID, pick Cartouche-<version>.ipa".into()),
                 );
             }
             (path, false)
