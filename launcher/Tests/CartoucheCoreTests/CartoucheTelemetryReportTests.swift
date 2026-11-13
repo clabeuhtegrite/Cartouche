@@ -165,6 +165,117 @@ final class CartoucheTelemetryReportTests: XCTestCase {
         XCTAssertNil(CartoucheGameProcess(limitMiB: 6143, peakMiB: 4813, lastAvailableMiB: nil, quit: nil, screens: []).screens)
     }
 
+    /// The game behind the console ended a few seconds in, as it does when
+    /// Cartouche starts it again in its own place for more memory: its
+    /// session has its process, and the next one, in Cartouche's place,
+    /// none, though the process wrote a few seconds longer.
+    func testAGameStartedInCartouchesPlaceRightAfterTheConsoleHasNoProcess() {
+        let behind = CartoucheGameProcess(limitMiB: 6144, peakMiB: 75, lastAvailableMiB: 6068, quit: true,
+                                          screens: [.init(minute: 0, width: 440, height: 956, footprintMiB: 75)])
+        var runs = CartoucheTelemetryRuns()
+        runs.start(folder: "5A3C", at: now, behind: true)
+        runs.end(folder: "5A3C", started: now, at: now.addingTimeInterval(4), process: behind, nearLimit: false)
+        runs.start(folder: "5A3C", at: now.addingTimeInterval(6), behind: false)
+        var lingering = behind
+        lingering.quit = nil
+        let last = CartoucheTelemetryRuns.Reading(folder: "5A3C", started: now.addingTimeInterval(0.3),
+                                                  updated: now.addingTimeInterval(10), process: lingering, nearLimit: false)
+        XCTAssertEqual(runs.process(folder: "5A3C", created: now.addingTimeInterval(1), last: last)?.process, behind)
+        XCTAssertNil(runs.process(folder: "5A3C", created: now.addingTimeInterval(9), last: last))
+        // Without the start in Cartouche's place: the game behind the console had ended.
+        var ended = CartoucheTelemetryRuns()
+        ended.end(folder: "5A3C", started: now, at: now.addingTimeInterval(4), process: behind, nearLimit: false)
+        XCTAssertNil(ended.process(folder: "5A3C", created: now.addingTimeInterval(9), last: last))
+        // A game that did not start behind the console, then started at once in Cartouche's place.
+        var failed = CartoucheTelemetryRuns()
+        failed.start(folder: "5A3C", at: now, behind: true)
+        failed.start(folder: "5A3C", at: now.addingTimeInterval(0.5), behind: false)
+        XCTAssertNil(failed.process(folder: "5A3C", created: now.addingTimeInterval(9), last: last))
+        // An older session has none, and neither has another game's.
+        XCTAssertNil(runs.process(folder: "5A3C", created: now.addingTimeInterval(-600), last: last))
+        XCTAssertNil(runs.process(folder: "77B0", created: now.addingTimeInterval(1), last: last))
+    }
+
+    /// Two games behind the console in a row, in the same data folder:
+    /// each session has its own process's reading, whatever the file
+    /// holds when Cartouche reads the first.
+    func testEachGameBehindTheConsoleHasItsOwnProcess() {
+        let first = CartoucheGameProcess(limitMiB: 6144, peakMiB: 5890, lastAvailableMiB: 140, quit: false, screens: [])
+        let second = CartoucheGameProcess(limitMiB: 6144, peakMiB: 3100, lastAvailableMiB: 2900, quit: true, screens: [])
+        var runs = CartoucheTelemetryRuns()
+        runs.start(folder: "5A3C", at: now, behind: true)
+        runs.end(folder: "5A3C", started: now, at: now.addingTimeInterval(600), process: first, nearLimit: true)
+        runs.start(folder: "5A3C", at: now.addingTimeInterval(700), behind: true)
+        runs.end(folder: "5A3C", started: now.addingTimeInterval(700), at: now.addingTimeInterval(900), process: second,
+                 nearLimit: false)
+        let last = CartoucheTelemetryRuns.Reading(folder: "5A3C", started: now.addingTimeInterval(700.4),
+                                                  updated: now.addingTimeInterval(899), process: second, nearLimit: false)
+        let one = runs.process(folder: "5A3C", created: now.addingTimeInterval(2), last: last)
+        XCTAssertEqual(one?.process, first)
+        XCTAssertEqual(one?.nearLimit, true)
+        XCTAssertEqual(runs.process(folder: "5A3C", created: now.addingTimeInterval(702), last: last)?.process, second)
+        // A session between the two ran in neither process.
+        XCTAssertNil(runs.process(folder: "5A3C", created: now.addingTimeInterval(650), last: last))
+        // A game whose process wrote nothing Cartouche could read as it ended.
+        runs.start(folder: "5A3C", at: now.addingTimeInterval(1000), behind: true)
+        runs.end(folder: "5A3C", started: now.addingTimeInterval(1000), at: now.addingTimeInterval(1100), process: nil,
+                 nearLimit: false)
+        XCTAssertNil(runs.process(folder: "5A3C", created: now.addingTimeInterval(1002), last: last))
+    }
+
+    /// Cartouche stopped with the game behind the console, as when the
+    /// player closed it: as Cartouche opens again, the session takes the
+    /// last reading the file holds, if that game's process wrote it.
+    func testAGameCartoucheStoppedWithTakesItsProcesssLastReading() {
+        var runs = CartoucheTelemetryRuns()
+        runs.start(folder: "5A3C", at: now, behind: true)
+        let process = CartoucheGameProcess(limitMiB: 6144, peakMiB: 4247, lastAvailableMiB: 1210, quit: nil, screens: [])
+        let last = CartoucheTelemetryRuns.Reading(folder: "5A3C", started: now.addingTimeInterval(0.4),
+                                                  updated: now.addingTimeInterval(2500), process: process, nearLimit: true)
+        let created = now.addingTimeInterval(3)
+        let found = runs.process(folder: "5A3C", created: created, last: last)
+        XCTAssertEqual(found?.process, process)
+        XCTAssertEqual(found?.nearLimit, true)
+        XCTAssertNil(runs.process(folder: "5A3C", created: created, last: nil))
+        // An earlier game's process, a later one's, one that had stopped
+        // as nxnative created the log, and another game's.
+        var earlier = last
+        earlier.started = now.addingTimeInterval(-300)
+        XCTAssertNil(runs.process(folder: "5A3C", created: created, last: earlier))
+        var later = last
+        later.started = now.addingTimeInterval(60)
+        XCTAssertNil(runs.process(folder: "5A3C", created: created, last: later))
+        var stopped = last
+        stopped.updated = now.addingTimeInterval(0.5)
+        XCTAssertNil(runs.process(folder: "5A3C", created: created, last: stopped))
+        var other = last
+        other.folder = "77B0"
+        XCTAssertNil(runs.process(folder: "5A3C", created: created, last: other))
+        // The same game in Cartouche's place, after: none, the file unchanged.
+        runs.start(folder: "5A3C", at: now.addingTimeInterval(3000), behind: false)
+        XCTAssertNil(runs.process(folder: "5A3C", created: now.addingTimeInterval(3004), last: last))
+        XCTAssertEqual(runs.process(folder: "5A3C", created: created, last: last)?.process, process)
+    }
+
+    /// The games Cartouche keeps: the last ones, in the order they started,
+    /// as its file keeps them.
+    func testTheRunsKeepTheLastGamesInTheOrderTheyStarted() throws {
+        var runs = CartoucheTelemetryRuns()
+        runs.start(folder: "A", at: now.addingTimeInterval(10), behind: false)
+        // The end of a game whose start Cartouche did not keep.
+        runs.end(folder: "B", started: now, at: now.addingTimeInterval(5), process: nil, nearLimit: false)
+        runs.start(folder: "A", at: now.addingTimeInterval(10), behind: false)
+        XCTAssertEqual(runs.runs.map(\.folder), ["B", "A"])
+        XCTAssertEqual(runs.runs.map(\.behind), [true, false])
+        for index in 0..<CartoucheTelemetryRuns.capacity {
+            runs.start(folder: "C", at: now.addingTimeInterval(100 + Double(index)), behind: true)
+        }
+        XCTAssertEqual(runs.runs.count, CartoucheTelemetryRuns.capacity)
+        XCTAssertEqual(Set(runs.runs.map(\.folder)), ["C"])
+        let data = try JSONEncoder().encode(runs)
+        XCTAssertEqual(try JSONDecoder().decode(CartoucheTelemetryRuns.self, from: data), runs)
+    }
+
     func testAnEventKeepsOnlyWordsAndShortText() throws {
         XCTAssertNil(CartoucheEventReport(id: "a", seq: 1, context: context, name: "Bad Name"))
         XCTAssertNil(CartoucheEventReport(id: "a", seq: 1, context: context, name: "error/../x"))

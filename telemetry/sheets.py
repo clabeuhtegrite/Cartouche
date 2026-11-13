@@ -155,6 +155,11 @@ def number(value) -> float | None:
     return float(value) if isinstance(value, (int, float)) and not isinstance(value, bool) else None
 
 
+def drew_frames(session: dict) -> bool:
+    """Whether the session got into the game: it drew a frame."""
+    return (number(session.get("frames")) or 0) > 0 or number(session.get("fps")) is not None
+
+
 def median(values: list[float]) -> float | None:
     """The median, when enough iPhones gave a value."""
     return statistics.median(values) if len(values) >= MIN_IPHONES else None
@@ -186,7 +191,11 @@ class IPhone:
 
     @property
     def peak(self) -> float | None:
-        values = self.values("peak")
+        """Its highest memory peak, of the sessions that drew a frame: one
+        that ended before its first frame had loaded little of the game,
+        and says nothing of what it needs. Cartouche reads a sheet's peak to
+        choose where a game starts (docs/decisions.md, 48)."""
+        values = [v for v in (number(s.get("peak")) for s in self.sessions if drew_frames(s)) if v is not None]
         return max(values) if values else None
 
     @property
@@ -219,7 +228,7 @@ class Result:
 
     @property
     def played(self) -> int:
-        return sum(1 for s in self.sessions if (number(s.get("frames")) or 0) > 0 or number(s.get("fps")) is not None)
+        return sum(1 for s in self.sessions if drew_frames(s))
 
     @property
     def status(self) -> str:
