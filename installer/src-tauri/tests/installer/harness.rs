@@ -80,6 +80,8 @@ struct Answers {
     /// Answers to "Too many certificates": the serials to revoke, or None
     /// to cancel; then None.
     certificates: VecDeque<Option<Vec<String>>>,
+    /// The test answers itself, when it chooses (`answer_by_hand`).
+    by_hand: bool,
 }
 
 pub struct Harness {
@@ -113,14 +115,61 @@ pub struct Pending {
 
 impl Pending {
     pub fn wait(self) -> Result<Value, Value> {
+        self.wait_for(COMMAND_TIMEOUT)
+    }
+
+    pub fn wait_for(self, timeout: Duration) -> Result<Value, Value> {
         self.rx
-            .recv_timeout(COMMAND_TIMEOUT)
-            .unwrap_or_else(|_| panic!("{} did not answer within {COMMAND_TIMEOUT:?}", self.cmd))
+            .recv_timeout(timeout)
+            .unwrap_or_else(|_| panic!("{} did not answer within {timeout:?}", self.cmd))
     }
 
     /// The answer, if it came already.
     pub fn try_wait(&self) -> Option<Result<Value, Value>> {
         self.rx.try_recv().ok()
+    }
+}
+
+/// Calls a command as the window does: its answer comes later.
+fn invoke_on(window: &WebviewWindow<MockRuntime>, cmd: &str, args: Value) -> Pending {
+    let (tx, rx) = mpsc::channel();
+    let request = InvokeRequest {
+        cmd: cmd.into(),
+        callback: CallbackFn(0),
+        error: CallbackFn(1),
+        url: if cfg!(windows) { "http://tauri.localhost" } else { "tauri://localhost" }
+            .parse()
+            .unwrap(),
+        body: InvokeBody::Json(args),
+        headers: Default::default(),
+        invoke_key: INVOKE_KEY.to_string(),
+    };
+    let webview: &tauri::Webview<MockRuntime> = window.as_ref();
+    webview.clone().on_message(
+        request,
+        Box::new(move |_webview, _cmd, response, _callback, _error| {
+            let _ = tx.send(match response {
+                InvokeResponse::Ok(body) => Ok(body.deserialize::<Value>().unwrap_or(Value::Null)),
+                InvokeResponse::Err(error) => Err(error.0),
+            });
+        }),
+    );
+    Pending { cmd: cmd.to_string(), rx }
+}
+
+/// Tauri's event listeners held by another thread (`hold_event_listeners`),
+/// until this is dropped.
+pub struct HeldListeners {
+    release: mpsc::Sender<()>,
+    unlistening: Option<std::thread::JoinHandle<()>>,
+}
+
+impl Drop for HeldListeners {
+    fn drop(&mut self) {
+        let _ = self.release.send(());
+        if let Some(thread) = self.unlistening.take() {
+            let _ = thread.join();
+        }
     }
 }
 
@@ -254,33 +303,28 @@ impl Harness {
     }
 
     /// Answers the installer's questions as the window does: a code when it
-    /// asks for one, and the certificates to revoke. The answer goes at
-    /// once, from inside the question: Tauri holds it until the question has
-    /// reached every listener, then hands it to the installer, which must
-    /// listen before it asks. The answer goes once, from the installer's
-    /// own thread: an event sent from another thread while the installer
-    /// sends one or starts listening makes Tauri set the installer's aside
-    /// until some later event, so its last step or its listening could
-    /// wait for good (seen on Windows).
+    /// asks for one, and the certificates to revoke, each by its command,
+    /// as soon as the question comes.
     fn answer_questions(&self) {
-        let questions = [
-            ("2fa-required", "2fa-recieved"),
-            ("max-certs-reached", "max-certs-response"),
-        ];
-        for (question, answer_event) in questions {
+        for question in ["2fa-required", "max-certs-reached"] {
             let answers = self.answers.clone();
-            let handle = self.app.handle().clone();
+            let window = self.window.clone();
             let default_code = self.account.code.clone();
             self.app.listen_any(question, move |_| {
-                let answer = {
+                let (cmd, args) = {
                     let mut answers = answers.lock().unwrap();
+                    if answers.by_hand {
+                        return;
+                    }
                     if question == "2fa-required" {
-                        json!(answers.codes.pop_front().unwrap_or_else(|| default_code.clone()))
+                        let code = answers.codes.pop_front().unwrap_or_else(|| default_code.clone());
+                        ("answer_two_factor_code", json!({ "code": code }))
                     } else {
-                        json!(answers.certificates.pop_front().unwrap_or(None))
+                        ("answer_max_certs", json!({ "revoke": answers.certificates.pop_front().unwrap_or(None) }))
                     }
                 };
-                let _ = handle.emit(answer_event, answer);
+                // Its answer comes later, from the command.
+                let _ = invoke_on(&window, cmd, args);
             });
         }
     }
@@ -295,30 +339,69 @@ impl Harness {
         self.answers.lock().unwrap().certificates.push_back(answer);
     }
 
-    pub fn invoke_later(&self, cmd: &str, args: Value) -> Pending {
-        let (tx, rx) = mpsc::channel();
-        let request = InvokeRequest {
-            cmd: cmd.into(),
-            callback: CallbackFn(0),
-            error: CallbackFn(1),
-            url: if cfg!(windows) { "http://tauri.localhost" } else { "tauri://localhost" }
-                .parse()
-                .unwrap(),
-            body: InvokeBody::Json(args),
-            headers: Default::default(),
-            invoke_key: INVOKE_KEY.to_string(),
-        };
-        let webview: &tauri::Webview<MockRuntime> = self.window.as_ref();
-        webview.clone().on_message(
-            request,
-            Box::new(move |_webview, _cmd, response, _callback, _error| {
-                let _ = tx.send(match response {
-                    InvokeResponse::Ok(body) => Ok(body.deserialize::<Value>().unwrap_or(Value::Null)),
-                    InvokeResponse::Err(error) => Err(error.0),
-                });
-            }),
+    /// From now on, the questions wait for the test's own answers:
+    /// `type_code_now`, `choose_certificates_now`.
+    pub fn answer_by_hand(&self) {
+        self.answers.lock().unwrap().by_hand = true;
+    }
+
+    /// The window's Submit, with this code: whether the installer was
+    /// waiting for one.
+    pub fn type_code_now(&self, code: &str) -> bool {
+        self.invoke("answer_two_factor_code", json!({ "code": code })) == Ok(json!(true))
+    }
+
+    /// The window's Continue under "Too many certificates", with these to
+    /// revoke (None: Cancel): whether the installer was asking.
+    pub fn choose_certificates_now(&self, revoke: Option<Vec<String>>) -> bool {
+        self.invoke("answer_max_certs", json!({ "revoke": revoke })) == Ok(json!(true))
+    }
+
+    /// Tauri's table of the event listeners in Rust, held by another thread
+    /// until the guard is dropped: as at any instant another thread listens,
+    /// unlistens or sends an event, the installer each time it logs a line.
+    /// While it is held, Tauri sets aside each event sent, until some later
+    /// event that has a listener in Rust.
+    pub fn hold_event_listeners(&self) -> HeldListeners {
+        // A listener whose state takes until the release to drop: Tauri
+        // drops it when it is unlistened, holding its table.
+        struct SlowToDrop {
+            held: mpsc::Sender<()>,
+            release: mpsc::Receiver<()>,
+        }
+        impl Drop for SlowToDrop {
+            fn drop(&mut self) {
+                let _ = self.held.send(());
+                let _ = self.release.recv_timeout(COMMAND_TIMEOUT);
+            }
+        }
+        let (held, held_rx) = mpsc::channel();
+        let (release, release_rx) = mpsc::channel();
+        let state = SlowToDrop { held, release: release_rx };
+        let id = self.app.listen_any("held-listeners", move |_| {
+            let _ = &state;
+        });
+        let (probe, probe_rx) = mpsc::channel();
+        self.app.listen_any("held-listeners-probe", move |_| {
+            let _ = probe.send(());
+        });
+        let handle = self.app.handle().clone();
+        let unlistening = std::thread::spawn(move || handle.unlisten(id));
+        held_rx
+            .recv_timeout(Duration::from_secs(10))
+            .expect("Tauri's event listeners held by another thread");
+        let held = HeldListeners { release, unlistening: Some(unlistening) };
+        // Held indeed: an event sent now is set aside.
+        self.app.emit("held-listeners-probe", ()).expect("the probe");
+        assert!(
+            probe_rx.recv_timeout(Duration::from_millis(200)).is_err(),
+            "Tauri handed over an event while another thread held its listeners"
         );
-        Pending { cmd: cmd.to_string(), rx }
+        held
+    }
+
+    pub fn invoke_later(&self, cmd: &str, args: Value) -> Pending {
+        invoke_on(&self.window, cmd, args)
     }
 
     /// Calls a command as the window does, and waits for its answer: its
@@ -366,7 +449,12 @@ impl Harness {
     }
 
     pub fn sign_in_as(&self, email: &str, password: &str, save: bool) -> Result<Value, Value> {
-        self.invoke(
+        self.sign_in_later(email, password, save).wait()
+    }
+
+    /// The window's Sign in, whose answer comes later.
+    pub fn sign_in_later(&self, email: &str, password: &str, save: bool) -> Pending {
+        self.invoke_later(
             "login_new",
             json!({
                 "email": email,
@@ -379,7 +467,12 @@ impl Harness {
 
     /// The window's Install button: the newest Cartouche from GitHub.
     pub fn install(&self) -> Result<Value, Value> {
-        self.invoke("install_cartouche_operation", json!({ "ipaPath": null, "importedSigning": null }))
+        self.install_later().wait()
+    }
+
+    /// The same, whose answer comes later.
+    pub fn install_later(&self) -> Pending {
+        self.invoke_later("install_cartouche_operation", json!({ "ipaPath": null, "importedSigning": null }))
     }
 
     /// "Install from a file", with this IPA.

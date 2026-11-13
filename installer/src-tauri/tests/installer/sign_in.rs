@@ -1,6 +1,8 @@
 //! Signing in with the Apple ID: the password, the code, the anisette
 //! machine, what the installer keeps, and every refusal Apple gives.
 
+use std::time::Duration;
+
 use serde_json::{Value, json};
 
 use crate::harness::*;
@@ -34,6 +36,30 @@ fn asks_for_the_code_again_after_a_wrong_one() {
     assert_eq!(asked.len(), 2, "{asked:?}");
     assert_eq!(asked[0]["lastError"], Value::Null);
     assert!(asked[1]["lastError"].as_str().unwrap_or("").contains("-21669"), "{asked:?}");
+}
+
+/// The code reaches the installer even when it comes at the instant another
+/// thread holds Tauri's event listeners, as when the installer logs a line
+/// or starts listening for something: Tauri then sets an event aside until
+/// a later one that has a listener in Rust, which may never come. The code
+/// went as an event, lost that way the sign-in waited two minutes and
+/// failed (seen in the window's tests on Windows). It goes by a command.
+#[test]
+fn takes_the_code_while_tauris_event_listeners_are_busy() {
+    let h = Harness::new();
+    h.answer_by_hand();
+    // A code with no question: nothing takes it.
+    assert!(!h.type_code_now("135791"));
+
+    let signing_in = h.sign_in_later(EMAIL, PASSWORD, false);
+    wait_until("the code asked", || h.events("2fa-required").len() == 1);
+    {
+        let _held = h.hold_event_listeners();
+        assert!(h.type_code_now(&h.account.code), "the installer was not waiting for the code");
+    }
+    signing_in.wait_for(Duration::from_secs(20)).unwrap_or_else(|e| panic!("{e}\n{}", h.report()));
+    assert_eq!(h.invoke("logged_in_as", json!({})), Ok(json!(EMAIL)));
+    assert_eq!(h.events("2fa-required").len(), 1);
 }
 
 #[test]

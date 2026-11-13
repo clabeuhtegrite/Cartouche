@@ -14,6 +14,7 @@ mod error;
 mod logging;
 mod operation;
 mod imported_signing;
+mod questions;
 
 pub use environment::Environment;
 
@@ -30,6 +31,7 @@ use crate::{
         DeviceInfoMutex, PairingCancelToken, cancel_pairing, list_devices, set_selected_device,
     },
     pairing::{PairingStorage, delete_stored_rppairing, export_pairing_cmd, has_stored_rppairing},
+    questions::{Questions, answer_max_certs, answer_two_factor_code},
     secure_storage::{KeyringSwitch, force_disable_keyring, keyring_available},
     sideload::SideloaderMutex,
     imported_signing::inspect_signing_profile,
@@ -62,8 +64,11 @@ pub fn configure<R: Runtime>(builder: tauri::Builder<R>, environment: Environmen
         .manage(PairingCancelToken::new(None))
         .manage(PairingStorage::default())
         .manage(KeyringSwitch::default())
+        .manage(Questions::default())
         .invoke_handler(tauri::generate_handler![
             login_new,
+            answer_two_factor_code,
+            answer_max_certs,
             invalidate_account,
             logged_in_as,
             login_stored,
