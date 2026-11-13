@@ -493,7 +493,7 @@ mod tests {
 
     #[test]
     fn reads_an_entry_with_the_ipa_for_the_players_own_certificate() {
-        // Since the version of November 17, the release workflow lists the
+        // Since the version of November 15, the release workflow lists the
         // IPA a signing app on the iPhone signs beside the IPA
         // (app/scripts/add_release.py): only Cartouche reads those three
         // fields, and the installer still installs the IPA itself.

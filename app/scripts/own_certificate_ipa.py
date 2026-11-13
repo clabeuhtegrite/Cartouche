@@ -80,19 +80,19 @@ def app_folder(names: list[str]) -> str:
     return apps[0]
 
 
-# The folders of an app that hold nothing but its extensions, and its Watch
-# app, as the Cartouche Installer leaves them out.
+# The folders that hold nothing but app extensions, and the Watch app, as
+# the Cartouche Installer leaves them out of the app.
 EXTENSION_FOLDERS = ("PlugIns", "Extensions", "Watch")
 
 
 def is_extension(name: str, app: str) -> bool:
     """Whether the archive entry NAME is part of an app extension of APP:
-    in one of the folders of its extensions, or inside any .appex bundle,
-    such as one a framework carries."""
+    in one of the folders of extensions, the app's or a framework's, such
+    as the built-in SideStore's PlugIns, which package.sh leaves empty, or
+    inside any .appex bundle. add_release.py refuses an IPA with any of
+    them left."""
     inside = PurePosixPath(name).parts[len(PurePosixPath(app).parts):]
-    if not inside:
-        return False
-    return inside[0] in EXTENSION_FOLDERS or any(part.endswith(".appex") for part in inside)
+    return any(part in EXTENSION_FOLDERS or part.endswith(".appex") for part in inside)
 
 
 def info_plist(data: bytes, bundle_id: str) -> bytes:

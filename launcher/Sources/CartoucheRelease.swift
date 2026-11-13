@@ -20,7 +20,7 @@ struct CartoucheRelease: Equatable {
     let size: Int64?
     /// The IPA for the player's own certificate, which a signing app on the
     /// iPhone signs (app/scripts/own_certificate_ipa.py): the release
-    /// workflow lists it beside the IPA since the version of November 17.
+    /// workflow lists it beside the IPA since the version of November 15.
     /// Only Cartouche reads it, and only from GitHub, over HTTPS.
     var ownCertificateURL: URL? = nil
 

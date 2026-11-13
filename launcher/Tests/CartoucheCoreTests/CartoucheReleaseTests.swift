@@ -73,7 +73,7 @@ final class CartoucheReleaseTests: XCTestCase {
 
     // MARK: The IPA for the player's own certificate
 
-    /// What add_release.py adds to an entry since the version of November 17
+    /// What add_release.py adds to an entry since the version of November 15
     /// (app/scripts/own_certificate_ipa.py).
     private func withOwnCertificate(_ entry: [String: Any], url: String? = nil) -> [String: Any] {
         var entry = entry

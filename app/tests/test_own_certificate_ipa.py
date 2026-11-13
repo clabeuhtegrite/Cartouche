@@ -18,6 +18,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "app" / "scripts"))
 
+import add_release  # noqa: E402
 import own_certificate_ipa  # noqa: E402
 
 BUNDLE_ID = "io.github.clabeuhtegrite.cartouche"
@@ -47,6 +48,9 @@ def release_ipa(path: Path, *, binary=True, info=None, extra=()):
         (f"{APP}/CartoucheCatalog/devices.json", b'{"devices": []}', 0),
         (f"{APP}/Frameworks/SideStoreApp.framework/SideStore", b"sidestore dylib", EXECUTABLE),
         (f"{APP}/Frameworks/SideStoreApp.framework/PlugIns/AltIntents.appex/AltIntents", b"intents", EXECUTABLE),
+        # The built-in SideStore's own PlugIns folder, which package.sh
+        # leaves empty once it has moved SideStore's widget into the app's.
+        (f"{APP}/Frameworks/SideStoreApp.framework/PlugIns/", None, 0o40755 << 16),
         (f"{APP}/Frameworks/Current", b"SideStoreApp.framework", LINK),
         (f"{APP}/PlugIns/", None, 0o40755 << 16),
         (f"{APP}/PlugIns/LiveProcess.appex/Info.plist", plistlib.dumps({"CFBundleIdentifier": f"{BUNDLE_ID}.LiveProcess"}), 0),
@@ -99,16 +103,23 @@ class OwnCertificateIPATest(unittest.TestCase):
         self.assertFalse([name for name in names if ".appex" in name], "an app extension is left")
         self.assertFalse([name for name in names if name.startswith(f"{APP}/Watch")], "the Watch app is left")
         self.assertEqual(sorted(left_out), ["AltIntents.appex", "LiveProcess.appex", "LiveWidgetExtension.appex", "Watch"])
-        # The PlugIns folder itself, now empty, goes too: no entry is left
-        # that only an extension filled.
+        # The PlugIns folders themselves, now empty, go too: no entry is left
+        # that only an extension filled, the app's or a framework's.
         self.assertNotIn(f"{APP}/PlugIns/", names)
+        self.assertNotIn(f"{APP}/Frameworks/SideStoreApp.framework/PlugIns/", names)
+
+    def test_the_release_workflow_takes_the_ipa_it_makes(self):
+        # add_release.py refuses an IPA with a folder of extensions left,
+        # even an empty one in a framework, as the release's IPA has.
+        _, out, _ = self.make()
+        add_release.check_own_certificate_ipa(out, BUNDLE_ID, "0.13.0")
 
     def test_everything_else_is_the_releases(self):
         ipa, out, _ = self.make()
         with zipfile.ZipFile(ipa) as before, zipfile.ZipFile(out) as after:
             kept = [entry for entry in before.infolist()
                     if ".appex" not in entry.filename and "/Watch/" not in entry.filename
-                    and entry.filename != f"{APP}/PlugIns/"]
+                    and entry.filename not in (f"{APP}/PlugIns/", f"{APP}/Frameworks/SideStoreApp.framework/PlugIns/")]
             self.assertEqual([entry.filename for entry in after.infolist()], [entry.filename for entry in kept],
                              "the same entries, in the same order")
             for entry in kept:
