@@ -23,7 +23,7 @@ Each server adds what only it has:
 
 | Case | Server | Also |
 | --- | --- | --- |
-| `SMBTests` | Samba | the shared folders the player picks from; a shared folder the account can only read, as the server says when Cartouche connects (MaximalAccess); a folder of root's in the player's; signing in as a guest; the room left |
+| `SMBTests` | Samba | the shared folders the player picks from; a shared folder the account can only read, as the server says when Cartouche connects (MaximalAccess); a folder of root's in the player's; signing in as a guest; the room left; requests made at once on one connection |
 | `S3Tests` | MinIO, in the region `eu-west-3` | keys that can only list and read; no keys, unknown keys; no region given, which MinIO names on the first request |
 | `FTPTests` | pyftpdlib, with MLSD | an account that can only read; a folder it can only read; no user name; MLSD used for listing |
 | `FTPListTests` | pyftpdlib, without MLSD or MLST | as `FTPTests`, listed with LIST, as vsftpd and others do |
@@ -65,6 +65,8 @@ Each root also has `Lecture seule`, a folder the player's account can only read,
 Samba on a Mac needs two things a NAS does not. It makes a new folder under a temporary name, then renames it over an empty one of its name, as macOS has no `renameat2(RENAME_NOREPLACE)`, and macOS refuses that rename, as OpenBSD does ([Samba's bug 15801](https://bugzilla.samba.org/show_bug.cgi?id=15801)): `servers.sh` sets `vfs mkdir use tmp name = no`. And smbd, when it stops, stops every process of its process group: `servers.sh` starts it in a group of its own, not the runner's.
 
 Samba, since 4.16, starts its RPC services (`samba-dcerpcd` and its `rpcd_*` workers) when a pipe is first opened, as the list of shared folders opens `srvsvc`, and stops them after a minute without use, so a NAS nobody used for a minute starts them again for the list. While they start, Samba 4.25 on the Mac once hung up the pipe (`STATUS_PIPE_DISCONNECTED`, in one run of six; Samba 4.19 on Linux never did in 46 tries): Cartouche asks for the list again, twice at most.
+
+Samba hangs up on a client that gives two requests of a connection the same number, their MessageId, and logs `smb2_validate_sequence_number: bad message_id` (the number is below `low`, the lowest it has not seen yet); the request waiting for its answer then fails with `disconnected`, or ENODATA once the connection is gone. SMBClient numbers each request as it is made, from a counter nothing guards, so two requests made at the same moment on one connection could take the same number, as the close of a file read to its end, sent as the file is let go, and the request made just after it did in two runs of these tests (12 and 13 November). Cartouche sends the requests of a connection one at a time, in the order they were made (`CartoucheRequestQueue`), and `testTakesRequestsMadeAtOnceOnOneConnection` reads a file sixteen times at once, twenty times over, on one connection: without the queue, Samba 4.19 on Linux hung up within the first rounds in 15 runs out of 15.
 
 ## Not here
 
