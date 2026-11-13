@@ -11006,13 +11006,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Finish setting up Cartouche first, or install this version from a computer with the Cartouche Installer, over this copy: your games and saves stay."
+            "value" : "Finish setting up Cartouche first."
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Terminez d’abord la configuration de Cartouche, ou installez cette version depuis un ordinateur avec l’Installeur Cartouche, par-dessus cette copie : vos jeux et sauvegardes restent."
+            "value" : "Terminez d’abord la configuration de Cartouche."
           }
         }
       }
