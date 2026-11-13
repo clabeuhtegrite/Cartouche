@@ -7,11 +7,15 @@ patch (app/patches/sidestore/0010) and with the packaging:
   name in SideStore's module, and Shortcuts does not list that action;
 - the launcher listens for the Darwin notification that the patch posts;
 - app/scripts/package.sh writes the source address the launcher reads, and
-  app/scripts/build.sh passes the one in app/config.env.
+  app/scripts/build.sh passes the one in app/config.env;
+- a copy that cannot install an update before its setup is finished, such as
+  one that never signed in to Apple, is told to install it with the
+  Cartouche Installer, in each of Cartouche's languages.
 
 Run from the repository root: python3 -m unittest discover -s app/tests -v
 """
 
+import json
 import re
 import unittest
 from pathlib import Path
@@ -22,6 +26,8 @@ BRIDGE = ROOT / "launcher" / "SideStoreSupport" / "CartoucheUpdate.swift"
 PATCHES = ROOT / "app" / "patches" / "sidestore"
 PACKAGE = ROOT / "app" / "scripts" / "package.sh"
 BUILD = ROOT / "app" / "scripts" / "build.sh"
+SYSTEM = ROOT / "launcher" / "Sources" / "CartoucheSystemView.swift"
+STRINGS = ROOT / "launcher" / "Sources" / "Cartouche.xcstrings"
 # SideStore's app target, the module its intents' mangled names start with,
 # as in the names LiveContainer passes for Refresh All Apps.
 MODULE = "SideStore"
@@ -74,6 +80,20 @@ class UpdateTest(unittest.TestCase):
                     UPDATES.read_text(encoding="utf-8"), "the source's Info.plist key").group(1)
         self.assertIn(f'Add :{key} string $SOURCE_URL', PACKAGE.read_text(encoding="utf-8"))
         self.assertIn('--source-url "$CARTOUCHE_SIDESTORE_SOURCE_URL"', BUILD.read_text(encoding="utf-8"))
+
+    def test_a_copy_that_cannot_update_before_its_setup_is_told_of_the_installer(self):
+        # Updates start once the setup is finished (CartoucheUpdates.canStart):
+        # a copy that never signed in to Apple cannot have the version that
+        # would, but from the Cartouche Installer, over itself.
+        self.assertIn("CartoucheSetup.shared.isComplete", UPDATES.read_text(encoding="utf-8"))
+        system = SYSTEM.read_text(encoding="utf-8")
+        found(r"if !setup\.isComplete \{\s*Text\(CartoucheText\.updateNeedsSetup\)", system,
+              "the System page's words for an update that waits for the setup")
+        words = json.loads(STRINGS.read_text(encoding="utf-8"))["strings"]["system.updates.needsSetup"]["localizations"]
+        installer = {"en": "Cartouche Installer", "fr": "Installeur Cartouche"}
+        self.assertEqual(set(words), set(installer))
+        for language, name in installer.items():
+            self.assertIn(name, words[language]["stringUnit"]["value"], language)
 
 
 if __name__ == "__main__":

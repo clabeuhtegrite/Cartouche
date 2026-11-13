@@ -41,26 +41,29 @@ struct CartoucheSystemView: View {
 
     var body: some View {
         NavigationStack {
-            List {
-                setupSection
-                storageSection
-                memorySection
-                playingSection
-                signatureSection
-                if !CartoucheImportedSigning.accountSigningDisabled { automaticRenewalSection }
-                deviceSection
-                updateSection
-                telemetrySection
-                cartoucheSection
-                reportSection
-            }
-            .cartoucheStageBackground()
-            .navigationTitle(CartoucheText.systemTab)
-            .refreshable { measure() }
-            .toolbar {
-                ToolbarItem(placement: .confirmationAction) {
-                    Button(CartoucheText.done, action: close)
+            ScrollViewReader { proxy in
+                List {
+                    setupSection
+                    storageSection
+                    memorySection
+                    playingSection
+                    signatureSection
+                    if !CartoucheImportedSigning.accountSigningDisabled { automaticRenewalSection }
+                    deviceSection
+                    updateSection
+                    telemetrySection
+                    cartoucheSection
+                    reportSection
                 }
+                .cartoucheStageBackground()
+                .navigationTitle(CartoucheText.systemTab)
+                .refreshable { measure() }
+                .toolbar {
+                    ToolbarItem(placement: .confirmationAction) {
+                        Button(CartoucheText.done, action: close)
+                    }
+                }
+                .task { await scrollToUpdatesForGallery(proxy) }
             }
         }
         // Dark like the console under it, whatever the iPhone's appearance.
@@ -74,6 +77,20 @@ struct CartoucheSystemView: View {
     /// Back to the console.
     private func close() {
         sharedModel.selectedTab = .games
+    }
+
+    /// The row of a version on offer, which the gallery scrolls to.
+    private static let availableRow = "system.updates.available"
+
+    /// The gallery's screenshot of a version on offer (launcher/Gallery,
+    /// work: update on the System page) shows the updates as the player
+    /// scrolls down to them. Nothing in Cartouche's own build.
+    private func scrollToUpdatesForGallery(_ proxy: ScrollViewProxy) async {
+        #if CARTOUCHE_GALLERY
+        guard updates.isOnSystemPageForGallery else { return }
+        try? await Task.sleep(for: .milliseconds(500))
+        proxy.scrollTo(Self.availableRow, anchor: .center)
+        #endif
     }
 
     private func measure() {
@@ -432,6 +449,7 @@ struct CartoucheSystemView: View {
             .padding(.vertical, 4)
         } else if let available = updates.available {
             LabeledContent(CartoucheText.updateAvailable, value: available.version)
+                .id(Self.availableRow)
             if CartoucheImportedSigning.accountSigningDisabled {
                 Text(CartoucheText.signingUpdateOnComputer)
                     .font(.footnote).foregroundStyle(.secondary)
