@@ -11,8 +11,10 @@ says the nxnative commit it was built from, and whether that is an older one
 than the branch's newest, which does not build (fallback.py), as the batch
 does. The file is written whole
 each time (a temporary file renamed over it), at most a few times a second,
-so the app can read it whenever it likes. The batch's own process number
-tells the app whether it still runs.
+so the app can read it whenever it likes: what came meanwhile is written
+once the interval is over, even when nothing comes after it (Xcode compiles
+for minutes without a word, and the app shows its stage all along). The
+batch's own process number tells the app whether it still runs.
 """
 
 from __future__ import annotations
@@ -89,6 +91,7 @@ class Status:
         self.lines: deque[str] = deque(maxlen=60)
         self._written = 0.0
         self._pending = False
+        self._timer: threading.Timer | None = None  # writes what is pending, once the interval is over
 
     # ---- Writing ----------------------------------------------------------
 
@@ -97,6 +100,10 @@ class Status:
             now = time.monotonic()
             if not force and now - self._written < INTERVAL:
                 self._pending = True
+                if self._timer is None:
+                    self._timer = threading.Timer(INTERVAL - (now - self._written), self.flush)
+                    self._timer.daemon = True
+                    self._timer.start()
                 return
             self._written = now
             self._pending = False
@@ -110,6 +117,7 @@ class Status:
 
     def flush(self) -> None:
         with self.lock:
+            self._timer = None
             if self._pending:
                 self.write(force=True)
 
