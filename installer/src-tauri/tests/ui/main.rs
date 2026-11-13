@@ -813,7 +813,7 @@ fn without_a_keychain(ui: &Ui, f: &Fakes) {
 }
 
 /// A player with a signing certificate of their own: picks the iPhone, then
-/// "I have a signing certificate (.p12)", the .p12 and a profile made for
+/// "Certificate (.p12)" over the Apple Account, the .p12 and a profile made for
 /// another app, which the window names at once, then the right profile,
 /// which it says has no Increased Memory Limit, types its password, and
 /// installs, without an Apple ID.
@@ -836,7 +836,7 @@ fn own_certificate(ui: &Ui, f: &Fakes) {
     ui.wait_text(&name);
     ui.click(&name);
     ui.wait_text(&ui.t("device.selected"));
-    ui.click(&ui.t("signing.have_certificate"));
+    ui.click(&ui.t("signing.mode_certificate"));
     ui.wait_text(&ui.t("signing.hint"));
     ui.wait_text(&ui.t("signing.install_hint"));
     ui.wait_text(&ui.t("signing.needs_ready"));

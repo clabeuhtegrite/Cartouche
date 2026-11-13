@@ -459,28 +459,42 @@ h4 {
   font-weight: 500;
 }
 
-/* The other way to sign Cartouche, under the card's content: a link, as
-   the window's others (Add an account, Settings). */
-.signing-switch {
-  margin-top: 1.1rem;
-  padding-top: 0.9rem;
-  border-top: 1px solid rgba(255, 255, 255, 0.08);
+/* How Cartouche is signed, at the top of its step's card: two choices side
+   by side, the chosen one lit as the chosen iPhone is (Device.css). */
+.signing-modes {
   display: flex;
-  justify-content: center;
+  gap: 0.3rem;
+  padding: 0.3rem;
+  margin-bottom: 1.1rem;
+  border-radius: 14px;
+  background: var(--glass-surface);
+  border: 1px solid var(--glass-border);
 }
 
-.signing-switch button {
-  padding: 0.3rem 0.6rem;
-  border: none;
+.signing-modes button {
+  flex: 1 1 0;
+  min-width: 0;
+  padding: 0.55rem 0.4rem;
+  border-radius: 10px;
+  border: 1px solid transparent;
   background: transparent;
-  color: var(--accent-secondary);
-  font-size: 0.92rem;
-  font-weight: 600;
+  color: var(--text-muted);
+  font-size: 0.95rem;
+  line-height: 1.3;
 }
 
-.signing-switch button:hover:not(:disabled) {
-  background: transparent;
+.signing-modes button:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: transparent;
+  color: #f2f2f7;
+}
+
+.signing-modes button[aria-checked="true"],
+.signing-modes button[aria-checked="true"]:hover:not(:disabled) {
+  background: rgba(99, 102, 241, 0.15);
+  border-color: var(--accent-primary);
   color: #fff;
+  cursor: default;
 }
 
 /* The player's own certificate (ImportedSigning.tsx), laid out as the
