@@ -110,9 +110,13 @@ jobs:
           printf 'build=%s\nlauncher=%s\n' "$BUILD" "$LAUNCHER" >> "$GITHUB_OUTPUT"
           echo "Build the app: $BUILD. Test the launcher: $LAUNCHER."
 
-  # Ad's Mac, when it can take the build now, else GitHub's (route.py).
+  # Ad's Mac, when it can take the build now, else GitHub's (route.py). It
+  # chooses once the first job has said what to build, right before the
+  # build is created, so that the routes of other runs count it.
   route:
     name: Ad's Mac or GitHub
+    needs: changes
+    if: ${{ !cancelled() && needs.changes.outputs.build != 'false' }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -172,6 +176,12 @@ jobs:
       - name: Launcher tests
         if: ${{ needs.changes.outputs.launcher != 'false' }}
         run: swift test --package-path launcher
+      # The app's tests that need Foundation, CryptoKit or the iOS SDK, which
+      # the CI workflow's App sources job skips on Linux. What they read, the
+      # LiveContainer patches and the launcher's sources, builds the app; a
+      # change to the tests alone runs them in the Full test pass.
+      - name: App tests on macOS
+        run: python3 -m unittest discover -s app/tests -p 'test_imported_signing.py' -v
       - name: Prepare the sources
         run: app/scripts/prepare.sh
       # Before the build, which changes the prepared sources.
