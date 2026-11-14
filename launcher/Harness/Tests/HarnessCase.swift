@@ -121,6 +121,8 @@ class HarnessCase: XCTestCase {
         for account in ["signingCertificate", "signingCertificatePassword", "appleIDEmailAddress", "appleIDPassword"] {
             CartoucheStoreKeychain.remove(account)
         }
+        // No renewal tried by itself yet (RenewalTests).
+        UserDefaults.standard.removeObject(forKey: CartoucheRenewals.lastTryKey)
         try? FileManager.default.removeItem(at: HarnessStorage.root)
         // No TV left by the test before (TVTests).
         if #available(iOS 18.0, *), let tv = CartoucheTV.shared.window {
@@ -159,6 +161,19 @@ class HarnessCase: XCTestCase {
     /// Waits SECONDS, the main thread free meanwhile.
     func pause(_ seconds: TimeInterval) async throws {
         try await Task.sleep(nanoseconds: UInt64(seconds * 1_000_000_000))
+    }
+
+    /// Cartouche as a player who signed in leaves it: SideStore's Apple ID,
+    /// the pairing file where SideStore reads it, and the certificate,
+    /// checked.
+    func setUpCartouche(file: StaticString = #filePath, line: UInt = #line) async throws {
+        let setup = CartoucheSetup.shared
+        XCTAssertTrue(CartoucheStoreKeychain.set(Data("player@example.com".utf8), for: "appleIDEmailAddress"),
+                      "the keychain works in the harness", file: file, line: line)
+        try FileManager.default.createDirectory(at: CartouchePairing.storeDocuments, withIntermediateDirectories: true)
+        try Data("pairing".utf8).write(to: CartouchePairing.storeDocuments.appendingPathComponent(CartouchePairing.importName))
+        setup.refresh()
+        try await waitUntil("Cartouche is set up", file: file, line: line) { setup.isComplete }
     }
 
     // MARK: Games
@@ -221,6 +236,13 @@ class HarnessCase: XCTestCase {
         XCTAssertTrue(running.app === app, file: file, line: line)
         try await waitUntil("its scene shows", file: file, line: line) { HarnessScenes.shownCount > shown }
         return (app, try XCTUnwrap(HarnessScenes.running, file: file, line: line))
+    }
+
+    /// The screen of the game behind the console, which holds its scene.
+    @available(iOS 18.0, *)
+    func gameScreen(of scene: AppSceneViewController, file: StaticString = #filePath,
+                    line: UInt = #line) throws -> CartoucheGameScreen {
+        try XCTUnwrap(scene.parent as? CartoucheGameScreen, file: file, line: line)
     }
 
     /// Fails unless no install left anything: no app in the list, nothing

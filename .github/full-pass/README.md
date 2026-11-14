@@ -38,6 +38,7 @@ The [Release](../workflows/release.yml) workflow, and the [Builder](../workflows
 - a pass of this commit has passed: it goes on;
 - one is queued or running: it waits for it, up to about five hours;
 - one has failed, with none running: it stops, with the pass's link. Fix main, or, when a runner failed the pass rather than the code (a Mac that stopped answering), **Re-run failed jobs** on the pass, then re-run this job;
+- one was cancelled, with none running: it runs it again, once, and waits for it, rather than start another, so that the workflows waiting for it share it. Cancelled again once run again, it stops, with the pass's link: never cancel a pass that a release waits for;
 - none has run: it waits three minutes for the one a push may be starting, then starts one on its branch, if the branch is still at its commit, and waits for it;
 - a pass of an earlier commit of main holds when every commit since changes only `app/sidestore-source.json`, as the pull request "Source: Cartouche X" does: the Builder can be published after it.
 

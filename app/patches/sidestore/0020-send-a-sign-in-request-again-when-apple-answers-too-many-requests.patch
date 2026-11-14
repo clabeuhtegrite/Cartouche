@@ -1,0 +1,205 @@
+From 6e5c6da47d05255463df72f5d5dfd1ed3321f2db Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Fri, 13 Nov 2026 15:22:27 +0000
+Subject: [PATCH] Send a sign-in request again when Apple answers too many
+ requests
+
+Apple's sign-in server, GrandSlam, answers a request with HTTP 429, Too
+Many Requests, now and then, and the same request gets past it when it
+goes again. The Cartouche Installer signs in through isideload 0.5.2,
+which sends the request again, up to 10 times (err_429_retries), for
+the sign-in's two requests and its app tokens; never for a verification
+code, nor for the developer services. SideSign stopped at the first
+429: Cartouche 0.11.2 showed Apple's page, read as an answer, as
+"SideSign.ServerError 1" in 39 sign-ins of 17 copies, on the first
+request or right after a verification code was checked, and 13 of those
+copies got through at a later sign-in. Since patch 0016, Cartouche
+waits 15 minutes before the next one.
+
+The sign-in's requests to GrandSlam (sendAuthenticationRequest) now go
+again while Apple answers 429, a second apart, 10 times at most
+(GrandSlamResend). Still refused the eleventh time, a request gives
+Apple's 429 as before (ServerError.httpStatus, patch 0016), and
+Cartouche waits. The requests of the verification code and those of
+the developer services go once, as the Installer's do.
+
+Each request sent again counts in the outcome Cartouche reads
+(cartouche.outcome, patch 0014) as resent: SignInOperation tells
+CartoucheOutcome through GrandSlamResend.resent, for Cartouche's
+measurements to say how many a sign-in needed, and whether any passed.
+---
+ .../DeveloperPortal/Authentication.swift      |  8 ++-
+ .../DeveloperPortal/GrandSlamResend.swift     | 56 +++++++++++++++++++
+ .../SignInOperation.swift                     |  7 ++-
+ SideStore/Intents/CartoucheOutcome.swift      | 32 ++++++++++-
+ 4 files changed, 100 insertions(+), 3 deletions(-)
+ create mode 100644 Dependencies/SideSign/Sources/DeveloperPortal/GrandSlamResend.swift
+
+diff --git a/Dependencies/SideSign/Sources/DeveloperPortal/Authentication.swift b/Dependencies/SideSign/Sources/DeveloperPortal/Authentication.swift
+index 3b84691..d04a230 100644
+--- a/Dependencies/SideSign/Sources/DeveloperPortal/Authentication.swift
++++ b/Dependencies/SideSign/Sources/DeveloperPortal/Authentication.swift
+@@ -344,9 +344,15 @@ public extension DeveloperPortal {
+             verboseLog("[SideSign] sendAuthenticationRequest HTTP headers: \(prettyJSONString(from: sanitizeHeadersForLogging(allHeaders)))")
+         }
+ 
++        // Cartouche: sent again while Apple answers 429, as the Cartouche
++        // Installer does (GrandSlamResend).
+         let (data, response): (Data, URLResponse)
+         do {
+-            (data, response) = try await session.data(for: request)
++            (data, response) = try await GrandSlamResend.sending(noting: { resend in
++                debugLog("[SideSign] Auth endpoint answered HTTP 429: sending the request again (\(resend) of \(GrandSlamResend.limit))")
++            }) {
++                try await session.data(for: request)
++            }
+         } catch {
+             debugLog("[SideSign] sendAuthenticationRequest network error: \(error)")
+             throw error
+diff --git a/Dependencies/SideSign/Sources/DeveloperPortal/GrandSlamResend.swift b/Dependencies/SideSign/Sources/DeveloperPortal/GrandSlamResend.swift
+new file mode 100644
+index 0000000..cec4af2
+--- /dev/null
++++ b/Dependencies/SideSign/Sources/DeveloperPortal/GrandSlamResend.swift
+@@ -0,0 +1,56 @@
++//
++//  GrandSlamResend.swift
++//  SideSign
++//
++//  Cartouche: Apple's sign-in server (GrandSlam) answers a request with
++//  HTTP 429, Too Many Requests, now and then, which the same request gets
++//  past when it goes again. The Cartouche Installer signs in through
++//  isideload 0.5.2, which sends it again up to 10 times (err_429_retries)
++//  for the sign-in's two requests and its app tokens, never for a
++//  verification code nor for the developer services. SideSign stopped at
++//  the first 429, which Cartouche took for a limit of Apple's and waited
++//  for.
++//
++//  The sign-in's requests to GrandSlam (sendAuthenticationRequest) now go
++//  again as the Installer's do, a second apart. Still refused the eleventh
++//  time, a request gives Apple's 429 as before (ServerError.httpStatus).
++//  Needs proper testing against Apple, which no test reaches.
++//
++
++import Foundation
++#if canImport(FoundationNetworking)
++import FoundationNetworking
++#endif
++
++public enum GrandSlamResend {
++    /// How many times a request goes again after Apple's 429: as many as
++    /// the Installer's (isideload's err_429_retries).
++    public static let limit = 10
++
++    /// The pause before each one, in nanoseconds: a second.
++    public static let pause: UInt64 = 1_000_000_000
++
++    /// What the sign-in calls each time a request goes again, for Cartouche
++    /// to count them. Unset, nobody is told.
++    @TaskLocal public static var resent: (@Sendable () -> Void)?
++
++    /// Sends with SEND, then again while the answer is Apple's 429, TIMES
++    /// times at most, PAUSE nanoseconds apart, telling NOTING and RESENT of
++    /// each one. Gives the last answer: Apple's 429 when none got past it,
++    /// for the caller to read as before.
++    public static func sending(times: Int = GrandSlamResend.limit,
++                               pause: UInt64 = GrandSlamResend.pause,
++                               noting: (Int) -> Void = { _ in },
++                               _ send: () async throws -> (Data, URLResponse)) async throws -> (Data, URLResponse) {
++        var answer = try await send()
++        var resends = 0
++        while resends < times, (answer.1 as? HTTPURLResponse)?.statusCode == 429 {
++            resends += 1
++            noting(resends)
++            resent?()
++            try await Task.sleep(nanoseconds: pause)
++            answer = try await send()
++        }
++        return answer
++    }
++}
+diff --git a/SideStore/Core/Operations/StandaloneOperations/SignInOperation.swift b/SideStore/Core/Operations/StandaloneOperations/SignInOperation.swift
+index c1d43b6..990e362 100644
+--- a/SideStore/Core/Operations/StandaloneOperations/SignInOperation.swift
++++ b/SideStore/Core/Operations/StandaloneOperations/SignInOperation.swift
+@@ -128,7 +128,12 @@ final class SignInOperation: BaseStandaloneOperation<StandaloneOperationContext,
+             if self.isCancelled { throw OperationError.cancelled }
+             
+             do {
+-                let (account, session) = try await self.signIn(appleID: appleID, password: password)
++                // Cartouche: each request to Apple's sign-in server that
++                // goes again after its 429 counts in the action's outcome
++                // (GrandSlamResend, CartoucheOutcome).
++                let (account, session) = try await GrandSlamResend.$resent.withValue({ CartoucheOutcome.resent() }) {
++                    try await self.signIn(appleID: appleID, password: password)
++                }
+                 self.debugLog("[SignInOperation] authenticationLoop: signIn succeeded.")
+                 
+                 await handler.handleSignInResult(.success((account, session)))
+diff --git a/SideStore/Intents/CartoucheOutcome.swift b/SideStore/Intents/CartoucheOutcome.swift
+index 444c6be..a5f50ab 100644
+--- a/SideStore/Intents/CartoucheOutcome.swift
++++ b/SideStore/Intents/CartoucheOutcome.swift
+@@ -18,7 +18,11 @@
+ //   "codes": "Minimuxer.MinimuxerError 3", "apple": -22406, "http": 503,
+ //   "network": -1009, "host": "apple", "codeAsked": true,
+ //   "codeMode": "trustedDevice", "certificates": 1, "bundledCertificate": true,
+-//   "activeCertificate": false, "teams": 2, "teamType": "free"}
++//   "activeCertificate": false, "teams": 2, "teamType": "free", "resent": 2}
++//
++//  "resent" is how many of its requests to Apple's sign-in server went
++//  again after Apple answered 429, Too Many Requests (GrandSlamResend, in
++//  SideSign), when any did.
+ //
+ //  An error SideStore wraps to give it a title, as its refresh does with each
+ //  app's failure ("Failed to Refresh ..."), is told by the error it wraps.
+@@ -87,6 +91,26 @@ final class CartoucheOutcome: @unchecked Sendable
+         return self.trail
+     }
+ 
++    // MARK: - Requests sent again
++
++    private static var resends = 0
++
++    /// Notes that a request to Apple's sign-in server went again after
++    /// Apple answered 429 (GrandSlamResend, which SignInOperation tells).
++    static func resent()
++    {
++        self.trailLock.lock()
++        defer { self.trailLock.unlock() }
++        self.resends += 1
++    }
++
++    private static func takeResends() -> Int
++    {
++        self.trailLock.lock()
++        defer { self.trailLock.unlock() }
++        return self.resends
++    }
++
+     // MARK: - Outcome
+ 
+     let action: Action
+@@ -99,6 +123,7 @@ final class CartoucheOutcome: @unchecked Sendable
+         self.action = action
+         Self.trailLock.lock()
+         Self.trail = []
++        Self.resends = 0
+         Self.trailLock.unlock()
+         Self.delete()
+     }
+@@ -133,6 +158,11 @@ final class CartoucheOutcome: @unchecked Sendable
+         {
+             outcome["stage"] = stage
+         }
++        let resends = Self.takeResends()
++        if resends > 0
++        {
++            outcome["resent"] = resends
++        }
+         if let progress, progress.totalUnitCount > 0
+         {
+             let fraction = min(max(progress.fractionCompleted, 0), 1)
+-- 
+2.43.0
+

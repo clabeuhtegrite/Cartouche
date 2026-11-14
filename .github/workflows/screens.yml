@@ -2,12 +2,14 @@ name: Launcher screens
 
 # Builds the launcher's gallery (launcher/Gallery) for the iOS Simulator, runs
 # its UI tests on an iPhone simulator, which drive the console as a player
-# would (launcher/Gallery/UITests), then saves a screenshot of each scenario
-# of launcher/Gallery/scenarios.json: the console's screens at the sizes of
-# the iPhone 17 Pro and of the iPhone Duo folded and unfolded, and on the
-# iPhone Duo simulator itself. The screenshots wait for the UI tests to pass,
-# on the same Mac and from the same build. They are kept with the run, and
-# for a branch of this repository on the branch launcher-screens/<branch>,
+# would (launcher/Gallery/UITests), then the iPad's on an iPad simulator,
+# where a game's sheet stands beside the console, then saves a screenshot of
+# each scenario of launcher/Gallery/scenarios.json: the console's screens at
+# the sizes of the iPhone 17 Pro, of the iPhone Duo folded and unfolded, of
+# the iPad mini and of the 11-inch iPad Air, and on the iPhone Duo and 13-inch
+# iPad Pro simulators themselves. The screenshots wait for the UI tests to
+# pass, on the same Mac and from the same build. They are kept with the run,
+# and for a branch of this repository on the branch launcher-screens/<branch>,
 # one commit that each run replaces; the results of failed UI tests are kept
 # with the run (launcher-ui-tests).
 #
@@ -70,7 +72,7 @@ jobs:
   # The pull request's changes to the files in the paths above, as its merge
   # into main has them, and whether a run of this pull request passed their
   # UI tests and took their screenshots already. Its key goes to the Actions
-  # cache once it has.
+  # cache once it has (memo).
   taken:
     name: UI tests and screenshots done already?
     if: ${{ github.event_name == 'pull_request' }}
@@ -106,9 +108,13 @@ jobs:
           echo "::notice::An earlier run passed the UI tests of these very changes and took their screenshots, on $BRANCH: run this workflow from the Actions tab to run them again."
           echo "The UI tests of these very changes passed, and their screenshots are on \`$BRANCH\` already." >> "$GITHUB_STEP_SUMMARY"
 
-  # Ad's Mac, when it can take them now, else GitHub's (route.py).
+  # Ad's Mac, when it can take them now, else GitHub's (route.py). It
+  # chooses once the first job has looked for them, right before the job
+  # that runs them is created, so that the routes of other runs count it.
   route:
     name: Ad's Mac or GitHub
+    needs: taken
+    if: ${{ !cancelled() && needs.taken.outputs.taken != 'true' }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -170,6 +176,10 @@ jobs:
           .github/mac/job.sh simulators
       - name: UI tests
         run: launcher/Gallery/uitests.sh build/ui-tests
+      # Then the iPad's, on an iPad, from the same build: the console and a
+      # game's sheet side by side (launcher/Gallery/UITests/IPadUITests.swift).
+      - name: UI tests on an iPad
+        run: launcher/Gallery/uitests.sh --ipad build/ui-tests/ipad
       - name: Upload the UI tests' results
         if: ${{ failure() }}
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
@@ -190,16 +200,26 @@ jobs:
           path: build/screens
           retention-days: 14
           if-no-files-found: warn
-      # Once the UI tests have passed and every scenario has its screenshot.
+
+  # Once the UI tests have passed and every scenario has its screenshot,
+  # notes it in the Actions cache for the first job of the pull request's
+  # next runs, from Ubuntu as that job looks for it. The cache puts its
+  # compression in an entry's version: Ad's Mac, which has no zstd, kept a
+  # gzip entry there that Ubuntu, with zstd, never found (runs 43453403759
+  # and 43461548558).
+  memo:
+    name: Note that the UI tests and screenshots are done
+    needs: [taken, screens]
+    if: ${{ !cancelled() && github.event_name == 'pull_request' && needs.taken.outputs.key != '' && needs.screens.result == 'success' }}
+    runs-on: ubuntu-latest
+    steps:
       - name: Note that they are done
-        if: ${{ needs.taken.outputs.key != '' }}
         env:
           SOURCE: ${{ github.event.pull_request.head.sha }}
         run: |
           mkdir -p build/screens-taken
           echo "$SOURCE" > build/screens-taken/source
       - name: Keep the note in the cache
-        if: ${{ needs.taken.outputs.key != '' }}
         uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: build/screens-taken

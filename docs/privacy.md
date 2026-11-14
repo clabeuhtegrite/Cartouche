@@ -66,7 +66,7 @@ It holds what you write; Cartouche's and iOS's versions and the iPhone's model, 
 
 For a game of yours that Cartouche's catalog does not know, such as one built with another version of nxnative, Cartouche asks the project's server, the one game measurements go to, for its cover, its artwork, its genre and its summary on IGDB. It sends the game's name, as your copy gives it or as you renamed it, and whether it is a Switch or a Switch 2 game when its title ID or you say so: nothing else, not even its title ID, nor the random number of game measurements, and whether those are on or not. The server asks IGDB, and keeps IGDB's answer for that name 30 days, to give it to whoever asks for the same name; it never keeps who asked, nor the address the question came from. Cartouche keeps the answer on the iPhone, and asks again a month later.
 
-The iPhone translates IGDB's summaries, which are in English, into Cartouche's language itself, with Apple's Translation: nothing leaves the iPhone for it, but the languages Apple downloads when you tap **Translate** on a game's sheet.
+The iPhone translates IGDB's summaries, which are in English, into Cartouche's language itself, with Apple's Translation: nothing leaves the iPhone for it, but the languages Apple downloads when you tap **Translate** on a game's sheet. Cartouche keeps the translations on the iPhone, in its caches, to show each one at once the next time.
 
 The name, platform, genre, description and cover you give a game yourself, in its **Details › Edit the game's info**, stay on the iPhone, with the picture you chose: only the name and the platform of a game the catalog does not know go to the server, as above, for the game to be looked up under them.
 

@@ -59,7 +59,8 @@ def read_from_info(text: str) -> list[str]:
 class GameOrientationTest(unittest.TestCase):
     def test_the_host_reads_the_info_plist_in_the_games_bundle(self):
         source = read(HOST)
-        found = re.search(r"\n    private static func orientations\(of app: LCAppModel\).*?\n    \}\n", source, re.S)
+        found = re.search(r"\n    private static func orientations\(of app: LCAppModel, isPad: Bool\).*?\n    \}\n",
+                          source, re.S)
         self.assertIsNotNone(found, f"{HOST.name} has no orientations(of:)")
         self.assertIn("app.appInfo.bundlePath()", found.group(0))
         self.assertIn("CartoucheGameOrientations(bundle: ", found.group(0))
