@@ -73,9 +73,7 @@
 //                                        name or the password the player
 //                                        signed in with; smb-no-guests:
 //                                        refusing a guest, without a user
-//                                        name; smb-refused-before: the
-//                                        first, in SMBClient's words, as
-//                                        Cartouche said it before;
+//                                        name;
 //                                        mac-nearby: two Macs nearby whose
 //                                        Cartouche Builder shares with
 //                                        Cartouche; mac-code: the same,
@@ -750,13 +748,12 @@ enum GallerySMB {
     /// The password typed for WORK, and what the form says once the NAS
     /// answered the sign-in with STATUS_LOGON_FAILURE, as Samba, Windows and
     /// macOS answer a wrong password, an unknown user and a guest they do
-    /// not let in: in Cartouche's words (CartoucheSMBRefusal), or, for
-    /// smb-refused-before, in SMBClient's, as Cartouche said it before.
+    /// not let in (CartoucheSMBRefusal).
     @MainActor
     static func signIn(_ work: String?) -> (password: String, problem: CartoucheReport?) {
         let nas = server(work)
         let guest = nas.username.isEmpty
-        guard let reason = work == "smb-refused-before" ? "Logon Failure" : CartoucheSMBRefusal.reason(0xC000_006D, guest: guest) else {
+        guard let reason = CartoucheSMBRefusal.reason(0xC000_006D, guest: guest) else {
             return (password: "", problem: nil)
         }
         let error = CartoucheStorageError(.signInFailed, CartoucheText.storageSignInFailed(nas.host, reason))
