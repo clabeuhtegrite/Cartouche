@@ -60,12 +60,6 @@ final class UprightTests: HarnessCase {
 
     // MARK: Helpers
 
-    /// The game's screen on the iPhone, which holds its scene.
-    private func gameScreen(of scene: AppSceneViewController, file: StaticString = #filePath,
-                            line: UInt = #line) throws -> CartoucheGameScreen {
-        try XCTUnwrap(scene.parent as? CartoucheGameScreen, file: file, line: line)
-    }
-
     /// Says in the log which way iOS turned the game's screen, and its
     /// size: the Simulator holds its iPhone upright.
     private func noteTurn(of screen: CartoucheGameScreen) {

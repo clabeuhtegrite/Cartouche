@@ -170,6 +170,9 @@ final class CartoucheGameHost {
     func showConsole() {
         guard app != nil, isInFront, let window else { return }
         isInFront = false
+        // The console turns as the iPad is held: the game's screen lets go
+        // of the way it was turned.
+        screen?.isInFront = false
         setGameForeground(false)
         showOnTV(inFront: false)
         CartoucheGamepad.shared.gameInFront = false
@@ -199,6 +202,7 @@ final class CartoucheGameHost {
         window.isHidden = false
         window.makeKey()
         UIView.animate(withDuration: 0.2) { window.alpha = 1 }
+        screen.isInFront = true
         screen.rotate()
         setGameForeground(true)
         showOnTV(inFront: true)
@@ -645,6 +649,9 @@ enum CartoucheScreenCopy: Equatable {
 /// iPhone (CartoucheGameOrientations.behindTheConsole); without the status
 /// bar, with the home indicator out of the way, and the edges of the screen
 /// to the game first.
+/// An iPad turns it as it is held, whatever the game allows: there it keeps
+/// the way it is turned once the game allows it, and asks the player to
+/// turn an iPad held upright sideways (CartoucheGameOrientations).
 @available(iOS 18.0, *)
 final class CartoucheGameScreen: UIViewController {
     /// The ways the game allows the screen to turn, by its Info.plist.
@@ -670,6 +677,21 @@ final class CartoucheGameScreen: UIViewController {
     /// The player chose to show the game on the iPhone anyway, which a TV
     /// that mirrors it shows too.
     private var showsGameDespiteTV = false
+    /// Whether the screen asks iPadOS to keep the way it is turned
+    /// (prefersInterfaceOrientationLocked): on an iPad, while the game is
+    /// on screen, turned a way it allows (keeps(_:held:isPad:)).
+    private(set) var keepsTurn = false
+    /// The game on screen, rather than paused under the console, which
+    /// turns as the iPad is held.
+    var isInFront = true {
+        didSet {
+            if isInFront != oldValue { followTurns() }
+        }
+    }
+    /// The iPad's turns, followed while the screen shows.
+    private var deviceTurns: NSObjectProtocol?
+    /// The player was asked to turn the iPad sideways, and has not yet.
+    private var askedToTurn = false
 
     init(allowed: CartoucheGameOrientations, laysOutUpright: Bool, isPad: Bool, onHome: @escaping () -> Void) {
         self.allowed = allowed
@@ -689,6 +711,8 @@ final class CartoucheGameScreen: UIViewController {
     }
 
     override var supportedInterfaceOrientations: UIInterfaceOrientationMask { Self.mask(of: turns) }
+    @available(iOS 26.0, *)
+    override var prefersInterfaceOrientationLocked: Bool { keepsTurn }
     override var prefersStatusBarHidden: Bool { true }
     override var prefersHomeIndicatorAutoHidden: Bool { true }
     override var preferredScreenEdgesDeferringSystemGestures: UIRectEdge { .all }
@@ -725,6 +749,32 @@ final class CartoucheGameScreen: UIViewController {
             homeButton.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor, constant: -2),
             homeButton.heightAnchor.constraint(greaterThanOrEqualToConstant: 30),
         ])
+    }
+
+    override func viewDidAppear(_ animated: Bool) {
+        super.viewDidAppear(animated)
+        guard isPad, deviceTurns == nil else { return }
+        UIDevice.current.beginGeneratingDeviceOrientationNotifications()
+        deviceTurns = NotificationCenter.default.addObserver(forName: UIDevice.orientationDidChangeNotification, object: nil,
+                                                             queue: .main) { [weak self] _ in
+            MainActor.assumeIsolated { self?.followTurns() }
+        }
+        followTurns()
+    }
+
+    override func viewDidDisappear(_ animated: Bool) {
+        super.viewDidDisappear(animated)
+        guard let deviceTurns else { return }
+        NotificationCenter.default.removeObserver(deviceTurns)
+        self.deviceTurns = nil
+        UIDevice.current.endGeneratingDeviceOrientationNotifications()
+    }
+
+    override func viewWillTransition(to size: CGSize, with coordinator: UIViewControllerTransitionCoordinator) {
+        super.viewWillTransition(to: size, with: coordinator)
+        coordinator.animate(alongsideTransition: nil) { [weak self] _ in
+            self?.followTurns()
+        }
     }
 
     /// The game's scene, under the Home button.
@@ -844,6 +894,65 @@ final class CartoucheGameScreen: UIViewController {
         setNeedsUpdateOfHomeIndicatorAutoHidden()
         setNeedsUpdateOfScreenEdgesDeferringSystemGestures()
         view.window?.windowScene?.requestGeometryUpdate(.iOS(interfaceOrientations: Self.mask(of: turns))) { _ in }
+        followTurns()
+    }
+
+    /// On an iPad, as the screen or the iPad turns, or the game comes and
+    /// goes: asks iPadOS to keep the way the screen is turned, or lets go,
+    /// as keeps(_:held:isPad:) says; and asks the player to turn an iPad
+    /// that shows a game made to be played sideways upright. iPadOS may not
+    /// keep it, in a window of Stage Manager for one: the player turns the
+    /// iPad, and the game with it.
+    func followTurns() {
+        guard isPad else { return }
+        let turned = Self.turned(viewIfLoaded?.window?.windowScene)
+        let keeps = isInFront && turns.keeps(turned, held: Self.held(), isPad: true)
+        if keeps != keepsTurn {
+            keepsTurn = keeps
+            if #available(iOS 26.0, *) {
+                setNeedsUpdateOfPrefersInterfaceOrientationLocked()
+            }
+            NSLog("[Cartouche] %@", keeps ? "the game's screen keeps the way it is turned" : "the game's screen turns with the iPad")
+        }
+        let asks = isInFront && turns.asksToTurnSideways(turned, isPad: true)
+        if asks, !askedToTurn {
+            CartoucheReports.note("The game shows upright on the iPad: the player is asked to turn it sideways")
+            showHint(CartoucheText.turnIPadSideways)
+        }
+        askedToTurn = asks
+    }
+
+    /// The way the screen is turned now: none when iOS cannot tell.
+    private static func turned(_ scene: UIWindowScene?) -> CartoucheGameOrientations {
+        #if CARTOUCHE_HARNESS
+        // In the launcher's harness (launcher/Harness), as a test sets it.
+        if let turned = HarnessLC.screenTurned { return turned }
+        #endif
+        guard let scene else { return [] }
+        switch scene.effectiveGeometry.interfaceOrientation {
+        case .portrait: return .portrait
+        case .portraitUpsideDown: return .portraitUpsideDown
+        case .landscapeLeft: return .landscapeLeft
+        case .landscapeRight: return .landscapeRight
+        default: return []
+        }
+    }
+
+    /// The way the screen would turn for the device as it is held: none
+    /// while it lies flat, or when iOS cannot tell.
+    private static func held() -> CartoucheGameOrientations {
+        #if CARTOUCHE_HARNESS
+        if let held = HarnessLC.deviceHeld { return held }
+        #endif
+        switch UIDevice.current.orientation {
+        case .portrait: return .portrait
+        case .portraitUpsideDown: return .portraitUpsideDown
+        // UIKit names the two sides the other way round for the device and
+        // for its screen.
+        case .landscapeLeft: return .landscapeRight
+        case .landscapeRight: return .landscapeLeft
+        default: return []
+        }
     }
 
     private static func mask(of orientations: CartoucheGameOrientations) -> UIInterfaceOrientationMask {
