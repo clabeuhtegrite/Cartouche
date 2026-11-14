@@ -55,8 +55,10 @@ import json, re, subprocess, sys, time
 from pathlib import Path
 
 HERE, OUT, BUILD = (Path(path) for path in sys.argv[1:4])
-# When a screen is drawn and still, beside this script.
+# When a screen is drawn and still, and a line a minute while the gallery
+# builds, beside this script.
 sys.path.insert(0, str(HERE))
+import heartbeat  # noqa: E402
 import settled  # noqa: E402
 BUNDLE = "io.github.clabeuhtegrite.cartouche.gallery"
 APP = BUILD / "DerivedData/Build/Products/Debug-iphonesimulator/CartoucheGallery.app"
@@ -352,10 +354,14 @@ for device in sorted({s.get("device", "") for s in document["scenarios"]}):
     since = time.monotonic()
     maybe("xcrun", "simctl", "boot", udid)
     if built is None:
-        # Built once, for the simulators of this Mac.
-        built = subprocess.run(["xcodebuild", "build", "-quiet", "-project", str(HERE / "CartoucheGallery.xcodeproj"),
-                                "-scheme", "CartoucheGallery", "-destination", f"platform=iOS Simulator,id={udid}",
-                                "-derivedDataPath", str(BUILD / "DerivedData")]).returncode == 0
+        # Built once, for the simulators of this Mac. xcodebuild says nothing
+        # then, for minutes: a line a minute says the build goes on, as 9
+        # minutes without a word were taken for a stuck run (heartbeat.py).
+        with heartbeat.beating("building the gallery"):
+            built = subprocess.run(["xcodebuild", "build", "-quiet", "-project",
+                                    str(HERE / "CartoucheGallery.xcodeproj"), "-scheme", "CartoucheGallery",
+                                    "-destination", f"platform=iOS Simulator,id={udid}",
+                                    "-derivedDataPath", str(BUILD / "DerivedData")]).returncode == 0
         print(f"   gallery built in {time.monotonic() - since:.0f} s", flush=True)
     if not built:
         failures.append("the gallery does not build")
