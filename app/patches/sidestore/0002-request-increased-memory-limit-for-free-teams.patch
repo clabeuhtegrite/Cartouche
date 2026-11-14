@@ -14,7 +14,7 @@ the default memory limit.
 SideStore's additional entitlements, which it adds to every app's own,
 give the key the entitlement itself for a value, never true: any value
 but false asks for the capability, as updateFeatures reads them. Up to
-Cartouche 0.12.0, this asked only for the value true, and so never sent
+Cartouche 0.12.1, this asked only for the value true, and so never sent
 the request.
 
 Fixes SideStore#1616 for free accounts. Needs the SideSign patch that

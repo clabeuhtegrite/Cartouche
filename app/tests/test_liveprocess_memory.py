@@ -1,6 +1,6 @@
 """Checks that the built-in SideStore signs LiveProcess, the extension that
 Cartouche runs a game in behind its console, with Increased Memory Limit,
-as the Cartouche Installer does (docs/decisions.md, 88).
+as the Cartouche Installer does (docs/decisions.md, 105).
 
 An update:
 - keeps Cartouche's extensions, LiveProcess and the widget, signed with the
@@ -20,7 +20,7 @@ update that signed its extensions with it.
 
 Both ask Apple to turn the capability on for a free team's App ID
 (app/patches/sidestore/0002), with the value SideStore's additional
-entitlements give the key, which is never true: up to Cartouche 0.12.0 the
+entitlements give the key, which is never true: up to Cartouche 0.12.1 the
 request waited for true, and never went out. A request Apple refuses, for
 too many requests or otherwise, is only logged: the update or renewal goes
 on as before. The request is tried in Swift.

@@ -92,6 +92,9 @@ struct CartoucheHomeView: View {
     @ObservedObject private var gamepad = CartoucheGamepad.shared
     @ObservedObject private var actions = CartoucheGameActions.shared
     @ObservedObject private var reach = CartoucheStorageReach.shared
+    /// A renewal, as Cartouche renews itself in its last days: the days
+    /// left go once it ends.
+    @ObservedObject private var renewals = CartoucheRenewals.shared
     @State private var row = CartoucheHomeView.shelfRow
     @State private var columns = [0, 0]
     @State private var signature = CartoucheSignature.current()
@@ -220,6 +223,9 @@ struct CartoucheHomeView: View {
         }
         .onReceive(NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification)) { _ in
             signature = CartoucheSignature.current()
+        }
+        .onChange(of: renewals.isRenewing) { _, renewing in
+            if !renewing { signature = CartoucheSignature.current() }
         }
     }
 

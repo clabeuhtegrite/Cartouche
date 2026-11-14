@@ -16,8 +16,10 @@ enum CartoucheDevice {
     /// The model identifier, such as "iPhone18,2".
     static let modelIdentifier: String = {
         #if CARTOUCHE_GALLERY
-        // The gallery draws the screens as the iPhone of catalog/devices.json shows them.
-        return "iPhone19,4"
+        // The gallery draws the screens as a device of catalog/devices.json
+        // shows them: the iPhone, or the iPad a scenario names (-GalleryModel,
+        // launcher/Gallery/Sources/GalleryApp.swift).
+        return UserDefaults.standard.string(forKey: "GalleryModel") ?? "iPhone19,4"
         #else
         if let simulated = ProcessInfo.processInfo.environment["SIMULATOR_MODEL_IDENTIFIER"] {
             return simulated
@@ -30,6 +32,10 @@ enum CartoucheDevice {
         return String(cString: machine)
         #endif
     }()
+
+    /// Whether Cartouche runs on an iPad, which its words then call the
+    /// iPad (CartoucheDeviceWords.swift).
+    static let isPad = modelIdentifier.hasPrefix("iPad")
 
     static var iOSVersion: String {
         let version = ProcessInfo.processInfo.operatingSystemVersion
