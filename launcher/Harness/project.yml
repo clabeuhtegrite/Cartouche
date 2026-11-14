@@ -28,7 +28,8 @@ settings:
     CODE_SIGN_STYLE: Manual
     DEVELOPMENT_TEAM: ""
     ENABLE_USER_SCRIPT_SANDBOXING: "NO"
-    TARGETED_DEVICE_FAMILY: "1"
+    # An iPhone, and an iPad for the iPad's tests (harness.sh --ipad).
+    TARGETED_DEVICE_FAMILY: "1,2"
     SWIFT_STRICT_CONCURRENCY: minimal
 targets:
   CartoucheHarness:
@@ -69,8 +70,10 @@ targets:
         INFOPLIST_KEY_CFBundleDisplayName: Harness
         INFOPLIST_KEY_UILaunchScreen_Generation: "YES"
         INFOPLIST_KEY_UIApplicationSceneManifest_Generation: "YES"
-        INFOPLIST_KEY_UIRequiresFullScreen: "YES"
+        # As Cartouche's (LiveContainer's Info.plist): upright or sideways on
+        # an iPhone, every way on an iPad, whose scenes it leaves resizable.
         INFOPLIST_KEY_UISupportedInterfaceOrientations: "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight"
+        INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad: "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight"
         SWIFT_OBJC_BRIDGING_HEADER: Sources/Harness-Bridging-Header.h
         HEADER_SEARCH_PATHS: $(SRCROOT)/Build/LiveContainer/LiveContainerSwiftUI/Utilities
         SWIFT_ACTIVE_COMPILATION_CONDITIONS: "DEBUG CARTOUCHE_HARNESS"

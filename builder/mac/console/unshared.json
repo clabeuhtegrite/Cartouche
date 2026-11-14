@@ -19,6 +19,10 @@
       "why": "This iPhone's model, GPU, the memory limit iOS sets and the signature's end: the Mac's own in the console's stand-ins.",
       "mac": "CartoucheConsole/Mac/ConsoleStandIns.swift"
     },
+    "CartoucheDeviceWords.swift": {
+      "kind": "iphone",
+      "why": "An iPad's words for the device Cartouche runs on, which CartoucheText.s applies under #if canImport(UIKit): the Mac's own come from strings.json."
+    },
     "CartoucheGameActions.swift": {
       "kind": "mac",
       "why": "LiveContainer's steps (install, start, uninstall a game): the Mac starts the game's app through the app (MacGames), as the console's stand-in asks it.",

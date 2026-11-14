@@ -3061,6 +3061,23 @@
         }
       }
     },
+    "running.turnIPadSideways" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Turn your iPad sideways to play."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tournez votre iPad à l’horizontale pour jouer."
+          }
+        }
+      }
+    },
     "saves.failed.copy" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -11472,6 +11489,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Jamais votre identifiant Apple, le nom de votre iPhone, vos fichiers, les adresses de votre stockage ni le journal du jeu lui-même."
+          }
+        }
+      }
+    },
+    "tv.captured" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The iPhone’s screen is being recorded or shown on another screen, so the game stays hidden."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "L’écran de l’iPhone est enregistré ou montré sur un autre écran : le jeu reste donc caché."
           }
         }
       }

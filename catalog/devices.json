@@ -2,6 +2,14 @@
   "schema": 1,
   "devices": [
     {
+      "identifier": "iPad15,3",
+      "chip": "M3",
+      "memoryGB": 8,
+      "measurements": [
+        { "date": "2026-11-11", "iOS": "27.0.1", "increasedMemoryLimit": true, "appMemoryLimitMiB": 8192 }
+      ]
+    },
+    {
       "identifier": "iPhone19,4",
       "chip": "A20 Pro",
       "memoryGB": 12,

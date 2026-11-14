@@ -93,10 +93,18 @@ enum HarnessLC {
     /// (app/patches/livecontainer/0012): not on an iOS without the scene
     /// it opens there.
     static var gamesHaveATVScene = true
-    /// Whether a display shows a copy of the iPhone's screen: a TV, by
-    /// cable or AirPlay, that iOS has not handed Cartouche
-    /// (CartoucheGameHost.iPhoneIsMirrored).
-    static var iPhoneMirrored = false
+    /// Whether the iPhone's sound goes to a display, by cable or AirPlay
+    /// (CartoucheGameHost.soundGoesToADisplay), or nil for the Simulator's
+    /// own route, to the Mac. A test says that iOS captures the iPhone's
+    /// screen with the capture state of the harness's scene, as iOS does
+    /// (TVTests.copyTheIPhonesScreen).
+    static var soundGoesToADisplay: Bool?
+    /// The way the screen of a game behind the console is turned, and the
+    /// way the screen would turn for the device as it is held, as a test
+    /// sets them (CartoucheGameScreen.followTurns): the Simulator's own
+    /// when nil, which a test cannot turn.
+    static var screenTurned: CartoucheGameOrientations?
+    static var deviceHeld: CartoucheGameOrientations?
 
     static let appGroupID = "group.io.github.clabeuhtegrite.cartouche.harness"
 
@@ -174,7 +182,9 @@ enum HarnessLC {
         gameEndsOnTerminate = true
         extensionReportsExit = true
         gamesHaveATVScene = true
-        iPhoneMirrored = false
+        soundGoesToADisplay = nil
+        screenTurned = nil
+        deviceHeld = nil
         HarnessScenes.reset()
         HarnessNetwork.reset()
         let model = DataManager.shared.model

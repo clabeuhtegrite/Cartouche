@@ -223,6 +223,13 @@ class HarnessCase: XCTestCase {
         return (app, try XCTUnwrap(HarnessScenes.running, file: file, line: line))
     }
 
+    /// The screen of the game behind the console, which holds its scene.
+    @available(iOS 18.0, *)
+    func gameScreen(of scene: AppSceneViewController, file: StaticString = #filePath,
+                    line: UInt = #line) throws -> CartoucheGameScreen {
+        try XCTUnwrap(scene.parent as? CartoucheGameScreen, file: file, line: line)
+    }
+
     /// Fails unless no install left anything: no app in the list, nothing
     /// in Applications, nothing signed, the unpacked files gone.
     func assertNothingInstalled(file: StaticString = #filePath, line: UInt = #line) {
