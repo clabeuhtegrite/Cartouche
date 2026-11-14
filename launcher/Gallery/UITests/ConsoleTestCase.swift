@@ -134,8 +134,9 @@ enum GalleryWords {
     static let signedInAs = "player@icloud.com"
     /// The folder in Files the saves are kept in (GallerySaves).
     static let savesFolder = "Gallery saves"
-    /// The save JKSV exported on the Switch, in the gallery's folder
-    /// (GallerySaves), named as JKSV names it: FilesPicker.pick taps the
+    /// The save JKSV exported on the Switch, in On My iPhone (uitests.sh)
+    /// and in the gallery's folder (GallerySaves), named as JKSV names it,
+    /// the player and the time: FilesPicker.pick taps the
     /// first element whose label begins as the file's name, so no label on
     /// the screen under the picker may (Switch saves, for "Switch save").
     static let switchExport = "Player - 2026-11-13_15-20-00.zip"
@@ -632,7 +633,9 @@ struct FilesPicker {
     /// Picks FILE, which the picker may show without its extension: where
     /// the picker opened, as after an earlier pick, else in On My iPhone,
     /// where uitests.sh puts it, from Browse, else in the gallery's own
-    /// folder there, where the gallery writes it too.
+    /// folder there, where the gallery writes it too, which a picker that
+    /// takes folders as well, as the one of a Switch save, did not open on
+    /// a tap (2026-11-14).
     func pick(_ file: String) {
         let name = (file as NSString).deletingPathExtension
         if let item = item(name, timeout: 5) {
@@ -668,9 +671,19 @@ struct FilesPicker {
     }
 
     /// Picks ITEM, unless the picker shows it greyed out: of a type the
-    /// import does not take.
+    /// import does not take. A picker that takes folders as well may only
+    /// select the file a tap picks in another, for its Open button to pick:
+    /// Open then, once the file shows as selected, never for the folder
+    /// shown, which Open would pick when nothing is.
     private func choose(_ item: XCUIElement, _ file: String) {
         test.expect(item.isEnabled, "The Files picker shows \(file) greyed out: \(item.debugDescription)", in: app)
         open(item)
+        guard !waitForItToGo(10), item.exists else { return }
+        let openButton = app.buttons["DOCPicker.actionButton"]
+        print("== The Files picker stayed 10 s after the tap on \(file): selected \(item.isSelected), "
+              + "Open \(openButton.exists ? (openButton.isEnabled ? "enabled" : "greyed out") : "absent")")
+        if item.isSelected, openButton.exists, openButton.isEnabled {
+            openButton.tap()
+        }
     }
 }

@@ -739,7 +739,8 @@ enum GallerySaves {
 
     /// The save JKSV exported on the Switch that the gallery offers, a ZIP
     /// archive of the scenario's game's in its Documents, which the Files
-    /// picker shows under On My iPhone › Gallery. Named as JKSV names its
+    /// picker shows under On My iPhone › Gallery; the UI tests pick the same
+    /// that uitests.sh puts in On My iPhone itself. Named as JKSV names its
     /// exports, the player and the time: no label of the page under the
     /// picker begins as it does, which the UI tests would tap for the file
     /// (FilesPicker.pick), as they tapped the page's title, Switch saves,

@@ -10,8 +10,8 @@
 # an iPhone 17 Pro, else the newest iPhone Pro, of the newest iOS runtime
 # that has one, created should no simulator of it exist. simctl opens the
 # gallery once first, with time: its first launch after the install can take
-# minutes. The import's tests pick an IPA in On My iPhone, which this script
-# puts there. A test that fails runs once more before it counts as failed,
+# minutes. The import's tests pick an IPA in On My iPhone, and the saves'
+# test a save JKSV exported, which this script puts there. A test that fails runs once more before it counts as failed,
 # and so do the tests when the test runner stops before the first one; a
 # test has ten minutes, which a test that runs out of them does not get
 # again. OUT keeps the results (UITests.xcresult), with the screen and the
@@ -135,8 +135,33 @@ if [ -n "$LOCAL" ]; then
   # An empty zip archive: the gallery's install reads none of it.
   { printf 'PK\005\006'; head -c 18 /dev/zero; } >"$LOCAL/Test Game.ipa"
   echo "   Test Game.ipa in On My iPhone"
+  # The save JKSV exported on the Switch, for the saves' test to pick, where
+  # a player keeps one too, named as the test has it (GalleryWords.switchExport
+  # in UITests/ConsoleTestCase.swift), of the first of the player's games (Games.owned):
+  # JKSV's fiche, a file and a folder with a file, as the gallery writes it
+  # in its own folder (GallerySaves.writeSwitchExport in Sources/GalleryApp.swift),
+  # which a Files picker that takes folders as well did not open on a tap.
+  if python3 -I - "$LOCAL/Player - 2026-11-13_15-20-00.zip" 0400C3F00006E000 <<'PY'
+import os, struct, sys, zipfile
+path, title = sys.argv[1], int(sys.argv[2], 16)
+fiche = bytearray(86)                       # .nx_save_meta.bin
+fiche[0:4] = struct.pack("<I", 0x56534B4A)  # JKSV's magic
+fiche[4] = 1                                # its revision
+fiche[5:13] = struct.pack("<Q", title)      # the game
+fiche[37] = 1                               # a player's save
+with zipfile.ZipFile(path, "w", zipfile.ZIP_DEFLATED) as archive:
+    archive.writestr(".nx_save_meta.bin", bytes(fiche))
+    archive.writestr("progress.bin", os.urandom(1 << 20))
+    archive.writestr("slots/", b"", compress_type=zipfile.ZIP_STORED)
+    archive.writestr("slots/1.bin", b"slot 1")
+PY
+  then
+    echo "   the save JKSV exported in On My iPhone"
+  else
+    echo "::warning::the save JKSV exported is not in On My iPhone: the saves' test looks for it in the gallery's folder alone"
+  fi
 else
-  echo "::warning::the simulator has no local storage for On My iPhone: the IPA to pick is in the gallery's folder alone"
+  echo "::warning::the simulator has no local storage for On My iPhone: the IPA and the save to pick are in the gallery's folder alone"
 fi
 
 # The main thread's waits of this run alone: on a Mac whose simulator stays

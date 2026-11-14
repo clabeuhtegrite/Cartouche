@@ -9,8 +9,9 @@
 //  the player picks one, are the gallery's, in its own container
 //  (GallerySaves, GalleryApp.swift). And the game's saves between the
 //  player's Switch and this iPhone: the save JKSV exported there, a ZIP
-//  archive the gallery writes in its folder of On My iPhone, picked in
-//  Files and put in place after a question, the save it replaced put back,
+//  archive in On My iPhone, where uitests.sh puts it as a player would, and
+//  the gallery in its own folder there, picked in Files and put in place
+//  after a question, the save it replaced put back,
 //  and the game's save made into a ZIP archive for JKSV, all of it
 //  Cartouche's own on real files too.
 //
