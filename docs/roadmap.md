@@ -42,3 +42,4 @@ Every release and its notes: [`app/releases`](../app/releases/). Beside the app,
 ## Not planned
 
 - Hosting, downloading or listing downloadable games, keys or firmware ([decision 1](decisions.md)).
+- **An Apple TV version.** Games reach the TV from the iPhone instead: by AirPlay to an Apple TV, or by cable, a game shows there alone and is played with a controller paired to the iPhone ([decision 85](decisions.md)). An Apple TV version would need games built for tvOS, which nxnative does not build; an installer that renews them on the Apple TV, where neither SideStore nor LiveContainer runs, so a computer paired over the network would have to renew each game every seven days, three games at most with a free Apple account; room for games that often take more than 10 GB, where tvOS keeps only 500 KB of an app's data for sure and may delete the rest when space runs low; and Increased Memory Limit, which tvOS does not have ([decision 106](decisions.md)).
