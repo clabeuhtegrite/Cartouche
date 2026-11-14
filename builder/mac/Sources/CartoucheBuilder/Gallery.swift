@@ -159,7 +159,7 @@ enum Gallery {
         let frame = CGRect(origin: CGPoint(x: 80, y: 80), size: size)
         let window: NSWindow = page == .storageMac
             ? TallWindow(contentRect: frame, styleMask: page.styleMask, backing: .buffered, defer: false)
-            : NSWindow(contentRect: frame, styleMask: page.styleMask, backing: .buffered, defer: false)
+            : KeyWindow(contentRect: frame, styleMask: page.styleMask, backing: .buffered, defer: false)
         window.isReleasedWhenClosed = false
         window.appearance = NSAppearance(named: dark ? .darkAqua : .aqua)
         switch page {
@@ -177,6 +177,11 @@ enum Gallery {
         }
         window.contentViewController = controller
         window.setContentSize(size)
+        // In front and active, as the player sees the app's window: an
+        // inactive window greys its main buttons, which are in the app's
+        // colour.
+        NSApp.activate()
+        window.makeKeyAndOrderFront(nil)
         window.orderFrontRegardless()
         wait(until: Date().addingTimeInterval(2.5))
         defer {
@@ -232,9 +237,17 @@ enum Gallery {
         return tabs
     }
 
+    /// A window that becomes the key window, as the app's do, even without
+    /// a title bar: the menu bar's panel and the setup assistant's sheet
+    /// are, in the app.
+    private class KeyWindow: NSWindow {
+        override var canBecomeKey: Bool { true }
+        override var canBecomeMain: Bool { true }
+    }
+
     /// A window as tall as its page, which AppKit would fit to the screen,
     /// as it does the others on a screen smaller than they are.
-    private final class TallWindow: NSWindow {
+    private final class TallWindow: KeyWindow {
         override func constrainFrameRect(_ frameRect: NSRect, to screen: NSScreen?) -> NSRect { frameRect }
     }
 

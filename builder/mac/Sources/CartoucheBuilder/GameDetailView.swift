@@ -602,16 +602,11 @@ struct MacPlayCard: View {
         let preparing = games.preparing.contains(game.titleID)
         Card(padding: 14) {
             VStack(alignment: .leading, spacing: 10) {
-                // Side by side, or one above the other in a narrow sheet.
-                ViewThatFits(in: .horizontal) {
-                    HStack(spacing: 10) {
-                        playButton(playing: playing, preparing: preparing)
-                        settingsButton(playing: playing, preparing: preparing)
-                    }
-                    VStack(alignment: .leading, spacing: 8) {
-                        playButton(playing: playing, preparing: preparing)
-                        settingsButton(playing: playing, preparing: preparing)
-                    }
+                // Play above Game settings, both as wide as the card, as on
+                // the iPhone's sheet (CartoucheGameSheetView).
+                VStack(spacing: 8) {
+                    playButton(playing: playing, preparing: preparing)
+                    settingsButton(playing: playing, preparing: preparing)
                 }
                 if let line = installLine(playing: playing) {
                     Label {
@@ -676,6 +671,7 @@ struct MacPlayCard: View {
             model.play(game, settings: true)
         } label: {
             Label(tr("Game settings", "Réglages du jeu"), systemImage: "slider.horizontal.3")
+                .frame(maxWidth: .infinity)
         }
         .controlSize(.large)
         .disabled(playing != nil || preparing || model.installing == game.titleID)
