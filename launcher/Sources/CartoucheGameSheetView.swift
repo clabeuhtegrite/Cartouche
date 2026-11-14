@@ -99,6 +99,12 @@ struct CartoucheGameSheetView: View {
     /// says of the game changes.
     private static let top = "top"
 
+    #if CARTOUCHE_GALLERY
+    /// How the gallery brings the sheet down to its saves, for their
+    /// screenshot, given SwiftUI's scroll to the row of the Switch saves.
+    static var galleryToSaves: ((@escaping @MainActor () -> Void) async -> Void)?
+    #endif
+
     var body: some View {
         ScrollViewReader { reader in
             List {
@@ -146,8 +152,8 @@ struct CartoucheGameSheetView: View {
                     }
                 }
 
-                if let app = entry.app, let saves = actions.saves(of: app) {
-                    CartoucheSavesSection(target: saves, isRunning: actions.isRunning(app))
+                if let app = entry.app, let game = switchGame(of: app) {
+                    CartoucheSavesSection(target: game.target, isRunning: actions.isRunning(app), switchGame: game)
                 }
 
                 if entry.isOwned {
@@ -181,9 +187,29 @@ struct CartoucheGameSheetView: View {
             .onChange(of: entry.player) { _, _ in
                 withAnimation { reader.scrollTo(Self.top, anchor: .top) }
             }
+            #if CARTOUCHE_GALLERY
+            // The gallery's screenshot of the sheet's saves, further down,
+            // once the game's saves are on the sheet.
+            .task(id: entry.app != nil) {
+                guard entry.app != nil, let toSaves = Self.galleryToSaves else { return }
+                await toSaves { reader.scrollTo(CartoucheSavesSection.switchRow, anchor: .center) }
+            }
+            #endif
         }
         // The header names the game: the bar above it stays empty.
         .navigationBarTitleDisplayMode(.inline)
+    }
+
+    /// The game's saves, and the game, for its saves between the player's
+    /// Switch and this iPhone; nil for an app that is not an nxnative game.
+    private func switchGame(of app: LCAppModel) -> CartoucheSwitchSaveGame? {
+        let target = actions.saves(of: app)
+        guard target != nil || CartoucheCatalog.shared.gameTitle(of: app) != nil else { return nil }
+        return CartoucheSwitchSaveGame(name: entry.name, titleId: target?.titleId ?? entry.titleId,
+                                       version: CartoucheInstalledBuilds.installedBuild(of: app).version,
+                                       isSwitch2: entry.platform == "switch2", target: target,
+                                       makeTarget: { actions.savesToImport(of: app) },
+                                       isRunningNow: { actions.isRunning(app) })
     }
 
     // MARK: Header

@@ -168,6 +168,7 @@ final class CartoucheGameActions: ObservableObject {
     /// gallery has none of, but for the game whose saves a scenario syncs
     /// (work: saves, GallerySaves).
     func saves(of app: LCAppModel) -> CartoucheSaveTarget? { GallerySaves.target(of: app) }
+    func savesToImport(of app: LCAppModel) -> CartoucheSaveTarget? { GallerySaves.target(of: app) }
     func copySaves(of apps: [LCAppModel]) {}
     /// Nor any folder to measure: the scenario gives each game its size and
     /// play time (CartoucheGameStats.showForGallery).

@@ -107,6 +107,18 @@ enum Words {
     static let putBack = "Put back a copy"                  // saves.putBack
     static let putBackCopy = "Put back the copy of "        // saves.putBack.action
     static let putBackDone = "The copy of "                 // saves.putBack.done
+    static let switchSaves = "Switch saves"                 // switchSave.title
+    static let chooseExport = "Choose the exported save"    // switchSave.choose
+    static let game = "Game"                                // switchSave.game
+    static let checkedByFiche = "This one, by JKSV’s fiche" // switchSave.game.checked
+    static let continueHere = "Continue this game here"     // switchSave.import.action
+    static let continueQuestion = "Continue this game here?" // switchSave.import.question
+    static let imported = "The game from your Switch is in place" // switchSave.import.done
+    static let putBackImport = "Put back the game from before the import" // switchSave.putBack
+    static let putBackImportQuestion = "Put back the game from before the import?" // switchSave.putBack.question
+    static let putBackImportDone = "The game from before the import is back." // switchSave.putBack.done
+    static let makeZip = "Make the ZIP for JKSV"            // switchSave.send.make
+    static let shareZip = "Share "                          // switchSave.send.share
     static let siriAndHomeScreen = "Siri and Home Screen"   // shortcuts.title
     static let sayToSiri = "Say to Siri"                    // shortcuts.siri
     static let siriPhrase = "“Play %@ in Cartouche”"        // shortcuts.phrase
@@ -128,6 +140,12 @@ enum GalleryWords {
     static let signedInAs = "player@icloud.com"
     /// The folder in Files the saves are kept in (GallerySaves).
     static let savesFolder = "Gallery saves"
+    /// The save JKSV exported on the Switch, in On My iPhone (uitests.sh)
+    /// and in the gallery's folder (GallerySaves), named as JKSV names it,
+    /// the player and the time: FilesPicker.pick taps the
+    /// first element whose label begins as the file's name, so no label on
+    /// the screen under the picker may (Switch saves, for "Switch save").
+    static let switchExport = "Player - 2026-11-13_15-20-00.zip"
     /// The stand-in start's alert, and what Siri would say, over the
     /// console (GalleryTesting.swift).
     static let play = "Gallery play"
@@ -664,7 +682,9 @@ struct FilesPicker {
     /// Picks FILE, which the picker may show without its extension: where
     /// the picker opened, as after an earlier pick, else in On My iPhone,
     /// where uitests.sh puts it, from Browse, else in the gallery's own
-    /// folder there, where the gallery writes it too.
+    /// folder there, where the gallery writes it too, which a picker that
+    /// takes folders as well, as the one of a Switch save, did not open on
+    /// a tap (2026-11-14).
     func pick(_ file: String) {
         let name = (file as NSString).deletingPathExtension
         if let item = item(name, timeout: 5) {
@@ -700,9 +720,19 @@ struct FilesPicker {
     }
 
     /// Picks ITEM, unless the picker shows it greyed out: of a type the
-    /// import does not take.
+    /// import does not take. A picker that takes folders as well may only
+    /// select the file a tap picks in another, for its Open button to pick:
+    /// Open then, once the file shows as selected, never for the folder
+    /// shown, which Open would pick when nothing is.
     private func choose(_ item: XCUIElement, _ file: String) {
         test.expect(item.isEnabled, "The Files picker shows \(file) greyed out: \(item.debugDescription)", in: app)
         open(item)
+        guard !waitForItToGo(10), item.exists else { return }
+        let openButton = app.buttons["DOCPicker.actionButton"]
+        print("== The Files picker stayed 10 s after the tap on \(file): selected \(item.isSelected), "
+              + "Open \(openButton.exists ? (openButton.isEnabled ? "enabled" : "greyed out") : "absent")")
+        if item.isSelected, openButton.exists, openButton.isEnabled {
+            openButton.tap()
+        }
     }
 }

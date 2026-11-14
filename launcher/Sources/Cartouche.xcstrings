@@ -10473,6 +10473,771 @@
         }
       }
     },
+    "switchSave.choose" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Choose the exported save"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Choisir la sauvegarde exportée"
+          }
+        }
+      }
+    },
+    "switchSave.content" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Content"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Contenu"
+          }
+        }
+      }
+    },
+    "switchSave.failed.import" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The game from your Switch was not put in place"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "La partie de votre Switch n’a pas été mise en place"
+          }
+        }
+      }
+    },
+    "switchSave.failed.putBack" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The game from before the import was not put back"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "La partie d’avant l’import n’a pas été remise"
+          }
+        }
+      }
+    },
+    "switchSave.failed.read" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The save was not read"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "La sauvegarde n’a pas été lue"
+          }
+        }
+      }
+    },
+    "switchSave.failed.send" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The ZIP for the Switch was not made"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Le ZIP pour la Switch n’a pas été fait"
+          }
+        }
+      }
+    },
+    "switchSave.files.many" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld files, %@"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld fichiers, %@"
+          }
+        }
+      }
+    },
+    "switchSave.files.one" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "1 file, %@"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "1 fichier, %@"
+          }
+        }
+      }
+    },
+    "switchSave.game" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Game"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Jeu"
+          }
+        }
+      }
+    },
+    "switchSave.game.checked" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This one, by JKSV’s fiche"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Celui-ci, d’après la fiche de JKSV"
+          }
+        }
+      }
+    },
+    "switchSave.game.unchecked" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Not checked: no JKSV fiche"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Non vérifié : pas de fiche de JKSV"
+          }
+        }
+      }
+    },
+    "switchSave.import.action" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Continue this game here"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Reprendre cette partie ici"
+          }
+        }
+      }
+    },
+    "switchSave.import.done" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The game from your Switch is in place: start the game to continue it."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "La partie de votre Switch est en place : lancez le jeu pour la reprendre."
+          }
+        }
+      }
+    },
+    "switchSave.import.footer" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The game on your Switch should not be newer than this iPhone’s: a game may not read the save of a newer version."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Le jeu de votre Switch ne doit pas être plus récent que celui de cet iPhone : un jeu ne lit pas toujours la sauvegarde d’une version plus récente."
+          }
+        }
+      }
+    },
+    "switchSave.import.header" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Continue a game from the Switch"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Reprendre une partie de la Switch"
+          }
+        }
+      }
+    },
+    "switchSave.import.intro" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "On your Switch, export this game’s save with JKSV or Checkpoint, then put its folder or its ZIP on this iPhone, in Files: from the microSD card with a USB-C reader, through iCloud Drive or from your NAS."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sur votre Switch, exportez la sauvegarde de ce jeu avec JKSV ou Checkpoint, puis mettez son dossier ou son ZIP sur cet iPhone, dans Fichiers : depuis la carte microSD avec un lecteur USB-C, par iCloud Drive ou depuis votre NAS."
+          }
+        }
+      }
+    },
+    "switchSave.import.message" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "It replaces this game’s save on this iPhone, which Cartouche keeps here: you can put it back."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Elle remplace la sauvegarde de ce jeu sur cet iPhone, que Cartouche garde ici : vous pourrez la remettre."
+          }
+        }
+      }
+    },
+    "switchSave.import.message.folder" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "It replaces this game’s save on this iPhone, which Cartouche keeps here: you can put it back. It then goes to your saves folder, as the newest copy."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Elle remplace la sauvegarde de ce jeu sur cet iPhone, que Cartouche garde ici : vous pourrez la remettre. Elle part ensuite dans votre dossier des sauvegardes, comme la copie la plus récente."
+          }
+        }
+      }
+    },
+    "switchSave.import.question" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Continue this game here?"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Reprendre cette partie ici ?"
+          }
+        }
+      }
+    },
+    "switchSave.import.sending" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "It goes to your saves folder too, for your other iPhones."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Elle part aussi dans votre dossier des sauvegardes, pour vos autres iPhone."
+          }
+        }
+      }
+    },
+    "switchSave.kind" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Save"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sauvegarde"
+          }
+        }
+      }
+    },
+    "switchSave.kind.account" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A player’s"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "D’un joueur"
+          }
+        }
+      }
+    },
+    "switchSave.kind.device" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The console’s"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "De la console"
+          }
+        }
+      }
+    },
+    "switchSave.problem.case" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Two of its files differ only by their capitals, %1$@ and %2$@: the iPhone cannot keep both."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Deux de ses fichiers ne diffèrent que par leurs majuscules, %1$@ et %2$@ : l’iPhone ne peut pas garder les deux."
+          }
+        }
+      }
+    },
+    "switchSave.problem.cloudPull" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "nxnative did not finish bringing this game’s save from iCloud: start the game once, then come back."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "nxnative n’a pas fini de ramener la sauvegarde de ce jeu depuis iCloud : lancez le jeu une fois, puis revenez."
+          }
+        }
+      }
+    },
+    "switchSave.problem.empty" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "There is no save in it: choose the folder or the ZIP that JKSV or Checkpoint made."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Il n’y a pas de sauvegarde dedans : choisissez le dossier ou le ZIP que JKSV ou Checkpoint a faits."
+          }
+        }
+      }
+    },
+    "switchSave.problem.notAGame" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "It is not a game’s save, but system, BCAT or cache data."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ce n’est pas la sauvegarde d’une partie, mais des données du système, BCAT ou de cache."
+          }
+        }
+      }
+    },
+    "switchSave.problem.otherGame" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "It is the save of another game: %@."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "C’est la sauvegarde d’un autre jeu : %@."
+          }
+        }
+      }
+    },
+    "switchSave.problem.several" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "It holds more than one save: choose the folder or the ZIP of one."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Il contient plus d’une sauvegarde : choisissez le dossier ou le ZIP d’une seule."
+          }
+        }
+      }
+    },
+    "switchSave.problem.startFirst" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "It is the console’s save: start the game once, then come back, and Cartouche will know where it goes."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "C’est la sauvegarde de la console : lancez le jeu une fois, puis revenez, et Cartouche saura où la mettre."
+          }
+        }
+      }
+    },
+    "switchSave.problem.unreadable" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "It is not a save Cartouche can read."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ce n’est pas une sauvegarde que Cartouche sait lire."
+          }
+        }
+      }
+    },
+    "switchSave.putBack" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Put back the game from before the import"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Remettre la partie d’avant l’import"
+          }
+        }
+      }
+    },
+    "switchSave.putBack.done" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The game from before the import is back."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "La partie d’avant l’import est revenue."
+          }
+        }
+      }
+    },
+    "switchSave.putBack.footer" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cartouche kept this iPhone’s save when the game from your Switch replaced it, on %@."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cartouche a gardé la sauvegarde de cet iPhone quand la partie de votre Switch l’a remplacée, le %@."
+          }
+        }
+      }
+    },
+    "switchSave.putBack.message" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "It replaces the game from your Switch on this iPhone, which Cartouche keeps too."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Elle remplace la partie de votre Switch sur cet iPhone, que Cartouche garde aussi."
+          }
+        }
+      }
+    },
+    "switchSave.putBack.question" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Put back the game from before the import?"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Remettre la partie d’avant l’import ?"
+          }
+        }
+      }
+    },
+    "switchSave.running" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Quit the game to bring in or send its save."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Quittez le jeu pour reprendre ou envoyer sa sauvegarde."
+          }
+        }
+      }
+    },
+    "switchSave.send.footer" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Put the ZIP on your Switch’s microSD card, in the game’s folder of JKSV (JKSV, then the game’s name), then restore it in JKSV over the game’s save."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mettez le ZIP sur la carte microSD de votre Switch, dans le dossier du jeu de JKSV (JKSV, puis le nom du jeu), puis restaurez-le dans JKSV sur la sauvegarde du jeu."
+          }
+        }
+      }
+    },
+    "switchSave.send.header" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Send this game to the Switch"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Envoyer cette partie vers la Switch"
+          }
+        }
+      }
+    },
+    "switchSave.send.make" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Make the ZIP for JKSV"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Préparer le ZIP pour JKSV"
+          }
+        }
+      }
+    },
+    "switchSave.send.none" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This game has no save on this iPhone yet."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ce jeu n’a pas encore de sauvegarde sur cet iPhone."
+          }
+        }
+      }
+    },
+    "switchSave.send.share" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Share %@"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Partager %@"
+          }
+        }
+      }
+    },
+    "switchSave.switch2" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No public tool exports a Switch 2 game’s save yet."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aucun outil public n’exporte encore la sauvegarde d’un jeu de la Switch 2."
+          }
+        }
+      }
+    },
+    "switchSave.title" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Switch saves"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sauvegardes de la Switch"
+          }
+        }
+      }
+    },
+    "switchSave.version" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Version on this iPhone"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Version sur cet iPhone"
+          }
+        }
+      }
+    },
     "system.auto" : {
       "extractionState" : "manual",
       "localizations" : {
