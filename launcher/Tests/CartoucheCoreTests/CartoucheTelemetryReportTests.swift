@@ -354,6 +354,96 @@ final class CartoucheTelemetryReportTests: XCTestCase {
         XCTAssertEqual(queue.entries.map(\.id), ["new"])
     }
 
+    /// A game in Cartouche's place had the limit its log tells at its peak:
+    /// Cartouche read another, after the game, on the same iPhone.
+    func testASessionInCartouchesPlaceHasTheLimitTheGameHad() {
+        XCTAssertEqual(CartoucheSessionReport.memoryLimit(cartouche: 6144, atPeak: 8192, process: nil), 8192)
+        XCTAssertEqual(CartoucheSessionReport.memoryLimit(cartouche: nil, atPeak: 8192, process: nil), 8192)
+        // The same limit, to the MiB the log rounds to: Cartouche's, to the byte.
+        XCTAssertEqual(CartoucheSessionReport.memoryLimit(cartouche: 6143, atPeak: 6144, process: nil), 6143)
+        XCTAssertEqual(CartoucheSessionReport.memoryLimit(cartouche: 6144, atPeak: 6145, process: nil), 6144)
+        // A log without the headroom, such as the Mac's.
+        XCTAssertEqual(CartoucheSessionReport.memoryLimit(cartouche: 6144, atPeak: nil, process: nil), 6144)
+        // Behind the console, the game's process had its own: the report
+        // keeps Cartouche's beside it.
+        let process = CartoucheGameProcess(limitMiB: 3376, peakMiB: 3000, lastAvailableMiB: 376, quit: true, screens: [])
+        XCTAssertEqual(CartoucheSessionReport.memoryLimit(cartouche: 6144, atPeak: 3377, process: process), 6144)
+    }
+
+    // MARK: Launches
+
+    private func launchMark() throws -> (mark: CartoucheLaunchMark, defaults: UserDefaults, suite: String) {
+        let suite = "CartoucheTelemetryReportTests-\(UUID().uuidString)"
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
+        return (CartoucheLaunchMark(defaults: defaults), defaults, suite)
+    }
+
+    /// A launch that stopped before the console had its games: the next one
+    /// says it, once, with how far it got.
+    func testALaunchThatNeverGotThereIsToldByTheNext() throws {
+        let (mark, defaults, suite) = try launchMark()
+        defer { defaults.removePersistentDomain(forName: suite) }
+
+        XCTAssertNil(mark.begin(version: "0.12.1", at: now), "the first launch")
+        XCTAssertTrue(mark.isGoingOn)
+        mark.note(at: now.addingTimeInterval(2)) { $0.listed = true }
+        mark.note(at: now.addingTimeInterval(7))
+        mark.note(at: now.addingTimeInterval(6)) { $0.background = true }
+
+        let later = now.addingTimeInterval(3_600)
+        let unfinished = try XCTUnwrap(mark.begin(version: "0.12.2", at: later))
+        XCTAssertEqual(unfinished.version, "0.12.1")
+        XCTAssertEqual(unfinished.started, now)
+        let fields = unfinished.fields(now: later)
+        XCTAssertEqual(fields["version"], .text("0.12.1"))
+        XCTAssertEqual(fields["listed"], .flag(true))
+        XCTAssertEqual(fields["checked"], .flag(false))
+        XCTAssertEqual(fields["background"], .flag(true))
+        XCTAssertEqual(fields["seconds"], .number(7), "the last time it was seen")
+        XCTAssertEqual(fields["minutesBefore"], .number(60))
+        for key in fields.keys {
+            XCTAssertTrue(CartoucheTelemetrySettings.isWord(key), key)
+        }
+        let event = try XCTUnwrap(CartoucheEventReport(id: "3d9b2f5e-0000-4000-8000-000000000002", seq: 9, context: context,
+                                                       name: "app.unfinished", fields: fields))
+        XCTAssertEqual(event.fields, fields, "the server takes every field")
+
+        // The launch that told it is the one that runs now.
+        XCTAssertEqual(mark.launch?.version, "0.12.2")
+        XCTAssertEqual(mark.launch?.started, later)
+        XCTAssertNil(mark.launch?.ended)
+    }
+
+    /// A launch that got to the console, or to a game in Cartouche's place,
+    /// leaves nothing to tell; nor does one telemetry was off for.
+    func testALaunchThatGotThereIsNotTold() throws {
+        let (mark, defaults, suite) = try launchMark()
+        defer { defaults.removePersistentDomain(forName: suite) }
+
+        _ = mark.begin(version: "0.12.1", at: now)
+        mark.note(at: now.addingTimeInterval(4)) { $0.ended = .opened }
+        XCTAssertFalse(mark.isGoingOn)
+        // Nothing changes it once it got there.
+        mark.note(at: now.addingTimeInterval(9)) { $0.background = true }
+        XCTAssertEqual(mark.launch?.background, false)
+        XCTAssertEqual(mark.launch?.noted, now.addingTimeInterval(4))
+        XCTAssertNil(mark.begin(version: "0.12.1", at: now.addingTimeInterval(60)))
+
+        mark.note(at: now.addingTimeInterval(61)) { $0.ended = .game }
+        XCTAssertNil(mark.begin(version: "0.12.1", at: now.addingTimeInterval(120)), "a game took its place")
+
+        mark.clear()
+        XCTAssertFalse(mark.isGoingOn)
+        mark.note(at: now.addingTimeInterval(121)) { $0.listed = true }
+        XCTAssertNil(mark.launch, "no launch to note")
+        XCTAssertNil(mark.begin(version: "0.12.1", at: now.addingTimeInterval(180)))
+
+        // What an older or a damaged mark left is no launch.
+        defaults.set(Data("{".utf8), forKey: CartoucheLaunchMark.key)
+        XCTAssertNil(mark.launch)
+        XCTAssertNil(mark.begin(version: "0.12.1", at: now.addingTimeInterval(240)))
+    }
+
     /// A log keeps its creation date when nxnative renames it: read once,
     /// unless it grew since.
     func testALogIsReadOnceUnlessItGrew() {

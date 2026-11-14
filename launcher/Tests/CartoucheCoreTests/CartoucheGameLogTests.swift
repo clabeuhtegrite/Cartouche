@@ -19,7 +19,8 @@ final class CartoucheGameLogTests: XCTestCase {
     [dm] build: commit 6c3aeb3d70a1, shader chain 844bf1a5ea8f, profile mkw
     [dm] front end: thermal state 0, brightness 0.50, Low Power Mode off
     [dm] [nvn-mtl] pipeline prepare: 13394 lines (9000 shaders, 13000 render pipelines, 394 compute pipelines) in 21.43 s on 6 workers before the first frame, progress screen shown; bases 100 compiled, 13294 from the archive, 0 reused; 12 specializations
-    [dm] front end: layout split, hinge 0, divisions (), picture {{0, 0}, {393, 221}}, controls {{0, 221}, {393, 631}}
+    [dm] front end: layout split, hinge 0, divisions (
+    ), picture {{0, 0}, {393, 221}}, controls {{0, 221}, {393, 631}}
     [dm] [nvn] timing up to frame 300: frame time p50 16.67 / p95 18.90 / max 61.00 ms (300 frames); frame work p50 10.00 / p95 12.00 / max 30.00 ms (300 frames); NVN submit+present p50 2.00 / p95 3.00 / max 5.00 ms (300 frames); GPU p50 9.80 / p95 14.20 / max 20.00 ms (292 frames);
     [dm] [nvn] pipelines up to frame 300: on the submit thread pipelines 150.5 ms, shader libraries 0.0 ms, predictions 3 / 1.0 ms; all threads: archive lookups found 10 / 2.0 ms, found none 2 / 0.5 ms, specializations 1 / 0.2 ms, bases compiled 2 / 50.0 ms; draws with a hybrid pipeline 0 (0 pulling pipelines made, 0 misses with no pulling base ready); background builds kicked 0, done 0, made by the draw 0, in flight 0; draws that waited:
     [dm] [nvn] frame interval up to frame 300: >16.7ms 6 / 300 frames, p99 33.40 ms
@@ -75,7 +76,8 @@ final class CartoucheGameLogTests: XCTestCase {
         XCTAssertNil(measures.guestFile)
         XCTAssertEqual(measures.upscaler, CartoucheGameMeasures.Upscaler(kind: "metalfx", gpuMs: 1.2))
         XCTAssertEqual(measures.audioUnderrunsPerMinute, 1)
-        XCTAssertEqual(measures.display, CartoucheGameMeasures.Display(tv: true, foldSplit: true))
+        // An iPhone without a fold: nxnative splits it in portrait too.
+        XCTAssertEqual(measures.display, CartoucheGameMeasures.Display(tv: true, foldSplit: false))
         XCTAssertEqual(measures.dlc, true)
         XCTAssertEqual(measures.end, CartoucheGameMeasures.End(kind: "crash", signal: 11, pc: "main+0x1a2b3c", lr: "main+0x1a2b00"))
     }
@@ -113,7 +115,7 @@ final class CartoucheGameLogTests: XCTestCase {
         // A session whose every stretch held a pause has no rate, rather
         // than one its frame times would make up.
         XCTAssertNil(measures(stretch(600, fps: "4.6", longestMs: "60012.00")).fps)
-        XCTAssertEqual(CartoucheGameLogReader.version, 2, "the server counts the slowest 5% from this reading on")
+        XCTAssertGreaterThanOrEqual(CartoucheGameLogReader.version, 2, "the server counts the slowest 5% from this reading on")
     }
 
     /// Without power lines, the rate comes from the frame times.
@@ -130,6 +132,127 @@ final class CartoucheGameLogTests: XCTestCase {
         XCTAssertEqual(measures(near, limitMiB: nil).end?.kind, "unknown")
         let far = "[dm] [nvn] on-screen up to frame 9000: 300 frames, dropped 0 (discarded 0), p99 17.00 ms; footprint 3000 MiB; brightness 0.50; thermal 0"
         XCTAssertEqual(measures(far).end?.kind, "unknown")
+    }
+
+    /// A memory line of nxnative: the footprint and the headroom to the
+    /// limit, each rounded down to the MiB (nvn_mtl.m, mtl_mem_stat).
+    private func memoryLine(_ frame: Int, resident: Int, headroom: String) -> String {
+        "[dm] [nvn-mtl] memory up to frame \(frame): resident \(resident) MB, GPU allocated 2000 MB, deferred-release queue 0, residency set 12, serial objects 3; headroom to the system memory limit \(headroom)"
+    }
+
+    private func onScreen(_ frame: Int, footprint: Int) -> String {
+        "[dm] [nvn] on-screen up to frame \(frame): 300 frames, dropped 0 (discarded 0), p99 17.00 ms; footprint \(footprint) MiB; brightness 0.50; thermal 0"
+    }
+
+    /// The limit changes as a game plays: Cartouche read 6,144 MiB as it
+    /// read the log, after the game, which had 8,192 at its peak and went
+    /// over 6,144 (the telemetry of November 14).
+    func testTheLimitIsTheOneTheGameHadAtItsPeak() {
+        var reader = CartoucheGameLogReader()
+        reader.read(text: [
+            memoryLine(300, resident: 2900, headroom: "3243 MB"),
+            memoryLine(3300, resident: 6500, headroom: "1691 MB"),
+            // Game Mode off again, after the peak.
+            memoryLine(6300, resident: 5000, headroom: "1143 MB"),
+        ].joined(separator: "\n"))
+        XCTAssertEqual(reader.limitAtPeakMiB, 8192)
+
+        // The Mac writes no headroom; nor did a log without memory lines.
+        var mac = CartoucheGameLogReader()
+        mac.read(memoryLine(300, resident: 2900, headroom: "none"))
+        XCTAssertNil(mac.limitAtPeakMiB)
+        XCTAssertNil(CartoucheGameLogReader().limitAtPeakMiB)
+        var huge = CartoucheGameLogReader()
+        huge.read(memoryLine(300, resident: Int.max, headroom: "9223372036854775807 MB"))
+        XCTAssertNil(huge.limitAtPeakMiB, "a number past any memory is none")
+    }
+
+    /// A game whose footprint ended 300 MiB under the limit Cartouche read
+    /// later, but far under its own: the end says nothing of its memory.
+    func testAGameFarFromTheLimitItHadDidNotRunOutOfMemory() {
+        let far = memoryLine(9000, resident: 5900, headroom: "2291 MB") + "\n" + onScreen(9300, footprint: 5900)
+        XCTAssertEqual(measures(far, limitMiB: 6144).end?.kind, "unknown")
+        let near = memoryLine(9000, resident: 7000, headroom: "1191 MB") + "\n" + onScreen(9300, footprint: 7950)
+        XCTAssertEqual(measures(near, limitMiB: 6144).end?.kind, "memory-likely")
+        // Without a headroom, the limit Cartouche read.
+        let mac = memoryLine(9000, resident: 5900, headroom: "none") + "\n" + onScreen(9300, footprint: 5900)
+        XCTAssertEqual(measures(mac, limitMiB: 6144).end?.kind, "memory-likely")
+    }
+
+    /// An iPhone Duo unfolded, upright: nxnative puts the picture above the
+    /// fold UIKit reports, and the controls under it (front_ios.m,
+    /// DmLayout.h). Each division takes a line of its own.
+    private let duoSplit = """
+    [dm] front end: layout split, hinge 3, divisions (
+        "{{0, 437}, {669, 24}} active=1"
+    ), picture {{0, 60}, {669, 376}}, controls {{0, 461}, {669, 490}}
+    """
+
+    func testThePictureAndTheControlsOnEitherSideOfTheFold() {
+        XCTAssertEqual(measures(duoSplit).display?.foldSplit, true)
+        // As nxnative wrote it before its divisions took a line each.
+        let oneLine = "[dm] front end: layout split, hinge 3, divisions (\"{{0, 437}, {669, 24}} active=0\"), picture {{0, 60}, {669, 376}}, controls {{0, 461}, {669, 490}}"
+        XCTAssertEqual(measures(oneLine).display?.foldSplit, true)
+    }
+
+    /// nxnative splits an iPhone without a fold too, upright, at the middle
+    /// of its screen: in November, 95 sessions out of 204 said a fold.
+    func testAnIPhoneWithoutAFoldHasNone() {
+        let upright = """
+        [dm] front end: layout split, hinge 0, divisions (
+        ), picture {{0, 136}, {402, 226}}, controls {{0, 437}, {402, 437}}
+        """
+        XCTAssertEqual(measures(upright).display?.foldSplit, false)
+        let oneLine = "[dm] front end: layout split, hinge 0, divisions (), picture {{0, 136}, {402, 226}}, controls {{0, 437}, {402, 437}}"
+        XCTAssertEqual(measures(oneLine).display?.foldSplit, false)
+        // The Duo folded: its outer screen.
+        let folded = """
+        [dm] front end: layout split, hinge 1, divisions (
+        ), picture {{0, 120}, {466, 262}}, controls {{0, 339}, {466, 339}}
+        """
+        XCTAssertEqual(measures(folded).display?.foldSplit, false)
+    }
+
+    /// A division the picture and the controls are not on either side of.
+    func testADivisionTheLayoutDidNotSplitAt() {
+        // The Duo unfolded on its side: the picture over the whole screen.
+        let wide = """
+        [dm] front end: layout overlay, hinge 3, divisions (
+            "{{463, 0}, {24, 669}} active=1"
+        ), picture {{0, 67}, {951, 535}}, controls {{0, 0}, {951, 669}}
+        """
+        XCTAssertEqual(measures(wide).display?.foldSplit, false)
+        // A division taller than wide, upright: split at the middle.
+        let tall = """
+        [dm] front end: layout split, hinge 3, divisions (
+            "{{322, 0}, {24, 951}} active=1",
+            "{{0, 100}, {200, 24}} active=0"
+        ), picture {{0, 120}, {669, 376}}, controls {{0, 475.5}, {669, 475.5}}
+        """
+        XCTAssertEqual(measures(tall).display?.foldSplit, false)
+        // The picture on the TV.
+        let tv = """
+        [dm] front end: layout pad only (picture on the TV), hinge 3, divisions (
+            "{{0, 437}, {669, 24}} active=1"
+        ), picture {{0, 0}, {0, 0}}, controls {{0, 0}, {669, 951}}
+        """
+        XCTAssertEqual(measures(tv).display?.foldSplit, false)
+    }
+
+    /// A line another part of nxnative wrote in the middle of the list:
+    /// the layout is left out, the line is read.
+    func testAListCutByAnotherLineIsLeftOut() {
+        let cut = """
+        [dm] front end: layout split, hinge 3, divisions (
+        [dm] front end: thermal state → 2 (30 s after launch)
+            "{{0, 437}, {669, 24}} active=1"
+        ), picture {{0, 60}, {669, 376}}, controls {{0, 461}, {669, 490}}
+        """
+        let measures = measures(cut, seconds: 60)
+        XCTAssertEqual(measures.display?.foldSplit, false)
+        XCTAssertEqual(measures.thermal?.serious, 0.5)
+        // The next layout reads as before.
+        XCTAssertEqual(self.measures(cut + "\n" + duoSplit).display?.foldSplit, true)
     }
 
     func testABootThatFailedBeforeAnyFrame() {

@@ -11,8 +11,9 @@
 //  line for each frame clearly longer than the ones before it, with the
 //  pipelines and textures it waited for; the pipeline preparation before
 //  the first frame and memory readings (nvn_mtl.m); the iPhone's thermal
-//  state and Low Power Mode as they change (front_ios.m); audio underruns
-//  (hle_audio.c); and the crash line of a game that crashed (crash.c).
+//  state and Low Power Mode as they change, and the layout of the picture
+//  and the controls (front_ios.m); audio underruns (hle_audio.c); and the
+//  crash line of a game that crashed (crash.c).
 //
 //  Only numbers come out of it, never a line: the log holds paths, and
 //  lines that may look like keys. A line it does not know, or whose numbers
@@ -99,7 +100,10 @@ struct CartoucheGameMeasures: Codable, Equatable {
     struct Display: Codable, Equatable {
         /// The picture went to a TV.
         var tv: Bool
-        /// The picture and the controls on either side of an iPhone Duo's fold.
+        /// The picture and the controls on either side of an iPhone Duo's
+        /// fold: nxnative split them at a division UIKit reports. Not the
+        /// split of an iPhone without a fold, which nxnative also makes, at
+        /// the middle of the screen, in portrait (CartoucheGameLogReader.readLayout).
         var foldSplit: Bool
     }
 
@@ -152,8 +156,12 @@ struct CartoucheGameLogReader {
     /// a change to nxnative's lines, or to the reading, changes what it
     /// reads. 2 leaves out of the frame rate the stretches that held a
     /// pause (pauseMs); the server counts the slowest 5% from it on
-    /// (telemetry/sheets.py, SLOWEST_READER).
-    static let version = 2
+    /// (telemetry/sheets.py, SLOWEST_READER). 3 ties display.foldSplit to
+    /// a Duo's fold, and judges the end against the limit the log's memory
+    /// lines tell: before it, foldSplit was true for any iPhone upright,
+    /// and the end was judged against the limit Cartouche read when it
+    /// read the log (telemetry/dashboard, FOLD_READER).
+    static let version = 3
     /// A frame this long is a pause, not a slow frame: the game left behind
     /// the console, Cartouche in the background, or a freeze. nxnative
     /// times each stretch of 300 frames by the clock (power_line,
@@ -166,6 +174,24 @@ struct CartoucheGameLogReader {
     /// Headroom under which a game that stopped without a line most likely
     /// ran out of memory.
     static let memoryMarginMiB = 300
+    /// A memory reading this large or larger is none.
+    private static let largestMiB = 1 << 22
+
+    /// A layout nxnative made: whether it split the picture from the
+    /// controls, and the divisions UIKit reported.
+    private struct Layout {
+        var split: Bool
+        var divisions: [Frame]
+    }
+
+    /// A frame of the layout line, in points.
+    private struct Frame {
+        var x: Double
+        var y: Double
+        var width: Double
+        var height: Double
+        var maxY: Double { y + height }
+    }
 
     private var lastFrame: Int?
     private var frameP50: [Double] = []
@@ -200,6 +226,9 @@ struct CartoucheGameLogReader {
     private var gpuAllocatedPeak: Int?
     private var headroomLowest: Int?
     private var lastHeadroom: Int?
+    /// The highest footprint a memory line read, and the limit iOS set then.
+    private var memoryPeak: (residentMiB: Int, limitMiB: Int)?
+    private var lastLimit: Int?
     private var exactPeakMiB: Double?
     private var guestFile = false
     private var upscalerKind: String?
@@ -209,6 +238,9 @@ struct CartoucheGameLogReader {
     private var sawFrontEnd = false
     private var tv = false
     private var foldSplit = false
+    /// The layout line nxnative is still writing: its divisions take a
+    /// line each (readLayout).
+    private var layout: Layout?
     private var dlc = false
     private var thermalStart: Int?
     private var thermalChanges: [(seconds: Double, state: Int)] = []
@@ -218,6 +250,13 @@ struct CartoucheGameLogReader {
     private var bootProblem = false
 
     init() {}
+
+    /// The memory limit iOS set for the game when its footprint was the
+    /// highest a memory line of nxnative read: the limit changes as a game
+    /// plays, as Game Mode comes on, and the one Cartouche reads when it
+    /// reads the log, later, may not be the game's. Nil without a memory
+    /// line that has the headroom: the Mac writes none.
+    var limitAtPeakMiB: Int? { memoryPeak?.limitMiB }
 
     /// Reads the log at URL, or nil if it cannot be opened.
     static func read(contentsOf url: URL) -> CartoucheGameLogReader? {
@@ -257,6 +296,7 @@ struct CartoucheGameLogReader {
     // MARK: Lines
 
     mutating func read(_ line: String) {
+        if layout != nil, readDivision(line) { return }
         if line.contains("[nvn] ") {
             readSummary(line)
         } else if line.contains("[longframe] ") {
@@ -366,19 +406,84 @@ struct CartoucheGameLogReader {
             if lowPowerStart == nil { lowPowerStart = groups[1] == "on" }
         } else if line.contains("front end: TV connected") {
             tv = true
-        } else if line.contains("front end: layout split") {
+        } else if let start = line.range(of: "front end: layout ") {
+            readLayout(line[start.upperBound...])
+        }
+    }
+
+    /// A layout of the picture and the controls (front_ios.m,
+    /// viewDidLayoutSubviews): "split", "overlay" or "pad only", the
+    /// divisions UIKit reports, such as an iPhone Duo's fold, then the
+    /// picture's frame and the controls'. The divisions are a list that
+    /// takes a line each, and a line that begins with ")" for its end:
+    ///
+    ///     [dm] front end: layout split, hinge 0, divisions (
+    ///         "{{0, 437}, {669, 24}} active=0"
+    ///     ), picture {{0, 59}, {669, 376}}, controls {{0, 461}, {669, 490}}
+    ///
+    /// nxnative splits an iPhone without a fold too, in portrait, at the
+    /// middle of its screen (DmLayout.h, dm_layout). The split is at the
+    /// fold when the controls begin where a division wider than tall ends.
+    private mutating func readLayout(_ rest: Substring) {
+        layout = nil
+        guard let open = rest.range(of: "divisions (") else { return }
+        var found = Layout(split: rest.hasPrefix("split,"), divisions: [])
+        let list = rest[open.upperBound...]
+        guard let close = list.firstIndex(of: ")") else {
+            layout = found
+            return
+        }
+        found.divisions = Self.allGroups(Self.division, String(list[..<close])).compactMap(Self.frame)
+        endLayout(found, String(list[close...]))
+    }
+
+    /// A line of the division list a layout is writing: a division, or the
+    /// end of the list, with the picture and the controls. False for any
+    /// other line, which another part of nxnative wrote in between: that
+    /// layout is left out.
+    private mutating func readDivision(_ line: String) -> Bool {
+        guard var found = layout else { return false }
+        layout = nil
+        let trimmed = line.drop { $0 == " " || $0 == "\t" }
+        if trimmed.hasPrefix(")") {
+            endLayout(found, String(trimmed))
+            return true
+        }
+        guard let division = Self.groups(Self.division, line).flatMap(Self.frame) else { return false }
+        found.divisions.append(division)
+        layout = found
+        return true
+    }
+
+    private mutating func endLayout(_ found: Layout, _ end: String) {
+        guard found.split, let controls = Self.groups(Self.controls, end).flatMap(Self.frame) else { return }
+        // dm_horizontal_division: wider than tall, over nine tenths of the
+        // width; dm_layout puts the controls under it.
+        if found.divisions.contains(where: { division in
+            division.width > division.height && division.width >= controls.width * 0.9
+                && abs(division.maxY - controls.y) < 1
+        }) {
             foldSplit = true
         }
     }
 
     private mutating func readMemory(_ line: String) {
+        var resident: Int?
         if let groups = Self.groups(Self.memory, line), let gpu = Int(groups[2]) {
             noteFrame(Int(groups[0]))
             gpuAllocatedPeak = max(gpuAllocatedPeak ?? 0, gpu)
+            resident = Int(groups[1])
         }
         if let groups = Self.groups(Self.headroom, line), let headroom = Int(groups[0]) {
             headroomLowest = min(headroomLowest ?? headroom, headroom)
             lastHeadroom = headroom
+            // The footprint and the headroom, each rounded down to the MiB,
+            // add up to one less than the limit, a whole number of MiB.
+            if let resident, resident < Self.largestMiB, headroom < Self.largestMiB {
+                let limit = resident + headroom + 1
+                lastLimit = limit
+                if resident >= memoryPeak?.residentMiB ?? 0 { memoryPeak = (resident, limit) }
+            }
         }
     }
 
@@ -427,7 +532,8 @@ struct CartoucheGameLogReader {
     // MARK: Measures
 
     /// The measures of the session. SECONDS is how long it lasted, from its
-    /// log's dates; LIMIT the memory limit the game had, in MiB.
+    /// log's dates; LIMIT the memory limit the game had, in MiB, for a log
+    /// whose memory lines do not tell it.
     func measures(seconds: Double?, limitMiB: Int?) -> CartoucheGameMeasures {
         var measures = CartoucheGameMeasures()
         let duration = max(seconds ?? 0, latestSeconds)
@@ -508,7 +614,9 @@ struct CartoucheGameLogReader {
             measures.display = CartoucheGameMeasures.Display(tv: tv, foldSplit: foldSplit)
         }
         measures.dlc = dlc
-        measures.end = end(limitMiB: limitMiB)
+        // The limit as the game last had it: the one Cartouche read later
+        // may be another.
+        measures.end = end(limitMiB: lastLimit ?? limitMiB)
         return measures
     }
 
@@ -605,6 +713,13 @@ struct CartoucheGameLogReader {
         return value
     }
 
+    /// The frame the groups of the rectangle expression read.
+    private static func frame(_ groups: [String]) -> Frame? {
+        let values = groups.prefix(4).compactMap(number)
+        guard values.count == 4 else { return nil }
+        return Frame(x: values[0], y: values[1], width: values[2], height: values[3])
+    }
+
     /// A crash location nxnative writes as module+offset, such as
     /// main+0x1a2b3c; an address alone tells nothing once the game is gone.
     static func location(_ text: String) -> String? {
@@ -637,6 +752,10 @@ struct CartoucheGameLogReader {
         #"front end: thermal state ([0-9]+), brightness -?[0-9.]+, Low Power Mode (on|off)"#)
     private static let thermalChange = expression(#"front end: thermal state → ([0-9]+) \(([0-9.]+) s after launch\)"#)
     private static let lowPowerChange = expression(#"front end: Low Power Mode → (on|off) \(([0-9.]+) s after launch\)"#)
+    /// NSStringFromCGRect's {{x, y}, {width, height}}.
+    private static let rectangle = #"\{\{(-?[0-9.]+(?:e[-+]?[0-9]+)?), (-?[0-9.]+(?:e[-+]?[0-9]+)?)\}, \{([0-9.]+(?:e[-+]?[0-9]+)?), ([0-9.]+(?:e[-+]?[0-9]+)?)\}\}"#
+    private static let division = expression(rectangle + " active=[01]")
+    private static let controls = expression("controls " + rectangle)
     private static let memory = expression(#"memory up to frame ([0-9]+): resident ([0-9]+) MB, GPU allocated ([0-9]+) MB"#)
     private static let headroom = expression(#"headroom to the system memory limit ([0-9]+) MB"#)
     private static let prepareLine = expression(

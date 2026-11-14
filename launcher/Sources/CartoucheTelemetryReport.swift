@@ -43,7 +43,9 @@ struct CartoucheTelemetryContext: Codable, Equatable {
     var ios: String
     /// The language Cartouche shows.
     var language: String?
-    /// The memory limit iOS sets for Cartouche, which its games share.
+    /// The memory limit iOS sets for Cartouche, which a game started in its
+    /// place shares: in the report of such a game's session, the limit the
+    /// game had at its peak (CartoucheSessionReport.memoryLimit).
     var memoryLimitMiB: Int?
     var increasedMemoryLimit: Bool?
 }
@@ -94,6 +96,21 @@ struct CartoucheSessionReport: Codable, Equatable {
         self.minutes = minutes
         self.measures = measures
         self.process = process
+    }
+
+    /// The memory limit a session's report gives (memoryLimitMiB): for a
+    /// game in Cartouche's place, the one it had at its peak, as its log
+    /// tells it (CartoucheGameLogReader.limitAtPeakMiB), and not CARTOUCHE,
+    /// the one Cartouche read when it read the log, after the game: iOS
+    /// raises the limit as Game Mode comes on, and one iPhone gave 6,144 or
+    /// 8,192 MiB for the same game. Within a few MiB of it, the log's,
+    /// rounded to the MiB, is the same limit as Cartouche's, read to the
+    /// byte. Behind the console, the game's process had a limit of its own
+    /// (PROCESS), and the report keeps Cartouche's.
+    static func memoryLimit(cartouche: Int?, atPeak: Int?, process: CartoucheGameProcess?) -> Int? {
+        guard process == nil, let atPeak else { return cartouche }
+        if let cartouche, abs(cartouche - atPeak) <= 2 { return cartouche }
+        return atPeak
     }
 
     // The context and the measures sit beside the report's own keys.
@@ -528,5 +545,102 @@ struct CartoucheTelemetryRuns: Codable, Equatable {
         if runs.count > Self.capacity {
             runs.removeFirst(runs.count - Self.capacity)
         }
+    }
+}
+
+/// A launch of Cartouche, from its start until the console has its games
+/// and app.opened is sent, or until a game takes its process in its place.
+/// An iPhone stops an app without a word, whether it crashed, iOS ended it
+/// or the player closed it: Cartouche keeps each launch from its start
+/// (CartoucheLaunchMark), and the next launch says when one stopped before
+/// it got there, with app.unfinished, and how far it got.
+struct CartoucheTelemetryLaunch: Codable, Equatable {
+    enum Ending: String, Codable {
+        /// Cartouche sent app.opened.
+        case opened
+        /// A game started in Cartouche's place, which takes its process.
+        case game
+    }
+
+    /// How often a launch that has not got there yet says it still runs.
+    static let noteEvery: TimeInterval = 5
+
+    /// The version of Cartouche that launched: the next launch may be of
+    /// another, once the player updated it.
+    var version: String
+    var started: Date
+    /// When it was last seen: at each step, and every few seconds while
+    /// it runs.
+    var noted: Date
+    /// LiveContainer listed the installed apps, or five seconds passed.
+    var listed = false
+    /// The check of LiveContainer's certificate ended, or half a minute
+    /// passed.
+    var checked = false
+    /// Cartouche was in the background when it was last seen.
+    var background = false
+    var ended: Ending?
+
+    init(version: String, started: Date) {
+        self.version = version
+        self.started = started
+        noted = started
+    }
+
+    /// The fields of the app.unfinished event a launch at NOW sends for
+    /// this one: how far it got, how long it was seen, to within a few
+    /// seconds, and how long before.
+    func fields(now: Date) -> [String: CartoucheTelemetryValue] {
+        [
+            "version": .text(version),
+            "listed": .flag(listed),
+            "checked": .flag(checked),
+            "background": .flag(background),
+            "seconds": .number(max(noted.timeIntervalSince(started), 0).rounded()),
+            "minutesBefore": .number((max(now.timeIntervalSince(started), 0) / 60).rounded()),
+        ]
+    }
+}
+
+/// Where Cartouche keeps its launch until the next one: in its defaults,
+/// which a crash leaves as they were.
+struct CartoucheLaunchMark {
+    static let standard = CartoucheLaunchMark(defaults: .standard)
+    static let key = "CartoucheLaunch"
+    let defaults: UserDefaults
+
+    /// The launch, as it was last noted.
+    var launch: CartoucheTelemetryLaunch? {
+        defaults.data(forKey: Self.key).flatMap { try? JSONDecoder().decode(CartoucheTelemetryLaunch.self, from: $0) }
+    }
+
+    /// Whether a launch is noted that has not got there yet.
+    var isGoingOn: Bool {
+        launch.map { $0.ended == nil } ?? false
+    }
+
+    /// A launch of VERSION starts AT: the one before it, if it never got
+    /// there.
+    func begin(version: String, at date: Date) -> CartoucheTelemetryLaunch? {
+        let last = launch
+        write(CartoucheTelemetryLaunch(version: version, started: date))
+        return last?.ended == nil ? last : nil
+    }
+
+    /// What the launch got to, AT: nothing once it got there.
+    func note(at date: Date, _ change: (inout CartoucheTelemetryLaunch) -> Void = { _ in }) {
+        guard var noted = launch, noted.ended == nil else { return }
+        change(&noted)
+        noted.noted = max(noted.noted, date)
+        write(noted)
+    }
+
+    func clear() {
+        defaults.removeObject(forKey: Self.key)
+    }
+
+    private func write(_ launch: CartoucheTelemetryLaunch) {
+        guard let data = try? JSONEncoder().encode(launch) else { return }
+        defaults.set(data, forKey: Self.key)
     }
 }
