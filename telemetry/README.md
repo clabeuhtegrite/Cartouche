@@ -176,7 +176,7 @@ The deploy takes two secrets of the repository's environment `cloudflare`, and d
 - `CLOUDFLARE_API_TOKEN`: a token of the account with **Account › Workers Scripts › Edit** and **Account › D1 › Edit**;
 - `CLOUDFLARE_ACCOUNT_ID`: the account's ID.
 
-A third, `CARTOUCHE_REPORTS_TOKEN`, lets the Worker file problems: a fine-grained token of the repository `<owner>/cartouche-reports` alone (or the variable `CARTOUCHE_REPORTS_REPOSITORY`), private, with **Issues › Read and write**. The deploy binds it to the Worker as the secret `PROBLEMS_TOKEN`, with the repository as `PROBLEMS_REPOSITORY`, once it has checked with GitHub that the repository is private: it binds nothing to a public one. Without it, the server keeps the problems players send, and files them at the first daily run after a deploy with it. The job summary says where problems go.
+A third, `CARTOUCHE_REPORTS_TOKEN`, lets the Worker file problems: a fine-grained token of the repository `clabeuhtegrite/cartouche-reports` alone (or the variable `CARTOUCHE_REPORTS_REPOSITORY`), private, with **Issues › Read and write**. That repository stays with Cartouche's first owner when Cartouche moves to an organization. The deploy binds it to the Worker as the secret `PROBLEMS_TOKEN`, with the repository as `PROBLEMS_REPOSITORY`, once it has checked with GitHub that the repository is private: it binds nothing to a public one. Without it, the server keeps the problems players send, and files them at the first daily run after a deploy with it. The job summary says where problems go.
 
 Run the workflow by hand for a first deploy once they are set. The free plan is enough: 100,000 requests and 100,000 rows written a day.
 

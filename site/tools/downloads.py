@@ -16,11 +16,14 @@ publish the site again once they have published a release.
 The newest is the highest version among the releases that are neither
 drafts nor pre-releases and have the file, named as their workflow names it
 and served from this repository's releases, as Cartouche Builder picks its
-own updates (builder/mac/Sources/BuilderKit/Updater.swift). The script fails
-rather than publish a link to nothing: a file a page asks for that no release
-has, a mark on something else than a link, a page without a download link.
+own updates (builder/mac/Sources/BuilderKit/Updater.swift): those of the
+repository the workflow names, GITHUB_REPOSITORY, whose addresses GitHub's
+answer gives wherever the repository lives, once it has moved to an
+organization too. The script fails rather than publish a link to nothing: a
+file a page asks for that no release has, a mark on something else than a
+link, a page without a download link.
 
-usage: downloads.py RELEASES PAGE [PAGE ...]
+usage: downloads.py [--repository OWNER/NAME] RELEASES PAGE [PAGE ...]
 
 RELEASES is GitHub's list of releases, as `gh api --paginate --slurp
 repos/<owner>/<repo>/releases` writes it: a list of pages, or a single list.
@@ -37,8 +40,8 @@ import sys
 from dataclasses import dataclass
 from pathlib import Path
 
+# The repository whose releases they are, unless --repository says another.
 REPOSITORY = "clabeuhtegrite/Cartouche"
-DOWNLOADS = f"https://github.com/{REPOSITORY}/releases/download/"
 VERSION = re.compile(r"(\d+)\.(\d+)\.(\d+)")
 
 
@@ -90,8 +93,9 @@ def load(path: Path) -> list[dict]:
     return releases
 
 
-def newest(releases: list[dict], key: str) -> Download | None:
-    """The file KEY in the newest release that has it, or None."""
+def newest(releases: list[dict], key: str, repository: str = REPOSITORY) -> Download | None:
+    """The file KEY in the newest release of REPOSITORY that has it, or
+    None."""
     file = FILES[key]
     best: tuple[tuple[int, ...], Download] | None = None
     for release in releases:
@@ -108,7 +112,7 @@ def newest(releases: list[dict], key: str) -> Download | None:
             if isinstance(asset, dict) and asset.get("state", "uploaded") == "uploaded"
         }
         name = file.named(version)
-        url = DOWNLOADS + tag + "/" + name
+        url = f"https://github.com/{repository}/releases/download/{tag}/{name}"
         asset = assets.get(name)
         # The file itself, from this repository's releases, and not empty.
         if not asset or str(asset.get("browser_download_url") or "").lower() != url.lower():
@@ -161,12 +165,14 @@ def rewrite(html: str, downloads: dict[str, Download]) -> tuple[str, list[str]]:
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
+    parser.add_argument("--repository", default=REPOSITORY,
+                        help="the repository the releases are of, OWNER/NAME, as GITHUB_REPOSITORY gives it (default: %(default)s)")
     parser.add_argument("releases", type=Path, help="GitHub's list of the repository's releases, as JSON")
     parser.add_argument("pages", type=Path, nargs="+", help="the pages to rewrite in place")
     args = parser.parse_args(argv)
     try:
         releases = load(args.releases)
-        downloads = {key: found for key in FILES if (found := newest(releases, key))}
+        downloads = {key: found for key in FILES if (found := newest(releases, key, args.repository))}
         offered: set[str] = set()
         rewritten: list[tuple[Path, str]] = []
         for page in args.pages:

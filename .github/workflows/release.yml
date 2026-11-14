@@ -199,9 +199,15 @@ jobs:
           BRANCH="release/v$VERSION"
           git fetch --no-tags origin main
           git switch --detach FETCH_HEAD
+          # The IPA's address under the repository's first owner,
+          # clabeuhtegrite, wherever the repository lives now: GitHub
+          # redirects it to the release once the repository has moved to an
+          # organization, and the Cartouche Installers already given out take
+          # an IPA from that address alone (DOWNLOAD_PREFIX in
+          # installer/src-tauri/src/cartouche.rs).
           python3 app/scripts/add_release.py \
             --ipa "build/release/Cartouche-$VERSION.ipa" \
-            --url "https://github.com/$GITHUB_REPOSITORY/releases/download/$TAG/Cartouche-$VERSION.ipa" \
+            --url "https://github.com/clabeuhtegrite/Cartouche/releases/download/$TAG/Cartouche-$VERSION.ipa" \
             --notes "app/releases/$VERSION.md" \
             --version "$VERSION"
           git add app/sidestore-source.json

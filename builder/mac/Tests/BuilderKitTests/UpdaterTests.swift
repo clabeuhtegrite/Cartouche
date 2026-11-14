@@ -53,6 +53,32 @@ final class UpdaterTests: XCTestCase {
         XCTAssertThrowsError(try BuilderReleases.newest(in: Data("{\"message\": \"API rate limit exceeded\"}".utf8)))
     }
 
+    func testAMovedRepositorysReleasesComeFromWhereGitHubAnswered() throws {
+        // GitHub redirects the API of a repository that moved to an
+        // organization, and its answer gives the new place's addresses.
+        let moved = "https://github.com/new-owner/Cartouche/releases/download"
+        let releases: [[String: Any]] = [
+            release("builder-v0.4.0", host: "https://github.com/someone-else/Cartouche/releases/download"),
+            release("builder-v0.3.0", host: moved),
+            release("builder-v0.2.0"),
+        ]
+        let data = try JSONSerialization.data(withJSONObject: releases)
+        XCTAssertEqual(try XCTUnwrap(try BuilderReleases.newest(in: data)).version, "0.2.0")
+
+        let answering = BuilderReleases.answeringRepository(URL(string: "https://api.github.com/repos/new-owner/Cartouche/releases?per_page=40"))
+        XCTAssertEqual(answering, "new-owner/Cartouche")
+        let newest = try XCTUnwrap(try BuilderReleases.newest(in: data, answering: answering))
+        XCTAssertEqual(newest.version, "0.3.0")
+        XCTAssertEqual(newest.image.absoluteString, moved + "/builder-v0.3.0/Cartouche-Builder-0.3.0.dmg")
+
+        XCTAssertEqual(BuilderReleases.answeringRepository(BuilderReleases.api), BuilderReleases.repository)
+        for other in ["http://api.github.com/repos/a/b/releases", "https://example.com/repos/a/b/releases",
+                      "https://api.github.com/repos/a/b/tags", "https://api.github.com/repos/a/releases"] {
+            XCTAssertNil(BuilderReleases.answeringRepository(URL(string: other)), other)
+        }
+        XCTAssertNil(BuilderReleases.answeringRepository(nil))
+    }
+
     func testVersions() {
         XCTAssertEqual(BuilderVersion.parts("0.2.0"), [0, 2, 0])
         XCTAssertEqual(BuilderVersion.parts("26"), [26])
