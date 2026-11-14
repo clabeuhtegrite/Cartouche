@@ -1,7 +1,8 @@
 // Research only, removed before the merge: the site before (main) and after
 // (this branch), with the games' covers: node site-shoot.js BEFORE_DIR AFTER_DIR OUT_DIR
-// Each page whole and its top, 1440 and 390 points wide, in English and French,
-// and this branch's iPad and Mac section on its own, twice the size.
+// The home page whole and its top, and the download page whole, 1440 and 390
+// points wide, in English and French, and this branch's iPad and Mac section on
+// its own, twice the size.
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
@@ -51,6 +52,10 @@ async function settle(page) {
         await settle(page);
         await page.screenshot({ path: `${out}/${name}-${device}-${lang}-top.png` });
         await page.screenshot({ path: `${out}/${name}-${device}-${lang}-full.png`, fullPage: true });
+        // The download page, whole.
+        await page.goto(url + 'download/', { waitUntil: 'load' });
+        await settle(page);
+        await page.screenshot({ path: `${out}/${name}-download-${device}-${lang}.png`, fullPage: true });
         await context.close();
         if (name === 'after') {
           // The iPad and Mac section alone, twice the size, the sticky bar out of it.
