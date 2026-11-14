@@ -31,9 +31,10 @@ final class HomeScreensAfter: HarnessCase {
         try await waitUntil("the line goes", timeout: 8) { !Self.shows(CartoucheText.homeFadesHint, in: screen.view) }
         try await pause(0.5)
         try await save(screen, "apres-3-ensuite-pendant-la-partie")
-        // A touch on its place.
+        // A touch on its place: it begins, then ends on it, which a button
+        // says once as .primaryActionTriggered (HomeButtonTests.tap).
         home.sendActions(for: .touchDown)
-        home.sendActions(for: [.touchUpInside, .primaryActionTriggered])
+        home.sendActions(for: .primaryActionTriggered)
         try await pause(0.6)
         XCTAssertEqual(actions.running?.isInFront, true, "no console")
         try await save(screen, "apres-4-un-toucher-sur-sa-place")
