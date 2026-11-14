@@ -184,6 +184,75 @@ final class BehindConsoleTests: HarnessCase {
         XCTAssertTrue(HarnessLC.launches.isEmpty)
     }
 
+    // MARK: A game LiveProcess ends on an error
+
+    /// Plays APP until LiveProcess ends it on an error: what Cartouche
+    /// reported meanwhile.
+    private func playUntilItEndsOnAnError(_ app: LCAppModel) async throws -> [CartoucheFailure] {
+        let reported = try await notifications(CartoucheReports.reported) {
+            actions.play(app)
+            try await waitUntil("the start is over") { actions.work == nil }
+            try await waitUntil("the game has ended") { actions.running == nil }
+        }
+        return reported.compactMap { $0.userInfo?["failure"] as? CartoucheFailure }
+    }
+
+    /// What LiveProcess said, in the report.
+    private var liveProcessSaid: String? {
+        actions.notice?.report?.facts.first { $0.name == "LiveProcess said" }?.value
+    }
+
+    /// dyld's words for a game whose signature iOS refuses, as LiveProcess
+    /// passes them on: before, the console said only that the game had
+    /// closed, start after start.
+    func testAGameWhoseSignatureIOSRefusesAsItStartsSaysSoAndOffersToSignItAgain() async throws {
+        let dyld = "dlopen(/private/var/mobile/Containers/Data/Application/5D2C/Documents/Applications/Game.app/Game, 0x0009): "
+            + "tried: '/private/var/mobile/Containers/Data/Application/5D2C/Documents/Applications/Game.app/Game' "
+            + "(code signature invalid in <8E1F2A3B-0C4D-3E5F-9A6B-7C8D9E0F1A2B> "
+            + "'/private/var/mobile/Containers/Data/Application/5D2C/Documents/Applications/Game.app/Game' (errno=1) "
+            + "sliceOffset=0x00000000, codeBlobOffset=0x00F0A000, codeBlobSize=0x0001E2A0)"
+        HarnessLC.nextGameStart = .endsOnError(dyld)
+        let game = HarnessGame.plain()
+        let app = try await installed(game)
+        let failures = try await playUntilItEndsOnAnError(app)
+        XCTAssertEqual(actions.notice?.title, CartoucheText.gameStoppedTitle(app.displayName))
+        XCTAssertEqual(actions.notice?.message, CartoucheText.gameSignatureRefused)
+        XCTAssertEqual(actions.notice?.signAgain, game.bundleIdentifier)
+        XCTAssertEqual(liveProcessSaid, dyld)
+        XCTAssertEqual(app.appInfo.cartoucheSigningFailure, "codeSignature", "marked, for Play to sign it again whole")
+        XCTAssertTrue(HarnessLC.launches.isEmpty, "not started again in Cartouche's place, where it would end the same way")
+        let failure = try XCTUnwrap(failures.last)
+        XCTAssertEqual(failure.cause, .notSigned)
+        XCTAssertEqual(failure.stage, "gameProcess")
+        XCTAssertEqual(failure.details["kind"], .text("codeSignature"))
+
+        // Signed again from the notice, whole, it starts.
+        HarnessLC.nextGameStart = .starts
+        let signed = HarnessLC.signed.count
+        actions.signAgain(game.bundleIdentifier)
+        try await waitUntil("the start is over") { actions.work == nil }
+        XCTAssertNil(actions.notice)
+        XCTAssertEqual(HarnessLC.signed.count, signed + 1, "signed again, whole, once")
+        XCTAssertNil(app.appInfo.cartoucheSigningFailure)
+        XCTAssertTrue(actions.running?.app === app)
+    }
+
+    func testAGameThatEndsOnAnErrorSaysSoWithLiveProcesssWords() async throws {
+        HarnessLC.nextGameStart = .endsOnError("App returned from its main function with code 3.")
+        let app = try await installed(.plain())
+        let failures = try await playUntilItEndsOnAnError(app)
+        XCTAssertEqual(actions.notice?.title, CartoucheText.gameStoppedTitle(app.displayName))
+        XCTAssertEqual(actions.notice?.message, CartoucheText.gameStoppedOnError)
+        XCTAssertNil(actions.notice?.signAgain, "signing it again would not help")
+        XCTAssertEqual(liveProcessSaid, "App returned from its main function with code 3.")
+        XCTAssertNil(app.appInfo.cartoucheSigningFailure)
+        XCTAssertTrue(HarnessLC.launches.isEmpty)
+        let failure = try XCTUnwrap(failures.last)
+        XCTAssertEqual(failure.cause, .gameEndedOnError)
+        XCTAssertEqual(failure.details["kind"], .text("returnedFromMain"))
+        XCTAssertEqual(failure.details["code"], .number(3))
+    }
+
     // MARK: Memory
 
     /// What a game's process behind the console writes of its memory, with

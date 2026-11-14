@@ -147,4 +147,79 @@ final class PlayTests: HarnessCase {
         XCTAssertEqual(actions.notice?.title, CartoucheText.startFailed)
         XCTAssertEqual(actions.notice?.message, "zsign: the certificate's private key does not open")
     }
+
+    // MARK: A game LiveContainer did not sign whole
+
+    /// A game zsign did not sign whole as it was installed, its executable
+    /// signed all the same, as Breath of the Wild's were: LiveContainer
+    /// would start it as it is, iOS running its executable. Play signs it
+    /// again, whole, once, then starts it.
+    func testAGameNotSignedWholeAtItsInstallIsSignedAgainWholeAtItsStart() async throws {
+        HarnessLC.signing = .cannotSign(["Frameworks/MoltenVK.framework/MoltenVK"])
+        let result = try await install(try HarnessIPA.game(.plain()))
+        let app = try XCTUnwrap(result)
+        XCTAssertEqual(app.appInfo.cartoucheSigningFailure, "filesNotSigned")
+        XCTAssertEqual(HarnessLC.signed.count, 1)
+
+        HarnessLC.signing = .signs
+        actions.notice = nil
+        try await play(app)
+        XCTAssertNil(actions.notice)
+        XCTAssertEqual(HarnessLC.signed.count, 2, "signed again, whole")
+        XCTAssertNil(app.appInfo.cartoucheSigningFailure, "the mark goes")
+        XCTAssertEqual(HarnessLC.launches.count, 1)
+
+        // Signed whole: not again at the next start.
+        try await waitUntil("LiveContainer let go of the game") { !app.isAppRunning }
+        try await play(app)
+        XCTAssertEqual(HarnessLC.signed.count, 2)
+        XCTAssertEqual(HarnessLC.launches.count, 2)
+    }
+
+    /// A game LiveContainer must sign again at its start, and cannot: the
+    /// player reads why, and may sign it again and play from the notice,
+    /// which signs it whole, once, then starts it.
+    func testAGameThatDoesNotSignAtItsStartSaysWhyAndOffersToSignItAgain() async throws {
+        let game = HarnessGame.plain()
+        let app = try await installed(game)
+        HarnessLC.installCertificate(HarnessCertificate(team: "HARNESS001", password: "harness", serial: 79))
+        HarnessLC.signing = .cannotSign([game.executable])
+        try await play(app)
+        XCTAssertTrue(HarnessLC.launches.isEmpty)
+        XCTAssertEqual(actions.notice?.title, CartoucheText.notSignedTitle(app.displayName))
+        XCTAssertEqual(actions.notice?.message, CartoucheText.notSignedFiles + " " + CartoucheText.notSignedAtStart)
+        XCTAssertEqual(actions.notice?.signAgain, game.bundleIdentifier)
+        XCTAssertEqual(app.appInfo.cartoucheSigningFailure, "filesNotSigned")
+        let said = actions.notice?.report?.facts.first { $0.name == "LiveContainer said" }?.value ?? ""
+        XCTAssertTrue(said.hasPrefix("Failed to Sign /") && said.hasSuffix("/" + game.executable), said)
+
+        HarnessLC.signing = .signs
+        let signed = HarnessLC.signed.count
+        try await waitUntil("LiveContainer let go of the game") { !app.isAppRunning }
+        actions.signAgain(game.bundleIdentifier)
+        XCTAssertEqual(actions.work?.kind, .starting)
+        try await waitUntil("the start is over") { actions.work == nil }
+        XCTAssertNil(actions.notice)
+        XCTAssertEqual(HarnessLC.signed.count, signed + 1, "signed again, whole, once")
+        XCTAssertNil(app.appInfo.cartoucheSigningFailure)
+        XCTAssertEqual(HarnessLC.launches.count, 1)
+    }
+
+    /// Signing it again whole at its start fails: the start goes on, as
+    /// LiveContainer starts a game iOS runs the executable of, and the
+    /// mark goes, so that it is not signed again at each start for nothing.
+    func testAGameThatStillDoesNotSignWholeStartsAllTheSame() async throws {
+        HarnessLC.signing = .cannotSign(["Frameworks/MoltenVK.framework/MoltenVK"])
+        let result = try await install(try HarnessIPA.game(.plain()))
+        let app = try XCTUnwrap(result)
+        actions.notice = nil
+        try await play(app)
+        XCTAssertNil(actions.notice)
+        XCTAssertEqual(HarnessLC.signed.count, 2, "signed again, whole, once")
+        XCTAssertNil(app.appInfo.cartoucheSigningFailure)
+        XCTAssertEqual(HarnessLC.launches.count, 1)
+        XCTAssertTrue(CartoucheReports.journal(last: 40).contains {
+            $0.contains("not signed again whole (filesNotSigned): notSigned; fileKind framework, files 1, kind filesNotSigned")
+        }, "the journal says why, in names")
+    }
 }

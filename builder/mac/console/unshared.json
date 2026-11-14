@@ -46,6 +46,10 @@
       "why": "A game's own settings in the console: on the Mac, nxnative's own window shows them meanwhile (Game settings).",
       "step": 6
     },
+    "CartoucheGameSigning.swift": {
+      "kind": "iphone",
+      "why": "Which files zsign signs for a game on the iPhone, and why a game did not sign or start there, in LiveContainer's and LiveProcess's words: a Mac game is signed by nxnative's build and started by the Builder, which says itself why one did not start."
+    },
     "CartoucheGamesView.swift": {
       "kind": "mac",
       "why": "The Games tab that holds the console on the iPhone: the Mac's window holds the same screens.",
