@@ -113,9 +113,12 @@ else
   TESTS=(-skip-testing:CartoucheGalleryUITests/IPadUITests)
 fi
 
-# It boots while the gallery builds.
+# It boots while the gallery builds. xcodebuild says nothing then, for
+# minutes: heartbeat.py says every minute that the build goes on, as a step
+# silent for 9 minutes was taken for a stuck run and cancelled (#175).
 xcrun simctl boot "$UDID" 2>/dev/null || true
-xcodebuild build-for-testing -quiet -project "$PROJECT" -scheme CartoucheGallery \
+python3 "$HERE/heartbeat.py" "building the gallery and its UI tests" \
+  xcodebuild build-for-testing -quiet -project "$PROJECT" -scheme CartoucheGallery \
   -destination "platform=iOS Simulator,id=$UDID" -derivedDataPath "$BUILD/DerivedData"
 echo "   built in $((SECONDS - started)) s"
 xcrun simctl bootstatus "$UDID" -b >/dev/null
