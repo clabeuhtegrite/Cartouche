@@ -64,9 +64,10 @@ jobs:
       - run: shellcheck -x app/scripts/*.sh catalog/tools/*.sh launcher/Gallery/*.sh launcher/Harness/*.sh launcher/StorageTests/*.sh telemetry/*.sh builder/mac/*.sh .github/mac/*.sh .github/mac/cartouche-ci
       # When capture.sh keeps the screen of a scenario: drawn and still, not
       # iOS still opening the gallery (launcher/Gallery/settled.py). And the
-      # line a minute of the builds that say nothing, in uitests.sh,
-      # capture.sh and the harness (launcher/Gallery/heartbeat.py).
-      - name: The gallery's screenshots, and a line a minute from the silent builds
+      # line a minute of the builds that say nothing, the gallery's
+      # (build.sh) and the harness's (launcher/Gallery/heartbeat.py), each
+      # one build for every simulator of the Mac (test_builds.py).
+      - name: The gallery's screenshots, and the silent builds, one for every simulator
         run: python3 -m unittest discover -s launcher/Gallery -p 'test_*.py' -v
 
   builder:

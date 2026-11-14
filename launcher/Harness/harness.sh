@@ -47,23 +47,38 @@ done
   echo "app/LiveContainer is empty: run git submodule update --init app/LiveContainer" >&2; exit 1; }
 
 echo "== LiveContainer's files, with Cartouche's patches"
-rm -rf "$BUILD/LiveContainer" "$BUILD/CartoucheCatalog" "$BUILD/patched"
-mkdir -p "$BUILD/patched"
+FILES=(
+  LiveContainerSwiftUI/Models/LCAppModel.swift
+  LiveContainerSwiftUI/Models/LCContainer.swift
+  LiveContainerSwiftUI/Utilities/unarchive.h
+  LiveContainerSwiftUI/Utilities/unarchive.m
+  LiveContainerSwiftUI/Utilities/archive.h
+  LiveContainerSwiftUI/Utilities/archive_entry.h
+  Resources/Localizable.xcstrings
+)
+rm -rf "$BUILD/CartoucheCatalog" "$BUILD/patched"
+mkdir -p "$BUILD/patched" "$BUILD/LiveContainer"
 (cd "$LC" && tar --exclude .git -cf - .) | (cd "$BUILD/patched" && tar -xf -)
 for patch in "$ROOT"/app/patches/livecontainer/*.patch; do
   [ -e "$patch" ] || continue
   patch -s -N -t -p1 -d "$BUILD/patched" -i "$patch"
 done
-for file in \
-  LiveContainerSwiftUI/Models/LCAppModel.swift \
-  LiveContainerSwiftUI/Models/LCContainer.swift \
-  LiveContainerSwiftUI/Utilities/unarchive.h \
-  LiveContainerSwiftUI/Utilities/unarchive.m \
-  LiveContainerSwiftUI/Utilities/archive.h \
-  LiveContainerSwiftUI/Utilities/archive_entry.h \
-  Resources/Localizable.xcstrings; do
-  mkdir -p "$BUILD/LiveContainer/$(dirname "$file")"
-  cp "$BUILD/patched/$file" "$BUILD/LiveContainer/$file"
+# Each written again only when it changed, and nothing left beside them: the
+# harness's bridging header imports unarchive.h, so that these files copied
+# again, the same or not, had Xcode build the whole harness again in the
+# iPad's step, which the iPhone's had just built, while the iPad booted: 11
+# minutes before its first line, 5 on the iPhone (run 43578975230).
+for file in "${FILES[@]}"; do
+  if ! cmp -s "$BUILD/patched/$file" "$BUILD/LiveContainer/$file"; then
+    mkdir -p "$BUILD/LiveContainer/$(dirname "$file")"
+    cp "$BUILD/patched/$file" "$BUILD/LiveContainer/$file"
+  fi
+done
+(cd "$BUILD/LiveContainer" && find . -type f) | while IFS= read -r found; do
+  case " ${FILES[*]} " in
+    *" ${found#./} "*) ;;
+    *) rm -f "$BUILD/LiveContainer/${found#./}" ;;
+  esac
 done
 rm -rf "$BUILD/patched"
 
@@ -149,20 +164,31 @@ heartbeat() {
 heartbeat 2>/dev/null &
 HEARTBEAT=$!
 set +e
-xcodebuild test \
-  -project "$HERE/CartoucheHarness.xcodeproj" \
-  -scheme CartoucheHarness \
-  -destination "platform=iOS Simulator,id=$UDID" \
-  -derivedDataPath "$BUILD/DerivedData" \
-  -resultBundlePath "$OUT/CartoucheHarness.xcresult" \
-  -parallel-testing-enabled NO \
-  -test-timeouts-enabled YES \
-  -default-test-execution-time-allowance 120 \
-  -maximum-test-execution-time-allowance 300 \
-  ${ONLY[@]+"${ONLY[@]}"} \
-  MARKETING_VERSION="$VERSION" \
-  2>&1 | tee "$OUT/test.log" | grep -E --line-buffered \
-    "error:|Test Case .* (passed|failed)|Executed [0-9]+ test|\*\* (BUILD|TEST) |harness: -\[[^]]+\] took |harness: iPadOS "
+# Built for any simulator, of this Mac's processor alone, then tested on
+# this one: the iPad's step finds the iPhone's build done, which a build for
+# the iPhone's simulator alone was not. xcodebuild boots the simulator for
+# the tests, once the build is done.
+{
+  xcodebuild build-for-testing \
+    -project "$HERE/CartoucheHarness.xcodeproj" \
+    -scheme CartoucheHarness \
+    -destination "generic/platform=iOS Simulator" \
+    -derivedDataPath "$BUILD/DerivedData" \
+    ARCHS="$(uname -m)" \
+    MARKETING_VERSION="$VERSION" &&
+    xcodebuild test-without-building \
+      -project "$HERE/CartoucheHarness.xcodeproj" \
+      -scheme CartoucheHarness \
+      -destination "platform=iOS Simulator,id=$UDID" \
+      -derivedDataPath "$BUILD/DerivedData" \
+      -resultBundlePath "$OUT/CartoucheHarness.xcresult" \
+      -parallel-testing-enabled NO \
+      -test-timeouts-enabled YES \
+      -default-test-execution-time-allowance 120 \
+      -maximum-test-execution-time-allowance 300 \
+      ${ONLY[@]+"${ONLY[@]}"}
+} 2>&1 | tee "$OUT/test.log" | grep -E --line-buffered \
+  "error:|Test Case .* (passed|failed)|Executed [0-9]+ test|\*\* (BUILD|TEST) |harness: -\[[^]]+\] took |harness: iPadOS "
 STATUSES=("${PIPESTATUS[@]}")
 kill "$HEARTBEAT" 2>/dev/null
 wait "$HEARTBEAT" 2>/dev/null

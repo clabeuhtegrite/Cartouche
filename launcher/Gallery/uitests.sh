@@ -1,7 +1,9 @@
 #!/bin/bash
 # Builds the launcher's gallery with its UI tests (launcher/Gallery/UITests)
 # and runs them on an iPhone simulator, keeping their results in OUT. Needs a
-# Mac with Xcode and XcodeGen (brew install xcodegen).
+# Mac with Xcode and XcodeGen (brew install xcodegen). One build serves every
+# simulator (build.sh): the iPad's tests and the screenshots after these find
+# it done.
 #
 #     launcher/Gallery/uitests.sh [--ipad] OUT
 #
@@ -47,8 +49,6 @@ PROJECT="$HERE/CartoucheGallery.xcodeproj"
 BUNDLE="io.github.clabeuhtegrite.cartouche.gallery"
 APP="$BUILD/DerivedData/Build/Products/Debug-iphonesimulator/CartoucheGallery.app"
 started=$SECONDS
-
-"$HERE/project.sh"
 
 # The simulator: its UDID on the last line.
 UDID="$(UITESTS_DEVICE="$DEVICE" python3 -u - <<'PY' | tail -n 1
@@ -113,14 +113,16 @@ else
   TESTS=(-skip-testing:CartoucheGalleryUITests/IPadUITests)
 fi
 
-# It boots while the gallery builds. xcodebuild says nothing then, for
-# minutes: heartbeat.py says every minute that the build goes on, as a step
-# silent for 9 minutes was taken for a stuck run and cancelled (#175).
-xcrun simctl boot "$UDID" 2>/dev/null || true
-python3 "$HERE/heartbeat.py" "building the gallery and its UI tests" \
-  xcodebuild build-for-testing -quiet -project "$PROJECT" -scheme CartoucheGallery \
-  -destination "platform=iOS Simulator,id=$UDID" -derivedDataPath "$BUILD/DerivedData"
+# The iPhone boots while the gallery builds, the iPad once it is built: the
+# iPad's simulator takes more of the Mac, and a build beside its boot, on
+# GitHub's Mac, took it out of memory until GitHub cancelled the job (run
+# 43602029480). The build says every minute that it goes on (build.sh).
+if [ "$DEVICE" = iPhone ]; then
+  xcrun simctl boot "$UDID" 2>/dev/null || true
+fi
+"$HERE/build.sh"
 echo "   built in $((SECONDS - started)) s"
+xcrun simctl boot "$UDID" 2>/dev/null || true
 xcrun simctl bootstatus "$UDID" -b >/dev/null
 echo "   booted $((SECONDS - started)) s after the start"
 
