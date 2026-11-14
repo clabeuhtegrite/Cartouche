@@ -122,8 +122,8 @@ final class LCAppModel: ObservableObject, Identifiable, Equatable {
 /// games with LiveContainer and opens their preferences, as the gallery
 /// stands it in: nothing happens, a scenario can show a step in progress,
 /// every game has the settings of GallerySettings, kept in memory, and an
-/// install says, for the UI tests, which IPA it was given
-/// (GalleryTesting.swift).
+/// install or a start says, for the UI tests, which IPA or game it was
+/// given (GalleryTesting.swift).
 @MainActor
 final class CartoucheGameActions: ObservableObject {
     static let shared = CartoucheGameActions()
@@ -143,9 +143,10 @@ final class CartoucheGameActions: ObservableObject {
     func installAnyway(_ question: CartoucheInstallQuestion) { installQuestion = nil }
     func dropInstall(_ question: CartoucheInstallQuestion) { installQuestion = nil }
     func closeInstallQuestion() { installQuestion = nil }
-    func play(_ app: LCAppModel, showingSettings: Bool = false) {}
+    func play(_ app: LCAppModel, showingSettings: Bool = false) { GalleryTest.play(app, with: self) }
     func signAgain(_ bundleId: String) { notice = nil }
     func resumeRunningGame() {}
+    func showConsole() { running?.isInFront = false }
     func askToQuit() { quitQuestion = running }
     func quitRunningGame() { quitQuestion = nil }
     func confirmSwitch(_ change: CartoucheGameSwitch) { switching = nil }
@@ -276,6 +277,13 @@ final class SharedModel: ObservableObject {
     @Published var selectedTab: LCTabIdentifier = .games
     @Published var deepLink: URL?
     @Published var apps: [LCAppModel] = []
+}
+
+/// LiveContainer's holder of its model, whose apps Siri and Shortcuts name
+/// (CartoucheShortcuts.swift): the gallery shows this model.
+final class DataManager {
+    static let shared = DataManager()
+    let model = SharedModel()
 }
 
 extension UTType {

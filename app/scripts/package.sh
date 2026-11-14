@@ -51,6 +51,7 @@ TELEMETRY_URL="${TELEMETRY_URL:-}"
 STAGE="$(mktemp -d)"
 trap 'rm -rf "$STAGE"' EXIT
 PB=/usr/libexec/PlistBuddy
+HERE="$(cd "$(dirname "$0")" && pwd)"
 
 mkdir -p "$STAGE/Payload"
 cp -R "$ARCHIVE/Products/Applications/LiveContainer.app" "$STAGE/Payload/"
@@ -241,6 +242,16 @@ cp "$SS/Intents.intentdefinition" "$SS/ViewApp.intentdefinition" "$APP/"
 cp -R "$SS/Metadata.appintents" "$APP/Metadata.appintents"
 sed -i '' 's/9SideStore20RefreshAllAppsIntentV/16SideStoreSupport20RefreshAllAppsIntentV/g' "$APP/Metadata.appintents/extract.actionsdata"
 sed -i '' 's/9SideStore26RefreshAllAppsWidgetIntentV/16SideStoreSupport26RefreshAllAppsWidgetIntentV/g' "$APP/Metadata.appintents/extract.actionsdata"
+# The launcher's own, which start a game for Siri and Shortcuts
+# (launcher/Sources/CartoucheShortcuts.swift): Xcode wrote them into the
+# framework the launcher is built into, whose metadata iOS never reads. They
+# join SideStore's, with their French (docs/decisions.md, 90).
+python3 "$HERE/app_intents.py" "$APP" --french "$HERE/../../launcher/AppIntents/fr.json"
+# Then the app as it will ship: the built-in SideStore's intents as above,
+# each under the same identifier and type, Refresh All Apps among them, which
+# the nightly renewal runs from Shortcuts; the strings the merge wrote
+# through plutil -lint. Any difference stops the build.
+python3 "$HERE/app_intents.py" "$APP" --french "$HERE/../../launcher/AppIntents/fr.json" --check
 
 # SideStore's widget becomes the app's widget.
 WIDGET="$APP/PlugIns/LiveWidgetExtension.appex"
