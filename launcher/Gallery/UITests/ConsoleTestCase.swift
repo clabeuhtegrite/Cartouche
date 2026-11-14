@@ -157,6 +157,9 @@ struct Launch {
     /// The main thread held once, for that many seconds, which the watch
     /// must see.
     var holdMainThread: Double?
+    /// The device of catalog/devices.json the gallery draws the console
+    /// as (-GalleryModel): the iPhone when nil, iPad15,3 for an iPad.
+    var model: String?
     /// A test that types: the keyboard shown once and put away as the
     /// gallery opens, before the watch counts, as its first showing in a
     /// process holds the main thread for seconds on a CI Mac
@@ -173,6 +176,7 @@ struct Launch {
         if let sheet { arguments += ["-GallerySheet", sheet] }
         if let holdMainThread { arguments += ["-GalleryHoldMainThread", String(holdMainThread)] }
         if typing { arguments += ["-GalleryKeyboard", "1"] }
+        if let model { arguments += ["-GalleryModel", model] }
         return arguments
     }
 }
