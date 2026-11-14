@@ -82,6 +82,7 @@ on:
       - "launcher/Sources/CartoucheTextSigning.swift"
       - "launcher/Sources/CartoucheTheme.swift"
       - "launcher/Sources/CartoucheTiles.swift"
+      - "launcher/Sources/CartoucheTranslations.swift"
       - "launcher/Sources/CartoucheZip.swift"
       - "launcher/Sources/Cartouche.xcstrings"
       - "telemetry/test/builder-reports.json"
