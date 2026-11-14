@@ -35,6 +35,20 @@ def call(method: str, path: str, token: str, body: dict | None = None, timeout: 
     return json.loads(data) if data else None
 
 
+def pages(path: str, key: str, token: str, per_page: int = 100, most: int = 10) -> list[dict]:
+    """Every item under KEY of what GitHub answers GET PATH, page after page,
+    MOST pages at most: a list answers PER_PAGE items a page, 30 unless
+    asked."""
+    items: list[dict] = []
+    for page in range(1, most + 1):
+        answer = call("GET", f"{path}{'&' if '?' in path else '?'}per_page={per_page}&page={page}", token) or {}
+        found = answer.get(key, [])
+        items += found
+        if len(found) < per_page:
+            break
+    return items
+
+
 def runners(repository: str, token: str) -> list[dict]:
     """The repository's self-hosted runners, as the API describes them."""
     return call("GET", f"/repos/{repository}/actions/runners?per_page=100", token).get("runners", [])

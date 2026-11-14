@@ -146,6 +146,8 @@ def arguments(scenario):
             "-GalleryReady", scenario["name"]]
     if scenario["owned"]:
         args += ["-GalleryOwned", ",".join(scenario["owned"])]
+    if scenario.get("model"):
+        args += ["-GalleryModel", scenario["model"]]
     if "device" not in scenario:
         args += ["-GalleryWidth", str(scenario["width"]), "-GalleryHeight", str(scenario["height"]),
                  "-GalleryInsets", ",".join(str(n) for n in scenario.get("insets", [0, 0, 0, 0]))]

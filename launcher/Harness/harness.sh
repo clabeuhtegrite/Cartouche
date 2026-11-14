@@ -5,11 +5,13 @@
 # real game. Needs a Mac with Xcode and XcodeGen (brew install xcodegen),
 # and LiveContainer's submodule (git submodule update --init app/LiveContainer).
 #
-#     launcher/Harness/harness.sh OUT [TEST...]
+#     launcher/Harness/harness.sh [--ipad] OUT [TEST...]
 #
 # TEST runs only those tests, as xcodebuild's -only-testing names them:
 # CartoucheHarnessTests/InstallTests, or
 # CartoucheHarnessTests/InstallTests/testReplacingAGameKeepsItsData.
+# --ipad runs them on an iPad, the 13-inch iPad Pro, rather than an iPhone,
+# for what an iPad does of a game behind the console (Tests/IPadTests.swift).
 #
 # OUT receives the results (CartoucheHarness.xcresult), xcodebuild's log
 # (test.log), what the app wrote to its standard error (console.txt: the
@@ -24,7 +26,12 @@
 
 set -euo pipefail
 
-[ $# -ge 1 ] || { echo "usage: $0 OUT [TEST...]" >&2; exit 2; }
+DEVICE=iPhone
+if [ "${1:-}" = "--ipad" ]; then
+  DEVICE=iPad
+  shift
+fi
+[ $# -ge 1 ] || { echo "usage: $0 [--ipad] OUT [TEST...]" >&2; exit 2; }
 HERE="$(cd "$(dirname "$0")" && pwd)"
 ROOT="$(cd "$HERE/../.." && pwd)"
 mkdir -p "$1"
@@ -68,9 +75,10 @@ cp "$ROOT"/catalog/games/*.json "$BUILD/CartoucheCatalog/games/"
 (cd "$HERE" && xcodegen generate --quiet)
 
 # The iPhone the tests run on: an iPhone 17 Pro with the newest iOS of this
-# Xcode, created if there is none, or else the newest iPhone that iOS runs.
-UDID="$(python3 - <<'PY'
-import json, subprocess, sys
+# Xcode, created if there is none, or else the newest iPhone that iOS runs;
+# with --ipad, a 13-inch iPad Pro (M5), or else the newest iPad.
+UDID="$(HARNESS_DEVICE="$DEVICE" python3 - <<'PY'
+import json, os, subprocess, sys
 
 def listing(*args):
     return json.loads(subprocess.run(["xcrun", "simctl", "list", "-j", *args], check=True,
@@ -87,11 +95,13 @@ runtimes = [r for r in listing("runtimes")["runtimes"]
 if not runtimes:
     sys.exit("no iOS runtime")
 runtime = max(runtimes, key=lambda r: (release(r), -len(r["identifier"])))
-iphones = [t for t in runtime.get("supportedDeviceTypes", []) if t.get("productFamily", "iPhone") == "iPhone"
-           and t.get("name", "").startswith("iPhone")]
-wanted = next((t for t in iphones if t["name"] == "iPhone 17 Pro"), iphones[-1] if iphones else None)
+family = os.environ.get("HARNESS_DEVICE", "iPhone")
+preferred = {"iPhone": "iPhone 17 Pro", "iPad": "iPad Pro 13-inch (M5)"}[family]
+models = [t for t in runtime.get("supportedDeviceTypes", []) if t.get("productFamily", family) == family
+          and t.get("name", "").startswith(family)]
+wanted = next((t for t in models if t["name"] == preferred), models[-1] if models else None)
 if wanted is None:
-    sys.exit(f"{runtime['identifier']} runs no iPhone")
+    sys.exit(f"{runtime['identifier']} runs no {family}")
 for device in listing("devices", "available")["devices"].get(runtime["identifier"], []):
     if device.get("deviceTypeIdentifier") == wanted["identifier"]:
         print(device["udid"])
@@ -111,9 +121,9 @@ done
 
 echo "== building the harness and running its tests"
 rm -rf "$OUT/CartoucheHarness.xcresult"
-# xcodebuild's whole log goes to test.log, its errors, the tests' results and
-# what the harness says of a test that took long to the screen. Its own
-# status is the script's.
+# xcodebuild's whole log goes to test.log, its errors, the tests' results,
+# what the harness says of a test that took long and what iPadOS made of the
+# game's screen to the screen. Its own status is the script's.
 set +e
 xcodebuild test \
   -project "$HERE/CartoucheHarness.xcodeproj" \
@@ -128,7 +138,7 @@ xcodebuild test \
   ${ONLY[@]+"${ONLY[@]}"} \
   MARKETING_VERSION="$VERSION" \
   2>&1 | tee "$OUT/test.log" | grep -E --line-buffered \
-    "error:|Test Case .* (passed|failed)|Executed [0-9]+ test|\*\* (BUILD|TEST) |harness: -\[[^]]+\] took "
+    "error:|Test Case .* (passed|failed)|Executed [0-9]+ test|\*\* (BUILD|TEST) |harness: -\[[^]]+\] took |harness: iPadOS "
 STATUSES=("${PIPESTATUS[@]}")
 set -e
 STATUS="${STATUSES[0]}"
@@ -142,12 +152,13 @@ fi
 
 # The tests that failed and why, from the results; when xcodebuild failed
 # with no test that failed, as when the build did, its errors in the log.
-python3 - "$OUT" "$STATUS" <<'PY' || true
+python3 - "$OUT" "$STATUS" "$DEVICE" <<'PY' || true
 import json, re, subprocess, sys
 from pathlib import Path
 
 out = Path(sys.argv[1])
 status = int(sys.argv[2])
+device = sys.argv[3]
 lines = []
 note = ""
 try:
@@ -180,9 +191,9 @@ if lines:
 summary = Path(__import__("os").environ.get("GITHUB_STEP_SUMMARY", "/dev/null"))
 with summary.open("a") as file:
     if lines:
-        file.write("### Harness tests that failed\n\n```\n" + "\n".join(lines) + "\n```\n")
+        file.write(f"### Harness tests that failed on the {device}\n\n```\n" + "\n".join(lines) + "\n```\n")
     else:
-        file.write("No harness test failed.\n")
+        file.write(f"No harness test failed on the {device}.\n")
 PY
 
 exit "$STATUS"

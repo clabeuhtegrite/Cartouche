@@ -6,7 +6,8 @@ name: Launcher harness
 # Cartouche's servers stood in. Its tests install, replace, start, pause,
 # quit and uninstall test games built as nxnative builds them, never a real
 # game, and check Cartouche's setup, its telemetry, the games folder and
-# the saves (launcher/Harness/README.md).
+# the saves (launcher/Harness/README.md). Every test runs on an iPhone, then
+# the iPad's tests and the game behind the console on an iPad.
 #
 # A pull request's tests run once for what it changes in the files the
 # harness is built from: a rebase or a merge of main that leaves those
@@ -122,6 +123,13 @@ jobs:
         run: brew install xcodegen
       - name: Build the harness and run its tests
         run: launcher/Harness/harness.sh build/harness
+      # Then on an iPad, which turns a game's screen as it is held: what it
+      # does of the game behind the console (Tests/IPadTests.swift), and that
+      # game's steps there, with the harness built already.
+      - name: Run the iPad's tests on an iPad
+        run: |
+          launcher/Harness/harness.sh --ipad build/harness/ipad \
+            CartoucheHarnessTests/IPadTests CartoucheHarnessTests/BehindConsoleTests
       - name: Upload the results
         if: ${{ !cancelled() }}
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
