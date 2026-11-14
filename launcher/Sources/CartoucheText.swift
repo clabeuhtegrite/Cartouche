@@ -641,7 +641,7 @@ enum CartoucheText {
     static var storageNoShares: String { s("storage.noShares", "This account sees no shared folder there.") }
     /// Why an SMB server did not sign the player in (CartoucheSMBRefusal),
     /// after storage.signInFailed's colon.
-    static var storageSMBRefused: String { s("storage.smb.refused", "the server refused the user name or the password. On a Mac, your account must also be turned on in the Windows File Sharing list (System Settings › General › Sharing › File Sharing ⓘ › Options).") }
+    static var storageSMBRefused: String { s("storage.smb.refused", "the server refused the user name or the password.") }
     static var storageSMBNoGuests: String { s("storage.smb.noGuests", "the server does not let guests in. Type the user name and password of your account on it.") }
     static var storageSMBLocked: String { s("storage.smb.locked", "the server locked this account after too many wrong passwords. Try again later, or unlock it on the server.") }
     static var storageSMBHeldBack: String { s("storage.smb.heldBack", "the server does not let this account sign in as it is. On the server, turn the account on, or give it a new password.") }

@@ -10071,13 +10071,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "the server refused the user name or the password. On a Mac, your account must also be turned on in the Windows File Sharing list (System Settings › General › Sharing › File Sharing ⓘ › Options)."
+            "value" : "the server refused the user name or the password."
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "le serveur a refusé le nom d’utilisateur ou le mot de passe. Sur un Mac, votre compte doit aussi être coché dans la liste « Partage de fichiers Windows » (Réglages Système › Général › Partage › Partage de fichiers ⓘ › Options)."
+            "value" : "le serveur a refusé le nom d’utilisateur ou le mot de passe."
           }
         }
       }
