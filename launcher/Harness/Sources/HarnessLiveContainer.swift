@@ -38,6 +38,10 @@ enum HarnessLC {
         case fails(String)
         /// Signed, but zsign could not sign some files, which it names.
         case signsPartly(String)
+        /// zsign cannot sign these files, by their path in the bundle, if
+        /// it gets them: it signs the others, then fails, with "Failed to
+        /// Sign" and each one's path, as it does.
+        case cannotSign([String])
     }
 
     /// A start of a game in Cartouche's place: LiveContainer quits Cartouche
@@ -60,6 +64,10 @@ enum HarnessLC {
         case refused
         /// The process crashes as it starts.
         case crashes
+        /// The process starts, then LiveProcess ends it on an error, with
+        /// these words: it could not run the game, in dyld's words or its
+        /// own, or the game ended itself, or threw (LCBootstrap.m).
+        case endsOnError(String)
     }
 
     static var signing: Signing = .signs
@@ -73,6 +81,9 @@ enum HarnessLC {
     static var readsBCTextures = true
     /// The bundles zsign signed, in order.
     static var signed: [String] = []
+    /// The files LiveContainer handed zsign, in order, by their whole path:
+    /// those Cartouche lists (app/patches/livecontainer/0013).
+    static var signedFiles: [String] = []
     static var launches: [Launch] = []
     /// The data folders whose keychain items LiveContainer removed.
     static var removedKeychains: [String] = []
@@ -195,6 +206,7 @@ enum HarnessLC {
         iOSRefusesCertificate = false
         readsBCTextures = true
         signed = []
+        signedFiles = []
         launches = []
         removedKeychains = []
         LCSharedUtils.setCartoucheSigningCandidate(nil)
@@ -316,31 +328,48 @@ enum HarnessLC {
 
     // MARK: Signing
 
-    /// What zsign does with BUNDLE: signs it with the installed certificate,
-    /// as the signature and profile it writes, or fails, as SIGNING says,
-    /// on a queue of its own. Returns its progress at once, as zsign does.
+    /// What LiveContainer's signing does with BUNDLE (LCUtils
+    /// signAppBundleWithZSign, with Cartouche's patch 0013): it hands zsign
+    /// the files Cartouche lists (CartoucheSignedFiles), which zsign signs
+    /// with the installed certificate, as the signature and profile it
+    /// writes, or fails, as SIGNING says, on a queue of its own. Should it
+    /// get a file it cannot sign, a Mach-O of Apple's GPU, which has no
+    /// room for a signature, or a file that is no Mach-O, it signs the
+    /// others and fails, in its own words, as zsign does
+    /// (HarnessMachO.zsignFailure). Returns its progress at once.
     static func sign(bundle: String, completion: @escaping (Bool, Error?) -> Void) -> Progress {
+        let files = CartoucheSignedFiles.paths(inBundle: bundle)
         let progress = Progress(totalUnitCount: 100)
         let plan = signing
         let time = signingTime
         let certificate = LCUtils.certificateData()
-        DispatchQueue.main.async { HarnessLC.signed.append(bundle) }
+        DispatchQueue.main.async {
+            HarnessLC.signed.append(bundle)
+            HarnessLC.signedFiles.append(contentsOf: files)
+        }
         DispatchQueue.global(qos: .userInitiated).async {
             for step in 1...10 {
                 Thread.sleep(forTimeInterval: time / 10)
                 progress.completedUnitCount = Int64(step * 10)
             }
+            var refused = files.compactMap(HarnessMachO.zsignFailure)
+            if case .cannotSign(let paths) = plan {
+                refused += files.filter { file in paths.contains { file.hasSuffix("/" + $0) } }.map { "Failed to Sign " + $0 }
+            }
             switch plan {
             case .fails(let message):
                 completion(false, NSError(domain: "zsign", code: 1, userInfo: [NSLocalizedDescriptionKey: message]))
-            case .signs, .signsPartly:
+            case .signs, .signsPartly, .cannotSign:
                 let folder = URL(fileURLWithPath: bundle, isDirectory: true)
                 let signature = folder.appendingPathComponent("_CodeSignature", isDirectory: true)
                 try? FileManager.default.createDirectory(at: signature, withIntermediateDirectories: true)
                 let resources: [String: Any] = ["HarnessCertificate": HarnessLC.fingerprint(of: certificate) ?? ""]
                 (resources as NSDictionary).write(to: signature.appendingPathComponent("CodeResources"), atomically: true)
                 try? Data("harness provisioning profile".utf8).write(to: folder.appendingPathComponent("embedded.mobileprovision"))
-                if case .signsPartly(let message) = plan {
+                if !refused.isEmpty {
+                    completion(false, NSError(domain: "Failed to Sign", code: -1,
+                                              userInfo: [NSLocalizedDescriptionKey: refused.joined(separator: "\n")]))
+                } else if case .signsPartly(let message) = plan {
                     completion(true, NSError(domain: "zsign", code: 2, userInfo: [NSLocalizedDescriptionKey: message]))
                 } else {
                     completion(true, nil)

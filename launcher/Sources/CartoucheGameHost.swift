@@ -16,7 +16,8 @@
 //    Home button again, or Resume on the console, brings it back;
 //  - Quit, on the console, stops the game's process;
 //  - a game that iOS stops comes back to the console, which says why when
-//    it can tell (CartoucheGameActions.gameDidEnd).
+//    it can tell (CartoucheGameActions.gameDidEnd), and so does one whose
+//    process LiveProcess ended on an error, with that error.
 //
 //  The game's own process measures its memory, and posts the presses of a
 //  controller's Home button while the game has the controller
@@ -331,8 +332,16 @@ final class CartoucheGameHost {
         let reading = CartoucheGameMemoryReading.last(pid: Int(vc.pid))
         let quit = quitting
         let wasInFront = isInFront
+        // Why the game's process ended, when LiveProcess ended it on an
+        // error (app/patches/livecontainer/0014): it could not run the game,
+        // dyld's words, or the game ended itself, or threw. LiveContainer
+        // passes it on to didInitialize too, after this call.
+        var error: Error?
+        if !quit, let ended = vc.exitError, (ended as NSError).domain == "LiveProcess" {
+            error = ended
+        }
         tearDown()
-        CartoucheGameActions.shared.gameDidEnd(app, quit: quit, wasInFront: wasInFront, reading: reading)
+        CartoucheGameActions.shared.gameDidEnd(app, quit: quit, wasInFront: wasInFront, reading: reading, error: error)
     }
 
     private func tearDown() {
