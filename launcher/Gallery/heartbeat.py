@@ -2,28 +2,29 @@
 Mac has left of its memory and disk.
 
 xcodebuild says nothing as it builds with -quiet, for minutes on GitHub's
-Macs: the gallery and its UI tests (uitests.sh), the gallery before the
-screenshots (capture.sh). Such a silence was taken for a stuck run, and the
-run cancelled by hand: on 13 November the Full test pass of 0.12.1, 9
-minutes into its screenshots (run 43468883424), on 14 November #175's UI
-tests, 9 minutes into the iPad's (run 43574954177), and its harness
-(harness.sh). A step that says nothing for ten minutes is not stuck: with a
-line a minute, its log shows it.
+Macs: the gallery and its UI tests (build.sh, for uitests.sh and capture.sh).
+Such a silence was taken for a stuck run, and the run cancelled by hand: on
+13 November the Full test pass of 0.12.1, 9 minutes into its screenshots
+(run 43468883424), on 14 November #175's UI tests, 9 minutes into the
+iPad's (run 43574954177), and its harness (harness.sh). A step that says
+nothing for ten minutes is not stuck: with a line a minute, its log shows
+it.
 
 Five runs were cancelled again that morning in their iPad step, on GitHub's
 Macs, lines or not and by no one known: the line says what the Mac has left
 too, as a Mac short of memory or disk would show it there first.
 
-capture.sh builds within beating(). uitests.sh runs its build through this
-file, which runs COMMAND as it is, prints "   still WHAT: N s (memory free
-P%, disk free G GB)" every minute until it ends, then exits as COMMAND did:
+build.sh runs its build through this file, which runs COMMAND as it is,
+prints "   still WHAT: N s (memory free P%, disk free G GB)" every minute
+until it ends, then exits as COMMAND did:
 
     python3 launcher/Gallery/heartbeat.py WHAT COMMAND [ARGUMENT...]
 
-The memory is macOS's memory_pressure's, left out where it says nothing.
-HEARTBEAT_SECONDS sets another time than a minute, for the tests
-(test_heartbeat.py). The harness, whose xcodebuild goes through a filter,
-says the same from launcher/Harness/harness.sh.
+Python says the same of a block within beating(). The memory is macOS's
+memory_pressure's, left out where it says nothing. HEARTBEAT_SECONDS sets
+another time than a minute, for the tests (test_heartbeat.py). The harness,
+whose xcodebuild goes through a filter, says the same from
+launcher/Harness/harness.sh.
 """
 
 import contextlib

@@ -1,10 +1,10 @@
 """A line a minute while a build says nothing, with what the Mac has left of
-its memory and disk: heartbeat.py, which uitests.sh and capture.sh build
-through, and the harness's own in launcher/Harness/harness.sh, which also
-shuts its simulator down for the iPad's step after it. A step silent for 9
-or 10 minutes was taken for a stuck run and cancelled by hand, on 13 and 14
-November, and runs went on being cancelled in their iPad step on GitHub's
-Macs, by no one known.
+its memory and disk: heartbeat.py, which build.sh builds the gallery
+through, for uitests.sh and capture.sh, and the harness's own in
+launcher/Harness/harness.sh, which also shuts its simulator down for the
+iPad's step after it. A step silent for 9 or 10 minutes was taken for a
+stuck run and cancelled by hand, on 13 and 14 November, and runs went on
+being cancelled in their iPad step on GitHub's Macs, by no one known.
 
     python3 -m unittest discover -s launcher/Gallery -p 'test_*.py'
 
@@ -13,7 +13,6 @@ xcodebuild that says nothing for a while, a stand-in memory_pressure, and a
 fifth of a second for a minute.
 """
 
-import ast
 import io
 import os
 import re
@@ -70,6 +69,21 @@ MEMORY_PRESSURE = ('echo "The system has 7516192768 (1835008 pages with a page s
                    'exit 0\n')
 LEFT = r"^memory free 23%, disk free \d+\.\d GB$"
 DISK_ALONE = r"^disk free \d+\.\d GB$"
+
+
+def gallery(work):
+    """build.sh, project.sh and heartbeat.py copied into WORK, where they
+    live in the repository, beside a catalogue of one game: the gallery's
+    directory."""
+    found = work / "repository/launcher/Gallery"
+    found.mkdir(parents=True)
+    for name in ("build.sh", "project.sh", "heartbeat.py"):
+        shutil.copy2(HERE / name, found / name)
+    catalog = work / "repository/catalog"
+    (catalog / "games").mkdir(parents=True)
+    for name in ("devices.json", "nxnative.json", "covers.json", "games/0100000000010000.json"):
+        (catalog / name).write_text("{}\n")
+    return found
 
 
 def step(script, first, last):
@@ -155,8 +169,8 @@ class Heartbeat(unittest.TestCase):
         self.assertEqual(printed.getvalue(), said, "a line after the block ended")
 
 
-class Scripts(unittest.TestCase):
-    """Each build that says nothing, as its script runs it."""
+class ScriptsCase(unittest.TestCase):
+    """The scripts' steps, run with stand-ins for the tools of a Mac."""
 
     def setUp(self):
         self.work = Path(tempfile.mkdtemp())
@@ -164,13 +178,17 @@ class Scripts(unittest.TestCase):
         found = tools(
             self.work / "bin",
             # xcodebuild says nothing for FAKE_SECONDS, then what FAKE_SAYS
-            # says, and ends with FAKE_STATUS; it keeps its arguments.
-            xcodebuild=(f'echo "$@" > "{self.work}/xcodebuild-arguments"\n'
+            # says, and ends with FAKE_STATUS; it keeps its arguments, a
+            # line for each time it runs.
+            xcodebuild=(f'echo "$@" >> "{self.work}/xcodebuild-arguments"\n'
                         'sleep "$FAKE_SECONDS"\n'
                         'printf "%b" "${FAKE_SAYS:-}"\n'
                         'exit "${FAKE_STATUS:-0}"\n'),
             # xcrun keeps what it was asked, one line each.
             xcrun=f'echo "$@" >> "{self.work}/xcrun-calls"\nexit 0\n',
+            xcodegen="exit 0\n",
+            # The processor of an Apple silicon Mac.
+            uname='[ "$1" = -m ] && echo arm64 || echo Darwin\n',
             memory_pressure=MEMORY_PRESSURE)
         self.env = dict(os.environ, PATH=f"{found}:{os.environ['PATH']}", HEARTBEAT_SECONDS=str(PERIOD),
                         FAKE_SECONDS=str(PERIOD * 6), FAKE_MEMORY="23%",
@@ -180,24 +198,30 @@ class Scripts(unittest.TestCase):
         return subprocess.run(["bash", "-c", "\n".join(["set -euo pipefail", before, script, after])],
                               capture_output=True, text=True, timeout=60, env=dict(self.env, **env))
 
-    def test_the_ui_tests_say_their_build_goes_on(self):
-        build = step(HERE / "uitests.sh", 'xcrun simctl boot "$UDID"', 'echo "   built in')
-        before = (f'HERE="{HERE}" UDID=UDID PROJECT="{HERE}/CartoucheGallery.xcodeproj" BUILD="{self.work}"\n'
-                  "started=$SECONDS")
-        done = self.run_step(before, build)
+
+class Scripts(ScriptsCase):
+    """Each build that says nothing, as its script runs it."""
+
+    def test_the_gallery_says_its_build_goes_on(self):
+        here = gallery(self.work)
+        done = subprocess.run(["bash", str(here / "build.sh")], capture_output=True, text=True, timeout=60,
+                              env=self.env)
         self.assertEqual(done.returncode, 0, done.stderr)
         said = beats(done.stdout, "building the gallery and its UI tests")
         self.assertGreaterEqual(len(said), 3, done.stdout)
         for left in lefts(done.stdout, "building the gallery and its UI tests"):
             self.assertRegex(left, LEFT)
-        self.assertRegex(done.stdout, r"\n   built in \d+ s\n$")
-        self.assertRegex((self.work / "xcodebuild-arguments").read_text(),
-                         r"^build-for-testing -quiet .*-destination platform=iOS Simulator,id=UDID ")
+        # For any simulator of this Mac, whichever runs the UI tests or the
+        # screenshots (test_builds.py).
+        self.assertEqual((self.work / "xcodebuild-arguments").read_text().splitlines(),
+                         [f"build-for-testing -quiet -project {here}/CartoucheGallery.xcodeproj "
+                          "-scheme CartoucheGallery -destination generic/platform=iOS Simulator "
+                          f"-derivedDataPath {here}/Build/DerivedData ARCHS=arm64"])
 
         # A build that fails ends the script, with its status.
-        failed = self.run_step(before, build, FAKE_STATUS="65")
+        failed = subprocess.run(["bash", str(here / "build.sh")], capture_output=True, text=True, timeout=60,
+                                env=dict(self.env, FAKE_STATUS="65"))
         self.assertEqual(failed.returncode, 65)
-        self.assertNotIn("built in", failed.stdout)
 
     def test_the_harness_says_its_build_and_tests_go_on(self):
         tests = step(ROOT / "launcher/Harness/harness.sh",
@@ -240,27 +264,6 @@ class Scripts(unittest.TestCase):
         # Once what the app wrote is read from it.
         self.assertGreater(calls.index("simctl shutdown UDID"),
                            next(i for i, call in enumerate(calls) if call.startswith("simctl get_app_container UDID")))
-
-    def test_the_screenshots_build_the_gallery_within_the_heartbeat(self):
-        script = (HERE / "capture.sh").read_text()
-        python = script.split("<<'PY'\n", 1)[1].split("\nPY\n", 1)[0]
-        builds = []
-
-        def visit(node, beating):
-            if isinstance(node, ast.With) and any(
-                    isinstance(item.context_expr, ast.Call)
-                    and ast.unparse(item.context_expr.func) == "heartbeat.beating" for item in node.items):
-                beating = True
-            if (isinstance(node, ast.List) and node.elts and isinstance(node.elts[0], ast.Constant)
-                    and node.elts[0].value == "xcodebuild"):
-                builds.append((node.lineno, beating))
-            for child in ast.iter_child_nodes(node):
-                visit(child, beating)
-
-        visit(ast.parse(python), False)
-        self.assertTrue(builds, "capture.sh no longer runs xcodebuild as this test knows")
-        self.assertEqual([line for line, beating in builds if not beating], [],
-                         "lines of capture.sh's Python that run xcodebuild without a line a minute")
 
 
 if __name__ == "__main__":
