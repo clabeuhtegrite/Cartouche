@@ -25,8 +25,15 @@ enum CartoucheVPN {
         interfaces.contains { $0.name.lowercased().hasPrefix("utun") && $0.address.hasPrefix("10.7.") }
     }
 
-    /// Whether LocalDevVPN is connected now.
-    static var isConnected: Bool { hasTunnel(interfaces()) }
+    /// Whether LocalDevVPN is connected now: in the gallery, as its scenario
+    /// says, the simulator having the interfaces of the Mac under it.
+    static var isConnected: Bool {
+        #if CARTOUCHE_GALLERY
+        return GalleryState.vpnConnected
+        #else
+        return hasTunnel(interfaces())
+        #endif
+    }
 
     /// This device's interfaces that are up, with their IPv4 addresses.
     static func interfaces() -> [Interface] {
