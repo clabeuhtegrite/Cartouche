@@ -171,12 +171,16 @@ struct CartoucheGameSheetView: View {
             }
             #if CARTOUCHE_GALLERY
             // The gallery's scenario of the testers' results opens the sheet
-            // on them, under their title.
+            // on them, from their title to the line under them: the middle
+            // one in the middle, as a List scrolls a row to its top, its
+            // middle or its bottom only.
             .onAppear {
                 guard GalleryState.sheetSection == "results",
-                      let first = entry.sheet.flatMap({ CartoucheGameResultsSection.ordered($0.results).first }) else { return }
+                      let results = entry.sheet.map({ CartoucheGameResultsSection.ordered($0.results) }),
+                      !results.isEmpty else { return }
+                let middle = results[results.count / 2]
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-                    reader.scrollTo(first, anchor: UnitPoint(x: 0.5, y: 0.25))
+                    reader.scrollTo(middle, anchor: .center)
                 }
             }
             #endif
