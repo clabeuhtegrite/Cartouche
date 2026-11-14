@@ -140,11 +140,15 @@ final class HomeButtonTests: HarnessCase {
         try XCTUnwrap(button("game.home", in: screen.view), "the Home button", file: file, line: line)
     }
 
-    /// A tap on BUTTON, as UIKit sends it: the touch begins on it, and ends
-    /// on it.
+    /// A tap on BUTTON, as UIKit sends it: the touch begins on it, then ends
+    /// on it, which a button says once as .primaryActionTriggered. Sent
+    /// with .touchUpInside, which a button turns into one more
+    /// .primaryActionTriggered, the end of the touch came twice: the second
+    /// showed the console from a touch that only brought the button back
+    /// (run 43618025233).
     private func tap(_ button: UIButton) {
         button.sendActions(for: .touchDown)
-        button.sendActions(for: [.touchUpInside, .primaryActionTriggered])
+        button.sendActions(for: .primaryActionTriggered)
     }
 
     /// The button of IDENTIFIER in VIEW, VIEW itself included.
