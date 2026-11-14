@@ -82,6 +82,9 @@ enum Gallery {
 
     /// Pictures AppKit drew itself, as ScreenCaptureKit could not take them.
     private static var drawnByAppKit = 0
+    /// Pictures of a window in the background, as macOS kept the app
+    /// inactive: its main buttons and its switches come out grey.
+    private static var inBackground = 0
 
     static func run(into folder: URL) {
         let app = NSApplication.shared
@@ -110,7 +113,8 @@ enum Gallery {
         }
         ConsoleGallery.cleanUp()
         print("gallery: \(saved) pictures in \(folder.path)"
-              + (drawnByAppKit > 0 ? ", \(drawnByAppKit) drawn by AppKit without the window server's effects" : ""))
+              + (drawnByAppKit > 0 ? ", \(drawnByAppKit) drawn by AppKit without the window server's effects" : "")
+              + (inBackground > 0 ? ", \(inBackground) of a window in the background, its main buttons and switches grey" : ""))
         exit(saved > 0 ? 0 : 1)
     }
 
@@ -178,12 +182,14 @@ enum Gallery {
         window.contentViewController = controller
         window.setContentSize(size)
         // In front and active, as the player sees the app's window: an
-        // inactive window greys its main buttons, which are in the app's
-        // colour.
-        NSApp.activate()
+        // inactive window greys its main buttons and its switches. Nobody
+        // opened the gallery, so macOS turns down activate(), which only
+        // asks; the gallery takes the front, as the runner has no player.
+        NSApp.activate(ignoringOtherApps: true)
         window.makeKeyAndOrderFront(nil)
         window.orderFrontRegardless()
         wait(until: Date().addingTimeInterval(2.5))
+        if !(NSApp.isActive && window.isKeyWindow) { inBackground += 1 }
         defer {
             window.orderOut(nil)
             window.close()

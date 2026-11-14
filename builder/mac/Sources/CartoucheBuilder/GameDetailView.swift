@@ -751,6 +751,9 @@ struct PlatformToggle: View {
                         .fixedSize(horizontal: false, vertical: true)
                 }
             }
+            // The whole width, so that each platform's switch is at the
+            // card's edge, under the other's, whatever its words' length.
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
         .toggleStyle(.switch)
         .disabled(locked != nil)
