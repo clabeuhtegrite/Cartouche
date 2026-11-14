@@ -4,6 +4,8 @@
 //
 //  The launcher's words, in Cartouche.xcstrings (English and French). Each
 //  call also carries the English text, which shows if a translation is missing.
+//  They call the device Cartouche runs on the iPhone: on an iPad, the iPad
+//  (CartoucheDeviceWords.swift).
 //
 
 import Foundation
@@ -12,7 +14,13 @@ enum CartoucheText {
     static let bundle = Bundle(for: CartoucheCatalog.self)
 
     static func s(_ key: String, _ english: String) -> String {
-        NSLocalizedString(key, tableName: "Cartouche", bundle: bundle, value: english, comment: "")
+        let text = NSLocalizedString(key, tableName: "Cartouche", bundle: bundle, value: english, comment: "")
+        #if canImport(UIKit)
+        return CartoucheDevice.isPad ? CartoucheDeviceWords.onIPad(text) : text
+        #else
+        // The storage's tests on a Mac (launcher/StorageTests), without the device.
+        return text
+        #endif
     }
 
     static func f(_ key: String, _ english: String, _ arguments: CVarArg...) -> String {
@@ -268,9 +276,10 @@ enum CartoucheText {
     static var renewed: String { s("system.signature.renewed", "Last renewed") }
     static var team: String { s("system.signature.team", "Apple account team") }
     static var profileUnknown: String { s("system.signature.unknown", "Cartouche could not read its provisioning profile.") }
-    static var signatureFooter: String { s("system.signature.footer", "Cartouche renews itself with LocalDevVPN on. Once expired, it no longer opens: install it again with the Cartouche Installer.") }
+    static var signatureFooter: String { s("system.signature.footer", "Cartouche renews itself each time you open it in its last 3 days, with LocalDevVPN on. Once expired, it no longer opens: install it again with the Cartouche Installer.") }
     static var renewNow: String { s("system.signature.renew", "Renew now") }
     static var renewing: String { s("system.signature.renewing", "Renewing…") }
+    static var renewingByItself: String { s("system.signature.renewing.auto", "Cartouche renews itself…") }
     static var renewUnavailable: String { s("system.signature.renew.unavailable", "The built-in SideStore did not load. Close Cartouche, open it again, then renew.") }
     static var renewFailed: String { s("system.signature.renew.failed", "The renewal did not go through") }
     static var automaticRenewal: String { s("system.auto", "Automatic renewal") }
@@ -446,6 +455,7 @@ enum CartoucheText {
     static var pausedDetail: String { s("running.paused", "Paused behind Cartouche, where you left it.") }
     static var backToCartouche: String { s("running.back", "Back to Cartouche") }
     static var homeButtonHint: String { s("running.homeHint", "The controller’s Home button brings you back to Cartouche.") }
+    static var turnIPadSideways: String { s("running.turnIPadSideways", "Turn your iPad sideways to play.") }
     static func quitQuestion(_ name: String) -> String { f("running.quit.question", "Quit %@?", name) }
     static var quitGame: String { s("running.quit.confirm", "Quit the game") }
     static var quitMessage: String { s("running.quit.message", "Progress since the game last saved will be lost.") }
@@ -485,6 +495,9 @@ enum CartoucheText {
     static var tvMoving: String { s("tv.moving", "Moving to the TV…") }
     static var tvMirrored: String {
         s("tv.mirrored", "The TV shows a copy of the iPhone’s screen, so the game stays hidden from it. To play on the iPhone, unplug the TV or stop Screen Mirroring.")
+    }
+    static var tvCaptured: String {
+        s("tv.captured", "The iPhone’s screen is being recorded or shown on another screen, so the game stays hidden.")
     }
     static var tvShowAnyway: String { s("tv.showAnyway", "Show the game anyway") }
 

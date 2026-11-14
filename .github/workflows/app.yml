@@ -110,9 +110,13 @@ jobs:
           printf 'build=%s\nlauncher=%s\n' "$BUILD" "$LAUNCHER" >> "$GITHUB_OUTPUT"
           echo "Build the app: $BUILD. Test the launcher: $LAUNCHER."
 
-  # Ad's Mac, when it can take the build now, else GitHub's (route.py).
+  # Ad's Mac, when it can take the build now, else GitHub's (route.py). It
+  # chooses once the first job has said what to build, right before the
+  # build is created, so that the routes of other runs count it.
   route:
     name: Ad's Mac or GitHub
+    needs: changes
+    if: ${{ !cancelled() && needs.changes.outputs.build != 'false' }}
     runs-on: ubuntu-latest
     permissions:
       contents: read

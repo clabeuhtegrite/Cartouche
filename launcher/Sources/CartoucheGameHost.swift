@@ -23,6 +23,7 @@
 //  (launcher/LiveProcessSupport/CartoucheGuest.m).
 //
 
+import AVFAudio
 import Combine
 import GameController
 import UIKit
@@ -54,6 +55,9 @@ final class CartoucheGameHost {
     /// game's process.
     private(set) var gameOnTV: UIViewController?
     private var screenWatch: [NSObjectProtocol] = []
+    /// The scene's capture state, watched while the game runs
+    /// (watchScreens).
+    private var captureWatch: (scene: UIWindowScene, registration: any UITraitChangeRegistration)?
 
     private init() {}
 
@@ -68,7 +72,8 @@ final class CartoucheGameHost {
         quitting = false
         consoleWindow = host.keyWindow
 
-        let screen = CartoucheGameScreen(orientations: Self.orientations(of: app)) { [weak self] in
+        let isPad = UIDevice.current.userInterfaceIdiom == .pad
+        let screen = CartoucheGameScreen(allowed: Self.orientations(of: app, isPad: isPad), isPad: isPad) { [weak self] in
             self?.showConsole()
         }
         let window = UIWindow(windowScene: host)
@@ -84,7 +89,7 @@ final class CartoucheGameHost {
         CartoucheTV.shared.card.show(app)
         CartoucheTV.shared.host = self
         askForTheTV(from: [consoleWindow?.rootViewController, screen])
-        watchScreens()
+        watchScreens(in: host)
         guardTheTV()
         UIView.animate(withDuration: 0.25) { window.alpha = 1 }
         screen.rotate()
@@ -164,6 +169,9 @@ final class CartoucheGameHost {
     func showConsole() {
         guard app != nil, isInFront, let window else { return }
         isInFront = false
+        // The console turns as the iPad is held: the game's screen lets go
+        // of the way it was turned.
+        screen?.isInFront = false
         setGameForeground(false)
         showOnTV(inFront: false)
         CartoucheGamepad.shared.gameInFront = false
@@ -193,6 +201,7 @@ final class CartoucheGameHost {
         window.isHidden = false
         window.makeKey()
         UIView.animate(withDuration: 0.2) { window.alpha = 1 }
+        screen.isInFront = true
         screen.rotate()
         setGameForeground(true)
         showOnTV(inFront: true)
@@ -338,6 +347,10 @@ final class CartoucheGameHost {
             NotificationCenter.default.removeObserver(observer)
         }
         screenWatch = []
+        if let captureWatch {
+            captureWatch.scene.unregisterForTraitChanges(captureWatch.registration)
+        }
+        captureWatch = nil
         if let scene {
             scene.delegate = nil
             scene.willMove(toParent: nil)
@@ -445,40 +458,67 @@ final class CartoucheGameHost {
     }
 
     /// Never the game with its controls on a TV, even for a moment: while
-    /// the game is on screen and a TV mirrors the iPhone, as it may before
-    /// iOS hands Cartouche that TV, or if it never does, the game's screen
-    /// hides the game, unless the player shows it anyway.
+    /// the game is on screen and a copy of the iPhone's screen goes
+    /// elsewhere, as it goes to a TV before iOS hands Cartouche that TV, or
+    /// if it never does, the game's screen hides the game, unless the
+    /// player shows it anyway.
     func guardTheTV() {
         guard let screen else { return }
-        let hides = isInFront && CartoucheTV.shared.window == nil && Self.iPhoneIsMirrored()
+        let copy = isInFront && CartoucheTV.shared.window == nil ? copyOfTheIPhone() : nil
         let hid = screen.hidesGameForTV
-        screen.hidesGameForTV = hides
+        screen.hidesGameFrom = copy
         // Noted as it changes: shown anyway, the game stays so.
-        if screen.hidesGameForTV != hid {
-            CartoucheTV.note(hides ? "TV: a display mirrors the iPhone, the game hides from it" : "TV: the game shows again")
+        guard screen.hidesGameForTV != hid else { return }
+        switch screen.hidesGameFrom {
+        case .tv?: CartoucheTV.note("TV: a display mirrors the iPhone, the game hides from it")
+        case .elsewhere?: CartoucheTV.note("TV: the iPhone's screen is recorded or copied, the game hides from it")
+        case nil: CartoucheTV.note("TV: the game shows again")
         }
     }
 
-    /// Whether a display shows a copy of the iPhone's screen: a TV, by
-    /// cable or AirPlay, that iOS has not handed Cartouche.
-    static func iPhoneIsMirrored() -> Bool {
-        #if CARTOUCHE_HARNESS
-        // In the launcher's harness (launcher/Harness), as a test sets it.
-        return HarnessLC.iPhoneMirrored
-        #else
-        return UIScreen.screens.contains { $0.mirrored != nil }
-        #endif
+    /// Where a copy of the iPhone's screen goes, if one does. iOS 27 copies
+    /// it to a TV that it has not handed Cartouche, by cable or AirPlay,
+    /// with no screen for that TV among UIScreen.screens, but it tells the
+    /// scene that its screen is captured, as it does while the screen is
+    /// recorded or shown in a Mac's iPhone Mirroring. Before iOS 27, that
+    /// TV is a screen that mirrors the iPhone's. The sound tells a TV from
+    /// the rest, as far as it can: it goes to the TV, unless headphones
+    /// have it.
+    private func copyOfTheIPhone() -> CartoucheScreenCopy? {
+        let captured = window?.windowScene?.traitCollection.sceneCaptureState == .active
+        let mirrored = UIScreen.screens.contains { $0.mirrored != nil }
+        guard captured || mirrored else { return nil }
+        return mirrored || Self.soundGoesToADisplay() ? .tv : .elsewhere
     }
 
-    /// A display that comes or goes may start or stop a copy of the
-    /// iPhone's screen.
-    private func watchScreens() {
+    /// Whether the iPhone's sound goes to a display, by cable or AirPlay.
+    static func soundGoesToADisplay() -> Bool {
+        #if CARTOUCHE_HARNESS
+        // In the launcher's harness (launcher/Harness), as a test sets it:
+        // the Simulator's sound goes to the Mac.
+        if let sound = HarnessLC.soundGoesToADisplay {
+            return sound
+        }
+        #endif
+        let displays: [AVAudioSession.Port] = [.HDMI, .airPlay, .displayPort]
+        return AVAudioSession.sharedInstance().currentRoute.outputs.contains { displays.contains($0.portType) }
+    }
+
+    /// A copy of the iPhone's screen may start or stop as iOS captures the
+    /// screen of SCENE, where the game's window is, or stops; as a display
+    /// comes or goes, before iOS 27; and as the sound moves to a TV or back.
+    private func watchScreens(in scene: UIWindowScene) {
         let center = NotificationCenter.default
-        for name in [UIScreen.didConnectNotification, UIScreen.didDisconnectNotification, UIScreen.modeDidChangeNotification] {
+        for name in [UIScreen.didConnectNotification, UIScreen.didDisconnectNotification, UIScreen.modeDidChangeNotification,
+                     AVAudioSession.routeChangeNotification] {
             screenWatch.append(center.addObserver(forName: name, object: nil, queue: .main) { [weak self] _ in
                 MainActor.assumeIsolated { self?.guardTheTV() }
             })
         }
+        let registration = scene.registerForTraitChanges([UITraitSceneCaptureState.self]) { [weak self] (_: UIWindowScene, _: UITraitCollection) in
+            MainActor.assumeIsolated { self?.guardTheTV() }
+        }
+        captureWatch = (scene, registration)
     }
 
     // MARK: Where the game shows
@@ -494,16 +534,9 @@ final class CartoucheGameHost {
     /// those Cartouche's allows (CartoucheGameOrientations): sideways only
     /// for nxnative's games. Not LiveContainer's info(), its own settings
     /// for the game, which name none.
-    private static func orientations(of app: LCAppModel) -> UIInterfaceOrientationMask {
-        let isPad = UIDevice.current.userInterfaceIdiom == .pad
+    private static func orientations(of app: LCAppModel, isPad: Bool) -> CartoucheGameOrientations {
         let bundle = app.appInfo.bundlePath().map { URL(fileURLWithPath: $0, isDirectory: true) }
-        let allowed = bundle.map { CartoucheGameOrientations(bundle: $0, isPad: isPad) } ?? .ofCartouche(isPad: isPad)
-        var mask: UIInterfaceOrientationMask = []
-        if allowed.contains(.portrait) { mask.insert(.portrait) }
-        if allowed.contains(.portraitUpsideDown) { mask.insert(.portraitUpsideDown) }
-        if allowed.contains(.landscapeLeft) { mask.insert(.landscapeLeft) }
-        if allowed.contains(.landscapeRight) { mask.insert(.landscapeRight) }
-        return mask
+        return bundle.map { CartoucheGameOrientations(bundle: $0, isPad: isPad) } ?? .ofCartouche(isPad: isPad)
     }
 }
 
@@ -571,6 +604,16 @@ private final class CartoucheGameSceneCalls: NSObject, AppSceneViewControllerDel
 /// place instead.
 struct CartoucheGameHostError: Error {}
 
+/// Where a copy of the iPhone's screen goes, which the game hides from
+/// (CartoucheGameHost.guardTheTV).
+enum CartoucheScreenCopy: Equatable {
+    /// A TV, by cable or AirPlay, that iOS has not handed Cartouche.
+    case tv
+    /// A recording of the screen, a Mac's iPhone Mirroring, or a TV whose
+    /// sound goes to headphones: Cartouche cannot tell them apart.
+    case elsewhere
+}
+
 // MARK: The game's screen
 
 /// The screen of a game running behind the console: the game's scene, full
@@ -578,20 +621,48 @@ struct CartoucheGameHostError: Error {}
 /// middle, where nxnative's controls on screen leave room. Upright or
 /// sideways as the game allows, without the status bar, with the home
 /// indicator out of the way, and the edges of the screen to the game first.
+/// An iPad turns it as it is held, whatever the game allows: there it keeps
+/// the way it is turned once the game allows it, and asks the player to
+/// turn an iPad held upright sideways (CartoucheGameOrientations).
 @available(iOS 18.0, *)
 final class CartoucheGameScreen: UIViewController {
-    private let orientations: UIInterfaceOrientationMask
+    /// The ways the game allows the screen to turn.
+    private let allowed: CartoucheGameOrientations
+    private let isPad: Bool
     private let onHome: () -> Void
     private let spinner = UIActivityIndicatorView(style: .large)
     private let homeButton = UIButton(type: .custom)
-    /// Over the game while a TV mirrors the iPhone (hidesGameForTV).
+    /// Over the game while a copy of the iPhone's screen goes elsewhere
+    /// (hidesGameFrom), with what it says and the way to show the game
+    /// anyway.
     private var tvCover: UIView?
+    private weak var tvCoverText: UILabel?
+    private weak var tvCoverAnyway: UIButton?
+    /// The cover has been up long enough for iOS to hand Cartouche a TV.
+    private var tvCoverWaited = false
+    private var tvCopy: CartoucheScreenCopy?
     /// The player chose to show the game on the iPhone anyway, which a TV
     /// that mirrors it shows too.
     private var showsGameDespiteTV = false
+    /// Whether the screen asks iPadOS to keep the way it is turned
+    /// (prefersInterfaceOrientationLocked): on an iPad, while the game is
+    /// on screen, turned a way it allows (keeps(_:held:isPad:)).
+    private(set) var keepsTurn = false
+    /// The game on screen, rather than paused under the console, which
+    /// turns as the iPad is held.
+    var isInFront = true {
+        didSet {
+            if isInFront != oldValue { followTurns() }
+        }
+    }
+    /// The iPad's turns, followed while the screen shows.
+    private var deviceTurns: NSObjectProtocol?
+    /// The player was asked to turn the iPad sideways, and has not yet.
+    private var askedToTurn = false
 
-    init(orientations: UIInterfaceOrientationMask, onHome: @escaping () -> Void) {
-        self.orientations = orientations
+    init(allowed: CartoucheGameOrientations, isPad: Bool, onHome: @escaping () -> Void) {
+        self.allowed = allowed
+        self.isPad = isPad
         self.onHome = onHome
         super.init(nibName: nil, bundle: nil)
     }
@@ -600,7 +671,9 @@ final class CartoucheGameScreen: UIViewController {
         return nil
     }
 
-    override var supportedInterfaceOrientations: UIInterfaceOrientationMask { orientations }
+    override var supportedInterfaceOrientations: UIInterfaceOrientationMask { Self.mask(of: allowed) }
+    @available(iOS 26.0, *)
+    override var prefersInterfaceOrientationLocked: Bool { keepsTurn }
     override var prefersStatusBarHidden: Bool { true }
     override var prefersHomeIndicatorAutoHidden: Bool { true }
     override var preferredScreenEdgesDeferringSystemGestures: UIRectEdge { .all }
@@ -639,6 +712,32 @@ final class CartoucheGameScreen: UIViewController {
         ])
     }
 
+    override func viewDidAppear(_ animated: Bool) {
+        super.viewDidAppear(animated)
+        guard isPad, deviceTurns == nil else { return }
+        UIDevice.current.beginGeneratingDeviceOrientationNotifications()
+        deviceTurns = NotificationCenter.default.addObserver(forName: UIDevice.orientationDidChangeNotification, object: nil,
+                                                             queue: .main) { [weak self] _ in
+            MainActor.assumeIsolated { self?.followTurns() }
+        }
+        followTurns()
+    }
+
+    override func viewDidDisappear(_ animated: Bool) {
+        super.viewDidDisappear(animated)
+        guard let deviceTurns else { return }
+        NotificationCenter.default.removeObserver(deviceTurns)
+        self.deviceTurns = nil
+        UIDevice.current.endGeneratingDeviceOrientationNotifications()
+    }
+
+    override func viewWillTransition(to size: CGSize, with coordinator: UIViewControllerTransitionCoordinator) {
+        super.viewWillTransition(to: size, with: coordinator)
+        coordinator.animate(alongsideTransition: nil) { [weak self] _ in
+            self?.followTurns()
+        }
+    }
+
     /// The game's scene, under the Home button.
     func embed(_ child: UIViewController) {
         addChild(child)
@@ -653,62 +752,98 @@ final class CartoucheGameScreen: UIViewController {
         spinner.isHidden = true
     }
 
-    /// Whether the game hides from a TV that mirrors the iPhone
-    /// (CartoucheGameHost.guardTheTV): black over the game, under the Home
-    /// button, while iOS hands Cartouche the TV; after a few seconds, what
-    /// the player can do, and a way to show the game anyway.
-    var hidesGameForTV: Bool {
-        get { tvCover != nil }
+    /// Where a copy of the iPhone's screen goes that the game hides from
+    /// (CartoucheGameHost.guardTheTV), or nil while the game shows: black
+    /// over the game, under the Home button. For a TV, while iOS hands
+    /// Cartouche the TV, then after a few seconds what the player can do,
+    /// and a way to show the game anyway; for the rest, both at once.
+    var hidesGameFrom: CartoucheScreenCopy? {
+        get { tvCopy }
         set {
-            guard newValue != (tvCover != nil) else { return }
-            guard newValue, !showsGameDespiteTV else {
+            let copy = showsGameDespiteTV ? nil : newValue
+            guard copy != tvCopy else { return }
+            tvCopy = copy
+            guard copy != nil else {
                 tvCover?.removeFromSuperview()
                 tvCover = nil
                 return
             }
-            loadViewIfNeeded()
-            let cover = UIView(frame: view.bounds)
-            cover.autoresizingMask = [.flexibleWidth, .flexibleHeight]
-            cover.backgroundColor = .black
-            cover.accessibilityIdentifier = "game.tvCover"
-            let label = UILabel()
-            label.text = CartoucheText.tvMoving
-            label.font = .preferredFont(forTextStyle: .headline)
-            label.textColor = .white
-            label.numberOfLines = 0
-            label.textAlignment = .center
-            label.translatesAutoresizingMaskIntoConstraints = false
-            var configuration = UIButton.Configuration.bordered()
-            configuration.title = CartoucheText.tvShowAnyway
-            configuration.baseForegroundColor = .white
-            configuration.cornerStyle = .capsule
-            let anyway = UIButton(configuration: configuration)
-            anyway.isHidden = true
-            anyway.accessibilityIdentifier = "game.tvCover.anyway"
-            anyway.addAction(UIAction { [weak self] _ in
-                CartoucheTV.note("TV: the player shows the game anyway, on the iPhone and on the display that mirrors it")
-                self?.showsGameDespiteTV = true
-                self?.hidesGameForTV = false
-            }, for: .primaryActionTriggered)
-            let stack = UIStackView(arrangedSubviews: [label, anyway])
-            stack.axis = .vertical
-            stack.alignment = .center
-            stack.spacing = 16
-            stack.translatesAutoresizingMaskIntoConstraints = false
-            cover.addSubview(stack)
-            view.insertSubview(cover, belowSubview: homeButton)
-            NSLayoutConstraint.activate([
-                stack.centerXAnchor.constraint(equalTo: cover.centerXAnchor),
-                stack.centerYAnchor.constraint(equalTo: cover.centerYAnchor),
-                stack.widthAnchor.constraint(lessThanOrEqualTo: cover.widthAnchor, constant: -64),
-            ])
-            tvCover = cover
-            Task { [weak self, weak cover, weak label, weak anyway] in
-                try? await Task.sleep(for: .seconds(4))
-                guard let self, let cover, self.tvCover === cover else { return }
-                label?.text = CartoucheText.tvMirrored
-                anyway?.isHidden = false
+            if tvCover == nil {
+                coverTheGame()
             }
+            explainTheCover()
+        }
+    }
+
+    /// Whether the game hides from a copy of the iPhone's screen.
+    var hidesGameForTV: Bool { tvCopy != nil }
+
+    /// How long the cover waits for iOS to hand Cartouche a TV before it
+    /// says why the game hides.
+    static let tvWait: Duration = .seconds(4)
+
+    private func coverTheGame() {
+        loadViewIfNeeded()
+        let cover = UIView(frame: view.bounds)
+        cover.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+        cover.backgroundColor = .black
+        cover.accessibilityIdentifier = "game.tvCover"
+        let label = UILabel()
+        label.font = .preferredFont(forTextStyle: .headline)
+        label.textColor = .white
+        label.numberOfLines = 0
+        label.textAlignment = .center
+        label.accessibilityIdentifier = "game.tvCover.text"
+        label.translatesAutoresizingMaskIntoConstraints = false
+        var configuration = UIButton.Configuration.bordered()
+        configuration.title = CartoucheText.tvShowAnyway
+        configuration.baseForegroundColor = .white
+        configuration.cornerStyle = .capsule
+        let anyway = UIButton(configuration: configuration)
+        anyway.isHidden = true
+        anyway.accessibilityIdentifier = "game.tvCover.anyway"
+        anyway.addAction(UIAction { [weak self] _ in
+            CartoucheTV.note("TV: the player shows the game anyway, on the iPhone and on the display that mirrors it")
+            self?.showsGameDespiteTV = true
+            self?.hidesGameFrom = nil
+        }, for: .primaryActionTriggered)
+        let stack = UIStackView(arrangedSubviews: [label, anyway])
+        stack.axis = .vertical
+        stack.alignment = .center
+        stack.spacing = 16
+        stack.translatesAutoresizingMaskIntoConstraints = false
+        cover.addSubview(stack)
+        view.insertSubview(cover, belowSubview: homeButton)
+        NSLayoutConstraint.activate([
+            stack.centerXAnchor.constraint(equalTo: cover.centerXAnchor),
+            stack.centerYAnchor.constraint(equalTo: cover.centerYAnchor),
+            stack.widthAnchor.constraint(lessThanOrEqualTo: cover.widthAnchor, constant: -64),
+        ])
+        tvCover = cover
+        tvCoverText = label
+        tvCoverAnyway = anyway
+        tvCoverWaited = false
+        Task { [weak self, weak cover] in
+            try? await Task.sleep(for: CartoucheGameScreen.tvWait)
+            guard let self, let cover, self.tvCover === cover else { return }
+            self.tvCoverWaited = true
+            self.explainTheCover()
+        }
+    }
+
+    /// What the cover says, as the copy goes on: once shown, the way to
+    /// show the game anyway stays.
+    private func explainTheCover() {
+        guard let copy = tvCopy else { return }
+        switch copy {
+        case .tv where !tvCoverWaited:
+            tvCoverText?.text = CartoucheText.tvMoving
+        case .tv:
+            tvCoverText?.text = CartoucheText.tvMirrored
+            tvCoverAnyway?.isHidden = false
+        case .elsewhere:
+            tvCoverText?.text = CartoucheText.tvCaptured
+            tvCoverAnyway?.isHidden = false
         }
     }
 
@@ -718,7 +853,75 @@ final class CartoucheGameScreen: UIViewController {
         setNeedsStatusBarAppearanceUpdate()
         setNeedsUpdateOfHomeIndicatorAutoHidden()
         setNeedsUpdateOfScreenEdgesDeferringSystemGestures()
-        view.window?.windowScene?.requestGeometryUpdate(.iOS(interfaceOrientations: orientations)) { _ in }
+        view.window?.windowScene?.requestGeometryUpdate(.iOS(interfaceOrientations: Self.mask(of: allowed))) { _ in }
+        followTurns()
+    }
+
+    /// On an iPad, as the screen or the iPad turns, or the game comes and
+    /// goes: asks iPadOS to keep the way the screen is turned, or lets go,
+    /// as keeps(_:held:isPad:) says; and asks the player to turn an iPad
+    /// that shows a game made to be played sideways upright. iPadOS may not
+    /// keep it, in a window of Stage Manager for one: the player turns the
+    /// iPad, and the game with it.
+    func followTurns() {
+        guard isPad else { return }
+        let turned = Self.turned(viewIfLoaded?.window?.windowScene)
+        let keeps = isInFront && allowed.keeps(turned, held: Self.held(), isPad: true)
+        if keeps != keepsTurn {
+            keepsTurn = keeps
+            if #available(iOS 26.0, *) {
+                setNeedsUpdateOfPrefersInterfaceOrientationLocked()
+            }
+            NSLog("[Cartouche] %@", keeps ? "the game's screen keeps the way it is turned" : "the game's screen turns with the iPad")
+        }
+        let asks = isInFront && allowed.asksToTurnSideways(turned, isPad: true)
+        if asks, !askedToTurn {
+            CartoucheReports.note("The game shows upright on the iPad: the player is asked to turn it sideways")
+            showHint(CartoucheText.turnIPadSideways)
+        }
+        askedToTurn = asks
+    }
+
+    /// The way the screen is turned now: none when iOS cannot tell.
+    private static func turned(_ scene: UIWindowScene?) -> CartoucheGameOrientations {
+        #if CARTOUCHE_HARNESS
+        // In the launcher's harness (launcher/Harness), as a test sets it.
+        if let turned = HarnessLC.screenTurned { return turned }
+        #endif
+        guard let scene else { return [] }
+        switch scene.effectiveGeometry.interfaceOrientation {
+        case .portrait: return .portrait
+        case .portraitUpsideDown: return .portraitUpsideDown
+        case .landscapeLeft: return .landscapeLeft
+        case .landscapeRight: return .landscapeRight
+        default: return []
+        }
+    }
+
+    /// The way the screen would turn for the device as it is held: none
+    /// while it lies flat, or when iOS cannot tell.
+    private static func held() -> CartoucheGameOrientations {
+        #if CARTOUCHE_HARNESS
+        if let held = HarnessLC.deviceHeld { return held }
+        #endif
+        switch UIDevice.current.orientation {
+        case .portrait: return .portrait
+        case .portraitUpsideDown: return .portraitUpsideDown
+        // UIKit names the two sides the other way round for the device and
+        // for its screen.
+        case .landscapeLeft: return .landscapeRight
+        case .landscapeRight: return .landscapeLeft
+        default: return []
+        }
+    }
+
+    private static func mask(of orientations: CartoucheGameOrientations) -> UIInterfaceOrientationMask {
+        var mask: UIInterfaceOrientationMask = []
+        if orientations.contains(.portrait) { mask.insert(.portrait) }
+        if orientations.contains(.portraitUpsideDown) { mask.insert(.portraitUpsideDown) }
+        if orientations.contains(.landscapeLeft) { mask.insert(.landscapeLeft) }
+        if orientations.contains(.landscapeRight) { mask.insert(.landscapeRight) }
+        return mask
     }
 
     /// A line over the Home button for a few seconds.

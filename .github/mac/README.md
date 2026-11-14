@@ -10,13 +10,17 @@ GitHub runs five macOS jobs at a time for the whole account, and every Mac job o
 - it is a run of App or Launcher screens themselves, which Mac rescue can run again: a workflow that calls them runs them on GitHub's Macs;
 - the secret `MAC_RUNNER_TOKEN` is set: it reads the repository's runners;
 - the run is at its first attempt: a run again always goes to GitHub's Macs;
-- the Mac's runner of the job is online with every label the job needs, and free, or busy with no other job waiting for it: on each runner, one job runs and one waits, at most. `ad-mac` takes the app's builds (`cartouche-mac`, `cartouche-build`, and `xcode-<version>` of the workflow's Xcode), `ad-mac-screens` the UI tests and screenshots (`cartouche-mac`, `cartouche-screens`, `xcode-<version>` and `ios-sim-<version>`): a build never waits behind them, which take every core of the Mac where a build takes few.
+- the Mac's runner of the job is online with every label the job needs, and has room for it: on each runner, one job runs and one waits, at most, counting the jobs that wait for it in every queued or running run of App and Launcher screens, a job about to start on a free runner included. `ad-mac` takes the app's builds (`cartouche-mac`, `cartouche-build`, and `xcode-<version>` of the workflow's Xcode), `ad-mac-screens` the UI tests and screenshots (`cartouche-mac`, `cartouche-screens`, `xcode-<version>` and `ios-sim-<version>`): a build never waits behind them, which take every core of the Mac where a build takes few.
 
 Anything else, an error of GitHub's API included, sends it to `xcode-27`, as before the Mac. The run's summary says where the job went, and why.
+
+The route chooses once the workflow's other first job is done (**Files the app is built from**, **UI tests and screenshots done already?**), right before the job is created, so that the routes of other runs count it. On 13 November, when main reopened and 55 runs were queued at once, routes that chose before the jobs of others existed, and read the first 30 runs alone, left five UI tests and screenshots waiting for the Mac, where one may.
 
 Beside a job on the Mac, **Watch Ad's Mac** ([`watch.py`](watch.py)) sends the run back to GitHub's Macs when the Mac is offline for a minute while the job waits for it or runs (it went to sleep, lost the network, or its supervisor stopped it), or when the job has waited 20 minutes (an hour for the UI tests and screenshots, which may wait behind a job of theirs, 46 minutes on the Mac): it starts [Mac rescue](../workflows/mac-rescue.yml) from main, which waits for the run to end and runs it again ([`rescue.py`](rescue.py)), then cancels the run. A job that fails on the Mac fails, as it would on GitHub's.
 
 On the Mac, a job differs from GitHub's in three steps ([`job.sh`](job.sh)): it finds the workflow's Xcode in `/Applications` (`DEVELOPER_DIR`), where GitHub's Macs run `xcode-select` with sudo; it downloads ldid and XcodeGen at the versions and SHA-256 pinned in `job.sh`, where GitHub's Macs use Homebrew; it keeps the SideStores it built on its own disk, a folder for each key (its ldid is not Homebrew's), where GitHub's Macs use the Actions cache. Its simulators stay from one run to the next, shut down between jobs.
+
+A job that may run on the Mac uses the Actions cache on GitHub's Macs only: the cache puts its compression in an entry's version, and the Mac, which has no zstd, keeps gzip entries that no job on GitHub's runners finds. The note that a pull request's UI tests and screenshots are done goes to the cache from a job on Ubuntu after them (`memo` in [`screens.yml`](../workflows/screens.yml)), as Ubuntu looks for it.
 
 ## No one else's job
 
