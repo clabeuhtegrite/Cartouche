@@ -4,7 +4,7 @@ The [Branches workflow](../workflows/branches.yml) keeps the repository's branch
 
 - the head branch of a closed pull request, merged or not, that is still at the commit the pull request ended on: the pull request keeps its commits, and **Restore branch** on its page brings the branch back;
 - `release/v<version>`, once main's SideStore source lists that version or a later one: its release was merged, or a later one replaced it;
-- what a workflow keeps for a branch (`launcher-screens/<branch>`, `builder-screens/<branch>`, `catalog-covers/<branch>`) once that branch is gone or goes.
+- what a workflow keeps for a branch (`launcher-screens/<branch>`, `builder-screens/<branch>`, `installer-captures/<branch>`, `catalog-covers/<branch>`) once that branch is gone or goes.
 
 It keeps main, the branches something reads (`gh-pages`, the site GitHub Pages serves; `live-covers`, the covers Cartouche reads every day; and `nxnative-measurements`, the weekly page for nxnative's developers, whose history keeps the weeks before), the head of every open pull request, and every branch with commits that no pull request ended on: work in progress, which only its author deletes. A pull request's branch pushed to again after the merge, with new work, stays too.
 

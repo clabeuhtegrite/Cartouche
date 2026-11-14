@@ -13,11 +13,12 @@
 //  one line when this iPhone has it all), the copies of its saves, Edit
 //  the game's info for the player's own game (CartoucheGameInfoView), with
 //  what IGDB has of a game Cartouche does not know, after which the sheet
-//  goes back to its top, where the name and cover show; the game's copy in
-//  the games folder, its log to share (CartoucheGameLogView) and Uninstall,
-//  the testers' results, and last, folded, the technical details: the
-//  recommended settings, what nxnative's profile says and which build is
-//  installed.
+//  goes back to its top, where the name and cover show; for a game installed
+//  on the iPhone, Siri and Home Screen (CartoucheGameShortcutsView); the
+//  game's copy in the games folder, its log to share (CartoucheGameLogView)
+//  and Uninstall, the testers' results, and last, folded, the technical
+//  details: the recommended settings, what nxnative's profile says and which
+//  build is installed.
 //
 
 import SwiftUI
@@ -41,6 +42,8 @@ struct CartoucheGameSheetView: View {
     /// Opens what the player says of their game: its name, platform, genre
     /// and cover.
     var onEditInfo: () -> Void = {}
+    /// Opens Siri and Home Screen, for the installed game.
+    var onShortcuts: (LCAppModel) -> Void = { _ in }
     /// Whether the sheet opens on the game's management, near its bottom,
     /// rather than on its top: for the gallery's screens of it.
     var opensOnManagement = false
@@ -55,7 +58,9 @@ struct CartoucheGameSheetView: View {
          onUninstall: @escaping (LCAppModel) -> Void,
          onInstallStored: @escaping (CartoucheStoredGame) -> Void = { _ in },
          onExport: @escaping (LCAppModel) -> Void = { _ in },
-         onEditInfo: @escaping () -> Void = {}, opensOnManagement: Bool = false) {
+         onEditInfo: @escaping () -> Void = {},
+         onShortcuts: @escaping (LCAppModel) -> Void = { _ in },
+         opensOnManagement: Bool = false) {
         self.entry = entry
         self.memory = memory
         self.onPlay = onPlay
@@ -65,6 +70,7 @@ struct CartoucheGameSheetView: View {
         self.onInstallStored = onInstallStored
         self.onExport = onExport
         self.onEditInfo = onEditInfo
+        self.onShortcuts = onShortcuts
         self.opensOnManagement = opensOnManagement
     }
 
@@ -155,6 +161,14 @@ struct CartoucheGameSheetView: View {
                 if entry.isOwned {
                     infoSection
                 }
+
+                // Siri and Home Screen start a game in the iPhone's console;
+                // on the Mac, each game is an app of its own.
+                #if os(iOS)
+                if let app = entry.app {
+                    shortcutsSection(app)
+                }
+                #endif
 
                 if let app = entry.app {
                     manageSection(app)
@@ -401,6 +415,21 @@ struct CartoucheGameSheetView: View {
         }
     }
 
+    #if os(iOS)
+    /// Siri and Home Screen: what to say to Siri, and how to give the game
+    /// an icon of its own (CartoucheGameShortcutsView), on a page the
+    /// console opens over the sheet, as the game's settings.
+    private func shortcutsSection(_ app: LCAppModel) -> some View {
+        Section {
+            Button {
+                onShortcuts(app)
+            } label: {
+                Label(CartoucheText.shortcutsTitle, systemImage: "mic.fill")
+            }
+        }
+    }
+    #endif
+
     /// Whether the game starts in Cartouche's place, for its own needs or
     /// because games behind the console run without Increased Memory Limit
     /// here, the game's copy in the games folder, or the button that copies
@@ -438,7 +467,9 @@ struct CartoucheGameSheetView: View {
                 }
             }
             // What the game wrote of its last sessions, for whoever helps
-            // the player: shared as it is, or sent to Cartouche cleaned.
+            // the player: shared as it is, or sent to Cartouche cleaned. On
+            // the Mac, with the console's reports (decision 101).
+            #if os(iOS)
             if let logs = actions.logs(of: app), !logs.files.isEmpty {
                 NavigationLink {
                     CartoucheGameLogView(folder: logs, tileKey: entry.tileKey)
@@ -446,6 +477,7 @@ struct CartoucheGameSheetView: View {
                     Label(CartoucheText.gameLogRow, systemImage: "doc.text")
                 }
             }
+            #endif
             // Quit the game first.
             if !actions.isRunning(app) {
                 Button(role: .destructive) {
