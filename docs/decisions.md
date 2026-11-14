@@ -2,6 +2,8 @@
 
 Choices that shape the project, with their reasons. A new decision gets a new entry; a reversed one is marked as such rather than deleted.
 
+Since 2026-11-14, a new decision is a file of its own in [decisions/](decisions/), named by its number on three digits (`decisions/109.md`), rather than a row at the end of this table, so that pull requests that each add one no longer meet there ([decision 109](decisions/109.md)). The table keeps the decisions it has; a later decision that amends or reverses one of them still marks it in its row.
+
 | # | Date | Decision | Why |
 | --- | --- | --- | --- |
 | 1 | 2026-11-05 | The project never hosts, downloads or lists downloadable games, keys or firmware. Players import their own. | Legal: only players' own copies are lawful to use. The update server and its tools enforce it ([LEGAL.md](../LEGAL.md)). |
