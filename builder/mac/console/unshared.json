@@ -37,6 +37,10 @@
       "why": "What the player says of a game (its name, genre, summary, cover): with the game's settings on the Mac.",
       "step": 6
     },
+    "CartoucheGameNames.swift": {
+      "kind": "iphone",
+      "why": "The names Siri and Shortcuts know a game of the player's by, its shorter ones among them (CartoucheShortcuts.swift): on the Mac, each game is an app of its own, which Siri, Spotlight and Shortcuts know by its name."
+    },
     "CartoucheGameOrientation.swift": {
       "kind": "iphone",
       "why": "Which ways a game behind the console turns the screen: a Mac's screen does not turn."
@@ -45,6 +49,10 @@
       "kind": "later",
       "why": "A game's own settings in the console: on the Mac, nxnative's own window shows them meanwhile (Game settings).",
       "step": 6
+    },
+    "CartoucheGameShortcutsView.swift": {
+      "kind": "iphone",
+      "why": "A game's Siri and Home Screen page, which the iPhone's sheet opens under #if os(iOS): on the Mac, each game is an app of its own, with its icon in the Dock, Launchpad and Spotlight."
     },
     "CartoucheGameSigning.swift": {
       "kind": "iphone",
@@ -137,6 +145,10 @@
       "kind": "iphone",
       "why": "The iPhone's setup, on screen."
     },
+    "CartoucheShortcuts.swift": {
+      "kind": "iphone",
+      "why": "Cartouche's App Intents, by which Siri and the Shortcuts app start a game in the iPhone's console as Play does: on the Mac, each game is an app of its own, which Siri, Spotlight and Shortcuts open as the Dock does, and the Builder follows it and its saves as it follows a game started from the Dock."
+    },
     "CartoucheSignInView.swift": {
       "kind": "iphone",
       "why": "The Apple ID sign-in for the built-in SideStore."
@@ -192,6 +204,10 @@
       "kind": "later",
       "why": "System › Game measurements: with the console's measurements on the Mac.",
       "step": 8
+    },
+    "CartoucheTextShortcuts.swift": {
+      "kind": "iphone",
+      "why": "The words of Siri and Home Screen (CartoucheShortcuts.swift, CartoucheGameShortcutsView.swift), the iPhone's alone."
     },
     "CartoucheUpdateView.swift": {
       "kind": "mac",

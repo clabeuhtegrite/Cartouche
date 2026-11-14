@@ -13,10 +13,11 @@
 //  one line when this iPhone has it all), the copies of its saves, Edit
 //  the game's info for the player's own game (CartoucheGameInfoView), with
 //  what IGDB has of a game Cartouche does not know, after which the sheet
-//  goes back to its top, where the name and cover show; the game's copy in
-//  the games folder and Uninstall, the testers' results, and last, folded,
-//  the technical details: the recommended settings, what nxnative's
-//  profile says and which build is installed.
+//  goes back to its top, where the name and cover show; for a game installed
+//  on the iPhone, Siri and Home Screen (CartoucheGameShortcutsView); the
+//  game's copy in the games folder and Uninstall, the testers' results, and
+//  last, folded, the technical details: the recommended settings, what
+//  nxnative's profile says and which build is installed.
 //
 
 import SwiftUI
@@ -40,6 +41,8 @@ struct CartoucheGameSheetView: View {
     /// Opens what the player says of their game: its name, platform, genre
     /// and cover.
     var onEditInfo: () -> Void = {}
+    /// Opens Siri and Home Screen, for the installed game.
+    var onShortcuts: (LCAppModel) -> Void = { _ in }
     @ObservedObject private var actions = CartoucheGameActions.shared
     @ObservedObject private var keeping = CartoucheGameKeeping.shared
     @ObservedObject private var reach = CartoucheStorageReach.shared
@@ -51,7 +54,8 @@ struct CartoucheGameSheetView: View {
          onUninstall: @escaping (LCAppModel) -> Void,
          onInstallStored: @escaping (CartoucheStoredGame) -> Void = { _ in },
          onExport: @escaping (LCAppModel) -> Void = { _ in },
-         onEditInfo: @escaping () -> Void = {}) {
+         onEditInfo: @escaping () -> Void = {},
+         onShortcuts: @escaping (LCAppModel) -> Void = { _ in }) {
         self.entry = entry
         self.memory = memory
         self.onPlay = onPlay
@@ -61,6 +65,7 @@ struct CartoucheGameSheetView: View {
         self.onInstallStored = onInstallStored
         self.onExport = onExport
         self.onEditInfo = onEditInfo
+        self.onShortcuts = onShortcuts
     }
 
     /// The memory the game has here, where Play starts it: behind the
@@ -150,6 +155,14 @@ struct CartoucheGameSheetView: View {
                 if entry.isOwned {
                     infoSection
                 }
+
+                // Siri and Home Screen start a game in the iPhone's console;
+                // on the Mac, each game is an app of its own.
+                #if os(iOS)
+                if let app = entry.app {
+                    shortcutsSection(app)
+                }
+                #endif
 
                 if let app = entry.app {
                     manageSection(app)
@@ -385,6 +398,21 @@ struct CartoucheGameSheetView: View {
             }
         }
     }
+
+    #if os(iOS)
+    /// Siri and Home Screen: what to say to Siri, and how to give the game
+    /// an icon of its own (CartoucheGameShortcutsView), on a page the
+    /// console opens over the sheet, as the game's settings.
+    private func shortcutsSection(_ app: LCAppModel) -> some View {
+        Section {
+            Button {
+                onShortcuts(app)
+            } label: {
+                Label(CartoucheText.shortcutsTitle, systemImage: "mic.fill")
+            }
+        }
+    }
+    #endif
 
     /// Whether the game starts in Cartouche's place, for its own needs or
     /// because games behind the console run without Increased Memory Limit

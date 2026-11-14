@@ -100,7 +100,6 @@ export const AppleID = ({
 
   return (
     <>
-      <h2 style={{ marginTop: 0 }}>{t("apple_id.title")}</h2>
       <div className="credentials-container">
         {loggedInAs && (
           <div className="logged-in-as card green">
