@@ -4,17 +4,17 @@
 
 # Cartouche
 
-### Your iPhone becomes a console.
+### Your games, on iPhone, iPad and Mac.
 
-Cartouche installs, starts and keeps the games [nxnative](https://github.com/seedds/nxnative) runs natively on iPhone, from your own copies.<br>
+Cartouche installs, starts and keeps the games [nxnative](https://github.com/seedds/nxnative) runs natively on iPhone and iPad, from your own copies.<br>
 It signs, renews and updates itself, and gets your games the memory they need.<br>
-On your Mac, Cartouche Builder builds your games, and builds them again when nxnative improves them.
+On your Mac, Cartouche Builder builds your games, plays them there with the same saves, and builds them again when nxnative improves them.
 
 <a href="https://clabeuhtegrite.github.io/Cartouche/download/#installer-mac"><img src="docs/images/download-mac.png" height="48" alt="Download the Cartouche Installer for Mac"></a>&nbsp;&nbsp;<a href="https://clabeuhtegrite.github.io/Cartouche/download/#installer-windows"><img src="docs/images/download-windows.png" height="48" alt="Download the Cartouche Installer for Windows"></a>
 
 **[Website](https://clabeuhtegrite.github.io/Cartouche/)** · **[Getting started](docs/getting-started.md)** · **[Premiers pas](docs/getting-started.fr.md)** · **[Roadmap](docs/roadmap.md)** · **[Report a problem](https://github.com/clabeuhtegrite/Cartouche/issues/new/choose)**
 
-<img src="docs/images/console.png" width="100%" alt="Cartouche's home in landscape on an iPhone: the player's games on one shelf with their covers, and the game in focus with Play and Details">
+<img src="docs/images/devices.png" width="100%" alt="Cartouche Builder on a MacBook Air: its library, and beside it the sheet of Mario Kart 8 Deluxe with Play on this Mac and what it is built for, the iPhone and this Mac; in front of it, Cartouche on an iPad in landscape: the player's games on one shelf beside the sheet of Mario Kart World, paused behind the console, with Resume and Quit; and on an iPhone in landscape, the same games, Donkey Kong Bananza in focus with Play and Details">
 
 </div>
 
@@ -23,14 +23,15 @@ On your Mac, Cartouche Builder builds your games, and builds them again when nxn
 
 ## What it does
 
-- **A console's home.** Your games on one shelf, with their official covers. Every game of nxnative's list is one step away, each with a sheet: its description, which the iPhone translates into your language, how it runs on your iPhone, your play time and the room it takes. Touch or a game controller, on every screen.
+- **A console's home.** Your games on one shelf, with their official covers. Every game of nxnative's list is one step away, each with a sheet: its description, which the iPhone translates into your language, how it runs on your iPhone or iPad, your play time and the room it takes. Touch or a game controller, on every screen.
 - **Your games, installed and played in Cartouche.** Install a game from your storage or import an IPA you built, play it, change its nxnative settings on a page of Cartouche's own, uninstall it. An install goes on after you leave Cartouche, in a Live Activity, and an IPA nxnative built without its game files installs with the romfs.img beside it. Games run inside Cartouche, so they don't count against a free Apple account's limit of three apps. A game outside nxnative's list, built with a fork for instance, still gets its cover and genre, found by its name, and **Edit the game’s info** changes any game's name, description or cover.
 - **Back to the console mid-game.** The Home button, on screen or on the controller, brings the console back and leaves the game paused behind it: **Resume** goes back to it, **Quit** ends it.
-- **Your own storage.** Keep your games and saves on your Mac through Cartouche Builder, a shared folder of your Mac, PC or NAS, an FTP or SFTP server, a private S3 bucket, your Google Drive or a folder in Files, always with your own account. The games there show in your library, ready to install, and each game's saves stay in step with your saves folder both ways, so another iPhone, or Cartouche installed again, finds them.
+- **Your own storage.** Keep your games and saves on your Mac through Cartouche Builder, a shared folder of your Mac, PC or NAS, an FTP or SFTP server, a private S3 bucket, your Google Drive or a folder in Files, always with your own account. The games there show in your library, ready to install, and each game's saves stay in step with your saves folder both ways, so your iPad, another iPhone or Cartouche installed again finds them.
 - **Signed and renewed by itself.** A free Apple account is enough: the built-in SideStore renews Cartouche's seven-day signature by itself when you open Cartouche in its last 3 days, from the System page, or every night from a Shortcuts automation, and Cartouche warns before it expires. Already have a signing certificate of your own? The Installer can sign Cartouche with it instead.
 - **The memory games need.** Cartouche's App ID gets Increased Memory Limit, even on a free account, and Game Mode while a game runs.
-- **Updates from the iPhone.** Cartouche offers its own new versions over the console and installs them, and offers a game's update when your games folder holds a newer build of it.
-- **Made for every screen.** Portrait or landscape, iPhone or iPad: the interface follows the room it has.
+- **Updates without a computer.** Cartouche offers its own new versions over the console and installs them, and offers a game's update when your games folder holds a newer build of it.
+- **On iPad too.** The same app, on an iPad with an M1 chip or newer: in landscape, the console and the sheet of the game in focus stand side by side, and a game made to be played sideways stays sideways behind the console. Portrait or landscape, iPhone or iPad, the interface follows the room it has.
+- **And on your Mac.** Cartouche Builder builds each of your games for the Mac as well as for the iPhone and iPad, and **Play on this Mac** starts it there, its saves kept in step with your iPhone's both ways, through your Mac or your NAS: a game left on the iPhone goes on on the Mac, and back.
 - **Measurements that make games run better.** After each session, Cartouche sends what nxnative measured, such as the frame rate and the memory, never your files, saves or accounts; **System › Game measurements** turns it off ([privacy](docs/privacy.md)). Under each error, **Copy the report** gives what it takes to understand it.
 
 You never see LiveContainer or SideStore, which Cartouche is built on: it drives them out of sight.
@@ -39,9 +40,9 @@ You never see LiveContainer or SideStore, which Cartouche is built on: it drives
 
 ## Cartouche Builder, on your Mac
 
-Cartouche Builder is Cartouche's Mac app. From your own copies, it builds each game with nxnative into your games folder, on the Mac or on your NAS. Then it follows them: when a change to nxnative touches one of your games, it builds it again, at once or at night, and Cartouche offers the update on the iPhone, saves kept. It sets the Mac up itself, with no Terminal, updates itself, and once paired with your iPhone, by the same six digits on both screens, it serves your games and keeps your saves ([builder/README.md](builder/README.md)).
+Cartouche Builder is Cartouche's Mac app. From your own copies, it builds each game with nxnative into your games folder, on the Mac or on your NAS: for the iPhone and iPad, and for the Mac itself. Then it follows them: when a change to nxnative touches one of your games, it builds it again, at once or at night, and Cartouche offers the update on the iPhone, saves kept. **Play on this Mac** starts a game on the Mac, with the newest of your saves, and sends the Mac's back to your saves folder after each game; a game kept on your NAS installs on the Mac the first time you play it there. It sets the Mac up itself, with no Terminal, updates itself, and once paired with your iPhone, by the same six digits on both screens, it serves your games and keeps your saves ([builder/README.md](builder/README.md)).
 
-<p align="center"><img src="docs/images/builder.png" width="88%" alt="Cartouche Builder's library on a Mac: the player's games with their covers, two of them improved by nxnative and ready to build again"></p>
+<p align="center"><img src="docs/images/builder.png" width="88%" alt="Cartouche Builder on a Mac: the player's games with their covers, and Mario Kart 8 Deluxe's sheet with Play on this Mac, the iPhone's newest saves and what the game is built for, the iPhone and this Mac"></p>
 
 <p align="center"><a href="https://clabeuhtegrite.github.io/Cartouche/download/#builder"><img src="docs/images/download-builder.png" height="48" alt="Download Cartouche Builder"></a><br><sub>Free, for a Mac with Apple silicon and macOS 26.6 or later.</sub></p>
 
@@ -49,13 +50,13 @@ Cartouche Builder is Cartouche's Mac app. From your own copies, it builds each g
 
 Step by step, from nothing to your first game: [docs/getting-started.md](docs/getting-started.md), in French [docs/getting-started.fr.md](docs/getting-started.fr.md). In short:
 
-1. On the iPhone, install [**LocalDevVPN**](https://apps.apple.com/app/localdevvpn/id6755608044) from the App Store: the built-in SideStore needs it to sign in and to renew Cartouche without a computer.
-2. On a Mac or a Windows PC, download the **Cartouche Installer**, [for Mac](https://clabeuhtegrite.github.io/Cartouche/download/#installer-mac) or [for Windows](https://clabeuhtegrite.github.io/Cartouche/download/#installer-windows), plug in the iPhone, sign in with your Apple account (a free one is enough) and install. It puts the latest Cartouche on the iPhone with its certificate, the memory capability and the pairing file ([installer/README.md](installer/README.md)).
+1. On the iPhone or iPad, install [**LocalDevVPN**](https://apps.apple.com/app/localdevvpn/id6755608044) from the App Store: the built-in SideStore needs it to sign in and to renew Cartouche without a computer.
+2. On a Mac or a Windows PC, download the **Cartouche Installer**, [for Mac](https://clabeuhtegrite.github.io/Cartouche/download/#installer-mac) or [for Windows](https://clabeuhtegrite.github.io/Cartouche/download/#installer-windows), plug in the iPhone or iPad, sign in with your Apple account (a free one is enough) and install. It puts the latest Cartouche on it with its certificate, the memory capability and the pairing file ([installer/README.md](installer/README.md)).
 3. Open Cartouche: its guide, **Your first game**, takes you from there, and ticks each step by itself.
-4. On a Mac with Apple silicon, [download **Cartouche Builder**](https://clabeuhtegrite.github.io/Cartouche/download/#builder) and drag it onto Applications: it installs the tools nxnative builds with, then builds your game into your games folder ([builder/README.md](builder/README.md#install)).
-5. In Cartouche, **System › Storage › Add your Mac (Cartouche Builder)**, with the code both screens show: Cartouche installs your games from the Mac and keeps your saves there. A NAS, your Google Drive or another storage of yours works too.
+4. On a Mac with Apple silicon, [download **Cartouche Builder**](https://clabeuhtegrite.github.io/Cartouche/download/#builder) and drag it onto Applications: it installs the tools nxnative builds with, then builds your game into your games folder, for the iPhone and iPad and for this Mac ([builder/README.md](builder/README.md#install)).
+5. In Cartouche, **System › Storage › Add your Mac (Cartouche Builder)**, with the code both screens show: Cartouche installs your games from the Mac and keeps your saves there. A NAS, your Google Drive or another storage of yours works too. On the Mac, **Play on this Mac** plays the same game with the same saves.
 
-**What you need:** iOS 26 or later on an iPhone 15 Pro or newer, or an iPad with an M1 or newer, as nxnative; the bigger games need a 12 GB iPhone. A Mac or a Windows PC, once, to install Cartouche, and a Mac with Apple silicon to build your games.
+**What you need:** an iPhone 15 Pro or newer, or an iPad with an M1 chip or newer, on iOS or iPadOS 26 or later, as nxnative; the bigger games need a 12 GB iPhone. A Mac or a Windows PC, once, to install Cartouche, and a Mac with Apple silicon and macOS 26.6 or later to build your games and play them on the Mac.
 
 **Your own signing certificate:** with a `.p12` and its provisioning profile, choose your certificate instead of the Apple Account in the Installer's second step. It signs Cartouche with them, with no Apple account, LocalDevVPN or weekly renewal; games then start in Cartouche's place, and most of them need Increased Memory Limit in the profile ([docs/imported-signing.md](docs/imported-signing.md)).
 
@@ -66,7 +67,7 @@ Cartouche is young and changes often: it offers each new version itself. Somethi
 <details>
 <summary><b>Is Cartouche an emulator?</b></summary>
 
-No. nxnative runs the games natively on the iPhone; Cartouche installs them, starts them and keeps them, with their saves, and signs, renews and updates itself.
+No. nxnative runs the games natively on the iPhone, the iPad and the Mac; Cartouche installs them, starts them and keeps them, with their saves, and signs, renews and updates itself.
 </details>
 
 <details>
@@ -78,13 +79,19 @@ Yes. Cartouche is free software under the AGPL-3.0, and works with a free Apple 
 <details>
 <summary><b>Which games run?</b></summary>
 
-The ones nxnative runs natively. In Cartouche, **All games** lists every game nxnative has a profile for, and each game's sheet says whether it runs on your iPhone.
+The ones nxnative runs natively. In Cartouche, **All games** lists every game nxnative has a profile for, and each game's sheet says whether it runs on your iPhone or iPad; the **On Mac** filter shows those nxnative runs on the Mac.
+</details>
+
+<details>
+<summary><b>Does it run on iPad, and on a Mac?</b></summary>
+
+On an iPad with an M1 chip or newer, Cartouche is the same app as on the iPhone, installed the same way, and says iPad wherever it speaks of your device. On a Mac with Apple silicon, Cartouche Builder builds each of your games for the Mac too and plays it there, with the same saves as your iPhone and iPad.
 </details>
 
 <details>
 <summary><b>Do I need a computer?</b></summary>
 
-Once, to install Cartouche, from a Mac or a Windows PC: then it renews and updates itself from the iPhone. Building your games takes a Mac with Apple silicon, with Cartouche Builder.
+Once, to install Cartouche, from a Mac or a Windows PC: then it renews and updates itself from the iPhone or iPad. Building your games takes a Mac with Apple silicon, with Cartouche Builder, which plays them on that Mac too.
 </details>
 
 <details>
@@ -96,7 +103,7 @@ Not yet: Cartouche signs your games with the certificate the Installer gives it,
 <details>
 <summary><b>Does Cartouche send any data?</b></summary>
 
-Measurements of your game sessions, such as the frame rate and the memory, so that games run better on iPhone; never your files, saves or accounts. **System › Game measurements** turns them off. The details: [docs/privacy.md](docs/privacy.md).
+Measurements of your game sessions, such as the frame rate and the memory, so that games run better on iPhone and iPad; never your files, saves or accounts. **System › Game measurements** turns them off. The details: [docs/privacy.md](docs/privacy.md).
 </details>
 
 ## What it does not do
@@ -107,10 +114,10 @@ Cartouche ships no games, no keys and no firmware, and never downloads them: it 
 
 | Path | What it holds |
 | --- | --- |
-| [`app/`](app/) | The iOS app: LiveContainer and SideStore at pinned commits, our patches, the build scripts, the releases and their source |
+| [`app/`](app/) | The app for iPhone and iPad: LiveContainer and SideStore at pinned commits, our patches, the build scripts, the releases and their source |
 | [`launcher/`](launcher/) | Cartouche's own screens: the console, the game sheets, the player's storage, setup, renewal and updates |
 | [`installer/`](installer/) | The Cartouche Installer for macOS and Windows, a fork of iloader |
-| [`builder/`](builder/) | Cartouche Builder, the Mac program that builds the player's own games with nxnative and builds them again when nxnative changes for them |
+| [`builder/`](builder/) | Cartouche Builder, the Mac app that builds the player's own games with nxnative, for the iPhone and iPad and for the Mac, plays them on the Mac, and builds them again when nxnative changes for them |
 | [`catalog/`](catalog/) | What the app knows about games and devices: nxnative's list of games, covers' IDs, compatibility sheets, device memory limits |
 | [`guard/`](guard/) | The publish guard, which refuses to publish anything that looks like game content |
 | [`telemetry/`](telemetry/) | The server Cartouche and Cartouche Builder send their measurements and problem reports to, a Cloudflare Worker, and the project's dashboard beside it |

@@ -2,17 +2,19 @@
 
 *Français : [getting-started.fr.md](getting-started.fr.md)*
 
-From nothing to your first game on your iPhone, in four steps. Cartouche never downloads a game: you build each of yours on your Mac, from your own copy, dumped from your own console. In Cartouche, the guide **Your first game** takes you through the same steps, and ticks each one by itself once it is done.
+From nothing to your first game on your iPhone or iPad, in four steps. Cartouche never downloads a game: you build each of yours on your Mac, from your own copy, dumped from your own console. In Cartouche, the guide **Your first game** takes you through the same steps, and ticks each one by itself once it is done.
 
 ## What you need
 
-- **An iPhone** with iOS 26 or later: an iPhone 15 Pro or newer, or an iPad with an M1 or newer. The bigger games need a 12 GB iPhone.
-- **A Mac or a Windows PC, once,** with a cable for the iPhone, to install Cartouche.
-- **A Mac with Apple silicon** (M1 or later) on macOS 26.6 or later, to build your games, with Xcode 27.2, free from Apple, and room for the builds. Only a Mac can build them: without one, Cartouche has nothing to play, since nobody may send you their games.
+- **An iPhone or an iPad:** an iPhone 15 Pro or newer, or an iPad with an M1 chip or newer, on iOS or iPadOS 26 or later. The bigger games need a 12 GB iPhone.
+- **A Mac or a Windows PC, once,** with a cable for the iPhone or iPad, to install Cartouche.
+- **A Mac with Apple silicon** (M1 or later) on macOS 26.6 or later, to build your games and to play them on the Mac too, with Xcode 27.2, free from Apple, and room for the builds. Only a Mac can build them: without one, Cartouche has nothing to play, since nobody may send you their games.
 - **An Apple account** (Apple ID): a free one is enough.
 - **Your games,** copied from your own console, and for a Switch game your console's keys (`prod.keys`).
 
-## 1. Install Cartouche on your iPhone
+## 1. Install Cartouche on your iPhone or iPad
+
+On an iPad, every step is the same, with the iPad in place of the iPhone.
 
 1. On the iPhone, install [LocalDevVPN](https://apps.apple.com/app/localdevvpn/id6755608044) from the App Store. Cartouche signs in and renews itself through it; its traffic never leaves the iPhone.
 2. On the computer, download the **Cartouche Installer**: [for a Mac](https://clabeuhtegrite.github.io/Cartouche/download/#installer-mac), or [for a Windows PC](https://clabeuhtegrite.github.io/Cartouche/download/#installer-windows), which also needs **Apple Devices** from the Microsoft Store. Each link starts the download at once. The installer is not notarized: on a Mac, open **System Settings › Privacy & Security** and click **Open Anyway** next to it, once; on Windows, **More info › Run anyway** ([installer/README.md](../installer/README.md#download-and-first-open)).
@@ -31,10 +33,11 @@ The guide's **Send the steps to my Mac** sends the Mac [Cartouche Builder's page
    - **Your dumps** and **Games folder:** the folder of your dumps, with their packages (`.nsp`, `.xci`, `.nsz`, `.xcz`, a Switch 2 game's `.nup`) or their dumps, loose or one folder per game, which the builder only reads; then where your games' IPAs go, on the Mac or on your NAS; and under **Keys**, `prod.keys`, your console's keys, for packages.
    - **iPhone:** turn on **Share with Cartouche on the iPhone**, for Cartouche to install your games from the Mac.
 4. In **Library**, open your game and choose **Build**. A large game's first build takes hours; the next ones reuse its build folder. A game you follow is built again when nxnative improves it: **Rebuild what is due** builds them, and with **Build what is due every night**, in the settings, the Mac does it at night. Cartouche then offers you the update.
+5. Each game is built for the iPhone and iPad, and for this Mac too, unless you turn one of the two off under **Built for**. On its sheet, **Play on this Mac** starts it on the Mac, with your newest saves ([builder/README.md](../builder/README.md#playing-on-this-mac)).
 
 ## 3. Choose your games folder in Cartouche
 
-In Cartouche, the guide's **Choose the games folder** opens the storage page. Your iPhone reads the games folder where it is, on your network:
+In Cartouche, the guide's **Choose the games folder** opens the storage page. Your iPhone or iPad reads the games folder where it is, on your network:
 
 - **On your Mac:** choose **Add your Mac (Cartouche Builder)**, then your Mac under **Macs nearby**; the first time, allow Cartouche to find devices on your local network. Both screens show six digits: when they are the same, click **Allow** on the Mac. Cartouche then installs your games from the Mac and keeps your saves there, encrypted on the way. The iPhone finds the Mac on your Wi-Fi, or through your VPN at the address it last reached it at.
 - **On your NAS:** add it with its address, your user name and password, then choose the games folder. An SFTP or FTP server, an S3 bucket of yours or a folder in Files will do too, and so does your Mac's own File Sharing (SMB).
@@ -46,12 +49,12 @@ No games folder? Put the IPA in Files on the iPhone, by AirDrop for instance, an
 
 ## 4. Install your game and play
 
-Your game shows in the guide's last step and in your library: **Install** installs it from your games folder, then its sheet opens with **Play**. Your first game is on your iPhone; the next ones go the same way, built on the Mac, then installed.
+Your game shows in the guide's last step and in your library: **Install** installs it from your games folder, then its sheet opens with **Play**. Your first game is on your iPhone or iPad; the next ones go the same way, built on the Mac, then installed.
 
 ## Afterwards
 
 - **Leave LocalDevVPN on** when you can: Cartouche renews its seven-day signature through it, from the System page or every night with the Shortcuts automation that page explains.
-- **Your saves:** with a saves folder chosen on the storage page, Cartouche keeps each game's saves in step with it: they come when you install the game and before it starts, as after you install Cartouche again or play on another iPhone, and go after each game.
+- **Your saves:** with a saves folder chosen on the storage page, Cartouche keeps each game's saves in step with it: they come when you install the game and before it starts, as after you install Cartouche again or play on another iPhone or an iPad, and go after each game. Cartouche Builder does the same on the Mac, before and after each game you play there, with the saves folder on the Mac or on a share of your NAS the Mac mounts ([builder/README.md](../builder/README.md#playing-on-this-mac)).
 - **Updates:** Cartouche offers its new versions itself, and the update of a game when your games folder holds a newer build of it. Cartouche Builder updates itself, when it builds nothing.
 - **The guide:** the × on its card takes it off the home; **System › Your first game** opens it again whenever you want.
 - **The certificate no longer works:** the home says so; sign in again. **The pairing file is missing:** the installer puts it in Cartouche again, or installs Cartouche again over this copy, which keeps your games and their saves.
