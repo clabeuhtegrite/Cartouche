@@ -101,6 +101,10 @@ enum Words {
     static let updateOffer = "Cartouche %@ is available"    // updates.offer.title
     static let update = "Update"                            // updates.now
     static let later = "Later"                              // updates.later
+    static let updateInstalled = "Cartouche %@ is installed" // updates.installed.title
+    static let whatsNewTitle = "What’s new in Cartouche %@" // whatsNew.title
+    static let whatsNewContinue = "Continue"                // whatsNew.continue
+    static let releaseNotes = "What’s new"                  // system.releaseNotes
     static let lastSync = "Last sync"                       // saves.lastSync
     static let noneYet = "None yet"                         // saves.noCopy
     static let syncNow = "Sync with %@ now"                 // saves.syncNow
@@ -157,7 +161,9 @@ struct Launch {
     /// The player's games, installed: none for a player new to Cartouche.
     var owned = Games.owned
     /// What goes on as the gallery opens (-GalleryWork, GalleryApp.swift):
-    /// "update", a new version of Cartouche on offer; "paused", the first
+    /// "update", a new version of Cartouche on offer; "updated", Cartouche
+    /// opening after an update started from it, from 0.2.0 to the
+    /// gallery's own version, 0.3.0 (project.yml); "paused", the first
     /// game paused behind the console; "installing" or "install-failed",
     /// the game of SHEET; "offline", the NAS out of reach; "mac", the
     /// player's Mac paired; "mac-nearby", "mac-code" or "mac-refused", what

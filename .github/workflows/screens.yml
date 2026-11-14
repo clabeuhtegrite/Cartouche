@@ -28,7 +28,10 @@ name: Launcher screens
 on:
   pull_request:
     # What the gallery is built from and shows (launcher/Gallery/project.yml
-    # and capture.sh).
+    # and capture.sh); not the release notes it shows too (project.sh): a
+    # version's pull request would take a Mac for What's new's screenshots
+    # alone, which the next change to the launcher, or the Full test pass,
+    # takes with the rest.
     paths:
       - "launcher/Sources/**"
       - "launcher/Gallery/**"

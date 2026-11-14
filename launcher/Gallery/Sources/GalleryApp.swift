@@ -8,7 +8,7 @@
 //  the whole screen of the simulator it runs on, such as the iPhone Duo's,
 //  with its own safe area, size classes and system bars.
 //
-//      -GalleryScreen games|library|sheet|settings|gameinfo|shortcuts|setup|signin|guide|system|storage|storage-mac|storage-drive|storage-drive-guide|telemetry|report|tv
+//      -GalleryScreen games|library|sheet|settings|gameinfo|shortcuts|setup|signin|guide|system|storage|storage-mac|storage-drive|storage-drive-guide|telemetry|report|release-notes|tv
 //                                        library: every game, open over
 //                                        the home; gameinfo: what the
 //                                        player says of the sheet's game;
@@ -20,6 +20,9 @@
 //                                        Google Drive, with the player's
 //                                        own client; storage-drive-guide:
 //                                        the steps that make that client;
+//                                        release-notes: the System page's
+//                                        What's new, the notes of the last
+//                                        versions the gallery carries;
 //                                        tv: the TV while the sheet's game,
 //                                        or the first of the player's, runs
 //                                        behind the console, its card where
@@ -45,7 +48,20 @@
 //                                        settings, or being installed
 //      -GalleryWork installing           a game being installed, over the
 //                                        console; update: a new version of
-//                                        Cartouche on offer; code: Apple
+//                                        Cartouche on offer; whats-new:
+//                                        What's new over the console, as
+//                                        after an update to the newest
+//                                        version the gallery carries notes
+//                                        for (app/releases), and
+//                                        whats-new-several, to the newest
+//                                        two; updated: Cartouche opening
+//                                        after an update started from it,
+//                                        from 0.2.0 to the gallery's own
+//                                        version (project.yml), which
+//                                        What's new shows as Cartouche
+//                                        does; installed: the word an
+//                                        update leaves when What's new has
+//                                        no notes to show; code: Apple
 //                                        asks for a verification code, on
 //                                        the sign-in; too-many: Apple
 //                                        refused the sign-in for too many
@@ -249,6 +265,15 @@ struct GalleryScenario {
             GalleryState.recordSignature(expiringIn: 6 * 86_400 + 3_600, renewedAgo: 86_400)
         }
         MainActor.assumeIsolated {
+            if work == "updated" {
+                // What an update started from Cartouche leaves as it opens
+                // again, before Cartouche reads it: the version it
+                // installed, and the version whose notes the player saw.
+                UserDefaults.standard.set("0.2.0", forKey: CartoucheWhatsNewRecord.seenKey)
+                CartoucheUpdates.leavePendingForGallery(CartoucheUpdates.runningVersion)
+                // The UI tests' start decides as Cartouche does already.
+                if !GalleryTest.isOn { CartoucheWhatsNew.shared.decideForGallery() }
+            }
             // The System page down to the scenario's section.
             CartoucheSystemView.openingSection = screen == "system" ? category : nil
             if work == "renewing" {
@@ -288,6 +313,13 @@ struct GalleryScenario {
             if work == "update" {
                 // A higher version than the gallery's own (project.yml).
                 CartoucheUpdates.shared.offerForGallery(CartoucheRelease(version: "0.4.0", notes: "", size: 36_802_806))
+            }
+            if work == "whats-new" || work == "whats-new-several" {
+                let newest = CartoucheWhatsNew.carried.prefix(work == "whats-new" ? 1 : 2)
+                CartoucheWhatsNew.shared.showForGallery(Array(newest))
+            }
+            if work == "installed" {
+                CartoucheUpdates.shared.showInstalledForGallery()
             }
             if work == "code" {
                 CartoucheAccount.shared.requestCodeForGallery(.init(
@@ -742,6 +774,12 @@ struct CartoucheGalleryApp: App {
             NavigationStack {
                 CartoucheReportView()
             }
+        case "release-notes":
+            // As the System page opens it.
+            NavigationStack {
+                CartoucheReleaseNotesView(notes: Array(CartoucheWhatsNew.carried.prefix(CartoucheWhatsNew.listed)))
+            }
+            .preferredColorScheme(.dark)
         case "root":
             CartoucheRootView()
         case "tv":

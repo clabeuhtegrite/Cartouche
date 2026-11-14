@@ -57,6 +57,9 @@ targets:
       - path: Build/CartoucheCatalog
         type: folder
         buildPhase: resources
+      - path: Build/CartoucheReleases
+        type: folder
+        buildPhase: resources
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: io.github.clabeuhtegrite.cartouche.gallery

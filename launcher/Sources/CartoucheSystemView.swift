@@ -9,8 +9,9 @@
 //  whether games run behind the console, and the memory they have there;
 //  when its signature expires, and how it is renewed; the device that the
 //  game sheets are compared with; Cartouche's updates; the game
-//  measurements it sends (CartoucheTelemetryView); and Report a problem
-//  (CartoucheReportView).
+//  measurements it sends (CartoucheTelemetryView); Cartouche's version and
+//  what the last versions brought (CartoucheReleaseNotesView); and Report a
+//  problem (CartoucheReportView).
 //  It opens over the console (CartoucheRootView), and OK or the
 //  controller's Menu button closes it.
 //
@@ -525,6 +526,15 @@ struct CartoucheSystemView: View {
     private var cartoucheSection: some View {
         Section {
             LabeledContent(CartoucheText.version, value: version)
+            // What the last versions brought, which What's new showed after
+            // their update (CartoucheWhatsNewView).
+            if !CartoucheWhatsNew.carried.isEmpty {
+                NavigationLink {
+                    CartoucheReleaseNotesView(notes: Array(CartoucheWhatsNew.carried.prefix(CartoucheWhatsNew.listed)))
+                } label: {
+                    Text(CartoucheText.releaseNotesTitle)
+                }
+            }
             if let basedOn {
                 LabeledContent(CartoucheText.basedOn, value: basedOn)
             }

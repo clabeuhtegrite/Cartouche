@@ -139,6 +139,7 @@ COMMIT="$(git -C "$ROOT" rev-parse --short=7 HEAD 2>/dev/null || echo unknown)"
   --dylibify "$WORK/dylibify" \
   --resources "$WORK/src/LiveContainer/.github/sidelc" \
   --catalog "$ROOT/catalog" \
+  --releases "$ROOT/app/releases" \
   --bundle-id "$CARTOUCHE_BUNDLE_ID" \
   --name "$CARTOUCHE_DISPLAY_NAME" \
   --url-scheme "$CARTOUCHE_URL_SCHEME" \
