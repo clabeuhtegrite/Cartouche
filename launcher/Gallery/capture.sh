@@ -15,18 +15,23 @@
 # simctl opens the gallery on each scenario and takes the screen once the
 # gallery says it has settled (tmp/ready-<scenario>.json in its container),
 # on the display the gallery is on when the simulator has more than one, as
-# the iPhone Duo has. No XCTest: its UI test, which did this before, failed
-# now and then to close the gallery between two scenarios ("Failed to
-# terminate"). The gallery is opened once on each simulator before its
-# scenarios, with more time: its first launch after the install can take
-# minutes.
+# the iPhone Duo has. The simulator can still show iOS opening the gallery
+# then, its white launch screen or that screen fading out, as on Ad's Mac
+# under load: the screen is taken again, half a second apart, until it is
+# drawn and the same as the time before (settled.py). No XCTest: its UI
+# test, which did this before, failed now and then to close the gallery
+# between two scenarios ("Failed to terminate"). The gallery is opened once
+# on each simulator before its scenarios, with more time: its first launch
+# after the install can take minutes.
 #
 # A scenario that fails is named, with the screen as it was
 # (failed-<scenario>.png in OUT), the others go on, and the script fails at
 # the end. When the gallery does not settle, the script prints its log and
-# where its main thread was (failed-<scenario>-sample.txt in OUT). For each
-# device simulator, <device>-notes.txt in OUT says what its displays are and
-# how each screen came out.
+# where its main thread was (failed-<scenario>-sample.txt in OUT). A screen
+# still blank a minute after the gallery said it had settled fails its
+# scenario; one still changing is kept, with a warning. For each device
+# simulator, <device>-notes.txt in OUT says what its displays are and how
+# each screen came out, with how many screenshots it took.
 
 set -euo pipefail
 
@@ -50,6 +55,11 @@ import json, re, subprocess, sys, time
 from pathlib import Path
 
 HERE, OUT, BUILD = (Path(path) for path in sys.argv[1:4])
+# When a screen is drawn and still, and a line a minute while the gallery
+# builds, beside this script.
+sys.path.insert(0, str(HERE))
+import heartbeat  # noqa: E402
+import settled  # noqa: E402
 BUNDLE = "io.github.clabeuhtegrite.cartouche.gallery"
 APP = BUILD / "DerivedData/Build/Products/Debug-iphonesimulator/CartoucheGallery.app"
 document = json.loads((HERE / "scenarios.json").read_text())
@@ -268,8 +278,10 @@ def display_for(screens, said):
 
 def capture(udid, scenario, screens):
     """Opens the gallery on SCENARIO, waits for it to settle and saves its
-    screen; returns what the gallery said about it. SCREENS, the displays,
-    takes the ones a screenshot lists when find_displays() had none."""
+    screen once the simulator shows it drawn and still (settled.py); returns
+    what the gallery said about it, with how many screenshots that took.
+    SCREENS, the displays, takes the ones a screenshot lists when
+    find_displays() had none."""
     name = scenario["name"]
     said, ready = launch(udid, scenario, name, 90)
     if scenario.get("orientation") == "landscape" and not said.get("orientation", "").startswith("landscape"):
@@ -280,18 +292,39 @@ def capture(udid, scenario, screens):
     if len(screens) > 1:
         display = said["display"] = display_for(screens, said)
     raw = BUILD / "raw" / f"{name}.png"
-    try:
-        screenshot(udid, raw, display)
-    except Failure as error:
-        listed = listed_displays(str(error))
-        if display or len(listed) < 2:
-            raise
-        screens.clear()
-        screens.update(listed)
-        display = said["display"] = display_for(screens, said)
-        screenshot(udid, raw, display)
+    out = OUT / f"{name}.png"
     size = [] if "device" in scenario else [str(scenario["width"]), str(scenario["height"])]
-    run(str(BUILD / "screenshot"), str(raw), str(ready), str(OUT / f"{name}.png"), *size)
+
+    def shoot():
+        """Saves the screen as it is now into OUT; returns its signature."""
+        nonlocal display
+        try:
+            screenshot(udid, raw, display)
+        except Failure as error:
+            listed = listed_displays(str(error))
+            if display or len(listed) < 2:
+                raise
+            screens.clear()
+            screens.update(listed)
+            display = said["display"] = display_for(screens, said)
+            screenshot(udid, raw, display)
+        printed = run(str(BUILD / "screenshot"), str(raw), str(ready), str(out), *size)
+        try:
+            return json.loads(printed)
+        except ValueError:
+            raise Failure(f"screenshot printed no signature: {printed.strip()[:200]!r}")
+
+    shots, problem = settled.settle(shoot)
+    said["shots"] = shots
+    if problem == settled.BLANK:
+        # Not the scenario's screen: iOS still showing its launch screen.
+        out.unlink(missing_ok=True)
+        raise Failure(f"the screen was still blank {settled.SECONDS} s after the gallery said it had settled, "
+                      f"{shots} screenshots")
+    if problem:
+        said["unsettled"] = problem
+        print(f"::warning::{name}: the screen was {problem} {settled.SECONDS} s after the gallery said it had "
+              f"settled: kept the last of {shots} screenshots", flush=True)
     return said
 
 
@@ -321,10 +354,14 @@ for device in sorted({s.get("device", "") for s in document["scenarios"]}):
     since = time.monotonic()
     maybe("xcrun", "simctl", "boot", udid)
     if built is None:
-        # Built once, for the simulators of this Mac.
-        built = subprocess.run(["xcodebuild", "build", "-quiet", "-project", str(HERE / "CartoucheGallery.xcodeproj"),
-                                "-scheme", "CartoucheGallery", "-destination", f"platform=iOS Simulator,id={udid}",
-                                "-derivedDataPath", str(BUILD / "DerivedData")]).returncode == 0
+        # Built once, for the simulators of this Mac. xcodebuild says nothing
+        # then, for minutes: a line a minute says the build goes on, as 9
+        # minutes without a word were taken for a stuck run (heartbeat.py).
+        with heartbeat.beating("building the gallery"):
+            built = subprocess.run(["xcodebuild", "build", "-quiet", "-project",
+                                    str(HERE / "CartoucheGallery.xcodeproj"), "-scheme", "CartoucheGallery",
+                                    "-destination", f"platform=iOS Simulator,id={udid}",
+                                    "-derivedDataPath", str(BUILD / "DerivedData")]).returncode == 0
         print(f"   gallery built in {time.monotonic() - since:.0f} s", flush=True)
     if not built:
         failures.append("the gallery does not build")
