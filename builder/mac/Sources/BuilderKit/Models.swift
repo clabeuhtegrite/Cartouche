@@ -621,6 +621,31 @@ public struct GameProgress: Codable, Equatable {
     /// Its stage and progress are of its Mac app now.
     public var onMacNow: Bool { platform == "mac" }
 
+    /// What a game is built for: its IPA, for the iPhone, or its app, for this Mac.
+    public enum Platform: Equatable, Sendable {
+        case iPhone, mac
+    }
+
+    /// What its stage is of, as the activity page says it before the stage,
+    /// when the batch builds the game for the iPhone and for this Mac: nil
+    /// when it builds it for one of the two, or when the stage's own words
+    /// say it (the app's stageText).
+    public var shownPlatform: Platform? {
+        guard buildsMac, macOnly != true else { return nil }
+        let stage = stage ?? ""
+        if onMacNow {
+            return Self.macStages.contains(stage) ? nil : .mac
+        }
+        return Self.iPhoneStages.contains(stage) ? nil : .iPhone
+    }
+
+    /// The stages whose words name the iPhone (stageText): its shaders, its IPA.
+    public static let iPhoneStages: Set<String> = ["shaders", "shader", "pack", "package", "ipa"]
+    /// The stages of an app for this Mac, whose words name this Mac
+    /// (stageText): nxnative's --platform mac-app, then macapps.py's.
+    public static let macStages: Set<String> = ["Mac shaders", "Mac host", "Pipeline prebuild", "Pipeline archive",
+                                                "Prewarm pipelines", "Mac app", "mac_deliver"]
+
     /// Why its Mac app was not built while its IPA was: the error of a
     /// game built for this Mac alone is its own (shownError).
     public var shownMacError: String? {

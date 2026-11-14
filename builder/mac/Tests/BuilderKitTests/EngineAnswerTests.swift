@@ -254,6 +254,30 @@ final class EngineAnswerTests: XCTestCase {
         XCTAssertEqual(status.current.map(\.titleID), ["010093801237C000"])
     }
 
+    /// What the activity page says a stage is of, for a game built for the
+    /// iPhone and for this Mac: only when the stage's words do not say it.
+    func testTheStageOfABuildForBothSaysWhatItIsOf() throws {
+        func progress(_ stage: String, on platform: String, mac: String? = "building", macOnly: Bool = false) throws -> GameProgress {
+            var fields: [String: Any] = ["title_id": "0100152000022000", "name": "A game", "state": "building", "stage": stage, "platform": platform,
+                                         "mac_only": macOnly]
+            if let mac { fields["mac"] = mac }
+            return try JSONDecoder().decode(GameProgress.self, from: JSONSerialization.data(withJSONObject: fields))
+        }
+        // Its IPA first: the stages that do not name the iPhone.
+        XCTAssertEqual(try progress("extract", on: "ios").shownPlatform, .iPhone)
+        XCTAssertEqual(try progress("deliver", on: "ios").shownPlatform, .iPhone)
+        XCTAssertEqual(try progress("", on: "ios").shownPlatform, .iPhone)
+        XCTAssertNil(try progress("shaders", on: "ios").shownPlatform)
+        XCTAssertNil(try progress("ipa", on: "ios").shownPlatform)
+        // Then its app for this Mac, whose stages name it but the builder's own.
+        XCTAssertNil(try progress("Mac shaders", on: "mac").shownPlatform)
+        XCTAssertNil(try progress("mac_deliver", on: "mac").shownPlatform)
+        XCTAssertEqual(try progress("deliver", on: "mac").shownPlatform, .mac)
+        // Built for one of the two: nothing to tell apart.
+        XCTAssertNil(try progress("extract", on: "ios", mac: nil).shownPlatform)
+        XCTAssertNil(try progress("extract", on: "mac", macOnly: true).shownPlatform)
+    }
+
     /// A batch on the last nxnative commit that built on this Mac, its
     /// newest not building (cartouche_builder/fallback.py), and a game
     /// skipped for a full disk.

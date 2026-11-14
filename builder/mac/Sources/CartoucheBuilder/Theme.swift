@@ -229,7 +229,9 @@ func changeKindText(_ kind: String) -> String {
     }
 }
 
-/// A batch step's name, in the player's words.
+/// A batch step's name, in the player's words. The steps whose words name
+/// the iPhone or this Mac are GameProgress.iPhoneStages and macStages
+/// (Models.swift), which the activity page names no other way.
 func stageText(_ stage: String?) -> String {
     switch stage ?? "" {
     case "": return tr("Getting ready", "Préparation")

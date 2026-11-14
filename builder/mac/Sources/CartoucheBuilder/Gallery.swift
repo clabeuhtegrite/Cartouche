@@ -28,6 +28,10 @@ enum Gallery {
         case assistantIPhone = "assistant-iphone", assistantDone = "assistant-done"
         // Cartouche's console on this Mac (ConsoleGallery.swift).
         case console, consoleLibrary = "console-library"
+        // What the window's height leaves out: the settings' Builds tab, and
+        // the storage page down to the games on this Mac, in a window as
+        // tall as it.
+        case settingsBuilds = "settings-builds", storageMac = "storage-mac"
 
         /// Whether the page is the console's, which is always dark.
         var isConsole: Bool { self == .console || self == .consoleLibrary }
@@ -50,7 +54,8 @@ enum Gallery {
         var size: CGSize {
             if step != nil { return SetupAssistant.size }
             switch self {
-            case .settings: return SettingsTab.size
+            case .settings, .settingsBuilds: return SettingsTab.size
+            case .storageMac: return CGSize(width: 1024, height: 1440)
             // The window at its smallest, with a game's sheet whose
             // nxnative commits are a paragraph each, as nxnative writes them.
             case .gameNarrow: return CGSize(width: Columns.window.width, height: 680)
@@ -68,7 +73,7 @@ enum Gallery {
         var styleMask: NSWindow.StyleMask {
             if step != nil { return [.borderless] }
             switch self {
-            case .settings: return [.titled, .closable]
+            case .settings, .settingsBuilds: return [.titled, .closable]
             case .menubar, .menubarBuilding: return [.borderless]
             default: return [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView]
             }
@@ -131,8 +136,8 @@ enum Gallery {
         var size = page.size
         let controller: NSViewController
         switch page {
-        case .settings:
-            controller = settings(model)
+        case .settings, .settingsBuilds:
+            controller = settings(model, open: page == .settingsBuilds ? .builds : .general)
         case .console, .consoleLibrary:
             controller = ConsoleGallery.controller(library: page == .consoleLibrary, language: L10n.code)
         case .menubar, .menubarBuilding:
@@ -151,12 +156,19 @@ enum Gallery {
                 controller = hosted(ContentView(), model)
             }
         }
-        let window = NSWindow(contentRect: CGRect(origin: CGPoint(x: 80, y: 80), size: size),
-                              styleMask: page.styleMask, backing: .buffered, defer: false)
+        let frame = CGRect(origin: CGPoint(x: 80, y: 80), size: size)
+        let window: NSWindow = page == .storageMac
+            ? TallWindow(contentRect: frame, styleMask: page.styleMask, backing: .buffered, defer: false)
+            : NSWindow(contentRect: frame, styleMask: page.styleMask, backing: .buffered, defer: false)
         window.isReleasedWhenClosed = false
         window.appearance = NSAppearance(named: dark ? .darkAqua : .aqua)
-        window.title = page == .settings ? SettingsTab.general.title : page.isConsole ? "Cartouche" : "Cartouche Builder"
-        if page == .settings {
+        switch page {
+        case .settings: window.title = SettingsTab.general.title
+        case .settingsBuilds: window.title = SettingsTab.builds.title
+        case .console, .consoleLibrary: window.title = "Cartouche"
+        default: window.title = "Cartouche Builder"
+        }
+        if page == .settings || page == .settingsBuilds {
             window.toolbarStyle = .preference
         }
         if page.step != nil {
@@ -204,8 +216,8 @@ enum Gallery {
 
     /// The settings as the Settings scene shows them, which a TabView in a
     /// window of its own does not: a tab in the middle of the toolbar for
-    /// each, the first one open, its name as the window's title.
-    private static func settings(_ model: AppModel) -> NSViewController {
+    /// each, OPEN open, its name as the window's title.
+    private static func settings(_ model: AppModel, open: SettingsTab) -> NSViewController {
         let tabs = NSTabViewController()
         tabs.tabStyle = .toolbar
         for tab in SettingsTab.allCases {
@@ -216,7 +228,14 @@ enum Gallery {
             item.image = NSImage(systemSymbolName: tab.symbol, accessibilityDescription: tab.title)
             tabs.addTabViewItem(item)
         }
+        tabs.selectedTabViewItemIndex = SettingsTab.allCases.firstIndex(of: open) ?? 0
         return tabs
+    }
+
+    /// A window as tall as its page, which AppKit would fit to the screen,
+    /// as it does the others on a screen smaller than they are.
+    private final class TallWindow: NSWindow {
+        override func constrainFrameRect(_ frameRect: NSRect, to screen: NSScreen?) -> NSRect { frameRect }
     }
 
     /// The window as the window server shows it, with what only the window
@@ -314,6 +333,7 @@ enum Gallery {
             }
             switch page {
             case .library, .activity, .storage, .iphone: model.section = AppSection(rawValue: page.rawValue) ?? .library
+            case .storageMac: model.section = .storage
             case .game, .gameNarrow, .gameQueue: model.section = .library
             case .setup: model.section = .setup
             default: break

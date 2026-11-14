@@ -206,10 +206,14 @@ struct CurrentCard: View {
 }
 
 extension CurrentCard {
-    /// What its stage is of, when the batch builds its app for this Mac too.
+    /// What its stage is of, when the batch builds its app for this Mac too
+    /// and the stage's words do not say it.
     var platform: String {
-        guard progress.buildsMac, progress.macOnly != true else { return "" }
-        return progress.onMacNow ? tr("This Mac · ", "Ce Mac · ") : tr("iPhone · ", "iPhone · ")
+        switch progress.shownPlatform {
+        case .mac: return tr("This Mac · ", "Ce Mac · ")
+        case .iPhone: return tr("iPhone · ", "iPhone · ")
+        case nil: return ""
+        }
     }
 }
 
