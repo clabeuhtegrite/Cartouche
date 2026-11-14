@@ -11176,13 +11176,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Cartouche renews itself with LocalDevVPN on. Once expired, it no longer opens: install it again with the Cartouche Installer."
+            "value" : "Cartouche renews itself each time you open it in its last 3 days, with LocalDevVPN on. Once expired, it no longer opens: install it again with the Cartouche Installer."
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Cartouche se renouvelle avec LocalDevVPN activé. Expiré, il ne s’ouvre plus : réinstallez-le avec l’Installeur Cartouche."
+            "value" : "Cartouche se renouvelle seul chaque fois que vous l’ouvrez dans ses 3 derniers jours, avec LocalDevVPN activé. Expiré, il ne s’ouvre plus : réinstallez-le avec l’Installeur Cartouche."
           }
         }
       }
@@ -11268,6 +11268,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Renouvellement…"
+          }
+        }
+      }
+    },
+    "system.signature.renewing.auto" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cartouche renews itself…"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cartouche se renouvelle…"
           }
         }
       }
