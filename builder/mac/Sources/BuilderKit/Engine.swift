@@ -381,8 +381,8 @@ public final class Engine: @unchecked Sendable {
     /// Asks the running batch to stop after what it is doing: the engine
     /// takes SIGTERM as its Stop.
     public static func stopBatch(_ status: BatchStatus?) {
-        guard let pid = status?.pid, pid > 1 else { return }
-        kill(pid_t(pid), SIGTERM)
+        guard let pid = status?.pid, pid > 1, let pid = pid_t(exactly: pid) else { return }
+        kill(pid, SIGTERM)
     }
 
     /// Stops a batch startBatch began that does not run yet, as it waits for
@@ -395,6 +395,9 @@ public final class Engine: @unchecked Sendable {
         process.terminate()
     }
 
+    /// Whether process PID runs; never for a number no process has: -1,
+    /// which kill() takes for every process the app may signal, 0, its own
+    /// group, or one past what a process number holds.
     public static func alive(_ pid: Int) -> Bool {
         guard pid > 0, let pid = pid_t(exactly: pid) else { return false }
         return kill(pid, 0) == 0 || errno == EPERM
