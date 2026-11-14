@@ -16,8 +16,8 @@ A branch is deleted when:
 - it is release/v<version>, and main's SideStore source lists that version
   or a later one: its release was merged, or a later one replaced it;
 - a workflow made it for another branch (launcher-screens/<branch>,
-  builder-screens/<branch>, catalog-covers/<branch>), and that branch is gone
-  or goes.
+  builder-screens/<branch>, installer-captures/<branch>,
+  catalog-covers/<branch>), and that branch is gone or goes.
 
 Every other branch stays: the default branch, the branches something reads,
 the head of an open pull request, and a branch with commits that no pull
@@ -44,7 +44,7 @@ READ = {
 }
 
 # The branches a workflow keeps for another branch: <prefix><that branch>.
-MADE_FOR = ("launcher-screens/", "builder-screens/", "catalog-covers/")
+MADE_FOR = ("launcher-screens/", "builder-screens/", "installer-captures/", "catalog-covers/")
 
 RELEASE = re.compile(r"release/v(\d+)\.(\d+)\.(\d+)")
 VERSION = re.compile(r"(\d+)\.(\d+)\.(\d+)")
