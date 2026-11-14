@@ -14,7 +14,7 @@ On your Mac, Cartouche Builder builds your games, plays them there with the same
 
 **[Website](https://clabeuhtegrite.github.io/Cartouche/)** · **[Getting started](docs/getting-started.md)** · **[Premiers pas](docs/getting-started.fr.md)** · **[Roadmap](docs/roadmap.md)** · **[Report a problem](https://github.com/clabeuhtegrite/Cartouche/issues/new/choose)**
 
-<img src="docs/images/devices.png" width="100%" alt="Cartouche on an iPad in landscape, the player's games on one shelf beside the sheet of the game in focus, and on an iPhone in landscape, the same games with Play and Details">
+<img src="docs/images/devices.png" width="100%" alt="Cartouche on an iPad in landscape: the player's games on one shelf beside the sheet of Mario Kart World, paused behind the console, with Resume and Quit; and on an iPhone in landscape, the same games, Donkey Kong Bananza in focus with Play and Details">
 
 </div>
 

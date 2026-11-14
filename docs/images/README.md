@@ -4,7 +4,7 @@ The pictures of the repository's [README](../../README.md), made from the app's 
 
 | File | What it shows | Made from |
 | --- | --- | --- |
-| `devices.png` | The home beside the sheet of the game in focus, landscape on an iPad Pro 13-inch, and the home, landscape on an iPhone 17 Pro | The gallery's `ipad-home-landscape` and `iphone-home-landscape`, in English; the iPad's status bar without the name of the gallery's app |
+| `devices.png` | The home beside the sheet of the game in focus, paused behind the console, landscape on an iPad Pro 13-inch, and the home, landscape on an iPhone 17 Pro | The gallery's `ipad-home-paused-landscape` and `iphone-home-landscape`, in English; the iPad's status bar without the name of the gallery's app |
 | `screens.png` | All games, a game paused behind the console, a game's settings | The gallery's `iphone-library`, `iphone-home-paused` and `iphone-game-settings`, in English |
 | `builder.png` | Cartouche Builder's library, with a game's sheet: Play on this Mac, and what the game is built for | The Builder's gallery, `game-en-light` |
 | `icon.png` | Cartouche's icon, with the corners iOS gives it | [`app/icon`](../../app/icon/) |
