@@ -6,14 +6,18 @@
 //  docs/decisions.md, 85): Cartouche asks iOS for the TV, and shows there
 //  the game's own scene for a TV, which LiveContainer opens in the game's
 //  process (app/patches/livecontainer/0012), over the game's card, and
-//  never the iPhone's screen, where the game's controls are. While a TV
-//  mirrors the iPhone, the game hides from it. The Simulator has no TV:
-//  the tests hand Cartouche one as iOS does, a window with Cartouche's TV
-//  screen in the harness's own scene, and say whether a display mirrors
-//  the iPhone (HarnessLC.iPhoneMirrored). What the TV does goes in the
-//  journal a player's report takes along (CartoucheTV.note).
+//  never the iPhone's screen, where the game's controls are. While a copy
+//  of the iPhone's screen goes elsewhere, to a TV or to a recording, the
+//  game hides from it. The Simulator has no TV: the tests hand Cartouche
+//  one as iOS does, a window with Cartouche's TV screen in the harness's
+//  own scene, say that iOS captures the iPhone's screen with the capture
+//  state of that scene, as iOS 27 does as it copies the screen to a TV it
+//  has not handed Cartouche, and say where the sound goes
+//  (HarnessLC.soundGoesToADisplay). What the TV does goes in the journal a
+//  player's report takes along (CartoucheTV.note).
 //
 
+import AVFAudio
 import UIKit
 import XCTest
 @testable import CartoucheHarness
@@ -32,11 +36,13 @@ final class TVTests: HarnessCase {
 
     override func setUp() async throws {
         try await super.setUp()
+        try copyTheIPhonesScreen(false)
         CartoucheReports.note(Self.journalMark)
     }
 
     override func tearDown() async throws {
         disconnectTV()
+        try? copyTheIPhonesScreen(false)
         try await super.tearDown()
     }
 
@@ -223,20 +229,24 @@ final class TVTests: HarnessCase {
         XCTAssertTrue(tv?.game === scene.tvScene)
     }
 
-    // MARK: A TV that mirrors the iPhone
+    // MARK: A copy of the iPhone's screen
 
     func testTheGameHidesFromATVThatMirrorsTheIPhone() async throws {
-        HarnessLC.iPhoneMirrored = true
+        HarnessLC.soundGoesToADisplay = true
+        try copyTheIPhonesScreen()
         let (_, scene) = try await started(.plain())
         let screen = try gameScreen(of: scene)
-        XCTAssertTrue(screen.hidesGameForTV, "black over the game, the TV a copy of the iPhone")
+        XCTAssertEqual(screen.hidesGameFrom, .tv, "black over the game, the TV a copy of the iPhone")
         let cover = try XCTUnwrap(view("game.tvCover", in: screen.view))
         XCTAssertGreaterThan(try XCTUnwrap(screen.view.subviews.firstIndex(of: cover)),
                              try XCTUnwrap(screen.view.subviews.firstIndex(of: scene.view)), "over the game's scene")
+        XCTAssertEqual(coverText(in: screen), CartoucheText.tvMoving, "while iOS hands Cartouche the TV")
+        XCTAssertEqual(view("game.tvCover.anyway", in: screen.view)?.isHidden, true)
         // A few seconds on, what the player can do about it.
         try await waitUntil("the way to show the game anyway", timeout: 8) {
             view("game.tvCover.anyway", in: screen.view)?.isHidden == false
         }
+        XCTAssertEqual(coverText(in: screen), CartoucheText.tvMirrored)
         let anyway = try XCTUnwrap(view("game.tvCover.anyway", in: screen.view) as? UIButton)
         anyway.sendActions(for: .primaryActionTriggered)
         XCTAssertFalse(screen.hidesGameForTV, "the player chose to show it")
@@ -250,24 +260,71 @@ final class TVTests: HarnessCase {
         ])
     }
 
+    func testTheGameHidesAsSoonAsIOSCopiesTheIPhonesScreen() async throws {
+        HarnessLC.soundGoesToADisplay = true
+        let (_, scene) = try await started(.plain())
+        let screen = try gameScreen(of: scene)
+        XCTAssertFalse(screen.hidesGameForTV, "no copy")
+        // A TV plugged in, or AirPlay: iOS 27 copies the iPhone's screen
+        // there, until it hands Cartouche the TV, without a screen for it
+        // among UIScreen.screens.
+        try copyTheIPhonesScreen()
+        try await waitUntil("the game hides") { screen.hidesGameFrom == .tv }
+        // The TV unplugged.
+        try copyTheIPhonesScreen(false)
+        try await waitUntil("the game shows again") { !screen.hidesGameForTV }
+        XCTAssertEqual(journal().filter { $0.hasPrefix("TV") }, [
+            "TV: a display mirrors the iPhone, the game hides from it",
+            "TV: the game shows again",
+        ])
+    }
+
+    func testARecordingOfTheScreenHidesTheGameWithAWayToShowItAtOnce() async throws {
+        // The sound stays on the iPhone: a recording of the screen, a Mac's
+        // iPhone Mirroring, or a TV whose sound goes to headphones, which
+        // Cartouche cannot tell apart.
+        HarnessLC.soundGoesToADisplay = false
+        let (_, scene) = try await started(.plain())
+        let screen = try gameScreen(of: scene)
+        try copyTheIPhonesScreen()
+        try await waitUntil("the game hides") { screen.hidesGameFrom == .elsewhere }
+        XCTAssertEqual(coverText(in: screen), CartoucheText.tvCaptured)
+        let anyway = try XCTUnwrap(view("game.tvCover.anyway", in: screen.view) as? UIButton)
+        XCTAssertFalse(anyway.isHidden, "at once")
+        // The sound moves to a TV.
+        HarnessLC.soundGoesToADisplay = true
+        NotificationCenter.default.post(name: AVAudioSession.routeChangeNotification, object: nil)
+        try await waitUntil("the cover speaks of the TV") { screen.hidesGameFrom == .tv }
+        XCTAssertFalse(anyway.isHidden, "the way to show the game stays")
+        anyway.sendActions(for: .primaryActionTriggered)
+        XCTAssertFalse(screen.hidesGameForTV)
+        XCTAssertEqual(journal().filter { $0.hasPrefix("TV") }, [
+            "TV: the iPhone's screen is recorded or copied, the game hides from it",
+            "TV: the player shows the game anyway, on the iPhone and on the display that mirrors it",
+        ])
+    }
+
     func testTheGameShowsAgainOnceIOSHandsCartoucheTheTV() async throws {
-        HarnessLC.iPhoneMirrored = true
+        HarnessLC.soundGoesToADisplay = true
+        try copyTheIPhonesScreen()
         let (_, scene) = try await started(.plain())
         let screen = try gameScreen(of: scene)
         XCTAssertTrue(screen.hidesGameForTV)
-        // iOS hands Cartouche the TV it mirrored the iPhone on.
-        HarnessLC.iPhoneMirrored = false
+        // iOS hands Cartouche the TV it copied the iPhone's screen to, even
+        // while it says the screen is captured.
         try connectTV()
         XCTAssertFalse(screen.hidesGameForTV)
         XCTAssertNotNil(scene.tvScene)
         XCTAssertTrue(journal().contains("TV: the game shows again"))
+        try await pause(0.3)
+        XCTAssertFalse(screen.hidesGameForTV, "the TV is Cartouche's")
         // Unplugged, with another display that mirrors the iPhone.
-        HarnessLC.iPhoneMirrored = true
         disconnectTV()
         try await waitUntil("the game hides again") { screen.hidesGameForTV }
     }
 
     func testThePausedGameHidesAsItComesBackToATVThatMirrorsTheIPhone() async throws {
+        HarnessLC.soundGoesToADisplay = true
         let (_, scene) = try await started(.plain())
         let screen = try gameScreen(of: scene)
         XCTAssertFalse(screen.hidesGameForTV, "no TV")
@@ -275,10 +332,10 @@ final class TVTests: HarnessCase {
         scene.pressControllerHome()
         try await waitUntil("the console shows") { actions.running?.isInFront == false }
         // A TV now mirrors the iPhone, the console on it.
-        HarnessLC.iPhoneMirrored = true
-        host.guardTheTV()
+        try copyTheIPhonesScreen()
+        try await pause(0.3)
         XCTAssertFalse(screen.hidesGameForTV, "the console may show there")
-        try await pause(0.7)
+        try await pause(0.4)
         scene.pressControllerHome()
         try await waitUntil("the game shows again") { actions.running?.isInFront == true }
         XCTAssertTrue(screen.hidesGameForTV, "hidden from it")
@@ -300,6 +357,24 @@ final class TVTests: HarnessCase {
         tvWindow = window
         CartoucheTV.shared.connect(window)
         return window
+    }
+
+    /// iOS captures the iPhone's screen, or stops, and says so to the scene
+    /// that Cartouche's windows are in: as it copies the screen to a TV
+    /// that it has not handed Cartouche, by cable or AirPlay, or records it.
+    private func copyTheIPhonesScreen(_ copied: Bool = true, file: StaticString = #filePath, line: UInt = #line) throws {
+        let scene = try XCTUnwrap(UIApplication.shared.connectedScenes.lazy.compactMap { $0 as? UIWindowScene }.first,
+                                  file: file, line: line)
+        if copied {
+            scene.traitOverrides.sceneCaptureState = .active
+        } else {
+            scene.traitOverrides.remove(UITraitSceneCaptureState.self)
+        }
+    }
+
+    /// What the cover over the game says.
+    private func coverText(in screen: CartoucheGameScreen) -> String? {
+        (view("game.tvCover.text", in: screen.view) as? UILabel)?.text
     }
 
     /// The TV unplugged, or taken back by iOS.

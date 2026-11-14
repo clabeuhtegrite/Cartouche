@@ -487,6 +487,9 @@ enum CartoucheText {
     static var tvMirrored: String {
         s("tv.mirrored", "The TV shows a copy of the iPhone’s screen, so the game stays hidden from it. To play on the iPhone, unplug the TV or stop Screen Mirroring.")
     }
+    static var tvCaptured: String {
+        s("tv.captured", "The iPhone’s screen is being recorded or shown on another screen, so the game stays hidden.")
+    }
     static var tvShowAnyway: String { s("tv.showAnyway", "Show the game anyway") }
 
     // MARK: Play time and size
