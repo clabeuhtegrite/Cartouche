@@ -5,7 +5,8 @@
 //  LiveContainer's types and calls the launcher uses, as the gallery stands
 //  them in: the player's games are the scenario's, the certificate and the
 //  pairing file are there once its setup is done, and the built-in
-//  SideStore's last renewal leaves six days.
+//  SideStore's last renewal leaves six days; its renewal, which the System
+//  page's Renew now asks for, renews Cartouche for seven.
 //
 
 import SwiftUI
@@ -20,6 +21,9 @@ enum GalleryState {
     /// SideStore keeps the Apple ID of a sign-in that stopped before the
     /// certificate (work: sign-in-unfinished).
     static var signInUnfinished = false
+    /// LocalDevVPN is connected (CartoucheVPN.isConnected), whatever the
+    /// interfaces of the Mac under the simulator (work: device-…).
+    static var vpnConnected = false
 
     static let documents: URL = {
         let url = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
@@ -33,6 +37,36 @@ enum GalleryState {
         try? FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
         return url
     }()
+
+    /// Records Cartouche's signature as expiring EXPIRY seconds from now,
+    /// renewed RENEWED seconds ago, as the built-in SideStore does for its
+    /// widget, in widget_data.json in the app group.
+    static func recordSignature(expiringIn expiry: TimeInterval, renewedAgo renewed: TimeInterval) {
+        let record = """
+        {"allApps": [{"bundleIdentifier": "\(Bundle.main.bundleIdentifier ?? "")",
+                      "expirationDate": \(Date().addingTimeInterval(expiry).timeIntervalSinceReferenceDate),
+                      "refreshedDate": \(Date().addingTimeInterval(-renewed).timeIntervalSinceReferenceDate)}]}
+        """
+        try? Data(record.utf8).write(to: appGroup.appendingPathComponent("widget_data.json"))
+    }
+}
+
+/// The built-in SideStore's renewal, as LiveContainer loads it with
+/// SideStoreSupport (CartoucheRefresh): with it, the System page shows
+/// Renew now. Two seconds after it is asked, it renews Cartouche for seven
+/// days.
+@objc(CartoucheRefresh)
+final class GalleryRefresh: NSObject {
+    @objc(refreshAllAppsWithProgress:completion:)
+    static func refreshAllApps(progress: Progress, completion: @escaping (String?) -> Void) {
+        progress.totalUnitCount = 100
+        progress.completedUnitCount = 10
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
+            GalleryState.recordSignature(expiringIn: 7 * 86_400, renewedAgo: 0)
+            progress.completedUnitCount = 100
+            completion(nil)
+        }
+    }
 }
 
 final class LCAppInfo {
@@ -110,6 +144,7 @@ final class CartoucheGameActions: ObservableObject {
     func dropInstall(_ question: CartoucheInstallQuestion) { installQuestion = nil }
     func closeInstallQuestion() { installQuestion = nil }
     func play(_ app: LCAppModel, showingSettings: Bool = false) {}
+    func signAgain(_ bundleId: String) { notice = nil }
     func resumeRunningGame() {}
     func askToQuit() { quitQuestion = running }
     func quitRunningGame() { quitQuestion = nil }
@@ -167,6 +202,7 @@ final class CartoucheTelemetry: ObservableObject {
     func setOn(_ on: Bool) { isOn = on }
     func erase() async -> Bool { true }
     func event(_ name: String, game: String? = nil, fields: [String: CartoucheTelemetryValue] = [:]) {}
+    func renewed(fields: [String: CartoucheTelemetryValue]) {}
 }
 
 /// A settings list as nxnative writes one into a game (dm/launcher.json,

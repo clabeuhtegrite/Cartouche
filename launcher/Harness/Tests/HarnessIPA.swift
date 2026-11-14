@@ -31,6 +31,10 @@ struct HarnessGame {
     /// The languages of its settings screen, the first its default.
     var languages = ["ja", "fr", "en"]
     var orientations = ["UIInterfaceOrientationLandscapeLeft", "UIInterfaceOrientationLandscapeRight"]
+    /// Its ways on an iPad (UISupportedInterfaceOrientations~ipad): every
+    /// way since nxnative's e2fadf2 (4 November 2026), with a layout for an
+    /// upright screen; none before, as here unless set.
+    var orientationsOnIPad: [String]?
     /// The SDK nxnative built it with: iOS 26.0.
     var sdk: UInt32 = 0x001A_0000
     var encrypted = false
@@ -46,6 +50,11 @@ struct HarnessGame {
     var romfsApart = false
     /// The bundle identifier, org.nxnative.<title ID> unless set.
     var bundleIdentifierOverride: String?
+    /// Built with pso_mtl4 on, as The Legend of Zelda: Breath of the Wild
+    /// is: its app holds the Metal pipeline archive nxnative made offline,
+    /// pso/applegpu_g18p.mtl4a, a universal Mach-O of Apple's GPU, which
+    /// zsign cannot sign, and the list of its pipelines.
+    var pipelineArchive = false
 
     var bundleIdentifier: String { bundleIdentifierOverride ?? "org.nxnative." + titleId.lowercased() }
     /// romfs.img, the image of the game's files (dm/host/romfs_image.h).
@@ -64,7 +73,7 @@ struct HarnessGame {
 
     /// The game's Info.plist, with the keys nxnative's build_ipa.sh gives it.
     var infoPlist: [String: Any] {
-        [
+        var info: [String: Any] = [
             "CFBundleIdentifier": bundleIdentifier,
             "CFBundleExecutable": executable,
             "CFBundleName": executable,
@@ -87,6 +96,8 @@ struct HarnessGame {
             "DTPlatformName": "iphoneos",
             "DTSDKName": "iphoneos26.0",
         ]
+        if let orientationsOnIPad { info["UISupportedInterfaceOrientations~ipad"] = orientationsOnIPad }
+        return info
     }
 
     /// dm/launcher.json: nxnative's settings screen, its language first.
@@ -119,6 +130,11 @@ struct HarnessGame {
         let romfs: HarnessZip.Entry = romfsApart
             ? .file(app + "romfs.id", Data(HarnessRomFS.identityLine(of: romfsImage, title: titleId, version: version).utf8))
             : .file(app + "romfs.img", romfsImage)
+        let pipelines: [HarnessZip.Entry] = pipelineArchive ? [
+            .folder(app + "pso/"),
+            .file(app + "pso/applegpu_g18p.mtl4a", HarnessMachOFile.pipelineArchive()),
+            .file(app + "pso/prebuilt.tsv", Data("chain\tharness\n".utf8)),
+        ] : []
         return [
             .folder("Payload/"),
             .folder(app),
@@ -136,7 +152,7 @@ struct HarnessGame {
                 "CFBundleIdentifier": "com.moltenvk.MoltenVK", "CFBundleExecutable": "MoltenVK",
                 "CFBundlePackageType": "FMWK",
             ])),
-        ]
+        ] + pipelines
     }
 }
 
@@ -512,6 +528,31 @@ enum HarnessMachOFile {
 
     static func library() -> Data {
         image(fileType: 6, sdk: 0x001A_0000, minimumOS: 0x0011_0000, encrypted: false)
+    }
+
+    /// A Metal pipeline archive as Metal 4 makes one offline for an
+    /// iPhone's GPU (nxnative's pso/applegpu_<GPU>.mtl4a): a universal
+    /// file, its header big-endian, whose one slice, 4 KiB in, is a Mach-O
+    /// of Apple's GPU, with no room for a signature.
+    static func pipelineArchive() -> Data {
+        var slice = Data()
+        slice.le32(0xFEED_FACF)
+        slice.le32(0x0100_0013) // Apple's GPU
+        slice.le32(0)
+        slice.le32(2)
+        slice.le32(0); slice.le32(0)
+        slice.le32(0); slice.le32(0)
+        var state: UInt32 = 0x0BAD_F00D
+        while slice.count < 24 << 10 {
+            state = state &* 1_664_525 &+ 1_013_904_223
+            slice.le32(state)
+        }
+        var data = Data()
+        for value in [0xCAFE_BABE, 1, 0x0100_0013, 0, 4096, UInt32(slice.count), 12] as [UInt32] {
+            Swift.withUnsafeBytes(of: value.bigEndian) { data.append(contentsOf: $0) }
+        }
+        data.append(Data(count: 4096 - data.count))
+        return data + slice
     }
 
     private static func image(fileType: UInt32, sdk: UInt32, minimumOS: UInt32, encrypted: Bool) -> Data {

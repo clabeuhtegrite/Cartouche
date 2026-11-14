@@ -233,6 +233,27 @@ final class CartoucheFailureTests: XCTestCase {
                        ["seconds": .number(40), "outcome": .flag(false)])
     }
 
+    // MARK: Requests sent again after Apple's 429 (patch 0020)
+
+    func testSaysHowManyRequestsWentAgainAfterApplesLimit() throws {
+        // Signed in once the third request sent again got past Apple's 429.
+        let passed = try XCTUnwrap(outcome(["ok": true, "seconds": 9, "resent": 3]))
+        XCTAssertEqual(CartoucheFailure.sideStoreSuccess(outcome: passed, seconds: 12),
+                       ["seconds": .number(9), "resent": .number(3)])
+        // Still refused after ten: Apple's limit, as before, with the ten.
+        let refused = try XCTUnwrap(outcome([
+            "seconds": 14, "stage": "account", "family": "server", "kind": "httpStatus", "http": 429,
+            "service": "grandSlam", "resent": 10,
+        ]))
+        let failure = CartoucheFailure.sideStore(outcome: refused, message: "Apple refuses more requests for now", fraction: nil,
+                                                 seconds: 15, vpn: true, pairing: true)
+        XCTAssertEqual(failure.cause, .tooManyAttempts)
+        XCTAssertEqual(failure.fields["resent"], .number(10))
+        // A count, nothing else.
+        XCTAssertNil(try XCTUnwrap(outcome(["resent": -1])).facts["resent"])
+        XCTAssertNil(try XCTUnwrap(outcome(["resent": "three"])).facts["resent"])
+    }
+
     // MARK: What SideStore's code did not expect (patch 0018)
 
     func testSaysWhichOfSideStoresSentencesAndWhatItNames() throws {
@@ -254,6 +275,45 @@ final class CartoucheFailureTests: XCTestCase {
         let read = try XCTUnwrap(outcome([
             "reason": "Could not resolve installed app for 'Mario Kart World'", "missing": "context.targetAppBundle is nil",
         ], action: .refresh))
+        XCTAssertEqual(read.facts, [:])
+    }
+
+    // MARK: Why minimuxer could not reach this iPhone (patch 0022)
+
+    func testSaysWhyMinimuxerCouldNotReachThisIPhone() throws {
+        // An iPad without cellular, with a Lockdown pairing file, from iPadOS 26.4.
+        let left = try XCTUnwrap(outcome([
+            "stage": "deviceCheck", "family": "operation", "kind": "invalidVPN", "codes": "SideStore.OperationError 10",
+            "reason": "noIPsec", "pairingKind": "lockdown", "ipsec": false,
+        ]))
+        XCTAssertEqual(left.cause, .vpn)
+        XCTAssertEqual(left.facts, ["reason": .text("noIPsec"), "pairingKind": .text("lockdown"), "ipsec": .flag(false)])
+        let failure = CartoucheFailure.sideStore(outcome: left, message: "LocalDevVPN is not connected", fraction: 0,
+                                                 seconds: 0, vpn: true, pairing: true)
+        XCTAssertEqual(failure.cause, .vpn)
+        XCTAssertEqual(failure.stage, "deviceCheck")
+        XCTAssertEqual(failure.fields["reason"], .text("noIPsec"))
+        XCTAssertEqual(failure.fields["pairingKind"], .text("lockdown"))
+        XCTAssertEqual(failure.fields["ipsec"], .flag(false))
+        XCTAssertEqual(failure.fields["vpn"], .flag(true))
+
+        // A pairing file this iPhone refused at the handshake, with the
+        // library's words behind minimuxer's.
+        let refused = try XCTUnwrap(outcome([
+            "stage": "deviceCheck", "family": "operation", "kind": "invalidPairingFile",
+            "reason": "handshake", "detail": "reset", "pairingKind": "rppairing", "ipsec": true,
+        ]))
+        XCTAssertEqual(refused.cause, .pairing)
+        XCTAssertEqual(refused.facts, ["reason": .text("handshake"), "detail": .text("reset"),
+                                       "pairingKind": .text("rppairing"), "ipsec": .flag(true)])
+    }
+
+    func testKeepsNoSentenceOfMinimuxersNorAddress() throws {
+        let read = try XCTUnwrap(outcome([
+            "kind": "invalidVPN",
+            "reason": "VPN tunnel iface is up and tunnel peer IP 10.7.0.1 is known, but TCP port poll failed",
+            "detail": "Connection reset by peer (os error 54)", "pairingKind": "10.7.0.1", "ipsec": "no",
+        ]))
         XCTAssertEqual(read.facts, [:])
     }
 

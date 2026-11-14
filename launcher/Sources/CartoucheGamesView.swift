@@ -275,6 +275,9 @@ struct CartoucheGamesView: View {
             }
         }
         .alert(actions.notice?.title ?? "", isPresented: noticeShown, presenting: actions.notice) { notice in
+            if let bundleId = notice.signAgain {
+                Button(CartoucheText.signAgainAndPlay) { actions.signAgain(bundleId) }
+            }
             if let report = notice.report {
                 Button(CartoucheText.reportCopy) {
                     CartoucheReports.copy(report)

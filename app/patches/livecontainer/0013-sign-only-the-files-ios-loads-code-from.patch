@@ -1,0 +1,50 @@
+From cb96ad1dc23d8f0c195866bbdb6c0c6e14584f90 Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Fri, 13 Nov 2026 15:28:51 +0000
+Subject: [PATCH] Sign only the files iOS loads code from
+
+zsign signed every 64-bit Mach-O of an app's bundle (signWithAppPath,
+is_64bit_macho), whatever its processor. An nxnative game built with
+pso_mtl4 on bundles the Metal pipeline archive it made offline,
+pso/applegpu_<GPU>.mtl4a, which is a Mach-O of Apple's GPU: zsign
+cannot sign it, it has no room for a signature, and its failure failed
+the whole signing. Every install of The Legend of Zelda: Breath of the
+Wild, the only such game, ended "Installed, but not signed", though its
+executable was signed.
+
+signAppBundleWithZSign now hands zsign the files Cartouche lists, its
+CartoucheSignedFiles: the executables, libraries and bundles of the
+iPhone's processor, alone or as a slice of a universal file zsign reads.
+Nothing else in a bundle needs a signature for its app to start, and
+zsign no longer copies such a file for nothing either: the archive is
+650 MB.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01MzPJotvCK7FttoD5tgMdYs
+---
+ LiveContainerSwiftUI/Utilities/LCUtils.m | 9 ++++++++-
+ 1 file changed, 8 insertions(+), 1 deletion(-)
+
+diff --git a/LiveContainerSwiftUI/Utilities/LCUtils.m b/LiveContainerSwiftUI/Utilities/LCUtils.m
+index 8b6528d..57af66f 100644
+--- a/LiveContainerSwiftUI/Utilities/LCUtils.m
++++ b/LiveContainerSwiftUI/Utilities/LCUtils.m
+@@ -142,7 +142,14 @@
+ 
+     NSLog(@"[LC] starting signing...");
+     
+-    NSProgress* ans = [NSClassFromString(@"ZSigner") signWithAppPath:[path path] bundleId:NSBundle.mainBundle.bundleIdentifier cert:self.certificateData pass:LCSharedUtils.certificatePassword completionHandler:completionHandler];
++    // Cartouche: zsign signs the files iOS loads code from only, the
++    // executables, libraries and bundles of the iPhone's processor, which
++    // Cartouche lists (CartoucheGameSigning.swift). zsign's own list,
++    // signWithAppPath's, took every 64-bit Mach-O, a GPU's too: the Metal
++    // pipeline archive an nxnative game may bundle, which zsign cannot
++    // sign, failed the whole signing.
++    NSArray<NSString *> *files = [CartoucheSignedFiles pathsInBundle:path.path];
++    NSProgress* ans = [NSClassFromString(@"ZSigner") signMachOPathArr:files bundleId:NSBundle.mainBundle.bundleIdentifier cert:self.certificateData pass:LCSharedUtils.certificatePassword completionHandler:completionHandler];
+     
+     return ans;
+ }
+-- 
+2.43.0
+

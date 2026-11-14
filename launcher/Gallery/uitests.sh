@@ -3,7 +3,12 @@
 # and runs them on an iPhone simulator, keeping their results in OUT. Needs a
 # Mac with Xcode and XcodeGen (brew install xcodegen).
 #
-#     launcher/Gallery/uitests.sh OUT
+#     launcher/Gallery/uitests.sh [--ipad] OUT
+#
+# --ipad runs the iPad's tests alone (UITests/IPadUITests.swift), which the
+# iPhone leaves out, on a 13-inch iPad Pro (M5), else the newest iPad, of
+# the newest iOS runtime that has one: the console and a game's sheet side
+# by side, as an iPad shows them.
 #
 # The tests open the gallery on the whole console, as Cartouche shows it,
 # and drive it as a player would (UITests/ConsoleTestCase.swift). They run on
@@ -28,7 +33,12 @@
 
 set -euo pipefail
 
-[ $# -eq 1 ] || { echo "usage: $0 OUT" >&2; exit 2; }
+DEVICE=iPhone
+if [ "${1:-}" = "--ipad" ]; then
+  DEVICE=iPad
+  shift
+fi
+[ $# -eq 1 ] || { echo "usage: $0 [--ipad] OUT" >&2; exit 2; }
 HERE="$(cd "$(dirname "$0")" && pwd)"
 mkdir -p "$1"
 OUT="$(cd "$1" && pwd)"
@@ -41,8 +51,8 @@ started=$SECONDS
 "$HERE/project.sh"
 
 # The simulator: its UDID on the last line.
-UDID="$(python3 -u - <<'PY' | tail -n 1
-import json, re, subprocess, sys
+UDID="$(UITESTS_DEVICE="$DEVICE" python3 -u - <<'PY' | tail -n 1
+import json, os, re, subprocess, sys
 
 
 def simctl(*args):
@@ -67,8 +77,15 @@ def pro(name):
 
 
 kinds = listing("devicetypes")["devicetypes"]
-wanted = [k for k in kinds if k["name"] == "iPhone 17 Pro"] + sorted(
-    (k for k in kinds if pro(k["name"]) and k["name"] != "iPhone 17 Pro"), key=lambda k: -pro(k["name"]))
+if os.environ.get("UITESTS_DEVICE") == "iPad":
+    # The newest iPads come last in the list of simctl.
+    ipads = [k for k in kinds if k.get("productFamily") == "iPad"]
+    wanted = [k for k in ipads if k["name"] == "iPad Pro 13-inch (M5)"] + ipads[::-1]
+    name = "Cartouche UI tests iPad"
+else:
+    wanted = [k for k in kinds if k["name"] == "iPhone 17 Pro"] + sorted(
+        (k for k in kinds if pro(k["name"]) and k["name"] != "iPhone 17 Pro"), key=lambda k: -pro(k["name"]))
+    name = "Cartouche UI tests"
 runtimes = sorted((r for r in listing("runtimes")["runtimes"]
                    if r.get("isAvailable", True) and r.get("platform", "iOS") == "iOS"), key=release, reverse=True)
 devices = listing("devices", "available")["devices"]
@@ -82,16 +99,26 @@ for runtime in runtimes:
             if device.get("deviceTypeIdentifier") == kind["identifier"]:
                 print(device["udid"])
                 sys.exit(0)
-        print(simctl("create", "Cartouche UI tests", kind["identifier"], runtime["identifier"]).strip())
+        print(simctl("create", name, kind["identifier"], runtime["identifier"]).strip())
         sys.exit(0)
-sys.exit("no iOS runtime runs an iPhone Pro simulator")
+sys.exit("no iOS runtime runs an iPad simulator" if os.environ.get("UITESTS_DEVICE") == "iPad"
+         else "no iOS runtime runs an iPhone Pro simulator")
 PY
 )"
-echo "== UI tests on the simulator $UDID"
+echo "== UI tests on the $DEVICE simulator $UDID"
+# The iPad's tests on the iPad alone.
+if [ "$DEVICE" = iPad ]; then
+  TESTS=(-only-testing:CartoucheGalleryUITests/IPadUITests)
+else
+  TESTS=(-skip-testing:CartoucheGalleryUITests/IPadUITests)
+fi
 
-# It boots while the gallery builds.
+# It boots while the gallery builds. xcodebuild says nothing then, for
+# minutes: heartbeat.py says every minute that the build goes on, as a step
+# silent for 9 minutes was taken for a stuck run and cancelled (#175).
 xcrun simctl boot "$UDID" 2>/dev/null || true
-xcodebuild build-for-testing -quiet -project "$PROJECT" -scheme CartoucheGallery \
+python3 "$HERE/heartbeat.py" "building the gallery and its UI tests" \
+  xcodebuild build-for-testing -quiet -project "$PROJECT" -scheme CartoucheGallery \
   -destination "platform=iOS Simulator,id=$UDID" -derivedDataPath "$BUILD/DerivedData"
 echo "   built in $((SECONDS - started)) s"
 xcrun simctl bootstatus "$UDID" -b >/dev/null
@@ -124,18 +151,20 @@ xcrun simctl terminate "$UDID" "$BUNDLE" 2>/dev/null || true
 # to pick (UITests/ConsoleTestCase.swift, FilesPicker): in the folder of the
 # simulator's local storage.
 LOCAL=""
-for meta in "$HOME/Library/Developer/CoreSimulator/Devices/$UDID"/data/Containers/Shared/AppGroup/*/.com.apple.mobile_container_manager.metadata.plist; do
-  [ -f "$meta" ] || continue
-  if [ "$(plutil -extract MCMMetadataIdentifier raw -o - "$meta" 2>/dev/null)" = "group.com.apple.FileProvider.LocalStorage" ]; then
-    LOCAL="$(dirname "$meta")/File Provider Storage"
-  fi
-done
+if [ "$DEVICE" = iPhone ]; then
+  for meta in "$HOME/Library/Developer/CoreSimulator/Devices/$UDID"/data/Containers/Shared/AppGroup/*/.com.apple.mobile_container_manager.metadata.plist; do
+    [ -f "$meta" ] || continue
+    if [ "$(plutil -extract MCMMetadataIdentifier raw -o - "$meta" 2>/dev/null)" = "group.com.apple.FileProvider.LocalStorage" ]; then
+      LOCAL="$(dirname "$meta")/File Provider Storage"
+    fi
+  done
+fi
 if [ -n "$LOCAL" ]; then
   mkdir -p "$LOCAL"
   # An empty zip archive: the gallery's install reads none of it.
   { printf 'PK\005\006'; head -c 18 /dev/zero; } >"$LOCAL/Test Game.ipa"
   echo "   Test Game.ipa in On My iPhone"
-else
+elif [ "$DEVICE" = iPhone ]; then
   echo "::warning::the simulator has no local storage for On My iPhone: the IPA to pick is in the gallery's folder alone"
 fi
 
@@ -153,7 +182,7 @@ run_tests() {
   rm -rf "$OUT/UITests.xcresult"
   xcodebuild test-without-building -project "$PROJECT" -scheme CartoucheGallery \
     -destination "platform=iOS Simulator,id=$UDID" -derivedDataPath "$BUILD/DerivedData" \
-    -resultBundlePath "$OUT/UITests.xcresult" \
+    -resultBundlePath "$OUT/UITests.xcresult" "${TESTS[@]}" \
     -retry-tests-on-failure -test-iterations 2 \
     -test-timeouts-enabled YES -default-test-execution-time-allowance 600 -maximum-test-execution-time-allowance 900 \
     -parallel-testing-enabled NO -collect-test-diagnostics never 2>&1 | tee "$OUT/xcodebuild.log"
@@ -251,6 +280,6 @@ xcrun xcresulttool get test-results summary --path "$OUT/UITests.xcresult" 2>/de
 echo
 xcrun simctl shutdown "$UDID" 2>/dev/null || true
 if [ "$status" -ne 0 ]; then
-  echo "::error::UI tests failed: the end of the log shows each failed test and what it found on the screen; launcher-ui-tests keeps the results"
+  echo "::error::UI tests failed on the $DEVICE: the end of the log shows each failed test and what it found on the screen; launcher-ui-tests keeps the results"
 fi
 exit "$status"

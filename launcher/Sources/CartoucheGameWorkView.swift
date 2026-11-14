@@ -66,6 +66,11 @@ struct CartoucheGameNotice: Equatable {
     /// The report on what failed, which the player can copy; nil when
     /// nothing failed.
     var report: CartoucheReport? = nil
+    /// The bundle identifier of a game the player may sign again, whole,
+    /// and start, from the notice: LiveContainer did not sign it whole, or
+    /// iOS refused its signature as it started (CartoucheGameActions
+    /// signAgain).
+    var signAgain: String? = nil
 }
 
 /// An install the console asks about before it starts, on an iPhone whose
