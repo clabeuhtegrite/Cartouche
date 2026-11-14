@@ -276,9 +276,10 @@ enum CartoucheText {
     static var renewed: String { s("system.signature.renewed", "Last renewed") }
     static var team: String { s("system.signature.team", "Apple account team") }
     static var profileUnknown: String { s("system.signature.unknown", "Cartouche could not read its provisioning profile.") }
-    static var signatureFooter: String { s("system.signature.footer", "Cartouche renews itself with LocalDevVPN on. Once expired, it no longer opens: install it again with the Cartouche Installer.") }
+    static var signatureFooter: String { s("system.signature.footer", "Cartouche renews itself each time you open it in its last 3 days, with LocalDevVPN on. Once expired, it no longer opens: install it again with the Cartouche Installer.") }
     static var renewNow: String { s("system.signature.renew", "Renew now") }
     static var renewing: String { s("system.signature.renewing", "Renewing…") }
+    static var renewingByItself: String { s("system.signature.renewing.auto", "Cartouche renews itself…") }
     static var renewUnavailable: String { s("system.signature.renew.unavailable", "The built-in SideStore did not load. Close Cartouche, open it again, then renew.") }
     static var renewFailed: String { s("system.signature.renew.failed", "The renewal did not go through") }
     static var automaticRenewal: String { s("system.auto", "Automatic renewal") }
@@ -363,6 +364,31 @@ enum CartoucheText {
     static var startSettings: String { s("work.start.settings", "The game opens on its settings: its Play button starts it and keeps your choices.") }
     static var startFailed: String { s("work.start.failed", "The game did not start") }
     static var startCertificateRefused: String { s("work.start.certificateRefused", "iOS no longer accepts the certificate the game was signed with. Cartouche signs in again with your Apple ID to take the new one: try again in a moment.") }
+
+    // A game LiveContainer did not sign, or whose process stopped as it
+    // started (CartoucheGameSigning): why, in the player's words, then what
+    // to do, as they install it or start it.
+    static func notSignedTitle(_ name: String) -> String { f("work.notSigned.title", "%@ is not signed", name) }
+    static var notSignedFiles: String { s("work.notSigned.files", "Cartouche could not sign every file of the game for this iPhone.") }
+    static var notSignedCertificateRefused: String {
+        s("work.notSigned.certificateRefused", "iOS refuses the certificate Cartouche signs games with: Cartouche takes the new one with your Apple ID.")
+    }
+    static var notSignedNoCertificate: String {
+        s("work.notSigned.noCertificate", "Cartouche has no certificate to sign games with yet: finish its setup on the System page.")
+    }
+    static var notSignedEncrypted: String {
+        s("work.notSigned.encrypted", "This app is encrypted, as the App Store delivers it: Cartouche only runs apps that are not, such as the games nxnative builds.")
+    }
+    static var notSignedDamaged: String { s("work.notSigned.damaged", "The game’s files are damaged: install it again from its IPA.") }
+    static var notSignedAtInstall: String { s("work.notSigned.atInstall", "Cartouche signs it again as you start it.") }
+    static var notSignedAtStart: String { s("work.notSigned.atStart", "Sign it again; if it still fails, install it again from its IPA.") }
+    static var signAgainAndPlay: String { s("action.signAgain", "Sign again and play") }
+    static var gameSignatureRefused: String {
+        s("running.stopped.signature", "iOS refused the game’s signature as it started. Sign it again; if it still fails, install it again from its IPA.")
+    }
+    static var gameStoppedOnError: String {
+        s("running.stopped.error", "The game stopped on an error, which the report gives. If it happens again, install the game again from its IPA.")
+    }
     static func uninstallTitle(_ name: String) -> String { f("work.uninstall.title", "Uninstalling %@", name) }
     static var uninstallStep: String { s("work.uninstall.step", "Removing it from this iPhone") }
     static var uninstallFailed: String { s("work.uninstall.failed", "The game was not uninstalled") }

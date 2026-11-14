@@ -1,4 +1,4 @@
-From 7812d4ad472afc375ac700ee6674f72b22183638 Mon Sep 17 00:00:00 2001
+From 992cb8c617fbcdff2cbd4871367b6442ea56dd56 Mon Sep 17 00:00:00 2001
 From: Claude <noreply@anthropic.com>
 Date: Thu, 5 Nov 2026 23:31:37 +0000
 Subject: [PATCH] Request Increased Memory Limit for free teams' App IDs
@@ -11,15 +11,22 @@ profile, so that the profile, and then the signed app, carry the
 entitlement. A failure is logged and the app is still installed, with
 the default memory limit.
 
+SideStore's additional entitlements, which it adds to every app's own,
+give the key the entitlement itself for a value, never true: any value
+but false asks for the capability, as updateFeatures reads them. Up to
+Cartouche 0.12.1, this asked only for the value true, and so never sent
+the request.
+
 Fixes SideStore#1616 for free accounts. Needs the SideSign patch that
 adds enableCapabilities.
 
 Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
 Claude-Session: https://claude.ai/code/session_01MzPJorvBGmBB88WUcRVhE7
+Claude-Session: https://claude.ai/code/session_01MzPJotRoWqyfPs7d7YexEP
 ---
  .../Core/Auth/DeveloperPortalProxy.swift      |  7 +++++
- .../FetchProvisioningProfilesOperation.swift  | 26 +++++++++++++++++++
- 2 files changed, 33 insertions(+)
+ .../FetchProvisioningProfilesOperation.swift  | 30 +++++++++++++++++++
+ 2 files changed, 37 insertions(+)
 
 diff --git a/SideStore/Core/Auth/DeveloperPortalProxy.swift b/SideStore/Core/Auth/DeveloperPortalProxy.swift
 index 97ac67f..c861b31 100644
@@ -40,7 +47,7 @@ index 97ac67f..c861b31 100644
      public func deleteAppID(_ appID: ALTAppID, team: ALTTeam? = nil) async throws -> Bool {
          let session = try await self.getSession()
 diff --git a/SideStore/Core/Operations/PipelineOperations/FetchProvisioningProfilesOperation.swift b/SideStore/Core/Operations/PipelineOperations/FetchProvisioningProfilesOperation.swift
-index e0e2399..6dfadee 100644
+index e0e2399..f0f5e33 100644
 --- a/SideStore/Core/Operations/PipelineOperations/FetchProvisioningProfilesOperation.swift
 +++ b/SideStore/Core/Operations/PipelineOperations/FetchProvisioningProfilesOperation.swift
 @@ -183,6 +183,8 @@ class FetchProvisioningProfilesOperation: BasePipelineOperation<InstallAppOperat
@@ -52,11 +59,12 @@ index e0e2399..6dfadee 100644
          verboseLog(targetAppBundle.dumpMachOInfo())
          self.debugLog("[FetchProvisioningProfiles] Fetching provisioning profile from Apple for App ID \(groupAppID.bundleIdentifier)...")
          let profile = try await DeveloperPortalProxy.shared.downloadProvisioningProfile(for: groupAppID, deviceType: DeveloperPortalProxy.currentDeviceType, team: team)
-@@ -299,6 +301,30 @@ private extension FetchProvisioningProfilesOperation{
+@@ -299,6 +301,34 @@ private extension FetchProvisioningProfilesOperation{
          }
      }
      
-+    /// Enables Increased Memory Limit on a free team's App ID when the app asks for it.
++    /// Enables Increased Memory Limit on a free team's App ID when the app asks for it,
++    /// or SideStore's additional entitlements add it, as they do for every app.
 +    ///
 +    /// updateFeatures drops the capability for free teams, because updateAppId.action
 +    /// cannot enable it for them, while the v1 API can (SideStore#1616). A failure
@@ -70,7 +78,10 @@ index e0e2399..6dfadee 100644
 +        for (key, value) in self.context.additionalEntitlements {
 +            entitlements[key] = value
 +        }
-+        guard (entitlements[ALTEntitlement.increasedMemoryLimit.rawValue] as? Bool) == true else { return }
++        // The additional entitlements give the key the entitlement itself for a value,
++        // never true: any value but false asks for it, as updateFeatures reads them.
++        guard let requested = entitlements[ALTEntitlement.increasedMemoryLimit.rawValue],
++              (requested as? Bool) != false else { return }
 +
 +        do {
 +            try await DeveloperPortalProxy.shared.enableCapabilities([BundleIDCapability.increasedMemoryLimit], for: appID, team: team)
