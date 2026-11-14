@@ -459,6 +459,88 @@ h4 {
   font-weight: 500;
 }
 
+/* How Cartouche is signed, at the top of its step's card: two choices side
+   by side, the chosen one lit as the chosen iPhone is (Device.css). */
+.signing-modes {
+  display: flex;
+  gap: 0.3rem;
+  padding: 0.3rem;
+  margin-bottom: 1.1rem;
+  border-radius: 14px;
+  background: var(--glass-surface);
+  border: 1px solid var(--glass-border);
+}
+
+.signing-modes button {
+  flex: 1 1 0;
+  min-width: 0;
+  padding: 0.55rem 0.4rem;
+  border-radius: 10px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 0.95rem;
+  line-height: 1.3;
+}
+
+.signing-modes button:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: transparent;
+  color: #f2f2f7;
+}
+
+.signing-modes button[aria-checked="true"],
+.signing-modes button[aria-checked="true"]:hover:not(:disabled) {
+  background: rgba(99, 102, 241, 0.15);
+  border-color: var(--accent-primary);
+  color: #fff;
+  cursor: default;
+}
+
+/* The player's own certificate (ImportedSigning.tsx), laid out as the
+   Apple Account's form. */
+.signing-files p {
+  margin: 0;
+}
+
+.file-choice {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.file-choice button {
+  width: 100%;
+}
+
+.chosen-file {
+  padding: 0 0.3rem;
+  font-size: 0.9rem;
+  color: var(--text-muted);
+  overflow-wrap: anywhere;
+}
+
+.signing-password {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  font-size: 0.92rem;
+  color: var(--text-muted);
+}
+
+.signing-password input {
+  width: 100%;
+}
+
+.signing-alert {
+  font-size: 0.92rem;
+  color: var(--danger);
+}
+
+.signing-alert.warning {
+  color: #ff9f0a;
+}
+
 .credits {
   margin: 0 2rem 1.5rem;
   font-size: 0.8rem;
