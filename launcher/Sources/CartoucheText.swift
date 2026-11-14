@@ -304,7 +304,7 @@ enum CartoucheText {
     static var updatesFooter: String { s("system.updates.footer", "New versions install without a computer, with LocalDevVPN connected. Cartouche then closes: open it again. Your games and saves stay.") }
     static var updateAvailable: String { s("system.updates.available", "New version") }
     static func updateTo(_ version: String) -> String { f("system.updates.install", "Install Cartouche %@", version) }
-    static var updateNeedsSetup: String { s("system.updates.needsSetup", "Finish setting up Cartouche first.") }
+    static var updateNeedsSetup: String { s("system.updates.needsSetup", "Finish setting up Cartouche first, or install this version from a computer with the Cartouche Installer, over this copy: your games and saves stay.") }
     static var updateNotes: String { s("system.updates.notes", "What’s new") }
     static func updateUpToDate(_ version: String) -> String { f("system.updates.upToDate", "Cartouche %@ is the latest version.", version) }
     static var updateNotChecked: String { s("system.updates.notChecked", "Cartouche has not looked for an update yet.") }

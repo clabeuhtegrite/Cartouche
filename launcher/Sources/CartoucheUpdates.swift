@@ -118,7 +118,14 @@ final class CartoucheUpdates: ObservableObject {
     }
 
     /// Whether this build can update itself.
-    var canUpdate: Bool { !CartoucheImportedSigning.accountSigningDisabled && Self.bridge != nil && Self.sourceURL != nil && Self.bundleIdentifier != nil }
+    var canUpdate: Bool {
+        #if CARTOUCHE_GALLERY
+        // The gallery has no built-in SideStore: its screenshot of the System
+        // page's updates shows them as Cartouche's own build has them.
+        if isOnSystemPageForGallery { return true }
+        #endif
+        return !CartoucheImportedSigning.accountSigningDisabled && Self.bridge != nil && Self.sourceURL != nil && Self.bundleIdentifier != nil
+    }
 
     /// Whether the player can start the update now: the built-in SideStore
     /// needs the certificate and the pairing file, as for a renewal.
@@ -216,6 +223,16 @@ final class CartoucheUpdates: ObservableObject {
     func offerForGallery(_ release: CartoucheRelease) {
         available = release
         isOffered = true
+    }
+
+    /// Whether the gallery shows a version on the System page, which opens
+    /// on its updates (CartoucheSystemView).
+    private(set) var isOnSystemPageForGallery = false
+
+    /// A version on the System page, for the launcher's gallery.
+    func showOnSystemPageForGallery(_ release: CartoucheRelease) {
+        available = release
+        isOnSystemPageForGallery = true
     }
     #endif
 

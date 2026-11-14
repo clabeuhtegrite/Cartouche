@@ -286,8 +286,15 @@ struct GalleryScenario {
                 CartoucheGameActions.shared.notice = notice
             }
             if work == "update" {
-                // A higher version than the gallery's own (project.yml).
-                CartoucheUpdates.shared.offerForGallery(CartoucheRelease(version: "0.4.0", notes: "", size: 36_802_806))
+                // A higher version than the gallery's own (project.yml): on
+                // offer over the console, or on the System page, which opens
+                // on its updates.
+                let release = CartoucheRelease(version: "0.4.0", notes: "", size: 36_802_806)
+                if screen == "system" {
+                    CartoucheUpdates.shared.showOnSystemPageForGallery(release)
+                } else {
+                    CartoucheUpdates.shared.offerForGallery(release)
+                }
             }
             if work == "code" {
                 CartoucheAccount.shared.requestCodeForGallery(.init(

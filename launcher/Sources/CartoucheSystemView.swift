@@ -54,6 +54,9 @@ struct CartoucheSystemView: View {
     /// The first row of the signature's section.
     static let signatureRow = "signature"
 
+    /// The row of a version on offer, in the updates' section.
+    static let updateRow = "update"
+
     var body: some View {
         NavigationStack {
             ScrollViewReader { reader in
@@ -455,6 +458,7 @@ struct CartoucheSystemView: View {
             .padding(.vertical, 4)
         } else if let available = updates.available {
             LabeledContent(CartoucheText.updateAvailable, value: available.version)
+                .id(Self.updateRow)
             if CartoucheImportedSigning.accountSigningDisabled {
                 Text(CartoucheText.signingUpdateOnComputer)
                     .font(.footnote).foregroundStyle(.secondary)
