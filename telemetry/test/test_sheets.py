@@ -175,6 +175,15 @@ class SheetsTest(unittest.TestCase):
         summary = (self.work / "summary.md").read_text(encoding="utf-8")
         self.assertIn("| Mario Kart World | iPhone19,4 | 3 | 4 | playable |", summary)
 
+    def test_three_ipads_of_a_model_make_a_result_that_says_ipads(self):
+        for phone in self.phones[:3]:
+            self.session(phone, device="iPad13,16")
+        self.run_sheets()
+        result = self.measured()["iPad13,16"]
+        self.assertEqual(result["measured"]["iPhones"], 3, "the schema's key, for iPads too")
+        self.assertTrue(result["notes"][0].startswith("Measured by Cartouche on 3 iPads, 3 sessions"), result["notes"])
+        self.assert_valid(self.written())
+
     def test_a_model_no_sheet_may_name_is_left_out(self):
         for phone in self.phones[:3]:
             self.session(phone, device="iPod9,1")

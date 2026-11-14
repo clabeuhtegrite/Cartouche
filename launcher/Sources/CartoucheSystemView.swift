@@ -22,11 +22,13 @@ import UserNotifications
 struct CartoucheSystemView: View {
     @State private var memory = CartoucheMemoryReading.now()
     @State private var signature = CartoucheSignature.current()
-    @State private var renewal: Progress?
-    /// Why the last renewal from this page failed, and the report on it.
-    @State private var renewalReport: CartoucheReport?
     @State private var alertStatus: UNAuthorizationStatus?
     @ObservedObject private var setup = CartoucheSetup.shared
+    /// The renewal under way, from this page or by Cartouche itself, and
+    /// why the last one failed.
+    @ObservedObject private var renewals = CartoucheRenewals.shared
+    /// The sign-in, during which SideStore renews nothing: Renew now waits.
+    @ObservedObject private var account = CartoucheAccount.shared
     @ObservedObject private var storage = CartoucheStorageSettings.shared
     @ObservedObject private var reach = CartoucheStorageReach.shared
     @ObservedObject private var updates = CartoucheUpdates.shared
@@ -39,9 +41,25 @@ struct CartoucheSystemView: View {
 
     private let catalog = CartoucheCatalog.shared
 
+    /// The section the page opens on, by the first row's id, when not the
+    /// first: in the gallery's screenshots of a section further down
+    /// (launcher/Gallery, the scenario's category). Cartouche opens the page
+    /// at the top.
+    #if CARTOUCHE_GALLERY
+    static var openingSection: String?
+    #else
+    static let openingSection: String? = nil
+    #endif
+
+    /// The first row of the signature's section.
+    static let signatureRow = "signature"
+
+    /// The row of a version on offer, in the updates' section.
+    static let updateRow = "update"
+
     var body: some View {
         NavigationStack {
-            ScrollViewReader { proxy in
+            ScrollViewReader { reader in
                 List {
                     setupSection
                     storageSection
@@ -63,12 +81,22 @@ struct CartoucheSystemView: View {
                         Button(CartoucheText.done, action: close)
                     }
                 }
-                .task { await scrollToUpdatesForGallery(proxy) }
+                .task {
+                    guard let section = Self.openingSection else { return }
+                    // Once the list has laid out its rows; the section's
+                    // header shows above its first row.
+                    try? await Task.sleep(for: .milliseconds(500))
+                    reader.scrollTo(section, anchor: UnitPoint(x: 0.5, y: 0.15))
+                }
             }
         }
         // Dark like the console under it, whatever the iPhone's appearance.
         .preferredColorScheme(.dark)
         .onAppear(perform: measure)
+        // A renewal ended, from this page or by Cartouche itself.
+        .onChange(of: renewals.isRenewing) { _, renewing in
+            if !renewing { measure() }
+        }
         .onReceive(CartoucheGamepad.shared.inputs) { input in
             if input == .menu { close() }
         }
@@ -77,20 +105,6 @@ struct CartoucheSystemView: View {
     /// Back to the console.
     private func close() {
         sharedModel.selectedTab = .games
-    }
-
-    /// The row of a version on offer, which the gallery scrolls to.
-    private static let availableRow = "system.updates.available"
-
-    /// The gallery's screenshot of a version on offer (launcher/Gallery,
-    /// work: update on the System page) shows the updates as the player
-    /// scrolls down to them. Nothing in Cartouche's own build.
-    private func scrollToUpdatesForGallery(_ proxy: ScrollViewProxy) async {
-        #if CARTOUCHE_GALLERY
-        guard updates.isOnSystemPageForGallery else { return }
-        try? await Task.sleep(for: .milliseconds(500))
-        proxy.scrollTo(Self.availableRow, anchor: .center)
-        #endif
     }
 
     private func measure() {
@@ -275,6 +289,7 @@ struct CartoucheSystemView: View {
         Section {
             if let expirationDate = signature.expirationDate, let daysLeft = signature.daysLeft {
                 LabeledContent(CartoucheText.expires, value: expirationDate.formatted(date: .abbreviated, time: .shortened))
+                    .id(Self.signatureRow)
                 LabeledContent(CartoucheText.daysLeft) {
                     Text(daysLeft < 0 ? CartoucheText.expired : String(daysLeft))
                         .foregroundStyle(daysLeft < 0 ? Color.red : daysLeft <= 2 ? Color.orange : Color.secondary)
@@ -283,6 +298,7 @@ struct CartoucheSystemView: View {
             } else {
                 Text(CartoucheText.profileUnknown)
                     .foregroundStyle(.secondary)
+                    .id(Self.signatureRow)
             }
             if let renewalDate = signature.renewalDate {
                 LabeledContent(CartoucheText.renewed, value: renewalDate.formatted(date: .abbreviated, time: .shortened))
@@ -302,9 +318,10 @@ struct CartoucheSystemView: View {
 
     @ViewBuilder
     private var renewRow: some View {
-        if let renewal {
+        if let renewal = renewals.progress {
             VStack(alignment: .leading, spacing: 8) {
-                Label(CartoucheText.renewing, systemImage: "arrow.triangle.2.circlepath")
+                Label(renewals.isAutomatic ? CartoucheText.renewingByItself : CartoucheText.renewing,
+                      systemImage: "arrow.triangle.2.circlepath")
                     .foregroundStyle(.secondary)
                 // SideStore reports its progress from another thread: read it
                 // twice a second instead of observing it.
@@ -314,33 +331,25 @@ struct CartoucheSystemView: View {
             }
             .padding(.vertical, 4)
         } else {
-            Button(CartoucheText.renewNow, systemImage: "arrow.triangle.2.circlepath", action: renew)
+            Button(CartoucheText.renewNow, systemImage: "arrow.triangle.2.circlepath") {
+                renewals.renewNow()
+            }
+            // As for an update: SideStore needs the setup done, and takes
+            // one action at a time. Up to 0.12.0, Renew now failed on
+            // copies not signed in.
+            .disabled(!renewals.canRenewNow)
+            if !setup.isComplete {
+                Text(CartoucheText.updateNeedsSetup)
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+            }
         }
-        if let renewalReport {
-            Label(renewalReport.message, systemImage: "exclamationmark.triangle.fill")
+        if let report = renewals.report {
+            Label(report.message, systemImage: "exclamationmark.triangle.fill")
                 .font(.footnote)
                 .foregroundStyle(.red)
-            CartoucheReportButton(report: renewalReport)
+            CartoucheReportButton(report: report)
                 .font(.footnote)
-        }
-    }
-
-    private func renew() {
-        let progress = Progress(totalUnitCount: 100)
-        renewal = progress
-        renewalReport = nil
-        CartoucheReports.note("Renewal started")
-        Task {
-            do {
-                try await CartoucheRenewal.renew(progress: progress)
-                CartoucheReports.note("Renewal done")
-            } catch {
-                renewalReport = CartoucheReports.make(.renewal, CartoucheText.renewFailed, message: error.localizedDescription,
-                                                      error: error, step: CartoucheText.renewing,
-                                                      fraction: progress.fractionCompleted)
-            }
-            renewal = nil
-            measure()
         }
     }
 
@@ -449,7 +458,7 @@ struct CartoucheSystemView: View {
             .padding(.vertical, 4)
         } else if let available = updates.available {
             LabeledContent(CartoucheText.updateAvailable, value: available.version)
-                .id(Self.availableRow)
+                .id(Self.updateRow)
             if CartoucheImportedSigning.accountSigningDisabled {
                 Text(CartoucheText.signingUpdateOnComputer)
                     .font(.footnote).foregroundStyle(.secondary)
