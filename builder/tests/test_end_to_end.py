@@ -659,8 +659,31 @@ class Failures(EndToEnd):
         self.assertEqual(self.app.progress(DRIFT, status)["state"], "built")
         self.app.api("config", "--set", json.dumps({"keys": str(self.world.keys), "min_free_gb": 10000}))
         status = self.app.finish(self.app.build())
-        self.assertRegex(self.failure(status, LANTERN, "skipped", "no_room")["error"], r"^Only \d+ GB free in the build folders, 10000 GB needed\.$")
+        game = self.failure(status, LANTERN, "skipped", "no_room")
+        self.assertRegex(game["error"], r"^\d+ GB missing to build this game: Cartouche Builder starts a build only with 10000 GB free on your Mac's disk, "
+                                        r"and only \d+ GB are free there\. Free some room there ")
+        self.assertEqual(game["room"]["needed_gb"], 10000)
+        self.assertEqual(game["room"]["free_gb"] + int(game["error"].split(" ")[0]), 10000)
         self.assertEqual(self.app.game(LANTERN)["state"], "due")
+        # Said before the next build too, on the library's card.
+        room = self.app.api("library")["room"]
+        self.assertEqual((room["keep_gb"], room["title"]), (10000, f"{10000 - room['free_gb']} GB missing to build"))
+
+    def test_an_older_xcode_than_nxnatives_is_said_and_the_game_tried_again(self):
+        """Ocarina of Time's update on a Mac with Xcode 27.1 (telemetry of
+        14 November 2026): nxnative refused its Metal compiler after the
+        check of the files, and the builder said "nxnative" nine times."""
+        self.comet()
+        self.set_up()
+        self.world.scenario(metal={COMET: "27.1"})
+        status = self.app.finish(self.app.build())
+        game = self.failure(status, COMET, "skipped", "metal")
+        self.assertEqual(game["stage"], "check v131072 files")
+        self.assertEqual(game["error"], t("cause.metal_update", mac="Xcode 27.1", wanted="27.2"))
+        self.assertEqual(self.app.game(COMET)["state"], "due")
+        # Once Xcode is updated, it builds.
+        self.world.scenario()
+        self.built(self.app.finish(self.app.build()), COMET)
 
 
 class InFrench(EndToEnd):

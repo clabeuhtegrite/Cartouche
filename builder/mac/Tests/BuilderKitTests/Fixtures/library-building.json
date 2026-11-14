@@ -151,6 +151,7 @@
         "reasons": [
           "named"
         ],
+        "room": {},
         "stage": "pack",
         "started": "2026-11-12T08:10:07+00:00",
         "state": "building",
@@ -235,5 +236,10 @@
   "language": "en",
   "notes": [],
   "problems": [],
+  "room": {
+    "folders": 1,
+    "free_gb": 29,
+    "keep_gb": 0
+  },
   "updated": false
 }

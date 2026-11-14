@@ -59,6 +59,9 @@ struct LibraryView: View {
                     if let problems = model.library?.problems, !problems.isEmpty {
                         ProblemsCard(problems: problems)
                     }
+                    if let shortfall = model.library?.room?.shortfall {
+                        RoomCard(title: shortfall.title, text: shortfall.text)
+                    }
                     if filter == .all || filter == .problems, let issues = model.library?.issues, !issues.isEmpty {
                         IssuesCard(issues: issues, open: model.library?.games.isEmpty ?? true)
                     }
@@ -393,6 +396,45 @@ struct ProblemsCard: View {
         }
         if model.library?.folders?.remote == true {
             Button(tr("Connect the NAS again", "Reconnecter le NAS")) { model.mountShares() }
+        }
+    }
+}
+
+/// Less room on the build folders' disk than the settings keep free: said
+/// before a build is skipped for it, with what makes room (disks.py, room).
+struct RoomCard: View {
+    @EnvironmentObject private var model: AppModel
+    let title: String
+    let text: String
+
+    var body: some View {
+        Card {
+            HStack(alignment: .top, spacing: 14) {
+                Image(systemName: "internaldrive")
+                    .font(.title)
+                    .foregroundStyle(.orange)
+                VStack(alignment: .leading, spacing: 6) {
+                    Text(title)
+                        .font(.headline)
+                        .fixedSize(horizontal: false, vertical: true)
+                    Text(text)
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                    ViewThatFits(in: .horizontal) {
+                        HStack { buttons }
+                        VStack(alignment: .leading) { buttons }
+                    }
+                    .padding(.top, 4)
+                }
+            }
+        }
+    }
+
+    @ViewBuilder private var buttons: some View {
+        Button(tr("Open Storage", "Ouvrir Stockage")) { model.section = .storage }
+        SettingsLink {
+            Text(tr("Settings…", "Réglages…"))
         }
     }
 }

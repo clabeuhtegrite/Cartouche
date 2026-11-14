@@ -6,7 +6,8 @@ one after the other, those asked for while it runs after the others), each
 game's stage and share done, the games built or failed, and the last lines
 it said. The games it was asked for are there from its start, waiting their
 turn while nxnative moves and the plan is made. A game not built says why
-(its cause, causes.py), after how long, and nxnative's exit code; a game
+(its cause, causes.py), after how long, and nxnative's exit code (one
+skipped for the room kept free, the room free and needed); a game
 says the nxnative commit it was built from, and whether that is an older one
 than the branch's newest, which does not build (fallback.py), as the batch
 does. The file is written whole
@@ -62,6 +63,7 @@ class Game:
     cause: str = ""  # why it was not built (causes.py)
     exit: int | None = None  # nxnative's exit code, when it ran
     failure: dict = field(default_factory=dict)  # the exception, where and errno (failure.py)
+    room: dict = field(default_factory=dict)  # no room: the GB free and needed (batch.py)
 
 
 class Status:
@@ -190,6 +192,7 @@ class Status:
                 game.exit = value.get("exit")
                 game.duration = float(value.get("seconds") or 0.0)
                 game.failure = {k: value[k] for k in ("exception", "where", "errno") if value.get(k) is not None}
+                game.room = {k: value[k] for k in ("free_gb", "needed_gb") if value.get(k) is not None}
             elif kind == "progress":
                 game.stage, game.step, game.k, game.n = value.stage, value.step, value.k, value.n
                 game.frac, game.eta, game.note = value.frac, value.eta, value.note
@@ -271,6 +274,7 @@ def _game_json(game: Game) -> dict:
         "cause": game.cause,
         "exit": game.exit,
         "failure": game.failure,
+        "room": game.room,
     }
 
 

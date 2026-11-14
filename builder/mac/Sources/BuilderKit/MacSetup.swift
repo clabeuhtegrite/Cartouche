@@ -92,8 +92,10 @@ public enum SetupState: Equatable, Sendable {
 
 @MainActor
 public final class MacSetup: ObservableObject {
-    /// The Xcode nxnative's shaders are locked with.
+    /// The Xcode nxnative's shaders are locked with, until nxnative's
+    /// checkout says it (wantedXcode).
     public nonisolated static let xcodeVersion = "27.2"
+    nonisolated static let wantedKey = "nxnativeXcode"
     public static let xcodeStore = URL(string: "macappstore://apps.apple.com/app/xcode/id497799835")!
     public static let softwareUpdate = URL(string: "x-apple.systempreferences:com.apple.Software-Update-Settings.extension")!
     static let brew = "/opt/homebrew/bin/brew"
@@ -105,6 +107,13 @@ public final class MacSetup: ObservableObject {
     @Published public private(set) var running = false
     @Published public private(set) var python: URL?
     @Published public private(set) var xcode: String?
+    /// The Xcode nxnative builds the shaders with, as the engine's doctor
+    /// reads it in nxnative's checkout (own_compilers.py): nxnative refuses
+    /// an older Xcode's Metal compiler for every NVN game
+    /// (cartouche_builder/causes.py, "metal"), so it is updated first.
+    @Published public private(set) var wantedXcode: String
+    /// The version of the Xcode found, when it is older than wantedXcode.
+    @Published public private(set) var outdatedXcode: String?
     /// The engine, once there is a Python to run it.
     public var makeEngine: (URL) -> Engine? = { _ in nil }
     /// Called when everything is ready.
@@ -118,15 +127,17 @@ public final class MacSetup: ObservableObject {
     private var previewing = false
 
     public init() {
+        wantedXcode = UserDefaults.standard.string(forKey: MacSetup.wantedKey) ?? MacSetup.xcodeVersion
         for item in SetupItem.allCases { states[item] = .checking }
     }
 
     /// Shows STATES, as they would be, and checks nothing after: for the
     /// gallery's pictures.
-    public func preview(_ states: [SetupItem: SetupState], xcode: String? = nil) {
+    public func preview(_ states: [SetupItem: SetupState], xcode: String? = nil, outdated: String? = nil) {
         previewing = true
         for item in SetupItem.allCases { self.states[item] = states[item] ?? .ready("") }
         self.xcode = xcode
+        outdatedXcode = outdated
     }
 
     public func state(_ item: SetupItem) -> SetupState {
@@ -142,6 +153,17 @@ public final class MacSetup: ObservableObject {
     public func refresh() async {
         guard !previewing else { return }
         let wasReady = ready
+        // nxnative's checkout, checked last, may name another Xcode than the
+        // one Xcode was checked against: once more, with it.
+        for _ in 0..<2 {
+            let wanted = wantedXcode
+            await checkAll()
+            if wantedXcode == wanted { break }
+        }
+        if ready && !wasReady { onReady() }
+    }
+
+    private func checkAll() async {
         var blocked = false
         for item in SetupItem.allCases {
             if blocked {
@@ -153,7 +175,6 @@ public final class MacSetup: ObservableObject {
             }
             if !state(item).isReady && item.blocksTheRest { blocked = true }
         }
-        if ready && !wasReady { onReady() }
     }
 
     func check(_ item: SetupItem) async -> SetupState {
@@ -169,11 +190,18 @@ public final class MacSetup: ObservableObject {
             }
             return .ready(text + tr(", Apple silicon", ", puce Apple"))
         case .xcode:
-            guard let found = MacSetup.findXcode() else {
+            guard let found = MacSetup.findXcode(wanted: wantedXcode) else {
                 xcode = nil
+                outdatedXcode = nil
                 return .missing(tr("Not installed yet.", "Pas encore installé."))
             }
             xcode = found.path
+            guard !MacSetup.older(found.version, than: wantedXcode) else {
+                outdatedXcode = found.version
+                return .missing(tr("Xcode \(found.version): nxnative builds the games’ shaders with the Metal compiler of Xcode \(wantedXcode), which it tested them with. Update Xcode in the App Store.",
+                                   "Xcode \(found.version) : nxnative construit les shaders des jeux avec le compilateur Metal de Xcode \(wantedXcode), avec lequel il les a testés. Mettez Xcode à jour dans l’App Store."))
+            }
+            outdatedXcode = nil
             return .ready("Xcode \(found.version)")
         case .xcodeReady:
             guard let xcode else { return .blocked }
@@ -219,6 +247,10 @@ public final class MacSetup: ObservableObject {
             guard let python, let engine = makeEngine(python) else { return .blocked }
             do {
                 let doctor = try await engine.doctor()
+                if let wanted = doctor.xcode, !wanted.isEmpty, wanted != wantedXcode {
+                    wantedXcode = wanted
+                    UserDefaults.standard.set(wanted, forKey: MacSetup.wantedKey)
+                }
                 let venv = doctor.checks.first { $0.key == "venv" }
                 guard doctor.engine == true, venv?.ok ?? false else {
                     return .missing(tr("To download, with its Python environment.", "À télécharger, avec son environnement Python."))
@@ -300,8 +332,13 @@ public final class MacSetup: ObservableObject {
             return false
         case .xcode:
             NSWorkspace.shared.open(MacSetup.xcodeStore)
-            states[item] = .waiting(tr("Install Xcode from the App Store: Cartouche Builder goes on by itself once it is there.",
-                                       "Installez Xcode depuis l’App Store : Cartouche Builder continue tout seul une fois qu’il est là."))
+            if outdatedXcode != nil {
+                states[item] = .waiting(tr("Update Xcode in the App Store: Cartouche Builder goes on by itself once Xcode \(wantedXcode) or later is there.",
+                                           "Mettez Xcode à jour dans l’App Store : Cartouche Builder continue tout seul une fois Xcode \(wantedXcode) ou plus récent là."))
+            } else {
+                states[item] = .waiting(tr("Install Xcode from the App Store: Cartouche Builder goes on by itself once it is there.",
+                                           "Installez Xcode depuis l’App Store : Cartouche Builder continue tout seul une fois qu’il est là."))
+            }
             return await wait(for: item, every: 15)
         case .xcodeReady:
             guard let xcode else { return false }
@@ -425,9 +462,11 @@ public final class MacSetup: ObservableObject {
         return Int(value)
     }
 
-    /// The Xcode to build with: the one chosen for the Mac, else the
-    /// version nxnative wants, else the newest.
-    nonisolated static func findXcode() -> (path: String, version: String)? {
+    /// The Xcode to build with: the one chosen for the Mac, unless it is
+    /// older than WANTED, the one nxnative builds the shaders with; else
+    /// WANTED itself, else the newest. One older than WANTED is found only
+    /// when no other is there, to say it is to update.
+    nonisolated static func findXcode(wanted: String = xcodeVersion) -> (path: String, version: String)? {
         var found: [(path: String, version: String)] = []
         let applications = (try? FileManager.default.contentsOfDirectory(atPath: "/Applications")) ?? []
         for name in applications where name.hasPrefix("Xcode") && name.hasSuffix(".app") {
@@ -438,9 +477,38 @@ public final class MacSetup: ObservableObject {
             found.append((path, version))
         }
         let link = (try? FileManager.default.destinationOfSymbolicLink(atPath: "/var/db/xcode_select_link")) ?? ""
-        if let chosen = found.first(where: { !link.isEmpty && link.hasPrefix($0.path) }) { return chosen }
-        if let wanted = found.first(where: { $0.version == xcodeVersion }) { return wanted }
-        return found.max { $0.version.compare($1.version, options: .numeric) == .orderedAscending }
+        return pick(found, chosen: link, wanted: wanted)
+    }
+
+    /// Of FOUND, the Xcode to build with (findXcode): CHOSEN is where
+    /// xcode-select points.
+    nonisolated static func pick(_ found: [(path: String, version: String)], chosen: String, wanted: String) -> (path: String, version: String)? {
+        let newest = { (xcodes: [(path: String, version: String)]) in
+            xcodes.max { $0.version.compare($1.version, options: .numeric) == .orderedAscending }
+        }
+        let recent = found.filter { !older($0.version, than: wanted) }
+        if let selected = recent.first(where: { !chosen.isEmpty && chosen.hasPrefix($0.path) }) { return selected }
+        if let exact = recent.first(where: { $0.version == wanted }) { return exact }
+        if let other = newest(recent) { return other }
+        if let selected = found.first(where: { !chosen.isEmpty && chosen.hasPrefix($0.path) }) { return selected }
+        return newest(found)
+    }
+
+    /// Whether VERSION ("27.1") is older than THAN ("27.2"), number by
+    /// number: 27.10 is newer than 27.2. False when either has no number.
+    public nonisolated static func older(_ version: String, than: String) -> Bool {
+        func numbers(_ text: String) -> [Int] {
+            let head = text.trimmingCharacters(in: .whitespaces).prefix { $0.isNumber || $0 == "." }
+            return head.split(separator: ".").compactMap { Int($0) }
+        }
+        let mine = numbers(version), theirs = numbers(than)
+        guard !mine.isEmpty, !theirs.isEmpty else { return false }
+        for index in 0..<max(mine.count, theirs.count) {
+            let a = index < mine.count ? mine[index] : 0
+            let b = index < theirs.count ? theirs[index] : 0
+            if a != b { return a < b }
+        }
+        return false
     }
 
     nonisolated static func missingFormulae() -> [(String, String)] {

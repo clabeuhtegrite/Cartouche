@@ -96,3 +96,9 @@ class Paths:
     def library(self) -> Path:
         """The last look at the games, for the app to show at once (api.py)."""
         return self.root / "library.json"
+
+    @property
+    def unbuilt(self) -> Path:
+        """The games no Mac built, as the app last fetched them (Unbuilt.swift):
+        a nightly run leaves aside those this Mac never built either."""
+        return self.root / "unbuilt.json"
