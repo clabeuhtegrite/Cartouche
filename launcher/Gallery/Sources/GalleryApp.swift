@@ -37,6 +37,10 @@
 //                                        when the catalogue has a game of
 //                                        that name (showFound)
 //      -GallerySetup 1 -GalleryController 1
+//      -GalleryModel iPad15,3            the device of catalog/devices.json
+//                                        the screen is drawn as, whose words
+//                                        call an iPad the iPad (none: the
+//                                        iPhone, iPhone19,4, CartoucheDevice)
 //      -GallerySheet <title ID>          the game of the sheet, of its
 //                                        settings, or being installed
 //      -GalleryWork installing           a game being installed, over the
@@ -51,7 +55,13 @@
 //                                        sign-in Apple accepted that
 //                                        stopped at the step that registers
 //                                        this iPhone, LocalDevVPN being
-//                                        off; paused: the sheet's
+//                                        off; device-no-ipsec,
+//                                        device-handshake,
+//                                        device-port-closed: a sign-in that
+//                                        stopped at the check of this
+//                                        iPhone, which minimuxer could not
+//                                        reach, LocalDevVPN connected
+//                                        (deviceChecks); paused: the sheet's
 //                                        game, or the first of the
 //                                        player's, paused behind the console;
 //                                        offline: the player's NAS, out of
@@ -91,7 +101,11 @@
 //                                        two games' saves waiting for it;
 //                                        on the TV (screen tv), paused: the
 //                                        game paused behind the console,
-//                                        starting: the game starting
+//                                        starting: the game starting;
+//                                        renewing: Cartouche renewing itself
+//                                        in its last 3 days, as it came to
+//                                        the front; renewal-failed: that
+//                                        renewal failed, the network gone
 //      -GalleryOrientation landscape     the gallery turns itself sideways,
 //                                        as a game does; the simulator
 //                                        stays upright
@@ -100,7 +114,9 @@
 //                                        tmp/ready-<scenario>.json in its
 //                                        container (Ready below)
 //      -GalleryCategory Controls         the settings page's category, one
-//                                        of nxnative's sections
+//                                        of nxnative's sections; on the
+//                                        System page, signature: the page
+//                                        scrolled down to its signature
 //
 //  The UI tests (launcher/Gallery/UITests) open the whole console, as
 //  Cartouche shows it, and drive it (GalleryTesting.swift):
@@ -173,6 +189,23 @@ struct GalleryScenario {
     /// The title IDs of the player's games.
     var ownedTitles: [String] { owned.map { item in String(item.prefix { $0 != ":" }) } }
 
+    /// The checks of this iPhone that minimuxer failed, LocalDevVPN
+    /// connected, by work: SideStore's
+    /// kind of error, minimuxer's reason and the library's words behind it,
+    /// the kind of pairing file minimuxer loaded (app/patches/sidestore/0022)
+    /// and minimuxer's sentence.
+    static let deviceChecks: [String: (kind: String, reason: String, detail: String?, pairingKind: String, sentence: String)] = [
+        // A Lockdown pairing file, from iOS 26.4, without an IPsec interface.
+        "device-no-ipsec": ("invalidVPN", "noIPsec", nil, "lockdown",
+                            "utun is present but no ipsec/IKEv2 interface found — LocalDevVPN may not support the lockdown protocol on iOS 26.4+"),
+        // A pairing file this iPhone refused at the handshake.
+        "device-handshake": ("invalidPairingFile", "handshake", "reset", "rppairing",
+                             "Handshake failed: Connection reset by peer (os error 54)"),
+        // The tunnel up, and this iPhone not answering on its port.
+        "device-port-closed": ("invalidVPN", "portClosed", nil, "rppairing",
+                               "VPN tunnel iface is up and tunnel peer IP 10.7.0.1 is known, but TCP port poll failed — device may be unreachable on this interface"),
+    ]
+
     /// The player's games that nxnative.json does not have: title ID and
     /// name.
     var unknownGames: [(titleId: String, name: String)] {
@@ -192,21 +225,30 @@ struct GalleryScenario {
         GalleryState.setupDone = setupDone
         GalleryState.certificateRefused = work == "certificate"
         GalleryState.signInUnfinished = work == "sign-in-unfinished"
+        GalleryState.vpnConnected = work.map { Self.deviceChecks[$0] != nil } ?? false
         let pairing = GalleryState.documents.appendingPathComponent("SideStore/Documents", isDirectory: true)
         try? FileManager.default.removeItem(at: pairing)
         if setupDone || GalleryState.signInUnfinished {
             try? FileManager.default.createDirectory(at: pairing, withIntermediateDirectories: true)
             try? Data("gallery".utf8).write(to: pairing.appendingPathComponent("ALTPairingFile.mobiledevicepairing"))
         }
-        // The built-in SideStore's record of its last renewal.
-        let renewal = """
-        {"allApps": [{"bundleIdentifier": "\(Bundle.main.bundleIdentifier ?? "")",
-                      "expirationDate": \(Date().addingTimeInterval(6 * 86_400 + 3_600).timeIntervalSinceReferenceDate),
-                      "refreshedDate": \(Date().addingTimeInterval(-86_400).timeIntervalSinceReferenceDate)}]}
-        """
-        try? Data(renewal.utf8).write(to: GalleryState.appGroup.appendingPathComponent("widget_data.json"))
+        // The built-in SideStore's record of its last renewal: six days left,
+        // or, as Cartouche renews itself, two and a bit.
+        if work == "renewing" || work == "renewal-failed" {
+            GalleryState.recordSignature(expiringIn: 2 * 86_400 + 5 * 3_600, renewedAgo: 4 * 86_400 + 19 * 3_600)
+        } else {
+            GalleryState.recordSignature(expiringIn: 6 * 86_400 + 3_600, renewedAgo: 86_400)
+        }
         MainActor.assumeIsolated {
             CartoucheMacBuildsWatch.galleryScrolls = screen == "sheet-mac"
+            // The System page down to the scenario's section.
+            CartoucheSystemView.openingSection = screen == "system" ? category : nil
+            if work == "renewing" {
+                CartoucheRenewals.shared.showRenewingForGallery(at: 0.4)
+            }
+            if work == "renewal-failed" {
+                CartoucheRenewals.shared.showFailedForGallery(URLError(.notConnectedToInternet))
+            }
             CartoucheSetup.shared.refresh()
             CartoucheGuide.shared.startOverForGallery()
             if work == "build-skipped" { CartoucheGuide.shared.skipBuild() }
@@ -248,6 +290,10 @@ struct GalleryScenario {
             }
             if work == "iphone-step" {
                 CartoucheAccount.shared.showDeviceStepForGallery()
+            }
+            if let check = work.flatMap({ Self.deviceChecks[$0] }) {
+                CartoucheAccount.shared.showDeviceCheckForGallery(kind: check.kind, reason: check.reason, detail: check.detail,
+                                                                  pairingKind: check.pairingKind, sentence: check.sentence)
             }
             if work == "sign-in-unfinished" {
                 CartoucheAccount.shared.showUnfinishedForGallery()

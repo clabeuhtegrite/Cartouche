@@ -64,6 +64,11 @@ class AddDeviceTest(unittest.TestCase):
     def setUp(self):
         self.devices = json.loads(DEVICES.read_text(encoding="utf-8"))
 
+    def device(self, identifier: str, devices: dict | None = None) -> dict:
+        """The model IDENTIFIER of DEVICES, devices.json's by default,
+        wherever the file has it: it holds iPads and iPhones."""
+        return next(d for d in (devices or self.devices)["devices"] if d["identifier"] == identifier)
+
     def test_reads_the_entry_of_a_report_and_of_an_issue(self):
         self.assertEqual(add_device.read_entry(report(KNOWN)), json.loads(KNOWN))
         self.assertEqual(add_device.read_entry(issue(NEW)), json.loads(NEW))
@@ -97,7 +102,7 @@ class AddDeviceTest(unittest.TestCase):
     def test_adds_a_measurement_of_a_known_model(self):
         said = add_device.add(self.devices, add_device.read_entry(report(KNOWN)))
         self.assertEqual(said, ["iPhone19,4: 2026-11-10, iOS 27.3, Increased Memory Limit on, 6143 MiB"])
-        measurements = self.devices["devices"][0]["measurements"]
+        measurements = self.device("iPhone19,4")["measurements"]
         self.assertIn({"date": "2026-11-10", "iOS": "27.3", "increasedMemoryLimit": True, "appMemoryLimitMiB": 6143},
                       measurements)
         # In order of date, then of iOS version, as the file keeps them.
@@ -113,12 +118,19 @@ class AddDeviceTest(unittest.TestCase):
         self.assertEqual(self.devices, before)
         said = add_device.add(self.devices, entry, chip="A19 Pro")
         self.assertEqual(said[0], "iPhone18,1: new, A19 Pro, 12 GB")
-        self.assertEqual([d["identifier"] for d in self.devices["devices"]], ["iPhone18,1", "iPhone19,4"])
-        self.assertEqual(self.devices["devices"][0]["chip"], "A19 Pro")
+        # In order of model, as the file keeps them.
+        identifiers = [d["identifier"] for d in self.devices["devices"]]
+        expected = sorted([d["identifier"] for d in before["devices"]] + ["iPhone18,1"], key=add_device.model_order)
+        self.assertEqual(identifiers, expected)
+        self.assertLess(identifiers.index("iPhone18,1"), identifiers.index("iPhone19,4"))
+        self.assertEqual(self.device("iPhone18,1")["chip"], "A19 Pro")
 
     def test_models_sort_by_number(self):
         models = sorted(["iPhone19,10", "iPhone9,1", "iPhone19,4"], key=add_device.model_order)
         self.assertEqual(models, ["iPhone9,1", "iPhone19,4", "iPhone19,10"])
+        # iPads first, then iPhones.
+        models = sorted(["iPhone19,4", "iPad15,3", "iPad13,16"], key=add_device.model_order)
+        self.assertEqual(models, ["iPad13,16", "iPad15,3", "iPhone19,4"])
 
     def test_a_report_that_disagrees_with_the_file_is_refused(self):
         entry = add_device.read_entry(report(KNOWN))
@@ -152,7 +164,7 @@ class AddDeviceTest(unittest.TestCase):
             with redirect_stdout(out):
                 self.assertEqual(add_device.main([str(sent), "--devices", str(devices), "--chip", "A19 Pro"]), 0)
             written = json.loads(devices.read_text(encoding="utf-8"))
-            self.assertEqual(written["devices"][0]["identifier"], "iPhone18,1")
+            self.assertEqual(self.device("iPhone18,1", written)["chip"], "A19 Pro")
             self.assertIn("added iPhone18,1: new, A19 Pro, 12 GB", out.getvalue())
 
             with redirect_stdout(out):

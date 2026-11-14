@@ -31,6 +31,10 @@ struct HarnessGame {
     /// The languages of its settings screen, the first its default.
     var languages = ["ja", "fr", "en"]
     var orientations = ["UIInterfaceOrientationLandscapeLeft", "UIInterfaceOrientationLandscapeRight"]
+    /// Its ways on an iPad (UISupportedInterfaceOrientations~ipad): every
+    /// way since nxnative's e2fadf2 (4 November 2026), with a layout for an
+    /// upright screen; none before, as here unless set.
+    var orientationsOnIPad: [String]?
     /// The SDK nxnative built it with: iOS 26.0.
     var sdk: UInt32 = 0x001A_0000
     var encrypted = false
@@ -64,7 +68,7 @@ struct HarnessGame {
 
     /// The game's Info.plist, with the keys nxnative's build_ipa.sh gives it.
     var infoPlist: [String: Any] {
-        [
+        var info: [String: Any] = [
             "CFBundleIdentifier": bundleIdentifier,
             "CFBundleExecutable": executable,
             "CFBundleName": executable,
@@ -87,6 +91,8 @@ struct HarnessGame {
             "DTPlatformName": "iphoneos",
             "DTSDKName": "iphoneos26.0",
         ]
+        if let orientationsOnIPad { info["UISupportedInterfaceOrientations~ipad"] = orientationsOnIPad }
+        return info
     }
 
     /// dm/launcher.json: nxnative's settings screen, its language first.
