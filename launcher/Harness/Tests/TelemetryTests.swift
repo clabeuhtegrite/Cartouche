@@ -249,6 +249,25 @@ final class TelemetryTests: HarnessCase {
         let text = String(decoding: try JSONSerialization.data(withJSONObject: error), as: UTF8.self)
         XCTAssertFalse(text.contains("lc.appList.urlFileIsNotIpaError".loc), "never the message's words")
         XCTAssertFalse(text.contains(HarnessIPA.folder.path), "never a path of the iPhone")
+
+        // A game LiveContainer did not sign whole: why, the kind of the
+        // files zsign could not sign and how many, never zsign's words nor
+        // a file's name or path, which the report the player copies has.
+        HarnessLC.signing = .cannotSign(["Frameworks/MoltenVK.framework/MoltenVK"])
+        _ = try await install(try HarnessIPA.game(.plain(1)))
+        try await waitUntil("the signing error is reported") {
+            (self.report(named: "error")?["fields"] as? [String: Any])?["cause"] as? String == "notSigned"
+        }
+        let unsigned = try XCTUnwrap(report(named: "error"))
+        let unsignedFields = try XCTUnwrap(unsigned["fields"] as? [String: Any])
+        XCTAssertEqual(unsignedFields["origin"] as? String, "install")
+        XCTAssertEqual(unsignedFields["kind"] as? String, "filesNotSigned")
+        XCTAssertEqual(unsignedFields["fileKind"] as? String, "framework")
+        XCTAssertEqual((unsignedFields["files"] as? NSNumber)?.intValue, 1)
+        let unsignedText = String(decoding: try JSONSerialization.data(withJSONObject: unsigned), as: UTF8.self)
+        XCTAssertFalse(unsignedText.contains("Failed to Sign"), "never zsign's words")
+        XCTAssertFalse(unsignedText.contains("MoltenVK"), "never a file's name")
+        XCTAssertFalse(unsignedText.contains(LCPath.bundlePath.path), "never a path of the iPhone")
     }
 
     // MARK: Renewals
