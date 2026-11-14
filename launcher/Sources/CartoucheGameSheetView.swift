@@ -95,9 +95,9 @@ struct CartoucheGameSheetView: View {
     private static let top = "top"
 
     #if CARTOUCHE_GALLERY
-    /// Whether the gallery shows the sheet at its saves, for their
-    /// screenshot.
-    static var galleryAtSaves = false
+    /// How the gallery brings the sheet down to its saves, for their
+    /// screenshot, given SwiftUI's scroll to the row of the Switch saves.
+    static var galleryToSaves: ((@escaping @MainActor () -> Void) async -> Void)?
     #endif
 
     var body: some View {
@@ -175,11 +175,11 @@ struct CartoucheGameSheetView: View {
                 withAnimation { reader.scrollTo(Self.top, anchor: .top) }
             }
             #if CARTOUCHE_GALLERY
-            // The gallery's screenshot of the sheet's saves, further down.
-            .task {
-                guard Self.galleryAtSaves else { return }
-                try? await Task.sleep(for: .milliseconds(500))
-                reader.scrollTo(CartoucheSavesSection.switchRow, anchor: .center)
+            // The gallery's screenshot of the sheet's saves, further down,
+            // once the game's saves are on the sheet.
+            .task(id: entry.app != nil) {
+                guard entry.app != nil, let toSaves = Self.galleryToSaves else { return }
+                await toSaves { reader.scrollTo(CartoucheSavesSection.switchRow, anchor: .center) }
             }
             #endif
         }

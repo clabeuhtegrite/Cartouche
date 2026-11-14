@@ -310,7 +310,8 @@ struct GalleryScenario {
                 }
             }
             if screen == "sheet-saves" {
-                CartoucheGameSheetView.galleryAtSaves = true
+                GallerySaves.bringingDown = true
+                CartoucheGameSheetView.galleryToSaves = { scrollTo in await GallerySaves.bringDown(scrollTo) }
             }
             if work == "mac" || work == "mac-offline" {
                 // The player's Mac, paired, with the games Cartouche Builder
@@ -465,6 +466,10 @@ struct GalleryScenario {
                 }
             }
             try? await Task.sleep(for: .seconds(3))
+            // The sheet on its way down to its saves, for up to 15 s more.
+            for _ in 0..<60 where GallerySaves.bringingDown {
+                try? await Task.sleep(for: .milliseconds(250))
+            }
             // The covers the screen shows, from IGDB, for up to 20 s more.
             for _ in 0..<40 {
                 let pending = await CartoucheCoverStore.shared.pending
@@ -727,6 +732,66 @@ enum GalleryMac {
 enum GallerySaves {
     /// The folder's name, as the Storage page and the sheet show it.
     static let folderName = "Gallery saves"
+
+    /// Whether the sheet is on its way down to its saves, which the
+    /// screenshot waits for (GalleryScenario.settle).
+    @MainActor static var bringingDown = false
+
+    /// Brings the sheet down to the row of the Switch saves, in the middle
+    /// of the screen, with SCROLLTO, SwiftUI's scroll to it: a few times, as
+    /// the gallery's first seconds can hold the main thread for a second or
+    /// more; else by hand, down the list until it has laid the row out, then
+    /// to the row. A single scroll half a second after the sheet showed left
+    /// it at its top (run 43548937064).
+    @MainActor
+    static func bringDown(_ scrollTo: @escaping @MainActor () -> Void) async {
+        defer { bringingDown = false }
+        for _ in 0..<5 where !rowInTheMiddle {
+            try? await Task.sleep(for: .milliseconds(300))
+            scrollTo()
+        }
+        for _ in 0..<40 where !rowInTheMiddle {
+            guard let list = collectionView(), list.bounds.height > 0 else { break }
+            let shown = list.convert(list.bounds, to: nil)
+            let by = CartoucheSavesSection.galleryRowFrame.map { $0.midY - shown.midY } ?? list.bounds.height * 0.6
+            let end = max(0, list.contentSize.height + list.adjustedContentInset.bottom - list.bounds.height)
+            let y = min(end, max(-list.adjustedContentInset.top, list.contentOffset.y + by))
+            guard abs(y - list.contentOffset.y) >= 1 else { break }
+            list.setContentOffset(CGPoint(x: list.contentOffset.x, y: y), animated: false)
+            try? await Task.sleep(for: .milliseconds(150))
+        }
+        try? await Task.sleep(for: .milliseconds(300))
+        if !rowInTheMiddle {
+            NSLog("[Gallery] the sheet did not come down to the row of the Switch saves")
+        }
+    }
+
+    /// Whether the row of the Switch saves is in the middle three fifths of
+    /// the list on the screen.
+    @MainActor
+    private static var rowInTheMiddle: Bool {
+        guard let row = CartoucheSavesSection.galleryRowFrame, let list = collectionView() else { return false }
+        let shown = list.convert(list.bounds, to: nil)
+        return row.minY >= shown.minY + shown.height / 5 && row.maxY <= shown.maxY - shown.height / 5
+    }
+
+    /// The collection view of the list on the screen, a SwiftUI list's.
+    @MainActor
+    private static func collectionView() -> UICollectionView? {
+        let scene = UIApplication.shared.connectedScenes.lazy.compactMap { $0 as? UIWindowScene }.first
+        guard let window = scene?.windows.first else { return nil }
+        return collectionView(in: window)
+    }
+
+    @MainActor
+    private static func collectionView(in view: UIView) -> UICollectionView? {
+        if let list = view as? UICollectionView { return list }
+        for subview in view.subviews {
+            if let list = collectionView(in: subview) { return list }
+        }
+        return nil
+    }
+
     /// The game whose saves these are, once the scenario has them.
     @MainActor private static var titleId: String?
 

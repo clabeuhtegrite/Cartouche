@@ -1039,6 +1039,12 @@ struct CartoucheSavesSection: View {
     /// list can scroll to.
     static let switchRow = "switchSaves"
 
+    #if CARTOUCHE_GALLERY
+    /// Where the row of the Switch saves is in the window, once the list has
+    /// laid it out, for the gallery's screenshot of the sheet at its saves.
+    static var galleryRowFrame: CGRect?
+    #endif
+
     var body: some View {
         Section {
             if let target {
@@ -1051,6 +1057,9 @@ struct CartoucheSavesSection: View {
                     Label(CartoucheText.switchSaveTitle, systemImage: "arrow.left.arrow.right")
                 }
                 .id(Self.switchRow)
+                #if CARTOUCHE_GALLERY
+                .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { Self.galleryRowFrame = $0 }
+                #endif
             }
         } header: {
             Text(CartoucheText.savesTitle)
