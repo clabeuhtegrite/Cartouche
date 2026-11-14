@@ -164,8 +164,9 @@ struct CartoucheReportView: View {
     private static let session = URLSession(configuration: .ephemeral)
 
     /// Posts BODY to the server's problems route: sent once the server has
-    /// it, whether GitHub has it yet or not.
-    private static func post(_ body: Data, to endpoint: URL) async -> Sending {
+    /// it, whether GitHub has it yet or not. A game's log goes the same way
+    /// (CartoucheGameLogView).
+    static func post(_ body: Data, to endpoint: URL) async -> Sending {
         var request = URLRequest(url: endpoint.appendingPathComponent("v1/problems"))
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")

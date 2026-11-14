@@ -324,8 +324,10 @@ struct CartoucheRedaction: Equatable, Sendable {
     /// Its last character is not a sentence's: "Could not reach smb://x."
     private static let url = regex(#"[A-Za-z][A-Za-z0-9+.\-]*://[^\s"'<>()\[\]]*[^\s"'<>()\[\].,;:!?]"#)
     private static let mail = regex(#"[A-Za-z0-9._%+\-]+@[A-Za-z0-9\-]+(?:\.[A-Za-z0-9\-]+)*\.[A-Za-z]{2,}"#)
-    /// The folders iOS gives an app, named by a UUID that is this iPhone's.
-    private static let appContainer = regex(
+    /// The folders iOS gives an app, named by a UUID that is this iPhone's:
+    /// a game's log takes them out before any other path
+    /// (CartoucheLogCleaning).
+    static let appContainer = regex(
         #"(?:/private)?/var/(?:mobile/Containers|containers)/(?:Data|Shared|Bundle)/(?:Application|AppGroup)/[0-9A-Fa-f\-]{36}"#)
     /// A Bonjour name: "nas.local", "MacBook-Air.local".
     private static let localHost = regex(#"(?<![A-Za-z0-9\-.])[A-Za-z0-9\-]+(?:\.[A-Za-z0-9\-]+)*\.local(?![A-Za-z0-9\-])"#)

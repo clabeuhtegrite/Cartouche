@@ -3,11 +3,13 @@
 //  CartoucheGalleryUITests
 //
 //  A game of the player's beyond its settings: its info, which the player
-//  changes from its sheet and puts back to Cartouche's; the game paused
-//  behind the console, which the home offers to resume or to quit, Quit
-//  asking first; and an install, under way over the console, or failed,
-//  with the report to copy. The gallery stands in for the games, their
-//  install and their process (GalleryStubs.swift).
+//  changes from its sheet and puts back to Cartouche's; its log, which the
+//  player shares from its sheet as the game wrote it, or sends to
+//  Cartouche cleaned; the game paused behind the console, which the home
+//  offers to resume or to quit, Quit asking first; and an install, under
+//  way over the console, or failed, with the report to copy. The gallery
+//  stands in for the games, their logs, their install and their process
+//  (GalleryStubs.swift).
 //
 
 import XCTest
@@ -39,6 +41,34 @@ final class GameUITests: ConsoleTestCase {
         closeSheet(in: app)
         expect(app.buttons[game].waitForExistence(timeout: 10), "The home does not show \(game) again", in: app)
         expect(!app.buttons[name].exists, "The home still shows \(name)", in: app)
+        expectMainThreadAnswered(app)
+    }
+
+    /// A game's log, from its sheet: its page shows the game's last
+    /// session, which ended in a crash, offers to send the log as the game
+    /// wrote it, once the zip is made, or to Cartouche, and shows what
+    /// Cartouche would receive: cleaned, the device's paths taken out.
+    @MainActor
+    func testAGamesLogIsSharedFromItsSheet() {
+        let app = openConsole(Launch(work: "log"))
+        openSheet(of: game, in: app)
+        scrollAndTap(app.buttons[Words.shareLog], "Share the log", in: app)
+        expect(app.navigationBars[Words.gameLog].waitForExistence(timeout: 15), "No page \(Words.gameLog)", in: app)
+        let last = element(beginningWith: Words.lastSession, in: app)
+        expect(last.waitForExistence(timeout: 15), "The log's page does not show the last session", in: app)
+        expect(last.label.contains(Words.endedInACrash), "The last session does not say it ended in a crash: \(last.label)",
+               in: app)
+        expect(app.buttons[Words.sendTheLog].waitForExistence(timeout: 15), "The log's page does not offer to send the log",
+               in: app)
+        expect(app.buttons[Words.sendToCartouche].exists, "The log's page does not offer to send it to Cartouche", in: app)
+
+        scrollAndTap(app.buttons[Words.whatCartoucheReceives], "What Cartouche receives", in: app)
+        let sent = element(containing: "Cartouche game log", in: app)
+        expect(sent.waitForExistence(timeout: 15), "No page of what Cartouche receives", in: app)
+        expect(element(containing: "boot: game files <container>/", in: app).exists,
+               "What Cartouche receives does not show the log cleaned: \(sent.label.prefix(300))", in: app)
+        expect(!element(containing: "/private/var", in: app).exists, "What Cartouche receives holds the device's paths",
+               in: app)
         expectMainThreadAnswered(app)
     }
 

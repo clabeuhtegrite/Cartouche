@@ -876,6 +876,26 @@ enum CartoucheText {
     static var reportContents: String { s("report.contents", "What the report holds") }
     static var reportPrivacy: String { s("report.privacy", "It leaves this iPhone only when you send it, without passwords, server names or addresses, user names, Apple ID or team, even in what you write.") }
 
+    // MARK: A game's log (CartoucheGameLogView)
+
+    static var gameLogRow: String { s("gameLog.row", "Share the log") }
+    static var gameLogTitle: String { s("gameLog.title", "Game log") }
+    static var gameLogLast: String { s("gameLog.last", "Last session") }
+    static var gameLogBefore: String { s("gameLog.before", "Session before") }
+    static var gameLogCrashed: String { s("gameLog.crashed", "Ended in a crash") }
+    static var gameLogNone: String { s("gameLog.none", "The game has not written a log yet.") }
+    static var gameLogFooter: String { s("gameLog.footer", "What the game wrote as it ran: whoever helps you sees in it how it started and how it ended.") }
+    static var gameLogShare: String { s("gameLog.share", "Send the log…") }
+    static var gameLogPreparing: String { s("gameLog.preparing", "Preparing the log…") }
+    static func gameLogZipFailed(_ reason: String) -> String { f("gameLog.zipFailed", "The log could not be prepared: %@", reason) }
+    static var gameLogShareFooter: String { s("gameLog.share.footer", "By Messages, Mail or AirDrop, to whoever helps you: the log goes as the game wrote it, with the names of your folders in it.") }
+    static var gameLogWhatPrompt: String { s("gameLog.what.prompt", "What happened (optional)") }
+    static var gameLogWhatIsSent: String { s("gameLog.whatIsSent", "What Cartouche receives") }
+    static var gameLogSendFooter: String { s("gameLog.send.footer", "Cartouche receives the start and the end of each log, privately and cleaned: without the paths of your folders, addresses, names or identifiers.") }
+    static var gameLogSentFooter: String { s("gameLog.sent.footer", "What is in angle brackets, such as <path> or <address>, stands for what was taken out. Cartouche’s server passes the rest to the project, privately.") }
+    /// The word in the zip's name: "Mario Kart World log 2026-11-13 2105.zip".
+    static var gameLogFileWord: String { s("gameLog.fileWord", "log") }
+
     // MARK: Warnings before expiry
 
     static var warning24hTitle: String { s("warning.24h.title", "Cartouche expires in 24 hours") }

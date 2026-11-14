@@ -113,6 +113,13 @@ enum Words {
     static let siriShorter = "“Play %@ in Cartouche” works too." // shortcuts.shorter
     static let homeScreenIcon = "An icon on the Home Screen" // shortcuts.home
     static let noLongerInstalled = "%@ is no longer installed in Cartouche." // shortcut.notInstalled
+    static let shareLog = "Share the log"                   // gameLog.row
+    static let gameLog = "Game log"                         // gameLog.title
+    static let lastSession = "Last session"                 // gameLog.last
+    static let endedInACrash = "Ended in a crash"           // gameLog.crashed
+    static let sendTheLog = "Send the log…"                 // gameLog.share
+    static let sendToCartouche = "Send to Cartouche"        // report.sendToCartouche
+    static let whatCartoucheReceives = "What Cartouche receives" // gameLog.whatIsSent
 }
 
 /// The gallery's own words (GalleryTesting.swift).
@@ -163,7 +170,8 @@ struct Launch {
     /// player's Mac paired; "mac-nearby", "mac-code" or "mac-refused", what
     /// Add your Mac finds; "saves", the first game's saves and a folder in
     /// Files as the saves folder; "drive-signed-out", the player's Google
-    /// Drive, whose sign-in Google ended, with two games' saves waiting.
+    /// Drive, whose sign-in Google ended, with two games' saves waiting;
+    /// "log", the first game's logs of its last two sessions.
     var work: String?
     /// The game being installed, or whose install failed.
     var sheet: String?
