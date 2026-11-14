@@ -14,6 +14,10 @@
 //  points, the scenario's screen is the one drawn in the window's top left
 //  corner, upright.
 //
+//  It prints the screen's signature (Signature below), from which capture.sh
+//  tells whether the simulator shows the gallery drawn and still, or iOS
+//  still opening it (settled.py).
+//
 
 import CoreGraphics
 import Foundation
@@ -49,6 +53,52 @@ func turned(_ image: CGImage, clockwise: Bool) -> CGImage? {
     }
     context.draw(image, in: CGRect(x: 0, y: 0, width: width, height: height))
     return context.makeImage()
+}
+
+/// The screen cut into COLUMNS x ROWS cells, row by row, with each cell's
+/// mean luminance, from 0 to 255, and how far apart its darkest and lightest
+/// pixels are: what capture.sh compares from one screenshot to the next
+/// (settled.py).
+struct Signature: Encodable {
+    let columns: Int
+    let rows: Int
+    let means: [Double]
+    let spreads: [Int]
+}
+
+/// IMAGE's signature, over black as the corners its display's mask leaves
+/// out, in sRGB.
+func signature(of image: CGImage, columns: Int = 16, rows: Int = 16) -> Signature? {
+    let width = image.width, height = image.height
+    guard width >= columns, height >= rows, let space = CGColorSpace(name: CGColorSpace.sRGB),
+          let context = CGContext(data: nil, width: width, height: height, bitsPerComponent: 8, bytesPerRow: width * 4,
+                                  space: space, bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue),
+          let data = context.data else {
+        return nil
+    }
+    context.setFillColor(red: 0, green: 0, blue: 0, alpha: 1)
+    context.fill(CGRect(x: 0, y: 0, width: width, height: height))
+    context.draw(image, in: CGRect(x: 0, y: 0, width: width, height: height))
+    let pixels = data.bindMemory(to: UInt8.self, capacity: width * height * 4)
+    let cells = columns * rows
+    var sums = [Int](repeating: 0, count: cells), counts = [Int](repeating: 0, count: cells)
+    var lows = [Int](repeating: 255, count: cells), highs = [Int](repeating: 0, count: cells)
+    for y in 0..<height {
+        let row = y * rows / height * columns
+        for x in 0..<width {
+            let pixel = (y * width + x) * 4
+            let red = Int(pixels[pixel]), green = Int(pixels[pixel + 1]), blue = Int(pixels[pixel + 2])
+            let luminance = (2126 * red + 7152 * green + 722 * blue) / 10_000
+            let cell = row + x * columns / width
+            sums[cell] += luminance
+            counts[cell] += 1
+            lows[cell] = min(lows[cell], luminance)
+            highs[cell] = max(highs[cell], luminance)
+        }
+    }
+    return Signature(columns: columns, rows: rows,
+                     means: (0..<cells).map { (Double(sums[$0]) / Double(counts[$0]) * 10).rounded() / 10 },
+                     spreads: (0..<cells).map { highs[$0] - lows[$0] })
 }
 
 let arguments = CommandLine.arguments
@@ -94,3 +144,7 @@ CGImageDestinationAddImage(destination, screen, nil)
 guard CGImageDestinationFinalize(destination) else {
     fail("cannot write \(arguments[3])")
 }
+guard let found = signature(of: screen), let json = try? JSONEncoder().encode(found) else {
+    fail("cannot read the screen of \(arguments[1])")
+}
+print(String(decoding: json, as: UTF8.self))

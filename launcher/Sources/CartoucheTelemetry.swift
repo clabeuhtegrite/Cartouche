@@ -77,6 +77,11 @@ final class CartoucheTelemetry: ObservableObject {
         var lastReport: String?
         var lastVersion: String?
         var lastExpiration: Date?
+        /// The installation of Cartouche the last change was read in
+        /// (CartoucheLastSignIn.installation(of:)).
+        var lastInstallation: String?
+        /// Whether Cartouche renewed itself since the last change was read.
+        var renewedHere = false
 
         init() {
             install = CartoucheTelemetry.newNumber()
@@ -97,6 +102,8 @@ final class CartoucheTelemetry: ObservableObject {
             lastReport = try values.decodeIfPresent(String.self, forKey: .lastReport)
             lastVersion = try values.decodeIfPresent(String.self, forKey: .lastVersion)
             lastExpiration = try values.decodeIfPresent(Date.self, forKey: .lastExpiration)
+            lastInstallation = try values.decodeIfPresent(String.self, forKey: .lastInstallation)
+            renewedHere = try values.decodeIfPresent(Bool.self, forKey: .renewedHere) ?? false
         }
     }
 
@@ -428,23 +435,44 @@ final class CartoucheTelemetry: ObservableObject {
         event("app.opened", fields: fields)
     }
 
-    /// A new version of Cartouche, or a renewed signature, since last time.
+    /// A new version of Cartouche, or a renewed signature, since last time,
+    /// and what renewed it (CartoucheRenewalVia).
     private func noteChanges() {
         let version = CartoucheUpdates.runningVersion
+        let updated = state.lastVersion.map { $0 != version } ?? false
         if let last = state.lastVersion, last != version {
             event("app.updated", fields: ["from": .text(last), "to": .text(version)])
         }
         state.lastVersion = version
+        let installation = CartoucheLastSignIn.installation(of: Bundle.main.bundleURL)
         let signature = CartoucheSignature.current()
         if let expiration = signature.expirationDate {
             if let last = state.lastExpiration, expiration > last.addingTimeInterval(3_600) {
                 var fields: [String: CartoucheTelemetryValue] = [:]
                 if let days = signature.daysLeft { fields["daysLeft"] = .number(Double(days)) }
+                if let via = CartoucheRenewalVia.of(updated: updated, reinstalled: state.lastInstallation.map { $0 != installation },
+                                                    renewedHere: state.renewedHere) {
+                    fields["via"] = .text(via.rawValue)
+                }
                 event("signature.renewed", fields: fields)
             }
             state.lastExpiration = expiration
         }
+        state.lastInstallation = installation
+        state.renewedHere = false
         save()
+    }
+
+    /// Cartouche renewed itself, from Renew now or by itself: renewal.done,
+    /// with FIELDS, then the signature that lasts longer, at once.
+    func renewed(fields: [String: CartoucheTelemetryValue]) {
+        state.renewedHere = true
+        event("renewal.done", fields: fields)
+        if started {
+            noteChanges()
+        } else {
+            save()
+        }
     }
 
     private func noteInstall(_ app: LCAppModel) {

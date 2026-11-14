@@ -21,6 +21,7 @@ struct CartoucheResetView: View {
     @ObservedObject private var account = CartoucheAccount.shared
     @ObservedObject private var updates = CartoucheUpdates.shared
     @ObservedObject private var setup = CartoucheSetup.shared
+    @ObservedObject private var renewals = CartoucheRenewals.shared
     @EnvironmentObject private var sharedModel: SharedModel
     @State private var confirming = false
     /// Whether the confirmation shows as the page opens, at its end, as the

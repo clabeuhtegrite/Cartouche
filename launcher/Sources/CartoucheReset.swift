@@ -74,7 +74,7 @@ final class CartoucheReset: ObservableObject {
         }
         if isSendingSaves || CartoucheSaveBackups.shared.isSyncing || CartoucheAccount.shared.phase != nil
             || CartoucheUpdates.shared.phase != nil || CartoucheSetup.shared.isImportingSigning
-            || CartoucheTelemetry.shared.isErasing || CartoucheRenewal.isRenewing {
+            || CartoucheTelemetry.shared.isErasing || CartoucheRenewals.shared.isRenewing {
             return CartoucheText.resetWait
         }
         return nil

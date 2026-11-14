@@ -188,6 +188,23 @@
         }
       }
     },
+    "action.signAgain" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sign again and play"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Re-signer et jouer"
+          }
+        }
+      }
+    },
     "action.uninstall" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -3537,6 +3554,23 @@
         }
       }
     },
+    "running.stopped.error" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The game stopped on an error, which the report gives. If it happens again, install the game again from its IPA."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Le jeu s’est arrêté sur une erreur, que donne le rapport. Si cela se reproduit, installez de nouveau le jeu depuis son IPA."
+          }
+        }
+      }
+    },
     "running.stopped.memory" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -3588,6 +3622,23 @@
         }
       }
     },
+    "running.stopped.signature" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "iOS refused the game’s signature as it started. Sign it again; if it still fails, install it again from its IPA."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "iOS a refusé la signature du jeu à son démarrage. Signez-le de nouveau ; si cela échoue encore, installez-le de nouveau depuis son IPA."
+          }
+        }
+      }
+    },
     "running.stopped.title" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -3635,6 +3686,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Un seul jeu à la fois : la progression depuis la dernière sauvegarde du jeu sera perdue, puis %@ démarrera."
+          }
+        }
+      }
+    },
+    "running.turnIPadSideways" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Turn your iPad sideways to play."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tournez votre iPad à l’horizontale pour jouer."
           }
         }
       }
@@ -11363,13 +11431,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Cartouche renews itself with LocalDevVPN on. Once expired, it no longer opens: install it again with the Cartouche Installer."
+            "value" : "Cartouche renews itself each time you open it in its last 3 days, with LocalDevVPN on. Once expired, it no longer opens: install it again with the Cartouche Installer."
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Cartouche se renouvelle avec LocalDevVPN activé. Expiré, il ne s’ouvre plus : réinstallez-le avec l’Installeur Cartouche."
+            "value" : "Cartouche se renouvelle seul chaque fois que vous l’ouvrez dans ses 3 derniers jours, avec LocalDevVPN activé. Expiré, il ne s’ouvre plus : réinstallez-le avec l’Installeur Cartouche."
           }
         }
       }
@@ -11455,6 +11523,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Renouvellement…"
+          }
+        }
+      }
+    },
+    "system.signature.renewing.auto" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cartouche renews itself…"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cartouche se renouvelle…"
           }
         }
       }
@@ -12050,6 +12135,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Jamais votre identifiant Apple, le nom de votre iPhone, vos fichiers, les adresses de votre stockage ni le journal du jeu lui-même."
+          }
+        }
+      }
+    },
+    "tv.captured" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The iPhone’s screen is being recorded or shown on another screen, so the game stays hidden."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "L’écran de l’iPhone est enregistré ou montré sur un autre écran : le jeu reste donc caché."
           }
         }
       }
@@ -13274,6 +13376,142 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Gardez Cartouche ouvert : un gros jeu prend plusieurs minutes."
+          }
+        }
+      }
+    },
+    "work.notSigned.atInstall" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cartouche signs it again as you start it."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cartouche le signe de nouveau quand vous le lancez."
+          }
+        }
+      }
+    },
+    "work.notSigned.atStart" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sign it again; if it still fails, install it again from its IPA."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Signez-le de nouveau ; si cela échoue encore, installez-le de nouveau depuis son IPA."
+          }
+        }
+      }
+    },
+    "work.notSigned.certificateRefused" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "iOS refuses the certificate Cartouche signs games with: Cartouche takes the new one with your Apple ID."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "iOS refuse le certificat avec lequel Cartouche signe les jeux : Cartouche prend le nouveau avec votre identifiant Apple."
+          }
+        }
+      }
+    },
+    "work.notSigned.damaged" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The game’s files are damaged: install it again from its IPA."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Les fichiers du jeu sont abîmés : installez-le de nouveau depuis son IPA."
+          }
+        }
+      }
+    },
+    "work.notSigned.encrypted" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This app is encrypted, as the App Store delivers it: Cartouche only runs apps that are not, such as the games nxnative builds."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cette app est chiffrée, comme l’App Store la livre : Cartouche ne lance que des apps qui ne le sont pas, comme les jeux que construit nxnative."
+          }
+        }
+      }
+    },
+    "work.notSigned.files" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cartouche could not sign every file of the game for this iPhone."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cartouche n’a pas pu signer tous les fichiers du jeu pour cet iPhone."
+          }
+        }
+      }
+    },
+    "work.notSigned.noCertificate" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cartouche has no certificate to sign games with yet: finish its setup on the System page."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cartouche n’a pas encore de certificat pour signer les jeux : terminez sa configuration dans la page Système."
+          }
+        }
+      }
+    },
+    "work.notSigned.title" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ is not signed"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ n’est pas signé"
           }
         }
       }

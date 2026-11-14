@@ -8,11 +8,10 @@
 //  the whole screen of the simulator it runs on, such as the iPhone Duo's,
 //  with its own safe area, size classes and system bars.
 //
-//      -GalleryScreen games|library|sheet|settings|gameinfo|setup|signin|guide|system|system-end|storage|storage-mac|storage-drive|storage-drive-guide|telemetry|report|reset|reset-end|tv
+//      -GalleryScreen games|library|sheet|settings|gameinfo|setup|signin|guide|system|storage|storage-mac|storage-drive|storage-drive-guide|telemetry|report|reset|reset-end|tv
 //                                        library: every game, open over
-//                                        the home; system-end: the System
-//                                        page at its end, on Reset
-//                                        Cartouche; reset: its page, and
+//                                        the home; reset: Reset
+//                                        Cartouche's page, and
 //                                        reset-end, at its end, with
 //                                        work: saves, the saves of the
 //                                        sheet's game, or the first of the
@@ -45,6 +44,10 @@
 //                                        when the catalogue has a game of
 //                                        that name (showFound)
 //      -GallerySetup 1 -GalleryController 1
+//      -GalleryModel iPad15,3            the device of catalog/devices.json
+//                                        the screen is drawn as, whose words
+//                                        call an iPad the iPad (none: the
+//                                        iPhone, iPhone19,4, CartoucheDevice)
 //      -GallerySheet <title ID>          the game of the sheet, of its
 //                                        settings, or being installed
 //      -GalleryWork installing           a game being installed, over the
@@ -97,9 +100,23 @@
 //                                        whose sign-in Google ended, as after
 //                                        7 days for a project in testing, with
 //                                        two games' saves waiting for it;
+//                                        not-signed-install: the sheet's
+//                                        game installed but not signed
+//                                        whole, with Sign again and play;
+//                                        not-signed-start: the same, as Play
+//                                        signed it again; signature-refused:
+//                                        its process ended as iOS refused
+//                                        its signature; stopped-on-error:
+//                                        its process ended on another error
+//                                        (CartoucheGameActions failSigning
+//                                        and stoppedOnError);
 //                                        on the TV (screen tv), paused: the
 //                                        game paused behind the console,
-//                                        starting: the game starting
+//                                        starting: the game starting;
+//                                        renewing: Cartouche renewing itself
+//                                        in its last 3 days, as it came to
+//                                        the front; renewal-failed: that
+//                                        renewal failed, the network gone
 //      -GalleryOrientation landscape     the gallery turns itself sideways,
 //                                        as a game does; the simulator
 //                                        stays upright
@@ -108,7 +125,11 @@
 //                                        tmp/ready-<scenario>.json in its
 //                                        container (Ready below)
 //      -GalleryCategory Controls         the settings page's category, one
-//                                        of nxnative's sections
+//                                        of nxnative's sections; on the
+//                                        System page, signature: the page
+//                                        scrolled down to its signature;
+//                                        reset: the page at its end, on
+//                                        Reset Cartouche
 //
 //  The UI tests (launcher/Gallery/UITests) open the whole console, as
 //  Cartouche shows it, and drive it (GalleryTesting.swift):
@@ -224,14 +245,22 @@ struct GalleryScenario {
             try? FileManager.default.createDirectory(at: pairing, withIntermediateDirectories: true)
             try? Data("gallery".utf8).write(to: pairing.appendingPathComponent("ALTPairingFile.mobiledevicepairing"))
         }
-        // The built-in SideStore's record of its last renewal.
-        let renewal = """
-        {"allApps": [{"bundleIdentifier": "\(Bundle.main.bundleIdentifier ?? "")",
-                      "expirationDate": \(Date().addingTimeInterval(6 * 86_400 + 3_600).timeIntervalSinceReferenceDate),
-                      "refreshedDate": \(Date().addingTimeInterval(-86_400).timeIntervalSinceReferenceDate)}]}
-        """
-        try? Data(renewal.utf8).write(to: GalleryState.appGroup.appendingPathComponent("widget_data.json"))
+        // The built-in SideStore's record of its last renewal: six days left,
+        // or, as Cartouche renews itself, two and a bit.
+        if work == "renewing" || work == "renewal-failed" {
+            GalleryState.recordSignature(expiringIn: 2 * 86_400 + 5 * 3_600, renewedAgo: 4 * 86_400 + 19 * 3_600)
+        } else {
+            GalleryState.recordSignature(expiringIn: 6 * 86_400 + 3_600, renewedAgo: 86_400)
+        }
         MainActor.assumeIsolated {
+            // The System page down to the scenario's section.
+            CartoucheSystemView.openingSection = screen == "system" ? category : nil
+            if work == "renewing" {
+                CartoucheRenewals.shared.showRenewingForGallery(at: 0.4)
+            }
+            if work == "renewal-failed" {
+                CartoucheRenewals.shared.showFailedForGallery(URLError(.notConnectedToInternet))
+            }
             CartoucheSetup.shared.refresh()
             CartoucheGuide.shared.startOverForGallery()
             if work == "build-skipped" { CartoucheGuide.shared.skipBuild() }
@@ -256,6 +285,9 @@ struct GalleryScenario {
                                                    error: error, step: CartoucheText.installTitle(name) + ": " + CartoucheText.installUnpacking,
                                                    fraction: 0.42, facts: [.init("IPA", name + " [" + (sheet ?? "") + "].ipa")])
                 CartoucheGameActions.shared.notice = CartoucheGameNotice(title: report.title, message: report.message, report: report)
+            }
+            if let notice = signingNotice() {
+                CartoucheGameActions.shared.notice = notice
             }
             if work == "update" {
                 // A higher version than the gallery's own (project.yml).
@@ -337,6 +369,49 @@ struct GalleryScenario {
                 CartoucheSaveBackups.shared.showWaitingForGallery(2)
             }
         }
+    }
+
+    /// The notice of the sheet's game, which LiveContainer did not sign
+    /// whole, zsign failing on one of its libraries, or whose process ended
+    /// as iOS refused its signature or a library it needs was missing, as
+    /// CartoucheGameActions shows it (failSigning, stoppedOnError), with the
+    /// report to copy.
+    @MainActor
+    private func signingNotice() -> CartoucheGameNotice? {
+        let titleId = sheet ?? ownedTitles.first ?? ""
+        let name = CartoucheCatalog.shared.game(titleId: titleId)?.name ?? "Game"
+        let bundleId = "org.nxnative." + titleId.lowercased()
+        let unsigned = CartoucheGameSigning.Failure(reason: .filesNotSigned, fileKind: "framework", files: 1, signedAnyway: true)
+        let title: String
+        let message: String
+        let failure: CartoucheFailure
+        var signAgain = true
+        switch work ?? "" {
+        case "not-signed-install":
+            title = CartoucheText.installSignWarning
+            message = CartoucheText.notSignedFiles + " " + CartoucheText.notSignedAtInstall
+            failure = CartoucheFailure(.notSigned, stage: "signing", details: unsigned.details)
+        case "not-signed-start":
+            title = CartoucheText.notSignedTitle(name)
+            message = CartoucheText.notSignedFiles + " " + CartoucheText.notSignedAtStart
+            failure = CartoucheFailure(.notSigned, stage: "signing", details: unsigned.details)
+        case "signature-refused":
+            let stopped = CartoucheGameSigning.StartFailure(kind: .codeSignature)
+            title = CartoucheText.gameStoppedTitle(name)
+            message = CartoucheText.gameSignatureRefused
+            failure = CartoucheFailure(stopped.cause, stage: "gameProcess", seconds: 1.4, details: stopped.details)
+        case "stopped-on-error":
+            let stopped = CartoucheGameSigning.StartFailure(kind: .libraryMissing)
+            title = CartoucheText.gameStoppedTitle(name)
+            message = CartoucheText.gameStoppedOnError
+            failure = CartoucheFailure(stopped.cause, stage: "gameProcess", seconds: 1.4, details: stopped.details)
+            signAgain = false
+        default:
+            return nil
+        }
+        let origin: CartoucheReport.Origin = work == "not-signed-install" ? .install : .start
+        let report = CartoucheReports.make(origin, title, message: message, failure: failure)
+        return CartoucheGameNotice(title: title, message: message, report: report, signAgain: signAgain ? bundleId : nil)
     }
 
     /// The player's games as IPAs in FOLDER, as Cartouche Builder leaves
@@ -442,8 +517,9 @@ struct GalleryScenario {
         let orientation: String
     }
 
-    /// Turns the gallery sideways if the scenario asks, then, once the
-    /// layout, the stage's colours and the cartridges have settled, says so.
+    /// Turns the gallery sideways if the scenario asks, upright on a
+    /// device's simulator otherwise, then, once the layout, the stage's
+    /// colours and the cartridges have settled, says so.
     @MainActor
     func settle() {
         let scene = UIApplication.shared.connectedScenes.lazy.compactMap { $0 as? UIWindowScene }.first
@@ -453,14 +529,27 @@ struct GalleryScenario {
             }
         }
         guard let ready else { return }
+        // Upright on a device's simulator, for a scenario that does not turn
+        // sideways: iOS opens the gallery turned as it was before, after
+        // duo-sim-home-landscape too. On Ad's Mac, in run 43536103765, seven
+        // scenarios of the iPhone Duo came out sideways, the first of them
+        // duo-sim-home, then the next ones white or faded as iOS turned the
+        // gallery upright again.
+        let upright = !landscape && size == nil
+        if upright, let scene {
+            scene.requestGeometryUpdate(.iOS(interfaceOrientations: .portrait)) { error in
+                NSLog("[Gallery] cannot turn upright: %@", String(describing: error))
+            }
+        }
         Task { @MainActor in
-            // Turned sideways first, for up to 30 s: on the iPhone Duo of run
+            // Turned first, for up to 30 s: on the iPhone Duo of run
             // 43275681933, beside two builds of the app on Ad's Mac, the
             // simulator had not turned the scene by the time the gallery
             // said it had settled, upright.
-            if landscape, let scene {
+            if landscape || upright, let scene {
                 for _ in 0..<120 {
-                    if scene.effectiveGeometry.interfaceOrientation.isLandscape { break }
+                    let now = scene.effectiveGeometry.interfaceOrientation
+                    if landscape ? now.isLandscape : now == .portrait { break }
                     try? await Task.sleep(for: .milliseconds(250))
                 }
             }
@@ -620,8 +709,6 @@ struct CartoucheGalleryApp: App {
             }
         case "system":
             CartoucheSystemView()
-        case "system-end":
-            CartoucheSystemView(showsEnd: true)
         case "storage":
             NavigationStack {
                 CartoucheStorageView()

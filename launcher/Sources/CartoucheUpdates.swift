@@ -239,11 +239,16 @@ final class CartoucheUpdates: ObservableObject {
         target = release
         phase = .preparing
         started = Date()
-        CartoucheStoreKeychain.remove(CartoucheSideStoreOutcome.account)
         defaults.set(release.version, forKey: Self.pendingKey)
-        bridge.call(bridge.receiver, Self.updateSelector, progress) { [weak self] message in
-            let text = message.map { $0 as String }
-            Task { @MainActor in self?.finished(text) }
+        // SideStore takes one action at a time: a renewal under way, as when
+        // Cartouche renews itself as it opens, ends first.
+        let selector = Self.updateSelector
+        CartoucheRenewals.shared.afterRenewal("Update") { [weak self] in
+            CartoucheStoreKeychain.remove(CartoucheSideStoreOutcome.account)
+            bridge.call(bridge.receiver, selector, progress) { message in
+                let text = message.map { $0 as String }
+                Task { @MainActor in self?.finished(text) }
+            }
         }
     }
 
