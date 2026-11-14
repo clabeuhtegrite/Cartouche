@@ -1260,6 +1260,15 @@ final class CartoucheGameActions: ObservableObject {
         }
     }
 
+    /// The console over the running game, which pauses, as the Home button
+    /// brings it: Siri or a shortcut asked for another game, and the
+    /// console asks whether to quit this one.
+    func showConsole() {
+        if #available(iOS 18.0, *) {
+            CartoucheGameHost.shared.showConsole()
+        }
+    }
+
     /// The console asks whether to quit the running game.
     func askToQuit() {
         quitQuestion = running

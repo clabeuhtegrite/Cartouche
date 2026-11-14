@@ -119,6 +119,12 @@ enum Words {
     static let putBackImportDone = "The game from before the import is back." // switchSave.putBack.done
     static let makeZip = "Make the ZIP for JKSV"            // switchSave.send.make
     static let shareZip = "Share "                          // switchSave.send.share
+    static let siriAndHomeScreen = "Siri and Home Screen"   // shortcuts.title
+    static let sayToSiri = "Say to Siri"                    // shortcuts.siri
+    static let siriPhrase = "“Play %@ in Cartouche”"        // shortcuts.phrase
+    static let siriShorter = "“Play %@ in Cartouche” works too." // shortcuts.shorter
+    static let homeScreenIcon = "An icon on the Home Screen" // shortcuts.home
+    static let noLongerInstalled = "%@ is no longer installed in Cartouche." // shortcut.notInstalled
 }
 
 /// The gallery's own words (GalleryTesting.swift).
@@ -140,6 +146,13 @@ enum GalleryWords {
     /// first element whose label begins as the file's name, so no label on
     /// the screen under the picker may (Switch saves, for "Switch save").
     static let switchExport = "Player - 2026-11-13_15-20-00.zip"
+    /// The stand-in start's alert, and what Siri would say, over the
+    /// console (GalleryTesting.swift).
+    static let play = "Gallery play"
+    static let shortcutFailed = "Gallery shortcut"
+    /// What a test posts for Siri to ask for the game of
+    /// Launch.siriOnPost (GalleryShortcut.posted).
+    static let siriAsks = "io.github.clabeuhtegrite.cartouche.gallery.shortcut"
 }
 
 /// The player's games, as nxnative.json names them.
@@ -183,6 +196,11 @@ struct Launch {
     /// process holds the main thread for seconds on a CI Mac
     /// (GalleryKeyboard, GalleryTesting.swift).
     var typing = false
+    /// The title ID of the game Siri asks for as the gallery opens, before
+    /// its console shows; and of the one it asks for each time the test
+    /// posts GalleryWords.siriAsks (GalleryShortcut, GalleryTesting.swift).
+    var siri: String?
+    var siriOnPost: String?
 
     var arguments: [String] {
         var arguments = ["-AppleLanguages", "(en)", "-AppleLocale", "en_US",
@@ -194,6 +212,8 @@ struct Launch {
         if let sheet { arguments += ["-GallerySheet", sheet] }
         if let holdMainThread { arguments += ["-GalleryHoldMainThread", String(holdMainThread)] }
         if typing { arguments += ["-GalleryKeyboard", "1"] }
+        if let siri { arguments += ["-GalleryShortcut", siri] }
+        if let siriOnPost { arguments += ["-GalleryShortcutOnPost", siriOnPost] }
         if let model { arguments += ["-GalleryModel", model] }
         return arguments
     }
@@ -494,6 +514,31 @@ class ConsoleTestCase: XCTestCase {
         // The install happens once.
         Thread.sleep(forTimeInterval: 2)
         expect(!app.alerts[GalleryWords.install].exists, "A second install followed the first", in: app, file: file, line: line)
+    }
+
+    /// Siri asks for the game of Launch.siriOnPost, as iOS hands Cartouche
+    /// Play a Game: the gallery runs it (GalleryShortcut).
+    @MainActor
+    func askSiri() {
+        CFNotificationCenterPostNotification(CFNotificationCenterGetDarwinNotifyCenter(),
+                                             CFNotificationName(GalleryWords.siriAsks as CFString), nil, nil, true)
+    }
+
+    /// The gallery's start of the game NAME, the COUNT-th since it opened,
+    /// says so over the console within TIMEOUT seconds; Done closes it, and
+    /// no other start follows.
+    @MainActor
+    func expectPlay(of name: String, count: Int = 1, timeout: TimeInterval = 30, in app: XCUIApplication,
+                    file: StaticString = #filePath, line: UInt = #line) {
+        let alert = app.alerts[GalleryWords.play]
+        expect(alert.waitForExistence(timeout: timeout), "\(name) did not start", in: app, file: file, line: line)
+        let message = "Play \(count): \(name)"
+        expect(alert.staticTexts[message].exists, "The start was not the \(count)th, of \(name): \(alert.debugDescription)",
+               in: app, file: file, line: line)
+        tap(alert.buttons[Words.done], "Done of the start", in: app, file: file, line: line)
+        expect(waitForGone(alert), "The start's alert stayed", in: app, file: file, line: line)
+        Thread.sleep(forTimeInterval: 2)
+        expect(!app.alerts[GalleryWords.play].exists, "Another start followed", in: app, file: file, line: line)
     }
 
     /// Whether the console is back, with nothing over it: its dock can be
