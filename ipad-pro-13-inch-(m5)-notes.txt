@@ -1,0 +1,176 @@
+iPad Pro 13-inch (M5), com.apple.CoreSimulator.SimRuntime.iOS-27-2
+
+Its displays (simctl io enumerate):
+Port:
+    UUID: 4E4DBF6C-135A-4F3C-8B8E-2C0C23973F7D
+    Class: Unknown
+    Port Identifier: com.apple.display.captureservice
+    Power state: On
+
+Port:
+    UUID: 4B9B3ED3-36FC-4458-A2A5-E1A29C5E0589
+    Class: Display
+    Port Identifier: com.apple.framebuffer.display
+    Power state: On
+    Display class: 1
+    Default width: 720
+    Default height: 480
+    Default pixel format: 'BGRA'
+
+Port:
+    UUID: C99D233B-1CA6-4F41-BB16-18F31C853BB6
+    Class: Display
+    Port Identifier: com.apple.framebuffer.display
+    Power state: On
+    Display class: 0
+    Default width: 2064
+    Default height: 2752
+    Default pixel format: 'BGRA'
+    IOSurface port:
+        width              = 2064
+        height             = 2752
+        bytes per row      = 8256
+        size               = 22724608
+        pixel format       = 'BGRA'
+        bytes per element  = 4
+        CPU cache mode     = Default cache
+        Pixel size casting = Yes
+
+Port:
+    UUID: C888B00B-BF6A-4125-89DA-6511CAE61232
+    Class: DisplayAdapter
+    Port Identifier: com.apple.framebuffer.server
+    Power state: On
+    Creatable Screen Properties:
+    Connected Screens:
+    (1) LCD:
+        Screen ID: 1
+        Name: LCD
+        Unique ID: 5F494BEC-2914-4E62-BBBC-464C9FF94C8D
+        Device Name: primary
+        Seed: 3
+        Screen Type: Integrated
+        Pixel Size: {2064, 2752}
+        Dot Pitch: 264
+        Mask URL: file:///Library/Developer/DeviceKit/FramebufferMasks/75FF89F9-07DA-41E1-B66E-9AC4AF726865.pdf
+        Mask ID: 75FF89F9-07DA-41E1-B66E-9AC4AF726865
+        Chrome ID: com.apple.dt.devicekit.chrome.tablet5
+        Preferred UI Scale: 2
+        Pixel Format: 'BGRA'
+        Colorspace: DCI-P3
+        HDR Mode: SDR
+        Refresh Rate: 6000
+        UI Orientation: Portrait
+    (2) TVOut:
+        Screen ID: 2
+        Name: TVOut
+        Unique ID: 78D7999A-AACF-4ADE-BD5F-20B353F48B0D
+        Device Name: external-0
+        Seed: 4
+        Screen Type: TVOut
+        Pixel Size: {720, 480}
+        Dot Pitch: 72
+        Mask URL: (none)
+        Mask ID: (none)
+        Chrome ID: (none)
+        Preferred UI Scale: 1
+        Pixel Format: 'BGRA'
+        Colorspace: sRGB
+        HDR Mode: SDR
+        Refresh Rate: 6000
+        UI Orientation: Ambiguous
+
+Port:
+    UUID: 05573103-6292-4AD9-A7AF-F8F54F3493E7
+    Class: Accelerator
+    Port Identifier: com.apple.accelerator.metal
+    Power state: On
+
+Port:
+    UUID: D76C9B67-03BF-4570-A868-44634B1126D2
+    Class: Accelerator
+    Port Identifier: com.apple.accelerator.iosurface
+    Power state: On
+
+Port:
+    UUID: 23A70AE8-FB86-4E0C-884C-C9DCC24F59DF
+    Class: LegacyHID
+    Port Identifier: com.apple.CoreSimulator.HID.LegacyHID
+    Power state: On
+
+Port:
+    UUID: D8DEB780-ED41-4733-B167-F1FF8AC6E037
+    Class: StreamProcessor
+    Port Identifier: com.apple.SimStreamProcessor.default
+    Power state: On
+    Stream processor device
+    Specification:
+        SimStreamProcessorSpecificationPerformanceHint = SimStreamProcessorSpecificationPerformanceHint_MaximizePerformance
+        SimStreamProcessorSpecificationRendererHint = SimStreamProcessorSpecificationRendererHint_Metal
+        SimStreamProcessorSpecificationEmulationHint = SimStreamProcessorSpecificationEmulationHint_NoEmulation
+    Renderer private name: Apple M5
+    Renderer version: 1.3
+    Denylisted: No
+    Memory regions:
+
+Port:
+    UUID: 69E6117C-5552-428C-B783-F32AC5C21A16
+    Class: StreamProcessor
+    Port Identifier: com.apple.SimStreamProcessor.default
+    Power state: On
+    Stream processor device
+    Specification:
+        SimStreamProcessorSpecificationPerformanceHint = SimStreamProcessorSpecificationPerformanceHint_MaximizePerformance
+        SimStreamProcessorSpecificationRendererHint = SimStreamProcessorSpecificationRendererHint_OpenGL
+        SimStreamProcessorSpecificationEmulationHint = SimStreamProcessorSpecificationEmulationHint_NoEmulation
+    Renderer private name: Apple M5
+    Renderer version: 4.1 Metal - 91.7
+    Denylisted: No
+    Memory regions:
+
+Port:
+    UUID: 6EDCAD5F-0E55-4DC3-8045-AD37AA8D0002
+    Class: StreamProcessor
+    Port Identifier: com.apple.SimStreamProcessor.default
+    Power state: On
+    Stream processor device
+    Specification:
+        SimStreamProcessorSpecificationPerformanceHint = SimStreamProcessorSpecificationPerformanceHint_Default
+        SimStreamProcessorSpecificationRendererHint = SimStreamProcessorSpecificationRendererHint_OpenGL
+        SimStreamProcessorSpecificationEmulationHint = SimStreamProcessorSpecificationEmulationHint_SerialProcessing
+    Renderer private name: Apple Software Renderer
+    Renderer version: 4.1 APPLE-24.0.2
+    Denylisted: No
+    Memory regions:
+
+Port:
+    UUID: 28FFCCA5-C11C-47A1-9B98-F01BBBE07A60
+    Class: Audio
+    Port Identifier: com.apple.CoreSimulator.Audio.HostRoute
+    Power state: On
+    Guest Audio Input -> Default Host Audio Device
+    Guest Audio Output -> Default Host Audio Device
+    Host Audio Devices:
+        BuiltInMicrophoneDevice: Micro MacBook Air (1 In / 0 Out)
+        BuiltInSpeakerDevice: Haut-parleurs MacBook Air (0 In / 2 Out)
+        sg.ruqqq.vyzo.mic: Vyzo Microphone (1 In / 0 Out)
+
+Port:
+    UUID: 61EF36B0-9110-4290-B290-B88B83733504
+    Class: Unknown
+    Port Identifier: com.apple.gputools.service.simulator
+    Power state: On
+
+Port:
+    UUID: C84E762D-22B0-4D65-A367-C9D50C8776AC
+    Class: Unknown
+    Port Identifier: com.apple.gputools.GPUToolsAgentService.simulator
+    Power state: On
+
+ipad-home: {'origin': [0, 0], 'scale': 2, 'orientation': 'portrait', 'window': [1032, 1376], 'pixels': [2064, 2752], 'shots': 2}
+ipad-home-landscape: {'pixels': [2064, 2752], 'origin': [0, 0], 'window': [1376, 1032], 'orientation': 'landscapeRight', 'scale': 2, 'shots': 2}
+ipad-home-paused-landscape: {'pixels': [2064, 2752], 'origin': [0, 0], 'window': [1376, 1032], 'scale': 2, 'orientation': 'landscapeRight', 'shots': 2}
+ipad-library: {'pixels': [2064, 2752], 'origin': [0, 0], 'scale': 2, 'orientation': 'portrait', 'window': [1032, 1376], 'shots': 2}
+ipad-home-first-launch: {'pixels': [2064, 2752], 'window': [1032, 1376], 'scale': 2, 'origin': [0, 0], 'orientation': 'portrait', 'shots': 2}
+ipad-home-first-launch-landscape: {'window': [1376, 1032], 'orientation': 'landscapeRight', 'pixels': [2064, 2752], 'scale': 2, 'origin': [0, 0], 'shots': 2}
+ipad-system: {'orientation': 'portrait', 'scale': 2, 'origin': [0, 0], 'window': [1032, 1376], 'pixels': [2064, 2752], 'shots': 2}
