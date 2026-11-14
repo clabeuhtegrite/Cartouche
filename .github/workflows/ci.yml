@@ -62,6 +62,10 @@ jobs:
         with:
           persist-credentials: false
       - run: shellcheck -x app/scripts/*.sh catalog/tools/*.sh launcher/Gallery/*.sh launcher/Harness/*.sh launcher/StorageTests/*.sh telemetry/*.sh builder/mac/*.sh .github/mac/*.sh .github/mac/cartouche-ci
+      # When capture.sh keeps the screen of a scenario: drawn and still, not
+      # iOS still opening the gallery (launcher/Gallery/settled.py).
+      - name: The gallery's screenshots
+        run: python3 -m unittest discover -s launcher/Gallery -p 'test_*.py' -v
 
   builder:
     name: Cartouche Builder
