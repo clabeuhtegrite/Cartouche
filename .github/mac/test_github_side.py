@@ -7,12 +7,14 @@ from __future__ import annotations
 import datetime
 import io
 import json
+import re
 import sys
 import tempfile
 import unittest
 from contextlib import redirect_stdout
 from pathlib import Path
 from unittest import mock
+from urllib.parse import parse_qsl, urlsplit
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
@@ -44,6 +46,28 @@ def pull_event(head: str = REPOSITORY) -> dict:
     }
 
 
+class Runs:
+    """GitHub's answers about the repository's runs and their jobs, as
+    api.call gets them: RUNS, newest first, each with its workflow's path
+    and status; JOBS, each run's jobs by its id."""
+
+    def __init__(self, runs: list[dict], jobs: dict[int, list[dict]]):
+        self.runs, self.jobs, self.asked = runs, jobs, []
+
+    def __call__(self, method: str, path: str, token: str, body=None) -> dict:
+        self.asked.append(path)
+        url = urlsplit(path)
+        query = dict(parse_qsl(url.query))
+        found = re.fullmatch(rf"/repos/{REPOSITORY}/actions/runs/(\d+)/jobs", url.path)
+        if found:
+            return {"jobs": self.jobs.get(int(found[1]), [])}
+        found = re.fullmatch(rf"/repos/{REPOSITORY}/actions(?:/workflows/([^/]+))?/runs", url.path)
+        runs = [run for run in self.runs if run["status"] == query.get("status", run["status"])
+                and (found[1] is None or run["path"] == f".github/workflows/{found[1]}")]
+        size, page = int(query.get("per_page", 30)), int(query.get("page", 1))
+        return {"total_count": len(runs), "workflow_runs": runs[(page - 1) * size:page * size]}
+
+
 def run_env(**extra: str) -> dict:
     return {"GITHUB_REPOSITORY": REPOSITORY, "GITHUB_REPOSITORY_OWNER": OWNER, "GITHUB_EVENT_NAME": "pull_request",
             "GITHUB_ACTOR": OWNER, "GITHUB_TRIGGERING_ACTOR": OWNER, "GITHUB_RUN_ATTEMPT": "1",
@@ -54,8 +78,18 @@ def run_env(**extra: str) -> dict:
 
 class PickTests(unittest.TestCase):
     def test_takes_a_free_mac(self):
-        chosen, why = route.pick([runner()], MAC, lambda: self.fail("no need to count"))
+        chosen, why = route.pick([runner()], MAC, lambda: 0)
         self.assertEqual(chosen["name"], "ad-mac")
+
+    def test_a_free_mac_takes_the_job_behind_the_one_about_to_start_there(self):
+        # A job waiting for a free runner starts there at once: one more may
+        # wait behind it, and no other.
+        chosen, why = route.pick([runner()], MAC, lambda: 1)
+        self.assertEqual(chosen["name"], "ad-mac")
+        self.assertIn("this one is next", why)
+        chosen, why = route.pick([runner()], MAC, lambda: 2)
+        self.assertIsNone(chosen)
+        self.assertIn("2 more jobs waiting", why)
 
     def test_queues_behind_the_job_the_mac_runs_when_nothing_else_waits(self):
         self.assertIsNotNone(route.pick([runner(busy=True)], MAC, lambda: 0)[0])
@@ -79,7 +113,7 @@ class PickTests(unittest.TestCase):
 
     def test_the_screenshots_take_their_own_runner_while_a_build_runs(self):
         found = [runner(busy=True), runner(labels=SCREENS, name="ad-mac-screens")]
-        chosen, why = route.pick(found, SCREENSHOTS, lambda: self.fail("no need to count"))
+        chosen, why = route.pick(found, SCREENSHOTS, lambda: 0)
         self.assertEqual(chosen["name"], "ad-mac-screens")
 
     def test_a_build_never_goes_to_the_screenshots_runner(self):
@@ -99,8 +133,10 @@ class PickTests(unittest.TestCase):
 
 
 class RouteTests(unittest.TestCase):
-    def route(self, env: dict, event: dict, runners: list | None = None) -> tuple[dict | None, str]:
-        with mock.patch.object(api, "runners", return_value=[runner()] if runners is None else runners):
+    def route(self, env: dict, event: dict, runners: list | None = None, waiting: int = 0) -> tuple[dict | None, str]:
+        self.counted = mock.Mock(return_value=waiting)
+        with mock.patch.object(api, "runners", return_value=[runner()] if runners is None else runners), \
+                mock.patch.object(route, "waiting_for_mac", self.counted):
             return route.route(env, event)
 
     def test_the_mac_takes_a_pull_request_of_the_repository(self):
@@ -130,40 +166,53 @@ class RouteTests(unittest.TestCase):
         self.assertIsNone(self.route(run_env(GITHUB_WORKFLOW_REF=""), pull_event())[0])
 
     def test_counts_the_jobs_waiting_for_the_mac(self):
-        answers = {
-            f"/repos/{REPOSITORY}/actions/runs?status=queued&per_page=30": {"workflow_runs": [{"id": 1}]},
-            f"/repos/{REPOSITORY}/actions/runs?status=in_progress&per_page=30": {"workflow_runs": [{"id": 2}]},
-            f"/repos/{REPOSITORY}/actions/runs/1/jobs?per_page=100": {"jobs": [
-                {"status": "queued", "labels": ["self-hosted", "cartouche-mac"]},
-                {"status": "queued", "labels": ["xcode-27"]}]},
-            f"/repos/{REPOSITORY}/actions/runs/2/jobs?per_page=100": {"jobs": [
-                {"status": "in_progress", "labels": ["self-hosted", "cartouche-mac"]},
-                {"status": "waiting", "labels": ["self-hosted", "cartouche-mac", "ios-sim-27.2"]}]},
-        }
-        with mock.patch.object(api, "call", side_effect=lambda method, path, token, body=None: answers[path]):
+        runs = Runs([{"id": 1, "path": ".github/workflows/app.yml", "status": "queued"},
+                     {"id": 2, "path": ".github/workflows/screens.yml", "status": "in_progress"}], {
+            1: [{"status": "queued", "labels": ["self-hosted", "cartouche-mac"]},
+                {"status": "queued", "labels": ["xcode-27"]}],
+            2: [{"status": "in_progress", "labels": ["self-hosted", "cartouche-mac"]},
+                {"status": "waiting", "labels": ["self-hosted", "cartouche-mac", "ios-sim-27.2"]}]})
+        with mock.patch.object(api, "call", side_effect=runs):
             self.assertEqual(route.waiting_for_mac(REPOSITORY, "token"), 2)
 
     def test_counts_only_the_jobs_waiting_for_the_same_runner(self):
         build = ["self-hosted", "cartouche-build", "cartouche-mac", "xcode-27.2"]
         screens = ["self-hosted", "cartouche-mac", "cartouche-screens", "ios-sim-27.2", "xcode-27.2"]
-        answers = {
-            f"/repos/{REPOSITORY}/actions/runs?status=queued&per_page=30": {"workflow_runs": [{"id": 1}]},
-            f"/repos/{REPOSITORY}/actions/runs?status=in_progress&per_page=30": {"workflow_runs": [{"id": 2}]},
-            f"/repos/{REPOSITORY}/actions/runs/1/jobs?per_page=100": {"jobs": [
-                {"status": "queued", "labels": build}, {"status": "queued", "labels": screens}]},
-            f"/repos/{REPOSITORY}/actions/runs/2/jobs?per_page=100": {"jobs": [
-                {"status": "in_progress", "labels": build}, {"status": "waiting", "labels": screens}]},
-        }
-        with mock.patch.object(api, "call", side_effect=lambda method, path, token, body=None: answers[path]):
+        runs = Runs([{"id": 1, "path": ".github/workflows/app.yml", "status": "queued"},
+                     {"id": 2, "path": ".github/workflows/screens.yml", "status": "in_progress"}], {
+            1: [{"status": "queued", "labels": build}, {"status": "queued", "labels": screens}],
+            2: [{"status": "in_progress", "labels": build}, {"status": "waiting", "labels": screens}]})
+        with mock.patch.object(api, "call", side_effect=runs):
             self.assertEqual(route.waiting_for_mac(REPOSITORY, "token", frozenset(MAC)), 1)
             self.assertEqual(route.waiting_for_mac(REPOSITORY, "token", frozenset(SCREENSHOTS)), 2)
 
+    def test_counts_the_jobs_of_every_run_however_many_are_queued(self):
+        # 13 November, 20:13Z: main reopened and 55 runs were queued at once.
+        # The route read the first 30, the newest, while the UI tests and
+        # screenshots of an older one waited for the Mac (run 43499453833):
+        # it sent four more to wait there (runs 43499508896, 43499486824,
+        # 43499557983 and 43499593526).
+        screens = ["self-hosted", "cartouche-mac", "cartouche-screens", "ios-sim-27.2", "xcode-27.2"]
+        workflows = ("ci.yml", "storage.yml", "harness.yml", "builder.yml", "app.yml", "screens.yml")
+        queued = [{"id": n, "path": f".github/workflows/{workflows[n % 6]}", "status": "queued"}
+                  for n in range(1000, 0, -1)]
+        # The oldest run of Launcher screens, on the second page of its own.
+        runs = Runs(queued, {5: [{"status": "queued", "labels": screens}]})
+        with mock.patch.object(api, "call", side_effect=runs):
+            self.assertEqual(route.waiting_for_mac(REPOSITORY, "token", frozenset(SCREENSHOTS)), 1)
+        # The runs of the workflows whose jobs go to the Mac alone, each once.
+        listed = [path for path in runs.asked if path.endswith(tuple(f"page={n}" for n in range(1, 11)))]
+        self.assertTrue(all("/actions/workflows/app.yml/runs?" in path or "/actions/workflows/screens.yml/runs?" in path
+                            for path in listed), listed)
+        jobs = [path for path in runs.asked if path.endswith("/jobs?per_page=100")]
+        self.assertEqual(len(jobs), len(set(jobs)))
+        self.assertEqual(len(jobs), sum(1 for run in queued if run["path"].endswith(("/app.yml", "/screens.yml"))))
+
     def test_counts_the_jobs_waiting_for_the_runner_the_job_asks_for(self):
         found = [runner(busy=True), runner(labels=SCREENS, name="ad-mac-screens")]
-        with mock.patch.object(route, "waiting_for_mac", return_value=1) as counted:
-            chosen, why = self.route(run_env(), pull_event(), found)
+        chosen, why = self.route(run_env(), pull_event(), found, waiting=1)
         self.assertIsNone(chosen)
-        self.assertEqual(counted.call_args.args[2], frozenset(MAC))
+        self.assertEqual(self.counted.call_args.args[2], frozenset(MAC))
 
 
 class RouteMainTests(unittest.TestCase):
@@ -174,7 +223,8 @@ class RouteMainTests(unittest.TestCase):
             env = {**env, "GITHUB_EVENT_PATH": str(event), "GITHUB_OUTPUT": str(output)}
             patch = mock.patch.object(api, "runners", side_effect=error) if error else \
                 mock.patch.object(api, "runners", return_value=[runner()] if runners is None else runners)
-            with mock.patch.dict("os.environ", env, clear=True), patch, redirect_stdout(io.StringIO()):
+            with mock.patch.dict("os.environ", env, clear=True), patch, redirect_stdout(io.StringIO()), \
+                    mock.patch.object(route, "waiting_for_mac", return_value=0):
                 self.assertEqual(route.main(), 0)
             return dict(line.split("=", 1) for line in output.read_text().splitlines())
 
