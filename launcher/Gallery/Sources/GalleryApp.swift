@@ -503,8 +503,9 @@ struct GalleryScenario {
         let orientation: String
     }
 
-    /// Turns the gallery sideways if the scenario asks, then, once the
-    /// layout, the stage's colours and the cartridges have settled, says so.
+    /// Turns the gallery sideways if the scenario asks, upright on a
+    /// device's simulator otherwise, then, once the layout, the stage's
+    /// colours and the cartridges have settled, says so.
     @MainActor
     func settle() {
         let scene = UIApplication.shared.connectedScenes.lazy.compactMap { $0 as? UIWindowScene }.first
@@ -514,14 +515,27 @@ struct GalleryScenario {
             }
         }
         guard let ready else { return }
+        // Upright on a device's simulator, for a scenario that does not turn
+        // sideways: iOS opens the gallery turned as it was before, after
+        // duo-sim-home-landscape too. On Ad's Mac, in run 43536103765, seven
+        // scenarios of the iPhone Duo came out sideways, the first of them
+        // duo-sim-home, then the next ones white or faded as iOS turned the
+        // gallery upright again.
+        let upright = !landscape && size == nil
+        if upright, let scene {
+            scene.requestGeometryUpdate(.iOS(interfaceOrientations: .portrait)) { error in
+                NSLog("[Gallery] cannot turn upright: %@", String(describing: error))
+            }
+        }
         Task { @MainActor in
-            // Turned sideways first, for up to 30 s: on the iPhone Duo of run
+            // Turned first, for up to 30 s: on the iPhone Duo of run
             // 43275681933, beside two builds of the app on Ad's Mac, the
             // simulator had not turned the scene by the time the gallery
             // said it had settled, upright.
-            if landscape, let scene {
+            if landscape || upright, let scene {
                 for _ in 0..<120 {
-                    if scene.effectiveGeometry.interfaceOrientation.isLandscape { break }
+                    let now = scene.effectiveGeometry.interfaceOrientation
+                    if landscape ? now.isLandscape : now == .portrait { break }
                     try? await Task.sleep(for: .milliseconds(250))
                 }
             }

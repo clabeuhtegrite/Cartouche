@@ -1366,19 +1366,6 @@
       "controller": false
     },
     {
-      "name": "duo-sim-home-landscape",
-      "device": "iPhone Duo",
-      "orientation": "landscape",
-      "screen": "games",
-      "owned": [
-        "0400C3F00006E000",
-        "040074A01BF12000",
-        "01006BB00C6F0000"
-      ],
-      "setup": true,
-      "controller": true
-    },
-    {
       "name": "duo-sim-install-not-signed",
       "device": "iPhone Duo",
       "screen": "games",
@@ -1433,6 +1420,19 @@
       ],
       "setup": true,
       "controller": false
+    },
+    {
+      "name": "duo-sim-home-landscape",
+      "device": "iPhone Duo",
+      "orientation": "landscape",
+      "screen": "games",
+      "owned": [
+        "0400C3F00006E000",
+        "040074A01BF12000",
+        "01006BB00C6F0000"
+      ],
+      "setup": true,
+      "controller": true
     },
     {
       "name": "ipad-home",
