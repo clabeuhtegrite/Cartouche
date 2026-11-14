@@ -41,6 +41,17 @@ struct ContentView: View {
                 .environmentObject(setup)
                 .environmentObject(bridge)
         }
+        // A build that holds games no Mac built asks first (Unbuilt.swift).
+        .confirmationDialog(model.askUnbuilt?.title ?? "", isPresented: Binding(get: { model.askUnbuilt != nil }, set: { if !$0 { model.askUnbuilt = nil } }),
+                            presenting: model.askUnbuilt) { ask in
+            Button(tr("Build anyway", "Construire quand même")) { model.build(ask.games, force: ask.force, confirmed: true) }
+            if !ask.others.isEmpty {
+                Button(tr("Build only the others", "Construire seulement les autres")) { model.build(ask.others, force: ask.force, confirmed: true) }
+            }
+            Button(tr("Cancel", "Annuler"), role: .cancel) {}
+        } message: { ask in
+            Text(model.unbuiltMessage(ask))
+        }
         // Back from the Finder, where a game may have gone into the dumps or
         // the games folder: it shows at once.
         .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in

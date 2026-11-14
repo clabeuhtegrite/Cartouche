@@ -262,6 +262,34 @@ class Causes(Base):
         plan, summary = self.run_due(only={MKW})
         self.assertEqual([entry.reasons for entry in plan.entries if entry.title_id == MKW], [["failed_here"]])
 
+    def test_an_older_xcode_is_said_and_tried_again(self):
+        """nxnative refuses an older Xcode's Metal compiler after its check
+        of the game's files: Ocarina of Time's update said "nxnative" there,
+        nine times on a Mac with Xcode 27.1 (telemetry of 14 November 2026).
+        The Mac's doing, not the game's: skipped, in the player's words."""
+        os.environ["FAKE_METAL"] = MKW
+        plan, summary = self.run_due(only={MKW})
+        message = summary.failed[0][1]
+        self.assertEqual(message, "nxnative builds this game's shaders only with the Metal compiler of Xcode 27.2, which it tested them with, "
+                                  "and this Mac has Xcode 27.1. Update Xcode in the App Store (the page “This Mac's tools” does it with you), "
+                                  "then build the game again.")
+        game = self.game(MKW)
+        self.assertEqual((game["state"], game["cause"], game["stage"], game["exit"]), ("skipped", "metal", "check v131072 files", 1))
+        self.assertEqual(batch.context().store.get(MKW).attempt.result, "skipped")
+        # Once Xcode is updated, the game builds at the next batch.
+        os.environ.pop("FAKE_METAL")
+        plan, summary = self.run_due(only={MKW})
+        self.assertEqual([entry.title_id for entry, _ in summary.built], [MKW])
+
+    def test_a_newer_xcode_waits_for_nxnative(self):
+        os.environ["FAKE_METAL"] = MKW
+        os.environ["FAKE_XCODE"] = "27.3"
+        plan, summary = self.run_due(only={MKW})
+        self.assertTrue(summary.failed[0][1].endswith("and this Mac's Xcode 27.3 has another one, which nxnative has not tested yet. "
+                                                      "The game builds once it has: Cartouche Builder tries it again at each build."),
+                        summary.failed[0][1])
+        self.assertEqual(self.game(MKW)["cause"], "metal")
+
     def test_a_crash_of_nxnative_says_its_exception(self):
         os.environ["FAKE_CRASH"] = MKW
         plan, summary = self.run_due(only={MKW})

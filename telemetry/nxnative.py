@@ -12,15 +12,18 @@ installs shared; the devices players have; and the builds on players' Macs,
 by nxnative commit. Every line, and every figure, sums up at least three
 installs, as everything the project publishes does (docs/privacy.md): a
 smaller group is left out, and no install's or session's number is ever
-written. Set apart, so that they do not read as nxnative's: the sessions on
+written. Beside the page, for Cartouche Builder, unbuilt.json: the games at
+least three Macs tried and none built, which the app warns of before one is
+built (builder/mac/Sources/BuilderKit/Unbuilt.swift). Set apart, so that they do not read as nxnative's: the sessions on
 iPhones whose GPU reads no BC texture, which nxnative refuses; those whose
 game process ran without Increased Memory Limit, which is Cartouche's doing;
 and those of builds with changes of their own.
 
 It reads the D1 database through Cloudflare's API, with the secrets
 CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID, and does nothing without
-them. It writes the page as README.md into --out, says what it found in the
-job's summary, and sets the job's output written to true or false.
+them. It writes the page as README.md, and unbuilt.json, into --out, says
+what it found in the job's summary, and sets the job's output written to
+true or false.
 
     python3 telemetry/nxnative.py --catalog catalog --out build/nxnative
 
@@ -101,7 +104,8 @@ EVENTS = (
     "json_extract(body, '$.fields.nxnative') AS nxnative, "
     "json_extract(body, '$.fields.stage') AS stage, "
     "json_extract(body, '$.fields.cause') AS cause, "
-    "json_extract(body, '$.fields.forkOfNxnative') AS fork "
+    "json_extract(body, '$.fields.forkOfNxnative') AS fork, "
+    "json_extract(body, '$.fields.seconds') AS seconds, game "
     "FROM reports WHERE kind = 'event' "
     "AND name IN ('app.opened', 'builder.opened', 'builder.built', 'builder.failed') "
     f"AND day = ?1 AND id > ?2 ORDER BY id LIMIT {PAGE}"
@@ -531,8 +535,52 @@ def builds(events: list[dict]) -> list[str]:
     return lines + [""]
 
 
+# A game's own failures, as Cartouche Builder names their causes
+# (builder/cartouche_builder/causes.py), and those of a builder older than
+# 0.5.0, which named none: not the player's files (damaged, zip, keys), nor
+# the Mac's (no_space, no_room, metal), nor a commit of nxnative that breaks
+# every game's app build (app_build), nor a stop or the builder's own code.
+GAMES_OWN = (None, "", "nxnative", "crashed", "signal", "no_ipa")
+
+
+def unbuilt(events: list[dict], first: dt.date, last: dt.date) -> dict:
+    """unbuilt.json, for Cartouche Builder: the games at least MIN_INSTALLS
+    Macs tried in the window, failing for reasons of the game's own, and
+    none built, those of a fork of nxnative left out. For each, how many
+    Macs tried and how many builds failed; the median of each Mac's longest
+    attempt, in hours, when MIN_INSTALLS Macs said how long it took; and the
+    step the most Macs failed at, when MIN_INSTALLS share it."""
+    forks = {e["install"] for e in once([e for e in events if e.get("name") == "builder.opened"], lambda e: e["install"])
+             if e.get("fork") in (1, True)}
+    built = {e["game"] for e in events if e.get("name") == "builder.built" and e.get("game") and e["install"] not in forks}
+    tried: dict[str, dict] = defaultdict(lambda: {"macs": {}, "failures": 0, "stages": []})
+    for e in events:
+        if e.get("name") != "builder.failed" or e["install"] in forks or not e.get("game") or e.get("cause") not in GAMES_OWN:
+            continue
+        game = tried[e["game"]]
+        game["failures"] += 1
+        seconds = e.get("seconds") if isinstance(e.get("seconds"), (int, float)) else 0
+        game["macs"][e["install"]] = max(game["macs"].get(e["install"], 0), seconds)
+        # A step not said counts for none: the app shows the step as is.
+        game["stages"].append((e.get("stage") or "", e["install"]))
+    games = []
+    for title, game in sorted(tried.items()):
+        if title in built or len(game["macs"]) < MIN_INSTALLS:
+            continue
+        entry: dict = {"titleId": title, "macs": len(game["macs"]), "failures": game["failures"]}
+        longest = [seconds for seconds in game["macs"].values() if seconds > 0]
+        if len(longest) >= MIN_INSTALLS:
+            entry["hours"] = round(statistics.median(longest) / 3600, 1)
+        stages, _ = shared(game["stages"])
+        if stages:
+            entry["stage"] = stages[0][0]
+        games.append(entry)
+    return {"schema": 1, "from": first.isoformat(), "to": last.isoformat(), "games": games}
+
+
 def run(catalog: Path, out: Path, today: dt.date, cloudflare: Cloudflare) -> list[str]:
-    """Writes the page into out; returns the lines of the job's summary."""
+    """Writes the page and unbuilt.json into out; returns the lines of the
+    job's summary."""
     first, last = today - dt.timedelta(days=WINDOW_DAYS), today - dt.timedelta(days=1)
     database = cloudflare.database(DATABASE)
     sessions = read(cloudflare, database, SESSIONS, first, last)
@@ -540,7 +588,10 @@ def run(catalog: Path, out: Path, today: dt.date, cloudflare: Cloudflare) -> lis
     text, summary = page(Catalog(catalog), sessions, events, first, last)
     out.mkdir(parents=True, exist_ok=True)
     (out / "README.md").write_text(text, encoding="utf-8")
-    return summary + [f"The page goes on the branch `{BRANCH}`."]
+    never = unbuilt(events, first, last)
+    (out / "unbuilt.json").write_text(json.dumps(never, indent=2) + "\n", encoding="utf-8")
+    return summary + [f"Games no Mac built, of {MIN_INSTALLS} Macs or more: {len(never['games'])}, in unbuilt.json.",
+                      f"The page goes on the branch `{BRANCH}`."]
 
 
 def main(argv: list[str] | None = None) -> int:

@@ -115,11 +115,13 @@ class NxnativePageTest(unittest.TestCase):
         return report
 
     def event(self, install, name, day="2026-11-10", device="Mac16,12", ios="27.1", seq=1, limit=None, iml=None,
-              **fields):
+              game=None, **fields):
         """An event as the Worker keeps it."""
         report = {"schema": 1, "kind": "event", "id": str(uuid.uuid4()), "install": install, "seq": seq,
                   "cartouche": "0.11.2", "device": device, "ios": ios, "language": "en", "name": name,
                   "fields": fields}
+        if game:
+            report["game"] = game
         if limit is not None:
             report.update(memoryLimitMiB=limit, increasedMemoryLimit=iml)
         self.insert(report, day)
@@ -348,6 +350,43 @@ class NxnativePageTest(unittest.TestCase):
              "Where they failed": "app build 3, other steps 1"}])
         for left_out in ("bbbbbbbbbbbb", "unpack v0", "extract v0", "deliver"):
             self.assertNotIn(left_out, page.split("## How it is summed up")[0])
+
+    def test_the_games_no_mac_built_for_cartouche_builder(self):
+        """unbuilt.json: a game three Macs tried and none built, as Pokopia
+        on 14 November 2026 (8 failures on 4 Macs, up to 7.9 hours), for the
+        app to warn of before a fourth spends its night on it."""
+        pokopia, other = "0400A3A01EE4C000", "0100F2C0115B6000"
+        hours = {self.macs[0]: [28493], self.macs[1]: [16878, 8741], self.macs[2]: [3600]}
+        for mac, attempts in hours.items():
+            for seconds in attempts:
+                self.event(mac, "builder.failed", game=pokopia, nxnative="aaaaaaaaaaaa", stage="iOS shaders", cause="nxnative", seconds=seconds)
+        # Not the game's own: a stop, the Mac's Xcode, the player's files.
+        self.event(self.macs[3], "builder.failed", game=pokopia, nxnative="aaaaaaaaaaaa", stage="iOS shaders", cause="stopped", seconds=600)
+        self.event(self.macs[4], "builder.failed", game=pokopia, nxnative="aaaaaaaaaaaa", stage="unpack v0", cause="damaged", seconds=60)
+        # Another game three Macs failed, and one built.
+        for mac in self.macs[:3]:
+            self.event(mac, "builder.failed", game=other, nxnative="aaaaaaaaaaaa", stage="shader split", cause="nxnative", seconds=100)
+        self.event(self.macs[5], "builder.built", game=other, nxnative="aaaaaaaaaaaa", seconds=2000)
+        # A game two Macs failed: too few to say.
+        for mac in self.macs[:2]:
+            self.event(mac, "builder.failed", game=SENTINELS, nxnative="aaaaaaaaaaaa", stage="app build", cause="nxnative", seconds=50)
+        self.run_page()
+        found = json.loads((self.work / "page" / "unbuilt.json").read_text(encoding="utf-8"))
+        self.assertEqual(found, {"schema": 1, "from": "2026-10-15", "to": "2026-11-11", "games": [
+            {"titleId": pokopia, "macs": 3, "failures": 4, "hours": 4.7, "stage": "iOS shaders"}]})
+        text = json.dumps(found)
+        for number in self.ids:
+            self.assertNotIn(number, text)
+
+    def test_a_game_built_by_a_fork_alone_is_still_unbuilt(self):
+        pokopia = "0400A3A01EE4C000"
+        for mac in self.macs[:3]:
+            self.event(mac, "builder.failed", game=pokopia, nxnative="aaaaaaaaaaaa", stage="iOS shaders", seconds=7200)
+        self.event(self.macs[3], "builder.opened", nxnative="cccccccccccc", forkOfNxnative=True)
+        self.event(self.macs[3], "builder.built", game=pokopia, nxnative="cccccccccccc", seq=2)
+        self.run_page()
+        found = json.loads((self.work / "page" / "unbuilt.json").read_text(encoding="utf-8"))
+        self.assertEqual([(g["titleId"], g["macs"], g["hours"]) for g in found["games"]], [(pokopia, 3, 2.0)])
 
     # MARK: Which sessions count
 

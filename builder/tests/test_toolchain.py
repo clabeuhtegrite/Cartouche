@@ -1,5 +1,6 @@
 import os
 import unittest
+from unittest import mock
 
 from cartouche_builder import toolchain
 from cartouche_builder.paths import Paths
@@ -42,6 +43,36 @@ class Toolchain(Home):
         self.assertTrue(checks["dotnet"].ok)
         self.assertFalse(checks["dotnet"].blocking)
         self.assertNotIn("dotnet", [c.key for c in toolchain.blocking(list(checks.values()))])
+
+    def test_the_xcode_nxnative_builds_with(self):
+        self.assertEqual(toolchain.wanted_xcode(None), toolchain.XCODE)
+        engine = self.tmp / "nxnative"
+        engine.mkdir()
+        self.assertEqual(toolchain.wanted_xcode(engine), toolchain.XCODE)  # a checkout without the file
+        tools = engine / toolchain.OWN_COMPILERS
+        tools.parent.mkdir(parents=True)
+        tools.write_text("import os\nXCODE_VERSION = '27.3'   # the Xcode whose Metal compiler dmsh_chain.lock records\nXCODE = f'Xcode {XCODE_VERSION}'\n")
+        self.assertEqual(toolchain.wanted_xcode(engine), "27.3")
+
+    def test_an_older_xcode_than_nxnatives_stops_the_builds(self):
+        """Xcode 27.1's Metal compiler, which nxnative refuses for every NVN
+        game: the doctor says to update Xcode before any build is tried."""
+        engine = self.tmp / "nxnative"
+        tools = engine / toolchain.OWN_COMPILERS
+        tools.parent.mkdir(parents=True)
+        tools.write_text("XCODE_VERSION = '27.2'\n")
+        for found, ok in (("27.1 (27B44)", False), ("27.2 (27C55)", True), ("27.3 (27D20)", True)):
+            with self.subTest(xcode=found), mock.patch.object(toolchain, "xcode_version", return_value=found):
+                xcode = {c.key: c for c in toolchain.doctor(Paths.default(), engine)}["xcode"]
+                self.assertEqual((xcode.ok, xcode.blocking, xcode.found), (ok, True, found))
+        with mock.patch.object(toolchain, "xcode_version", return_value="27.1 (27B44)"):
+            xcode = {c.key: c for c in toolchain.doctor(Paths.default(), engine)}["xcode"]
+        self.assertEqual(xcode.fix, "Xcode 27.1 is older than Xcode 27.2, whose Metal compiler nxnative builds the shaders with: "
+                                    "update Xcode in the App Store (the page “This Mac's tools” does it with you).")
+        self.assertEqual(xcode.command, "")
+        with mock.patch.object(toolchain, "xcode_version", return_value=None):
+            xcode = {c.key: c for c in toolchain.doctor(Paths.default(), engine)}["xcode"]
+        self.assertEqual((xcode.ok, xcode.command), (False, "sudo xcode-select -s /Applications/Xcode-27.2.app"))
 
     def test_doctor_names_missing_tools(self):
         saved = os.environ.get("PATH", "")

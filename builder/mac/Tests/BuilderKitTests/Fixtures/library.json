@@ -207,5 +207,12 @@
   "language": "en",
   "notes": [],
   "problems": [],
+  "room": {
+    "folders": 2,
+    "free_gb": 13,
+    "keep_gb": 20,
+    "text": "Cartouche Builder starts a build only with 20 GB free on your Mac's disk, and only 13 GB are free there. It first removes the build folders of the games built longest ago (2), which may be enough. Free some room there (Storage shows what the build folders take), choose build folders on another disk, or lower “Keep at least 20 GB free”.",
+    "title": "7 GB missing to build"
+  },
   "updated": false
 }

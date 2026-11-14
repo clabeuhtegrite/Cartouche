@@ -24,6 +24,7 @@ import sys
 from dataclasses import dataclass
 from pathlib import Path
 
+from . import causes
 from .i18n import t
 from .paths import Paths
 
@@ -49,6 +50,12 @@ PYTHON_CANDIDATES = (
     "/usr/local/bin/python3",
 )
 STAMP = ".cartouche-builder-requirements"
+# The Xcode whose Metal compiler nxnative's shader chain was locked with, as
+# nxnative's own_compilers.py names it (XCODE_VERSION): what a checkout says
+# comes first, this before the first clone.
+XCODE = "27.2"
+OWN_COMPILERS = "dm/gfx/tools/own_compilers.py"
+XCODE_VERSION = re.compile(r"^XCODE_VERSION\s*=\s*['\"](\d+(?:\.\d+)*)['\"]", re.MULTILINE)
 # nxnative's committed nx_extract: a checkout that has it builds without .NET.
 NATIVE_NX_EXTRACT = "dm/tools/nx_extract_bin/nx_extract"
 
@@ -112,6 +119,19 @@ def xcode_version(env: dict[str, str]) -> str | None:
     if not version:
         return None
     return version.group(1) + (f" ({build.group(1)})" if build else "")
+
+
+def wanted_xcode(engine_root: Path | None) -> str:
+    """The Xcode nxnative builds the shaders with ("27.2"): an NVN game's
+    build stops at once with another Xcode's Metal compiler (causes.py)."""
+    if engine_root:
+        try:
+            found = XCODE_VERSION.search((engine_root / OWN_COMPILERS).read_text(encoding="utf-8", errors="replace"))
+        except OSError:
+            found = None
+        if found:
+            return found.group(1)
+    return XCODE
 
 
 def ios_sdk(env: dict[str, str]) -> str | None:
@@ -292,9 +312,14 @@ def doctor(paths: Paths, engine_root: Path | None = None) -> list[Check]:
         checks.append(Check("macos", False, platform.system(), t("fix.macos")))
     checks.append(Check("git", bool(which("git", env)), which("git", env) or "", t("fix.git"), "xcode-select --install"))
     xcode = xcode_version(env)
-    # The version that matters is the Metal compiler's, checked against the
-    # lock below: the Xcode a newer nxnative wants is the one its lock names.
-    checks.append(Check("xcode", bool(xcode), xcode or "", t("fix.xcode"), "sudo xcode-select -s /Applications/Xcode-27.2.app"))
+    # An older Xcode than nxnative's has an older Metal compiler, which
+    # nxnative refuses for every NVN game: Xcode is updated first, in the App
+    # Store. Another compiler of a newer Xcode is checked against the lock
+    # below, and stops only an NVN game's build (nxnative checks it itself).
+    wanted = wanted_xcode(engine_root)
+    outdated = bool(xcode) and causes.older(xcode, wanted)
+    fix = t("fix.xcode_update", found=(xcode or "").split(" ")[0], wanted=wanted) if outdated else t("fix.xcode", wanted=wanted)
+    checks.append(Check("xcode", bool(xcode) and not outdated, xcode or "", fix, "" if outdated else f"sudo xcode-select -s /Applications/Xcode-{wanted}.app"))
     sdk = ios_sdk(env)
     checks.append(Check("ios_sdk", bool(sdk), sdk or "", t("fix.ios_sdk"), "xcodebuild -downloadPlatform iOS"))
     metal = metal_version(env)
@@ -302,7 +327,7 @@ def doctor(paths: Paths, engine_root: Path | None = None) -> list[Check]:
     metal_ok = bool(metal) and (not locked or metal == locked)
     # Another compiler stops only an NVN game's build (nxnative checks it
     # itself); a missing one stops every build.
-    checks.append(Check("metal", metal_ok, metal or "", t("fix.metal", locked=locked or "Xcode 27.2"), "xcodebuild -downloadComponent MetalToolchain", blocking=not metal))
+    checks.append(Check("metal", metal_ok, metal or "", t("fix.metal", locked=locked or f"Xcode {wanted}"), "xcodebuild -downloadComponent MetalToolchain", blocking=not metal))
     tools = {name: which(command, env) for name, command in (("xcodegen", "xcodegen"), ("zstd", "zstd"), ("glslang", "glslangValidator"))}
     brew = [name for name, path in tools.items() if not path]
     # What is there: the folders the tools were found in ("/opt/homebrew/bin").

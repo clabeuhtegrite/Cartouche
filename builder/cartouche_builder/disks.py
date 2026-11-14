@@ -12,6 +12,7 @@ the disk's name for an external drive or a share (/Volumes/<name>).
 from __future__ import annotations
 
 import errno
+import math
 import re
 import shutil
 from pathlib import Path
@@ -129,3 +130,38 @@ def describe(error: BaseException, fallback: Path | None = None) -> str:
         return str(error)
     path = Path(error.filename) if isinstance(error, OSError) and isinstance(error.filename, str) and error.filename.startswith("/") else None
     return message(path or fallback, str(error))
+
+
+def disk_name(path: Path | None) -> str:
+    """"your Mac's disk", or "the disk “Games”", for words about PATH's disk."""
+    name = volume(path)
+    return t("room.named", name=name) if name else t("room.mac")
+
+
+def no_room(path: Path, free_gb: float, needed_gb: float, unpacked_gb: float, keep_gb: int) -> str:
+    """The player's words for a game the room kept free on the build
+    folders' disk (PATH) did not let build (batch.py): how much is missing,
+    and what makes room. NEEDED_GB is what the settings keep free (KEEP_GB),
+    and UNPACKED_GB more for a zipped dump. In whole gigabytes, the free
+    room rounded down and what is needed up, so that they add up."""
+    free, needed = math.floor(free_gb), math.ceil(needed_gb)
+    unpack = t("room.unpack", gb=math.ceil(unpacked_gb)) if unpacked_gb > 0 else ""
+    return t("batch.no_room", short=needed - free, needed=needed, free=free, disk=disk_name(path), unpack=unpack, keep=keep_gb)
+
+
+def room(path: Path, keep_gb: int, folders: int) -> dict | None:
+    """The room a build has on the build folders' disk (PATH), before one
+    starts, for the app's card: what is free and what the settings keep
+    free, in whole gigabytes, and when it falls short, the player's words.
+    FOLDERS is how many build folders the builder may remove first. None
+    when the disk cannot be read (a share not connected)."""
+    left = free_bytes(path)
+    if left is None:
+        return None
+    free = math.floor(left / 2**30)
+    found: dict = {"free_gb": free, "keep_gb": keep_gb, "folders": folders}
+    if free < keep_gb:
+        found["title"] = t("room.short_title", short=keep_gb - free)
+        older = t("room.folders", count=folders) if folders else ""
+        found["text"] = t("room.short", keep=keep_gb, free=free, disk=disk_name(path), folders=older)
+    return found
