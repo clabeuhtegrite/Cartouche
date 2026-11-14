@@ -63,7 +63,8 @@ jobs:
           mkdir -p build/site/download
           cp site/index.html site/favicon.svg build/site/
           cp site/download/index.html build/site/download/
-          python3 site/tools/downloads.py build/releases.json build/site/index.html build/site/download/index.html > build/downloads.md
+          python3 site/tools/downloads.py --repository "$GITHUB_REPOSITORY" \
+            build/releases.json build/site/index.html build/site/download/index.html > build/downloads.md
           cat build/downloads.md
           cat build/downloads.md >> "$GITHUB_STEP_SUMMARY"
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7

@@ -89,6 +89,16 @@ class NewestTests(unittest.TestCase):
         ]
         self.assertEqual(downloads.newest(releases, "builder").version, "0.2.0")
 
+    def test_the_files_of_the_repository_it_is_told(self) -> None:
+        # Once the repository has moved to an organization, GitHub's answer
+        # gives its new place's addresses, and the workflow its new name.
+        moved = "https://github.com/new-owner/Cartouche/releases/download/"
+        releases = [builder("0.3.0", host=moved), builder("0.2.0")]
+        self.assertEqual(downloads.newest(releases, "builder").version, "0.2.0")
+        found = downloads.newest(releases, "builder", "new-owner/Cartouche")
+        self.assertEqual(found.version, "0.3.0")
+        self.assertEqual(found.url, moved + "builder-v0.3.0/Cartouche-Builder-0.3.0.dmg")
+
     def test_nothing_without_a_release(self) -> None:
         self.assertIsNone(downloads.newest([installer("0.1.0")], "builder"))
 
@@ -143,7 +153,7 @@ class RewriteTests(unittest.TestCase):
 
 
 class MainTests(unittest.TestCase):
-    def run_on_the_pages(self, releases: list) -> tuple[int, list[str], str, str]:
+    def run_on_the_pages(self, releases: list, *options: str) -> tuple[int, list[str], str, str]:
         with tempfile.TemporaryDirectory() as folder:
             listed = Path(folder) / "releases.json"
             listed.write_text(json.dumps(releases))
@@ -154,7 +164,7 @@ class MainTests(unittest.TestCase):
                 copies.append(copy)
             out, err = io.StringIO(), io.StringIO()
             with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
-                code = downloads.main([str(listed), *map(str, copies)])
+                code = downloads.main([*options, str(listed), *map(str, copies)])
             return code, [copy.read_text(encoding="utf-8") for copy in copies], out.getvalue(), err.getvalue()
 
     def test_the_site_s_pages_get_the_newest_files(self) -> None:
@@ -167,6 +177,20 @@ class MainTests(unittest.TestCase):
             self.assertIn(BASE + "installer-v0.2.0/Cartouche-Installer-0.2.0-Mac.dmg", html)
             self.assertIn(BASE + "installer-v0.2.0/Cartouche-Installer-0.2.0-Windows.exe", html)
         self.assertIn("- Cartouche Builder 0.3.0: " + BASE + "builder-v0.3.0/Cartouche-Builder-0.3.0.dmg", out)
+
+    def test_the_files_of_the_repository_the_workflow_names(self) -> None:
+        # .github/workflows/site.yml gives GITHUB_REPOSITORY, the
+        # repository's new name once it has moved.
+        moved = "https://github.com/new-owner/Cartouche/releases/download/"
+        releases = [builder("0.3.0", host=moved), installer("0.2.0", host=moved)]
+        code, pages, out, err = self.run_on_the_pages(releases, "--repository", "new-owner/Cartouche")
+        self.assertEqual(code, 0, err)
+        for html in pages:
+            self.assertIn(moved + "builder-v0.3.0/Cartouche-Builder-0.3.0.dmg", html)
+            self.assertIn(moved + "installer-v0.2.0/Cartouche-Installer-0.2.0-Windows.exe", html)
+            self.assertNotIn(BASE, html)
+        self.assertIn("- Cartouche Builder 0.3.0: " + moved + "builder-v0.3.0/Cartouche-Builder-0.3.0.dmg", out)
+        self.assertEqual(self.run_on_the_pages(releases)[0], 1)
 
     def test_the_pages_as_they_are_for_the_releases_they_name(self) -> None:
         # Published from the releases their links name, they keep every

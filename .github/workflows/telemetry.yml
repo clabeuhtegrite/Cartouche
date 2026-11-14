@@ -8,7 +8,9 @@ name: Telemetry
 # cloudflare, and does nothing while they are not set. Run it by hand for a
 # first deploy, once they are. Its secret CARTOUCHE_REPORTS_TOKEN lets the
 # Worker file the problems players send in the private repository
-# <owner>/cartouche-reports, or the variable CARTOUCHE_REPORTS_REPOSITORY.
+# clabeuhtegrite/cartouche-reports, or the variable
+# CARTOUCHE_REPORTS_REPOSITORY: the repository's first owner keeps it when
+# Cartouche moves to an organization.
 # The repository's secrets IGDB_CLIENT_ID and IGDB_CLIENT_SECRET, which the
 # Covers workflows use too, let the server find on IGDB the covers of the
 # games Cartouche does not know.
@@ -91,7 +93,7 @@ jobs:
           CARTOUCHE_REPORTS_TOKEN: ${{ secrets.CARTOUCHE_REPORTS_TOKEN }}
           IGDB_CLIENT_ID: ${{ secrets.IGDB_CLIENT_ID }}
           IGDB_CLIENT_SECRET: ${{ secrets.IGDB_CLIENT_SECRET }}
-          CARTOUCHE_REPORTS_REPOSITORY: ${{ vars.CARTOUCHE_REPORTS_REPOSITORY || format('{0}/cartouche-reports', github.repository_owner) }}
+          CARTOUCHE_REPORTS_REPOSITORY: ${{ vars.CARTOUCHE_REPORTS_REPOSITORY || 'clabeuhtegrite/cartouche-reports' }}
           CLOUDFLARE_ACCESS_TEAM: ${{ vars.CLOUDFLARE_ACCESS_TEAM }}
           CLOUDFLARE_ACCESS_AUD: ${{ vars.CLOUDFLARE_ACCESS_AUD }}
         run: telemetry/deploy.sh
