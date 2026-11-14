@@ -1,0 +1,180 @@
+name: Home button screens
+
+# Research only (the thread "Masquer le bouton maison en jeu"), removed
+# before the merge: the screenshots of the Home button over a game behind
+# the console, in French, from the launcher's harness in the iOS Simulator,
+# for Ad to validate: as this branch makes it, which fades away and comes
+# back at a touch on its place (.github/home-screens/HomeScreensAfter.swift),
+# then as main makes it, from main's own tree (HomeScreensBefore.swift).
+# Each test runs alone; the screenshots go to the run's artifact, and in one
+# commit to .github/home-screens/captures on this branch, which starts no
+# workflow (GITHUB_TOKEN).
+
+on:
+  push:
+    branches: [claude/project-thread-b8fvbu]
+    paths:
+      - ".github/home-screens/HomeScreensAfter.swift"
+      - ".github/home-screens/HomeScreensBefore.swift"
+      - ".github/workflows/home-screens.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: home-screens
+  cancel-in-progress: true
+
+env:
+  XCODE_VERSION: "27.2"
+
+jobs:
+  capture:
+    name: Home button screenshots
+    runs-on: xcode-27
+    timeout-minutes: 60
+    env:
+      HOMEBREW_NO_AUTO_UPDATE: "1"
+      HOMEBREW_NO_INSTALL_CLEANUP: "1"
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      # main, for the screenshots before.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: main
+          path: main-tree
+          persist-credentials: false
+      - name: Check out LiveContainer
+        run: git submodule update --init app/LiveContainer
+      - name: Select Xcode
+        run: |
+          sudo xcode-select -s "/Applications/Xcode_${XCODE_VERSION}.app"
+          xcodebuild -version
+      - name: Install XcodeGen
+        run: brew install xcodegen
+      # The iPhone that harness.sh picks, the same way, booted in French.
+      - name: The iPhone, in French
+        run: |
+          UDID="$(python3 - <<'PY'
+          import json, subprocess, sys
+
+          def listing(*args):
+              return json.loads(subprocess.run(["xcrun", "simctl", "list", "-j", *args], check=True,
+                                               capture_output=True, text=True).stdout)
+
+          def release(runtime):
+              try:
+                  return tuple(int(n) for n in runtime.get("version", "0").split("."))
+              except ValueError:
+                  return (0,)
+
+          runtimes = [r for r in listing("runtimes")["runtimes"]
+                      if r.get("isAvailable", True) and r.get("platform", "iOS") == "iOS"]
+          if not runtimes:
+              sys.exit("no iOS runtime")
+          runtime = max(runtimes, key=lambda r: (release(r), -len(r["identifier"])))
+          iphones = [t for t in runtime.get("supportedDeviceTypes", []) if t.get("productFamily", "iPhone") == "iPhone"
+                     and t.get("name", "").startswith("iPhone")]
+          wanted = next((t for t in iphones if t["name"] == "iPhone 17 Pro"), iphones[-1] if iphones else None)
+          if wanted is None:
+              sys.exit(f"{runtime['identifier']} runs no iPhone")
+          for device in listing("devices", "available")["devices"].get(runtime["identifier"], []):
+              if device.get("deviceTypeIdentifier") == wanted["identifier"]:
+                  print(device["udid"])
+                  break
+          else:
+              print(subprocess.run(["xcrun", "simctl", "create", "Cartouche Harness " + wanted["name"], wanted["identifier"],
+                                    runtime["identifier"]], check=True, capture_output=True, text=True).stdout.strip())
+          print(f"   {wanted['name']}, iOS {runtime.get('version', '?')} ({runtime.get('buildversion', '?')})", file=sys.stderr)
+          PY
+          )"
+          echo "UDID=$UDID" >> "$GITHUB_ENV"
+          xcrun simctl bootstatus "$UDID" -b
+          xcrun simctl spawn "$UDID" defaults write -g AppleLanguages -array fr
+          xcrun simctl spawn "$UDID" defaults write -g AppleLocale -string fr_FR
+          xcrun simctl spawn "$UDID" defaults read -g AppleLanguages
+      - name: After, as this branch makes it
+        run: |
+          cp .github/home-screens/HomeScreensAfter.swift launcher/Harness/Tests/
+          launcher/Harness/harness.sh build/harness-after CartoucheHarnessTests/HomeScreensAfter
+      # From the iPhone's folders on the Mac: harness.sh has shut it down,
+      # and simctl finds no app container on an iPhone shut down.
+      - name: Collect them
+        if: ${{ !cancelled() }}
+        run: |
+          mkdir -p build/home-screens
+          cp "$HOME/Library/Developer/CoreSimulator/Devices/$UDID/data/Containers/Data/Application/"*/Library/Logs/Screens/*.png \
+            build/home-screens/ || true
+          ls -l build/home-screens
+          grep -h "home-screens:" build/harness-after/test.log || true
+      # The harness writes LiveProcess.appex into its own bundle as it starts
+      # (HarnessLiveContainer.installLiveProcess), with no executable, which
+      # an install over it trips on ("Failed to chmod ... LiveProcess"): main's
+      # harness goes on an iPhone without it.
+      - name: Before, as main makes it
+        if: ${{ !cancelled() }}
+        run: |
+          xcrun simctl boot "$UDID" 2>/dev/null || true
+          xcrun simctl bootstatus "$UDID" -b >/dev/null
+          xcrun simctl uninstall "$UDID" io.github.clabeuhtegrite.cartouche.harness || true
+          # main as it is, its LiveContainer and patches with it.
+          git -C main-tree submodule update --init app/LiveContainer
+          cp .github/home-screens/HomeScreensBefore.swift main-tree/launcher/Harness/Tests/
+          main-tree/launcher/Harness/harness.sh build/harness-before CartoucheHarnessTests/HomeScreensBefore
+      - name: Collect them too
+        if: ${{ !cancelled() }}
+        run: |
+          mkdir -p build/home-screens
+          cp "$HOME/Library/Developer/CoreSimulator/Devices/$UDID/data/Containers/Data/Application/"*/Library/Logs/Screens/*.png \
+            build/home-screens/ || true
+          ls -l build/home-screens
+          grep -h "home-screens:" build/harness-before/test.log || true
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        if: ${{ !cancelled() }}
+        with:
+          name: home-screens
+          path: |
+            build/home-screens
+            build/harness-after/failures.txt
+            build/harness-after/console.txt
+            build/harness-before/failures.txt
+            build/harness-before/console.txt
+          retention-days: 7
+          if-no-files-found: warn
+
+  push:
+    name: Commit them on the branch
+    needs: capture
+    # Those it took, even if a test failed after some.
+    if: ${{ !cancelled() }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # .github/home-screens/captures on this branch
+    steps:
+      # The branch as it is now, rather than as it was pushed: it may have
+      # taken main meanwhile, and the screenshots go on top.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.ref }}
+          persist-credentials: false
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
+        with:
+          name: home-screens
+          path: downloaded
+      - name: Commit and push them
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BRANCH: ${{ github.ref_name }}
+        run: |
+          ls -R downloaded
+          mkdir -p .github/home-screens/captures
+          cp downloaded/home-screens/*.png .github/home-screens/captures/
+          git add .github/home-screens/captures
+          git -c user.name="github-actions[bot]" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" \
+            commit -q -m "Home button: the screenshots, from run $GITHUB_RUN_ID (research, removed before the merge)"
+          gh auth setup-git
+          # Fails, rather than overwrite, if the branch has moved since.
+          git push -q "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY.git" "HEAD:refs/heads/$BRANCH"
+          echo "Pushed to $BRANCH"

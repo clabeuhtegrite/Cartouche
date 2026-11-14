@@ -2857,6 +2857,23 @@
         }
       }
     },
+    "running.homeFades" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The Home button hides after a few seconds: touch just below to bring it back."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Le bouton Home s’efface après quelques secondes : touchez juste en dessous pour le faire revenir."
+          }
+        }
+      }
+    },
     "running.homeHint" : {
       "extractionState" : "manual",
       "localizations" : {
