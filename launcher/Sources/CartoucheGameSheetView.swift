@@ -15,9 +15,10 @@
 //  what IGDB has of a game Cartouche does not know, after which the sheet
 //  goes back to its top, where the name and cover show; for a game installed
 //  on the iPhone, Siri and Home Screen (CartoucheGameShortcutsView); the
-//  game's copy in the games folder and Uninstall, the testers' results, and
-//  last, folded, the technical details: the recommended settings, what
-//  nxnative's profile says and which build is installed.
+//  game's copy in the games folder and Uninstall, the testers' results, in
+//  Cartouche's language (CartoucheGameResultsView), and last, folded, the
+//  technical details: the recommended settings, what nxnative's profile says
+//  and which build is installed.
 //
 
 import SwiftUI
@@ -167,7 +168,7 @@ struct CartoucheGameSheetView: View {
                 }
 
                 if let sheet = entry.sheet, !sheet.results.isEmpty {
-                    results(sheet)
+                    CartoucheGameResultsSection(results: sheet.results)
                 }
 
                 if hasDetails {
@@ -181,6 +182,26 @@ struct CartoucheGameSheetView: View {
             .onChange(of: entry.player) { _, _ in
                 withAnimation { reader.scrollTo(Self.top, anchor: .top) }
             }
+            #if CARTOUCHE_GALLERY
+            // The gallery's scenario of the testers' results opens the sheet
+            // on them, from their title to the line under them: the middle
+            // one in the middle, as a List scrolls a row to its top, its
+            // middle or its bottom only. Again every half second until the
+            // gallery says it has settled (3 s): the rows above take their
+            // heights as they show, and moved the results down after a
+            // single scroll (run 43553256663).
+            .onAppear {
+                guard GalleryState.sheetSection == "results",
+                      let results = entry.sheet.map({ CartoucheGameResultsSection.ordered($0.results) }),
+                      !results.isEmpty else { return }
+                let middle = results[results.count / 2]
+                for delay in stride(from: 0.5, through: 2.5, by: 0.5) {
+                    DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
+                        reader.scrollTo(middle, anchor: .center)
+                    }
+                }
+            }
+            #endif
         }
         // The header names the game: the bar above it stays empty.
         .navigationBarTitleDisplayMode(.inline)
@@ -469,51 +490,6 @@ struct CartoucheGameSheetView: View {
                 .font(.subheadline.weight(.semibold))
         }
         .padding(.vertical, 2)
-    }
-
-    // MARK: Testers' results
-
-    private func results(_ sheet: CartoucheGameSheet) -> some View {
-        Section(CartoucheText.results) {
-            ForEach(sheet.results.sorted { $0.date > $1.date }, id: \.self) { result in
-                VStack(alignment: .leading, spacing: 4) {
-                    HStack {
-                        Text(CartoucheText.resultStatus(result.status))
-                            .font(.headline)
-                        Spacer()
-                        Text(result.date)
-                            .font(.footnote.monospacedDigit())
-                            .foregroundStyle(.secondary)
-                    }
-                    Text(deviceName(result.device) + " · iOS " + result.iOS)
-                        .font(.subheadline)
-                    if let peak = result.peakMemoryMiB {
-                        Text(CartoucheText.peak(CartoucheText.memoryAmount(mebibytes: peak)))
-                            .font(.footnote)
-                            .foregroundStyle(.secondary)
-                    }
-                    Text(result.engine)
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
-                    ForEach(result.notes ?? [], id: \.self) { note in
-                        Text(note)
-                            .font(.footnote)
-                    }
-                }
-                .padding(.vertical, 2)
-            }
-        }
-    }
-
-    private func deviceName(_ identifier: String) -> String {
-        var name = identifier
-        if let device = CartoucheCatalog.shared.device(identifier) {
-            name += " (" + device.chip + ", " + CartoucheText.gigabytes(device.memoryGB) + ")"
-        }
-        if identifier == CartoucheDevice.modelIdentifier {
-            name = CartoucheText.thisModel + " · " + name
-        }
-        return name
     }
 
     // MARK: Technical details

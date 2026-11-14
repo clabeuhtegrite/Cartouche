@@ -67,9 +67,9 @@ final class CartoucheDeviceWordsTests: XCTestCase {
     /// the iPad.
     func testEveryTextOfCartoucheOnAnIPad() throws {
         let keeps: Set<String> = [
-            "reason.gpu", "saves.putBack.footer", "setting.option.duoScreen", "status.iphone.long",
-            "status.iphone.short", "status.mac.long", "storage.mac.busy", "storage.mac.how",
-            "storage.mac.offline", "storage.saves.footer", "system.memory.footer",
+            "reason.gpu", "results.measured", "saves.putBack.footer", "setting.option.duoScreen",
+            "status.iphone.long", "status.iphone.short", "status.mac.long", "storage.mac.busy",
+            "storage.mac.how", "storage.mac.offline", "storage.saves.footer", "system.memory.footer",
             "system.memory.footer.behind", "telemetry.footer",
         ]
         let url = URL(fileURLWithPath: #filePath).deletingLastPathComponent()

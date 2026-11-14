@@ -188,6 +188,36 @@
               "minimum": 0,
               "maximum": 100,
               "description": "The sessions that crashed, never drew a frame or ran out of memory, out of all of them."
+            },
+            "endedBadly": {
+              "type": "object",
+              "additionalProperties": false,
+              "minProperties": 1,
+              "description": "How the sessions that ended badly ended: crashed, ran out of memory, or never drew a frame. Left out when none did. The note says it in English; Cartouche says it in the player's language.",
+              "properties": {
+                "crashes": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "outOfMemory": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "didNotStart": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              }
+            },
+            "nxnative": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{7,12}$",
+              "description": "The nxnative commit most sessions reported, its first 12 characters. Left out when none reported one: the engine then says its build was not reported."
+            },
+            "otherBuilds": {
+              "type": "integer",
+              "minimum": 1,
+              "description": "How many other nxnative commits sessions reported."
             }
           }
         }

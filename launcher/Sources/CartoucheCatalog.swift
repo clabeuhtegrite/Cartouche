@@ -43,6 +43,10 @@ struct CartoucheGameSheet: Decodable, Hashable {
         let status: String
         let peakMemoryMiB: Int?
         let notes: [String]?
+        /// What Cartouche's game measurements found, for a result they made:
+        /// the figures its note and engine say in English, which Cartouche
+        /// says in the player's language (CartoucheMeasuredNote.swift).
+        let measured: CartoucheMeasured?
     }
 
     let titleId: String

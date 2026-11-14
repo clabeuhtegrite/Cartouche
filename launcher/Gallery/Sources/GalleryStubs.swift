@@ -21,6 +21,9 @@ enum GalleryState {
     /// SideStore keeps the Apple ID of a sign-in that stopped before the
     /// certificate (work: sign-in-unfinished).
     static var signInUnfinished = false
+    /// The part of a game's sheet the sheet opens on: results, the
+    /// testers' results (category: results).
+    static var sheetSection: String?
     /// LocalDevVPN is connected (CartoucheVPN.isConnected), whatever the
     /// interfaces of the Mac under the simulator (work: device-…).
     static var vpnConnected = false

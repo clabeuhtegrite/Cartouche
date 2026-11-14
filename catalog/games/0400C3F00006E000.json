@@ -38,7 +38,10 @@
         "from": "2026-11-11",
         "to": "2026-11-12",
         "targetFps": 60,
-        "endedBadlyPercent": 20
+        "endedBadlyPercent": 20,
+        "endedBadly": {
+          "didNotStart": 1
+        }
       }
     },
     {
@@ -59,7 +62,10 @@
         "fps": 32.2,
         "targetFps": 60,
         "stuttersPerMinute": 83,
-        "endedBadlyPercent": 33.3
+        "endedBadlyPercent": 33.3,
+        "endedBadly": {
+          "crashes": 3
+        }
       }
     }
   ]
