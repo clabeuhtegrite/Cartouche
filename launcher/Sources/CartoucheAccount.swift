@@ -614,5 +614,28 @@ final class CartoucheAccount: ObservableObject {
                                               message: CartoucheText.deviceVPN + " " + CartoucheText.deviceAfterApple,
                                               step: "Signing in", failure: failure)
     }
+
+    /// Shows a sign-in that stopped at the check of this iPhone, before
+    /// anything went to Apple, LocalDevVPN connected: minimuxer could not
+    /// reach this iPhone, for REASON, as the outcome of SideStore's KIND of
+    /// error tells it (app/patches/sidestore/0022), SENTENCE being
+    /// minimuxer's. As the sign-in's end does, for the gallery's screens.
+    func showDeviceCheckForGallery(kind: String, reason: String, detail: String?, pairingKind: String, sentence: String) {
+        var left: [String: Any] = [
+            "version": 1, "action": CartoucheSideStoreOutcome.Action.signIn.rawValue, "ok": false,
+            "date": Int(Date().timeIntervalSince1970), "seconds": 0, "stage": "deviceCheck", "family": "operation",
+            "kind": kind, "reason": reason, "pairingKind": pairingKind, "ipsec": false,
+        ]
+        if let detail { left["detail"] = detail }
+        let outcome = (try? JSONSerialization.data(withJSONObject: left))
+            .flatMap { CartoucheSideStoreOutcome(data: $0, expecting: .signIn) }
+        // SideStore's words for its error (OperationError.swift).
+        let message = kind == "invalidPairingFile"
+            ? "The current pairing file is invalid. Reason: \(sentence)"
+            : "VPN Connection Error:\n\(sentence)\n\nPlease make sure LocalDevVPN is connected and running properly."
+        let failure = CartoucheFailure.sideStore(outcome: outcome, message: message, fraction: 0, seconds: 0,
+                                                 vpn: CartoucheVPN.isConnected, pairing: true)
+        failed(CartoucheText.sideStoreMessage(message, failure: failure, signIn: true), fraction: 0, failure: failure)
+    }
     #endif
 }

@@ -20,6 +20,9 @@ enum GalleryState {
     /// SideStore keeps the Apple ID of a sign-in that stopped before the
     /// certificate (work: sign-in-unfinished).
     static var signInUnfinished = false
+    /// LocalDevVPN is connected (CartoucheVPN.isConnected), whatever the
+    /// interfaces of the Mac under the simulator (work: device-…).
+    static var vpnConnected = false
 
     static let documents: URL = {
         let url = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
