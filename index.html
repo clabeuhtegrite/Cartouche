@@ -1,0 +1,2176 @@
+<!doctype html>
+<html lang="en" data-lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Cartouche for iPhone</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<meta name="description" content="Cartouche turns an iPhone into a console for the games nxnative runs natively, from your own copies. Free software, no developer account needed." data-en="Cartouche turns an iPhone into a console for the games nxnative runs natively, from your own copies. Free software, no developer account needed." data-fr="Cartouche transforme un iPhone en console pour les jeux que nxnative fait tourner nativement, à partir de vos propres copies. Logiciel libre, sans compte développeur.">
+<meta name="color-scheme" content="dark">
+<meta name="theme-color" content="#090A11">
+<meta name="referrer" content="no-referrer">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Cartouche for iPhone">
+<meta property="og:description" content="Cartouche turns an iPhone into a console for the games nxnative runs natively, from your own copies.">
+<meta property="og:locale" content="en_US">
+<meta property="og:locale:alternate" content="fr_FR">
+<!-- The games' covers, from IGDB as in the app. -->
+<link rel="preconnect" href="https://images.igdb.com">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<script>
+    // The page's language before it is drawn: the visitor's choice, else the browser's.
+    (function () {
+        var lang;
+        try { lang = localStorage.getItem("cartouche.site.lang"); } catch (e) {}
+        if (lang !== "fr" && lang !== "en") {
+            var wanted = (navigator.languages && navigator.languages[0]) || navigator.language || "en";
+            lang = wanted.toLowerCase().indexOf("fr") === 0 ? "fr" : "en";
+        }
+        document.documentElement.setAttribute("data-lang", lang);
+        document.documentElement.lang = lang;
+    })();
+</script>
+<style>
+    /* The page is the console's stage: dark, lit from above by the colours of
+       the game in focus, with Cartouche's own screens standing on it, rebuilt
+       here in HTML at the app's sizes in points. One theme, the app's own. */
+    :root {
+        color-scheme: dark;
+        --stage: #090A11;
+        --ink: #F6F6FA;
+        --ink-2: rgba(246, 246, 250, .7);
+        --ink-3: rgba(246, 246, 250, .48);
+        --line: rgba(255, 255, 255, .1);
+        --indigo: #4F46E5;
+        --pink: #EC4899;
+        --ready: #34D37E;
+        --stored: #64D2FF;
+        --mac: #62A3FF;
+        --link: #0A84FF;
+        --danger: #FF7373;
+        --panel: rgba(28, 28, 33, .74);
+        --display: ui-rounded, "SF Pro Rounded", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+        --text: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+        /* The game in focus, as the console lights its stage with it. */
+        --light: #E6BB57;
+        --dark: #5C6614;
+    }
+    @property --light { syntax: "<color>"; inherits: true; initial-value: #E6BB57; }
+    @property --dark { syntax: "<color>"; inherits: true; initial-value: #5C6614; }
+
+    *, *::before, *::after { box-sizing: border-box; }
+    html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; background: var(--stage); }
+    body {
+        margin: 0;
+        background: var(--stage);
+        color: var(--ink);
+        font-family: var(--text);
+        font-size: 17px;
+        line-height: 1.55;
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
+    }
+    body::before {
+        content: "";
+        position: fixed;
+        inset: 0 0 auto;
+        height: env(safe-area-inset-top, 0px);
+        z-index: 40;
+        background: var(--stage);
+    }
+    html[data-lang="fr"] [lang="en"], html[data-lang="en"] [lang="fr"] { display: none !important; }
+    img, svg { display: block; max-width: 100%; }
+    a { color: inherit; text-decoration-thickness: 1px; text-underline-offset: .2em; }
+    button { font: inherit; color: inherit; }
+    :focus-visible { outline: 2px solid #fff; outline-offset: 3px; }
+    p { margin: 0; }
+    .page { position: relative; overflow-x: clip; }
+    .wrap {
+        width: 100%;
+        max-width: 1200px;
+        margin-inline: auto;
+        padding-left: max(16px, env(safe-area-inset-left, 0px));
+        padding-right: max(16px, env(safe-area-inset-right, 0px));
+    }
+    @media (min-width: 760px) {
+        .wrap {
+            padding-left: max(40px, env(safe-area-inset-left, 0px));
+            padding-right: max(40px, env(safe-area-inset-right, 0px));
+        }
+    }
+
+    /* ---------- Header: the console's dock, as a capsule of glass ---------- */
+    .top { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 30; padding-block: 12px; }
+    .top__bar {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        min-height: 58px;
+        padding: 0 9px 0 18px;
+        border-radius: 999px;
+        background: rgba(16, 17, 27, .64);
+        box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .13), 0 14px 34px -16px rgba(0, 0, 0, .8);
+        -webkit-backdrop-filter: blur(22px) saturate(1.6);
+        backdrop-filter: blur(22px) saturate(1.6);
+    }
+    .wordmark { display: inline-flex; align-items: center; gap: 9px; margin-right: auto; text-decoration: none; }
+    .wordmark svg { width: 18px; height: 24px; }
+    .wordmark b, .brandtext {
+        font: 800 1.38rem/1 var(--display);
+        letter-spacing: -.01em;
+        background: linear-gradient(90deg, #7A73FF, var(--pink));
+        -webkit-background-clip: text;
+        background-clip: text;
+        color: transparent;
+    }
+    .nav { display: flex; gap: 2px; }
+    .nav a { padding: 8px 13px; border-radius: 999px; color: var(--ink-2); font-size: .95rem; font-weight: 500; text-decoration: none; }
+    .nav a:hover { color: var(--ink); background: rgba(255, 255, 255, .08); }
+    .lang { display: inline-flex; padding: 3px; border-radius: 999px; background: rgba(255, 255, 255, .07); box-shadow: inset 0 0 0 1px var(--line); }
+    .lang button {
+        border: 0;
+        background: none;
+        padding: 7px 10px;
+        border-radius: 999px;
+        font: 700 .78rem/1 var(--display);
+        letter-spacing: .08em;
+        color: var(--ink-3);
+        cursor: pointer;
+    }
+    .lang button[aria-pressed="true"] { background: rgba(255, 255, 255, .16); color: var(--ink); }
+    .gh {
+        display: inline-grid;
+        place-items: center;
+        width: 42px;
+        height: 42px;
+        border-radius: 50%;
+        background: rgba(255, 255, 255, .07);
+        box-shadow: inset 0 0 0 1px var(--line);
+    }
+    .gh svg { width: 20px; height: 20px; }
+    @media (max-width: 919px) { .nav { display: none; } }
+
+    /* ---------- Type ---------- */
+    h1, h2, h3 { margin: 0; font-family: var(--display); text-wrap: balance; }
+    h1 { font-weight: 800; font-size: clamp(2.7rem, 1.3rem + 5.4vw, 5.6rem); line-height: .97; letter-spacing: -.028em; }
+    h2 { font-weight: 800; font-size: clamp(2.05rem, 1.25rem + 2.9vw, 3.5rem); line-height: 1.03; letter-spacing: -.022em; }
+    .label {
+        margin: 0 0 16px;
+        font: 800 .78rem/1.2 var(--display);
+        letter-spacing: .16em;
+        text-transform: uppercase;
+        color: var(--ink-3);
+    }
+    .prose { display: grid; gap: 14px; margin-top: 22px; max-width: 33em; color: var(--ink-2); }
+    .prose a { color: var(--ink); }
+    .small { font-size: .92rem; color: var(--ink-3); }
+
+    /* ---------- Buttons, as Cartouche draws them ---------- */
+    .btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+        min-height: 52px;
+        padding: 0 21px 0 14px;
+        border: 0;
+        border-radius: 999px;
+        color: #fff;
+        font-weight: 600;
+        font-size: 1.04rem;
+        text-decoration: none;
+        cursor: pointer;
+        transition: transform .18s ease, box-shadow .18s ease, background-color .18s ease;
+    }
+    .btn:hover { transform: translateY(-1px); }
+    .btn:active { transform: translateY(1px); }
+    .btn--primary {
+        background: linear-gradient(180deg, #6159F2, var(--indigo));
+        box-shadow: inset 0 1px 0 rgba(255, 255, 255, .28), 0 12px 30px -12px rgba(79, 70, 229, .9);
+    }
+    .btn--glass {
+        background: rgba(255, 255, 255, .09);
+        box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .16);
+        -webkit-backdrop-filter: blur(16px) saturate(1.5);
+        backdrop-filter: blur(16px) saturate(1.5);
+    }
+    .btn--glass:hover { background: rgba(255, 255, 255, .13); }
+    .btn svg { width: 20px; height: 20px; }
+    .glyph {
+        display: inline-grid;
+        place-items: center;
+        flex: none;
+        width: 24px;
+        height: 24px;
+        border: 1.6px solid currentColor;
+        border-radius: 50%;
+        font: 700 12px/1 var(--text);
+        font-style: normal;
+    }
+    .actions { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 26px; }
+
+    /* ---------- Hero ---------- */
+    .hero { position: relative; isolation: isolate; padding-block: clamp(28px, 5vw, 64px) clamp(64px, 8vw, 110px); transition: --light .8s ease, --dark .8s ease; }
+    .hero::before {
+        content: "";
+        position: absolute;
+        inset: -110px 0 0;
+        z-index: -1;
+        pointer-events: none;
+        background:
+            radial-gradient(62% 52% at 12% 0%, color-mix(in srgb, var(--light) 36%, transparent), transparent 72%),
+            radial-gradient(58% 50% at 94% 34%, color-mix(in srgb, var(--dark) 74%, transparent), transparent 74%),
+            linear-gradient(to bottom, transparent 62%, var(--stage));
+    }
+    .hero__head { display: grid; gap: 22px; }
+    @media (min-width: 980px) {
+        .hero__head { grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); gap: 64px; align-items: end; }
+        .hero__head .lede { padding-bottom: 6px; }
+    }
+    .eyebrow { display: inline-flex; align-items: center; gap: 10px; }
+    .eyebrow svg { width: 15px; height: 20px; }
+    .hero h1 { margin-top: 16px; }
+    .lede { font-size: clamp(1.07rem, 1rem + .3vw, 1.24rem); color: var(--ink-2); max-width: 32em; }
+    .lede a { color: var(--ink); }
+    .hero__device { margin-top: clamp(40px, 6vw, 72px); }
+    /* On a phone, the hero's iPhone stands upright, as the visitor holds theirs. */
+    @media (max-width: 699px) {
+        .hero .device { --w: 402 !important; --h: 874 !important; max-width: 290px !important; }
+    }
+    .hint { margin-top: 18px; text-align: center; color: var(--ink-3); font-size: .9rem; }
+    @media (hover: none) { .hint__keys { display: none; } }
+    .hint kbd {
+        display: inline-block;
+        min-width: 1.7em;
+        padding: 1px 6px;
+        border-radius: 6px;
+        background: rgba(255, 255, 255, .08);
+        box-shadow: inset 0 0 0 1px var(--line);
+        font: 600 .8rem/1.5 var(--text);
+        text-align: center;
+    }
+    .facts { list-style: none; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0 28px; margin: clamp(48px, 6vw, 80px) 0 0; padding: 0; }
+    .facts li { padding-top: 18px; border-top: 1px solid var(--line); color: var(--ink-2); font-size: .95rem; }
+    .facts b { display: block; margin-bottom: 4px; color: var(--ink); font: 800 1.16rem/1.25 var(--display); }
+    @media (max-width: 860px) { .facts { grid-template-columns: repeat(2, minmax(0, 1fr)); row-gap: 26px; } .facts li:last-child:nth-child(odd) { grid-column: 1 / -1; } }
+
+    /* ---------- Sections ---------- */
+    .section { position: relative; isolation: isolate; padding-block: clamp(64px, 8.5vw, 124px); }
+    .section::before {
+        content: "";
+        position: absolute;
+        inset: 0;
+        z-index: -1;
+        pointer-events: none;
+        background:
+            radial-gradient(46% 42% at var(--gx, 10%) 6%, color-mix(in srgb, var(--light) 15%, transparent), transparent 72%),
+            radial-gradient(44% 48% at var(--gx2, 90%) 44%, color-mix(in srgb, var(--dark) 42%, transparent), transparent 72%);
+        -webkit-mask-image: linear-gradient(transparent, #000 22%, #000 78%, transparent);
+        mask-image: linear-gradient(transparent, #000 22%, #000 78%, transparent);
+    }
+    .split { display: grid; gap: clamp(44px, 6vw, 96px); align-items: center; }
+    @media (min-width: 940px) {
+        .split { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+        .split--flip > :first-child { order: 2; }
+    }
+    .intro { display: grid; gap: 22px; }
+    @media (min-width: 980px) {
+        .intro--wide { grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); gap: 64px; align-items: end; }
+        .intro--wide .prose { margin-top: 0; }
+    }
+
+    .keys { list-style: none; display: grid; gap: 12px; margin: 30px 0 0; padding: 0; }
+    .keys li { display: grid; grid-template-columns: 58px minmax(0, 1fr); gap: 14px; align-items: baseline; color: var(--ink-2); }
+    .keys b { color: var(--ink); font-weight: 600; }
+    .keys .glyph, .keys .shoulder { transform: translateY(5px); }
+    .shoulder {
+        display: inline-block;
+        padding: 3px 5px;
+        border: 1.6px solid currentColor;
+        border-radius: 6px;
+        font: 700 11px/1 var(--text);
+        font-style: normal;
+    }
+    .keys__k { display: inline-flex; gap: 4px; color: var(--ink); }
+
+    figure { margin: 0; }
+    figcaption {
+        margin-top: 18px;
+        text-align: center;
+        font: 800 .74rem/1.3 var(--display);
+        letter-spacing: .16em;
+        text-transform: uppercase;
+        color: var(--ink-3);
+    }
+
+    /* ---------- Devices ----------
+       --w, --h: the screen's size in points; --r: its corner radius; --b: the
+       bezel. The screen is a size container: every size inside is a number of
+       points times --pt, so each screen is drawn as the app lays it out. */
+    .device { --b: 12; --r: 55; position: relative; width: 100%; margin-inline: auto; }
+    .device__body {
+        position: relative;
+        container-type: inline-size;
+        padding: calc(var(--b) / (var(--w) + 2 * var(--b)) * 100%);
+        border-radius: calc((var(--r) + var(--b)) / (var(--w) + 2 * var(--b)) * 100%) / calc((var(--r) + var(--b)) / (var(--h) + 2 * var(--b)) * 100%);
+        background: linear-gradient(145deg, #63656f 0%, #2a2b33 12%, #121318 42%, #1c1d23 72%, #54555f 100%);
+        box-shadow:
+            inset 0 0 0 1.5px rgba(255, 255, 255, .14),
+            0 44px 80px -34px rgba(0, 0, 0, .95),
+            0 90px 140px -70px color-mix(in srgb, var(--dark) 90%, transparent);
+    }
+    .device__body::before {
+        content: "";
+        position: absolute;
+        inset: calc(var(--b) * .5 / (var(--w) + 2 * var(--b)) * 100cqw);
+        border-radius: calc((var(--r) + var(--b) * .5) / (var(--w) + var(--b)) * 100%) / calc((var(--r) + var(--b) * .5) / (var(--h) + var(--b)) * 100%);
+        background: #030304;
+    }
+    .screen {
+        position: relative;
+        container-type: size;
+        aspect-ratio: var(--w) / var(--h);
+        border-radius: calc(var(--r) / var(--w) * 100%) / calc(var(--r) / var(--h) * 100%);
+        overflow: hidden;
+        overflow: clip;
+        isolation: isolate;
+        -webkit-mask-image: -webkit-radial-gradient(white, black);
+        background: var(--stage);
+    }
+    .device[tabindex]:focus-visible { outline: none; }
+    .device[tabindex]:focus-visible .device__body { box-shadow: 0 0 0 3px #fff, 0 44px 80px -34px rgba(0, 0, 0, .95); }
+
+    .ui {
+        --pt: calc(100cqw / var(--w));
+        position: absolute;
+        inset: 0;
+        overflow: hidden;
+        overflow: clip;
+        color: #fff;
+        font-family: var(--text);
+        font-size: calc(17 * var(--pt));
+        line-height: 1.25;
+        -webkit-user-select: none;
+        user-select: none;
+    }
+    .ui .ic { width: 1em; height: 1em; flex: none; }
+    .island, .indicator { position: absolute; z-index: 9; pointer-events: none; }
+    .island { left: 50%; top: calc(11 * var(--pt)); width: calc(124 * var(--pt)); height: calc(36 * var(--pt)); transform: translateX(-50%); border-radius: 999px; background: #000; }
+    .indicator { left: 50%; bottom: calc(8 * var(--pt)); width: calc(140 * var(--pt)); height: calc(5 * var(--pt)); transform: translateX(-50%); border-radius: 99px; background: rgba(255, 255, 255, .86); }
+    .statusbar {
+        position: absolute;
+        z-index: 9;
+        top: calc(18 * var(--pt));
+        left: calc(38 * var(--pt));
+        right: calc(30 * var(--pt));
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        font: 600 calc(16.5 * var(--pt))/1 var(--text);
+        letter-spacing: -.01em;
+        pointer-events: none;
+    }
+    .statusbar__icons { display: flex; align-items: center; gap: calc(6 * var(--pt)); }
+    .statusbar .ic--signal { width: calc(18 * var(--pt)); height: calc(12 * var(--pt)); }
+    .statusbar .ic--wifi { width: calc(16 * var(--pt)); height: calc(12 * var(--pt)); }
+    .statusbar .ic--battery { width: calc(27 * var(--pt)); height: calc(13 * var(--pt)); }
+    @container (orientation: landscape) {
+        .island { left: calc(11 * var(--pt)); top: 50%; width: calc(36 * var(--pt)); height: calc(124 * var(--pt)); transform: translateY(-50%); }
+        .indicator { width: calc(200 * var(--pt)); }
+        .statusbar { display: none; }
+    }
+
+    /* The stage behind every console screen (CartoucheStage). */
+    .stage { position: absolute; inset: 0; z-index: 0; overflow: hidden; background: var(--stage); }
+    .stage img {
+        position: absolute;
+        left: 0;
+        top: 0;
+        width: 100%;
+        height: 62%;
+        object-fit: cover;
+        opacity: 0;
+        transform: scale(1.08);
+        filter: blur(calc(10 * var(--pt)));
+        -webkit-mask-image: linear-gradient(#000, transparent);
+        mask-image: linear-gradient(#000, transparent);
+        transition: opacity .45s ease;
+    }
+    .stage img.is-on { opacity: .5; }
+    .stage::after {
+        content: "";
+        position: absolute;
+        inset: 0;
+        background:
+            radial-gradient(circle calc(520 * var(--pt)) at 15% 0%, color-mix(in srgb, var(--light) 55%, transparent), transparent),
+            radial-gradient(circle calc(460 * var(--pt)) at 95% 35%, color-mix(in srgb, var(--dark) 65%, transparent), transparent),
+            linear-gradient(to bottom, transparent 50%, rgba(0, 0, 0, .55));
+    }
+
+    /* Glass, chips, statuses and buttons inside the app. */
+    .glass {
+        background: rgba(255, 255, 255, .1);
+        box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .15);
+        -webkit-backdrop-filter: blur(14px) saturate(1.4);
+        backdrop-filter: blur(14px) saturate(1.4);
+    }
+    .uglyph {
+        display: inline-grid;
+        place-items: center;
+        flex: none;
+        width: 1.25em;
+        height: 1.25em;
+        border: calc(1.5 * var(--pt)) solid currentColor;
+        border-radius: 50%;
+        font-style: normal;
+        font-weight: 700;
+        line-height: 1;
+    }
+    .uglyph > span, .uglyph > b { font-size: .6em; font-weight: 700; }
+    .uglyph .ic { width: .66em; height: .66em; }
+    .ushoulder {
+        display: inline-block;
+        padding: calc(3 * var(--pt)) calc(4.5 * var(--pt));
+        border: calc(1.4 * var(--pt)) solid currentColor;
+        border-radius: calc(5 * var(--pt));
+        font: 700 calc(10 * var(--pt))/1 var(--text);
+        font-style: normal;
+    }
+    .uchip {
+        flex: none;
+        padding: calc(4 * var(--pt)) calc(9 * var(--pt));
+        border-radius: 999px;
+        background: rgba(255, 255, 255, .16);
+        color: #fff;
+        font: 800 calc(12 * var(--pt))/1 var(--display);
+        letter-spacing: calc(1.6 * var(--pt));
+        text-transform: uppercase;
+    }
+    .umeta, .ustat { display: inline-flex; align-items: center; gap: calc(5 * var(--pt)); white-space: nowrap; }
+    .ustat { color: var(--c); font-weight: 600; }
+    .ubtn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: calc(10 * var(--pt));
+        height: calc(54 * var(--pt));
+        padding: 0 calc(24 * var(--pt)) 0 calc(18 * var(--pt));
+        border: 0;
+        border-radius: 999px;
+        color: #fff;
+        font: 600 calc(19 * var(--pt))/1 var(--text);
+        text-decoration: none;
+        white-space: nowrap;
+    }
+    a.ubtn, button.ubtn { cursor: pointer; }
+    a.ubtn:hover, button.ubtn:hover { filter: brightness(1.1); }
+    .ubtn--primary {
+        background: linear-gradient(180deg, #5F57F1, #4F46E5);
+        box-shadow: inset 0 1px 0 rgba(255, 255, 255, .3), 0 calc(8 * var(--pt)) calc(20 * var(--pt)) rgba(79, 70, 229, .42);
+    }
+    .ubtn--round { width: calc(54 * var(--pt)); padding: 0; }
+    .ubtn--wide { width: 100%; padding: 0; }
+    .ubtn--slim { height: calc(40 * var(--pt)); font-size: calc(17 * var(--pt)); }
+    .ubtn .ic { font-size: calc(21 * var(--pt)); }
+
+    /* ---------- The home ---------- */
+    .home { display: flex; flex-direction: column; }
+    .home__bar { position: relative; z-index: 2; display: flex; align-items: center; gap: calc(10 * var(--pt)); padding: calc(14 * var(--pt)) calc(58 * var(--pt)) 0; }
+    .mark { display: flex; align-items: center; gap: calc(8 * var(--pt)); margin-right: auto; }
+    .mark i { position: relative; width: calc(17 * var(--pt)); height: calc(23 * var(--pt)); border-radius: calc(2.6 * var(--pt)); background: linear-gradient(90deg, #4F46E5, #EC4899); }
+    .mark i::before, .mark i::after {
+        content: "";
+        position: absolute;
+        left: 50%;
+        width: calc(7.7 * var(--pt));
+        height: calc(1.2 * var(--pt));
+        margin-left: calc(-3.85 * var(--pt));
+        border-radius: 9px;
+        background: rgba(255, 255, 255, .55);
+    }
+    .mark i::before { top: calc(2.6 * var(--pt)); }
+    .mark i::after { top: calc(5.2 * var(--pt)); }
+    .mark b {
+        font: 800 calc(24 * var(--pt))/1 var(--display);
+        letter-spacing: -.01em;
+        background: linear-gradient(90deg, #4F46E5, #EC4899);
+        -webkit-background-clip: text;
+        background-clip: text;
+        color: transparent;
+    }
+    .upill { display: inline-grid; place-items: center; height: calc(34 * var(--pt)); padding: 0 calc(15 * var(--pt)); border-radius: 999px; font-size: calc(19 * var(--pt)); }
+    .dock { display: flex; align-items: center; border-radius: 999px; }
+    .dock__item { display: inline-flex; align-items: center; gap: calc(7 * var(--pt)); height: 100%; padding: 0 calc(12 * var(--pt)); border-radius: 999px; color: #fff; text-decoration: none; }
+    a.dock__item:hover { background: rgba(255, 255, 255, .1); }
+    .dock--top { height: calc(38 * var(--pt)); padding: 0 calc(5 * var(--pt)); font-size: calc(15 * var(--pt)); font-weight: 500; }
+    .dock--top .ic, .dock--top .uglyph { font-size: calc(17 * var(--pt)); }
+    .dock--bottom { position: relative; z-index: 2; display: none; justify-content: space-around; height: calc(62 * var(--pt)); margin: 0 calc(18 * var(--pt)) calc(24 * var(--pt)); }
+    .dock--bottom .dock__item { flex-direction: column; justify-content: center; gap: calc(5 * var(--pt)); font-size: calc(12.5 * var(--pt)); font-weight: 500; color: rgba(255, 255, 255, .84); }
+    .dock--bottom .dock__item > .ic { font-size: calc(22 * var(--pt)); }
+    .dock__label { display: inline-flex; align-items: center; gap: calc(4 * var(--pt)); }
+    .dock__label .uglyph { font-size: calc(14 * var(--pt)); }
+
+    .home__main {
+        position: relative;
+        z-index: 1;
+        flex: 1;
+        min-height: 0;
+        display: grid;
+        grid-template-columns: calc(520 * var(--pt)) minmax(0, 1fr);
+        grid-template-rows: auto minmax(0, 1fr);
+        column-gap: calc(18 * var(--pt));
+        padding: calc(10 * var(--pt)) calc(58 * var(--pt)) calc(12 * var(--pt)) 0;
+    }
+    .home--paused .home__main { grid-template-columns: calc(420 * var(--pt)) minmax(0, 1fr); }
+    .home__label {
+        grid-column: 1;
+        height: calc(20 * var(--pt));
+        padding: 0 0 0 calc(58 * var(--pt));
+        font: 800 calc(12 * var(--pt))/1 var(--display);
+        letter-spacing: calc(1.7 * var(--pt));
+        text-transform: uppercase;
+        color: rgba(255, 255, 255, .55);
+    }
+    .shelf {
+        --tw: calc(182 * var(--pt));
+        --view: calc(466 * var(--pt));
+        grid-column: 1;
+        grid-row: 2;
+        align-self: center;
+        overflow: hidden;
+        overflow: clip;
+        /* Room above and below the covers for the focused one's ring. */
+        padding: calc(18 * var(--pt)) 0 calc(18 * var(--pt)) calc(54 * var(--pt));
+        /* The covers fade out at both ends, clear of the camera on the left. */
+        --fade: linear-gradient(90deg, transparent calc(30 * var(--pt)), #000 calc(50 * var(--pt)), #000 calc(100% - 64 * var(--pt)), transparent);
+        -webkit-mask-image: var(--fade);
+        mask-image: var(--fade);
+    }
+    .home--paused .shelf { --view: calc(366 * var(--pt)); }
+    /* The cover in focus in the middle of the shelf, as far as the shelf
+       goes, as the app scrolls to it (anchor .center): --i is its place,
+       --n the shelf's covers, --view the room they are seen in. */
+    .track {
+        --gap: calc(18 * var(--pt));
+        --step: calc(var(--tw) + var(--gap));
+        --to: calc(var(--i, 0) * var(--step) + var(--tw) / 2 - var(--view) / 2);
+        --end: calc(var(--n, 1) * var(--step) - var(--gap) - var(--view));
+        display: flex;
+        gap: var(--gap);
+        transform: translateX(calc(-1 * clamp(0px, var(--to), max(0px, var(--end)))));
+        transition: transform .6s cubic-bezier(.22, .8, .24, 1);
+    }
+
+    /* A game's tile (CartoucheCartridge): its cover whole, a case's shape. */
+    .tile {
+        position: relative;
+        display: block;
+        flex: none;
+        width: var(--tw);
+        aspect-ratio: .68;
+        padding: 0;
+        border: 0;
+        border-radius: calc(var(--tw) * .08);
+        background: rgba(255, 255, 255, .06);
+        box-shadow: 0 calc(var(--tw) * .04) calc(var(--tw) * .12) rgba(0, 0, 0, .45);
+        transition: transform .4s cubic-bezier(.34, 1.45, .5, 1);
+    }
+    button.tile { cursor: pointer; }
+    .tile > img {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        border-radius: inherit;
+        opacity: 0;
+        transition: opacity .35s ease;
+    }
+    .tile > img.is-in { opacity: 1; }
+    img.is-missing { display: none !important; }
+    .tile::after {
+        content: "";
+        position: absolute;
+        inset: 0;
+        border-radius: inherit;
+        background: linear-gradient(rgba(255, 255, 255, .1), transparent 35%);
+        box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .14);
+        pointer-events: none;
+    }
+    .tile::before {
+        content: "";
+        position: absolute;
+        inset: calc(var(--tw) * -.04);
+        border-radius: calc(var(--tw) * .12);
+        border: max(calc(2.5 * var(--pt)), calc(var(--tw) * .025)) solid #fff;
+        box-shadow: 0 0 calc(var(--tw) * .16) color-mix(in srgb, var(--glow, #fff) 90%, transparent);
+        opacity: 0;
+        transition: opacity .25s ease;
+        pointer-events: none;
+    }
+    .tile.is-focused { transform: translateY(calc(var(--tw) * -.03)) scale(1.05); }
+    .tile.is-focused::before { opacity: 1; }
+    .tile:focus-visible { outline: none; }
+    .tile:focus-visible::before { opacity: 1; border-color: #fff; }
+    .tile__badge {
+        position: absolute;
+        z-index: 2;
+        top: calc(var(--tw) * .06);
+        left: calc(var(--tw) * .06);
+        display: grid;
+        place-items: center;
+        width: calc(var(--tw) * .17);
+        height: calc(var(--tw) * .17);
+        border-radius: 50%;
+        background: var(--pink);
+        color: #fff;
+        font-size: calc(var(--tw) * .09);
+        box-shadow: 0 calc(var(--tw) * .01) calc(var(--tw) * .04) rgba(0, 0, 0, .4);
+    }
+    .tile--outline { display: grid; place-items: center; background: rgba(255, 255, 255, .05); box-shadow: none; }
+    .tile--outline::after { display: none; }
+    .tile--outline > .dash { position: absolute; inset: 0; width: 100%; height: 100%; }
+    .tile__out { position: relative; display: grid; justify-items: center; gap: calc(8 * var(--pt)); padding: 0 calc(12 * var(--pt)); text-align: center; color: rgba(255, 255, 255, .72); font: 600 calc(15 * var(--pt))/1.2 var(--text); }
+    .tile__out .ic { font-size: calc(30 * var(--pt)); }
+    /* The label Cartouche draws for a game (CartoucheLabelArt): its colours,
+       its platform, its genre's symbol and its name, under the cover. */
+    .art { position: absolute; inset: 0; overflow: hidden; border-radius: inherit; background: linear-gradient(135deg, var(--a), var(--b)); }
+    .art__band { position: absolute; inset: 0; background: linear-gradient(118deg, transparent 22%, rgba(255, 255, 255, .13) 46%, transparent 66%); }
+    .art__sym { position: absolute; top: -4%; right: -10%; width: 62% !important; height: auto !important; aspect-ratio: 1; color: rgba(255, 255, 255, .17); transform: rotate(-12deg); }
+    .art__plat {
+        position: absolute;
+        top: 7.5%;
+        left: 7.5%;
+        padding: calc(var(--tw) * .015) calc(var(--tw) * .045);
+        border-radius: 99px;
+        background: rgba(0, 0, 0, .28);
+        font: 800 calc(var(--tw) * .075)/1.1 var(--display);
+        letter-spacing: calc(var(--tw) * .008);
+        text-transform: uppercase;
+    }
+    .art__name { position: absolute; left: 7.5%; right: 7.5%; bottom: 5.5%; font: 700 calc(var(--tw) * .135)/1.08 var(--display); text-align: left; text-shadow: 0 1px 2px rgba(0, 0, 0, .35); }
+
+    .focus {
+        /* The room beside the shelf: the screen, less the shelf, the gap and the margin. */
+        --room: calc(100cqw - 596 * var(--pt));
+        grid-column: 2;
+        grid-row: 1 / span 2;
+        align-self: center;
+        min-width: 0;
+    }
+    .home--paused .focus { --room: calc(100cqw - 496 * var(--pt)); }
+    .focus > * { animation: rise .45s ease both; }
+    @keyframes rise { from { opacity: 0; transform: translateY(calc(8 * var(--pt))); } }
+    .focus__title {
+        overflow: hidden;
+        font: 800 calc(30 * var(--pt))/1.08 var(--display);
+        font-size: clamp(calc(16.5 * var(--pt)), var(--room) / (var(--len, 12) * .6), calc(30 * var(--pt)));
+        letter-spacing: -.01em;
+        white-space: nowrap;
+        text-overflow: ellipsis;
+    }
+    .focus__chips { display: flex; flex-wrap: wrap; align-items: center; gap: calc(6 * var(--pt)) calc(12 * var(--pt)); margin-top: calc(10 * var(--pt)); color: rgba(255, 255, 255, .68); font-size: calc(15 * var(--pt)); }
+    .focus__stats { display: flex; gap: calc(16 * var(--pt)); margin-top: calc(9 * var(--pt)); color: rgba(255, 255, 255, .68); font-size: calc(15 * var(--pt)); }
+    .focus__stats span { display: inline-flex; align-items: center; gap: calc(5 * var(--pt)); }
+    .focus__note { margin-top: calc(8 * var(--pt)); color: rgba(255, 255, 255, .7); font-size: calc(15 * var(--pt)); }
+    .focus__actions { display: flex; flex-wrap: wrap; gap: calc(12 * var(--pt)); margin-top: calc(18 * var(--pt)); }
+    .ubtn .uglyph { font-size: calc(20 * var(--pt)); }
+
+    @container (orientation: portrait) {
+        .home__bar { padding: calc(58 * var(--pt)) calc(18 * var(--pt)) 0; }
+        .dock--top { display: none; }
+        .home__main { display: flex; flex-direction: column; justify-content: center; padding: 0 0 calc(10 * var(--pt)); }
+        .home__label { padding: 0 0 0 calc(18 * var(--pt)); }
+        .shelf { --tw: 36cqw; --view: calc(100cqw - 18 * var(--pt)); --fade: linear-gradient(90deg, transparent, #000 calc(14 * var(--pt)), #000 calc(100% - 64 * var(--pt)), transparent); align-self: stretch; padding: calc(16 * var(--pt)) 0 calc(24 * var(--pt)) calc(18 * var(--pt)); }
+        .focus { --room: calc(100cqw - 36 * var(--pt)); padding: 0 calc(18 * var(--pt)); }
+        .dock--bottom { display: flex; }
+    }
+
+    /* ---------- A game's sheet, its settings, the System page ---------- */
+    .navtitle { position: absolute; z-index: 3; top: calc(66 * var(--pt)); left: 0; right: 0; text-align: center; font: 600 calc(17 * var(--pt))/1 var(--text); }
+    .okbtn { position: absolute; z-index: 3; top: calc(54 * var(--pt)); right: calc(16 * var(--pt)); display: grid; place-items: center; height: calc(44 * var(--pt)); padding: 0 calc(16 * var(--pt)); border-radius: 999px; font: 600 calc(17 * var(--pt))/1 var(--text); }
+    .sheet__body { position: relative; z-index: 1; display: flex; flex-direction: column; gap: calc(12 * var(--pt)); padding: calc(118 * var(--pt)) calc(18 * var(--pt)) 0; }
+    .sheet__head { display: flex; align-items: center; gap: calc(18 * var(--pt)); margin-bottom: calc(8 * var(--pt)); }
+    .sheet__tile { --tw: calc(104 * var(--pt)); }
+    .sheet__title { font: 800 calc(27 * var(--pt))/1.1 var(--display); }
+    .sheet__chips { display: flex; flex-wrap: wrap; align-items: center; gap: calc(8 * var(--pt)) calc(12 * var(--pt)); margin-top: calc(10 * var(--pt)); color: rgba(255, 255, 255, .68); font-size: calc(15 * var(--pt)); }
+    .sheet__status { margin-top: calc(10 * var(--pt)); }
+    .ugroup { margin-top: calc(10 * var(--pt)); padding: 0 calc(20 * var(--pt)); color: rgba(255, 255, 255, .5); font: 600 calc(17 * var(--pt))/1.2 var(--text); }
+    .ufoot { padding: 0 calc(20 * var(--pt)); color: rgba(255, 255, 255, .5); font-size: calc(13 * var(--pt)); line-height: 1.35; }
+    .ucard { padding: 0 calc(20 * var(--pt)); border-radius: calc(26 * var(--pt)); background: rgba(28, 28, 32, .9); }
+    .urow { display: flex; align-items: center; gap: calc(13 * var(--pt)); min-height: calc(52 * var(--pt)); padding: calc(12 * var(--pt)) 0; font-size: calc(17 * var(--pt)); line-height: 1.25; }
+    .urow + .urow { border-top: 1px solid rgba(255, 255, 255, .1); }
+    .urow > .ic { font-size: calc(23 * var(--pt)); }
+    .urow__main { flex: 1; min-width: 0; }
+    .urow__main small { display: block; margin-top: calc(3 * var(--pt)); color: rgba(255, 255, 255, .55); font-size: calc(15 * var(--pt)); }
+    .urow__main b { font-weight: 600; }
+    .urow__val { color: rgba(255, 255, 255, .6); text-align: right; white-space: nowrap; }
+    .urow .urow__chev { font-size: calc(14 * var(--pt)); color: rgba(255, 255, 255, .38); }
+    .urow--danger { color: var(--danger); }
+    .urow--stack { flex-direction: column; align-items: stretch; gap: calc(10 * var(--pt)); }
+    .ulink { color: var(--link); }
+    .ublue { color: var(--link); }
+    .uinfo { display: inline-block; vertical-align: -.12em; margin-left: calc(6 * var(--pt)); color: rgba(255, 255, 255, .55); }
+    .upick { display: inline-flex; align-items: center; gap: calc(4 * var(--pt)); color: var(--link); white-space: nowrap; }
+    .upick .ic { font-size: calc(13 * var(--pt)); }
+    .settings__intro { padding: 0 calc(4 * var(--pt)); color: rgba(255, 255, 255, .62); font-size: calc(15 * var(--pt)); line-height: 1.35; }
+    .tabs { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: calc(8 * var(--pt)); margin: calc(6 * var(--pt)) 0 calc(4 * var(--pt)); }
+    .tab { display: flex; flex-direction: column; align-items: center; gap: calc(6 * var(--pt)); padding: calc(11 * var(--pt)) 0 calc(10 * var(--pt)); border-radius: calc(16 * var(--pt)); background: rgba(255, 255, 255, .07); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .12); color: rgba(255, 255, 255, .72); font-size: calc(12 * var(--pt)); }
+    .tab .ic { font-size: calc(22 * var(--pt)); }
+    .tab.is-on { background: linear-gradient(180deg, #5F57F1, #4F46E5); color: #fff; font-weight: 600; }
+    .uscale__legend { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; margin-top: calc(4 * var(--pt)); color: rgba(255, 255, 255, .5); font-size: calc(12 * var(--pt)); }
+    .uscale__legend output { text-align: center; color: var(--link); font: 600 calc(17 * var(--pt))/1 var(--text); font-variant-numeric: tabular-nums; }
+    .uslider { --fill: 70%; -webkit-appearance: none; appearance: none; display: block; width: 100%; height: calc(30 * var(--pt)); margin: 0; background: transparent; cursor: grab; touch-action: pan-y; }
+    .uslider:focus-visible { outline: 2px solid #fff; outline-offset: 2px; border-radius: 99px; }
+    .uslider::-webkit-slider-runnable-track { height: calc(6 * var(--pt)); border-radius: 99px; background: linear-gradient(90deg, var(--link) var(--fill), rgba(120, 120, 128, .4) var(--fill)); }
+    .uslider::-webkit-slider-thumb { -webkit-appearance: none; width: calc(38 * var(--pt)); height: calc(24 * var(--pt)); margin-top: calc(-9 * var(--pt)); border-radius: 99px; background: #fff; box-shadow: 0 calc(2 * var(--pt)) calc(6 * var(--pt)) rgba(0, 0, 0, .35); }
+    .uslider::-moz-range-track { height: calc(6 * var(--pt)); border-radius: 99px; background: linear-gradient(90deg, var(--link) var(--fill), rgba(120, 120, 128, .4) var(--fill)); }
+    .uslider::-moz-range-thumb { width: calc(38 * var(--pt)); height: calc(24 * var(--pt)); border: 0; border-radius: 99px; background: #fff; box-shadow: 0 calc(2 * var(--pt)) calc(6 * var(--pt)) rgba(0, 0, 0, .35); }
+    .uswitch { position: relative; flex: none; width: calc(62 * var(--pt)); height: calc(30 * var(--pt)); border-radius: 99px; background: rgba(120, 120, 128, .36); }
+    .uswitch::after { content: ""; position: absolute; top: calc(3 * var(--pt)); left: calc(3 * var(--pt)); width: calc(38 * var(--pt)); height: calc(24 * var(--pt)); border-radius: 99px; background: #fff; box-shadow: 0 calc(2 * var(--pt)) calc(4 * var(--pt)) rgba(0, 0, 0, .25); }
+    .uswitch--on { background: var(--ready); }
+    .uswitch--on::after { left: auto; right: calc(3 * var(--pt)); }
+    .bigtitle { padding: 0 calc(2 * var(--pt)); font: 700 calc(34 * var(--pt))/1.1 var(--text); letter-spacing: -.01em; }
+
+    /* ---------- All games ---------- */
+    .lib__body { position: relative; z-index: 1; padding: calc(100 * var(--pt)) calc(18 * var(--pt)) 0; }
+    .usearch { display: flex; align-items: center; gap: calc(10 * var(--pt)); height: calc(46 * var(--pt)); padding: 0 calc(16 * var(--pt)); border-radius: 999px; color: rgba(255, 255, 255, .5); }
+    .usearch .ic { font-size: calc(19 * var(--pt)); color: rgba(255, 255, 255, .8); }
+    .filters { display: flex; gap: calc(10 * var(--pt)); margin: calc(16 * var(--pt)) calc(-18 * var(--pt)) calc(20 * var(--pt)) 0; overflow: hidden; white-space: nowrap; }
+    .filter { display: inline-flex; flex: none; align-items: center; gap: calc(7 * var(--pt)); height: calc(40 * var(--pt)); padding: 0 calc(15 * var(--pt)); border-radius: 999px; background: rgba(255, 255, 255, .08); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .14); color: rgba(255, 255, 255, .82); font-size: calc(16 * var(--pt)); }
+    .filter .ic { font-size: calc(17 * var(--pt)); }
+    .filter b { font-weight: 500; color: rgba(255, 255, 255, .5); }
+    .filter.is-on { background: linear-gradient(90deg, #4F46E5, #8B5CF6); box-shadow: none; color: #fff; }
+    .filter.is-on b { color: rgba(255, 255, 255, .78); }
+    .ggrid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: calc(20 * var(--pt)) calc(14 * var(--pt)); }
+    .gtile { --tw: calc((100cqw - 64 * var(--pt)) / 3); min-width: 0; }
+    .gtile__name { margin-top: calc(10 * var(--pt)); font-size: calc(15 * var(--pt)); line-height: 1.2; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; min-height: 2.4em; }
+    .gtile .ustat { margin-top: calc(4 * var(--pt)); font-size: calc(14 * var(--pt)); }
+    .hints {
+        position: absolute;
+        z-index: 3;
+        left: calc(16 * var(--pt));
+        right: calc(16 * var(--pt));
+        bottom: calc(24 * var(--pt));
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: calc(7 * var(--pt));
+        height: calc(48 * var(--pt));
+        border-radius: 999px;
+        background: rgba(30, 30, 36, .62);
+        font-size: calc(15 * var(--pt));
+        white-space: nowrap;
+    }
+    .hints .uglyph { font-size: calc(19 * var(--pt)); }
+    .hints span + .uglyph, .hints span + .ushoulder { margin-left: calc(8 * var(--pt)); }
+
+    /* ---------- The game behind the console ---------- */
+    .play .game { position: absolute; inset: 0; overflow: hidden; display: grid; place-items: center; background: linear-gradient(135deg, var(--a), var(--b)); }
+    .game__name { padding: 0 14%; font: 800 calc(40 * var(--pt))/1.05 var(--display); text-align: center; text-wrap: balance; color: rgba(255, 255, 255, .92); }
+    .game__art {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        opacity: 0;
+        transition: opacity .5s ease;
+        animation: drift 24s ease-in-out infinite alternate;
+    }
+    .game__art.is-in { opacity: 1; }
+    @keyframes drift { from { transform: scale(1.03); } to { transform: scale(1.1) translate(-2%, -1.5%); } }
+    .play .game::after { content: ""; position: absolute; inset: 0; background: radial-gradient(130% 100% at 50% 40%, transparent 58%, rgba(0, 0, 0, .4)); }
+    .homebtn {
+        position: absolute;
+        z-index: 4;
+        left: calc(64 * var(--pt));
+        bottom: calc(20 * var(--pt));
+        display: grid;
+        place-items: center;
+        width: calc(48 * var(--pt));
+        height: calc(48 * var(--pt));
+        padding: 0;
+        border: 0;
+        border-radius: 50%;
+        color: #fff;
+        font-size: calc(22 * var(--pt));
+        cursor: pointer;
+        transition: opacity .3s ease, transform .3s ease;
+    }
+    .homebtn:hover { background: rgba(255, 255, 255, .2); }
+    .play .console { position: absolute; inset: 0; z-index: 5; transition: opacity .45s ease, transform .45s cubic-bezier(.22, .8, .24, 1), visibility 0s linear 0s; }
+    .play[data-state="game"] .console { opacity: 0; transform: translateY(6%) scale(.98); visibility: hidden; transition: opacity .35s ease, transform .35s ease, visibility 0s linear .35s; }
+    .play[data-state="console"] .homebtn { opacity: 0; pointer-events: none; }
+    .play[data-state="console"] .game *, .play[data-state="console"] .game *::before { animation-play-state: paused; }
+    .demo-bar { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 12px 18px; margin-top: 26px; }
+    .demo-bar p { color: var(--ink-3); font-size: .92rem; }
+
+    /* ---------- Plain page parts ---------- */
+    .panel { border-radius: 28px; background: var(--panel); box-shadow: inset 0 0 0 1px var(--line); }
+    .stores { list-style: none; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; margin: 0; padding: 0; }
+    .store { padding: 22px 22px 24px; border-radius: 26px; background: var(--panel); box-shadow: inset 0 0 0 1px var(--line); }
+    .store--wide { grid-column: 1 / -1; }
+    .tag-icon {
+        display: grid;
+        place-items: center;
+        width: 46px;
+        height: 46px;
+        margin-bottom: 16px;
+        border-radius: 14px;
+        background: linear-gradient(140deg, rgba(79, 70, 229, .45), rgba(236, 72, 153, .32));
+        box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .14);
+    }
+    .tag-icon svg { width: 24px; height: 24px; }
+    .store h3, .perk h3, .flow h3, .step h3 { font: 700 1.1rem/1.3 var(--display); }
+    .store p, .perk p, .flow p, .step p { margin-top: 6px; color: var(--ink-2); font-size: .97rem; }
+    @media (max-width: 560px) { .stores { grid-template-columns: minmax(0, 1fr); } }
+    .keeps { list-style: none; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px 36px; margin: clamp(44px, 6vw, 72px) 0 0; padding: 0; }
+    .keeps li { display: grid; grid-template-columns: 28px minmax(0, 1fr); gap: 12px; color: var(--ink-2); }
+    .keeps svg { width: 24px; height: 24px; color: var(--ready); margin-top: 1px; }
+    .keeps b { color: var(--ink); font-weight: 600; }
+    @media (max-width: 760px) { .keeps { grid-template-columns: minmax(0, 1fr); } }
+    .note { display: flex; gap: 12px; align-items: center; margin-top: 30px; color: var(--ink-2); }
+    .note svg { width: 22px; height: 22px; flex: none; color: var(--stored); }
+
+    .perks { list-style: none; display: grid; gap: 26px; margin: 34px 0 0; padding: 0; }
+    @media (min-width: 640px) and (max-width: 939px) { .perks { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+    .perk { display: grid; grid-template-columns: 46px minmax(0, 1fr); gap: 16px; }
+    .perk .tag-icon { margin: 0; }
+
+    .flow { list-style: none; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 18px; margin: clamp(40px, 5vw, 60px) 0 0; padding: 0; }
+    .flow li { position: relative; padding: 22px; border-radius: 26px; background: var(--panel); box-shadow: inset 0 0 0 1px var(--line); }
+    .flow li:not(:last-child)::after {
+        content: "";
+        position: absolute;
+        top: 50%;
+        right: -14px;
+        width: 10px;
+        height: 10px;
+        border-top: 2px solid var(--ink-3);
+        border-right: 2px solid var(--ink-3);
+        transform: translateY(-50%) rotate(45deg);
+    }
+    @media (max-width: 939px) {
+        .flow { grid-template-columns: minmax(0, 1fr); gap: 22px; }
+        .flow li:not(:last-child)::after { top: auto; right: auto; left: 50%; bottom: -16px; transform: translateX(-50%) rotate(135deg); }
+    }
+    .builder-need { margin-top: 18px; color: var(--ink-3); font-size: .95rem; }
+    .builder-need a { color: var(--ink-2); }
+    @media (min-width: 940px) { .perks--three { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 30px 36px; } }
+    .builder-flow { margin-top: clamp(56px, 7vw, 88px); }
+    .builder-flow + .flow { margin-top: 0; }
+
+    /* ---------- Cartouche Builder's window ----------
+       The Mac app (builder/mac) as macOS 26 draws it, in its own words:
+       --w × --h is the window in points, and every size inside is a number
+       of points times --pt, as on the iPhone's screens. A narrower window
+       has a narrower library; on a phone, its sidebar is a row of icons. */
+    .mac { --w: 1024; --h: 676; position: relative; width: 100%; max-width: 1120px; margin: clamp(44px, 6vw, 72px) auto 0; }
+    @media (max-width: 939px) { .mac { --w: 780; --h: 650; } }
+    @media (max-width: 599px) { .mac { --w: 430; --h: 840; } }
+    .mac__win {
+        position: relative;
+        container-type: size;
+        aspect-ratio: var(--w) / var(--h);
+        border-radius: calc(22 / var(--w) * 100%) / calc(22 / var(--h) * 100%);
+        overflow: hidden;
+        overflow: clip;
+        isolation: isolate;
+        background: #1E1E1E;
+        box-shadow: 0 44px 80px -34px rgba(0, 0, 0, .95), 0 90px 140px -70px color-mix(in srgb, var(--dark) 90%, transparent);
+    }
+    .mac__win::after { content: ""; position: absolute; inset: 0; z-index: 3; border-radius: inherit; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .16); pointer-events: none; }
+    .mw {
+        --pt: calc(100cqw / var(--w));
+        --side: calc(242 * var(--pt));
+        --pad: calc(30 * var(--pt));
+        --cols: 4;
+        --gap: calc(18 * var(--pt));
+        --ink2: rgba(235, 235, 245, .62);
+        --card: #242424;
+        --edge: rgba(255, 255, 255, .08);
+        --accent: #0A84FF;
+        --green: #30D158;
+        --orange: #FF9F0A;
+        position: absolute;
+        inset: 0;
+        display: grid;
+        grid-template-columns: var(--side) minmax(0, 1fr);
+        color: #fff;
+        font: 400 calc(13 * var(--pt))/1.32 var(--text);
+        -webkit-user-select: none;
+        user-select: none;
+    }
+    .mw .ic { width: 1em; height: 1em; flex: none; }
+    :where(.mw) button { padding: 0; border: 0; background: none; font: inherit; color: inherit; cursor: pointer; }
+    .mw [hidden] { display: none !important; }
+
+    .mw__side {
+        position: relative;
+        z-index: 1;
+        display: flex;
+        flex-direction: column;
+        min-height: 0;
+        margin: calc(8 * var(--pt)) 0 calc(8 * var(--pt)) calc(8 * var(--pt));
+        padding: calc(12 * var(--pt)) calc(10 * var(--pt)) calc(10 * var(--pt));
+        border-radius: calc(16 * var(--pt));
+        background: linear-gradient(180deg, rgba(255, 255, 255, .075), rgba(255, 255, 255, .045));
+        box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .09), 0 calc(6 * var(--pt)) calc(20 * var(--pt)) rgba(0, 0, 0, .3);
+    }
+    .mw__top { display: flex; align-items: center; justify-content: space-between; height: calc(28 * var(--pt)); padding: 0 0 0 calc(6 * var(--pt)); }
+    .mw__lights { display: flex; gap: calc(8 * var(--pt)); }
+    .mw__lights i { width: calc(12 * var(--pt)); height: calc(12 * var(--pt)); border-radius: 50%; background: #FF5F57; box-shadow: inset 0 0 0 calc(.6 * var(--pt)) rgba(0, 0, 0, .22); }
+    .mw__lights i:nth-child(2) { background: #FEBC2E; }
+    .mw__lights i:nth-child(3) { background: #28C840; }
+    .mw__toggle { display: grid; place-items: center; width: calc(30 * var(--pt)); height: calc(28 * var(--pt)); color: var(--ink2); font-size: calc(17 * var(--pt)); }
+    .mw__nav { display: grid; gap: calc(2 * var(--pt)); margin-top: calc(18 * var(--pt)); }
+    .mw__item {
+        display: flex;
+        align-items: center;
+        gap: calc(9 * var(--pt));
+        width: 100%;
+        height: calc(30 * var(--pt));
+        padding: 0 calc(10 * var(--pt));
+        border-radius: calc(9 * var(--pt));
+        color: rgba(255, 255, 255, .86);
+        text-align: left;
+        white-space: nowrap;
+    }
+    .mw__item .ic { font-size: calc(15 * var(--pt)); color: var(--accent); }
+    .mw__item:hover { background: rgba(255, 255, 255, .06); }
+    .mw__item[aria-current="page"] { background: rgba(255, 255, 255, .14); color: #fff; }
+    .mw__item b { margin-left: auto; color: var(--ink2); font-weight: 500; font-variant-numeric: tabular-nums; }
+    .mw__foot { margin-top: auto; padding: calc(10 * var(--pt)) calc(12 * var(--pt)); border-radius: calc(12 * var(--pt)); background: rgba(255, 255, 255, .06); }
+    .mw__foot p { display: flex; align-items: center; gap: calc(6 * var(--pt)); font-size: calc(11.5 * var(--pt)); font-weight: 600; }
+    .mw__foot p .ic { color: var(--ink2); font-size: calc(13 * var(--pt)); }
+    .mw__foot p .ic:last-child { margin-left: auto; }
+    .mw__foot small { display: block; margin-top: calc(6 * var(--pt)); color: var(--ink2); font-size: calc(11 * var(--pt)); }
+
+    .mw__main { position: relative; display: flex; flex-direction: column; min-width: 0; min-height: 0; }
+    .mw__bar { display: flex; flex: none; align-items: center; gap: calc(10 * var(--pt)); height: calc(52 * var(--pt)); padding: 0 calc(14 * var(--pt)) 0 var(--pad); }
+    .mw__title { margin-right: auto; color: rgba(255, 255, 255, .5); font: 600 calc(15 * var(--pt))/1 var(--text); white-space: nowrap; }
+    .mw__tools { display: none; align-items: center; gap: calc(10 * var(--pt)); }
+    .mw[data-page="library"] .mw__tools { display: flex; }
+    .mw__round { display: grid; place-items: center; width: calc(32 * var(--pt)); height: calc(32 * var(--pt)); border-radius: 50%; background: rgba(255, 255, 255, .08); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .1); font-size: calc(15 * var(--pt)); }
+    .mw__round:hover { background: rgba(255, 255, 255, .14); }
+    .mw__search { display: flex; align-items: center; gap: calc(7 * var(--pt)); width: calc(250 * var(--pt)); height: calc(32 * var(--pt)); padding: 0 calc(12 * var(--pt)); border-radius: 999px; background: rgba(255, 255, 255, .06); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .1); color: rgba(235, 235, 245, .42); white-space: nowrap; }
+    .mw__search .ic { color: var(--ink2); font-size: calc(14 * var(--pt)); }
+    .mw__page { position: relative; flex: 1; min-height: 0; overflow: hidden; overflow: clip; padding: calc(22 * var(--pt)) var(--pad) 0; border-top: 1px solid rgba(255, 255, 255, .06); }
+    /* With a mouse or a trackpad, a page longer than the window scrolls, as in the app. */
+    @media (hover: hover) and (pointer: fine) {
+        .mw__page { overflow: hidden auto; padding-bottom: calc(22 * var(--pt)); scrollbar-width: thin; scrollbar-color: rgba(255, 255, 255, .2) transparent; }
+    }
+
+    /* A page's title, as PageHeader draws it, and the app's controls. */
+    .mwh { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: calc(12 * var(--pt)) calc(16 * var(--pt)); }
+    .mwh__title { font: 700 calc(26 * var(--pt))/1.15 var(--text); letter-spacing: -.01em; }
+    .mwh__sub { margin-top: calc(4 * var(--pt)); color: var(--ink2); font-size: calc(15 * var(--pt)); }
+    .mbtn { display: inline-flex; flex: none; align-items: center; gap: calc(6 * var(--pt)); height: calc(28 * var(--pt)); padding: 0 calc(13 * var(--pt)); border-radius: 999px; background: rgba(255, 255, 255, .1); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .08); color: #fff; font: 500 calc(13 * var(--pt))/1 var(--text); white-space: nowrap; }
+    .mbtn .ic { font-size: calc(12 * var(--pt)); }
+    button.mbtn:hover { background: rgba(255, 255, 255, .17); }
+    .mseg { display: inline-flex; padding: calc(2 * var(--pt)); border-radius: calc(8 * var(--pt)); background: rgba(255, 255, 255, .09); }
+    .mseg button { height: calc(24 * var(--pt)); padding: 0 calc(14 * var(--pt)); border-radius: calc(6 * var(--pt)); color: rgba(255, 255, 255, .86); white-space: nowrap; }
+    .mseg button[aria-pressed="true"] { background: rgba(255, 255, 255, .2); color: #fff; box-shadow: 0 calc(1 * var(--pt)) calc(3 * var(--pt)) rgba(0, 0, 0, .25); }
+    .mswitch { position: relative; flex: none; width: calc(44 * var(--pt)); height: calc(22 * var(--pt)); border-radius: 99px; background: rgba(120, 120, 128, .4); }
+    .mswitch::after { content: ""; position: absolute; top: calc(2 * var(--pt)); left: calc(2 * var(--pt)); width: calc(26 * var(--pt)); height: calc(18 * var(--pt)); border-radius: 99px; background: #fff; box-shadow: 0 calc(1 * var(--pt)) calc(3 * var(--pt)) rgba(0, 0, 0, .3); }
+    .mswitch.is-on { background: var(--accent); }
+    .mswitch.is-on::after { left: auto; right: calc(2 * var(--pt)); }
+    .mcard { border-radius: calc(14 * var(--pt)); background: var(--card); box-shadow: inset 0 0 0 1px var(--edge); }
+    .mlabel { margin: calc(22 * var(--pt)) 0 calc(8 * var(--pt)); color: var(--ink2); font: 600 calc(11 * var(--pt))/1 var(--text); letter-spacing: .04em; text-transform: uppercase; }
+    .mbar { height: calc(7 * var(--pt)); border-radius: 99px; background: rgba(255, 255, 255, .1); overflow: hidden; }
+    .mbar i { display: block; width: var(--p, 0%); height: 100%; border-radius: inherit; background: linear-gradient(90deg, #4F46E5, #7C6CFF); transition: width .8s ease; }
+
+    /* A game's cover, whole, as the library draws it (CoverView). */
+    .mcover { position: relative; display: block; width: 100%; aspect-ratio: .75; overflow: hidden; border-radius: calc(10 * var(--pt)); background: rgba(255, 255, 255, .06); }
+    .mcover > img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; opacity: 0; transition: opacity .35s ease; }
+    .mcover > img.is-in { opacity: 1; }
+    .mcover::after { content: ""; position: absolute; inset: 0; border-radius: inherit; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .12); pointer-events: none; }
+
+    .mban { display: flex; align-items: center; gap: calc(16 * var(--pt)); margin-top: calc(22 * var(--pt)); padding: calc(16 * var(--pt)) calc(18 * var(--pt)); border-radius: calc(14 * var(--pt)); background: linear-gradient(100deg, rgba(79, 70, 229, .2), rgba(236, 72, 153, .14)); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .1); }
+    .mban__covers { display: flex; flex: none; }
+    .mban__covers .mcover { --tw: calc(46 * var(--pt)); width: var(--tw); border-radius: calc(6 * var(--pt)); box-shadow: 0 0 0 calc(2 * var(--pt)) #2A2440, 0 calc(4 * var(--pt)) calc(10 * var(--pt)) rgba(0, 0, 0, .4); }
+    .mban__covers .mcover + .mcover { margin-left: calc(-12 * var(--pt)); }
+    .mban__text { flex: 1 1 calc(180 * var(--pt)); min-width: 0; }
+    .mban__text b { display: block; font-size: calc(14 * var(--pt)); font-weight: 600; }
+    .mban__text > span { display: block; margin-top: calc(3 * var(--pt)); color: var(--ink2); font-size: calc(12.5 * var(--pt)); }
+    .mgrid { display: grid; grid-template-columns: repeat(var(--cols), minmax(0, 1fr)); gap: calc(22 * var(--pt)) var(--gap); margin-top: calc(22 * var(--pt)); }
+    .mgame { --tw: calc((100cqw - var(--side) - 2 * var(--pad) - (var(--cols) - 1) * var(--gap)) / var(--cols)); position: relative; min-width: 0; }
+    .mgame__badge { position: absolute; z-index: 1; top: calc(8 * var(--pt)); right: calc(8 * var(--pt)); display: grid; place-items: center; width: calc(24 * var(--pt)); height: calc(24 * var(--pt)); border-radius: 50%; background: rgba(0, 0, 0, .55); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .2); font-size: calc(13 * var(--pt)); }
+    .mgame__name { margin-top: calc(9 * var(--pt)); font-weight: 600; line-height: 1.25; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+    .mgame__state { display: flex; align-items: center; gap: calc(6 * var(--pt)); margin-top: calc(4 * var(--pt)); color: var(--ink2); font-size: calc(11.5 * var(--pt)); }
+    .mgame__state::before { content: ""; flex: none; width: calc(7 * var(--pt)); height: calc(7 * var(--pt)); border-radius: 50%; background: var(--c); }
+    .mempty { padding: calc(56 * var(--pt)) 0; text-align: center; color: var(--ink2); font-size: calc(15 * var(--pt)); font-weight: 600; }
+
+    .mrun { display: flex; gap: calc(20 * var(--pt)); margin-top: calc(22 * var(--pt)); padding: calc(18 * var(--pt)); }
+    .mrun > .mcover { --tw: calc(84 * var(--pt)); flex: none; width: var(--tw); border-radius: calc(8 * var(--pt)); }
+    .mrun__main { flex: 1; min-width: 0; padding-top: calc(4 * var(--pt)); }
+    .mrun__name { font: 700 calc(17 * var(--pt))/1.2 var(--text); }
+    .mrun__stage { margin-top: calc(8 * var(--pt)); color: var(--ink2); font-size: calc(12.5 * var(--pt)); }
+    .mrun .mbar { margin-top: calc(14 * var(--pt)); }
+    .mrun__row { display: flex; justify-content: space-between; gap: calc(10 * var(--pt)); margin-top: calc(9 * var(--pt)); color: var(--ink2); font-size: calc(12 * var(--pt)); }
+    .mrun__row b { color: #fff; font-weight: 600; font-variant-numeric: tabular-nums; }
+    .mrow { display: flex; align-items: center; gap: calc(12 * var(--pt)); min-height: calc(50 * var(--pt)); padding: calc(10 * var(--pt)) calc(16 * var(--pt)); }
+    .mrow + .mrow { border-top: 1px solid var(--edge); }
+    .mrow > .mcover { --tw: calc(28 * var(--pt)); flex: none; width: var(--tw); border-radius: calc(4 * var(--pt)); }
+    .mrow > .ic { font-size: calc(18 * var(--pt)); color: #8E86FF; }
+    .mrow__main { flex: 1; min-width: 0; }
+    .mrow__main b { display: block; font-weight: 600; }
+    .mrow__main small { display: block; margin-top: calc(2 * var(--pt)); color: var(--ink2); font-size: calc(11.5 * var(--pt)); overflow-wrap: anywhere; }
+    .mrow__val { color: var(--c, var(--ink2)); white-space: nowrap; }
+    .mrow__size { font-weight: 600; white-space: nowrap; font-variant-numeric: tabular-nums; }
+    .mnight, .mshare { display: flex; align-items: center; gap: calc(14 * var(--pt)); margin-top: calc(22 * var(--pt)); padding: calc(16 * var(--pt)) calc(18 * var(--pt)); }
+    .mnight > .ic { font-size: calc(22 * var(--pt)); color: #A79BFF; }
+    .mnight p, .mshare p { flex: 1; min-width: 0; }
+    .mnight b, .mshare b, .msteps b { display: block; font-size: calc(14 * var(--pt)); font-weight: 600; }
+    .mnight p > span, .mshare p > span { display: block; margin-top: calc(3 * var(--pt)); color: var(--ink2); font-size: calc(12.5 * var(--pt)); }
+    .mdisks { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: calc(16 * var(--pt)); margin-top: calc(22 * var(--pt)); }
+    .mdisk { padding: calc(16 * var(--pt)) calc(18 * var(--pt)); }
+    .mdisk b { display: flex; align-items: center; gap: calc(8 * var(--pt)); font-size: calc(13.5 * var(--pt)); font-weight: 600; }
+    .mdisk b .ic { color: var(--ink2); font-size: calc(16 * var(--pt)); }
+    .mdisk .mbar { margin-top: calc(14 * var(--pt)); }
+    .mdisk p { margin-top: calc(10 * var(--pt)); }
+    .mdisk small { display: block; margin-top: calc(6 * var(--pt)); color: var(--ink2); font-size: calc(11.5 * var(--pt)); }
+    .mlist { margin-top: calc(16 * var(--pt)); }
+    .mshare__icon { display: grid; place-items: center; flex: none; width: calc(50 * var(--pt)); height: calc(50 * var(--pt)); border-radius: 50%; background: linear-gradient(135deg, #4F46E5, #EC4899); font-size: calc(22 * var(--pt)); }
+    .msteps { margin-top: calc(16 * var(--pt)); padding: calc(16 * var(--pt)) calc(18 * var(--pt)); }
+    .msteps ol { display: grid; gap: calc(10 * var(--pt)); margin: calc(12 * var(--pt)) 0 0; padding: 0; list-style: none; counter-reset: mstep; }
+    .msteps li { display: flex; align-items: center; gap: calc(10 * var(--pt)); counter-increment: mstep; font-size: calc(12.5 * var(--pt)); }
+    .msteps li::before { content: counter(mstep); display: grid; place-items: center; flex: none; width: calc(20 * var(--pt)); height: calc(20 * var(--pt)); border-radius: 50%; background: #4F46E5; font: 700 calc(11 * var(--pt))/1 var(--text); }
+    .mtools { margin-top: calc(22 * var(--pt)); padding: calc(4 * var(--pt)) calc(18 * var(--pt)); }
+    .mtool { display: flex; align-items: flex-start; gap: calc(14 * var(--pt)); padding: calc(11 * var(--pt)) 0; }
+    .mtool + .mtool { border-top: 1px solid var(--edge); }
+    .mtool > .ic { margin-top: calc(1 * var(--pt)); font-size: calc(18 * var(--pt)); color: var(--green); }
+    .mtool__spin { display: none; flex: none; width: calc(18 * var(--pt)); height: calc(18 * var(--pt)); margin-top: calc(1 * var(--pt)); border: calc(2 * var(--pt)) solid rgba(255, 255, 255, .18); border-top-color: rgba(255, 255, 255, .85); border-radius: 50%; animation: mspin .8s linear infinite; }
+    .mtool.is-checking > .ic { display: none; }
+    .mtool.is-checking .mtool__spin { display: block; }
+    @keyframes mspin { to { transform: rotate(1turn); } }
+    .mtool b { font-weight: 600; }
+    .mtool b small { margin-left: calc(6 * var(--pt)); color: var(--ink2); font-size: calc(11.5 * var(--pt)); font-weight: 400; }
+    .mtool p > span { display: block; margin-top: calc(2 * var(--pt)); color: var(--ink2); font-size: calc(11.5 * var(--pt)); }
+
+    @media (max-width: 939px) {
+        .mw { --side: calc(212 * var(--pt)); --pad: calc(24 * var(--pt)); --cols: 3; --gap: calc(16 * var(--pt)); }
+        .mw__search { display: none; }
+    }
+    @media (max-width: 599px) {
+        .mw { --side: 0px; --pad: calc(18 * var(--pt)); --gap: calc(12 * var(--pt)); grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); }
+        .mw__side { flex-direction: row; align-items: center; margin: calc(8 * var(--pt)); padding: calc(6 * var(--pt)) calc(6 * var(--pt)) calc(6 * var(--pt)) calc(16 * var(--pt)); border-radius: 999px; }
+        .mw__top { height: auto; padding: 0; }
+        .mw__toggle, .mw__foot, .mw__bar, .mw__item span, .mw__item b { display: none; }
+        .mw__nav { display: flex; gap: calc(4 * var(--pt)); margin: 0 0 0 auto; }
+        .mw__item { justify-content: center; width: calc(46 * var(--pt)); height: calc(38 * var(--pt)); padding: 0; border-radius: 999px; }
+        .mw__item .ic { font-size: calc(18 * var(--pt)); }
+        .mw__page { border-top: 0; padding-top: calc(10 * var(--pt)); }
+        .mban { flex-wrap: wrap; }
+        .mban .mbtn { margin-left: auto; }
+        .mrun > .mcover { --tw: calc(64 * var(--pt)); }
+        .mdisks { grid-template-columns: minmax(0, 1fr); }
+    }
+
+    .steps { list-style: none; display: grid; gap: 30px; margin: 36px 0 0; padding: 0; }
+    .step { display: grid; grid-template-columns: 52px minmax(0, 1fr); gap: 18px; }
+    .step__n {
+        display: grid;
+        place-items: center;
+        width: 52px;
+        height: 52px;
+        border: 2px solid transparent;
+        border-radius: 50%;
+        background: linear-gradient(var(--stage), var(--stage)) padding-box, linear-gradient(135deg, #6A62FF, var(--pink)) border-box;
+        font: 800 1.35rem/1 var(--display);
+    }
+    .step .btn { margin-top: 16px; }
+    .step .actions { margin-top: 16px; }
+    /* The Installer's two buttons: one width, side by side or one above the other. */
+    .step .actions .btn { flex: 1 1 0; min-width: max-content; max-width: 18rem; justify-content: center; margin-top: 0; }
+    .step p a, .guide a { color: var(--ink); }
+    .guide { margin-top: 30px; padding-left: 70px; }
+    @media (max-width: 520px) { .guide { padding-left: 0; } }
+    .need { padding: clamp(24px, 3vw, 34px); }
+    .need h3 { font: 800 1.3rem/1.2 var(--display); }
+    .need dl { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 14px 20px; margin: 20px 0 0; }
+    .need dt { font-weight: 600; }
+    .need dd { margin: 0; color: var(--ink-2); }
+    @media (max-width: 520px) { .need dl { grid-template-columns: minmax(0, 1fr); gap: 2px; } .need dd { margin-bottom: 12px; } }
+
+    .never { list-style: none; display: grid; gap: 12px; margin: 28px 0 0; padding: 0; }
+    .never li { display: flex; align-items: center; gap: 12px; font-weight: 600; }
+    .never svg { width: 22px; height: 22px; flex: none; color: var(--danger); }
+    .bring { --tw: min(280px, 64vw); position: relative; display: grid; place-items: center; width: var(--tw); aspect-ratio: .68; margin-inline: auto; border-radius: calc(var(--tw) * .08); background: rgba(255, 255, 255, .04); }
+    .bring .dash { position: absolute; inset: 0; width: 100%; height: 100%; }
+    .bring span { position: relative; display: grid; justify-items: center; gap: 14px; padding: 0 24px; color: var(--ink-2); font: 600 1.15rem/1.25 var(--text); text-align: center; }
+    .bring svg.ic { width: 46px; height: 46px; color: var(--ink); }
+
+    .faq { max-width: 880px; }
+    .qa { margin-top: 32px; padding: 0 clamp(20px, 3vw, 30px); }
+    .qa details + details { border-top: 1px solid var(--line); }
+    .qa summary { display: flex; align-items: center; gap: 18px; padding: 22px 0; cursor: pointer; list-style: none; font: 700 1.1rem/1.35 var(--display); }
+    .qa summary::-webkit-details-marker { display: none; }
+    .qa summary::after {
+        content: "";
+        flex: none;
+        width: 9px;
+        height: 9px;
+        margin-left: auto;
+        border-right: 2px solid var(--ink-3);
+        border-bottom: 2px solid var(--ink-3);
+        transform: translateY(-2px) rotate(45deg);
+        transition: transform .2s ease;
+    }
+    .qa details[open] summary::after { transform: translateY(2px) rotate(-135deg); }
+    .qa details p { padding-bottom: 22px; max-width: 46em; color: var(--ink-2); }
+
+    .foot { padding-block: 56px calc(44px + env(safe-area-inset-bottom, 0px)); border-top: 1px solid var(--line); }
+    .foot__row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 18px 32px; }
+    .foot nav { display: flex; flex-wrap: wrap; gap: 8px 22px; }
+    .foot nav a { color: var(--ink-2); text-decoration: none; }
+    .foot nav a:hover { color: var(--ink); text-decoration: underline; }
+    .foot p { margin-top: 18px; max-width: 62em; color: var(--ink-3); font-size: .88rem; }
+    .foot p:first-of-type { color: var(--ink-2); }
+
+    @media (prefers-reduced-motion: reduce) {
+        *, *::before, *::after { animation: none !important; transition-duration: .01ms !important; }
+    }
+    @media (prefers-reduced-motion: no-preference) { html { scroll-behavior: smooth; } }
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
+    <defs>
+        <linearGradient id="g-brand" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#4F46E5"/><stop offset="1" stop-color="#EC4899"/></linearGradient>
+        <symbol id="i-cartridge" viewBox="0 0 18 24"><rect x=".35" y=".6" width="17.3" height="22.8" rx="1.9" fill="url(#g-brand)"/><rect x="5.15" y="3.2" width="7.7" height="1.2" rx=".6" fill="#fff" fill-opacity=".55"/><rect x="5.15" y="5.85" width="7.7" height="1.2" rx=".6" fill="#fff" fill-opacity=".55"/></symbol>
+        <symbol id="i-gamepad" viewBox="0 0 24 24"><path fill="currentColor" fill-rule="evenodd" d="M7.3 6.2h9.4c2.6 0 4.8 1.9 5.2 4.4l.9 5.4c.3 1.9-1.2 3.6-3.1 3.6-1 0-1.9-.5-2.5-1.3l-1.3-1.9H8.1l-1.3 1.9c-.6.8-1.5 1.3-2.5 1.3-1.9 0-3.4-1.7-3.1-3.6l.9-5.4c.4-2.5 2.6-4.4 5.2-4.4ZM6.4 9.1v1.8H4.6v1.6h1.8v1.8H8v-1.8h1.8v-1.6H8V9.1H6.4Zm10.1.1a1.1 1.1 0 1 0 0 2.2 1.1 1.1 0 0 0 0-2.2Zm2.1 2.3a1.1 1.1 0 1 0 0 2.2 1.1 1.1 0 0 0 0-2.2Z"/></symbol>
+        <symbol id="i-import" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M12 3.5v11M7.5 10l4.5 4.5 4.5-4.5M4.5 13.5v4A2.5 2.5 0 0 0 7 20h10a2.5 2.5 0 0 0 2.5-2.5v-4"/></symbol>
+        <symbol id="i-grid" viewBox="0 0 24 24"><g fill="currentColor"><rect x="3" y="3" width="8" height="8" rx="2.2"/><rect x="13" y="3" width="8" height="8" rx="2.2"/><rect x="3" y="13" width="8" height="8" rx="2.2"/><rect x="13" y="13" width="8" height="8" rx="2.2"/></g></symbol>
+        <symbol id="i-cpu" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><rect x="6" y="6" width="12" height="12" rx="2.2"/><rect x="9.3" y="9.3" width="5.4" height="5.4" rx=".8"/><path d="M9 2.8V6M12 2.8V6M15 2.8V6M9 18v3.2M12 18v3.2M15 18v3.2M2.8 9H6M2.8 12H6M2.8 15H6M18 9h3.2M18 12h3.2M18 15h3.2"/></g></symbol>
+        <symbol id="i-menu" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" d="M6 7h12M6 12h12M6 17h12"/></symbol>
+        <symbol id="i-clock" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.2 2"/></g></symbol>
+        <symbol id="i-iphone" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2"><rect x="6.5" y="2.5" width="11" height="19" rx="2.8"/><path stroke-linecap="round" d="M10.5 5.6h3"/></g></symbol>
+        <symbol id="i-check" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="currentColor"/><path fill="none" stroke="#0B0C12" stroke-opacity=".85" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" d="m7.4 12.3 3.1 3.1 6.1-6.6"/></symbol>
+        <symbol id="i-tick" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" d="m5 12.5 4.5 4.5L19 7.5"/></symbol>
+        <symbol id="i-drive" viewBox="0 0 24 24"><path fill="currentColor" d="M5.6 5h12.8c.8 0 1.5.5 1.8 1.2L22 12v5.5a2.5 2.5 0 0 1-2.5 2.5h-15A2.5 2.5 0 0 1 2 17.5V12l1.8-5.8C4.1 5.5 4.8 5 5.6 5Z"/><path stroke="#0B0C12" stroke-opacity=".45" stroke-width="1.2" d="M2.5 12.2h19"/><circle cx="17.5" cy="16.2" r="1.4" fill="#0B0C12"/></symbol>
+        <symbol id="i-pause" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="currentColor"/><path fill="#fff" d="M8.8 7.6h2.2v8.8H8.8zm4.2 0h2.2v8.8H13z"/></symbol>
+        <symbol id="i-pausebars" viewBox="0 0 24 24"><path fill="currentColor" d="M6.5 4.5H10v15H6.5zm7.5 0h3.5v15H14z"/></symbol>
+        <symbol id="i-laptop" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.9" stroke-linejoin="round"><rect x="4.5" y="5" width="15" height="10.5" rx="1.6"/><path stroke-linecap="round" d="M2.5 19h19"/></g></symbol>
+        <symbol id="i-flag" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" d="M5 21V4.5M5 4.5h13.5v9H5"/><path fill="currentColor" d="M5 4.5h4.5V9H5zM14 4.5h4.5V9H14zM9.5 9H14v4.5H9.5z"/></symbol>
+        <symbol id="i-building" viewBox="0 0 24 24"><path fill="currentColor" fill-rule="evenodd" d="M4.5 3h8A1.5 1.5 0 0 1 14 4.5V21H3V4.5A1.5 1.5 0 0 1 4.5 3Zm1 3v2h2V6h-2Zm4 0v2h2V6h-2Zm-4 4v2h2v-2h-2Zm4 0v2h2v-2h-2Zm-4 4v2h2v-2h-2Zm4 0v2h2v-2h-2ZM15 9h4.5A1.5 1.5 0 0 1 21 10.5V21h-6V9Zm1.5 3v2h2v-2h-2Zm0 4v2h2v-2h-2Z"/></symbol>
+        <symbol id="i-bolt" viewBox="0 0 24 24"><path fill="currentColor" d="M13.6 2 4.8 13.4h6.1L9.8 22l9.4-12h-6.3z"/></symbol>
+        <symbol id="i-play" viewBox="0 0 24 24"><path fill="currentColor" d="M7 4.7v14.6c0 .8.9 1.3 1.6.9l12-7.3a1 1 0 0 0 0-1.8l-12-7.3c-.7-.4-1.6.1-1.6.9Z"/></symbol>
+        <symbol id="i-sliders" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M3.5 6.5h2.2M10.3 6.5h10.2M3.5 12h9.7M17.8 12h2.7M3.5 17.5h4.2M12.3 17.5h8.2"/><circle cx="8" cy="6.5" r="2.3"/><circle cx="15.5" cy="12" r="2.3"/><circle cx="10" cy="17.5" r="2.3"/></g></symbol>
+        <symbol id="i-chevron" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round" d="m9 4.5 7.5 7.5L9 19.5"/></symbol>
+        <symbol id="i-trash" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" d="M4 6.5h16M9.5 6.5V4.2h5v2.3M6 6.5l1 13.3h10l1-13.3M10 10.5v6M14 10.5v6"/></symbol>
+        <symbol id="i-search" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m15.5 15.5 5 5"/></g></symbol>
+        <symbol id="i-cloud" viewBox="0 0 24 24"><path fill="currentColor" d="M7 19.5a5 5 0 0 1-.7-10A6.5 6.5 0 0 1 18.8 9a4.8 4.8 0 0 1-.8 10.5z"/></symbol>
+        <symbol id="i-cloudline" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" d="M7 19.5a5 5 0 0 1-.7-10A6.5 6.5 0 0 1 18.8 9a4.8 4.8 0 0 1-.8 10.5z"/></symbol>
+        <symbol id="i-server" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3.5" y="4" width="17" height="7" rx="2"/><rect x="3.5" y="13" width="17" height="7" rx="2"/></g><g fill="currentColor"><circle cx="7.5" cy="7.5" r="1.2"/><circle cx="7.5" cy="16.5" r="1.2"/></g></symbol>
+        <symbol id="i-nas" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><rect x="4" y="3" width="16" height="13" rx="2.5"/><path d="M12 16v3.3M4.5 20.5h15M8 7h8M8 10.5h5"/></g></symbol>
+        <symbol id="i-folder" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" d="M3 7.5A2.5 2.5 0 0 1 5.5 5h4l2 2.2h7A2.5 2.5 0 0 1 21 9.7v7.8a2.5 2.5 0 0 1-2.5 2.5h-13A2.5 2.5 0 0 1 3 17.5z"/></symbol>
+        <symbol id="i-refresh" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19.5 12a7.5 7.5 0 1 1-2.2-5.3"/><path d="M19.8 3.8v4.6h-4.6"/></g></symbol>
+        <symbol id="i-download" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7.5v8.5M8.3 12.5 12 16.2l3.7-3.7"/></g></symbol>
+        <symbol id="i-house" viewBox="0 0 24 24"><path fill="currentColor" d="M12 3.2 2.8 11a1 1 0 0 0 1.3 1.5l.9-.8V19a1.5 1.5 0 0 0 1.5 1.5H10v-5.2h4v5.2h3.5A1.5 1.5 0 0 0 19 19v-7.3l.9.8a1 1 0 0 0 1.3-1.5z"/></symbol>
+        <symbol id="i-updown" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" d="m7.5 9 4.5-4.5L16.5 9M7.5 15l4.5 4.5 4.5-4.5"/></symbol>
+        <symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="1.8"/><path fill="currentColor" d="M11 10.5h2v6.5h-2zM12 6.4a1.3 1.3 0 1 1 0 2.6 1.3 1.3 0 0 1 0-2.6Z"/></symbol>
+        <symbol id="i-dpad" viewBox="0 0 24 24"><g fill="currentColor"><circle cx="12" cy="5.5" r="3"/><circle cx="12" cy="18.5" r="3"/><circle cx="5.5" cy="12" r="3"/><circle cx="18.5" cy="12" r="3"/></g></symbol>
+        <symbol id="i-gauge" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-linecap="round"><circle cx="12" cy="12" r="9" stroke-width="1.8"/><path stroke-width="2" d="m12 13 3.6-4.6"/><path stroke-width="2.6" d="M7 12.5h.01M8.6 8.6h.01M12 7h.01M17 12.5h.01"/></g></symbol>
+        <symbol id="i-checklist" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="7.5" r="2.7"/><circle cx="6" cy="16.5" r="2.7"/><path d="M11.5 7.5h9M11.5 16.5h9M4.8 7.6l.9.9 1.6-1.8"/></g></symbol>
+        <symbol id="i-hidden" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M3 12s3.3-6 9-6c1.5 0 2.8.4 4 1M21 12s-3.3 6-9 6c-1.5 0-2.8-.4-4-1M9.8 14.2a3 3 0 0 1 4.4-4.4M4 20 20 4"/></g></symbol>
+        <symbol id="i-copy" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><rect x="8" y="8" width="12" height="13" rx="2.2"/><path d="M5.5 16H5a1.5 1.5 0 0 1-1.5-1.5V4.5A1.5 1.5 0 0 1 5 3h9.5A1.5 1.5 0 0 1 16 4.5V5"/></g></symbol>
+        <symbol id="i-ban" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="m5.6 5.6 12.8 12.8"/></g></symbol>
+        <symbol id="i-lock" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.8"><rect x="5" y="10.5" width="14" height="10" rx="2.2"/><path d="M8 10.5V8a4 4 0 0 1 8 0v2.5"/></g></symbol>
+        <symbol id="i-signal" viewBox="0 0 18 12"><g fill="currentColor"><rect y="8" width="3" height="4" rx=".8"/><rect x="5" y="5.5" width="3" height="6.5" rx=".8"/><rect x="10" y="3" width="3" height="9" rx=".8"/><rect x="15" width="3" height="12" rx=".8"/></g></symbol>
+        <symbol id="i-wifi" viewBox="0 0 16 12"><path fill="currentColor" d="M8 2.2c2.4 0 4.6.9 6.3 2.5l1.2-1.2A10.6 10.6 0 0 0 8 .5 10.6 10.6 0 0 0 .5 3.5l1.2 1.2A9 9 0 0 1 8 2.2Zm0 3.4c1.5 0 2.9.6 4 1.6l1.2-1.2A7.3 7.3 0 0 0 8 3.9a7.3 7.3 0 0 0-5.2 2.1L4 7.2a5.6 5.6 0 0 1 4-1.6Zm0 3.3c.6 0 1.2.2 1.6.6L8 11.2 6.4 9.5c.4-.4 1-.6 1.6-.6Z"/></symbol>
+        <symbol id="i-battery" viewBox="0 0 27 13"><rect x=".5" y=".5" width="23" height="12" rx="3.5" fill="none" stroke="currentColor" stroke-opacity=".4"/><rect x="2" y="2" width="20" height="9" rx="2" fill="currentColor"/><path fill="currentColor" fill-opacity=".4" d="M25 4.5v4c.8-.3 1.4-1.1 1.4-2s-.6-1.7-1.4-2Z"/></symbol>
+        <symbol id="i-github" viewBox="0 0 16 16"><path fill="currentColor" d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8Z"/></symbol>
+        <symbol id="i-sparkle" viewBox="0 0 24 24"><path fill="currentColor" d="M10 3.5c.6 4.4 2.1 5.9 6.5 6.5-4.4.6-5.9 2.1-6.5 6.5-.6-4.4-2.1-5.9-6.5-6.5 4.4-.6 5.9-2.1 6.5-6.5ZM18.5 13.5c.3 2.1.9 2.7 3 3-2.1.3-2.7.9-3 3-.3-2.1-.9-2.7-3-3 2.1-.3 2.7-.9 3-3ZM18 2c.2 1.5.7 2 2.2 2.2-1.5.2-2 .7-2.2 2.2-.2-1.5-.7-2-2.2-2.2 1.5-.2 2-.7 2.2-2.2Z"/></symbol>
+        <symbol id="i-hammer" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" d="M4.6 19.4 12.4 11.6"/><rect x="9" y="6.4" width="12" height="5.2" rx="1.4" fill="currentColor" transform="rotate(45 15 9)"/></symbol>
+        <symbol id="i-wrench" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-linecap="round"><path stroke-width="2.8" d="M5 19 11.7 12.3"/><path stroke-width="2.2" d="M19.5 8.2A4.6 4.6 0 1 1 15.8 4.5"/></g></symbol>
+        <symbol id="i-sidebar" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.7"><rect x="3" y="4.5" width="18" height="15" rx="3.2"/><path d="M9.5 4.5v15"/><path stroke-linecap="round" d="M5.6 8.4h1.5M5.6 11h1.5"/></g></symbol>
+        <symbol id="i-stop" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="1.9"/><rect x="8.7" y="8.7" width="6.6" height="6.6" rx="1.3" fill="currentColor"/></symbol>
+        <symbol id="i-stopfill" viewBox="0 0 24 24"><rect x="5" y="5" width="14" height="14" rx="2.8" fill="currentColor"/></symbol>
+        <symbol id="i-moon" viewBox="0 0 24 24"><path fill="currentColor" d="M14.5 3.2a8.8 8.8 0 1 0 6.3 13.9A8 8 0 0 1 14.5 3.2Z"/></symbol>
+        <symbol id="i-iphonewaves" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><rect x="8.6" y="4" width="6.8" height="16" rx="2"/><path d="M5.6 8.6a6 6 0 0 0 0 6.8M18.4 8.6a6 6 0 0 1 0 6.8M3 6.6a9.6 9.6 0 0 0 0 10.8M21 6.6a9.6 9.6 0 0 1 0 10.8"/></g></symbol>
+        <symbol id="i-box" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"><path d="M12 3 20 7.3v9.4L12 21l-8-4.3V7.3Z"/><path d="M4 7.3 12 11.6l8-4.3M12 11.6V21"/></g></symbol>
+        <symbol id="i-doc" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"><path d="M6.5 3H14l4.5 4.5v12a1.5 1.5 0 0 1-1.5 1.5H6.5A1.5 1.5 0 0 1 5 19.5v-15A1.5 1.5 0 0 1 6.5 3Z"/><path stroke-linecap="round" d="M14 3v4.5h4.5M8.5 12h7M8.5 15.5h7"/></g></symbol>
+    </defs>
+</svg>
+
+<div class="page">
+    <header class="top wrap">
+        <div class="top__bar">
+            <a class="wordmark" href="#top" aria-label="Cartouche"><svg aria-hidden="true"><use href="#i-cartridge"/></svg><b>Cartouche</b></a>
+            <nav class="nav" data-label-fr="Sections" data-label-en="Sections" aria-label="Sections">
+                <a href="#console"><span lang="fr">La console</span><span lang="en">Console</span></a>
+                <a href="#storage"><span lang="fr">Stockage</span><span lang="en">Storage</span></a>
+                <a href="#builder">Builder</a>
+                <a href="#install"><span lang="fr">Installer</span><span lang="en">Install</span></a>
+                <a href="#faq"><span lang="fr">Questions</span><span lang="en">FAQ</span></a>
+            </nav>
+            <div class="lang" role="group" data-label-fr="Langue" data-label-en="Language" aria-label="Language">
+                <button type="button" data-set-lang="fr" aria-pressed="false">FR</button>
+                <button type="button" data-set-lang="en" aria-pressed="true">EN</button>
+            </div>
+            <a class="gh" href="https://github.com/clabeuhtegrite/Cartouche" data-label-fr="Le code de Cartouche sur GitHub" data-label-en="Cartouche's code on GitHub" aria-label="Cartouche's code on GitHub"><svg aria-hidden="true"><use href="#i-github"/></svg></a>
+        </div>
+    </header>
+
+    <main>
+        <section class="hero" id="top">
+            <div class="wrap">
+                <div class="hero__head">
+                    <div>
+                        <p class="label eyebrow"><svg aria-hidden="true"><use href="#i-cartridge"/></svg><span lang="fr">Pour iPhone · Logiciel libre</span><span lang="en">For iPhone · Free software</span></p>
+                        <h1><span lang="fr">Votre iPhone devient une console.</span><span lang="en">Your iPhone becomes a console.</span></h1>
+                    </div>
+                    <div>
+                        <p class="lede" lang="fr">Cartouche installe, lance et garde les jeux que <a href="https://github.com/seedds/nxnative">nxnative</a> fait tourner nativement sur iPhone, à partir de vos propres copies. Il se signe, se renouvelle et se met à jour tout seul, et donne à vos jeux la mémoire qu’il leur faut. Sur votre Mac, <a href="#builder">Cartouche Builder</a> construit vos jeux, et les reconstruit quand nxnative les améliore.</p>
+                        <p class="lede" lang="en">Cartouche installs, starts and keeps the games <a href="https://github.com/seedds/nxnative">nxnative</a> runs natively on iPhone, from your own copies. It signs, renews and updates itself, and gets your games the memory they need. On your Mac, <a href="#builder">Cartouche Builder</a> builds your games, and rebuilds them when nxnative improves them.</p>
+                        <div class="actions">
+                            <a class="btn btn--primary" href="#install"><i class="glyph" aria-hidden="true">A</i><span lang="fr">Installer Cartouche</span><span lang="en">Install Cartouche</span></a>
+                            <a class="btn btn--glass" href="https://github.com/clabeuhtegrite/Cartouche"><i class="glyph" aria-hidden="true">X</i><span lang="fr">Le code sur GitHub</span><span lang="en">Code on GitHub</span></a>
+                        </div>
+                    </div>
+                </div>
+                <div class="hero__device">
+                    <div class="device" data-hero tabindex="0" role="group" style="--w:874;--h:402;--r:55;--b:13;max-width:1060px" data-label-fr="L’accueil de Cartouche, en paysage sur un iPhone 17 Pro" data-label-en="Cartouche’s home, in landscape on an iPhone 17 Pro" aria-label="Cartouche’s home, in landscape on an iPhone 17 Pro">
+                        <div class="device__body"><div class="screen" data-screen="hero"></div></div>
+                    </div>
+                    <p class="hint"><span lang="fr">Touchez une jaquette<span class="hint__keys">, ou <kbd>←</kbd> <kbd>→</kbd> au clavier</span>. Jouer, Fiche et le dock mènent à la suite.</span><span lang="en">Tap a cover<span class="hint__keys">, or press <kbd>←</kbd> <kbd>→</kbd></span>. Play, Details and the dock lead to the rest of the page.</span></p>
+                </div>
+                <ul class="facts">
+                    <li><span lang="fr"><b>Un compte Apple gratuit</b> suffit, sans compte développeur</span><span lang="en"><b>A free Apple account</b> is enough, no developer account</span></li>
+                    <li><span lang="fr"><b>Manette ou tactile</b> sur chaque écran</span><span lang="en"><b>Controller or touch</b> on every screen</span></li>
+                    <li><span lang="fr"><b>Vos propres copies</b> de vos jeux, aucun jeu fourni</span><span lang="en"><b>Your own copies</b> of your games, none included</span></li>
+                </ul>
+            </div>
+        </section>
+
+        <section class="section" id="console" style="--light:#57E68E;--dark:#146656">
+            <div class="wrap split">
+                <div>
+                    <p class="label"><span lang="fr">La console</span><span lang="en">The console</span></p>
+                    <h2><span lang="fr">Vos jeux en grand, sur une seule étagère.</span><span lang="en">Your games, large, on one shelf.</span></h2>
+                    <div class="prose">
+                        <p lang="fr">L’accueil ne montre que vos jeux, avec leurs jaquettes officielles, et le jeu en focus avec ce qu’il faut pour y jouer. Tous les jeux de la liste de nxnative sont à un geste, et chacun dit comment il tourne sur votre iPhone.</p>
+                        <p lang="en">The home shows your games alone, with their official covers, and the game in focus with what you need to play it. Every game on nxnative’s list is one step away, and each says how it runs on your iPhone.</p>
+                    </div>
+                    <ul class="keys">
+                        <li><span class="keys__k"><i class="glyph" aria-hidden="true">A</i></span><span lang="fr"><b>Jouer</b> : le jeu démarre tout de suite, avec ses réglages.</span><span lang="en"><b>Play</b>: the game starts at once, with its settings.</span></li>
+                        <li><span class="keys__k"><i class="glyph" aria-hidden="true">X</i></span><span lang="fr"><b>Fiche</b> : comment il tourne ici, son temps de jeu, sa taille.</span><span lang="en"><b>Details</b>: how it runs here, its play time, its size.</span></li>
+                        <li><span class="keys__k"><i class="glyph" aria-hidden="true">Y</i></span><span lang="fr"><b>Tous les jeux</b> : la liste de nxnative, avec ses filtres.</span><span lang="en"><b>All games</b>: nxnative’s list, with its filters.</span></li>
+                        <li><span class="keys__k"><i class="shoulder" aria-hidden="true">L1</i><i class="shoulder" aria-hidden="true">R1</i></span><span lang="fr"><b>Filtre</b> : Tous, Ma bibliothèque, Sur iPhone.</span><span lang="en"><b>Filter</b>: All, My library, On iPhone.</span></li>
+                        <li><span class="keys__k"><i class="glyph" aria-hidden="true"><svg width="12" height="12" aria-hidden="true"><use href="#i-menu"/></svg></i></span><span lang="fr"><b>Système</b> : mémoire, signature, stockage, mises à jour.</span><span lang="en"><b>System</b>: memory, signature, storage, updates.</span></li>
+                    </ul>
+                </div>
+                <figure>
+                    <div class="device" style="--w:402;--h:874;--r:55;--b:12;max-width:340px;--light:#57E68E;--dark:#146656">
+                        <div class="device__body"><div class="screen" data-screen="library" role="img" data-label-fr="Tous les jeux, avec une manette connectée" data-label-en="All games, with a controller connected" aria-label="All games, with a controller connected"></div></div>
+                    </div>
+                    <figcaption><span lang="fr">Tous les jeux, manette connectée</span><span lang="en">All games, controller connected</span></figcaption>
+                </figure>
+            </div>
+        </section>
+
+        <section class="section" id="sheet" style="--light:#C457E6;--dark:#661457;--gx:88%;--gx2:12%">
+            <div class="wrap split split--flip">
+                <div>
+                    <p class="label"><span lang="fr">La fiche du jeu</span><span lang="en">A game’s sheet</span></p>
+                    <h2><span lang="fr">Chaque jeu dit comment il tourne ici.</span><span lang="en">Every game says how it runs here.</span></h2>
+                    <div class="prose">
+                        <p lang="fr">La fiche vérifie que votre iPhone a ce qu’il faut : la mémoire, iOS, la puce. Elle montre votre temps de jeu, la place que prend le jeu et, quand des testeurs l’ont essayé, leurs résultats sur votre modèle.</p>
+                        <p lang="en">The sheet checks that your iPhone has what it takes: memory, iOS, chip. It shows your play time, the space the game takes and, when testers have tried it, their results on your model.</p>
+                        <p lang="fr">Les réglages de nxnative se changent sur une page de Cartouche : images par seconde, échelle de rendu, mode portable ou TV, langue du jeu. « Revenir aux réglages testés » remet ceux avec lesquels le jeu a été essayé.</p>
+                        <p lang="en">nxnative’s settings change on a page of Cartouche’s own: frame rate, render scale, handheld or docked, game language. Reset to tested defaults brings back the ones the game was tried with.</p>
+                    </div>
+                    <p class="small" style="margin-top:22px"><span lang="fr">Faites glisser l’échelle de rendu, sur la page des réglages.</span><span lang="en">Drag the render scale, on the settings page.</span></p>
+                </div>
+                <div class="pair" style="display:flex;align-items:flex-start;justify-content:center">
+                    <div class="device" style="--w:402;--h:874;--r:55;--b:12;width:48%;max-width:300px;margin:0;--light:#C457E6;--dark:#661457">
+                        <div class="device__body"><div class="screen" data-screen="sheet" role="img" data-label-fr="La fiche de Stardew Valley" data-label-en="Stardew Valley’s sheet" aria-label="Stardew Valley’s sheet"></div></div>
+                    </div>
+                    <div class="device" style="--w:402;--h:874;--r:55;--b:12;width:48%;max-width:300px;margin:12% 0 0 4%;--light:#C457E6;--dark:#661457">
+                        <div class="device__body"><div class="screen" data-screen="settings"></div></div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section class="section" id="pause" style="--light:#E6BB57;--dark:#5C6614">
+            <div class="wrap">
+                <div class="intro intro--wide">
+                    <div>
+                        <p class="label"><span lang="fr">Pendant une partie</span><span lang="en">During a game</span></p>
+                        <h2><span lang="fr">Le jeu attend derrière la console.</span><span lang="en">The game waits behind the console.</span></h2>
+                    </div>
+                    <div class="prose">
+                        <p lang="fr">Le bouton Home, sur l’écran ou sur la manette, ramène la console sans quitter le jeu. Il reste en pause là où vous l’avez laissé : Reprendre y retourne, Quitter l’arrête.</p>
+                        <p lang="en">The Home button, on screen or on the controller, brings back the console without ending the game. It stays paused where you left it: Resume goes back to it, Quit ends it.</p>
+                        <p class="small"><span lang="fr">Un jeu qui a besoin de plus de mémoire démarre à la place de Cartouche.</span><span lang="en">A game that needs more memory starts in Cartouche’s place.</span></p>
+                    </div>
+                </div>
+                <div class="device" data-pause style="--w:874;--h:402;--r:55;--b:13;max-width:940px;margin-top:clamp(40px,5vw,64px);--light:#E6BB57;--dark:#5C6614">
+                    <div class="device__body"><div class="screen" data-screen="pause"></div></div>
+                </div>
+                <div class="demo-bar">
+                    <button type="button" class="btn btn--glass" data-pause-toggle></button>
+                </div>
+            </div>
+        </section>
+
+        <section class="section" id="storage" style="--light:#F49CC4;--dark:#3D2B96">
+            <div class="wrap">
+                <div class="split" style="align-items:start">
+                    <div>
+                        <p class="label"><span lang="fr">Votre stockage</span><span lang="en">Your storage</span></p>
+                        <h2><span lang="fr">Vos jeux et vos sauvegardes restent chez vous.</span><span lang="en">Your games and saves stay at home.</span></h2>
+                        <div class="prose">
+                            <p lang="fr">Gardez vos jeux sur votre propre stockage, avec votre propre compte. Ceux qui s’y trouvent apparaissent dans votre bibliothèque, prêts à installer, et Cartouche y garde vos sauvegardes synchronisées, d’un iPhone à l’autre.</p>
+                            <p lang="en">Keep your games on storage of your own, with your own account. The games there show in your library, ready to install, and Cartouche keeps your saves in sync there, from one iPhone to the next.</p>
+                        </div>
+                        <p class="note"><svg aria-hidden="true"><use href="#i-lock"/></svg><span lang="fr">Uniquement votre propre stockage, avec votre propre compte : jamais de lien public.</span><span lang="en">Only storage of your own, with your own account: never a public link.</span></p>
+                    </div>
+                    <ul class="stores">
+                        <li class="store store--wide"><span class="tag-icon"><svg aria-hidden="true"><use href="#i-laptop"/></svg></span><h3><span lang="fr">Votre Mac</span><span lang="en">Your Mac</span></h3><p><span lang="fr">Par Cartouche Builder, sur votre Wi-Fi : jumelé une fois avec le même code à six chiffres sur les deux écrans, puis tout passe chiffré.</span><span lang="en">Through Cartouche Builder, on your Wi-Fi: paired once with the same six digits on both screens, then everything goes encrypted.</span></p></li>
+                        <li class="store"><span class="tag-icon"><svg aria-hidden="true"><use href="#i-nas"/></svg></span><h3><span lang="fr">Dossier partagé</span><span lang="en">Shared folder</span></h3><p><span lang="fr">SMB 2 ou 3, sur votre Mac, votre PC ou votre NAS.</span><span lang="en">SMB 2 or 3, on your Mac, PC or NAS.</span></p></li>
+                        <li class="store"><span class="tag-icon"><svg aria-hidden="true"><use href="#i-cloud"/></svg></span><h3><span lang="fr">Bucket S3 privé</span><span lang="en">Private S3 bucket</span></h3><p><span lang="fr">Sur Amazon S3 ou votre MinIO, chaque requête signée avec vos clés.</span><span lang="en">On Amazon S3 or your own MinIO, each request signed with your keys.</span></p></li>
+                        <li class="store"><span class="tag-icon"><svg aria-hidden="true"><use href="#i-server"/></svg></span><h3><span lang="fr">Serveur FTP ou SFTP</span><span lang="en">FTP or SFTP server</span></h3><p><span lang="fr">Avec votre compte. En SFTP, Cartouche vérifie la clé du serveur.</span><span lang="en">With your account. Over SFTP, Cartouche checks the server’s key.</span></p></li>
+                        <li class="store"><span class="tag-icon"><svg aria-hidden="true"><use href="#i-cloudline"/></svg></span><h3>Google Drive</h3><p><span lang="fr">Par un client Google à vous, créé une fois et gratuitement : Cartouche n’embarque aucune clé Google.</span><span lang="en">Through a Google client of your own, made once and free: Cartouche carries no Google key.</span></p></li>
+                        <li class="store store--wide"><span class="tag-icon"><svg aria-hidden="true"><use href="#i-folder"/></svg></span><h3><span lang="fr">Dossier de Fichiers</span><span lang="en">Folder in Files</span></h3><p><span lang="fr">N’importe quel dossier que l’app Fichiers atteint.</span><span lang="en">Any folder the Files app reaches.</span></p></li>
+                    </ul>
+                </div>
+                <ul class="keeps">
+                    <li><svg aria-hidden="true"><use href="#i-tick"/></svg><span lang="fr"><b>Sauvegardes synchronisées</b> : envoyées après chaque partie, reprises à l’installation, même après avoir réinstallé Cartouche, et avant de jouer. La plus récente l’emporte, l’autre reste en copie ; Cartouche garde les 10 plus récentes.</span><span lang="en"><b>Saves in sync</b>: sent after each game, brought back at install, even after reinstalling Cartouche, and before you play. The newest wins, the other stays as a copy; Cartouche keeps the 10 most recent.</span></li>
+                    <li><svg aria-hidden="true"><use href="#i-tick"/></svg><span lang="fr"><b>Une installation coupée</b> reprend là où elle s’était arrêtée.</span><span lang="en"><b>An install that was cut off</b> picks up where it stopped.</span></li>
+                    <li><svg aria-hidden="true"><use href="#i-tick"/></svg><span lang="fr"><b>Une version plus récente</b> dans votre dossier ? Cartouche propose la mise à jour et garde vos sauvegardes.</span><span lang="en"><b>A newer build</b> in your folder? Cartouche offers the update and keeps your saves.</span></li>
+                    <li><svg aria-hidden="true"><use href="#i-tick"/></svg><span lang="fr"><b>Un dossier en lecture seule</b> ? Cartouche installe ses jeux sans rien y écrire.</span><span lang="en"><b>A read-only folder</b>? Cartouche installs its games and writes nothing there.</span></li>
+                </ul>
+            </div>
+        </section>
+
+        <section class="section" id="system" style="--light:#4F46E5;--dark:#EC4899;--gx:84%;--gx2:16%">
+            <div class="wrap split split--flip">
+                <div>
+                    <p class="label"><span lang="fr">En coulisse</span><span lang="en">Behind the scenes</span></p>
+                    <h2><span lang="fr">Il s’occupe du reste.</span><span lang="en">It takes care of the rest.</span></h2>
+                    <ul class="perks">
+                        <li class="perk"><span class="tag-icon"><svg aria-hidden="true"><use href="#i-refresh"/></svg></span><div><h3><span lang="fr">Signé et renouvelé</span><span lang="en">Signed and renewed</span></h3><p><span lang="fr">Le SideStore intégré renouvelle sa signature de 7 jours depuis la page Système, ou chaque nuit par une automatisation Raccourcis. Cartouche prévient 24 h et 6 h avant.</span><span lang="en">The built-in SideStore renews its seven-day signature from the System page, or every night from a Shortcuts automation. Cartouche warns you 24 h and 6 h before.</span></p></div></li>
+                        <li class="perk"><span class="tag-icon"><svg aria-hidden="true"><use href="#i-download"/></svg></span><div><h3><span lang="fr">Mis à jour sans ordinateur</span><span lang="en">Updated without a computer</span></h3><p><span lang="fr">Cartouche propose ses nouvelles versions sur la console et les installe lui-même. Vos jeux et vos sauvegardes restent.</span><span lang="en">Cartouche offers its new versions over the console and installs them itself. Your games and saves stay.</span></p></div></li>
+                        <li class="perk"><span class="tag-icon"><svg aria-hidden="true"><use href="#i-hidden"/></svg></span><div><h3><span lang="fr">Hors de vue</span><span lang="en">Out of sight</span></h3><p><span lang="fr">Cartouche s’appuie sur LiveContainer et SideStore sans jamais les montrer. Vos jeux tournent dans Cartouche et ne comptent pas dans la limite de trois apps d’un compte gratuit.</span><span lang="en">Cartouche is built on LiveContainer and SideStore and never shows them. Your games run inside Cartouche and don’t count against a free account’s limit of three apps.</span></p></div></li>
+                        <li class="perk"><span class="tag-icon"><svg aria-hidden="true"><use href="#i-copy"/></svg></span><div><h3><span lang="fr">Une erreur ? Copiez le rapport.</span><span lang="en">An error? Copy the report.</span></h3><p><span lang="fr">Sous chaque erreur, un bouton copie ce qu’il faut pour la comprendre, sans mot de passe ni adresse.</span><span lang="en">Under each error, a button copies what it takes to understand it, with no password or address.</span></p></div></li>
+                    </ul>
+                </div>
+                <figure>
+                    <div class="device" style="--w:402;--h:874;--r:55;--b:12;max-width:340px;--light:#4F46E5;--dark:#EC4899">
+                        <div class="device__body"><div class="screen" data-screen="system" role="img" data-label-fr="La page Système de Cartouche" data-label-en="Cartouche’s System page" aria-label="Cartouche’s System page"></div></div>
+                    </div>
+                    <figcaption><span lang="fr">La page Système</span><span lang="en">The System page</span></figcaption>
+                </figure>
+            </div>
+        </section>
+
+        <section class="section" id="builder" style="--light:#79C3FF;--dark:#2A5AA6">
+            <div class="wrap">
+                <div class="intro intro--wide">
+                    <div>
+                        <p class="label"><span lang="fr">Sur votre Mac</span><span lang="en">On your Mac</span></p>
+                        <h2><span lang="fr">Cartouche Builder construit vos jeux, et les refait quand nxnative les améliore.</span><span lang="en">Cartouche Builder builds your games, and builds them again when nxnative improves them.</span></h2>
+                    </div>
+                    <div>
+                        <div class="prose">
+                            <p lang="fr">Cartouche Builder est l’app Mac de Cartouche. À partir de vos propres copies, il construit chaque jeu avec nxnative et le dépose dans votre dossier de jeux. Puis il les suit : quand nxnative en améliore un, il le reconstruit, tout de suite ou la nuit, et Cartouche propose la mise à jour sur l’iPhone, sauvegardes gardées.</p>
+                            <p lang="en">Cartouche Builder is Cartouche’s Mac app. From your own copies, it builds each game with nxnative and puts it in your games folder. Then it follows them: when nxnative improves one, it builds it again, now or at night, and Cartouche offers the update on the iPhone, saves kept.</p>
+                        </div>
+                        <div class="actions">
+                            <a class="btn btn--primary" data-download="builder" href="https://github.com/clabeuhtegrite/Cartouche/releases/download/builder-v0.5.0/Cartouche-Builder-0.5.0.dmg"><svg aria-hidden="true"><use href="#i-download"/></svg><span lang="fr">Télécharger Cartouche Builder</span><span lang="en">Download Cartouche Builder</span></a>
+                            <a class="btn btn--glass" href="https://github.com/clabeuhtegrite/Cartouche/blob/main/builder/README.md"><svg aria-hidden="true"><use href="#i-doc"/></svg><span lang="fr">Son guide</span><span lang="en">Its guide</span></a>
+                        </div>
+                        <p class="builder-need"><span lang="fr">Gratuit, pour un Mac à puce Apple avec macOS 26.6 ou ultérieur. La première fois, macOS ne peut pas le vérifier : Réglages Système › Confidentialité et sécurité › Ouvrir quand même.</span><span lang="en">Free, for a Mac with Apple silicon and macOS 26.6 or later. The first time, macOS cannot check it: System Settings › Privacy &amp; Security › Open Anyway.</span></p>
+                    </div>
+                </div>
+                <div class="mac" role="group" data-label-fr="La fenêtre de Cartouche Builder sur un Mac" data-label-en="Cartouche Builder’s window on a Mac" aria-label="Cartouche Builder’s window on a Mac">
+                    <div class="mac__win" data-builder></div>
+                </div>
+                <p class="hint"><span lang="fr">Parcourez ses pages, ou lancez Tout reconstruire.</span><span lang="en">Browse its pages, or press Rebuild all.</span></p>
+                <ul class="perks perks--three">
+                    <li class="perk"><span class="tag-icon"><svg aria-hidden="true"><use href="#i-sparkle"/></svg></span><div><h3><span lang="fr">Il suit chacun de vos jeux</span><span lang="en">It follows each of your games</span></h3><p><span lang="fr">Il lit ce que nxnative change chaque jour et vous dit quel jeu en profite, et pourquoi : son profil, un correctif qui le nomme, le code commun.</span><span lang="en">It reads what nxnative changes each day and tells you which game gains, and why: its profile, a fix that names it, the shared code.</span></p></div></li>
+                    <li class="perk"><span class="tag-icon"><svg aria-hidden="true"><use href="#i-moon"/></svg></span><div><h3><span lang="fr">Maintenant ou la nuit</span><span lang="en">Now or at night</span></h3><p><span lang="fr">D’un clic, ou chaque nuit, même app fermée : le Mac reste éveillé le temps de construire, puis une notification dit comment ça s’est passé.</span><span lang="en">In one click, or every night, even with the app closed: the Mac stays awake while it builds, then a notification says how it went.</span></p></div></li>
+                    <li class="perk"><span class="tag-icon"><svg aria-hidden="true"><use href="#i-nas"/></svg></span><div><h3><span lang="fr">Sur votre Mac ou votre NAS</span><span lang="en">On your Mac or your NAS</span></h3><p><span lang="fr">Vos copies et vos jeux restent où vous voulez. Il garde de quoi reconstruire vite, et libère le reste avant que le disque se remplisse.</span><span lang="en">Your copies and games stay where you want. It keeps what makes the next build fast, and frees the rest before the disk fills up.</span></p></div></li>
+                    <li class="perk"><span class="tag-icon"><svg aria-hidden="true"><use href="#i-wrench"/></svg></span><div><h3><span lang="fr">Sans Terminal</span><span lang="en">No Terminal</span></h3><p><span lang="fr">Il installe lui-même nxnative et ses outils, et vous ouvre l’App Store pour Xcode. macOS ne vous demande que votre mot de passe.</span><span lang="en">It installs nxnative and its tools by itself, and opens the App Store for Xcode. macOS only asks for your password.</span></p></div></li>
+                    <li class="perk"><span class="tag-icon"><svg aria-hidden="true"><use href="#i-iphonewaves"/></svg></span><div><h3><span lang="fr">Le stockage de Cartouche</span><span lang="en">Cartouche’s storage</span></h3><p><span lang="fr">Jumelé une fois avec l’iPhone, par le même code à six chiffres sur les deux écrans, le Mac sert vos jeux par le Wi-Fi et garde vos sauvegardes, chiffrées en chemin.</span><span lang="en">Paired once with the iPhone, by the same six digits on both screens, the Mac serves your games over Wi-Fi and keeps your saves, encrypted on the way.</span></p></div></li>
+                    <li class="perk"><span class="tag-icon"><svg aria-hidden="true"><use href="#i-refresh"/></svg></span><div><h3><span lang="fr">Il se met à jour seul</span><span lang="en">It updates itself</span></h3><p><span lang="fr">Comme Cartouche, il installe ses nouvelles versions de lui-même, quand rien ne se construit.</span><span lang="en">Like Cartouche, it installs its new versions by itself, when nothing is building.</span></p></div></li>
+                </ul>
+                <p class="label builder-flow"><span lang="fr">De votre console à l’iPhone</span><span lang="en">From your console to the iPhone</span></p>
+                <ol class="flow">
+                    <li><span class="tag-icon"><svg aria-hidden="true"><use href="#i-folder"/></svg></span><h3><span lang="fr">Vos fichiers</span><span lang="en">Your files</span></h3><p><span lang="fr">Votre jeu, ses mises à jour et ses DLC, tirés de votre propre console.</span><span lang="en">Your game, its updates and DLC, dumped from your own console.</span></p></li>
+                    <li><span class="tag-icon"><svg aria-hidden="true"><use href="#i-laptop"/></svg></span><h3>Cartouche Builder</h3><p><span lang="fr">Construit le jeu avec nxnative, sur votre Mac, et le refait quand nxnative l’améliore.</span><span lang="en">Builds the game with nxnative, on your Mac, and again when nxnative improves it.</span></p></li>
+                    <li><span class="tag-icon"><svg aria-hidden="true"><use href="#i-nas"/></svg></span><h3><span lang="fr">Votre dossier de jeux</span><span lang="en">Your games folder</span></h3><p><span lang="fr">Sur votre Mac ou votre NAS. Le Mac peut aussi servir de stockage à Cartouche.</span><span lang="en">On your Mac or NAS. The Mac can also be Cartouche’s storage.</span></p></li>
+                    <li><span class="tag-icon"><svg aria-hidden="true"><use href="#i-iphone"/></svg></span><h3>Cartouche</h3><p><span lang="fr">Installe le jeu, puis propose chaque mise à jour sur sa fiche, sauvegardes gardées.</span><span lang="en">Installs the game, then offers each update on its sheet, saves kept.</span></p></li>
+                </ol>
+            </div>
+        </section>
+
+        <section class="section" id="install" style="--light:#4F46E5;--dark:#EC4899">
+            <div class="wrap split" style="align-items:start">
+                <div>
+                    <p class="label"><span lang="fr">Installer</span><span lang="en">Install</span></p>
+                    <h2><span lang="fr">De l’installation à votre premier jeu.</span><span lang="en">From the install to your first game.</span></h2>
+                    <ol class="steps">
+                        <li class="step"><span class="step__n" aria-hidden="true">1</span><div><h3><span lang="fr">LocalDevVPN sur l’iPhone</span><span lang="en">LocalDevVPN on the iPhone</span></h3><p><span lang="fr">Installez-le depuis l’App Store : Cartouche se connecte et se renouvelle par lui, sans ordinateur. Son trafic ne sort jamais de l’iPhone.</span><span lang="en">Install it from the App Store: Cartouche signs in and renews itself through it, without a computer. Its traffic never leaves the iPhone.</span></p></div></li>
+                        <li class="step"><span class="step__n" aria-hidden="true">2</span><div><h3><span lang="fr">L’Installeur Cartouche</span><span lang="en">The Cartouche Installer</span></h3><p><span lang="fr">Sur un Mac ou un PC Windows, branchez l’iPhone et connectez-vous avec votre compte Apple. L’Installeur pose Cartouche avec son certificat, la mémoire augmentée et le fichier de jumelage. Vous avez déjà un certificat de signature (.p12) et son profil ? Il peut signer Cartouche avec, sans compte Apple.</span><span lang="en">On a Mac or a Windows PC, plug in the iPhone and sign in with your Apple account. The Installer puts Cartouche on it with its certificate, Increased Memory Limit and the pairing file. Already have a signing certificate (.p12) and its profile? It can sign Cartouche with them instead, with no Apple account.</span></p>
+                            <div class="actions">
+                                <a class="btn btn--primary" data-download="installer-mac" href="https://github.com/clabeuhtegrite/Cartouche/releases/download/installer-v0.2.1/Cartouche-Installer-0.2.1-Mac.dmg"><svg aria-hidden="true"><use href="#i-download"/></svg><span lang="fr">Télécharger pour Mac</span><span lang="en">Download for Mac</span></a>
+                                <a class="btn btn--primary" data-download="installer-windows" href="https://github.com/clabeuhtegrite/Cartouche/releases/download/installer-v0.2.1/Cartouche-Installer-0.2.1-Windows.exe"><svg aria-hidden="true"><use href="#i-download"/></svg><span lang="fr">Télécharger pour Windows</span><span lang="en">Download for Windows</span></a>
+                            </div></div></li>
+                        <li class="step"><span class="step__n" aria-hidden="true">3</span><div><h3><span lang="fr">Le guide de Cartouche</span><span lang="en">Cartouche’s guide</span></h3><p><span lang="fr">Ouvrez Cartouche : son guide, « Votre premier jeu », vous accompagne jusqu’à votre première partie et coche chaque étape tout seul.</span><span lang="en">Open Cartouche: its guide, Your first game, takes you all the way to playing, and ticks off each step by itself.</span></p></div></li>
+                        <li class="step"><span class="step__n" aria-hidden="true">4</span><div><h3><span lang="fr">Vos jeux, sur votre Mac</span><span lang="en">Your games, on your Mac</span></h3><p><span lang="fr">Glissez <a href="#builder">Cartouche Builder</a> dans Applications : il installe ce qu’il faut à nxnative, sans Terminal, vous ouvre l’App Store pour Xcode, puis construit vos jeux à partir de vos propres copies. La première fois, macOS ne peut pas le vérifier : Réglages Système › Confidentialité et sécurité › Ouvrir quand même.</span><span lang="en">Drag <a href="#builder">Cartouche Builder</a> onto Applications: it installs what nxnative needs, with no Terminal, opens the App Store for Xcode, then builds your games from your own copies. The first time, macOS cannot check it: System Settings › Privacy &amp; Security › Open Anyway.</span></p>
+                            <a class="btn btn--primary" data-download="builder" href="https://github.com/clabeuhtegrite/Cartouche/releases/download/builder-v0.5.0/Cartouche-Builder-0.5.0.dmg"><svg aria-hidden="true"><use href="#i-download"/></svg><span lang="fr">Télécharger Cartouche Builder</span><span lang="en">Download Cartouche Builder</span></a></div></li>
+                    </ol>
+                    <p class="small guide"><span lang="fr">Pas à pas, de rien à votre premier jeu : <a href="https://github.com/clabeuhtegrite/Cartouche/blob/main/docs/getting-started.fr.md">le guide Premiers pas</a>.</span><span lang="en">Step by step, from nothing to your first game: <a href="https://github.com/clabeuhtegrite/Cartouche/blob/main/docs/getting-started.md">the Getting started guide</a>.</span></p>
+                </div>
+                <div class="panel need">
+                    <h3><span lang="fr">Ce qu’il faut</span><span lang="en">What you need</span></h3>
+                    <dl>
+                        <dt>iPhone</dt>
+                        <dd><span lang="fr">iOS 26 ou ultérieur, sur un iPhone 15 Pro ou plus récent. Les plus gros jeux demandent un iPhone de 12 Go.</span><span lang="en">iOS 26 or later, on an iPhone 15 Pro or newer. The biggest games need a 12 GB iPhone.</span></dd>
+                        <dt>iPad</dt>
+                        <dd><span lang="fr">Avec une puce M1 ou plus récente.</span><span lang="en">With an M1 chip or newer.</span></dd>
+                        <dt><span lang="fr">Compte Apple</span><span lang="en">Apple account</span></dt>
+                        <dd><span lang="fr">Un compte gratuit suffit, ou votre propre certificat de signature (.p12).</span><span lang="en">A free one is enough, or a signing certificate (.p12) of your own.</span></dd>
+                        <dt><span lang="fr">Ordinateur</span><span lang="en">Computer</span></dt>
+                        <dd><span lang="fr">Un Mac ou un PC Windows pour la première installation, un Mac à puce Apple pour construire vos jeux.</span><span lang="en">A Mac or a Windows PC for the first install, a Mac with Apple silicon to build your games.</span></dd>
+                        <dt><span lang="fr">Vos jeux</span><span lang="en">Your games</span></dt>
+                        <dd><span lang="fr">Vos propres copies, tirées de votre console.</span><span lang="en">Your own copies, dumped from your console.</span></dd>
+                    </dl>
+                </div>
+            </div>
+        </section>
+
+        <section class="section" id="legal" style="--light:#FF6A57;--dark:#5C0F2E">
+            <div class="wrap split">
+                <div>
+                    <p class="label"><span lang="fr">Ce qu’il ne fait pas</span><span lang="en">What it does not do</span></p>
+                    <h2><span lang="fr">Aucun jeu fourni. Jamais.</span><span lang="en">No games included. Ever.</span></h2>
+                    <div class="prose">
+                        <p lang="fr">Cartouche ne contient et ne télécharge aucun jeu, aucune clé et aucun firmware. Il n’a ni catalogue de jeux à télécharger, ni lien vers un tel catalogue, ni stockage public. Vous importez les jeux que vous possédez et que vous avez construits vous-même.</p>
+                        <p lang="en">Cartouche contains and downloads no games, no keys and no firmware. It has no catalogue of games to download, no link to one and no public storage. You import games you own and built yourself.</p>
+                    </div>
+                    <ul class="never">
+                        <li><svg aria-hidden="true"><use href="#i-ban"/></svg><span lang="fr">Aucun jeu ni mise à jour de jeu</span><span lang="en">No games or game updates</span></li>
+                        <li><svg aria-hidden="true"><use href="#i-ban"/></svg><span lang="fr">Aucune clé ni firmware</span><span lang="en">No keys or firmware</span></li>
+                        <li><svg aria-hidden="true"><use href="#i-ban"/></svg><span lang="fr">Aucun lien de téléchargement</span><span lang="en">No download links</span></li>
+                    </ul>
+                    <p class="small" style="margin-top:26px"><a href="https://github.com/clabeuhtegrite/Cartouche/blob/main/LEGAL.md"><span lang="fr">Lire les mentions légales</span><span lang="en">Read the legal notes</span></a></p>
+                </div>
+                <div class="bring" aria-hidden="true">
+                    <svg class="dash" viewBox="0 0 100 147" preserveAspectRatio="none"><rect x=".8" y=".8" width="98.4" height="145.4" rx="8" fill="none" stroke="rgba(255,255,255,.4)" stroke-width="1.2" stroke-dasharray="6 4.5"/></svg>
+                    <span><svg class="ic" aria-hidden="true"><use href="#i-import"/></svg><span lang="fr">Importer ma copie</span><span lang="en">Import my copy</span></span>
+                </div>
+            </div>
+        </section>
+
+        <section class="section faq-section" id="faq" style="--light:#7CC6FF;--dark:#2A5AA6">
+            <div class="wrap faq">
+                <p class="label"><span lang="fr">Questions</span><span lang="en">Questions</span></p>
+                <h2><span lang="fr">Ce qu’on nous demande.</span><span lang="en">What people ask.</span></h2>
+                <div class="panel qa">
+                    <details>
+                        <summary><span lang="fr">Cartouche est-il gratuit ?</span><span lang="en">Is Cartouche free?</span></summary>
+                        <p><span lang="fr">Oui. C’est un logiciel libre sous licence AGPL-3.0, et il marche avec un compte Apple gratuit.</span><span lang="en">Yes. It is free software under the AGPL-3.0, and it works with a free Apple account.</span></p>
+                    </details>
+                    <details>
+                        <summary><span lang="fr">Faut-il un ordinateur ?</span><span lang="en">Do I need a computer?</span></summary>
+                        <p><span lang="fr">Une fois, pour installer Cartouche depuis un Mac ou un PC Windows. Ensuite, il se renouvelle et se met à jour depuis l’iPhone. Pour construire vos jeux, il faut un Mac à puce Apple, avec <a href="#builder">Cartouche Builder</a>.</span><span lang="en">Once, to install Cartouche from a Mac or a Windows PC. Then it renews and updates itself from the iPhone. Building your games takes a Mac with Apple silicon, with <a href="#builder">Cartouche Builder</a>.</span></p>
+                    </details>
+                    <details>
+                        <summary><span lang="fr">Puis-je utiliser mon propre certificat ?</span><span lang="en">Can I use my own signing certificate?</span></summary>
+                        <p><span lang="fr">Oui, depuis un ordinateur : dans l’Installeur Cartouche, choisir son certificat (.p12) plutôt que le compte Apple, à l’étape 2, signe Cartouche avec lui et son profil, sans compte Apple ni renouvellement chaque semaine. Les jeux démarrent alors à la place de Cartouche, et la plupart ont besoin de la mémoire augmentée dans le profil. Une copie signée par une autre app sur l’iPhone ne lance encore aucun jeu ; installer Cartouche sans ordinateur est dans la <a href="https://github.com/clabeuhtegrite/Cartouche/blob/main/docs/roadmap.md">feuille de route</a>.</span><span lang="en">Yes, from a computer: in the Cartouche Installer, choosing your certificate (.p12) instead of the Apple Account, in step 2, signs Cartouche with it and its profile, with no Apple account and no weekly renewal. Games then start in Cartouche’s place, and most of them need Increased Memory Limit in the profile. A copy signed by another app on the iPhone starts no game yet; installing Cartouche with no computer is on the <a href="https://github.com/clabeuhtegrite/Cartouche/blob/main/docs/roadmap.md">roadmap</a>.</span></p>
+                    </details>
+                    <details>
+                        <summary><span lang="fr">Quels jeux tournent ?</span><span lang="en">Which games run?</span></summary>
+                        <p><span lang="fr">Ceux que nxnative fait tourner nativement. Dans Cartouche, Tous les jeux montre chaque jeu qui a un profil dans nxnative, et sa fiche dit s’il tourne sur votre iPhone.</span><span lang="en">The ones nxnative runs natively. In Cartouche, All games lists every game that has a profile in nxnative, and its sheet says whether it runs on your iPhone.</span></p>
+                    </details>
+                    <details>
+                        <summary><span lang="fr">Comment construire mes jeux ?</span><span lang="en">How do I build my games?</span></summary>
+                        <p><span lang="fr">Avec <a href="#builder">Cartouche Builder</a>, sur un Mac à puce Apple. Montrez-lui le dossier de vos copies et celui de vos jeux : il installe ce qu’il faut, construit chaque jeu avec nxnative, puis le reconstruit quand nxnative l’améliore. Il ne télécharge jamais de jeu.</span><span lang="en">With <a href="#builder">Cartouche Builder</a>, on a Mac with Apple silicon. Show it the folder of your copies and your games folder: it installs what it needs, builds each game with nxnative, then builds it again when nxnative improves it. It never downloads a game.</span></p>
+                    </details>
+                    <details>
+                        <summary><span lang="fr">Cartouche fournit-il ces jeux ?</span><span lang="en">Does Cartouche come with these games?</span></summary>
+                        <p><span lang="fr">Non. Les jeux de cette page sont des exemples de la liste de nxnative, et Cartouche n’en fournit aucun : vous construisez les vôtres à partir de vos propres copies. Cartouche montre leurs jaquettes officielles, qui viennent d’<a href="https://www.igdb.com">IGDB</a>.</span><span lang="en">No. The games on this page are examples from nxnative’s list, and Cartouche provides none of them: you build your own from your own copies. Cartouche shows their official covers, which come from <a href="https://www.igdb.com">IGDB</a>.</span></p>
+                    </details>
+                    <details>
+                        <summary><span lang="fr">Cartouche envoie-t-il des données ?</span><span lang="en">Does Cartouche send any data?</span></summary>
+                        <p><span lang="fr">Des mesures de vos parties, comme les images par seconde et la mémoire, pour que les jeux tournent mieux sur iPhone ; jamais vos fichiers, vos sauvegardes ni vos comptes. Vous pouvez les couper dans Système › Mesures de jeu. Le détail est dans <a href="https://github.com/clabeuhtegrite/Cartouche/blob/main/docs/privacy.md">la page Confidentialité</a>.</span><span lang="en">Measurements of your game sessions, such as frame rate and memory, so that games run better on iPhone; never your files, saves or accounts. You can turn them off in System › Game measurements. The details are on <a href="https://github.com/clabeuhtegrite/Cartouche/blob/main/docs/privacy.md">the privacy page</a>.</span></p>
+                    </details>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <footer class="foot">
+        <div class="wrap">
+            <div class="foot__row">
+                <a class="wordmark" href="#top" aria-label="Cartouche"><svg aria-hidden="true"><use href="#i-cartridge"/></svg><b>Cartouche</b></a>
+                <nav data-label-fr="Liens" data-label-en="Links" aria-label="Links">
+                    <a href="download/"><span lang="fr">Téléchargements</span><span lang="en">Downloads</span></a>
+                    <a href="https://github.com/clabeuhtegrite/Cartouche">GitHub</a>
+                    <a href="https://github.com/clabeuhtegrite/Cartouche/blob/main/LEGAL.md"><span lang="fr">Mentions légales</span><span lang="en">Legal</span></a>
+                    <a href="https://github.com/clabeuhtegrite/Cartouche/blob/main/docs/privacy.md"><span lang="fr">Confidentialité</span><span lang="en">Privacy</span></a>
+                    <a href="https://github.com/clabeuhtegrite/Cartouche/blob/main/docs/roadmap.md"><span lang="fr">Feuille de route</span><span lang="en">Roadmap</span></a>
+                </nav>
+            </div>
+            <p><span lang="fr">Cartouche est un logiciel libre sous licence AGPL-3.0, construit sur LiveContainer et SideStore.</span><span lang="en">Cartouche is free software under the AGPL-3.0, built on LiveContainer and SideStore.</span></p>
+            <p><span lang="fr">Cartouche n’est affilié ni à Nintendo, ni à Apple, ni aux projets LiveContainer, SideStore, iloader et nxnative. Les noms, les jaquettes et les illustrations des jeux appartiennent à leurs éditeurs ; ils viennent d’<a href="https://www.igdb.com">IGDB</a>, comme dans l’app. Les temps de jeu, les tailles et les constructions sont des exemples.</span><span lang="en">Cartouche is not affiliated with Nintendo, Apple, or the LiveContainer, SideStore, iloader and nxnative projects. Games’ names, covers and artworks belong to their publishers; they come from <a href="https://www.igdb.com">IGDB</a>, as in the app. Play times, sizes and builds are examples.</span></p>
+        </div>
+    </footer>
+</div>
+
+<!-- The games on the page: nine of nxnative's list (catalog/nxnative.json),
+     each with the IGDB images Cartouche shows for it (catalog/covers.json)
+     and the colours Cartouche gives it (CartoucheTheme.colors(for:), from
+     its title ID). Play times and sizes are examples. -->
+<script type="application/json" id="games">
+[
+    { "id": "celeste", "titleId": "01002B30028F6000", "name": "Celeste", "platform": "switch", "genre": "action",
+      "catalog": "iphone", "status": "stored", "cover": "cob9dh", "artwork": "ar6pwd", "light": "#57E68E", "dark": "#146656",
+      "stored": ["1,2 Go", "1.2 GB"] },
+    { "id": "silksong", "titleId": "010013C00E930000", "name": "Hollow Knight: Silksong", "platform": "switch", "genre": "other",
+      "catalog": "iphone", "status": "ready", "cover": "cobebu", "artwork": "ar4prh", "light": "#57E6BB", "dark": "#145C66",
+      "time": ["3 h 5 min", "3 h 5 min"], "sessions": ["9 sessions, dernière partie il y a 3 heures", "9 sessions, last played 3 hours ago"],
+      "size": ["6,8 Go", "6.8 GB"], "detail": ["Jeu 6,6 Go, données 214 Mo", "Game 6.6 GB, data 214 MB"] },
+    { "id": "mk8d", "titleId": "0100152000022000", "name": "Mario Kart 8 Deluxe", "platform": "switch", "genre": "racing",
+      "catalog": "iphone", "status": "ready", "cover": "co213p", "artwork": "ar4kb", "light": "#E6BB57", "dark": "#5C6614",
+      "time": ["12 h 34 min", "12 h 34 min"], "sessions": ["23 sessions, dernière partie hier", "23 sessions, last played yesterday"],
+      "size": ["11,9 Go", "11.9 GB"], "detail": ["Jeu 11,7 Go, données 196 Mo", "Game 11.7 GB, data 196 MB"] },
+    { "id": "stardew", "titleId": "0100E65002BB8000", "name": "Stardew Valley", "platform": "switch", "genre": "simulation",
+      "catalog": "iphone", "status": "ready", "cover": "coa93h", "artwork": "ar4yuh", "light": "#C457E6", "dark": "#661457",
+      "time": ["31 h 12 min", "31 h 12 min"], "sessions": ["41 sessions, dernière partie il y a 4 jours", "41 sessions, last played 4 days ago"],
+      "size": ["1,1 Go", "1.1 GB"], "detail": ["Jeu 1,0 Go, données 92 Mo", "Game 1.0 GB, data 92 MB"] },
+    { "id": "smash", "titleId": "01006A800016E000", "name": "Super Smash Bros. Ultimate", "platform": "switch", "genre": "other",
+      "catalog": "iphone", "status": "ready", "cover": "co2255", "artwork": "ar3p89", "light": "#E6B857", "dark": "#5E6614",
+      "time": ["47 min", "47 min"], "sessions": ["2 sessions, dernière partie la semaine dernière", "2 sessions, last played last week"],
+      "size": ["16,9 Go", "16.9 GB"], "detail": ["Jeu 16,7 Go, données 188 Mo", "Game 16.7 GB, data 188 MB"] },
+    { "id": "cuphead", "titleId": "0100A5C00D162000", "name": "Cuphead", "platform": "switch", "genre": "action",
+      "catalog": "iphone", "status": "iphone", "cover": "co62ao", "artwork": "ar4kfw", "light": "#57E695", "dark": "#14665A" },
+    { "id": "sword", "titleId": "0100ABF008968000", "name": "Pokémon Sword", "platform": "switch", "genre": "other",
+      "catalog": "iphone", "status": "iphone", "cover": "co1zk2", "artwork": "ar3vlt", "light": "#5761E6", "dark": "#311466" },
+    { "id": "kirby", "titleId": "01004D300C5AE000", "name": "Kirby and the Forgotten Land", "platform": "switch", "genre": "other",
+      "catalog": "mac", "status": "mac", "cover": "co3vlw", "artwork": "ar1cbl", "light": "#C757E6", "dark": "#661455" },
+    { "id": "metroid", "titleId": "010012101468C000", "name": "Metroid Prime Remastered", "platform": "switch", "genre": "other",
+      "catalog": "mac", "status": "mac", "cover": "cobbn9", "artwork": "ar2605", "light": "#A357E6", "dark": "#621466" }
+]
+</script>
+<script>
+(function () {
+    "use strict";
+
+    var root = document.documentElement;
+    var $ = function (selector, scope) { return (scope || document).querySelector(selector); };
+    var $$ = function (selector, scope) { return Array.prototype.slice.call((scope || document).querySelectorAll(selector)); };
+    var reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+    // An image IGDB does not give, offline or blocked: the label Cartouche
+    // draws under it stays, as in the app. Covers fade in once they arrive.
+    document.addEventListener("error", function (e) {
+        if (e.target.tagName === "IMG") e.target.classList.add("is-missing");
+    }, true);
+    document.addEventListener("load", function (e) {
+        if (e.target.tagName === "IMG") e.target.classList.add("is-in");
+    }, true);
+
+    // Text in both languages: the page shows the one of <html data-lang>.
+    function t(fr, en) {
+        if (en === undefined || en === fr) return fr;
+        return '<span lang="fr">' + fr + '</span><span lang="en">' + en + "</span>";
+    }
+    function tt(pair) { return t(pair[0], pair[1]); }
+    function ic(name, cls) {
+        return '<svg class="ic' + (cls ? " " + cls : "") + '" aria-hidden="true" focusable="false"><use href="#i-' + name + '"/></svg>';
+    }
+    function glyph(inner) { return '<i class="uglyph" aria-hidden="true"><b>' + inner + "</b></i>"; }
+    var MENU = '<i class="uglyph" aria-hidden="true">' + ic("menu") + "</i>";
+
+    var GAMES = JSON.parse($("#games").textContent);
+    var BY_ID = {};
+    GAMES.forEach(function (g) { BY_ID[g.id] = g; });
+    // The player's games, by name as the home has them: installed, or in
+    // the games folder (Celeste).
+    var OWNED = GAMES.filter(function (g) { return g.status === "ready" || g.status === "stored"; });
+    var FIRST = OWNED.indexOf(BY_ID.mk8d);
+    var SERVER = "NAS";
+    var PLATFORM = { "switch": "Switch", "switch2": "Switch 2" };
+    // CartoucheText.genre and CartoucheTheme.symbol(genre:): "other" has a
+    // symbol and no name.
+    var GENRE = {
+        racing: { icon: "flag", name: ["Course", "Racing"] },
+        simulation: { icon: "building", name: ["Simulation", "Simulation"] },
+        action: { icon: "bolt", name: ["Action", "Action"] },
+        other: { icon: "gamepad" }
+    };
+    var STATUS = {
+        ready: { icon: "check", color: "var(--ready)", label: ["Prêt", "Ready"] },
+        stored: { icon: "drive", color: "var(--stored)", label: ["En stockage", "In storage"] },
+        iphone: { icon: "iphone", color: "var(--ready)", label: ["Sur iPhone", "On iPhone"] },
+        mac: { icon: "laptop", color: "var(--mac)", label: ["Sur Mac", "On Mac"] },
+        paused: { icon: "pause", color: "var(--pink)", label: ["En pause", "Paused"] },
+        done: { icon: "check", color: "var(--ready)", label: ["Faite", "Done"] },
+        active: { icon: "check", color: "var(--ready)", label: ["Active", "Active"] }
+    };
+
+    // IGDB's images, by the IDs of catalog/covers.json, as Cartouche loads
+    // them (CartoucheCoverStore): nothing of them is kept in this repository.
+    var IGDB = "https://images.igdb.com/igdb/image/upload/";
+    function igdb(size, id) { return IGDB + size + "/" + id + ".jpg"; }
+
+    function status(kind) {
+        var s = STATUS[kind];
+        return '<span class="ustat" style="--c:' + s.color + '">' + ic(s.icon) + tt(s.label) + "</span>";
+    }
+    function statusbar() {
+        return '<div class="statusbar" aria-hidden="true"><span>9:41</span><span class="statusbar__icons">' +
+            ic("signal", "ic--signal") + ic("wifi", "ic--wifi") + ic("battery", "ic--battery") + "</span></div>";
+    }
+    function chips(g, kind) {
+        var genre = GENRE[g.genre];
+        return '<span class="uchip">' + PLATFORM[g.platform] + "</span>" +
+            (genre.name ? '<span class="umeta">' + ic(genre.icon) + tt(genre.name) + "</span>" : "") + (kind ? status(kind) : "");
+    }
+
+    // The stage of a screen: the artwork of the game in focus, blurred at
+    // the top. The others' load when the focus comes to them.
+    function stage(games, focusId) {
+        return '<div class="stage" aria-hidden="true">' + games.map(function (g) {
+            var on = g.id === focusId;
+            return "<img " + (on ? "src" : "data-src") + '="' + igdb("t_screenshot_med", g.artwork) + '" alt="" decoding="async" loading="lazy" data-art="' + g.id + '"' + (on ? ' class="is-on"' : "") + ">";
+        }).join("") + "</div>";
+    }
+    var DASH = '<svg class="dash" viewBox="0 0 100 147" preserveAspectRatio="none" aria-hidden="true"><rect x=".8" y=".8" width="98.4" height="145.4" rx="8" fill="none" stroke="rgba(255,255,255,.38)" stroke-width="1.6" stroke-dasharray="6 4.5"/></svg>';
+
+    // A game's cartridge: the label Cartouche draws for it (CartoucheLabelArt),
+    // and over it the game's cover from IGDB once it has loaded.
+    function cartridge(g, o) {
+        var sizes = o.sizes || "auto, 120px";
+        return '<span class="art" aria-hidden="true"><i class="art__band"></i>' + ic(GENRE[g.genre].icon, "art__sym") +
+            '<b class="art__plat">' + PLATFORM[g.platform] + '</b><b class="art__name">' + g.name + "</b></span>" +
+            '<img src="' + igdb("t_cover_big", g.cover) + '" srcset="' + igdb("t_cover_small", g.cover) + " 90w, " + igdb("t_cover_big", g.cover) + " 264w, " +
+            igdb("t_cover_big_2x", g.cover) + ' 528w" sizes="' + sizes + '" alt="" decoding="async"' +
+            (o.eager ? (o.priority ? ' fetchpriority="high"' : "") : ' loading="lazy"') + ">";
+    }
+    function tile(g, o) {
+        var focused = o.focused, tag = o.interactive ? "button" : "span";
+        var attrs = o.interactive ? ' type="button" aria-label="' + g.name + '"' + (focused ? ' aria-current="true"' : "") : ' aria-hidden="true"';
+        return "<" + tag + ' class="tile' + (focused ? " is-focused" : "") + '" data-game="' + g.id + '" style="--glow:' + g.light + ";--a:" + g.light + ";--b:" + g.dark + '"' + attrs + ">" +
+            cartridge(g, o) + (o.paused ? '<i class="tile__badge" aria-hidden="true">' + ic("pausebars") + "</i>" : "") + "</" + tag + ">";
+    }
+    function outline(icon, label) {
+        return '<span class="tile tile--outline" aria-hidden="true">' + DASH + '<span class="tile__out">' + ic(icon) + "<span>" + label + "</span></span></span>";
+    }
+
+    var DOCK = [
+        { icon: "grid", key: glyph("Y"), label: ["Tous les jeux", "All games"], href: "#console" },
+        { icon: "import", key: "", label: ["Importer", "Import"], href: "#storage" },
+        { icon: "cpu", key: MENU, label: ["Système", "System"], href: "#system" }
+    ];
+    function dock(where, links) {
+        return '<span class="dock dock--' + where + ' glass">' + DOCK.map(function (d) {
+            var open = links ? '<a class="dock__item" href="' + d.href + '">' : '<span class="dock__item">';
+            var close = links ? "</a>" : "</span>";
+            if (where === "top") return open + (d.key || ic(d.icon)) + tt(d.label) + close;
+            return open + ic(d.icon) + '<span class="dock__label">' + d.key + tt(d.label) + "</span>" + close;
+        }).join("") + "</span>";
+    }
+
+    // The game in focus on the home: its name on one line, as the app
+    // shrinks it to fit, its badges, play time and size, and its actions.
+    function focusInfo(g, o) {
+        var paused = o.pausedId === g.id, stored = g.status === "stored";
+        var stats = stored
+            ? "<span>" + ic("drive") + tt(g.stored) + "</span>"
+            : "<span>" + ic("clock") + tt(g.time) + "</span><span>" + ic("iphone") + tt(g.size) + "</span>";
+        var note = paused ? t("En pause derrière Cartouche, là où vous l’avez laissé.", "Paused behind Cartouche, where you left it.")
+            : stored ? t("Son IPA est dans votre dossier des jeux : installez le jeu pour y jouer sur cet iPhone.", "Its IPA is in your games folder: install it to play it on this iPhone.") : "";
+        var open = function (href, cls) { return o.links ? '<a class="ubtn ' + cls + '" href="' + href + '">' : '<span class="ubtn ' + cls + '">'; };
+        var close = o.links ? "</a>" : "</span>";
+        var actions;
+        if (paused) {
+            actions = '<button type="button" class="ubtn ubtn--primary" data-resume>' + glyph("A") + t("Reprendre", "Resume") + "</button>" +
+                '<span class="ubtn glass">' + ic("stop") + t("Quitter", "Quit") + "</span>" +
+                '<span class="ubtn glass ubtn--round" aria-hidden="true">' + glyph("X") + "</span>";
+        } else if (stored) {
+            actions = open("#storage", "ubtn--primary") + glyph("A") + t("Installer depuis " + SERVER, "Install from " + SERVER) + close +
+                '<span class="ubtn glass ubtn--round" aria-hidden="true">' + glyph("X") + "</span>";
+        } else {
+            actions = open("#pause", "ubtn--primary") + glyph("A") + t("Jouer", "Play") + close +
+                open("#sheet", "glass") + glyph("X") + t("Fiche", "Details") + close;
+        }
+        return '<h3 class="focus__title" style="--len:' + g.name.length + '">' + g.name + "</h3>" +
+            '<div class="focus__chips">' + chips(g, paused ? "paused" : g.status) + "</div>" +
+            '<div class="focus__stats">' + stats + "</div>" + (note ? '<p class="focus__note">' + note + "</p>" : "") +
+            '<div class="focus__actions">' + actions + "</div>";
+    }
+
+    function home(o) {
+        var games = o.games, g = games[o.index];
+        return '<div class="ui home' + (o.pausedId ? " home--paused" : "") + '">' +
+            stage(games, g.id) +
+            statusbar() +
+            '<div class="home__bar"><span class="mark" aria-hidden="true"><i></i><b>Cartouche</b></span>' +
+            '<span class="upill glass" aria-hidden="true">' + ic("gamepad") + "</span>" + dock("top", o.links) + "</div>" +
+            '<div class="home__main"><p class="home__label">' + t("Ma bibliothèque", "My library") + "</p>" +
+            '<div class="shelf"><div class="track" style="--i:' + o.index + ";--n:" + (games.length + 2) + '">' +
+            games.map(function (x, i) {
+                return tile(x, { focused: i === o.index, interactive: o.interactive, paused: o.pausedId === x.id, eager: o.eager, priority: o.eager && i === o.index, sizes: o.sizes });
+            }).join("") +
+            outline("import", t("Importer un jeu", "Import a game")) + outline("grid", t("Tous les jeux", "All games")) + "</div></div>" +
+            '<div class="focus" data-focus>' + focusInfo(g, o) + "</div></div>" +
+            dock("bottom", o.links) +
+            (o.island ? '<i class="island"></i>' : "") + '<i class="indicator"></i></div>';
+    }
+
+    // A game's sheet: Play and its settings for an installed game, Install
+    // for one in the games folder; its play time and size; what it needs.
+    function sheet(g) {
+        var stored = g.status === "stored";
+        var actions = stored
+            ? '<span class="ubtn ubtn--primary ubtn--wide">' + ic("download") + t("Installer depuis " + SERVER, "Install from " + SERVER) + "</span>" +
+              '<span class="ubtn glass ubtn--wide ubtn--slim">' + ic("import") + t("Importer une autre copie", "Import another copy") + "</span>"
+            : '<span class="ubtn ubtn--primary ubtn--wide">' + ic("play") + t("Jouer", "Play") + "</span>" +
+              '<span class="ubtn glass ubtn--wide ubtn--slim">' + ic("sliders") + t("Réglages du jeu", "Game settings") + "</span>";
+        var stats = stored
+            ? '<div class="urow"><span class="urow__main">' + t("Dans " + SERVER, "In " + SERVER) + '</span><span class="urow__val">' + tt(g.stored) + "</span></div>"
+            : '<div class="urow"><span class="urow__main">' + t("Temps de jeu", "Play time") + "<small>" + tt(g.sessions) + '</small></span><span class="urow__val">' + tt(g.time) + "</span></div>" +
+              '<div class="urow"><span class="urow__main">' + t("Sur cet iPhone", "On this iPhone") + "<small>" + tt(g.detail) + '</small></span><span class="urow__val">' + tt(g.size) + "</span></div>";
+        return '<div class="ui sheet">' + stage([g], g.id) + statusbar() +
+            '<span class="okbtn glass" aria-hidden="true">OK</span>' +
+            '<div class="sheet__body"><div class="sheet__head"><span class="tile sheet__tile" style="--a:' + g.light + ";--b:" + g.dark + '" aria-hidden="true">' + cartridge(g, { sizes: "auto, 80px" }) + "</span>" +
+            '<div><h3 class="sheet__title">' + g.name + '</h3><div class="sheet__chips">' + chips(g) + "</div>" +
+            '<div class="sheet__status">' + status(g.status) + "</div></div></div>" + actions +
+            '<p class="ugroup">' + t("Temps de jeu et taille", "Play time and size") + '</p><div class="ucard">' + stats + "</div>" +
+            '<div class="ucard"><div class="urow"><span class="ustat" style="--c:var(--ready)">' + ic("check") + '</span><span class="urow__main">' + t("Cet iPhone a tout ce qu’il faut", "This iPhone has what it needs") + "</span>" + ic("chevron", "urow__chev") + "</div></div>" +
+            (stored ? "" : '<div class="ucard"><div class="urow urow--danger">' + ic("trash") + '<span class="urow__main">' + t("Désinstaller", "Uninstall") + "</span></div></div>") +
+            '</div><i class="island"></i><i class="indicator"></i></div>';
+    }
+
+    function scaleText(s) {
+        var w = Math.round(1280 * s / 100), h = Math.round(720 * s / 100);
+        return t(w + " × " + h + " (" + s + "&nbsp;%)", w + " × " + h + " (" + s + "%)");
+    }
+    function settings(g) {
+        var pick = function (fr, en) { return '<span class="upick">' + t(fr, en) + ic("updown") + "</span>"; };
+        return '<div class="ui sheet">' + stage([g], g.id) + statusbar() +
+            '<p class="navtitle">' + t("Réglages du jeu", "Game settings") + '</p><span class="okbtn glass" aria-hidden="true">OK</span>' +
+            '<div class="sheet__body"><p class="settings__intro">' + t("Les réglages avec lesquels Jouer lance ce jeu. Son menu en jeu change les mêmes.", "The settings Play starts this game with. Its in-game menu changes the same ones.") + "</p>" +
+            '<div class="tabs" aria-hidden="true"><span class="tab is-on">' + ic("gamepad") + t("Jeu", "Game") + '</span><span class="tab">' + ic("dpad") + t("Commandes", "Controls") +
+            '</span><span class="tab">' + ic("gauge") + t("Performances", "Performance") + '</span><span class="tab">' + ic("cloud") + t("Sauvegardes", "Saves") + "</span></div>" +
+            '<div class="ucard">' +
+            '<div class="urow"><span class="urow__main">' + t("Fréquence d’images", "Frame rate") + "</span>" + pick("60 i/s", "60 fps") + "</div>" +
+            '<div class="urow urow--stack"><span class="urow__main">' + t("Échelle de rendu", "Render scale") + "</span>" +
+            '<div class="uscale"><input class="uslider" type="range" min="50" max="100" step="5" value="85" data-scale data-label-fr="Échelle de rendu" data-label-en="Render scale" aria-label="Render scale">' +
+            '<div class="uscale__legend"><span>50' + t("&nbsp;%", "%") + "</span><output data-scale-out>" + scaleText(85) + "</output><span>100" + t("&nbsp;%", "%") + "</span></div></div></div>" +
+            '<div class="urow"><span class="urow__main">' + t("Mode de la console", "Console mode") + "</span>" + pick("Portable", "Handheld") + "</div>" +
+            '<div class="urow"><span class="urow__main">' + t("Mise à l’échelle", "Upscaling") + ic("info", "uinfo") + "</span>" + pick("Standard", "Standard") + "</div>" +
+            '<div class="urow"><span class="urow__main">' + t("Langue du jeu", "Game language") + "</span>" + pick("Français", "English") + "</div>" +
+            '<div class="urow"><span class="urow__main">' + t("Image", "Picture") + ic("info", "uinfo") + "</span>" + pick("Ajuster", "Fit") + "</div>" +
+            '<div class="urow"><span class="urow__main">' + t("Compteur d’images par seconde", "Frame-rate counter") + '</span><span class="uswitch" aria-hidden="true"></span></div>' +
+            "</div>" +
+            '<div class="ucard"><div class="urow"><span class="urow__main ulink">' + t("Revenir aux réglages testés", "Reset to tested defaults") + "</span></div></div>" +
+            '</div><i class="island"></i><i class="indicator"></i></div>';
+    }
+
+    function system() {
+        return '<div class="ui sheet">' + stage([], null) + statusbar() + '<span class="okbtn glass" aria-hidden="true">OK</span>' +
+            '<div class="sheet__body"><h3 class="bigtitle">' + t("Système", "System") + "</h3>" +
+            '<div class="ucard"><div class="urow">' + ic("checklist", "ublue") + '<span class="urow__main">' + t("Mise en route", "Setup") + "</span>" + status("done") + ic("chevron", "urow__chev") + "</div></div>" +
+            '<div class="ucard"><div class="urow">' + ic("drive", "ublue") + '<span class="urow__main">' + t("Stockage", "Storage") + '</span><span class="urow__val">' + SERVER + "</span>" + ic("chevron", "urow__chev") + "</div></div>" +
+            '<p class="ugroup">' + t("Pendant une partie", "While a game runs") + "</p>" +
+            '<div class="ucard"><div class="urow"><span class="urow__main">' + t("Garder Cartouche ouvert derrière le jeu", "Keep Cartouche open behind the game") + '</span><span class="uswitch uswitch--on" aria-hidden="true"></span></div></div>' +
+            '<p class="ufoot">' + t("Le bouton Home sur le jeu, ou celui de la manette, ramène la console et met le jeu en pause.", "The Home button over the game, or the controller’s, brings back the console and pauses the game.") + "</p>" +
+            '<p class="ugroup">' + t("Signature", "Signature") + "</p>" +
+            '<div class="ucard"><div class="urow"><span class="urow__main">' + t("Expire le", "Expires") + '</span><span class="urow__val">' + t("16 nov. à 12:29", "Nov 16 at 12:29 PM") + "</span></div>" +
+            '<div class="urow"><span class="urow__main">' + t("Jours restants", "Days left") + '</span><span class="urow__val">6</span></div>' +
+            '<div class="urow">' + ic("refresh", "ublue") + '<span class="urow__main ulink">' + t("Renouveler maintenant", "Renew now") + "</span></div></div>" +
+            '</div><i class="island"></i><i class="indicator"></i></div>';
+    }
+
+    // All games: the player's first, then those nxnative plays on the
+    // iPhone, then the others, each by name, as the app sorts them.
+    function library() {
+        var rank = function (g) { return g.status === "ready" || g.status === "stored" ? 0 : g.catalog === "iphone" ? 1 : 2; };
+        var games = GAMES.slice().sort(function (a, b) { return rank(a) - rank(b) || a.name.localeCompare(b.name); });
+        var mine = OWNED.length, iphone = GAMES.filter(function (g) { return g.catalog === "iphone"; }).length;
+        var tiles = games.map(function (g, i) {
+            return '<div class="gtile">' + tile(g, { focused: i === 0, sizes: "auto, 100px" }) + '<p class="gtile__name">' + g.name + "</p>" + status(g.status) + "</div>";
+        }).join("");
+        return '<div class="ui lib">' + stage([games[0]], games[0].id) + statusbar() +
+            '<p class="navtitle">' + t("Tous les jeux", "All games") + "</p>" +
+            '<div class="lib__body"><div class="usearch glass">' + ic("search") + "<span>" + t("Nom ou ID du titre", "Name or title ID") + "</span></div>" +
+            // The counts of the catalog, as the filters count them: On iPhone has
+            // the games a testers' sheet says play there (catalog/games).
+            '<div class="filters"><span class="filter is-on">' + ic("grid") + t("Tous", "All") + " <b>150</b></span>" +
+            '<span class="filter">' + ic("check") + t("Ma bibliothèque", "My library") + " <b>" + mine + "</b></span>" +
+            '<span class="filter">' + ic("iphone") + t("Sur iPhone", "On iPhone") + " <b>65</b></span>" +
+            '<span class="filter">' + ic("laptop") + t("Sur Mac", "On Mac") + " <b>140</b></span></div>" +
+            '<div class="ggrid">' + tiles + "</div></div>" +
+            '<div class="hints glass" aria-hidden="true">' + glyph("A") + t("Jouer", "Play") + glyph("X") + t("Fiche", "Details") +
+            '<i class="ushoulder">L1</i><i class="ushoulder">R1</i>' + t("Filtre", "Filter") + glyph("B") + t("Retour", "Back") + "</div>" +
+            '<i class="island"></i><i class="indicator"></i></div>';
+    }
+
+    // The game behind the console: its artwork stands for the game, over
+    // its colours and name until it has loaded.
+    function playScreen(g) {
+        return '<div class="ui play" data-state="console">' +
+            '<div class="game" aria-hidden="true" style="--a:' + g.light + ";--b:" + g.dark + '"><b class="game__name">' + g.name + "</b>" +
+            '<img class="game__art" src="' + igdb("t_screenshot_big", g.artwork) + '" srcset="' + igdb("t_screenshot_big", g.artwork) + " 889w, " +
+            igdb("t_720p", g.artwork) + " 1280w, " + igdb("t_1080p", g.artwork) + ' 1920w" sizes="auto, 940px" alt="" decoding="async" loading="lazy"></div>' +
+            '<button type="button" class="homebtn glass" data-home data-label-fr="Home : revenir à la console" data-label-en="Home: back to the console" aria-label="Home: back to the console">' + ic("house") + "</button>" +
+            '<div class="console">' + home({ games: OWNED, index: OWNED.indexOf(g), pausedId: g.id, island: false }) + "</div>" +
+            '<i class="island"></i><i class="indicator"></i></div>';
+    }
+
+    // ---------- Cartouche Builder, on the Mac ----------
+    // Its window (builder/mac), in its own words: the player's games as its
+    // library shows them, two of them improved by nxnative, a batch under
+    // way, what it keeps on the Mac, the iPhone it serves and this Mac's
+    // tools. Sizes and times are examples.
+    var BUILDS = [
+        { id: "mk8d", state: "due", changes: 2 },
+        { id: "silksong", state: "due", changes: 1 },
+        { id: "celeste", state: "up" },
+        { id: "stardew", state: "up" },
+        { id: "smash", state: "up" }
+    ];
+    var MAC_NAME = "MacBook Air";
+    var MAC_PAGES = [
+        { page: "library", icon: "grid", label: ["Bibliothèque", "Library"], badge: "2" },
+        { page: "activity", icon: "hammer", label: ["Constructions", "Builds"], badge: "%" },
+        { page: "storage", icon: "drive", label: ["Stockage", "Storage"] },
+        { page: "iphone", icon: "iphonewaves", label: ["iPhone", "iPhone"], badge: "1" },
+        { page: "setup", icon: "wrench", label: ["Outils du Mac", "This Mac’s tools"] }
+    ];
+    // What the library says when a filter leaves no game.
+    var MAC_EMPTY = {
+        due: ["Rien à reconstruire", "Nothing to rebuild"],
+        up: ["Aucun jeu à jour pour l’instant", "No game up to date yet"],
+        look: ["Rien à regarder", "Nothing to look at"]
+    };
+    // This Mac's tools (MacSetup): each one's name, what it found, and what it is for.
+    var MAC_TOOLS = [
+        [["Ce Mac", "This Mac"], ["macOS 26.6, puce Apple", "macOS 26.6, Apple silicon"], ["macOS 26.6 ou ultérieur, puce Apple.", "macOS 26.6 or later, on Apple silicon."]],
+        [["Xcode", "Xcode"], ["Xcode 27.2", "Xcode 27.2"], ["L’app gratuite d’Apple qui construit les apps d’iPhone.", "Apple’s free developer app, which builds iPhone apps."]],
+        [["Premier lancement de Xcode", "Xcode’s first launch"], ["Licence acceptée", "Licence agreed"], ["Sa licence acceptée et ses éléments installés : le mot de passe du Mac, une fois.", "Its licence agreed and its parts installed: your Mac’s password, once."]],
+        [["Plateforme iOS de Xcode", "Xcode’s iOS platform"], ["iOS 27.2", "iOS 27.2"], ["Ce avec quoi Xcode construit les apps d’iPhone, quelques gigaoctets.", "What Xcode builds iPhone apps with, a few gigabytes."]],
+        [["Metal toolchain", "Metal toolchain"], ["Installée", "Installed"], ["Compile les shaders des jeux pour l’iPhone.", "Compiles the games’ shaders for the iPhone."]],
+        [["Homebrew", "Homebrew"], ["Installé", "Installed"], ["Installe les outils gratuits ci-dessous. macOS demande votre mot de passe dans son installeur.", "Installs the free tools below. macOS asks your password in its installer."]],
+        [["Outils de nxnative", "nxnative’s tools"], ["Python 3.13, xcodegen, zstd, glslang", "Python 3.13, xcodegen, zstd, glslang"], ["Python, xcodegen, zstd et glslang, depuis Homebrew.", "Python, xcodegen, zstd and glslang, from Homebrew."]],
+        [["nxnative", "nxnative"], ["Téléchargé, environnement prêt", "Downloaded, environment ready"], ["Le projet qui rend les jeux natifs, et son environnement Python.", "The project that makes the games native, and its Python environment."]]
+    ];
+    // What the builder keeps on the Mac (StorageView), with what it may free.
+    var MAC_KEPT = [
+        ["folder", ["Fichiers extraits des jeux", "Extracted game files"], ["Aussi gros que les jeux ; seule une reconstruction plus rapide en a besoin.", "As big as the games; only a faster next build needs them."], ["13,9 Go", "13.9 GB"], ["Libérer", "Free"]],
+        ["box", ["Copies d’IPA", "IPA copies"], ["Celles à côté du dossier des jeux, sur le même disque, ne prennent pas de place (clones APFS).", "Those beside the games folder, on the same disk, take no room (APFS clones)."], ["0 o", "Zero KB"]],
+        ["grid", ["Shaders et apps des constructions", "Shaders and apps of the builds"], ["Accélèrent les prochaines constructions.", "Make the next builds faster."], ["6,2 Go", "6.2 GB"]],
+        ["doc", ["Journaux", "Logs"], ["Ceux de plus d’une semaine peuvent partir.", "Those older than a week can go."], ["48 Mo", "48 MB"], ["Nettoyer", "Clean"]],
+        ["cpu", ["nxnative et son Python", "nxnative and its Python"], ["Nécessaires à chaque construction.", "Needed for every build."], ["670 Mo", "670 MB"]]
+    ];
+
+    function mcover(g) {
+        return '<span class="mcover" style="--a:' + g.light + ";--b:" + g.dark + '" aria-hidden="true">' + cartridge(g, { sizes: "auto, 180px" }) + "</span>";
+    }
+    function mheader(title, sub, extra) {
+        return '<div class="mwh"><div><h3 class="mwh__title">' + title + '</h3><p class="mwh__sub">' + sub + "</p></div>" + (extra || "") + "</div>";
+    }
+    // A button of the app: one the visitor can press, or one only shown.
+    function mbtn(icon, label, attr) {
+        var tag = attr ? "button" : "span";
+        return "<" + tag + ' class="mbtn"' + (attr ? ' type="button" ' + attr : "") + ">" + (icon ? ic(icon) : "") + label + "</" + tag + ">";
+    }
+    function mrow(g, value, color) {
+        return '<div class="mrow">' + mcover(g) + '<p class="mrow__main"><b>' + g.name + '</b></p><span class="mrow__val"' + (color ? ' style="--c:' + color + '"' : "") + ">" + value + "</span></div>";
+    }
+    function changes(n) {
+        return t("Amélioré : " + n + " changement" + (n > 1 ? "s" : ""), "Improved: " + n + " change" + (n > 1 ? "s" : ""));
+    }
+
+    function macLibrary() {
+        var due = BUILDS.filter(function (b) { return b.state === "due"; });
+        var filters = [["all", "Tous", "All"], ["due", "À reconstruire", "To rebuild"], ["up", "À jour", "Up to date"], ["look", "À regarder", "To look at"]];
+        return '<section class="mwp" data-mwp="library">' +
+            mheader(t("Bibliothèque", "Library"), t(BUILDS.length + " jeux · " + due.length + " à reconstruire", BUILDS.length + " games · " + due.length + " to rebuild"),
+                '<div class="mseg" role="group" data-label-fr="Filtre" data-label-en="Filter" aria-label="Filter">' + filters.map(function (f, i) {
+                    return '<button type="button" data-filter="' + f[0] + '" aria-pressed="' + (i === 0) + '">' + t(f[1], f[2]) + "</button>";
+                }).join("") + "</div>") +
+            '<div class="mban"><span class="mban__covers">' + due.map(function (b) { return mcover(BY_ID[b.id]); }).join("") + "</span>" +
+            '<p class="mban__text"><b>' + t("nxnative a amélioré " + due.length + " de vos jeux", "nxnative improved " + due.length + " of your games") + "</b><span>" +
+            due.map(function (b) { return BY_ID[b.id].name; }).join(", ") + "</span></p>" +
+            mbtn("sparkle", t("Tout reconstruire", "Rebuild all"), "data-rebuild") + "</div>" +
+            '<div class="mgrid">' + BUILDS.map(function (b) {
+                var g = BY_ID[b.id], isDue = b.state === "due";
+                return '<div class="mgame" data-state="' + b.state + '">' + mcover(g) +
+                    (isDue ? '<i class="mgame__badge" aria-hidden="true">' + ic("sparkle") + "</i>" : "") +
+                    '<p class="mgame__name">' + g.name + '</p><p class="mgame__state" style="--c:var(--' + (isDue ? "orange" : "green") + ')">' +
+                    (isDue ? changes(b.changes) : t("À jour", "Up to date")) + "</p></div>";
+            }).join("") + '</div><p class="mempty" data-empty hidden></p></section>';
+    }
+
+    function macActivity() {
+        var g = BY_ID.mk8d;
+        return '<section class="mwp" data-mwp="activity" hidden>' +
+            mheader(t("Constructions", "Builds"), t("2 jeux à faire · le Mac reste éveillé", "2 games to go · the Mac stays awake"), mbtn("stopfill", t("Arrêter", "Stop"))) +
+            '<div class="mcard mrun">' + mcover(g) + '<div class="mrun__main"><p class="mrun__name">' + g.name + "</p>" +
+            '<p class="mrun__stage">' + t("Compilation des shaders pour l’iPhone", "Compiling shaders for the iPhone") + " · <span data-pipes></span></p>" +
+            '<div class="mbar"><i data-bar></i></div><p class="mrun__row"><b data-pct></b><span data-eta></span></p></div></div>' +
+            '<p class="mlabel">' + t("En attente", "Waiting their turn") + '</p><div class="mcard">' + mrow(BY_ID.silksong, t("En attente", "Waiting")) + "</div>" +
+            '<p class="mlabel">' + t("Faits dans cette série", "Done in this batch") + '</p><div class="mcard">' + mrow(BY_ID.celeste, t("Construit · 14 min", "Built · 14 min"), "var(--green)") + "</div>" +
+            '<div class="mcard mnight">' + ic("moon") + "<p><b>" + t("Construire la nuit", "Build at night") + "</b><span>" +
+            t("Chaque nuit à 03:00, ce qui est dû se construit, même app fermée.", "Every night at 3:00 AM, what is due is built, even with the app closed.") +
+            '</span></p><i class="mswitch is-on" aria-hidden="true"></i></div></section>';
+    }
+
+    function macStorage() {
+        return '<section class="mwp" data-mwp="storage" hidden>' +
+            mheader(t("Stockage", "Storage"), t("Cartouche Builder garde 20,8 Go sur ce Mac", "Cartouche Builder keeps 20.8 GB on this Mac"), mbtn("refresh", t("Mesurer à nouveau", "Measure again"))) +
+            '<div class="mdisks"><div class="mcard mdisk"><b>' + ic("drive") + t("Disque des constructions", "Build disk") + '</b><div class="mbar"><i style="--p:82%"></i></div>' +
+            "<p>" + t("182 Go libres sur 994 Go", "182 GB free of 994 GB") + "</p><small>" + t("Garde 20 Go libres : les plus vieux dossiers partent d’abord.", "Keeps 20 GB free: the oldest build folders go first.") + "</small></div>" +
+            '<div class="mcard mdisk"><b>' + ic("nas") + t("Dossier des jeux", "Games folder") + '</b><div class="mbar"><i style="--p:71%"></i></div>' +
+            "<p>" + t("2,31 To libres sur 7,99 To", "2.31 TB free of 7.99 TB") + "</p><small>" + t("Sur votre NAS", "On your NAS") + "</small></div></div>" +
+            '<div class="mcard mlist">' + MAC_KEPT.map(function (k) {
+                return '<div class="mrow">' + ic(k[0]) + '<p class="mrow__main"><b>' + tt(k[1]) + "</b><small>" + tt(k[2]) + '</small></p><span class="mrow__size">' + tt(k[3]) + "</span>" + (k[4] ? mbtn("", tt(k[4])) : "") + "</div>";
+            }).join("") + "</div></section>";
+    }
+
+    function macIphone() {
+        var named = function (fr, en, after) { return t(fr + " « " + MAC_NAME + " »" + after[0], en + " “" + MAC_NAME + "”" + after[1]); };
+        return '<section class="mwp" data-mwp="iphone" hidden>' +
+            mheader("iPhone", t("Cartouche lit ses jeux depuis ce Mac", "Cartouche reads its games from this Mac")) +
+            '<div class="mcard mshare"><span class="mshare__icon">' + ic("iphonewaves") + "</span><p><b>" + t("Partager avec Cartouche sur l’iPhone", "Share with Cartouche on the iPhone") + "</b><span>" +
+            named("Visible sur votre réseau sous", "Visible on your network as", [". Un iPhone est connecté : le Mac reste éveillé.", ". An iPhone is connected: the Mac stays awake."]) +
+            '</span></p><i class="mswitch is-on" aria-hidden="true"></i></div>' +
+            '<div class="mcard msteps"><b>' + t("Sur l’iPhone", "On the iPhone") + "</b><ol>" +
+            "<li>" + t("Ouvrez Cartouche, puis Système › Stockage › Ajouter votre Mac.", "Open Cartouche, then System › Storage › Add your Mac.") + "</li>" +
+            "<li>" + named("Choisissez", "Choose", [" sous Macs à proximité.", " under Macs nearby."]) + "</li>" +
+            "<li>" + t("Un code s’affiche sur les deux écrans : autorisez l’iPhone ici s’ils sont identiques.", "A code shows on both screens: allow the iPhone here if they are the same.") + "</li></ol></div>" +
+            '<p class="mlabel">' + t("Ce que voit l’iPhone", "What the iPhone sees") + '</p><div class="mcard">' +
+            '<div class="mrow">' + ic("gamepad") + '<p class="mrow__main"><b>' + t("Jeux", "Games") + "</b><small>/Volumes/Jeux</small><small>" + t("Sur votre NAS, à travers ce Mac", "On your NAS, through this Mac") + "</small></p></div>" +
+            '<div class="mrow">' + ic("cloud") + '<p class="mrow__main"><b>' + t("Sauvegardes", "Saves") + "</b><small>~/Library/Application Support/Cartouche Builder/Saves</small><small>" +
+            t("Dans le dossier de Cartouche Builder", "In Cartouche Builder’s folder") + "</small></p>" + mbtn("", t("Changer…", "Change…")) + "</div></div>" +
+            '<p class="mlabel">' + t("iPhone associés", "Paired iPhones") + '</p><div class="mcard"><div class="mrow">' + ic("iphone") +
+            '<p class="mrow__main"><b>iPhone 17 Pro</b><small>' + t("Connecté maintenant", "Connected now") + "</small></p>" + mbtn("", t("Retirer", "Remove")) + "</div></div></section>";
+    }
+
+    function macSetup() {
+        return '<section class="mwp" data-mwp="setup" hidden>' +
+            mheader(t("Outils du Mac", "This Mac’s tools"), t("Tout ce qu’une construction demande est là.", "Everything a build needs is here."), mbtn("refresh", t("Vérifier à nouveau", "Check again"), "data-recheck")) +
+            '<div class="mcard mtools">' + MAC_TOOLS.map(function (x) {
+                return '<div class="mtool">' + ic("check") + '<i class="mtool__spin" aria-hidden="true"></i><p><b>' + tt(x[0]) + "<small>" + tt(x[1]) + "</small></b><span>" + tt(x[2]) + "</span></p></div>";
+            }).join("") + "</div></section>";
+    }
+
+    function macWindow() {
+        return '<div class="mw" data-page="library">' +
+            '<div class="mw__side"><div class="mw__top"><span class="mw__lights" aria-hidden="true"><i></i><i></i><i></i></span><span class="mw__toggle" aria-hidden="true">' + ic("sidebar") + "</span></div>" +
+            '<nav class="mw__nav" data-label-fr="Pages de Cartouche Builder" data-label-en="Cartouche Builder’s pages" aria-label="Cartouche Builder’s pages">' + MAC_PAGES.map(function (p, i) {
+                return '<button type="button" class="mw__item" data-go="' + p.page + '"' + (i === 0 ? ' aria-current="page"' : "") +
+                    ' data-label-fr="' + p.label[0] + '" data-label-en="' + p.label[1] + '" aria-label="' + p.label[1] + '">' + ic(p.icon) + "<span>" + tt(p.label) + "</span>" +
+                    (p.badge === "%" ? "<b data-pct></b>" : p.badge ? "<b>" + p.badge + "</b>" : "") + "</button>";
+            }).join("") + "</nav>" +
+            '<div class="mw__foot"><p>' + ic("box") + "nxnative 6c3aeb3" + ic("refresh") + "</p><small>" + t("Vérifié il y a 1 heure", "Checked 1 hour ago") + "</small></div></div>" +
+            '<div class="mw__main"><div class="mw__bar"><span class="mw__title">Cartouche Builder</span><span class="mw__tools">' +
+            '<button type="button" class="mw__round" data-rebuild data-label-fr="Reconstruire ce qui est dû" data-label-en="Rebuild what is due" aria-label="Rebuild what is due">' + ic("sparkle") + "</button>" +
+            '<span class="mw__search">' + ic("search") + t("Chercher un jeu", "Search a game") + "</span></span></div>" +
+            '<div class="mw__page">' + macLibrary() + macActivity() + macStorage() + macIphone() + macSetup() + "</div></div></div>";
+    }
+
+    // Moves the focus of a home to the game at index, as the console does.
+    function setFocus(scope, games, index, o) {
+        var g = games[index];
+        $$(".tile[data-game]", scope).forEach(function (el) {
+            var on = el.getAttribute("data-game") === g.id;
+            el.classList.toggle("is-focused", on);
+            if (el.tagName === "BUTTON") { if (on) el.setAttribute("aria-current", "true"); else el.removeAttribute("aria-current"); }
+        });
+        var track = $(".track", scope);
+        if (track) track.style.setProperty("--i", index);
+        $$("[data-art]", scope).forEach(function (img) {
+            var on = img.getAttribute("data-art") === g.id;
+            if (on && img.hasAttribute("data-src")) { img.src = img.getAttribute("data-src"); img.removeAttribute("data-src"); }
+            img.classList.toggle("is-on", on);
+        });
+        var focus = $("[data-focus]", scope);
+        if (focus) focus.innerHTML = focusInfo(g, o || {});
+        var target = (o && o.light) || scope;
+        target.style.setProperty("--light", g.light);
+        target.style.setProperty("--dark", g.dark);
+    }
+    function indexOfTile(button) {
+        return OWNED.indexOf(BY_ID[button.getAttribute("data-game")]);
+    }
+
+    // ---------- Language ----------
+    var TITLES = { fr: "Cartouche pour iPhone", en: "Cartouche for iPhone" };
+    function applyLang(lang) {
+        root.setAttribute("data-lang", lang);
+        root.lang = lang;
+        document.title = TITLES[lang];
+        var meta = $('meta[name="description"]');
+        if (meta) meta.setAttribute("content", meta.getAttribute("data-" + lang));
+        $$("[data-set-lang]").forEach(function (b) { b.setAttribute("aria-pressed", String(b.getAttribute("data-set-lang") === lang)); });
+        $$("[data-label-fr]").forEach(function (el) { el.setAttribute("aria-label", el.getAttribute("data-label-" + lang)); });
+        updatePauseToggle();
+    }
+    $$("[data-set-lang]").forEach(function (b) {
+        b.addEventListener("click", function () {
+            var lang = b.getAttribute("data-set-lang");
+            try { localStorage.setItem("cartouche.site.lang", lang); } catch (e) {}
+            applyLang(lang);
+        });
+    });
+
+    // ---------- The screens ----------
+    var heroSection = $("#top");
+    var heroDevice = $("[data-hero]");
+    var heroScreen = $('[data-screen="hero"]');
+    var heroIndex = FIRST;
+    // The hero's covers load at once, at the size the hero shows them.
+    heroScreen.innerHTML = home({ games: OWNED, index: FIRST, links: true, interactive: true, island: true, eager: true,
+        sizes: "(max-width: 699px) 104px, (max-width: 1140px) 20vw, 216px" });
+    $('[data-screen="library"]').innerHTML = library();
+    $('[data-screen="sheet"]').innerHTML = sheet(BY_ID.stardew);
+    $('[data-screen="settings"]').innerHTML = settings(BY_ID.stardew);
+    $('[data-screen="system"]').innerHTML = system();
+    var pauseScreen = $('[data-screen="pause"]');
+    pauseScreen.innerHTML = playScreen(BY_ID.mk8d);
+
+    // The hero's home: the focus moves on by itself until the visitor takes over.
+    function heroFocus(i) {
+        i = (i + OWNED.length) % OWNED.length;
+        if (i === heroIndex) return;
+        heroIndex = i;
+        setFocus(heroScreen, OWNED, heroIndex, { links: true, light: heroSection });
+    }
+    var heldUntil = 0, heroVisible = true;
+    function hold(ms) { heldUntil = Date.now() + ms; }
+    function heroTile(e) {
+        var b = e.target.closest("button.tile");
+        if (!b) return;
+        heroFocus(indexOfTile(b));
+        hold(14000);
+    }
+    heroScreen.addEventListener("click", heroTile);
+    heroScreen.addEventListener("focusin", heroTile);
+    heroDevice.addEventListener("keydown", function (e) {
+        if (e.key !== "ArrowRight" && e.key !== "ArrowLeft") return;
+        e.preventDefault();
+        heroFocus(heroIndex + (e.key === "ArrowRight" ? 1 : -1));
+        hold(14000);
+    });
+    heroDevice.addEventListener("pointerenter", function () { hold(Infinity); });
+    heroDevice.addEventListener("pointerleave", function () { hold(2500); });
+    if ("IntersectionObserver" in window) {
+        new IntersectionObserver(function (entries) { heroVisible = entries[0].isIntersecting; }).observe(heroDevice);
+    }
+    if (!reduced) {
+        setInterval(function () {
+            if (!heroVisible || document.hidden || Date.now() < heldUntil) return;
+            heroFocus(heroIndex + 1);
+        }, 3800);
+    }
+
+    // Render scale: nxnative's handheld picture, 1280 × 720 at 100 %.
+    $$("[data-scale]").forEach(function (input) {
+        var out = input.closest(".uscale").querySelector("[data-scale-out]");
+        function update() {
+            var s = Number(input.value);
+            input.style.setProperty("--fill", ((s - 50) * 2) + "%");
+            out.innerHTML = scaleText(s);
+        }
+        input.addEventListener("input", update);
+        update();
+    });
+
+    // The game behind the console: Home brings the console back, Resume the game.
+    var pauseState = "console";
+    var toggle = $("[data-pause-toggle]");
+    var playUi = $(".play", pauseScreen);
+    function updatePauseToggle() {
+        if (!toggle) return;
+        toggle.innerHTML = pauseState === "console"
+            ? '<svg aria-hidden="true"><use href="#i-play"/></svg>' + t("Reprendre la partie", "Resume the game")
+            : '<svg aria-hidden="true"><use href="#i-house"/></svg>' + t("Appuyer sur Home", "Press Home");
+    }
+    function setPause(state) {
+        pauseState = state;
+        playUi.setAttribute("data-state", state);
+        updatePauseToggle();
+    }
+    pauseScreen.addEventListener("click", function (e) {
+        if (e.target.closest("[data-resume]")) setPause("game");
+        else if (e.target.closest("[data-home]")) setPause("console");
+    });
+    toggle.addEventListener("click", function () { setPause(pauseState === "console" ? "game" : "console"); });
+
+    // Cartouche Builder's window: its sidebar leads to its pages, Rebuild
+    // all to the batch, which goes on while the window is in view.
+    var macWin = $("[data-builder]");
+    macWin.innerHTML = macWindow();
+    var mw = $(".mw", macWin);
+    function macPage(name) {
+        mw.setAttribute("data-page", name);
+        $$("[data-go]", mw).forEach(function (b) {
+            if (b.getAttribute("data-go") === name) b.setAttribute("aria-current", "page");
+            else b.removeAttribute("aria-current");
+        });
+        $$("[data-mwp]", mw).forEach(function (p) { p.hidden = p.getAttribute("data-mwp") !== name; });
+        $(".mw__page", mw).scrollTop = 0;
+    }
+    mw.addEventListener("click", function (e) {
+        var go = e.target.closest("[data-go]"), filter = e.target.closest("[data-filter]");
+        if (go) {
+            macPage(go.getAttribute("data-go"));
+        } else if (e.target.closest("[data-rebuild]")) {
+            macPage("activity");
+        } else if (filter) {
+            var want = filter.getAttribute("data-filter"), shown = 0;
+            $$("[data-filter]", mw).forEach(function (b) { b.setAttribute("aria-pressed", String(b === filter)); });
+            $$(".mgame", mw).forEach(function (game) {
+                game.hidden = want !== "all" && game.getAttribute("data-state") !== want;
+                if (!game.hidden) shown += 1;
+            });
+            var empty = $("[data-empty]", mw);
+            empty.hidden = shown > 0;
+            if (!shown) empty.innerHTML = tt(MAC_EMPTY[want]);
+        } else if (e.target.closest("[data-recheck]")) {
+            $$(".mtool", mw).forEach(function (row, i) {
+                row.classList.add("is-checking");
+                setTimeout(function () { row.classList.remove("is-checking"); }, reduced ? 0 : 350 + i * 180);
+            });
+        }
+    });
+    // The batch: Mario Kart 8 Deluxe's shaders, 2,300 pipelines, from 68 %.
+    var macPercent = 68, macVisible = false;
+    function grouped(n, sep) { return String(n).replace(/\B(?=(\d{3})+$)/g, sep); }
+    function macProgress() {
+        var pipes = Math.round(1412 + (macPercent - 68) / 32 * 888), left = (100 - macPercent) * 12;
+        var min = Math.floor(left / 60), sec = left % 60;
+        var eta = (min ? min + " min" : "") + (min && sec ? " " : "") + (sec ? sec + " s" : "");
+        $$("[data-pct]", mw).forEach(function (el) { el.innerHTML = t(macPercent + "&nbsp;%", macPercent + "%"); });
+        $("[data-bar]", mw).style.setProperty("--p", macPercent + "%");
+        $("[data-pipes]", mw).innerHTML = t(grouped(pipes, "&#8239;") + "/2&#8239;300", grouped(pipes, ",") + "/2,300");
+        $("[data-eta]", mw).innerHTML = t("encore " + eta + " environ", "about " + eta + " left");
+    }
+    macProgress();
+    if ("IntersectionObserver" in window) {
+        new IntersectionObserver(function (entries) { macVisible = entries[0].isIntersecting; }).observe(macWin);
+    }
+    if (!reduced) {
+        setInterval(function () {
+            if (!macVisible || document.hidden || macPercent >= 99) return;
+            macPercent += 1;
+            macProgress();
+        }, 2600);
+    }
+
+    setPause("console");
+    applyLang(root.getAttribute("data-lang") === "fr" ? "fr" : "en");
+})();
+</script>
+</body>
+</html>
