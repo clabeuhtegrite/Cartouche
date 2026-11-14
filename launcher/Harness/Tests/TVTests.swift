@@ -124,6 +124,25 @@ final class TVTests: HarnessCase {
         XCTAssertFalse(journal().contains { $0.hasPrefix("TV: the game's own scene is on the TV") })
     }
 
+    /// With the game's picture on the TV, nxnative leaves the iPhone the
+    /// game's controls alone, laid out to be held sideways: the game's
+    /// screen turns sideways only, even for a game that lays itself out
+    /// upright, and as the iPhone is held again once the TV has gone.
+    func testTheGamesScreenTurnsSidewaysOnlyWhileItsPictureIsOnTheTV() async throws {
+        try XCTSkipIf(UIDevice.current.userInterfaceIdiom == .pad, "on an iPhone: an iPad turns it as the game allows")
+        let (_, scene) = try await started(.laidOutUpright())
+        let screen = try gameScreen(of: scene)
+        XCTAssertEqual(screen.turns, [.portrait, .landscape], "upright too, its picture on the iPhone")
+        try connectTV()
+        try await waitUntil("the game's scene opens on the TV") { scene.tvScene != nil }
+        XCTAssertTrue(screen.pictureOnTV)
+        XCTAssertEqual(screen.supportedInterfaceOrientations, .landscape)
+        disconnectTV()
+        try await waitUntil("the game's scene on the TV closes") { scene.tvScene == nil }
+        XCTAssertFalse(screen.pictureOnTV)
+        XCTAssertEqual(screen.supportedInterfaceOrientations, [.portrait, .landscapeLeft, .landscapeRight])
+    }
+
     // MARK: The console over the game
 
     func testHomeLeavesTheGamesCardPausedOnTheTVAndBringsTheGameBack() async throws {

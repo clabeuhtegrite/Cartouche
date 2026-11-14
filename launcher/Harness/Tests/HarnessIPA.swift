@@ -71,6 +71,15 @@ struct HarnessGame {
         return HarnessGame(titleId: game.titleId, name: game.name)
     }
 
+    /// The same game as nxnative builds it since 4 November 2026: it lays
+    /// itself out upright, and lists every way for an iPad.
+    static func laidOutUpright(_ index: Int = 0) -> HarnessGame {
+        var game = plain(index)
+        game.orientationsOnIPad = ["UIInterfaceOrientationPortrait", "UIInterfaceOrientationPortraitUpsideDown",
+                                   "UIInterfaceOrientationLandscapeRight", "UIInterfaceOrientationLandscapeLeft"]
+        return game
+    }
+
     /// The game's Info.plist, with the keys nxnative's build_ipa.sh gives it.
     var infoPlist: [String: Any] {
         var info: [String: Any] = [
