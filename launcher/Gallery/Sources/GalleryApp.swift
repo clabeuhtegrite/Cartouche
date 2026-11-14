@@ -8,9 +8,18 @@
 //  the whole screen of the simulator it runs on, such as the iPhone Duo's,
 //  with its own safe area, size classes and system bars.
 //
-//      -GalleryScreen games|library|sheet|settings|gameinfo|shortcuts|setup|signin|guide|system|storage|storage-mac|storage-drive|storage-drive-guide|telemetry|report|tv
+//      -GalleryScreen games|library|sheet|settings|gameinfo|shortcuts|setup|signin|guide|system|storage|storage-mac|storage-drive|storage-drive-guide|telemetry|report|reset|reset-end|tv
 //                                        library: every game, open over
-//                                        the home; gameinfo: what the
+//                                        the home; reset: Reset
+//                                        Cartouche's page, and
+//                                        reset-end, at its end, with
+//                                        work: saves, the saves of the
+//                                        sheet's game, or the first of the
+//                                        player's, which the reset would
+//                                        lose; confirm: its confirmation,
+//                                        at its end, from its button;
+//                                        erasing: the reset under way;
+//                                        gameinfo: what the
 //                                        player says of the sheet's game;
 //                                        shortcuts: Siri and Home Screen,
 //                                        from the sheet of the player's game;
@@ -120,7 +129,9 @@
 //      -GalleryCategory Controls         the settings page's category, one
 //                                        of nxnative's sections; on the
 //                                        System page, signature: the page
-//                                        scrolled down to its signature
+//                                        scrolled down to its signature;
+//                                        reset: the page at its end, on
+//                                        Reset Cartouche
 //
 //  The UI tests (launcher/Gallery/UITests) open the whole console, as
 //  Cartouche shows it, and drive it (GalleryTesting.swift):
@@ -336,6 +347,9 @@ struct GalleryScenario {
             }
             if work == "saves", let titleId = sheet ?? ownedTitles.first {
                 GallerySaves.prepare(titleId: titleId)
+            }
+            if work == "erasing" {
+                CartoucheReset.shared.showForGallery(.erasing)
             }
             if work == "mac" || work == "mac-offline" {
                 // The player's Mac, paired, with the games Cartouche Builder
@@ -741,6 +755,11 @@ struct CartoucheGalleryApp: App {
         case "report":
             NavigationStack {
                 CartoucheReportView()
+            }
+        case "reset", "reset-end":
+            // As the System page opens it, or at its end.
+            NavigationStack {
+                CartoucheResetView(confirming: scenario.work == "confirm", showsEnd: scenario.screen == "reset-end")
             }
         case "root":
             CartoucheRootView()

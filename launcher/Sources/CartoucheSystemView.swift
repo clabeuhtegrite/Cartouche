@@ -9,8 +9,8 @@
 //  whether games run behind the console, and the memory they have there;
 //  when its signature expires, and how it is renewed; the device that the
 //  game sheets are compared with; Cartouche's updates; the game
-//  measurements it sends (CartoucheTelemetryView); and Report a problem
-//  (CartoucheReportView).
+//  measurements it sends (CartoucheTelemetryView); Report a problem
+//  (CartoucheReportView); and Reset Cartouche (CartoucheResetView), last.
 //  It opens over the console (CartoucheRootView), and OK or the
 //  controller's Menu button closes it.
 //
@@ -69,6 +69,7 @@ struct CartoucheSystemView: View {
                     telemetrySection
                     cartoucheSection
                     reportSection
+                    resetSection
                 }
                 .cartoucheStageBackground()
                 .navigationTitle(CartoucheText.systemTab)
@@ -575,6 +576,26 @@ struct CartoucheSystemView: View {
             Text(catalog.device(CartoucheDevice.modelIdentifier) == nil
                  ? CartoucheText.reportFooter + " " + CartoucheText.reportNewDevice
                  : CartoucheText.reportFooter)
+        }
+    }
+
+    // MARK: Reset Cartouche
+
+    /// The reset's row: the gallery opens the page on it, at the page's
+    /// end (openingSection).
+    private static let resetRow = "reset"
+
+    /// Last, apart: what it erases, and the button, are on its own page.
+    private var resetSection: some View {
+        Section {
+            NavigationLink {
+                CartoucheResetView()
+            } label: {
+                Label(CartoucheText.resetTitle, systemImage: "arrow.counterclockwise")
+            }
+            .id(Self.resetRow)
+        } footer: {
+            Text(CartoucheText.resetFooter)
         }
     }
 }

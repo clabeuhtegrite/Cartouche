@@ -118,7 +118,9 @@ final class CartoucheAccount: ObservableObject {
     private var deviceStepIsAutomatic = false
     private var deviceStepWatch = CartoucheDeviceStepWatch()
 
-    private static let pauseKey = "CartoucheSignInPause"
+    /// Where the pause is kept, which a reset of Cartouche keeps while it
+    /// counts (CartoucheReset).
+    static let pauseKey = "CartoucheSignInPause"
     private static let lastSignInKey = "CartoucheLastSignIn"
 
     private init() {

@@ -2772,6 +2772,584 @@
         }
       }
     },
+    "reset.busy" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@: wait for it to end before resetting Cartouche."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ : attendez la fin avant de réinitialiser Cartouche."
+          }
+        }
+      }
+    },
+    "reset.confirm.erase" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Erase everything"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tout effacer"
+          }
+        }
+      }
+    },
+    "reset.confirm.message" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Your games and their saves here, your settings and your storage are erased, then Cartouche starts again. This cannot be undone."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vos jeux et leurs sauvegardes ici, vos réglages et votre stockage sont effacés, puis Cartouche redémarre. C’est irréversible."
+          }
+        }
+      }
+    },
+    "reset.confirm.message.account" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Your games and their saves here, your settings, your storage and your Apple ID are erased, then Cartouche starts again. This cannot be undone."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vos jeux et leurs sauvegardes ici, vos réglages, votre stockage et votre identifiant Apple sont effacés, puis Cartouche redémarre. C’est irréversible."
+          }
+        }
+      }
+    },
+    "reset.confirm.title" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Erase everything?"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tout effacer ?"
+          }
+        }
+      }
+    },
+    "reset.erase" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Erase everything and restart"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tout effacer et redémarrer"
+          }
+        }
+      }
+    },
+    "reset.erasing" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Erasing…"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Effacement…"
+          }
+        }
+      }
+    },
+    "reset.failed" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cartouche could not erase everything"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cartouche n’a pas pu tout effacer"
+          }
+        }
+      }
+    },
+    "reset.failed.message" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Items left: %lld. Copy the report, then try again, or restart Cartouche as it is."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Éléments restants : %lld. Copiez le rapport, puis réessayez, ou redémarrez Cartouche tel quel."
+          }
+        }
+      }
+    },
+    "reset.footer" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cartouche as just installed, without a computer: your games, settings and storage are erased; the certificate and the pairing file stay."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cartouche comme tout juste installé, sans ordinateur : vos jeux, vos réglages et votre stockage sont effacés ; le certificat et le fichier de jumelage restent."
+          }
+        }
+      }
+    },
+    "reset.goes.account" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Your Apple ID: you sign in again in Setup."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Votre identifiant Apple : vous vous reconnectez dans la mise en route."
+          }
+        }
+      }
+    },
+    "reset.goes.games" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Your games, with their saves, settings and play time, and what was kept of the games you uninstalled."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vos jeux, avec leurs sauvegardes, leurs réglages et leur temps de jeu, et ce qui restait des jeux désinstallés."
+          }
+        }
+      }
+    },
+    "reset.goes.header" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Erased"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Effacé"
+          }
+        }
+      }
+    },
+    "reset.goes.settings" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cartouche’s settings, the names and covers you gave your games, the guide’s progress, and the reports on problems."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Les réglages de Cartouche, les noms et jaquettes donnés à vos jeux, la progression du guide, et les rapports de problèmes."
+          }
+        }
+      }
+    },
+    "reset.goes.storage" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Your storage: its servers and folders, with their passwords and sign-ins, Google Drive and your Mac among them."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Votre stockage : ses serveurs et dossiers, avec leurs mots de passe et connexions, Google Drive et votre Mac compris."
+          }
+        }
+      }
+    },
+    "reset.intro" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cartouche erases everything you put in it, then starts again as it opened the first time: without a computer, and without installing it again."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cartouche efface tout ce que vous y avez mis, puis redémarre comme à sa toute première ouverture : sans ordinateur, et sans le réinstaller."
+          }
+        }
+      }
+    },
+    "reset.restart" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Restart Cartouche"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Redémarrer Cartouche"
+          }
+        }
+      }
+    },
+    "reset.restarting" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Restarting…"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Redémarrage…"
+          }
+        }
+      }
+    },
+    "reset.saves.atRisk" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The saves of %@ are not in your saves folder: the reset erases them."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Les sauvegardes de %@ ne sont pas dans votre dossier des sauvegardes : la réinitialisation les efface."
+          }
+        }
+      }
+    },
+    "reset.saves.checking" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Looking for saves that are not in your saves folder…"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Recherche des sauvegardes absentes de votre dossier des sauvegardes…"
+          }
+        }
+      }
+    },
+    "reset.saves.header" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Saves"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sauvegardes"
+          }
+        }
+      }
+    },
+    "reset.saves.noFolder" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "To keep them, choose a saves folder in Storage first."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pour les garder, choisissez d’abord un dossier des sauvegardes dans Stockage."
+          }
+        }
+      }
+    },
+    "reset.saves.none" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No game has saves to lose."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aucun jeu n’a de sauvegardes à perdre."
+          }
+        }
+      }
+    },
+    "reset.saves.safe" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Your games’ saves are in your saves folder: add it again in Storage, and they come back with the games."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Les sauvegardes de vos jeux sont dans votre dossier des sauvegardes : ajoutez-le à nouveau dans Stockage, et elles reviennent avec les jeux."
+          }
+        }
+      }
+    },
+    "reset.saves.send" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Send them to the saves folder now"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Les envoyer maintenant dans le dossier des sauvegardes"
+          }
+        }
+      }
+    },
+    "reset.saves.sending" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sending the saves…"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Envoi des sauvegardes…"
+          }
+        }
+      }
+    },
+    "reset.stays.header" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kept"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Gardé"
+          }
+        }
+      }
+    },
+    "reset.stays.signing" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The certificate Cartouche is signed with, and the pairing file: you need no computer to set it up again."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Le certificat qui signe Cartouche, et le fichier de jumelage : aucun ordinateur n’est nécessaire pour le remettre en route."
+          }
+        }
+      }
+    },
+    "reset.stays.storage" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "What your storage holds, the copies of your games and saves, even in a folder of Cartouche’s own space in Files: add your storage again to find them."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Le contenu de votre stockage, copies de vos jeux et de vos sauvegardes, même dans un dossier de l’espace de Cartouche dans Fichiers : ajoutez à nouveau votre stockage pour les retrouver."
+          }
+        }
+      }
+    },
+    "reset.stays.system" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "What iOS keeps: the days left on Cartouche’s signature, its permissions, and LocalDevVPN."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ce que garde iOS : les jours restants de la signature de Cartouche, ses autorisations, et LocalDevVPN."
+          }
+        }
+      }
+    },
+    "reset.stays.telemetry" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Game measurements: their random number, their switch and the reports not sent yet."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Les mesures de jeu : leur numéro aléatoire, leur interrupteur et les rapports pas encore envoyés."
+          }
+        }
+      }
+    },
+    "reset.title" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Reset Cartouche"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Réinitialiser Cartouche"
+          }
+        }
+      }
+    },
+    "reset.wait" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cartouche is busy: wait for it to finish before resetting it."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cartouche est occupé : attendez qu’il ait fini avant de le réinitialiser."
+          }
+        }
+      }
+    },
+    "reset.whilePlaying" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ is running: quit it before resetting Cartouche."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ est en cours : quittez-le avant de réinitialiser Cartouche."
+          }
+        }
+      }
+    },
     "result.boots" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -11754,13 +12332,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Each start of Cartouche, game installs, updates, renewals, Apple ID sign-ins, signing certificates you import, how the Files picker of each import went, and errors, by their codes and the step they stopped at."
+            "value" : "Each start of Cartouche, game installs, updates, renewals, resets, Apple ID sign-ins, signing certificates you import, how the Files picker of each import went, and errors, by their codes and the step they stopped at."
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Chaque ouverture de Cartouche, les installations de jeux, les mises à jour, les renouvellements, les connexions au compte Apple, les certificats de signature importés, le déroulement du sélecteur de fichiers de chaque import et les erreurs, par leurs codes et l’étape où elles se sont arrêtées."
+            "value" : "Chaque ouverture de Cartouche, les installations de jeux, les mises à jour, les renouvellements, les réinitialisations, les connexions au compte Apple, les certificats de signature importés, le déroulement du sélecteur de fichiers de chaque import et les erreurs, par leurs codes et l’étape où elles se sont arrêtées."
           }
         }
       }

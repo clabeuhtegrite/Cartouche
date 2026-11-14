@@ -64,6 +64,10 @@ enum Words {
     static let telemetry = "Game measurements"              // telemetry.title
     static let sendMeasurements = "Send game measurements"  // telemetry.send
     static let report = "Report a problem"                  // report.title
+    static let resetCartouche = "Reset Cartouche"           // reset.title
+    static let eraseAndRestart = "Erase everything and restart" // reset.erase
+    static let eraseEverything = "Erase everything"         // reset.confirm.erase
+    static let erasing = "Erasing…"                         // reset.erasing
     static let renewEveryNight = "Renew every night"        // system.auto.daily
     static let openShortcuts = "Open Shortcuts"             // daily.openShortcuts
     static let storageIntro = "Your games and saves on your own storage" // storage.intro
@@ -436,6 +440,39 @@ class ConsoleTestCase: XCTestCase {
             return
         }
         button.tap()
+    }
+
+    /// Cancels the confirmation on the screen (a confirmationDialog) as a
+    /// player does, then waits for it to go: by its Cancel, or, where iOS
+    /// shows it in a popover, which has no Cancel, as on an iPhone from
+    /// iOS 26, by a tap outside it, halfway between it and the edge of the
+    /// screen with the most room.
+    @MainActor
+    func cancelConfirmation(_ what: String, in app: XCUIApplication,
+                            file: StaticString = #filePath, line: UInt = #line) {
+        let sheet = app.sheets.firstMatch
+        expect(sheet.waitForExistence(timeout: 15), "No \(what)", in: app, file: file, line: line)
+        let cancel = sheet.buttons[Words.cancel]
+        let outside = app.otherElements["PopoverDismissRegion"]
+        var cancels = false
+        _ = waitUntil(5) {
+            cancels = cancel.exists && cancel.isHittable
+            return cancels || outside.exists
+        }
+        if cancels {
+            cancel.tap()
+        } else if outside.exists {
+            let area = outside.frame
+            let shown = sheet.frame
+            let below = area.maxY - shown.maxY
+            let above = shown.minY - area.minY
+            let y = below >= above ? shown.maxY + below / 2 : area.minY + above / 2
+            outside.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: (y - area.minY) / area.height)).tap()
+        } else {
+            expect(false, "\(what) has no Cancel, and nothing outside it to tap", in: app, file: file, line: line)
+            return
+        }
+        expect(waitForGone(sheet), "\(what) stayed once cancelled", in: app, file: file, line: line)
     }
 
     /// Swipes the page up, slowly, until ELEMENT can be tapped: a list draws

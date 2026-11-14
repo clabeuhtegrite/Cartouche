@@ -108,6 +108,21 @@ enum CartoucheReports {
         journalLines.last(count)
     }
 
+    /// Forgets the journal and the reports kept, files and all, as
+    /// Cartouche is reset (CartoucheReset): what is noted next starts them
+    /// again.
+    static func forget() {
+        journalLines.clear()
+        archive.clear()
+    }
+
+    /// Waits for the journal's lines and the reports on their way to their
+    /// files: before Cartouche ends at once, as a reset ends it.
+    static func flush() {
+        journalLines.flush()
+        archive.flush()
+    }
+
     private static var startNoted = false
 
     /// Notes that Cartouche opened, once per launch.

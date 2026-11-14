@@ -371,11 +371,13 @@ def runtime(identifier: str, build: str, *devices: str, platform: str = "iOS", a
 
 
 # The iOS runtimes of GitHub's xcode-27 Macs (run 43219499519): only iOS
-# 27.1 and the runtime made for it run the iPhone Duo.
+# 27.1 and the runtime made for it run the iPhone Duo; each iOS 27 runs the
+# iPhone 17 Pro, which the UI tests and a screenshot take (run 43536204937,
+# iOS 27.2).
 GITHUB_RUNTIMES = [
-    runtime("iOS-27-0", "24A434", "iPhone 18 Pro", "iPad Pro 13-inch (M5)"),
-    runtime("iOS-27-1", "24A94425", "iPhone 18 Pro", "iPhone Duo", "iPad Pro 13-inch (M5)"),
-    runtime("iOS-27-2", "24B8117", "iPhone 18 Pro", "iPad Pro 13-inch (M5)", "iPad Air 13-inch (M4)"),
+    runtime("iOS-27-0", "24A434", "iPhone 17 Pro", "iPhone 18 Pro", "iPad Pro 13-inch (M5)"),
+    runtime("iOS-27-1", "24A94425", "iPhone 17 Pro", "iPhone 18 Pro", "iPhone Duo", "iPad Pro 13-inch (M5)"),
+    runtime("iOS-27-2", "24B8117", "iPhone 17 Pro", "iPhone 18 Pro", "iPad Pro 13-inch (M5)", "iPad Air 13-inch (M4)"),
     runtime("iOS-27-2-iPhone19-4", "24B91016s", "iPhone Duo"),
     runtime("tvOS-27-2", "24K150", "Apple TV 4K (4th generation)", platform="tvOS"),
 ]
@@ -397,9 +399,9 @@ class SimulatorsTests(unittest.TestCase):
         self.assertEqual(self.missing(GITHUB_RUNTIMES[2]), ["iPhone Duo"])
 
     def test_the_duo_s_runtime_alone_runs_no_ipad(self):
-        # Neither the iPad that draws the sized scenarios nor the one whose
-        # whole screen the iPad's scenarios take.
-        self.assertEqual(self.missing(GITHUB_RUNTIMES[3]), ["an iPad", "iPad Pro 13-inch (M5)"])
+        # Neither the iPad that draws the sized scenarios, nor the iPad and
+        # the iPhone 17 Pro whose whole screens scenarios take.
+        self.assertEqual(self.missing(GITHUB_RUNTIMES[3]), ["an iPad", "iPad Pro 13-inch (M5)", "iPhone 17 Pro"])
 
     def test_a_runtime_that_is_not_available_runs_nothing(self):
         gone = dict(GITHUB_RUNTIMES[3], isAvailable=False)

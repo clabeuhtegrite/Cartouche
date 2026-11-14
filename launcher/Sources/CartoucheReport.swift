@@ -71,6 +71,8 @@ struct CartoucheReport: Codable, Equatable, Sendable {
         case saves
         /// A game's saves on the player's storage.
         case cloud
+        /// Erasing Cartouche, from System › Reset Cartouche.
+        case reset
     }
 
     /// Where it went wrong.
@@ -445,6 +447,19 @@ final class CartoucheJournal: @unchecked Sendable {
         writing.sync {}
     }
 
+    /// Forgets every line, and its file once the lines on their way are
+    /// written, as Cartouche is reset (CartoucheReset): the next line
+    /// starts a file of its own.
+    func clear() {
+        lock.lock()
+        lines = []
+        lock.unlock()
+        guard let file else { return }
+        writing.sync {
+            try? FileManager.default.removeItem(at: file)
+        }
+    }
+
     /// "11-10 07:12:03", in this iPhone's time zone.
     static func stamp(_ date: Date) -> String {
         let formatter = DateFormatter()
@@ -501,5 +516,17 @@ final class CartoucheReportArchive: @unchecked Sendable {
     /// Waits for the reports kept so far to be in the file.
     func flush() {
         writing.sync {}
+    }
+
+    /// Forgets every report, and its file once the reports on their way
+    /// are written, as Cartouche is reset (CartoucheReset).
+    func clear() {
+        lock.lock()
+        saved = []
+        lock.unlock()
+        guard let file else { return }
+        writing.sync {
+            try? FileManager.default.removeItem(at: file)
+        }
     }
 }

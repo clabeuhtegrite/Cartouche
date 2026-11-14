@@ -255,12 +255,14 @@ struct CartoucheSignInPause: Codable, Equatable {
     var last: Date
 
     static let steps: [TimeInterval] = [15 * 60, 30 * 60, 60 * 60, 120 * 60]
+    /// How long a limit counts towards the next one's pause.
+    static let memory: TimeInterval = 86_400
 
     /// The pause after Apple limited a sign-in at NOW, asking to wait RETRY
     /// AFTER seconds when it did, PREVIOUS being the pause before, if any.
     static func after(_ previous: CartoucheSignInPause?, at now: Date, retryAfter: Int?) -> CartoucheSignInPause {
         var inARow = 1
-        if let previous, now.timeIntervalSince(previous.last) < 86_400 {
+        if let previous, previous.counts(at: now) {
             inARow = previous.inARow + 1
         }
         var wait = steps[min(inARow, steps.count) - 1]
@@ -275,6 +277,10 @@ struct CartoucheSignInPause: Codable, Equatable {
 
     /// Whether it still keeps the player from signing in at NOW.
     func holds(at now: Date) -> Bool { now < until }
+
+    /// Whether the limit still counts at NOW: it makes the next pause
+    /// longer for a day.
+    func counts(at now: Date) -> Bool { now.timeIntervalSince(last) < Self.memory }
 }
 
 /// Where Cartouche's sign-in stands (CartoucheAccount), which its screens
