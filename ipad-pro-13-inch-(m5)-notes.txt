@@ -1,0 +1,12 @@
+iPad Pro 13-inch (M5), com.apple.CoreSimulator.SimRuntime.iOS-27-2
+
+Its displays (simctl io enumerate):
+xcrun simctl io D03256B1-4569-435F-8D92-E2BDD4ED7058: no answer in 120 s
+
+ipad-home: {'orientation': 'portrait', 'scale': 2, 'window': [1032, 1376], 'pixels': [2064, 2752], 'origin': [0, 0], 'shots': 2}
+ipad-home-landscape: {'window': [1376, 1032], 'scale': 2, 'origin': [0, 0], 'orientation': 'landscapeRight', 'pixels': [2064, 2752], 'shots': 2}
+ipad-home-paused-landscape: {'scale': 2, 'origin': [0, 0], 'pixels': [2064, 2752], 'orientation': 'landscapeRight', 'window': [1376, 1032], 'shots': 2}
+ipad-library: {'window': [1032, 1376], 'scale': 2, 'orientation': 'portrait', 'pixels': [2064, 2752], 'origin': [0, 0], 'shots': 2}
+ipad-home-first-launch: {'scale': 2, 'origin': [0, 0], 'window': [1032, 1376], 'orientation': 'portrait', 'pixels': [2064, 2752], 'shots': 2}
+ipad-home-first-launch-landscape: {'window': [1376, 1032], 'orientation': 'landscapeRight', 'origin': [0, 0], 'pixels': [2064, 2752], 'scale': 2, 'shots': 2}
+ipad-system: {'scale': 2, 'window': [1032, 1376], 'origin': [0, 0], 'pixels': [2064, 2752], 'orientation': 'portrait', 'shots': 2}
