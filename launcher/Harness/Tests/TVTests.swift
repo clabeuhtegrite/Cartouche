@@ -396,12 +396,6 @@ final class TVTests: HarnessCase {
         }
     }
 
-    /// The game's screen on the iPhone, which holds its scene.
-    private func gameScreen(of scene: AppSceneViewController, file: StaticString = #filePath,
-                            line: UInt = #line) throws -> CartoucheGameScreen {
-        try XCTUnwrap(scene.parent as? CartoucheGameScreen, file: file, line: line)
-    }
-
     /// Fails if the TV shows anything of the iPhone's screen: the game's
     /// own scene, with its controls, or the game's screen with the Home
     /// button.
