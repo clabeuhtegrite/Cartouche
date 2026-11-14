@@ -191,7 +191,7 @@ enum CartoucheText {
     static var setupAppleIDTitle: String { s("setup.appleID.title", "Apple ID") }
     static var setupAppleIDHow: String { s("setup.appleID.how", "Sign in once, here in Cartouche: Cartouche then takes its certificate and renews itself every week.") }
     static func setupAppleIDDone(_ appleID: String) -> String { f("setup.appleID.done", "Signed in: %@", appleID) }
-    static func setupAppleIDUnfinished(_ appleID: String) -> String { f("setup.appleID.unfinished", "The sign-in with %@ stopped before Cartouche got its certificate. Connect LocalDevVPN, then sign in again.", appleID) }
+    static func setupAppleIDUnfinished(_ appleID: String) -> String { f("setup.appleID.unfinished", "The sign-in with %@ stopped before Cartouche got its certificate. Sign in again.", appleID) }
     static var setupSignIn: String { s("setup.appleID.signIn", "Sign In") }
     static func setupAppleIDDevice(_ appleID: String) -> String { f("setup.appleID.device", "Signed in: %@. This iPhone is left to register, which Cartouche does by itself once LocalDevVPN is connected.", appleID) }
     static var setupCertificateTitle: String { s("setup.certificate.title", "Certificate") }
@@ -328,7 +328,7 @@ enum CartoucheText {
     static var updateFailedTitle: String { s("updates.failed.title", "The update did not go through") }
     static func updateFailed(_ reason: String) -> String { f("updates.failed.message", "Check that LocalDevVPN is connected, then try again from the System page. SideStore says: %@", reason) }
     static var updateUnfinishedTitle: String { s("updates.unfinished.title", "The update did not finish") }
-    static func updateUnfinished(_ version: String) -> String { f("updates.unfinished.message", "Cartouche closed before version %@ was installed. Try again from the System page, with LocalDevVPN connected.", version) }
+    static func updateUnfinished(_ version: String) -> String { f("updates.unfinished.message", "Cartouche closed before version %@ was installed. Try again from the System page.", version) }
     static var updatedMessage: String { s("updates.done.message", "Your games, their saves and Cartouche’s settings are all still here.") }
 
     // MARK: Renewing every night

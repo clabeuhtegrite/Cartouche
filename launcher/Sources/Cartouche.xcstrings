@@ -4597,13 +4597,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "The sign-in with %@ stopped before Cartouche got its certificate. Connect LocalDevVPN, then sign in again."
+            "value" : "The sign-in with %@ stopped before Cartouche got its certificate. Sign in again."
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "La connexion avec %@ s’est arrêtée avant que Cartouche reçoive son certificat. Connectez LocalDevVPN, puis reconnectez-vous."
+            "value" : "La connexion avec %@ s’est arrêtée avant que Cartouche reçoive son certificat. Reconnectez-vous."
           }
         }
       }
@@ -12145,13 +12145,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Cartouche closed before version %@ was installed. Try again from the System page, with LocalDevVPN connected."
+            "value" : "Cartouche closed before version %@ was installed. Try again from the System page."
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Cartouche s’est fermé avant que la version %@ soit installée. Réessayez depuis la page Système, avec LocalDevVPN connecté."
+            "value" : "Cartouche s’est fermé avant que la version %@ soit installée. Réessayez depuis la page Système."
           }
         }
       }
