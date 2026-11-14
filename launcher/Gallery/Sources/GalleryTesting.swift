@@ -29,6 +29,13 @@
 //    Files picker shows under On My iPhone › Gallery, as uitests.sh puts
 //    one in On My iPhone: the stand-in install says over the console which
 //    file it was given (GalleryStubs.swift);
+//  - a game started, which the stand-in start says over the console, with
+//    how many starts so far, as an install says its IPA;
+//  - Siri or a shortcut asking for a game, as iOS hands Cartouche its
+//    action Play a Game (GalleryShortcut below): as the gallery opens,
+//    before its console is on screen (-GalleryShortcut <title ID>), or each
+//    time a test posts GalleryShortcut.posted (-GalleryShortcutOnPost
+//    <title ID>);
 //  - the pairing file in place without the rest of the setup
 //    (-GalleryPairing 1), so that the Apple ID can be signed in;
 //  - the built-in SideStore's sign-in, stood in for (GallerySideStore
@@ -108,6 +115,80 @@ enum GalleryTest {
 
     /// The title of the alert the stand-in install shows.
     static let installTitle = "Gallery install"
+
+    /// How many games the gallery was asked to start since it opened.
+    @MainActor private static var plays = 0
+
+    /// What the stand-in start does with a game the player, Siri or a
+    /// shortcut started: says which, and how many starts so far, over the
+    /// console, half a second later, once what was over it has gone. The
+    /// tests read it as an alert.
+    @MainActor
+    static func play(_ app: LCAppModel, with actions: CartoucheGameActions) {
+        guard isOn else { return }
+        plays += 1
+        let message = "Play \(plays): \(app.displayName)"
+        NSLog("[Gallery] %@", message)
+        Task { @MainActor in
+            try? await Task.sleep(for: .milliseconds(500))
+            actions.notice = CartoucheGameNotice(title: playTitle, message: message)
+        }
+    }
+
+    /// The title of the alert the stand-in start shows.
+    static let playTitle = "Gallery play"
+}
+
+// MARK: Siri and Shortcuts
+
+/// Siri or a shortcut asking for one of the player's games: what iOS does
+/// once the player says "Play Mario Kart World in Cartouche", or runs a
+/// shortcut of Play a Game, Cartouche open: it finds the game by the query
+/// of Cartouche's own (CartoucheGameQuery), then runs Play a Game for it.
+/// A game the gallery does not have runs it all the same, as a shortcut made
+/// before the game was uninstalled does; what Siri would say then shows over
+/// the console.
+enum GalleryShortcut {
+    /// The notification a UI test posts for Siri to ask again.
+    static let posted = "io.github.clabeuhtegrite.cartouche.gallery.shortcut"
+    /// The title of the alert that says what Siri would say.
+    static let failedTitle = "Gallery shortcut"
+
+    /// As the gallery opens: Siri asks for the game of -GalleryShortcut,
+    /// and for the one of -GalleryShortcutOnPost each time a test posts.
+    @MainActor
+    static func start() {
+        guard GalleryTest.isOn else { return }
+        let defaults = UserDefaults.standard
+        if let titleId = defaults.string(forKey: "GalleryShortcut") {
+            Task { @MainActor in await ask(titleId) }
+        }
+        if defaults.string(forKey: "GalleryShortcutOnPost") != nil {
+            CFNotificationCenterAddObserver(CFNotificationCenterGetDarwinNotifyCenter(), nil, { _, _, _, _, _ in
+                DispatchQueue.main.async {
+                    guard let titleId = UserDefaults.standard.string(forKey: "GalleryShortcutOnPost") else { return }
+                    Task { @MainActor in await GalleryShortcut.ask(titleId) }
+                }
+            }, posted as CFString, nil, .deliverImmediately)
+        }
+    }
+
+    /// Runs Play a Game for the game of TITLEID, as iOS does.
+    @MainActor
+    static func ask(_ titleId: String) async {
+        let id = "org.nxnative." + titleId.lowercased()
+        NSLog("[Gallery] Siri asks for %@", id)
+        let found = (try? await CartoucheGameQuery().entities(for: [id]))?.first
+        let game = found ?? CartoucheGameEntity(id: id, name: CartoucheCatalog.shared.game(titleId: titleId)?.name ?? titleId,
+                                                synonyms: [])
+        do {
+            _ = try await CartouchePlayGameIntent(game: game).perform()
+        } catch let error as CartoucheShortcutError {
+            CartoucheGameActions.shared.notice = CartoucheGameNotice(title: failedTitle, message: error.message)
+        } catch {
+            CartoucheGameActions.shared.notice = CartoucheGameNotice(title: failedTitle, message: String(describing: error))
+        }
+    }
 }
 
 // MARK: The main thread's watch

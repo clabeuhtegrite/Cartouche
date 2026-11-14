@@ -8,7 +8,7 @@
 //  the whole screen of the simulator it runs on, such as the iPhone Duo's,
 //  with its own safe area, size classes and system bars.
 //
-//      -GalleryScreen games|library|sheet|settings|gameinfo|setup|signin|guide|system|storage|storage-mac|storage-drive|storage-drive-guide|telemetry|report|reset|reset-end|tv
+//      -GalleryScreen games|library|sheet|settings|gameinfo|shortcuts|setup|signin|guide|system|storage|storage-mac|storage-drive|storage-drive-guide|telemetry|report|reset|reset-end|tv
 //                                        library: every game, open over
 //                                        the home; reset: Reset
 //                                        Cartouche's page, and
@@ -21,6 +21,8 @@
 //                                        erasing: the reset under way;
 //                                        gameinfo: what the
 //                                        player says of the sheet's game;
+//                                        shortcuts: Siri and Home Screen,
+//                                        from the sheet of the player's game;
 //                                        storage-mac: Add your Mac, the
 //                                        form that pairs this iPhone with a
 //                                        Mac nearby; storage-drive: Add
@@ -147,6 +149,11 @@
 //      -GalleryKeyboard 1                for a test that types: the
 //                                        keyboard shown and put away once,
 //                                        before the watch counts
+//      -GalleryShortcut <title ID>       Siri asks for that game as the
+//                                        gallery opens, before its console
+//                                        shows
+//      -GalleryShortcutOnPost <title ID> Siri asks for that game each time
+//                                        a test posts GalleryShortcut.posted
 //      -GalleryTestName <name>           the test's, which the watch writes
 //                                        down as the gallery starts
 //
@@ -605,13 +612,20 @@ struct GalleryScenario {
 @main
 struct CartoucheGalleryApp: App {
     private let scenario: GalleryScenario
-    @StateObject private var model = SharedModel()
+    /// LiveContainer's model, as the gallery stands it in.
+    @ObservedObject private var model = DataManager.shared.model
 
     init() {
         GalleryTest.start()
         scenario = GalleryScenario.fromArguments()
         scenario.prepare()
-        MainActor.assumeIsolated { GalleryTest.prepared() }
+        // The player's games before any screen, as LiveContainer lists them
+        // as it starts: Siri may ask for one before the console shows.
+        DataManager.shared.model.apps = scenario.apps()
+        MainActor.assumeIsolated {
+            GalleryTest.prepared()
+            GalleryShortcut.start()
+        }
     }
 
     var body: some Scene {
@@ -627,7 +641,6 @@ struct CartoucheGalleryApp: App {
                     }
                 }
                 .onAppear {
-                    model.apps = scenario.apps()
                     scenario.pause(among: model.apps)
                     scenario.settle()
                 }
@@ -679,6 +692,13 @@ struct CartoucheGalleryApp: App {
             if let entry = entries.owned.first(where: { $0.titleId == scenario.sheet }) {
                 NavigationStack {
                     CartoucheGameInfoView(entry: entry, onClose: {})
+                }
+            }
+        case "shortcuts":
+            if let entry = entries.owned.first(where: { $0.titleId == scenario.sheet }),
+               let id = entry.app?.appInfo.bundleIdentifier() {
+                NavigationStack {
+                    CartoucheGameShortcutsView(id: id, name: entry.name)
                 }
             }
         case "settings":
