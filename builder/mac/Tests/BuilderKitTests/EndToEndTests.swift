@@ -286,7 +286,8 @@ final class EndToEndTests: XCTestCase {
         let gameFolder = home.saves.appendingPathComponent(MacSavesFolder.folderName(app.saveGame), isDirectory: true)
         try await iPhonePlays("iPhone 1", in: iPhone, copyTo: gameFolder, at: Date().addingTimeInterval(-600))
 
-        // Play: the copy comes, the game starts straight away, plays from it, quits.
+        // Play: the copy comes, the game starts straight away, plays from it, quits. It quits at
+        // once: LaunchServices may say -1 of its process, a game that ended already.
         let run = try await macGames.play(titleID)
         XCTAssertEqual(run?.fromBuilder, true)
         try await eventually("the game ended and its saves went", timeout: 60) {

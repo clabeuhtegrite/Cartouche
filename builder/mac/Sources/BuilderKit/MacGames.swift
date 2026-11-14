@@ -216,8 +216,10 @@ public final class MacGames: ObservableObject {
         return found.filter { $0 > 0 && Self.alive($0) }.sorted()
     }
 
-    private nonisolated static func alive(_ pid: pid_t) -> Bool {
-        kill(pid, 0) == 0 || errno == EPERM
+    /// Whether process PID runs; never for -1, which kill() takes for every
+    /// process the builder may signal, nor 0, its own group.
+    nonisolated static func alive(_ pid: pid_t) -> Bool {
+        pid > 0 && (kill(pid, 0) == 0 || errno == EPERM)
     }
 
     /// The path of URL as the kernel names a program's: its links
@@ -280,10 +282,17 @@ public final class MacGames: ObservableObject {
     private func follow(_ run: MacGameRun) {
         playing[run.app.titleID] = run
         news?(.started(run))
-        watch(run.pid)
+        watch(run)
     }
 
-    private func watch(_ pid: pid_t) {
+    /// Follows RUN's process until it ends. A game that ended as soon as it
+    /// started has none to follow: LaunchServices says -1 of it.
+    private func watch(_ run: MacGameRun) {
+        let pid = run.pid
+        guard pid > 0 else {
+            ended(run)
+            return
+        }
         watchers.removeValue(forKey: pid)?.cancel()
         let source = DispatchSource.makeProcessSource(identifier: pid, eventMask: .exit, queue: .main)
         source.setEventHandler { [weak self] in
@@ -297,23 +306,28 @@ public final class MacGames: ObservableObject {
         }
     }
 
-    /// The process PID ended: the game ended, unless another process of
-    /// its app still runs.
+    /// The process PID ended.
     private func exited(_ pid: pid_t) {
         watchers.removeValue(forKey: pid)?.cancel()
-        guard let entry = playing.first(where: { $0.value.pid == pid }) else { return }
-        let run = entry.value
-        if let other = pids(of: run.app).first(where: { $0 != pid }) {
+        guard let run = playing.values.first(where: { $0.pid == pid }) else { return }
+        ended(run)
+    }
+
+    /// RUN's process ended: the game ended, unless another process of its
+    /// app still runs.
+    private func ended(_ run: MacGameRun) {
+        let titleID = run.app.titleID
+        if let other = pids(of: run.app).first(where: { $0 != run.pid }) {
             let next = MacGameRun(app: run.app, pid: other, started: run.started, fromBuilder: run.fromBuilder, settings: run.settings)
-            playing[entry.key] = next
-            watch(next.pid)
+            playing[titleID] = next
+            watch(next)
             return
         }
-        playing.removeValue(forKey: entry.key)
-        let (ending, code) = MacGameEnding.read(log: logs.appendingPathComponent(entry.key + ".log"), since: run.started)
+        playing.removeValue(forKey: titleID)
+        let (ending, code) = MacGameEnding.read(log: logs.appendingPathComponent(titleID + ".log"), since: run.started)
         news?(.ended(run, ending: ending, exit: code, seconds: Date().timeIntervalSince(run.started)))
         // The saves it made go.
-        if let folder, keepsSaves(entry.key) {
+        if let folder, keepsSaves(titleID) {
             Task { await self.sync(run.app, in: folder, when: .after) }
         }
     }

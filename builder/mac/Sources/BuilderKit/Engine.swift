@@ -396,7 +396,7 @@ public final class Engine: @unchecked Sendable {
     }
 
     public static func alive(_ pid: Int) -> Bool {
-        guard pid > 0 else { return false }
-        return kill(pid_t(pid), 0) == 0 || errno == EPERM
+        guard pid > 0, let pid = pid_t(exactly: pid) else { return false }
+        return kill(pid, 0) == 0 || errno == EPERM
     }
 }
