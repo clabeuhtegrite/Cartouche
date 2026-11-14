@@ -228,7 +228,9 @@
     }
     .eyebrow { display: inline-flex; align-items: center; gap: 10px; }
     .eyebrow svg { width: 15px; height: 20px; }
-    .hero h1 { margin-top: 16px; }
+    /* A little smaller than the other titles, for its three lines: your games,
+       then the three devices. */
+    .hero h1 { margin-top: 16px; font-size: clamp(2.7rem, 1.2rem + 4.8vw, 5.2rem); }
     .lede { font-size: clamp(1.07rem, 1rem + .3vw, 1.24rem); color: var(--ink-2); max-width: 32em; }
     .lede a { color: var(--ink); }
     .hero__device { margin-top: clamp(40px, 6vw, 72px); }
@@ -718,7 +720,7 @@
         /* Room for the focused cover's ring, which grows with the cover. */
         padding: calc(24 * var(--pt)) 0 calc(24 * var(--pt)) var(--m);
     }
-    .home--split .dock--bottom { margin: 0 var(--m) calc(26 * var(--pt)); }
+    .home--split .dock--bottom { width: min(calc(440 * var(--pt)), calc(100% - 2 * var(--m))); margin: 0 auto calc(26 * var(--pt)); }
     @container (orientation: landscape) {
         .home--split { --m: calc(28 * var(--pt)); }
         .home--split .home__main { display: flex; flex-direction: column; justify-content: center; padding: 0 0 calc(8 * var(--pt)); }
@@ -1262,11 +1264,11 @@
                 <div class="hero__head">
                     <div>
                         <p class="label eyebrow"><svg aria-hidden="true"><use href="#i-cartridge"/></svg><span lang="fr">iPhone · iPad · Mac · Logiciel libre</span><span lang="en">iPhone · iPad · Mac · Free software</span></p>
-                        <h1><span lang="fr">Vos jeux, sur iPhone, iPad et Mac.</span><span lang="en">Your games, on iPhone, iPad and Mac.</span></h1>
+                        <h1><span lang="fr">Vos jeux,<br> sur iPhone, iPad et Mac.</span><span lang="en">Your games,<br> on iPhone, iPad and Mac.</span></h1>
                     </div>
                     <div>
-                        <p class="lede" lang="fr">Cartouche installe, lance et garde les jeux que <a href="https://github.com/seedds/nxnative">nxnative</a> fait tourner nativement sur iPhone et iPad, à partir de vos propres copies. Il se signe, se renouvelle et se met à jour tout seul, et donne à vos jeux la mémoire qu’il leur faut. Sur votre Mac, <a href="#builder">Cartouche Builder</a> construit vos jeux, les fait tourner sur le Mac avec les mêmes sauvegardes, et les reconstruit quand nxnative les améliore.</p>
-                        <p class="lede" lang="en">Cartouche installs, starts and keeps the games <a href="https://github.com/seedds/nxnative">nxnative</a> runs natively on iPhone and iPad, from your own copies. It signs, renews and updates itself, and gets your games the memory they need. On your Mac, <a href="#builder">Cartouche Builder</a> builds your games, plays them on the Mac with the same saves, and rebuilds them when nxnative improves them.</p>
+                        <p class="lede" lang="fr">Cartouche installe, lance et garde les jeux que <a href="https://github.com/seedds/nxnative">nxnative</a> fait tourner nativement sur iPhone et iPad, à partir de vos propres copies. Il se signe, se renouvelle et se met à jour tout seul, et donne à vos jeux la mémoire qu’il leur faut. Sur votre Mac, <a href="#builder">Cartouche Builder</a> construit vos jeux, les y fait tourner avec les mêmes sauvegardes, et les reconstruit quand nxnative les améliore.</p>
+                        <p class="lede" lang="en">Cartouche installs, starts and keeps the games <a href="https://github.com/seedds/nxnative">nxnative</a> runs natively on iPhone and iPad, from your own copies. It signs, renews and updates itself, and gets your games the memory they need. On your Mac, <a href="#builder">Cartouche Builder</a> builds your games, plays them there with the same saves, and rebuilds them when nxnative improves them.</p>
                         <div class="actions">
                             <a class="btn btn--primary" href="#install"><i class="glyph" aria-hidden="true">A</i><span lang="fr">Installer Cartouche</span><span lang="en">Install Cartouche</span></a>
                             <a class="btn btn--glass" href="https://github.com/clabeuhtegrite/Cartouche"><i class="glyph" aria-hidden="true">X</i><span lang="fr">Le code sur GitHub</span><span lang="en">Code on GitHub</span></a>
@@ -1295,8 +1297,8 @@
                         <h2><span lang="fr">Reprenez votre partie sur l’écran d’à côté.</span><span lang="en">Pick up your game on the next screen.</span></h2>
                     </div>
                     <div class="prose">
-                        <p lang="fr">Cartouche est la même app sur iPhone et sur iPad : vos jeux, leurs fiches, la manette ou le tactile. Sur votre Mac, <a href="#builder">Cartouche Builder</a> construit chaque jeu pour le Mac aussi, et le lance. Vos sauvegardes passent de l’un à l’autre par votre propre stockage : la plus récente l’emporte.</p>
-                        <p lang="en">Cartouche is the same app on iPhone and iPad: your games, their sheets, a controller or touch. On your Mac, <a href="#builder">Cartouche Builder</a> builds each game for the Mac too, and plays it there. Your saves go from one to the other through your own storage: the newest wins.</p>
+                        <p lang="fr">Cartouche est la même app sur iPhone et sur iPad : vos jeux, leurs fiches, la manette ou le tactile. Sur votre Mac, <a href="#builder">Cartouche Builder</a> construit chaque jeu pour le Mac aussi, et le lance. Vos sauvegardes vous suivent de l’un à l’autre, par votre Mac ou votre NAS : la plus récente l’emporte.</p>
+                        <p lang="en">Cartouche is the same app on iPhone and iPad: your games, their sheets, a controller or touch. On your Mac, <a href="#builder">Cartouche Builder</a> builds each game for the Mac too, and plays it there. Your saves follow you from one to the other, through your Mac or your NAS: the newest wins.</p>
                     </div>
                 </div>
                 <div class="device device--ipad" data-ipad tabindex="0" role="group" style="--w:1180;--h:820;--r:18;--b:24;max-width:1000px;margin-top:clamp(40px,5vw,64px)" data-label-fr="L’accueil de Cartouche en paysage sur un iPad Air, avec la fiche du jeu en focus à côté" data-label-en="Cartouche’s home in landscape on an iPad Air, with the sheet of the game in focus beside it" aria-label="Cartouche’s home in landscape on an iPad Air, with the sheet of the game in focus beside it">
@@ -1390,8 +1392,8 @@
                         <p class="label"><span lang="fr">Votre stockage</span><span lang="en">Your storage</span></p>
                         <h2><span lang="fr">Vos jeux et vos sauvegardes restent chez vous.</span><span lang="en">Your games and saves stay at home.</span></h2>
                         <div class="prose">
-                            <p lang="fr">Gardez vos jeux sur votre propre stockage, avec votre propre compte. Ceux qui s’y trouvent apparaissent dans votre bibliothèque, prêts à installer, et Cartouche y garde vos sauvegardes synchronisées, d’un iPhone à l’autre, et avec votre iPad et votre Mac.</p>
-                            <p lang="en">Keep your games on storage of your own, with your own account. The games there show in your library, ready to install, and Cartouche keeps your saves in sync there, from one iPhone to the next, and with your iPad and your Mac.</p>
+                            <p lang="fr">Gardez vos jeux sur votre propre stockage, avec votre propre compte. Ceux qui s’y trouvent apparaissent dans votre bibliothèque, prêts à installer, et Cartouche y garde vos sauvegardes synchronisées, d’un iPhone ou d’un iPad à l’autre.</p>
+                            <p lang="en">Keep your games on storage of your own, with your own account. The games there show in your library, ready to install, and Cartouche keeps your saves in sync there, from one iPhone or iPad to the next.</p>
                         </div>
                         <p class="note"><svg aria-hidden="true"><use href="#i-lock"/></svg><span lang="fr">Uniquement votre propre stockage, avec votre propre compte : jamais de lien public.</span><span lang="en">Only storage of your own, with your own account: never a public link.</span></p>
                     </div>
@@ -1831,7 +1833,7 @@
     // The iPad in landscape (CartoucheArrangement): the console and the sheet
     // of the game in focus, each in half the screen, on one stage.
     function ipadStatusbar() {
-        return '<div class="statusbar" aria-hidden="true"><span>9:41<span class="statusbar__date">' + t("Ven. 13 nov.", "Fri Nov 13") + "</span></span>" +
+        return '<div class="statusbar" aria-hidden="true"><span>' + t("09:41", "9:41 AM") + '<span class="statusbar__date">' + t("ven. 13 nov.", "Fri Nov 13") + "</span></span>" +
             '<span class="statusbar__icons">' + ic("wifi", "ic--wifi") + ic("battery", "ic--battery") + "</span></div>";
     }
     function ipad(index) {

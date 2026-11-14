@@ -1,6 +1,6 @@
 # Cartouche Installer
 
-The app that puts Cartouche on an iPhone from a Mac or a Windows PC, the one time a computer is needed. In three steps on one window, it:
+The app that puts Cartouche on an iPhone or an iPad from a Mac or a Windows PC, the one time a computer is needed. An iPad goes the same way as an iPhone, which is the name the window and this page give both. In three steps on one window, it:
 
 1. finds the iPhone plugged into the computer, and pairs with it the first time (the iPhone asks to trust the computer);
 2. signs in to the player's Apple account, a free one being enough, with the two-factor code when Apple asks for it;
@@ -23,7 +23,7 @@ Each version is the GitHub release `installer-v<version>`, published without Git
 | Mac, Apple silicon or Intel, macOS 11 or later | `Cartouche-Installer-<version>-Mac.dmg` | The app is signed ad hoc and not notarized, so macOS says it cannot check it. Open **System Settings › Privacy & Security**, and click **Open Anyway** next to Cartouche Installer, once. |
 | Windows 10 or 11, x64 | `Cartouche-Installer-<version>-Windows.exe` | SmartScreen may stop the setup, which is not signed: **More info › Run anyway**. The setup installs for the current user, with no administrator rights. Windows talks to an iPhone only with **Apple Devices** from the Microsoft Store, or iTunes, installed. |
 
-On the iPhone, install LocalDevVPN from the App Store before or after: the built-in SideStore needs it to renew Cartouche without a computer ([docs/architecture.md](../docs/architecture.md#first-install)).
+On the iPhone or iPad, install LocalDevVPN from the App Store before or after: the built-in SideStore needs it to renew Cartouche without a computer ([docs/architecture.md](../docs/architecture.md#first-install)).
 
 ## How it is built
 
