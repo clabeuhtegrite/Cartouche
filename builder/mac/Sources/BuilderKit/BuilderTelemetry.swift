@@ -462,7 +462,8 @@ public final class BuilderTelemetry: ObservableObject {
     }
 
     /// What the app sends at a batch's end: an event for each game built,
-    /// failed, or skipped once tried (a full disk, no room, no keys), with
+    /// failed, or skipped once tried (a full disk, no room, with the room
+    /// free and needed, no keys, an Xcode nxnative refuses), with
     /// why as names and numbers and the nxnative commit it was built from,
     /// then one for the batch; never a name, a message or a path. LIBRARY
     /// says each game's kind and its IPA's size, JOBS how many games the
@@ -487,6 +488,10 @@ public final class BuilderTelemetry: ObservableObject {
             } else {
                 fields["stage"] = .text(game.stage ?? "")
                 fields.merge(BuilderTelemetry.fields(cause: game.cause, exit: game.exit, failure: game.failure)) { _, new in new }
+                // Skipped for the room kept free: how much there was, and
+                // how much a build needs, in whole gigabytes.
+                if let free = game.room?.freeGB, free.isFinite { fields["freeGB"] = .number(free.rounded()) }
+                if let needed = game.room?.neededGB, needed.isFinite { fields["neededGB"] = .number(needed.rounded()) }
                 events.append(BatchEvent(game.state == "failed" ? "builder.failed" : "builder.skipped", game: game.titleID, fields: fields))
             }
         }

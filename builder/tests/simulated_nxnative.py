@@ -53,6 +53,10 @@ the JSON file NXSIM_SCENARIO names, read at each build:
                             as Xcode compiling
    "no_ipa": [ID],          ends well without an IPA
    "ipa_bytes": {ID: n},    an IPA of about n bytes
+   "metal": {ID: "27.1"},   this Mac's Metal compiler is that Xcode's, not the
+                            one the shaders were tested with (Xcode 27.2's):
+                            refused after the check of the files, unless
+                            --allow-other-metal
    "refused": [option],     options this nxnative does not take, as one
                             from before or after them ("-l")
    "slack_gb": n}           nxnative's room on top of the game's size (6 GB
@@ -418,6 +422,21 @@ def scan(source: Path, keys: Path | None, want: str | None) -> Family:
     return scan_packages(source, keys, want)
 
 
+def other_metal(selected: str) -> str:
+    """nxnative's words for a Metal compiler other than the one its shaders
+    were tested with, as dm/gfx/tools/own_compilers.py words them and the
+    build script raises them (check_metal), the selected Xcode SELECTED."""
+    app = "/Applications/Xcode-27.2.app"
+    return ("this Mac's Metal compiler is not the one the shaders were tested with (dm/gfx/tools/dmsh_chain.lock): "
+            "metal_macosx Apple metal version 32023.620 (metalfe-32023.620) (tested: Apple metal version 32023.850 (metalfe-32023.850)); "
+            "metal_iphoneos Apple metal version 32023.620 (metalfe-32023.620) (tested: Apple metal version 32023.850 (metalfe-32023.850)). "
+            "Untested compilers are unsupported (GitHub issue #242). The Metal compiler is the selected Xcode's"
+            f" (selected: Xcode {selected} in /Applications/Xcode.app/Contents/Developer): install Xcode 27.2 (macOS 26.6 or later) "
+            f"from https://developer.apple.com/download/all/ (beside a newer Xcode, as {app}), select it (sudo xcode-select -s {app}, "
+            f"or DEVELOPER_DIR={app}/Contents/Developer for one build), then download its Metal toolchain "
+            "(xcodebuild -downloadComponent MetalToolchain), or ALLOW_OTHER_METAL = True (--allow-other-metal) to build with this one anyway")
+
+
 def check_files(family: Family, allow: bool) -> None:
     """nxnative's check of a NUP's or a dump's files, which carry no hashes:
     a .zs file must be a zstd stream."""
@@ -547,6 +566,11 @@ def main(args: argparse.Namespace) -> None:
             (extract / "dlc.txt").write_text("\n".join(family.dlc) + "\n")
     if family.kind in ("dump", "nup"):
         check_files(family, args.allow_damaged)
+    # nxnative's check of the Metal compiler, before the shaders: no stage of
+    # its own, the files' check ends where it stops.
+    selected = asked(plan, "metal", title_id)
+    if selected and not args.allow_other_metal:
+        raise BuildError(other_metal(str(selected)))
 
     # The game event, once its name, version and bundle ID are settled.
     values = profile(title_id)

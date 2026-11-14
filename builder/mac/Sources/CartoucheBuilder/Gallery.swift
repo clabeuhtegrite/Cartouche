@@ -23,6 +23,9 @@ enum Gallery {
     enum Page: String, CaseIterable {
         case library, game, gameNarrow = "game-narrow", gameQueue = "game-queue", activity, storage, iphone, setup, settings, menubar
         case menubarBuilding = "menubar-building"
+        // What stops a build before it starts: too little room on the Mac,
+        // an Xcode older than nxnative's, a game no Mac built yet.
+        case libraryRoom = "library-room", gameXcode = "game-xcode", gameUnbuilt = "game-unbuilt", setupXcode = "setup-xcode"
         case assistantWelcome = "assistant-welcome", assistantTools = "assistant-tools", assistantSources = "assistant-sources"
         case assistantGames = "assistant-games", assistantKeys = "assistant-keys", assistantBuilds = "assistant-builds"
         case assistantIPhone = "assistant-iphone", assistantDone = "assistant-done"
@@ -87,7 +90,7 @@ enum Gallery {
             FileHandle.standardError.write(Data("gallery: the samples do not decode: \(error)\n".utf8))
             exit(1)
         }
-        loadCovers(samples.library.games.map(\.titleID))
+        loadCovers(samples.library.games.map(\.titleID) + [Gallery.unbuilt.titleID])
         var saved = 0
         for language in ["fr", "en"] {
             L10n.use(language)
@@ -290,6 +293,16 @@ enum Gallery {
             if page == .gameNarrow, let index = library.games.firstIndex(where: { $0.titleID == "0100152000022000" }) {
                 LayoutCheck.lengthen(&library.games[index])
             }
+            if page == .libraryRoom {
+                library.room = Gallery.room
+            }
+            // Kirby, skipped at its last build for the Mac's Xcode.
+            if page == .gameXcode, let index = library.games.firstIndex(where: { $0.titleID == "01004D300C5AE000" }) {
+                library.games[index].attempt = Gallery.metalAttempt
+            }
+            if page == .gameUnbuilt {
+                library.games.append(Gallery.unbuilt)
+            }
             if building {
                 // The library as the engine gives it while the batch runs:
                 // Kirby built in it, Mario Kart 8 Deluxe building, Metroid
@@ -300,17 +313,20 @@ enum Gallery {
                     if let state = states[library.games[index].titleID] { library.games[index].state = state }
                 }
             }
-            let model = AppModel.sampled(library: library, status: building ? self.building : nil, storage: storage, config: config, info: info)
+            let model = AppModel.sampled(library: library, status: building ? self.building : nil, storage: storage, config: config, info: info,
+                                         unbuilt: page == .gameUnbuilt ? [Gallery.unbuilt.titleID: Gallery.unbuiltFigures] : [:])
             if building {
                 model.preview(queue: BuildQueue(games: [.init(titleID: "0100000000010000", force: true, batch: 4242, added: "")]))
             }
             switch page {
             case .library, .activity, .storage, .iphone: model.section = AppSection(rawValue: page.rawValue) ?? .library
-            case .game, .gameNarrow, .gameQueue: model.section = .library
-            case .setup: model.section = .setup
+            case .libraryRoom, .game, .gameNarrow, .gameQueue, .gameXcode, .gameUnbuilt: model.section = .library
+            case .setup, .setupXcode: model.section = .setup
             default: break
             }
             if page == .game || page == .gameNarrow { model.selection = "0100152000022000" }
+            if page == .gameXcode { model.selection = "01004D300C5AE000" }
+            if page == .gameUnbuilt { model.selection = Gallery.unbuilt.titleID }
             // A game up to date, while a batch runs: added to its queue.
             if page == .gameQueue { model.selection = "01006F8002326000" }
             if page == .setup || page == .assistantTools {
@@ -324,6 +340,18 @@ enum Gallery {
                     .tools: .missing(tr("Missing: zstd, glslang.", "Manque : zstd, glslang.")),
                     .nxnative: .blocked,
                 ], xcode: "/Applications/Xcode-27.2.app")
+            } else if page == .setupXcode {
+                // Xcode 27.1, which nxnative refuses for the shaders of most
+                // games (Ocarina of Time, 14 November 2026).
+                model.setup.preview([
+                    .mac: .ready("macOS 26.1"),
+                    .xcode: .missing(tr("Xcode 27.1: nxnative builds the games’ shaders with the Metal compiler of Xcode 27.2, which it tested them with. Update Xcode in the App Store.",
+                                        "Xcode 27.1 : nxnative construit les shaders des jeux avec le compilateur Metal de Xcode 27.2, avec lequel il les a testés. Mettez Xcode à jour dans l’App Store.")),
+                    .iosPlatform: .ready("iOS 27.1"),
+                    .homebrew: .ready("Homebrew 5.0.4"),
+                    .tools: .ready("Python 3.13, XcodeGen, zstd, glslang"),
+                    .nxnative: .ready("6c3aeb3"),
+                ], xcode: "/Applications/Xcode.app", outdated: "27.1")
             } else {
                 model.setup.preview([
                     .mac: .ready("macOS 26.1"),
@@ -378,6 +406,35 @@ enum Gallery {
     }
 
     static let head = "6c3aeb3d70a1c2b94f5e8d7a6b5c4d3e2f1a0b9c"
+
+    /// The room on the build folders' disk, short of what the settings keep
+    /// free, as the engine says it (disks.py, room).
+    static var room: LibraryRoom {
+        LibraryRoom(freeGB: 13, keepGB: 20, folders: 2, title: tr("7 GB missing to build", "Il manque 7 Go pour construire"),
+                    text: tr("Cartouche Builder starts a build only with 20 GB free on your Mac's disk, and only 13 GB are free there. It first removes the build folders of the games built longest ago (2), which may be enough. Free some room there (Storage shows what the build folders take), choose build folders on another disk, or lower “Keep at least 20 GB free”.",
+                             "Cartouche Builder ne commence une construction qu'avec 20 Go libres sur le disque du Mac, et il n'y en a que 13. Il supprime d'abord les dossiers de construction des jeux construits il y a le plus longtemps (2), ce qui peut suffire. Libérez-y de la place (Stockage montre ce que prennent les dossiers de construction), choisissez des dossiers de construction sur un autre disque ou baissez « Garder au moins 20 Go libres »."))
+    }
+
+    /// A game skipped for the Mac's Xcode, as the engine records it
+    /// (causes.py, metal_words).
+    static var metalAttempt: GameAttempt? {
+        let attempt: [String: Any] = [
+            "commit": String(head.prefix(12)), "at": ISO8601DateFormatter().string(from: Date().addingTimeInterval(-7200)), "result": "skipped",
+            "error": tr("nxnative builds this game's shaders only with the Metal compiler of Xcode 27.2, which it tested them with, and this Mac has Xcode 27.1. Update Xcode in the App Store (the page “This Mac's tools” does it with you), then build the game again.",
+                        "nxnative ne construit les shaders de ce jeu qu'avec le compilateur Metal de Xcode 27.2, avec lequel il les a testés, et ce Mac a Xcode 27.1. Mettez Xcode à jour dans l'App Store (la page « Outils du Mac » le fait avec vous), puis relancez la construction."),
+            "log": "/tmp/kirby.log",
+        ]
+        return (try? JSONSerialization.data(withJSONObject: attempt)).flatMap { try? JSONDecoder().decode(GameAttempt.self, from: $0) }
+    }
+
+    /// A game no Mac built yet, nor this one, with what the weekly list says
+    /// of it (Unbuilt.swift).
+    static var unbuilt: Game {
+        Game(titleID: "0400A3A01EE4C000", name: "Pokémon Pokopia", kind: "nup", source: "/Volumes/Jeux/Switch/Pokopia", sourceSize: 9_870_000_000,
+             state: .due, reasons: ["new"], detail: tr("Never built", "Jamais construit"))
+    }
+
+    static let unbuiltFigures = UnbuiltGame(titleID: "0400A3A01EE4C000", macs: 4, failures: 8, hours: 4.7, stage: "iOS shaders")
 
     /// What the engine left aside in the sample sources folder, in the
     /// language of the page, as the engine says it (texts.py).

@@ -7,7 +7,7 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-from cartouche_builder import batch, config as configs, ipa
+from cartouche_builder import batch, config as configs, ipa, toolchain
 from cartouche_builder import status as statuses
 from cartouche_builder.paths import Paths
 
@@ -131,7 +131,76 @@ class Batches(Home):
             plan, summary = self.run_due(only={MKW})
         self.assertEqual(summary.failed, [])
         self.assertFalse(old.exists())
-        self.assertTrue(any(kind == "log" and "built longest ago" in value for kind, _, value in self.events))
+        self.assertTrue(any(kind == "log" and "used longest ago go first" in value for kind, _, value in self.events))
+
+    def test_a_game_that_failed_leaves_its_room_to_the_next(self):
+        """A game that failed after hours of shaders keeps a large build
+        folder: the games after it in the batch may remove it, as an older
+        one, instead of being skipped (Pokopia, telemetry of 14 November
+        2026: 10 of the 19 games skipped for room came after it)."""
+        paths = Paths.default()
+        config = configs.load(paths)
+        config.min_free_gb = 20
+        configs.save(paths, config)
+        ctx = batch.context()
+        first, then = [e.title_id for e in batch.survey(ctx, update=True).to_build if e.title_id in (MKW, ODYSSEY)]
+        os.environ["FAKE_FAIL"] = first
+        failed = ctx.workspace.build_folder(first)
+        with mock.patch.object(batch, "free_gb", side_effect=lambda path: 1.0 if failed.exists() else 50.0):
+            plan, summary = self.run_due(only={MKW, ODYSSEY})
+        self.assertEqual([entry.title_id for entry, _ in summary.built], [then])
+        self.assertEqual([entry.title_id for entry, _, _ in summary.failed], [first])
+        self.assertFalse(failed.exists())
+
+    def test_too_little_room_says_what_is_missing(self):
+        paths = Paths.default()
+        config = configs.load(paths)
+        config.min_free_gb = 20
+        configs.save(paths, config)
+        with mock.patch.object(batch, "free_gb", return_value=13.7):
+            plan, summary = self.run_due(only={MKW})
+        self.assertTrue(summary.failed[0][1].startswith("7 GB missing to build this game: Cartouche Builder starts a build only with 20 GB free on "),
+                        summary.failed[0][1])
+        status = json.loads(paths.status.read_text())
+        game = next(g for g in status["games"] if g["title_id"] == MKW)
+        self.assertEqual((game["state"], game["cause"], game["room"]), ("skipped", "no_room", {"free_gb": 13, "needed_gb": 20}))
+        self.assertIn(("cause", MKW), [(kind, title_id) for kind, title_id, value in self.events if kind == "cause" and value.get("free_gb") == 13])
+
+    def test_a_nightly_run_leaves_aside_the_games_no_mac_built(self):
+        """A game no Mac built (the app's copy of the weekly list) waits for
+        the player at night, until this Mac builds it: on 14 November 2026,
+        Pokopia had failed eight times on four Macs, a night each time
+        nxnative moved."""
+        paths = Paths.default()
+        paths.unbuilt.write_text(json.dumps({"schema": 1, "games": [{"titleId": MKW.lower(), "macs": 4, "failures": 8, "hours": 7.9},
+                                                                    {"titleId": "0100", "macs": 3, "failures": 3}, "nothing"]}))
+        said = []
+        plan, summary = self.run_due(scheduled=True, log=said.append)
+        self.assertEqual(sorted(entry.title_id for entry, _ in summary.built), sorted([ODYSSEY, HOLLOW]))
+        self.assertIn("Mario Kart World left aside: no Mac has built it yet. Its sheet builds it if you wish.", said)
+        # Asked for, it is built; built here, the nightly run rebuilds it.
+        plan, summary = self.run_due(only={MKW})
+        self.assertEqual([entry.title_id for entry, _ in summary.built], [MKW])
+        commit(self.remote, "Mario Kart World's menus (PR #3)", {"dm/host/menu.c": "x"})
+        plan, summary = self.run_due(scheduled=True)
+        self.assertEqual([entry.title_id for entry, _ in summary.built], [MKW])
+
+    def test_an_older_xcode_stops_the_batch_before_any_game(self):
+        self.run_due(only={MKW})
+        ctx = batch.context()
+        plan = batch.survey(ctx, update=False)
+        runner = batch.Runner(ctx, plan, [], python=PYTHON, check_tools=True)
+        outdated = toolchain.Check("xcode", False, "27.1 (27B44)", "Xcode 27.1 is older than Xcode 27.2, whose Metal compiler nxnative builds the shaders with: "
+                                                                  "update Xcode in the App Store (the page “This Mac's tools” does it with you).")
+        with mock.patch.object(batch.sys, "platform", "darwin"), mock.patch.object(batch.toolchain, "doctor", return_value=[outdated]):
+            with self.assertRaises(batch.Blocked) as caught:
+                runner._prepare()
+        self.assertEqual(str(caught.exception), outdated.fix)
+        missing = toolchain.Check("xcode", False, "", "Install Xcode 27.2 from the App Store, or from developer.apple.com, and select it.")
+        with mock.patch.object(batch.sys, "platform", "darwin"), mock.patch.object(batch.toolchain, "doctor", return_value=[missing]):
+            with self.assertRaises(batch.Blocked) as caught:
+                runner._prepare()
+        self.assertEqual(str(caught.exception), "Missing on this Mac: Xcode. Open Mac tools to fix it.")
 
     def test_failure_is_recorded_and_not_retried(self):
         os.environ["FAKE_FAIL"] = MKW
