@@ -73,8 +73,9 @@ struct CartoucheSystemView: View {
                 }
                 .onAppear {
                     guard showsEnd else { return }
-                    // Once the list has laid its rows out.
-                    DispatchQueue.main.async { proxy.scrollTo(Self.resetRow, anchor: .bottom) }
+                    // Once the list has laid its rows out; as far as it
+                    // goes, with the row's footer under it.
+                    DispatchQueue.main.async { proxy.scrollTo(Self.resetRow, anchor: .center) }
                 }
             }
         }

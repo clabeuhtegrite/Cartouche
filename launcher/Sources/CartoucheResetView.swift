@@ -5,8 +5,9 @@
 //  System › Reset Cartouche (CartoucheReset): what the reset erases and
 //  what stays, the games whose saves it would lose, which can go to the
 //  saves folder first, and the button that erases everything once the
-//  player has said so twice: the button, then its confirmation. Erasing,
-//  then restarting, covers the page.
+//  player has said so twice: the button, then its confirmation, which
+//  comes from the button, beside it from iOS 26. Erasing, then
+//  restarting, covers the page.
 //
 
 import SwiftUI
@@ -22,15 +23,37 @@ struct CartoucheResetView: View {
     @ObservedObject private var setup = CartoucheSetup.shared
     @EnvironmentObject private var sharedModel: SharedModel
     @State private var confirming = false
-    /// Whether the confirmation shows as the page opens, as the launcher's
-    /// gallery shows it (launcher/Gallery).
+    /// Whether the confirmation shows as the page opens, at its end, as the
+    /// launcher's gallery shows it (launcher/Gallery).
     private let confirmsAtOnce: Bool
+    /// Whether the page opens at its end, on its button, as the gallery
+    /// shows it.
+    private let showsEnd: Bool
 
-    init(confirming: Bool = false) {
+    init(confirming: Bool = false, showsEnd: Bool = false) {
         confirmsAtOnce = confirming
+        self.showsEnd = showsEnd || confirming
     }
 
     var body: some View {
+        ScrollViewReader { proxy in
+            page
+                .task {
+                    await reset.checkSaves(of: sharedModel.apps)
+                    guard showsEnd else { return }
+                    // Once the list has laid out what the check found.
+                    try? await Task.sleep(for: .milliseconds(300))
+                    proxy.scrollTo(Self.eraseRow, anchor: .bottom)
+                    guard confirmsAtOnce else { return }
+                    // Once the button is on the screen: the confirmation
+                    // comes from it.
+                    try? await Task.sleep(for: .milliseconds(500))
+                    confirming = true
+                }
+        }
+    }
+
+    private var page: some View {
         List {
             Section {
                 Text(CartoucheText.resetIntro)
@@ -56,19 +79,6 @@ struct CartoucheResetView: View {
         .navigationTitle(CartoucheText.resetTitle)
         .navigationBarTitleDisplayMode(.inline)
         .navigationBarBackButtonHidden(reset.phase != nil)
-        .task {
-            await reset.checkSaves(of: sharedModel.apps)
-            if confirmsAtOnce { confirming = true }
-        }
-        .confirmationDialog(CartoucheText.resetConfirmTitle, isPresented: $confirming, titleVisibility: .visible) {
-            Button(CartoucheText.resetConfirmErase, role: .destructive) {
-                reset.reset()
-            }
-            Button(CartoucheText.cancel, role: .cancel) {}
-        } message: {
-            // The Apple ID, only when there is one to erase.
-            Text(setup.appleID == nil ? CartoucheText.resetConfirmMessage : CartoucheText.resetConfirmMessageAccount)
-        }
         .overlay {
             if let phase = reset.phase {
                 progress(phase)
@@ -135,6 +145,8 @@ struct CartoucheResetView: View {
 
     // MARK: Erasing
 
+    private static let eraseRow = "erase"
+
     private var eraseSection: some View {
         Section {
             Button(role: .destructive) {
@@ -144,6 +156,19 @@ struct CartoucheResetView: View {
                     .foregroundStyle(CartoucheTheme.danger)
             }
             .disabled(reset.phase != nil || reset.blocker != nil)
+            // From the button: from iOS 26, iOS shows it beside the button,
+            // without Cancel, which a tap outside it stands for; before, at
+            // the bottom of the screen.
+            .confirmationDialog(CartoucheText.resetConfirmTitle, isPresented: $confirming, titleVisibility: .visible) {
+                Button(CartoucheText.resetConfirmErase, role: .destructive) {
+                    reset.reset()
+                }
+                Button(CartoucheText.cancel, role: .cancel) {}
+            } message: {
+                // The Apple ID, only when there is one to erase.
+                Text(setup.appleID == nil ? CartoucheText.resetConfirmMessage : CartoucheText.resetConfirmMessageAccount)
+            }
+            .id(Self.eraseRow)
             if let report = reset.report, reset.phase == nil {
                 Label(report.message, systemImage: "exclamationmark.triangle.fill")
                     .font(.footnote)

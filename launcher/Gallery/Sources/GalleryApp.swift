@@ -8,15 +8,17 @@
 //  the whole screen of the simulator it runs on, such as the iPhone Duo's,
 //  with its own safe area, size classes and system bars.
 //
-//      -GalleryScreen games|library|sheet|settings|gameinfo|setup|signin|guide|system|system-end|storage|storage-mac|storage-drive|storage-drive-guide|telemetry|report|reset|tv
+//      -GalleryScreen games|library|sheet|settings|gameinfo|setup|signin|guide|system|system-end|storage|storage-mac|storage-drive|storage-drive-guide|telemetry|report|reset|reset-end|tv
 //                                        library: every game, open over
 //                                        the home; system-end: the System
 //                                        page at its end, on Reset
-//                                        Cartouche; reset: its page, with
+//                                        Cartouche; reset: its page, and
+//                                        reset-end, at its end, with
 //                                        work: saves, the saves of the
 //                                        sheet's game, or the first of the
 //                                        player's, which the reset would
-//                                        lose; confirm: its confirmation;
+//                                        lose; confirm: its confirmation,
+//                                        at its end, from its button;
 //                                        erasing: the reset under way;
 //                                        gameinfo: what the
 //                                        player says of the sheet's game;
@@ -619,10 +621,10 @@ struct CartoucheGalleryApp: App {
             NavigationStack {
                 CartoucheReportView()
             }
-        case "reset":
-            // As the System page opens it.
+        case "reset", "reset-end":
+            // As the System page opens it, or at its end.
             NavigationStack {
-                CartoucheResetView(confirming: scenario.work == "confirm")
+                CartoucheResetView(confirming: scenario.work == "confirm", showsEnd: scenario.screen == "reset-end")
             }
         case "root":
             CartoucheRootView()
