@@ -278,6 +278,45 @@ final class CartoucheFailureTests: XCTestCase {
         XCTAssertEqual(read.facts, [:])
     }
 
+    // MARK: Why minimuxer could not reach this iPhone (patch 0022)
+
+    func testSaysWhyMinimuxerCouldNotReachThisIPhone() throws {
+        // An iPad without cellular, with a Lockdown pairing file, from iPadOS 26.4.
+        let left = try XCTUnwrap(outcome([
+            "stage": "deviceCheck", "family": "operation", "kind": "invalidVPN", "codes": "SideStore.OperationError 10",
+            "reason": "noIPsec", "pairingKind": "lockdown", "ipsec": false,
+        ]))
+        XCTAssertEqual(left.cause, .vpn)
+        XCTAssertEqual(left.facts, ["reason": .text("noIPsec"), "pairingKind": .text("lockdown"), "ipsec": .flag(false)])
+        let failure = CartoucheFailure.sideStore(outcome: left, message: "LocalDevVPN is not connected", fraction: 0,
+                                                 seconds: 0, vpn: true, pairing: true)
+        XCTAssertEqual(failure.cause, .vpn)
+        XCTAssertEqual(failure.stage, "deviceCheck")
+        XCTAssertEqual(failure.fields["reason"], .text("noIPsec"))
+        XCTAssertEqual(failure.fields["pairingKind"], .text("lockdown"))
+        XCTAssertEqual(failure.fields["ipsec"], .flag(false))
+        XCTAssertEqual(failure.fields["vpn"], .flag(true))
+
+        // A pairing file this iPhone refused at the handshake, with the
+        // library's words behind minimuxer's.
+        let refused = try XCTUnwrap(outcome([
+            "stage": "deviceCheck", "family": "operation", "kind": "invalidPairingFile",
+            "reason": "handshake", "detail": "reset", "pairingKind": "rppairing", "ipsec": true,
+        ]))
+        XCTAssertEqual(refused.cause, .pairing)
+        XCTAssertEqual(refused.facts, ["reason": .text("handshake"), "detail": .text("reset"),
+                                       "pairingKind": .text("rppairing"), "ipsec": .flag(true)])
+    }
+
+    func testKeepsNoSentenceOfMinimuxersNorAddress() throws {
+        let read = try XCTUnwrap(outcome([
+            "kind": "invalidVPN",
+            "reason": "VPN tunnel iface is up and tunnel peer IP 10.7.0.1 is known, but TCP port poll failed",
+            "detail": "Connection reset by peer (os error 54)", "pairingKind": "10.7.0.1", "ipsec": "no",
+        ]))
+        XCTAssertEqual(read.facts, [:])
+    }
+
     // MARK: How a renewal ended
 
     func testARenewalEndsAsSideStoreLeftIt() throws {
