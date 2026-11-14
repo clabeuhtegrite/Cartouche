@@ -399,19 +399,22 @@ struct CartoucheMacBuildsList: View {
                 row("\(index + 1). \(game.name)", detail: nil, systemImage: "clock")
             }
         }
-        if !done.isEmpty {
+        if let last = done.last {
             heading(CartoucheText.macBuildsDone)
-            ForEach(done) { item in
-                let when = CartoucheMacBuildsSection.when(item.date)
-                let line = row(item.game.name, detail: item.failed ? CartoucheText.macBuildsFailed(when) : CartoucheText.macBuildsBuilt(when),
-                               systemImage: item.failed ? "exclamationmark.triangle" : "checkmark.circle")
-                if item.id == done.last?.id {
-                    line.id(Self.end)
-                } else {
-                    line
-                }
+            ForEach(done.dropLast()) { item in
+                doneRow(item)
             }
+            // A row of its own: a list scrolls to a row by its own id, never
+            // by one inside a ForEach's row.
+            doneRow(last)
+                .id(Self.end)
         }
+    }
+
+    private func doneRow(_ item: CartoucheBridgeBuilds.Done) -> some View {
+        let when = CartoucheMacBuildsSection.when(item.date)
+        return row(item.game.name, detail: item.failed ? CartoucheText.macBuildsFailed(when) : CartoucheText.macBuildsBuilt(when),
+                   systemImage: item.failed ? "exclamationmark.triangle" : "checkmark.circle")
     }
 
     private func heading(_ text: String) -> some View {
