@@ -21,6 +21,11 @@ of it (CartoucheSideStoreOutcome, launcher/Sources/CartoucheFailure.swift):
   SideStore reaches the iPhone before anything goes to Apple
   (app/patches/sidestore/0019), and the stages Cartouche reads of them are
   theirs.
+- every sentence minimuxer gives when it cannot reach this iPhone, which
+  SideStore passes on in its noVPN, invalidVPN, invalidPairingFile..., has
+  the name of a reason, each one named still minimuxer's, and the words
+  minimuxer tells a broken connection or a refused pairing by have the name
+  of a detail (app/patches/sidestore/0022).
 
 SideStore's sources are read as app/scripts/prepare.sh leaves them, every
 patch applied, so that a later patch's fields count too. Needs the
@@ -30,7 +35,11 @@ Run from the repository root: python3 -m unittest discover -s app/tests -v
 """
 
 import functools
+import json
 import re
+import shutil
+import subprocess
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -39,6 +48,7 @@ FAILURE = ROOT / "launcher" / "Sources" / "CartoucheFailure.swift"
 LAUNCHER = ROOT / "launcher" / "Sources"
 PATCHES = ROOT / "app" / "patches" / "sidestore"
 SIDESTORE = ROOT / "app" / "SideStore"
+MINIMUXER = SIDESTORE / "Dependencies" / "minimuxer"
 BRIDGE = ROOT / "app" / "LiveContainer" / "SideStoreSupport"
 
 # The families whose errors Cartouche tells no cause from but their codes.
@@ -233,6 +243,82 @@ def branches(cause: str) -> dict:
         for family in families:
             found[family] = kinds
     return found
+
+
+# The cases of MinimuxerError that say why minimuxer could not reach this
+# iPhone, with a sentence of its own.
+DEVICE_CASES = ("noVPN", "invalidVPN", "noConnection", "noDevice", "notReachable", "pairingNotLoaded", "notStarted")
+
+# Sentences as minimuxer gives them, with what the outcome tells of them.
+DEVICE_EXAMPLES = {
+    "utun is present but no ipsec/IKEv2 interface found — LocalDevVPN may not support the lockdown protocol on iOS 26.4+":
+        ("noIPsec", None),
+    "VPN tunnel iface is up and tunnel peer IP 10.7.0.1 is known, but TCP port poll failed — device may be unreachable "
+    "on this interface": ("portClosed", None),
+    "Handshake failed: Connection reset by peer (os error 54)": ("handshake", "reset"),
+    "Handshake failed: received fatal alert: bad_certificate": ("handshake", "badCertificate"),
+    "Service connection failed, error: (Pairing rejected)": ("serviceRefused", "pairing"),
+    "Lockdown session failed (pairing invalid): InvalidHostID": ("lockdownSession", None),
+    "Connection refused (os error 61)": ("dropped", "refused"),
+    "VPN tunnel iface is up but tunnel peer IP is not yet reachable — VPN may not be routing device traffic correctly. "
+    "Cause: The request timed out.": ("noPeer", "timedOut"),
+    "No utun interface detected — LocalDevVPN is not connected": ("noTunnel", None),
+    "No pairing file has been loaded": ("notLoaded", None),
+    "Something minimuxer never said": ("other", None),
+}
+
+
+def minimuxer_sources() -> dict:
+    """Minimuxer's Swift sources, by their path in it: its own, its gateways'
+    and their common code."""
+    if not (MINIMUXER / "Sources").is_dir():
+        raise AssertionError(f"{MINIMUXER.relative_to(ROOT)} is missing: run git submodule update --init --recursive")
+    return {path.relative_to(MINIMUXER).as_posix(): path.read_text(encoding="utf-8")
+            for folder in ("Sources", "DeviceGateway", "Common") for path in sorted((MINIMUXER / folder).rglob("*.swift"))}
+
+
+def device_sentences(sources: dict) -> list:
+    """The sentences minimuxer gives when it cannot reach this iPhone, by the
+    file they are in: those of its errors for it, of the pairing files it
+    refuses (invalidPairing), and of its gateways' invalidPairingFile, which
+    becomes one. Each one with its interpolations as "…"."""
+    found = []
+    calls = re.compile(r"\.(?:" + "|".join(DEVICE_CASES) + r")\(\s*\"|invalidPairing\(protocol: [^,()]+, reason: \"")
+    for name, text in sources.items():
+        for match in calls.finditer(text):
+            found.append((name, swift_literal(text, match.end() - 1)[0]))
+        for match in re.finditer(r"GatewayError\(\.invalidPairingFile, reason: (\"|reason\))", text):
+            if match.group(1) == '"':
+                found.append((name, swift_literal(text, match.end() - 1)[0]))
+                continue
+            # A sentence the function made just before.
+            made = list(re.finditer(r"let reason = \"", text[:match.start()]))
+            if not made:
+                raise AssertionError(f"{name}: the reason of an invalidPairingFile not found")
+            found.append((name, swift_literal(text, made[-1].end() - 1)[0]))
+    return found
+
+
+def listed(text: str, name: str) -> list:
+    """The (sentence, name) pairs of the table NAME of the outcome."""
+    table = re.search(r"static let " + name + r"[^=]*= \[(.*?)\n    \]", text, re.S)
+    if not table:
+        raise AssertionError(f"{name} not found")
+    return [(sentence.replace('\\"', '"'), told)
+            for sentence, told in re.findall(r'^\s*\("((?:[^"\\]|\\.)*)", "(\w+)"\),$', table.group(1), re.M)]
+
+
+def device_reason(reasons: list, details: list, sentence: str) -> tuple:
+    """What CartoucheOutcome.reason(ofDeviceSentence:) gives SENTENCE: the
+    reason of the first of minimuxer's sentences it holds, whatever its
+    case, and the detail of the first of the library's words past them."""
+    rest, reason = sentence.lower(), "other"
+    found = next(((fragment.lower(), told) for fragment, told in reasons if fragment.lower() in rest), None)
+    if found:
+        reason = found[1]
+        if reason != "dropped":
+            rest = rest[rest.index(found[0]) + len(found[0]):]
+    return reason, next((told for words, told in details if words in rest), None)
 
 
 class SideStoreOutcomeTest(unittest.TestCase):
@@ -460,6 +546,153 @@ class SideStoreOutcomeTest(unittest.TestCase):
         for sentence, (reason, missing) in examples.items():
             told = next((reason for fragment, reason in reasons if fragment in sentence), None)
             self.assertEqual((told, subject(sentence)), (reason, missing), sentence)
+
+    def test_every_sentence_minimuxer_gives_for_this_iphone_has_its_reason(self):
+        # Minimuxer's sentence for why it could not reach this iPhone can hold
+        # the iPhone's address on the tunnel and the library's words: only
+        # the names of its reason and of those words leave (patch 0022).
+        reasons = listed(self.outcome, "deviceReasons")
+        details = listed(self.outcome, "deviceDetails")
+        self.assertGreaterEqual(len(reasons), 25)
+        for _, told in reasons + details:
+            self.assertRegex(told, r"^[a-z][A-Za-z0-9]{0,47}$")
+
+        sources = minimuxer_sources()
+        sentences = device_sentences(sources)
+        self.assertGreaterEqual(len(sentences), 20)
+        # With SideStore's own, which it gives as these errors.
+        for name, text in self.sources.items():
+            for match in re.finditer(r"OperationError\.(?:noVPN|invalidVPN|noConnection|noDevice|notReachable|"
+                                     r"minimuxerNotStarted|pairingNotComplete|invalidPairingFile)\(\s*reason:\s*\"", text):
+                sentences.append((name, swift_literal(text, match.end() - 1)[0]))
+        self.assertIn(("SideStore/Intents/CartoucheDeviceCheck.swift", "No pairing file has been loaded"), sentences)
+        for name, sentence in sentences:
+            self.assertNotEqual(device_reason(reasons, details, sentence)[0], "other", f"{name}: no reason for {sentence!r}")
+
+        # Each sentence the outcome names is still minimuxer's, or SideStore's.
+        theirs = ("\n".join(sources.values()) + "\n".join(self.sources.values())).lower()
+        for fragment, told in reasons:
+            self.assertIn(fragment.lower(), theirs, f"{fragment!r} ({told}) is no longer minimuxer's")
+
+        # The words minimuxer tells a broken connection by, which it then
+        # gives alone as invalidVPN, are told as one, each with its detail;
+        # those it tells a refused pairing by have theirs.
+        errors = sources["Sources/MinimuxerError.swift"]
+        dropped = re.findall(r'lower\.contains\("([^"]+)"\)', block(errors, "var isVPNDrop: Bool", "isVPNDrop"))
+        self.assertGreaterEqual(len(dropped), 5)
+        for words in dropped:
+            reason, detail = device_reason(reasons, details, f"Tunnel: {words} (os error 54)")
+            self.assertEqual(reason, "dropped", words)
+            self.assertIsNotNone(detail, words)
+        gateway = sources["DeviceGateway/idevice/IdeviceGateway.swift"]
+        refused = re.findall(r'msg\.contains\("([^"]+)"\)', block(gateway, "func isPairingError(", "isPairingError"))
+        self.assertGreaterEqual(len(refused), 4)
+        for words in refused:
+            self.assertIsNotNone(device_reason(reasons, details, f"Handshake failed: {words}")[1], words)
+
+        for sentence, told in DEVICE_EXAMPLES.items():
+            self.assertEqual(device_reason(reasons, details, sentence), told, sentence)
+
+    def test_the_outcome_reads_minimuxers_sentence_from_each_of_its_errors(self):
+        # Every error SideStore makes of minimuxer's errors for this iPhone
+        # (MinimuxerError.asOperationError), and each of minimuxer's own,
+        # gives the outcome its sentence.
+        wrapper = self.sources["SideStore/Core/DeviceApi/MinimuxerWrapper.swift"]
+        pairs = re.findall(r"case \.(\w+)\([^)]*\):\s*return \.(\w+)\(",
+                           block(wrapper, "var asOperationError: OperationError", "asOperationError"))
+        theirs = {source for source, target in pairs if target != "invalidParameters"}
+        made = {target for source, target in pairs if target != "invalidParameters"}
+        self.assertEqual(theirs, set(DEVICE_CASES) | {"invalidPairing"})
+        sentence = block(self.outcome, "static func deviceSentence(of error: Error)", "deviceSentence")
+        self.assertEqual(set(re.findall(r"OperationError\.(\w+)\(let", sentence)), made)
+        self.assertEqual(set(re.findall(r"MinimuxerError\.(\w+)\(", sentence)), theirs)
+        # Cartouche tells a cause from each.
+        self.assertLessEqual(made | theirs, branches(self.cause)["operation"])
+        # Read once the error behind SideStore's titles is, with what
+        # minimuxer went through: the kind of pairing file it loaded, and
+        # whether an IPsec interface was up.
+        save = block(self.outcome, "func save(", "CartoucheOutcome.save")
+        after = save[save.index("let error = Self.unwrapped(thrown)"):]
+        told = block(after, "if let sentence = Self.deviceSentence(of: error)", "what minimuxer went through")
+        for line in ("Self.reason(ofDeviceSentence: sentence)", 'outcome["reason"] = reason', 'outcome["detail"] = detail',
+                     'outcome["pairingKind"] = minimuxerPairingProtocol().rawValue',
+                     'outcome["ipsec"] = minimuxer.network.isIKEv2IPSecAvailable'):
+            self.assertIn(line, told)
+        self.assertIn("func minimuxerPairingProtocol() -> PairingProtocol", wrapper)
+        self.assertIn("var isIKEv2IPSecAvailable: Bool { get }", minimuxer_sources()["Sources/MinimuxerApi.swift"])
+
+    @unittest.skipUnless(shutil.which("swiftc"), "Needs Swift")
+    def test_the_device_reasons_are_told_in_swift_as_here(self):
+        # The outcome's own code, built alone with the cases of SideStore's
+        # and minimuxer's errors it reads, tells each sentence as this test
+        # does, and reads each error's sentence.
+        code = ""
+        for table in ("deviceReasons", "deviceDetails"):
+            code += re.search(r"    static let " + table + r"[^=]*= \[.*?\n    \]", self.outcome, re.S).group(0) + "\n"
+        for header in ("static func deviceSentence(of error: Error) -> String?",
+                       "static func reason(ofDeviceSentence sentence: String) -> (reason: String, detail: String?)"):
+            code += "    " + header + "\n    {" + block(self.outcome, header, header) + "}\n"
+        source = """
+import Foundation
+
+enum PairingProtocol: String { case rppairing, lockdown, unknown }
+
+enum OperationError: Error {
+    case noVPN(reason: String), invalidVPN(reason: String), noConnection(reason: String), noDevice(reason: String)
+    case notReachable(reason: String), minimuxerNotStarted(reason: String), pairingNotComplete(reason: String)
+    case invalidPairingFile(reason: String), invalidParameters(String), unknownUDID(reason: String)
+}
+
+enum MinimuxerError: Error {
+    case noVPN(String), invalidVPN(String), noConnection(String), noDevice(String), notReachable(String)
+    case notStarted(String), pairingNotLoaded(String), invalidPairing(protocol: PairingProtocol, reason: String)
+    case fetchUDID(String)
+}
+
+final class CartoucheOutcome {
+""" + code + """
+}
+
+let errors: [(Error, String?)] = [
+    (OperationError.noVPN(reason: "a"), "a"), (OperationError.invalidVPN(reason: "b"), "b"),
+    (OperationError.noConnection(reason: "c"), "c"), (OperationError.noDevice(reason: "d"), "d"),
+    (OperationError.notReachable(reason: "e"), "e"), (OperationError.minimuxerNotStarted(reason: "f"), "f"),
+    (OperationError.pairingNotComplete(reason: "g"), "g"), (OperationError.invalidPairingFile(reason: "h"), "h"),
+    (OperationError.invalidParameters("i"), nil), (OperationError.unknownUDID(reason: "j"), nil),
+    (MinimuxerError.noVPN("k"), "k"), (MinimuxerError.invalidVPN("l"), "l"), (MinimuxerError.noConnection("m"), "m"),
+    (MinimuxerError.noDevice("n"), "n"), (MinimuxerError.notReachable("o"), "o"), (MinimuxerError.notStarted("p"), "p"),
+    (MinimuxerError.pairingNotLoaded("q"), "q"), (MinimuxerError.invalidPairing(protocol: .lockdown, reason: "r"), "r"),
+    (MinimuxerError.fetchUDID("s"), nil), (CocoaError(.fileNoSuchFile), nil),
+]
+for (error, sentence) in errors where CartoucheOutcome.deviceSentence(of: error) != sentence {
+    print("FAILED: the sentence of \\(error)")
+    exit(1)
+}
+
+let sentences = try JSONDecoder().decode([String].self, from: Data(contentsOf: URL(fileURLWithPath: CommandLine.arguments[1])))
+let told = sentences.map { sentence -> [String] in
+    let (reason, detail) = CartoucheOutcome.reason(ofDeviceSentence: sentence)
+    return [reason, detail ?? ""]
+}
+print(String(data: try JSONEncoder().encode(told), encoding: .utf8)!)
+"""
+        reasons = listed(self.outcome, "deviceReasons")
+        details = listed(self.outcome, "deviceDetails")
+        sentences = [sentence for _, sentence in device_sentences(minimuxer_sources())] + list(DEVICE_EXAMPLES)
+        with tempfile.TemporaryDirectory() as temporary:
+            folder = Path(temporary)
+            (folder / "main.swift").write_text(source, encoding="utf-8")
+            (folder / "sentences.json").write_text(json.dumps(sentences), encoding="utf-8")
+            built = subprocess.run(["swiftc", str(folder / "main.swift"), "-o", str(folder / "checks"),
+                                    "-module-cache-path", str(folder / "cache")], capture_output=True, text=True)
+            self.assertEqual(built.returncode, 0, built.stderr)
+            run = subprocess.run([str(folder / "checks"), str(folder / "sentences.json")],
+                                 capture_output=True, text=True, timeout=60)
+            self.assertEqual(run.returncode, 0, run.stdout + run.stderr)
+        told = json.loads(run.stdout)
+        self.assertEqual(len(told), len(sentences))
+        for sentence, (reason, detail) in zip(sentences, told):
+            self.assertEqual((reason, detail or None), device_reason(reasons, details, sentence), sentence)
 
     def test_the_outcome_reads_the_error_behind_a_title(self):
         save = block(self.outcome, "func save(", "CartoucheOutcome.save")
