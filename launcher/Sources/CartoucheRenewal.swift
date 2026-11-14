@@ -46,14 +46,16 @@ enum CartoucheRenewal {
     /// other app (app/patches/sidestore/0017). LocalDevVPN has to be
     /// connected. A failure says why, as SideStore left it. AUTOMATIC:
     /// Cartouche renews itself, as it came to the front, and renewal.done
-    /// says so.
+    /// says so, as it says whether Cartouche had LocalDevVPN connect for it
+    /// (VPN).
     ///
     /// SideStore can stop, or iOS end it, as it finishes, before it says how
     /// the renewal went: Cartouche then reads the signature SideStore
     /// records for it. Newer than before, the renewal went through;
     /// otherwise Cartouche asks a new SideStore, once.
     @MainActor
-    static func renew(progress: Progress, automatic: Bool = false) async throws {
+    static func renew(progress: Progress, automatic: Bool = false,
+                      vpn: CartoucheLocalDevVPN.Connection = .connectedAlready) async throws {
         guard !CartoucheImportedSigning.accountSigningDisabled else {
             throw Failure(message: CartoucheText.signingUpdateOnComputer, failure: nil)
         }
@@ -91,6 +93,7 @@ enum CartoucheRenewal {
                     fields["attempts"] = .number(Double(attempt))
                 }
                 fields["automatic"] = .flag(automatic)
+                note(vpn, in: &fields)
                 CartoucheTelemetry.shared.renewed(fields: fields)
                 return
             case .quit where attempt == 1:
@@ -108,6 +111,14 @@ enum CartoucheRenewal {
                 throw Failure(message: CartoucheText.sideStoreMessage(message, failure: failure), failure: failure)
             }
         }
+    }
+
+    /// Whether Cartouche opened LocalDevVPN for what it measures, and how
+    /// long it then waited for it in front: `vpnOpened` and `vpnWait`.
+    static func note(_ vpn: CartoucheLocalDevVPN.Connection, in fields: inout [String: CartoucheTelemetryValue]) {
+        guard vpn.opened else { return }
+        fields["vpnOpened"] = .flag(true)
+        fields["vpnWait"] = .number(vpn.seconds)
     }
 
     // MARK: Warnings before expiry
@@ -210,18 +221,6 @@ final class CartoucheRenewals: ObservableObject {
 
     private init() {}
 
-    /// Whether LocalDevVPN is connected: always in the simulator, which has
-    /// none, as for the sign-in; as a test of the launcher's harness says.
-    private static var vpnConnected: Bool {
-        #if CARTOUCHE_HARNESS
-        return HarnessLC.vpnConnected
-        #elseif targetEnvironment(simulator)
-        return true
-        #else
-        return CartoucheVPN.isConnected
-        #endif
-    }
-
     /// Whether the built-in SideStore is at an action of Cartouche's: a
     /// renewal, an update, a sign-in or the registration of this iPhone,
     /// under way or waiting for LocalDevVPN.
@@ -242,7 +241,7 @@ final class CartoucheRenewals: ObservableObject {
             daysLeft: CartoucheSignature.current().daysLeft,
             canRenew: CartoucheRenewal.canRenew,
             isSetUp: setup.isComplete && !setup.needsDevice,
-            vpnConnected: Self.vpnConnected,
+            vpnConnected: CartoucheLocalDevVPN.isConnected,
             sideStoreBusy: sideStoreBusy,
             signInsPaused: CartoucheAccount.shared.pausedUntil != nil,
             gameRunning: CartoucheGameActions.shared.running != nil,
@@ -258,9 +257,19 @@ final class CartoucheRenewals: ObservableObject {
     /// Renews Cartouche by itself when it is due (CartoucheAutomaticRenewal):
     /// CartoucheSetupRefresh calls it each time Cartouche comes to the front,
     /// and once the setup is found complete, a few seconds after the launch.
+    /// When only LocalDevVPN is missing, Cartouche has it connect first, if
+    /// it can open it (CartoucheLocalDevVPN): otherwise it counts no try,
+    /// and renews itself as it comes back once LocalDevVPN is connected.
     func renewIfDue() {
         let situation = self.situation
-        guard CartoucheAutomaticRenewal.isDue(situation, at: Date()) else { return }
+        switch CartoucheAutomaticRenewal.wait(situation, at: Date()) {
+        case nil:
+            break
+        case .vpn:
+            guard CartoucheLocalDevVPN.shared.decide(playerAsked: false) == .open else { return }
+        default:
+            return
+        }
         UserDefaults.standard.set(Date(), forKey: Self.lastTryKey)
         CartoucheReports.note("Renewal started by itself, \(situation.daysLeft ?? 0) days left")
         start(automatic: true)
@@ -296,11 +305,14 @@ final class CartoucheRenewals: ObservableObject {
         report = nil
         if !automatic { CartoucheReports.note("Renewal started") }
         Task {
+            // SideStore reaches this iPhone through LocalDevVPN, which
+            // Cartouche has connect first, when it is off.
+            let vpn = await CartoucheLocalDevVPN.shared.connect(for: "Renewal", playerAsked: !automatic)
             do {
-                try await CartoucheRenewal.renew(progress: progress, automatic: automatic)
+                try await CartoucheRenewal.renew(progress: progress, automatic: automatic, vpn: vpn)
                 CartoucheReports.note("Renewal done")
             } catch {
-                fail(error, automatic: automatic, fraction: progress.fractionCompleted)
+                fail(error, automatic: automatic, fraction: progress.fractionCompleted, vpn: vpn)
             }
             self.progress = nil
             isAutomatic = false
@@ -311,10 +323,13 @@ final class CartoucheRenewals: ObservableObject {
     }
 
     /// Why the renewal failed, as the System page shows it, and the report
-    /// on it.
-    private func fail(_ error: Error, automatic: Bool, fraction: Double) {
+    /// on it, which says whether Cartouche had LocalDevVPN connect for it
+    /// (VPN).
+    private func fail(_ error: Error, automatic: Bool, fraction: Double,
+                      vpn: CartoucheLocalDevVPN.Connection = .connectedAlready) {
         var failure = CartoucheFailure.of(error, fraction: fraction)
         failure.details["automatic"] = .flag(automatic)
+        CartoucheRenewal.note(vpn, in: &failure.details)
         report = CartoucheReports.make(.renewal, CartoucheText.renewFailed, message: error.localizedDescription,
                                        error: error,
                                        step: automatic ? "Renewing by itself, before it expires" : CartoucheText.renewing,

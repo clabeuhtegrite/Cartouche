@@ -189,7 +189,7 @@ enum CartoucheText {
     static var setupPairingInvalid: String { s("setup.pairing.invalid", "This file is not a pairing file. The Cartouche Installer puts the right one in Cartouche: Put the pairing file in Cartouche again.") }
     static var setupPairingFailed: String { s("setup.pairing.failed", "The pairing file was refused") }
     static var setupAppleIDTitle: String { s("setup.appleID.title", "Apple ID") }
-    static var setupAppleIDHow: String { s("setup.appleID.how", "Sign in once, here in Cartouche, with LocalDevVPN connected: Cartouche then takes its certificate and renews itself every week.") }
+    static var setupAppleIDHow: String { s("setup.appleID.how", "Sign in once, here in Cartouche: Cartouche then takes its certificate and renews itself every week.") }
     static func setupAppleIDDone(_ appleID: String) -> String { f("setup.appleID.done", "Signed in: %@", appleID) }
     static func setupAppleIDUnfinished(_ appleID: String) -> String { f("setup.appleID.unfinished", "The sign-in with %@ stopped before Cartouche got its certificate. Connect LocalDevVPN, then sign in again.", appleID) }
     static var setupSignIn: String { s("setup.appleID.signIn", "Sign In") }
@@ -276,7 +276,7 @@ enum CartoucheText {
     static var renewed: String { s("system.signature.renewed", "Last renewed") }
     static var team: String { s("system.signature.team", "Apple account team") }
     static var profileUnknown: String { s("system.signature.unknown", "Cartouche could not read its provisioning profile.") }
-    static var signatureFooter: String { s("system.signature.footer", "Cartouche renews itself each time you open it in its last 3 days, with LocalDevVPN on. Once expired, it no longer opens: install it again with the Cartouche Installer.") }
+    static var signatureFooter: String { s("system.signature.footer", "Cartouche renews itself each time you open it in its last 3 days, and connects LocalDevVPN for it. Once expired, it no longer opens: install it again with the Cartouche Installer.") }
     static var renewNow: String { s("system.signature.renew", "Renew now") }
     static var renewing: String { s("system.signature.renewing", "Renewing…") }
     static var renewingByItself: String { s("system.signature.renewing.auto", "Cartouche renews itself…") }
@@ -301,7 +301,7 @@ enum CartoucheText {
     // MARK: Cartouche's updates
 
     static var updatesTitle: String { s("system.updates", "Updates") }
-    static var updatesFooter: String { s("system.updates.footer", "New versions install without a computer, with LocalDevVPN connected. Cartouche then closes: open it again. Your games and saves stay.") }
+    static var updatesFooter: String { s("system.updates.footer", "New versions install without a computer, through LocalDevVPN, which Cartouche connects. Cartouche then closes: open it again. Your games and saves stay.") }
     static var updateAvailable: String { s("system.updates.available", "New version") }
     static func updateTo(_ version: String) -> String { f("system.updates.install", "Install Cartouche %@", version) }
     static var updateNeedsSetup: String { s("system.updates.needsSetup", "Finish setting up Cartouche first.") }
@@ -314,7 +314,7 @@ enum CartoucheText {
     static func updateSourceStatus(_ status: Int) -> String { f("updates.source.status", "its source answered with error %lld.", status) }
     static var updateUnavailable: String { s("updates.unavailable", "The built-in SideStore did not load. Close Cartouche, open it again, then update.") }
     static func updateOfferTitle(_ version: String) -> String { f("updates.offer.title", "Cartouche %@ is available", version) }
-    static func updateOfferMessage(_ running: String) -> String { f("updates.offer.message", "You have version %@. With LocalDevVPN connected, Cartouche installs the new one without a computer, then closes: open it again. Your games and saves stay.", running) }
+    static func updateOfferMessage(_ running: String) -> String { f("updates.offer.message", "You have version %@. Cartouche installs the new one without a computer, through LocalDevVPN, then closes: open it again. Your games and saves stay.", running) }
     static func updateSize(_ size: String) -> String { f("updates.offer.size", "Download: %@", size) }
     static var updateNow: String { s("updates.now", "Update") }
     static var updateLater: String { s("updates.later", "Later") }
@@ -333,11 +333,11 @@ enum CartoucheText {
 
     // MARK: Renewing every night
 
-    static var dailyIntro: String { s("daily.intro", "An automation in Shortcuts can renew Cartouche every night, with no computer. It runs Cartouche’s Refresh All Apps action, which does what Renew now does.") }
-    static var dailyStepVPN: String { s("daily.step1", "Leave LocalDevVPN connected. Its traffic stays on the iPhone, so it can stay on all day.") }
+    static var dailyIntro: String { s("daily.intro", "An automation in Shortcuts can renew Cartouche every night, with no computer. It connects LocalDevVPN, then runs Cartouche’s Refresh All Apps action, which does what Renew now does.") }
     static var dailyStepAutomation: String { s("daily.step2", "In Shortcuts, open Automation, then tap +.") }
     static var dailyStepTime: String { s("daily.step3", "Choose Time of Day: a time when the iPhone charges and is online, such as 4 AM, every day. Then choose Run Immediately.") }
-    static var dailyStepAction: String { s("daily.step4", "Tap Next, choose New Blank Automation, and add the Refresh All Apps action of Cartouche, not LiveContainer’s.") }
+    static var dailyStepVPN: String { s("daily.vpnAction", "Tap Next, choose New Blank Automation, then add the Enable LocalDevVPN action: it connects LocalDevVPN without opening it. An older LocalDevVPN calls it Start LocalDevVPN.") }
+    static var dailyStepAction: String { s("daily.refreshAction", "Then add the Refresh All Apps action of Cartouche, not LiveContainer’s: Cartouche waits for LocalDevVPN to connect before it renews.") }
     static var dailyStepCheck: String { s("daily.step5", "Each renewal shows on the System page as the last renewal, and gives Cartouche seven more days.") }
     static var openShortcuts: String { s("daily.openShortcuts", "Open Shortcuts") }
 
@@ -855,7 +855,7 @@ enum CartoucheText {
 
     static var warning24hTitle: String { s("warning.24h.title", "Cartouche expires in 24 hours") }
     static var warning6hTitle: String { s("warning.6h.title", "Cartouche expires in 6 hours") }
-    static var warningBody: String { s("warning.body", "Renew it on the System page, with LocalDevVPN connected.") }
+    static var warningBody: String { s("warning.body", "Renew it on the System page.") }
     static var warningExpiredTitle: String { s("warning.0h.title", "Cartouche has expired") }
     static var warningExpiredBody: String { s("warning.0h.body", "Install it again from a computer with the Cartouche Installer, over this copy: your games stay.") }
 

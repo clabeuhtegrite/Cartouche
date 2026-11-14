@@ -110,13 +110,15 @@ final class RenewalTests: HarnessCase {
         XCTAssertTrue(HarnessLC.renewals.isEmpty)
     }
 
-    /// SideStore reaches the iPhone through LocalDevVPN: without it,
-    /// Cartouche counts no try, and renews itself as it comes back once the
-    /// player has turned it on.
+    /// SideStore reaches the iPhone through LocalDevVPN: without it, and
+    /// without LocalDevVPN on the iPhone for Cartouche to have it connect
+    /// (LocalDevVPNTests), Cartouche counts no try, and renews itself as it
+    /// comes back once the player has turned it on.
     func testWaitsForLocalDevVPN() async throws {
         try await setUpCartouche()
         HarnessSideStore.record(expiringIn: 1.5)
         HarnessLC.vpnConnected = false
+        HarnessLC.localDevVPNInstalled = false
         renewals.renewIfDue()
         XCTAssertFalse(renewals.isRenewing)
 

@@ -381,13 +381,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "An automation in Shortcuts can renew Cartouche every night, with no computer. It runs Cartouche’s Refresh All Apps action, which does what Renew now does."
+            "value" : "An automation in Shortcuts can renew Cartouche every night, with no computer. It connects LocalDevVPN, then runs Cartouche’s Refresh All Apps action, which does what Renew now does."
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Une automatisation de Raccourcis peut renouveler Cartouche chaque nuit, sans ordinateur. Elle lance l’action Refresh All Apps de Cartouche, qui fait comme Renouveler maintenant."
+            "value" : "Une automatisation de Raccourcis peut renouveler Cartouche chaque nuit, sans ordinateur. Elle connecte LocalDevVPN, puis lance l’action Refresh All Apps de Cartouche, qui fait comme Renouveler maintenant."
           }
         }
       }
@@ -409,19 +409,19 @@
         }
       }
     },
-    "daily.step1" : {
+    "daily.refreshAction" : {
       "extractionState" : "manual",
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Leave LocalDevVPN connected. Its traffic stays on the iPhone, so it can stay on all day."
+            "value" : "Then add the Refresh All Apps action of Cartouche, not LiveContainer’s: Cartouche waits for LocalDevVPN to connect before it renews."
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Laissez LocalDevVPN connecté. Son trafic reste sur l’iPhone : il peut rester activé toute la journée."
+            "value" : "Ajoutez ensuite l’action Refresh All Apps de Cartouche, pas celle de LiveContainer : Cartouche attend que LocalDevVPN soit connecté avant de se renouveler."
           }
         }
       }
@@ -460,23 +460,6 @@
         }
       }
     },
-    "daily.step4" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Tap Next, choose New Blank Automation, and add the Refresh All Apps action of Cartouche, not LiveContainer’s."
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Touchez Suivant, choisissez Nouvelle automatisation vide, et ajoutez l’action Refresh All Apps de Cartouche, pas celle de LiveContainer."
-          }
-        }
-      }
-    },
     "daily.step5" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -490,6 +473,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Chaque renouvellement s’affiche sur la page Système comme dernier renouvellement, et donne sept jours de plus à Cartouche."
+          }
+        }
+      }
+    },
+    "daily.vpnAction" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tap Next, choose New Blank Automation, then add the Enable LocalDevVPN action: it connects LocalDevVPN without opening it. An older LocalDevVPN calls it Start LocalDevVPN."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Touchez Suivant, choisissez Nouvelle automatisation vide, puis ajoutez l’action Enable LocalDevVPN : elle connecte LocalDevVPN sans l’ouvrir. Un LocalDevVPN plus ancien l’appelle Start LocalDevVPN."
           }
         }
       }
@@ -4546,13 +4546,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Sign in once, here in Cartouche, with LocalDevVPN connected: Cartouche then takes its certificate and renews itself every week."
+            "value" : "Sign in once, here in Cartouche: Cartouche then takes its certificate and renews itself every week."
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Connectez-vous une fois, ici dans Cartouche, avec LocalDevVPN connecté : Cartouche prend alors son certificat et se renouvelle chaque semaine."
+            "value" : "Connectez-vous une fois, ici dans Cartouche : Cartouche prend alors son certificat et se renouvelle chaque semaine."
           }
         }
       }
@@ -10802,13 +10802,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Cartouche renews itself each time you open it in its last 3 days, with LocalDevVPN on. Once expired, it no longer opens: install it again with the Cartouche Installer."
+            "value" : "Cartouche renews itself each time you open it in its last 3 days, and connects LocalDevVPN for it. Once expired, it no longer opens: install it again with the Cartouche Installer."
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Cartouche se renouvelle seul chaque fois que vous l’ouvrez dans ses 3 derniers jours, avec LocalDevVPN activé. Expiré, il ne s’ouvre plus : réinstallez-le avec l’Installeur Cartouche."
+            "value" : "Cartouche se renouvelle seul chaque fois que vous l’ouvrez dans ses 3 derniers jours, et connecte LocalDevVPN pour cela. Expiré, il ne s’ouvre plus : réinstallez-le avec l’Installeur Cartouche."
           }
         }
       }
@@ -11006,13 +11006,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "New versions install without a computer, with LocalDevVPN connected. Cartouche then closes: open it again. Your games and saves stay."
+            "value" : "New versions install without a computer, through LocalDevVPN, which Cartouche connects. Cartouche then closes: open it again. Your games and saves stay."
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Les nouvelles versions s’installent sans ordinateur, avec LocalDevVPN connecté. Cartouche se ferme ensuite : rouvrez-le. Vos jeux et sauvegardes restent."
+            "value" : "Les nouvelles versions s’installent sans ordinateur, par LocalDevVPN, que Cartouche connecte. Cartouche se ferme ensuite : rouvrez-le. Vos jeux et sauvegardes restent."
           }
         }
       }
@@ -12026,13 +12026,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "You have version %@. With LocalDevVPN connected, Cartouche installs the new one without a computer, then closes: open it again. Your games and saves stay."
+            "value" : "You have version %@. Cartouche installs the new one without a computer, through LocalDevVPN, then closes: open it again. Your games and saves stay."
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Vous avez la version %@. Avec LocalDevVPN connecté, Cartouche installe la nouvelle sans ordinateur, puis se ferme : rouvrez-le. Vos jeux et sauvegardes restent."
+            "value" : "Vous avez la version %@. Cartouche installe la nouvelle sans ordinateur, par LocalDevVPN, puis se ferme : rouvrez-le. Vos jeux et sauvegardes restent."
           }
         }
       }
@@ -12247,13 +12247,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Renew it on the System page, with LocalDevVPN connected."
+            "value" : "Renew it on the System page."
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Renouvelez-le depuis la page Système, avec LocalDevVPN connecté."
+            "value" : "Renouvelez-le depuis la page Système."
           }
         }
       }

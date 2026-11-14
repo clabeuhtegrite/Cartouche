@@ -51,6 +51,7 @@ final class HarnessRefresh: NSObject {
     @objc(refreshAllAppsWithProgress:completion:)
     static func refreshAllApps(progress: Progress, completion: @escaping (String?) -> Void) {
         HarnessLC.renewals.append(Date())
+        HarnessLC.vpnAtRenewals.append(HarnessLC.vpnConnected)
         let renewal = HarnessLC.renewal
         progress.totalUnitCount = 100
         progress.completedUnitCount = 10

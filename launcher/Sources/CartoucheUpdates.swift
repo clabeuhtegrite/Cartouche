@@ -59,6 +59,9 @@ final class CartoucheUpdates: ObservableObject {
     @Published private(set) var progress: Progress?
     /// When the update started.
     private var started: Date?
+    /// Whether Cartouche had LocalDevVPN connect for it, and how long it
+    /// then waited for it in front (CartoucheLocalDevVPN).
+    private var vpn: CartoucheLocalDevVPN.Connection?
     /// Why the last update failed, for the System page, and the report on
     /// it.
     @Published private(set) var problemReport: CartoucheReport?
@@ -240,14 +243,21 @@ final class CartoucheUpdates: ObservableObject {
         phase = .preparing
         started = Date()
         defaults.set(release.version, forKey: Self.pendingKey)
-        // SideStore takes one action at a time: a renewal under way, as when
-        // Cartouche renews itself as it opens, ends first.
+        vpn = nil
         let selector = Self.updateSelector
-        CartoucheRenewals.shared.afterRenewal("Update") { [weak self] in
-            CartoucheStoreKeychain.remove(CartoucheSideStoreOutcome.account)
-            bridge.call(bridge.receiver, selector, progress) { message in
-                let text = message.map { $0 as String }
-                Task { @MainActor in self?.finished(text) }
+        Task { [weak self] in
+            // SideStore reaches this iPhone through LocalDevVPN, which
+            // Cartouche has connect first, when it is off.
+            let vpn = await CartoucheLocalDevVPN.shared.connect(for: "Update", playerAsked: true)
+            self?.vpn = vpn
+            // SideStore takes one action at a time: a renewal under way, as
+            // when Cartouche renews itself as it opens, ends first.
+            CartoucheRenewals.shared.afterRenewal("Update") { [weak self] in
+                CartoucheStoreKeychain.remove(CartoucheSideStoreOutcome.account)
+                bridge.call(bridge.receiver, selector, progress) { message in
+                    let text = message.map { $0 as String }
+                    Task { @MainActor in self?.finished(text) }
+                }
             }
         }
     }
@@ -267,9 +277,12 @@ final class CartoucheUpdates: ObservableObject {
         defaults.removeObject(forKey: Self.pendingKey)
         // How SideStore's action ended, which it left for Cartouche.
         let outcome = Self.takeOutcome()
+        let vpn = self.vpn
+        self.vpn = nil
         if let message {
-            let failure = CartoucheFailure.sideStore(outcome: outcome, message: message, fraction: fraction, seconds: seconds,
+            var failure = CartoucheFailure.sideStore(outcome: outcome, message: message, fraction: fraction, seconds: seconds,
                                                      vpn: CartoucheVPN.isConnected, pairing: CartouchePairing.exists)
+            if let vpn { CartoucheRenewal.note(vpn, in: &failure.details) }
             // Never Apple's page for an error, as SideStore's words would show it.
             failed(CartoucheText.sideStoreMessage(message, failure: failure), version: version, step: step, fraction: fraction,
                    failure: failure)
