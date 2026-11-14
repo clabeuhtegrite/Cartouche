@@ -233,6 +233,27 @@ final class CartoucheFailureTests: XCTestCase {
                        ["seconds": .number(40), "outcome": .flag(false)])
     }
 
+    // MARK: Requests sent again after Apple's 429 (patch 0020)
+
+    func testSaysHowManyRequestsWentAgainAfterApplesLimit() throws {
+        // Signed in once the third request sent again got past Apple's 429.
+        let passed = try XCTUnwrap(outcome(["ok": true, "seconds": 9, "resent": 3]))
+        XCTAssertEqual(CartoucheFailure.sideStoreSuccess(outcome: passed, seconds: 12),
+                       ["seconds": .number(9), "resent": .number(3)])
+        // Still refused after ten: Apple's limit, as before, with the ten.
+        let refused = try XCTUnwrap(outcome([
+            "seconds": 14, "stage": "account", "family": "server", "kind": "httpStatus", "http": 429,
+            "service": "grandSlam", "resent": 10,
+        ]))
+        let failure = CartoucheFailure.sideStore(outcome: refused, message: "Apple refuses more requests for now", fraction: nil,
+                                                 seconds: 15, vpn: true, pairing: true)
+        XCTAssertEqual(failure.cause, .tooManyAttempts)
+        XCTAssertEqual(failure.fields["resent"], .number(10))
+        // A count, nothing else.
+        XCTAssertNil(try XCTUnwrap(outcome(["resent": -1])).facts["resent"])
+        XCTAssertNil(try XCTUnwrap(outcome(["resent": "three"])).facts["resent"])
+    }
+
     // MARK: What SideStore's code did not expect (patch 0018)
 
     func testSaysWhichOfSideStoresSentencesAndWhatItNames() throws {
