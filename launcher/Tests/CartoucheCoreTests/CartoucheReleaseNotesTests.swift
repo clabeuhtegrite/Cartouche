@@ -91,6 +91,22 @@ final class CartoucheReleaseNotesTests: XCTestCase {
         XCTAssertEqual(english.items, [.init(topic: "Games:", text: "ready? Yes; go.")])
     }
 
+    func testOnAnIPadTheNotesCallItTheIPadAsCartouchesWordsDo() throws {
+        let english = try XCTUnwrap(CartoucheReleaseNotes(
+            version: "0.12.2", text: "Cartouche keeps your iPhone signed.\n\n- Renewal: this iPhone renews itself.\n- Games: an iPhone 15 Pro plays them.\n"))
+        let onIPad = english.applying(CartoucheDeviceWords.onIPad)
+        XCTAssertEqual(onIPad.version, "0.12.2")
+        XCTAssertEqual(onIPad.summary, "Cartouche keeps your iPad signed.")
+        // A model of iPhone stays one.
+        XCTAssertEqual(onIPad.items, [.init(topic: "Renewal:", text: "this iPad renews itself."),
+                                      .init(topic: "Games:", text: "an iPhone 15 Pro plays them.")])
+        let french = try XCTUnwrap(CartoucheReleaseNotes(
+            version: "0.12.2", text: "Cartouche se renouvelle sur votre iPhone.\n\n- Jeux : l’iPhone Duo et cet iPhone.\n"))
+        let frenchOnIPad = french.applying(CartoucheDeviceWords.onIPad)
+        XCTAssertEqual(frenchOnIPad.summary, "Cartouche se renouvelle sur votre iPad.")
+        XCTAssertEqual(frenchOnIPad.items, [.init(topic: "Jeux\u{00A0}:", text: "l’iPhone Duo et cet iPad.")])
+    }
+
     func testNotesThatSayNothingOrOfNoVersionAreNone() {
         XCTAssertNil(CartoucheReleaseNotes(version: "1.0.0", text: ""))
         XCTAssertNil(CartoucheReleaseNotes(version: "1.0.0", text: "\n  \n\n"))

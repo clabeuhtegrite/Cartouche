@@ -30,10 +30,12 @@ final class CartoucheWhatsNew: ObservableObject {
     /// The notes of every version Cartouche carries, newest first, in the
     /// language of its own words when they are written in it: the build
     /// puts them in the app (app/scripts/package.sh). iOS starts Cartouche
-    /// again when the player changes their language.
+    /// again when the player changes their language. On an iPad, they call
+    /// it the iPad, as Cartouche's own words do (CartoucheText.s).
     static let carried = CartoucheReleaseNotes.all(
         in: Bundle.main.bundleURL.appendingPathComponent("CartoucheReleases", isDirectory: true),
         language: CartoucheText.bundle.preferredLocalizations.first)
+        .map { CartoucheDevice.isPad ? $0.applying(CartoucheDeviceWords.onIPad) : $0 }
 
     private let record = CartoucheWhatsNewRecord(defaults: .standard)
 

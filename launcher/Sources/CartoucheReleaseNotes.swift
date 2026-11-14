@@ -81,6 +81,19 @@ struct CartoucheReleaseNotes: Equatable, Identifiable {
         self.items = items.map { Self.item(Self.keepingMarksWithWords($0)) }
     }
 
+    private init(version: String, summary: String, items: [Item]) {
+        self.version = version
+        self.summary = summary
+        self.items = items
+    }
+
+    /// The same notes, their words as TRANSFORM gives them, such as
+    /// CartoucheDeviceWords.onIPad on an iPad, where they say this iPad.
+    func applying(_ transform: (String) -> String) -> CartoucheReleaseNotes {
+        CartoucheReleaseNotes(version: version, summary: transform(summary),
+                              items: items.map { Item(topic: $0.topic.map(transform), text: transform($0.text)) })
+    }
+
     /// TEXT with a no-break space where French puts a space before a colon,
     /// a semicolon, an exclamation or a question mark, and inside its
     /// quotes: none of them goes to the next line alone. English has no
