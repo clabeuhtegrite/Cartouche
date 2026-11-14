@@ -287,12 +287,16 @@ class RepositoryTests(unittest.TestCase):
 class Api:
     """GitHub, as wait_for_pass.py asks it, from a script of answers."""
 
-    def __init__(self, runs=(), passed_on_main=(), heads=None):
+    def __init__(self, runs=(), passed_on_main=(), heads=None, reruns=True):
         # Each call to runs_of takes the next list; the last one stays.
         self.runs = [list(answer) for answer in runs] or [[]]
         self.main = list(passed_on_main)
         self.heads = heads or {}
         self.started: list[str] = []
+        self.reran: list[int] = []
+        # Whether GitHub runs a run again when asked: not one that another
+        # job has run again already.
+        self.reruns = reruns
         self.calls = 0
 
     def runs_of(self, sha):
@@ -308,6 +312,10 @@ class Api:
 
     def start(self, ref):
         self.started.append(ref)
+
+    def rerun(self, run_id):
+        self.reran.append(run_id)
+        return self.reruns
 
 
 class Git:
@@ -344,8 +352,8 @@ SHA = "a" * 40
 EARLIER = "b" * 40
 
 
-def run(id, status="completed", conclusion="success", sha=SHA):
-    return Run(id, sha, status, conclusion, f"https://github.com/o/r/actions/runs/{id}")
+def run(id, status="completed", conclusion="success", sha=SHA, attempt=1):
+    return Run(id, sha, status, conclusion, f"https://github.com/o/r/actions/runs/{id}", attempt=attempt)
 
 
 class WaitTests(unittest.TestCase):
@@ -422,19 +430,69 @@ class WaitTests(unittest.TestCase):
         self.assertTrue(self.wait(api, ref="refs/tags/v0.12.0").passed)
         self.assertEqual(api.started, ["v0.12.0"])
 
-    def test_starts_again_after_passes_that_were_cancelled(self):
-        cancelled = run(10, conclusion="cancelled")
-        api = Api(runs=[[cancelled], [cancelled, run(11, "queued", None)], [cancelled, run(11)]], heads={"main": SHA})
-        self.assertTrue(self.wait(api).passed)
-        self.assertEqual(api.started, ["main"])
+    def test_runs_a_cancelled_pass_again_rather_than_start_another(self):
+        # 13 November, 18:20Z: the pass of 0.12.1 was cancelled while Release,
+        # Builder and Installer waited for it, and each would have started one
+        # of its own, when the same one, run again, does for all of them.
+        api = Api(runs=[[run(10, conclusion="cancelled")], [run(10, "queued", None, attempt=2)], [run(10, attempt=2)]],
+                  heads={"main": SHA})
+        outcome = self.wait(api)
+        self.assertTrue(outcome.passed)
+        self.assertEqual(api.reran, [10])
+        self.assertEqual(api.started, [])
+        self.assertIn("The full test pass of aaaaaaaaaaaa was cancelled: running it again, once: "
+                      "https://github.com/o/r/actions/runs/10", self.said)
         # No wait for a push: a pass of this commit ran already.
         self.assertEqual(self.clock.slept[0], 15)
 
-    def test_the_pass_started_was_cancelled(self):
-        api = Api(runs=[[]] * 13 + [[run(12, conclusion="cancelled")]], heads={"main": SHA})
+    def test_waits_for_the_pass_another_job_ran_again(self):
+        api = Api(runs=[[run(10, conclusion="cancelled")], [run(10, conclusion="cancelled")],
+                        [run(10, "in_progress", None, attempt=2)], [run(10, attempt=2)]], heads={"main": SHA}, reruns=False)
+        self.assertTrue(self.wait(api).passed)
+        self.assertEqual(api.reran, [10])
+        self.assertEqual(api.started, [])
+
+    def test_a_pass_cancelled_again_once_run_again_blocks(self):
+        api = Api(runs=[[run(10, conclusion="cancelled")], [run(10, "queued", None, attempt=2)],
+                        [run(10, conclusion="cancelled", attempt=2)]], heads={"main": SHA})
         outcome = self.wait(api)
         self.assertFalse(outcome.passed)
-        self.assertIn("The full test pass started on main was cancelled", outcome.message)
+        self.assertIn("The full test pass of aaaaaaaaaaaa was cancelled again once run again", outcome.message)
+        self.assertEqual(outcome.url, "https://github.com/o/r/actions/runs/10")
+        self.assertEqual((api.reran, api.started), ([10], []))
+        # Run again by another job, or from the Actions tab, then cancelled.
+        api = Api(runs=[[run(10, conclusion="cancelled", attempt=2)]], heads={"main": SHA})
+        self.assertIn("was cancelled again once run again", self.wait(api).message)
+        self.assertEqual((api.reran, api.started), ([], []))
+
+    def test_a_cancelled_pass_that_does_not_run_again(self):
+        api = Api(runs=[[run(10, conclusion="cancelled")]], heads={"main": SHA})
+        outcome = self.wait(api)
+        self.assertFalse(outcome.passed)
+        self.assertIn("was cancelled, and does not run again", outcome.message)
+        self.assertEqual((api.reran, api.started), ([10], []))
+        self.assertGreaterEqual(self.clock.time, wait_for_pass.STARTED_SHOWS_WITHIN)
+
+    def test_a_cancelled_pass_and_nothing_to_run_it_again(self):
+        api = Api(runs=[[run(10, conclusion="cancelled")]], heads={"main": SHA})
+        outcome = self.wait(api, start=False)
+        self.assertFalse(outcome.passed)
+        self.assertIn("The full test pass of aaaaaaaaaaaa was cancelled: run it again from the Actions tab",
+                      outcome.message)
+        self.assertEqual(outcome.url, "https://github.com/o/r/actions/runs/10")
+        self.assertEqual((api.reran, api.started), ([], []))
+
+    def test_the_pass_started_was_cancelled(self):
+        api = Api(runs=[[]] * 13 + [[run(12, conclusion="cancelled")], [run(12, "queued", None, attempt=2)],
+                                    [run(12, attempt=2)]], heads={"main": SHA})
+        self.assertTrue(self.wait(api).passed)
+        self.assertEqual((api.started, api.reran), (["main"], [12]))
+
+    def test_the_pass_started_ended_otherwise(self):
+        api = Api(runs=[[]] * 13 + [[run(12, conclusion="skipped")]], heads={"main": SHA})
+        outcome = self.wait(api)
+        self.assertFalse(outcome.passed)
+        self.assertIn("The full test pass started on main was skipped", outcome.message)
         self.assertEqual(api.started, ["main"])
 
     def test_the_pass_started_does_not_show(self):
@@ -478,6 +536,9 @@ class WaitTests(unittest.TestCase):
         self.assertTrue(found.passed)
         self.assertFalse(found.running)
         self.assertTrue(Run.of({"id": 2, "head_sha": SHA, "status": "waiting", "html_url": "u"}).running)
+        again = Run.of({"id": 3, "head_sha": SHA, "status": "completed", "conclusion": "cancelled",
+                        "html_url": "u", "run_attempt": 2})
+        self.assertEqual((again.attempt, again.cancelled, again.failed), (2, True, False))
 
     def test_prints_the_outcome_for_the_run(self):
         with tempfile.TemporaryDirectory() as tmp:

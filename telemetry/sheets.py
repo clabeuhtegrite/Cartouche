@@ -288,7 +288,8 @@ class Result:
     def note(self) -> str:
         sessions = self.sessions
         days = sorted(s["day"] for s in sessions)
-        lead = (f"Measured by Cartouche on {len(self.iphones)} iPhones, "
+        devices = "iPads" if self.device.startswith("iPad") else "iPhones"
+        lead = (f"Measured by Cartouche on {len(self.iphones)} {devices}, "
                 f"{len(sessions)} sessions from {days[0]} to {days[-1]}")
         running = []
         fps, slowest, stutters, target = self.figure("fps"), self.figure("slowest"), self.figure("stutters"), self.target

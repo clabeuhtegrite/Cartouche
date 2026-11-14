@@ -1,0 +1,75 @@
+From a758df7d43344b5d79bb8a7dfa6f972eac931fa0 Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Fri, 13 Nov 2026 19:31:00 +0000
+Subject: [PATCH] Take a pairing file put in place after the first one
+
+The Cartouche Installer, and Cartouche's own setup, put a pairing file in
+place as ALTPairingFile.mobiledevicepairing, the name iloader uses for a
+LiveContainer+SideStore. SideStore moves such a file to its own names,
+PairingFile_RemoteRP.plist and PairingFile_Lockdown.plist, once, at its
+first launch (MaintenanceManager.migratePairingFiles, maintenance pass 7),
+and fetchPairingFile reads those before the legacy name ever after. So a
+pairing file put in place again, which Cartouche asks for when the iPhone
+refuses the one it has, was never read: SideStore went on with the one it
+had moved.
+
+fetchPairingFile now takes a file put in place under the legacy name first:
+each kind it holds is written over SideStore's own file of that kind, the
+kind it does not hold is removed, the protocol it is read with is recorded
+as importPairingFile does, and the file goes, as the migration does. A file
+that is not a pairing file stays where it is, read last, as before.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01MzPJouaxDEHiaAYJRW7jTY
+---
+ .../Core/Pairing/PairingFileManager.swift     | 33 +++++++++++++++++++
+ 1 file changed, 33 insertions(+)
+
+diff --git a/SideStore/Core/Pairing/PairingFileManager.swift b/SideStore/Core/Pairing/PairingFileManager.swift
+index b0c10da..41f7330 100644
+--- a/SideStore/Core/Pairing/PairingFileManager.swift
++++ b/SideStore/Core/Pairing/PairingFileManager.swift
+@@ -145,7 +145,40 @@ final class PairingFileManager: NSObject {
+         return String(data: try! PropertyListSerialization.data(fromPropertyList: ansDict, format: .xml, options: 0), encoding: .utf8)!
+     }
+ 
++    /// Cartouche: a pairing file put in place under the legacy name, by the
++    /// Cartouche Installer or Cartouche's own setup, replaces the ones
++    /// SideStore keeps under its own names. SideStore moves such a file to
++    /// its own names once, at its first launch
++    /// (MaintenanceManager.migratePairingFiles), and reads those first ever
++    /// after: a pairing file put in place again, to replace one the iPhone
++    /// refuses, was never read. Each kind the file holds is written first,
++    /// over the file before, so that a read meanwhile finds one or the other.
++    /// Needs proper testing on an iPhone whose pairing file was replaced.
++    nonisolated func adoptPlacedPairingFile() {
++        let fm = FileManager.default
++        let placedURL = pairingFileURL(for: .unknown)
++        guard let contents = try? String(contentsOf: placedURL), !contents.isEmpty else { return }
++        let kinds: [PairingProtocol] = [.rppairing, .lockdown].filter { (try? parse(content: contents, preferred: $0)) != nil }
++        // Not a pairing file SideStore reads: it stays, read last, as before.
++        guard let active = kinds.first else { return }
++        do {
++            for mode in kinds {
++                try contents.write(to: pairingFileURL(for: mode), atomically: true, encoding: .utf8)
++            }
++        } catch {
++            debugLog("[PairingFile] Could not take the pairing file put in place: \(error)")
++            return
++        }
++        for mode in [PairingProtocol.rppairing, .lockdown] where !kinds.contains(mode) {
++            try? fm.removeItem(at: pairingFileURL(for: mode))
++        }
++        persistedActiveProtocol = active
++        try? fm.removeItem(at: placedURL)
++        debugLog("[PairingFile] Took the pairing file put in place: \(kinds.map(\.rawValue))")
++    }
++
+     nonisolated func fetchPairingFile(preferred: PairingProtocol? = nil) -> String? {
++        adoptPlacedPairingFile()
+         let targetPreferred = preferred ?? preferredProtocol
+         if let targetPreferred {
+             if let contents = fetchPairingFile(for: targetPreferred) {
+-- 
+2.43.0
+

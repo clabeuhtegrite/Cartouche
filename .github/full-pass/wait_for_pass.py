@@ -8,6 +8,10 @@ publish, run this before they publish anything from a commit:
 - one is queued or running: wait for it, then look again;
 - one has failed, and none is running: fail, with its link, without starting
   another: fix main, or re-run its failed jobs when a runner failed them;
+- one was cancelled, and none is running: with --start, run it again, once,
+  and wait for it, rather than start another: each workflow that waited for
+  it started one of its own (13 November). Cancelled again once run again:
+  fail, with its link;
 - a pass of an earlier commit of main has passed, and the commits since change
   only Cartouche's SideStore source, as the pull request "Source: Cartouche X"
   does: done, since nothing the pass tests has changed;
@@ -51,10 +55,12 @@ class Run:
     conclusion: str | None
     url: str
     created: str = ""
+    attempt: int = 1
 
     @classmethod
     def of(cls, run: dict) -> Run:
-        return cls(run["id"], run["head_sha"], run["status"], run.get("conclusion"), run["html_url"], run.get("created_at", ""))
+        return cls(run["id"], run["head_sha"], run["status"], run.get("conclusion"), run["html_url"],
+                   run.get("created_at", ""), run.get("run_attempt", 1))
 
     @property
     def running(self) -> bool:
@@ -68,12 +74,17 @@ class Run:
     def failed(self) -> bool:
         return self.status == "completed" and self.conclusion in FAILED
 
+    @property
+    def cancelled(self) -> bool:
+        return self.status == "completed" and self.conclusion == "cancelled"
+
 
 class Api(Protocol):
     def runs_of(self, sha: str) -> list[Run]: ...
     def passed_on_main(self) -> list[Run]: ...
     def commit_of(self, ref: str) -> str: ...
     def start(self, ref: str) -> None: ...
+    def rerun(self, run_id: int) -> bool: ...
 
 
 class Git(Protocol):
@@ -109,6 +120,9 @@ def wait(api: Api, git: Git, sha: str, ref: str, start: bool, minutes: float,
     before: set[int] = set()
     started_at = None
     waiting_for = None
+    # The cancelled pass this asked GitHub to run again, and when.
+    rerun: Run | None = None
+    rerun_at = 0.0
     while True:
         runs = api.runs_of(sha)
         passed = [run for run in runs if run.passed]
@@ -133,10 +147,34 @@ def wait(api: Api, git: Git, sha: str, ref: str, start: bool, minutes: float,
         if earlier:
             return Outcome(True, f"The full test pass of {earlier.sha[:12]} passed, and the commits since change "
                                  "only Cartouche's SideStore source", earlier.url)
+        cancelled = [run for run in runs if run.cancelled]
+        if cancelled:
+            # The newest: GitHub lists the runs newest first.
+            latest = cancelled[0]
+            if rerun is not None and (latest.id, latest.attempt) == (rerun.id, rerun.attempt):
+                # Not running again yet: GitHub may take a moment to show it.
+                if now() - rerun_at >= STARTED_SHOWS_WITHIN:
+                    return Outcome(False, f"The full test pass of {sha[:12]} was cancelled, and does not run again: "
+                                          "run it again from the Actions tab, then re-run this job", latest.url)
+                sleep(15)
+                continue
+            if rerun is not None or latest.attempt > 1:
+                return Outcome(False, f"The full test pass of {sha[:12]} was cancelled again once run again: "
+                                      "run it again from the Actions tab, then re-run this job", latest.url)
+            if not start:
+                return Outcome(False, f"The full test pass of {sha[:12]} was cancelled: run it again from the "
+                                      "Actions tab, then re-run this job", latest.url)
+            say(f"The full test pass of {sha[:12]} was cancelled: running it again, once: {latest.url}")
+            if not api.rerun(latest.id):
+                # Another job waiting for it may have run it again already.
+                say("GitHub did not run it again for this job: waiting for it to run")
+            rerun, rerun_at = latest, now()
+            sleep(15)
+            continue
         if started_at is not None:
             new = [run for run in runs if run.id not in before]
             if new:
-                # It ended without passing or failing: cancelled.
+                # It ended without passing, failing or being cancelled.
                 return Outcome(False, f"The full test pass started on {short(ref)} was {new[0].conclusion}: "
                                       "run it again from the Actions tab, then re-run this job", new[0].url)
             if now() - started_at >= STARTED_SHOWS_WITHIN:
@@ -184,6 +222,10 @@ class GitHub:
         subprocess.run(["gh", "api", "-X", "POST", f"repos/{self.repository}/actions/workflows/{WORKFLOW}/dispatches",
                         "-f", f"ref={ref}"], check=True, capture_output=True, text=True)
 
+    def rerun(self, run_id: int) -> bool:
+        return subprocess.run(["gh", "api", "-X", "POST", f"repos/{self.repository}/actions/runs/{run_id}/rerun"],
+                              capture_output=True, text=True).returncode == 0
+
 
 class Checkout:
     def is_ancestor(self, ancestor: str, sha: str) -> bool:
@@ -198,7 +240,7 @@ def main(argv: list[str]) -> int:
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     parser.add_argument("--sha", required=True, help="the commit to be published, GITHUB_SHA")
     parser.add_argument("--ref", required=True, help="the branch or tag the workflow runs on, GITHUB_REF")
-    parser.add_argument("--start", action="store_true", help="start a pass on --ref when none has run on the commit")
+    parser.add_argument("--start", action="store_true", help="start a pass on --ref when none has run on the commit, or run a cancelled one again")
     parser.add_argument("--minutes", type=float, default=280, help="how long to wait for a pass that runs")
     parser.add_argument("--repository", default=os.environ.get("GITHUB_REPOSITORY", ""), help="OWNER/NAME")
     parser.add_argument("--summary", help="a Markdown file to add the outcome to")
