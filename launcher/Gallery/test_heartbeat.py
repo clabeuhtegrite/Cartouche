@@ -1,19 +1,23 @@
-"""A line a minute while a build says nothing: heartbeat.py, which uitests.sh
-and capture.sh build through, and the harness's own in
-launcher/Harness/harness.sh. A step silent for 9 or 10 minutes was taken for
-a stuck run and cancelled by hand, on 13 and 14 November.
+"""A line a minute while a build says nothing, with what the Mac has left of
+its memory and disk: heartbeat.py, which uitests.sh and capture.sh build
+through, and the harness's own in launcher/Harness/harness.sh, which also
+shuts its simulator down for the iPad's step after it. A step silent for 9
+or 10 minutes was taken for a stuck run and cancelled by hand, on 13 and 14
+November, and runs went on being cancelled in their iPad step on GitHub's
+Macs, by no one known.
 
     python3 -m unittest discover -s launcher/Gallery -p 'test_*.py'
 
 The scripts' steps run here as the scripts have them, with a stand-in
-xcodebuild that says nothing for a while, and a tenth of a second or two for
-a minute.
+xcodebuild that says nothing for a while, a stand-in memory_pressure, and a
+fifth of a second for a minute.
 """
 
 import ast
 import io
 import os
 import re
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -33,9 +37,39 @@ import heartbeat  # noqa: E402
 PERIOD = 0.2
 
 
+def said_lines(printed, what):
+    """(seconds, what the Mac has left) of each line that says WHAT goes on."""
+    return [(int(seconds), left) for seconds, left
+            in re.findall(rf"^   still {re.escape(what)}: (\d+) s(?: \(([^()]*)\))?$", printed, re.M)]
+
+
 def beats(printed, what):
     """The seconds of each line that says WHAT goes on."""
-    return [int(n) for n in re.findall(rf"^   still {re.escape(what)}: (\d+) s$", printed, re.M)]
+    return [seconds for seconds, _ in said_lines(printed, what)]
+
+
+def lefts(printed, what):
+    """What each line that says WHAT goes on says the Mac has left."""
+    return [left for _, left in said_lines(printed, what)]
+
+
+def tools(directory, **scripts):
+    """Stand-ins in DIRECTORY, a shell script each, for PATH."""
+    directory.mkdir(exist_ok=True)
+    for name, script in scripts.items():
+        (directory / name).write_text("#!/bin/sh\n" + script)
+        (directory / name).chmod(0o755)
+    return directory
+
+
+# memory_pressure as macOS prints it, its free memory from FAKE_MEMORY; none
+# when FAKE_MEMORY is empty.
+MEMORY_PRESSURE = ('echo "The system has 7516192768 (1835008 pages with a page size of 4096)."\n'
+                   'echo "Pages free: 12345"\n'
+                   '[ -n "$FAKE_MEMORY" ] && echo "System-wide memory free percentage: $FAKE_MEMORY"\n'
+                   'exit 0\n')
+LEFT = r"^memory free 23%, disk free \d+\.\d GB$"
+DISK_ALONE = r"^disk free \d+\.\d GB$"
 
 
 def step(script, first, last):
@@ -50,10 +84,16 @@ def step(script, first, last):
 
 
 class Heartbeat(unittest.TestCase):
-    def run_heartbeat(self, *command, seconds=PERIOD):
+    def setUp(self):
+        self.work = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, self.work, True)
+        self.path = f"{tools(self.work / 'bin', memory_pressure=MEMORY_PRESSURE)}:{os.environ['PATH']}"
+
+    def run_heartbeat(self, *command, seconds=PERIOD, memory="23%"):
         return subprocess.run([sys.executable, str(HERE / "heartbeat.py"), "building", *command],
                               capture_output=True, text=True, timeout=60,
-                              env=dict(os.environ, HEARTBEAT_SECONDS=str(seconds)))
+                              env=dict(os.environ, HEARTBEAT_SECONDS=str(seconds), PATH=self.path,
+                                       FAKE_MEMORY=memory))
 
     def test_says_every_minute_that_a_silent_command_goes_on(self):
         done = self.run_heartbeat("sh", "-c", "sleep 1.2")
@@ -61,7 +101,28 @@ class Heartbeat(unittest.TestCase):
         said = beats(done.stdout, "building")
         self.assertGreaterEqual(len(said), 3, done.stdout)
         self.assertEqual(said, sorted(said))
-        self.assertEqual(done.stdout, "".join(f"   still building: {n} s\n" for n in said))
+        self.assertEqual(len(done.stdout.splitlines()), len(said), done.stdout)
+        # With what the Mac has left.
+        for left in lefts(done.stdout, "building"):
+            self.assertRegex(left, LEFT)
+        # The disk alone where memory_pressure says nothing.
+        done = self.run_heartbeat("sh", "-c", "sleep 0.5", memory="")
+        self.assertTrue(lefts(done.stdout, "building"), done.stdout)
+        for left in lefts(done.stdout, "building"):
+            self.assertRegex(left, DISK_ALONE)
+
+    def test_says_what_the_mac_has_left_of_what_it_can_tell(self):
+        printed = "Pages free: 12345\nSystem-wide memory free percentage: 23%\n"
+        with mock.patch.object(heartbeat.subprocess, "run", return_value=mock.Mock(stdout=printed)), \
+                mock.patch.object(heartbeat.shutil, "disk_usage", return_value=mock.Mock(free=12_400_000_000)):
+            self.assertEqual(heartbeat.left(), " (memory free 23%, disk free 12.4 GB)")
+        with mock.patch.object(heartbeat.subprocess, "run", side_effect=FileNotFoundError("memory_pressure")), \
+                mock.patch.object(heartbeat.shutil, "disk_usage", return_value=mock.Mock(free=3_000_000_000)):
+            self.assertEqual(heartbeat.left(), " (disk free 3.0 GB)")
+        with mock.patch.object(heartbeat.subprocess, "run",
+                               side_effect=subprocess.TimeoutExpired("memory_pressure", 30)), \
+                mock.patch.object(heartbeat.shutil, "disk_usage", side_effect=OSError("no disk")):
+            self.assertEqual(heartbeat.left(), "")
 
     def test_a_minute_unless_told_otherwise(self):
         with mock.patch.dict(os.environ):
@@ -99,22 +160,21 @@ class Scripts(unittest.TestCase):
 
     def setUp(self):
         self.work = Path(tempfile.mkdtemp())
-        self.addCleanup(subprocess.run, ["rm", "-rf", str(self.work)])
-        tools = self.work / "bin"
-        tools.mkdir()
-        # xcodebuild says nothing for FAKE_SECONDS, then what FAKE_SAYS says,
-        # and ends with FAKE_STATUS; it keeps its arguments.
-        (tools / "xcodebuild").write_text(
-            "#!/bin/sh\n"
-            f'echo "$@" > "{self.work}/xcodebuild-arguments"\n'
-            'sleep "$FAKE_SECONDS"\n'
-            'printf "%b" "${FAKE_SAYS:-}"\n'
-            'exit "${FAKE_STATUS:-0}"\n')
-        (tools / "xcrun").write_text("#!/bin/sh\nexit 0\n")
-        for tool in tools.iterdir():
-            tool.chmod(0o755)
-        self.env = dict(os.environ, PATH=f"{tools}:{os.environ['PATH']}", HEARTBEAT_SECONDS=str(PERIOD),
-                        FAKE_SECONDS=str(PERIOD * 6))
+        self.addCleanup(shutil.rmtree, self.work, True)
+        found = tools(
+            self.work / "bin",
+            # xcodebuild says nothing for FAKE_SECONDS, then what FAKE_SAYS
+            # says, and ends with FAKE_STATUS; it keeps its arguments.
+            xcodebuild=(f'echo "$@" > "{self.work}/xcodebuild-arguments"\n'
+                        'sleep "$FAKE_SECONDS"\n'
+                        'printf "%b" "${FAKE_SAYS:-}"\n'
+                        'exit "${FAKE_STATUS:-0}"\n'),
+            # xcrun keeps what it was asked, one line each.
+            xcrun=f'echo "$@" >> "{self.work}/xcrun-calls"\nexit 0\n',
+            memory_pressure=MEMORY_PRESSURE)
+        self.env = dict(os.environ, PATH=f"{found}:{os.environ['PATH']}", HEARTBEAT_SECONDS=str(PERIOD),
+                        FAKE_SECONDS=str(PERIOD * 6), FAKE_MEMORY="23%",
+                        GITHUB_STEP_SUMMARY=str(self.work / "summary.md"))
 
     def run_step(self, before, script, after="", **env):
         return subprocess.run(["bash", "-c", "\n".join(["set -euo pipefail", before, script, after])],
@@ -128,6 +188,8 @@ class Scripts(unittest.TestCase):
         self.assertEqual(done.returncode, 0, done.stderr)
         said = beats(done.stdout, "building the gallery and its UI tests")
         self.assertGreaterEqual(len(said), 3, done.stdout)
+        for left in lefts(done.stdout, "building the gallery and its UI tests"):
+            self.assertRegex(left, LEFT)
         self.assertRegex(done.stdout, r"\n   built in \d+ s\n$")
         self.assertRegex((self.work / "xcodebuild-arguments").read_text(),
                          r"^build-for-testing -quiet .*-destination platform=iOS Simulator,id=UDID ")
@@ -148,6 +210,8 @@ class Scripts(unittest.TestCase):
         what = "building the harness and running its tests"
         said = beats(done.stdout, what)
         self.assertGreaterEqual(len(said), 3, done.stdout)
+        for left in lefts(done.stdout, what):
+            self.assertRegex(left, LEFT)
         # Beside the filter, which lets through what it did, and xcodebuild's
         # status, the script's.
         lines = done.stdout.splitlines()
@@ -159,6 +223,23 @@ class Scripts(unittest.TestCase):
         # Nor in test.log, xcodebuild's own.
         self.assertEqual((self.work / "test.log").read_text(),
                          "Compiling Console.swift\n** TEST FAILED **\nTesting done\n")
+
+        # The disk alone where memory_pressure says nothing.
+        done = self.run_step(before, tests, after, FAKE_MEMORY="")
+        self.assertTrue(lefts(done.stdout, what), done.stdout)
+        for left in lefts(done.stdout, what):
+            self.assertRegex(left, DISK_ALONE)
+
+    def test_the_harness_shuts_its_simulator_down_for_the_ipads_step(self):
+        end = step(ROOT / "launcher/Harness/harness.sh",
+                   "# What the app wrote to its standard error", 'exit "$STATUS"')
+        done = self.run_step(f'OUT="{self.work}" UDID=UDID DEVICE=iPhone STATUS=0', end)
+        self.assertEqual(done.returncode, 0, done.stderr)
+        calls = (self.work / "xcrun-calls").read_text().splitlines()
+        self.assertIn("simctl shutdown UDID", calls)
+        # Once what the app wrote is read from it.
+        self.assertGreater(calls.index("simctl shutdown UDID"),
+                           next(i for i, call in enumerate(calls) if call.startswith("simctl get_app_container UDID")))
 
     def test_the_screenshots_build_the_gallery_within_the_heartbeat(self):
         script = (HERE / "capture.sh").read_text()

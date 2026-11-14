@@ -130,15 +130,23 @@ rm -rf "$OUT/CartoucheHarness.xcresult"
 # for a stuck run and cancelled by hand, 10 minutes in (#175, run
 # 43574954111, 14 November). So a line every minute says that it goes on,
 # beside test.log and the filter, until xcodebuild ends, as launcher/Gallery/
-# heartbeat.py says it of the gallery's builds. HEARTBEAT_SECONDS sets
-# another time, for the tests (launcher/Gallery/test_heartbeat.py).
+# heartbeat.py says it of the gallery's builds, with what the Mac has left of
+# its memory (memory_pressure) and disk: runs went on being cancelled in
+# their iPad step that morning, lines or not, by no one known.
+# HEARTBEAT_SECONDS sets another time, for the tests
+# (launcher/Gallery/test_heartbeat.py).
 heartbeat() {
-  local since=$SECONDS
+  local since=$SECONDS free disk said
   while sleep "${HEARTBEAT_SECONDS:-60}" >/dev/null 2>&1 && kill -0 $$ 2>/dev/null; do
-    echo "   still building the harness and running its tests: $((SECONDS - since)) s"
+    free="$(memory_pressure 2>/dev/null | sed -n 's/^System-wide memory free percentage: \([0-9]*%\).*/\1/p')"
+    disk="$(df -Pk . 2>/dev/null | awk 'NR == 2 { printf "%.1f GB", $4 * 1024 / 1e9 }')"
+    said=""
+    if [ -n "$free" ]; then said="memory free $free"; fi
+    if [ -n "$disk" ]; then said="${said:+$said, }disk free $disk"; fi
+    echo "   still building the harness and running its tests: $((SECONDS - since)) s${said:+ ($said)}"
   done
 }
-heartbeat &
+heartbeat 2>/dev/null &
 HEARTBEAT=$!
 set +e
 xcodebuild test \
@@ -167,6 +175,13 @@ DATA="$(xcrun simctl get_app_container "$UDID" io.github.clabeuhtegrite.cartouch
 if [ -n "$DATA" ] && [ -f "$DATA/Library/Logs/console.txt" ]; then
   cp "$DATA/Library/Logs/console.txt" "$OUT/console.txt"
 fi
+
+# The simulator off, as uitests.sh and capture.sh leave theirs: the iPad's
+# tests run next on the same Mac, which would otherwise hold this iPhone's
+# simulator beside the iPad's. On 14 November runs on GitHub's Macs were
+# cancelled in their iPad step, by no one known, some on a Mac slow to answer
+# even once cancelled (heartbeat above).
+xcrun simctl shutdown "$UDID" 2>/dev/null || true
 
 # The tests that failed and why, from the results; when xcodebuild failed
 # with no test that failed, as when the build did, its errors in the log.
