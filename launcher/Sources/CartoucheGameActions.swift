@@ -95,6 +95,43 @@ struct CartoucheInstallError: LocalizedError, CartoucheDescribedError {
     var underlyingError: Error? { nil }
 }
 
+/// LiveContainer did not sign a game whole: its words, as it said them in
+/// the player's language, for the report, and why, in names
+/// (CartoucheGameSigning).
+struct CartoucheSigningError: LocalizedError, CartoucheDescribedError {
+    let message: String
+    let failure: CartoucheGameSigning.Failure
+
+    init(_ message: String, failure: CartoucheGameSigning.Failure) {
+        self.message = message
+        self.failure = failure
+    }
+
+    var errorDescription: String? { message }
+    var failureKind: String { failure.reason.rawValue }
+    var failureCause: CartoucheFailure.Cause { failure.reason.cause }
+    var underlyingError: Error? { nil }
+}
+
+extension LCAppInfo {
+    /// Why this copy of the game is to be signed again, whole, as it starts
+    /// next, in LCAppInfo.plist with LiveContainer's own settings of the
+    /// game: LiveContainer did not sign it whole as it was installed or as
+    /// it started (the reason's name, CartoucheGameSigning.Reason), iOS
+    /// refused its signature as it started ("codeSignature"), or the player
+    /// asked to ("asked"). Play signs it again, whole, once, and the mark
+    /// goes (CartoucheGameActions.signWhole). A new install of the game has
+    /// none, unless its own signing failed.
+    var cartoucheSigningFailure: String? {
+        get { info()?["CartoucheSigningFailure"] as? String }
+        set {
+            guard let info = info(), info["CartoucheSigningFailure"] as? String != newValue else { return }
+            info["CartoucheSigningFailure"] = newValue
+            save()
+        }
+    }
+}
+
 /// The image of its game files an install brings, for an IPA nxnative built
 /// without them (CartoucheRomfs): none for an IPA that holds them, or when
 /// the game's Documents holds the image.
@@ -278,7 +315,7 @@ final class CartoucheGameActions: ObservableObject {
         transfer = Task {
             do {
                 let builtAt = await Self.builtAt(ofIPA: url)
-                let (app, warning) = try await installUnpacked(into: model, builtAt: builtAt,
+                let (app, signing) = try await installUnpacked(into: model, builtAt: builtAt,
                                                                keeping: gameFiles.kept) { folder, whole in
                     // The IPA's part of the progress, and the image's.
                     let (progress, copying) = Self.split(whole, ipa: UInt64(clamping: size), gameFiles: gameFiles.copiedSize)
@@ -299,7 +336,7 @@ final class CartoucheGameActions: ObservableObject {
                     }
                 }
                 await fetchSaves(of: app)
-                finishInstall(app, warning: warning)
+                finishInstall(app, signing: signing)
             } catch {
                 if stopped {
                     tellStopped()
@@ -380,7 +417,7 @@ final class CartoucheGameActions: ObservableObject {
                 work?.fraction = 0
                 work?.stage = "unpacking"
                 let builtAt = CartoucheStoredGames.infoPlistEntry(in: entries)?.modified
-                let (app, warning) = try await installUnpacked(into: model, builtAt: builtAt,
+                let (app, signing) = try await installUnpacked(into: model, builtAt: builtAt,
                                                                keeping: gameFiles.kept) { folder, whole in
                     // The IPA's part of the progress, and the image's.
                     let (progress, copying) = Self.split(whole, ipa: entries.reduce(UInt64(0)) { $0 + $1.size },
@@ -394,7 +431,7 @@ final class CartoucheGameActions: ObservableObject {
                     }
                 }
                 await fetchSaves(of: app)
-                finishInstall(app, warning: warning)
+                finishInstall(app, signing: signing)
             } catch let lost as CartoucheResumingSource.Lost where !stopped {
                 facts.append(.init("Connection", "lost after \(lost.attempts) failed attempts, "
                                        + "the file opened again \(file?.reopened ?? 0) times before"))
@@ -610,14 +647,65 @@ final class CartoucheGameActions: ObservableObject {
         background = .invalid
     }
 
-    private func finishInstall(_ app: LCAppModel, warning: String?) {
+    private func finishInstall(_ app: LCAppModel, signing: CartoucheSigningError?) {
         installed = app
-        if let warning {
-            // Installed, but not signed: the game would not start.
-            fail(.install, CartoucheText.installSignWarning, message: warning, cause: .notSigned)
+        if let signing {
+            // Installed, but not signed whole: the game may not start. The
+            // player reads why, the report has LiveContainer's words, and
+            // the measurements the reason (CartoucheGameSigning).
+            failSigning(.install, signing, app: app)
         } else if CartoucheCatalog.shared.entries(for: [app]).owned.isEmpty {
             notice = CartoucheGameNotice(title: CartoucheText.installDone, message: CartoucheText.installNotAGame(app.displayName))
         }
+    }
+
+    /// Tells the player that LiveContainer did not sign APP whole, as it was
+    /// installed or as it starts (ORIGIN): why, and what to do, with the
+    /// report, and the button to sign it again and start it when that may
+    /// help. The game is marked, for Play to sign it again whole. A
+    /// certificate iOS refuses has Cartouche take the new one.
+    private func failSigning(_ origin: CartoucheReport.Origin, _ signing: CartoucheSigningError, app: LCAppModel) {
+        let reason = signing.failure.reason
+        app.appInfo.cartoucheSigningFailure = reason.rawValue
+        var title = origin == .install ? CartoucheText.installSignWarning : CartoucheText.notSignedTitle(app.displayName)
+        var message: String
+        switch reason {
+        case .certificateRefused:
+            // iOS refused the certificate LiveContainer signed the game
+            // with: Cartouche has SideStore fetch the one that works.
+            CartoucheSetup.shared.certificateRefusedAtStart()
+            if origin == .start { title = CartoucheText.startFailed }
+            message = CartoucheImportedSigning.isSelected ? CartoucheText.signingRefused
+                : origin == .start ? CartoucheText.startCertificateRefused : CartoucheText.notSignedCertificateRefused
+        case .noCertificate, .certificateUnreadable:
+            message = CartoucheText.notSignedNoCertificate
+        case .encrypted:
+            message = CartoucheText.notSignedEncrypted
+        case .executableUnreadable, .infoPlistMissing:
+            message = CartoucheText.notSignedDamaged
+        case .filesNotSigned, .notMachO, .signerMissing, .interrupted, .other:
+            message = CartoucheText.notSignedFiles
+        }
+        if reason.signingAgainHelps {
+            message += " " + (origin == .install ? CartoucheText.notSignedAtInstall : CartoucheText.notSignedAtStart)
+        } else if reason == .certificateRefused, origin == .install, !CartoucheImportedSigning.isSelected {
+            message += " " + CartoucheText.notSignedAtInstall
+        }
+        facts.append(.init("LiveContainer said", signing.message))
+        fail(origin, title, message: message, cause: reason.cause, details: signing.failure.details,
+             signAgain: reason.signingAgainHelps ? app.appInfo.bundleIdentifier() : nil)
+    }
+
+    /// LiveContainer's signing failed as it said in ERROR, its words or one
+    /// of its keys in the player's language: nil for another error.
+    private static func signingError(_ error: Error, of app: LCAppModel) -> CartoucheSigningError? {
+        if let signing = error as? CartoucheSigningError { return signing }
+        let said = error.localizedDescription
+        let executable = app.appInfo.bundlePath().flatMap {
+            NSDictionary(contentsOfFile: ($0 as NSString).appendingPathComponent("Info.plist"))?["CFBundleExecutable"] as? String
+        }
+        let failure = CartoucheGameSigning.failure(said, executable: executable, localized: { $0.loc })
+        return failure.reason == .other ? nil : CartoucheSigningError(said, failure: failure)
     }
 
     /// Unpacks an IPA with UNPACK into a folder of Cartouche's, then installs
@@ -626,7 +714,7 @@ final class CartoucheGameActions: ObservableObject {
     /// image of the game's files in the installed copy's app, which goes
     /// over to the new one.
     private func installUnpacked(into model: SharedModel, builtAt: Date?, keeping kept: URL? = nil,
-                                 unpack: (URL, Progress) async throws -> Void) async throws -> (LCAppModel, String?) {
+                                 unpack: (URL, Progress) async throws -> Void) async throws -> (LCAppModel, CartoucheSigningError?) {
         let fileManager = FileManager.default
         let progress = Progress.discreteProgress(totalUnitCount: 100)
         let relay = CartoucheProgressRelay()
@@ -713,10 +801,14 @@ final class CartoucheGameActions: ObservableObject {
                 }
             }, forceSign: false)
         }
-        // Installed even if signing failed, as the Apps tab leaves it.
-        var warning: String?
+        // Installed even if signing failed, as the Apps tab leaves it, but
+        // marked: Play signs it again, whole, before it starts it.
+        var signing: CartoucheSigningError?
         if let signError {
-            warning = signSuccess ? "\("lc.appList.signSuccessWithError".loc)\n\n\(signError)" : signError.loc
+            let said = signSuccess ? "\("lc.appList.signSuccessWithError".loc)\n\n\(signError.loc)" : signError.loc
+            signing = CartoucheSigningError(said, failure: CartoucheGameSigning.failure(
+                signError, signed: signSuccess, executable: plist["CFBundleExecutable"] as? String, localized: { $0.loc }))
+            info.cartoucheSigningFailure = signing?.failure.reason.rawValue
         }
 
         if let previous {
@@ -742,7 +834,7 @@ final class CartoucheGameActions: ObservableObject {
             UserDefaults.lcShared().mutableArrayValue(forKey: "LCGuestURLSchemes").addObjects(from: schemes as! [Any])
         }
         model.apps.append(app)
-        return (app, warning)
+        return (app, signing)
     }
 
     /// The settings of the copy an IPA replaces, as the Apps tab carries
@@ -1033,6 +1125,11 @@ final class CartoucheGameActions: ObservableObject {
                 }
                 await backups.finish()
                 await fetchSaves(of: app)
+                // A game LiveContainer did not sign whole, as it was
+                // installed or as it started, is signed again, whole, first.
+                if app.appInfo.cartoucheSigningFailure != nil {
+                    await signWhole(app)
+                }
                 work?.step = showingSettings ? CartoucheText.startSettings : CartoucheText.startSoon
                 work?.stage = "starting"
                 try Self.prepareStart(of: app, showingSettings: showingSettings)
@@ -1049,19 +1146,53 @@ final class CartoucheGameActions: ObservableObject {
                     ])
                 }
                 try await app.runApp(multitask: false, forceJIT: false)
-            } catch let error where error.localizedDescription == "lc.signer.latestCertificateInvalidErr".loc {
-                // iOS refused the certificate LiveContainer signed the game
-                // with: Cartouche has SideStore fetch the one that works.
-                CartoucheSetup.shared.certificateRefusedAtStart()
-                fail(.start, CartoucheText.startFailed, message: CartoucheImportedSigning.isSelected ? CartoucheText.signingRefused : CartoucheText.startCertificateRefused, error: error)
             } catch {
-                fail(.start, CartoucheText.startFailed, error: error)
+                // LiveContainer's signing, which the start runs first, says
+                // why it failed in its own words.
+                if let signing = Self.signingError(error, of: app) {
+                    failSigning(.start, signing, app: app)
+                } else {
+                    fail(.start, CartoucheText.startFailed, error: error)
+                }
             }
             // Still here: the game did not start.
             app.delegate = delegate
             signing = nil
             work = nil
         }
+    }
+
+    /// Signs APP again, whole, once, as LiveContainer's own Force Re-sign
+    /// does: a game it did not sign whole, as it was installed or as it
+    /// started, or that the player asked to sign again. Its mark goes
+    /// either way, so that a game that does not sign whole is not signed
+    /// again at each start for nothing. The start goes on as before:
+    /// LiveContainer starts a game whose executable iOS accepts, signs it
+    /// otherwise, and says why if it cannot; the journal has the reason.
+    private func signWhole(_ app: LCAppModel) async {
+        work?.step = CartoucheText.installSigning
+        work?.stage = "signing"
+        let mark = app.appInfo.cartoucheSigningFailure ?? ""
+        app.appInfo.cartoucheSigningFailure = nil
+        do {
+            try await app.signApp(force: true)
+            CartoucheReports.note(app.displayName + ": signed again whole (" + mark + ")")
+        } catch {
+            let failure = Self.signingError(error, of: app)?.failure ?? CartoucheGameSigning.Failure(reason: .other)
+            let why = CartoucheFailure(failure.reason.cause, details: failure.details).summary
+            CartoucheReports.note(app.displayName + ": not signed again whole (" + mark + "): " + why)
+        }
+    }
+
+    /// The player asked, from a notice, to sign a game again and start it:
+    /// signed again whole, even without a mark, since they asked.
+    func signAgain(_ bundleId: String) {
+        notice = nil
+        guard let app = DataManager.shared.model.apps.first(where: { $0.appInfo.bundleIdentifier() == bundleId }) else { return }
+        if app.appInfo.cartoucheSigningFailure == nil {
+            app.appInfo.cartoucheSigningFailure = "asked"
+        }
+        play(app)
     }
 
     /// Starts the game behind the console, if it plays there: true once it
@@ -1191,7 +1322,8 @@ final class CartoucheGameActions: ObservableObject {
     /// process without Increased Memory Limit, starts again in Cartouche's
     /// place at once, as gameMeasured would have started it: Donkey Kong
     /// Bananza lasted two seconds there (CartoucheGamePlace.afterStop).
-    func gameDidEnd(_ app: LCAppModel, quit: Bool, wasInFront: Bool, reading: CartoucheGameMemoryReading?) {
+    func gameDidEnd(_ app: LCAppModel, quit: Bool, wasInFront: Bool, reading: CartoucheGameMemoryReading?,
+                    error: Error? = nil) {
         guard let ended = running, ended.app === app else { return }
         running = nil
         quitQuestion = nil
@@ -1202,7 +1334,9 @@ final class CartoucheGameActions: ObservableObject {
         var info: [String: Any] = ["quit": quit, "dataFolder": ended.dataFolder, "started": ended.started]
         if let reading { info["reading"] = reading }
         NotificationCenter.default.post(name: .cartoucheGameDidEnd, object: app, userInfo: info)
-        if !quit {
+        if !quit, let error {
+            stoppedOnError(app, error: error, started: ended.started)
+        } else if !quit {
             let title = CartoucheText.gameStoppedTitle(app.displayName)
             let needs = sheetNeeds(of: app)
             let after = CartoucheGamePlace.afterStop(limitMiB: reading?.limitMiB, nearLimit: reading?.wasNearLimit ?? false,
@@ -1237,6 +1371,31 @@ final class CartoucheGameActions: ObservableObject {
             // Once LiveContainer has let go of the game's data folder.
             Task { play(next.app, showingSettings: next.showingSettings) }
         }
+    }
+
+    /// The game's process ended on an error of LiveContainer's LiveProcess
+    /// (CartoucheGameHost): dyld refused the game or one of its libraries,
+    /// or the game ended itself, or threw, as it started or later. Nothing
+    /// to start again in Cartouche's place, which would end the same way:
+    /// the player reads why, with the report, which has LiveProcess's words,
+    /// and may sign the game again when iOS refused its signature, which
+    /// marks it to be signed again whole; the measurements get the kind
+    /// (CartoucheGameSigning.startFailure).
+    private func stoppedOnError(_ app: LCAppModel, error: Error, started: Date) {
+        let said = error.localizedDescription
+        let stopped = CartoucheGameSigning.startFailure(said)
+        if stopped.signingAgainHelps {
+            app.appInfo.cartoucheSigningFailure = stopped.kind.rawValue
+        }
+        let title = CartoucheText.gameStoppedTitle(app.displayName)
+        let message = stopped.signingAgainHelps ? CartoucheText.gameSignatureRefused : CartoucheText.gameStoppedOnError
+        let failure = CartoucheFailure(stopped.cause, stage: "gameProcess", seconds: Date().timeIntervalSince(started),
+                                       details: stopped.details)
+        let facts = Self.buildFacts(CartoucheInstalledBuilds.shared.build(of: app))
+            + [.init("LiveProcess said", said.count > 4_000 ? String(said.prefix(4_000)) + "…" : said)]
+        let report = CartoucheReports.make(.start, title, message: message, error: error, failure: failure, facts: facts)
+        notice = CartoucheGameNotice(title: title, message: message, report: report,
+                                     signAgain: stopped.signingAgainHelps ? app.appInfo.bundleIdentifier() : nil)
     }
 
     /// nxnative's switch for its settings screen, in the data folder the
@@ -1463,33 +1622,24 @@ final class CartoucheGameActions: ObservableObject {
 
     /// Tells the player that the step failed, with the report they can copy:
     /// TITLE, and MESSAGE, or else ERROR's, as they read it. CAUSE says why
-    /// when ERROR does not, nor any of LiveContainer's own errors it may be.
+    /// when ERROR does not, with DETAILS; LiveContainer's own signing errors
+    /// go through failSigning, which tells them apart. SIGNAGAIN: the game
+    /// the notice offers to sign again and start.
     private func fail(_ origin: CartoucheReport.Origin, _ title: String, message: String? = nil, error: Error? = nil,
-                      cause: CartoucheFailure.Cause? = nil) {
+                      cause: CartoucheFailure.Cause? = nil, details: [String: CartoucheTelemetryValue] = [:],
+                      signAgain: String? = nil) {
         let message = message ?? error?.localizedDescription ?? ""
         let stage = work.map(\.stage).flatMap { $0.isEmpty ? nil : $0 }
         let seconds = work.map { Date().timeIntervalSince($0.started) }
-        var failure: CartoucheFailure?
-        if let cause {
-            failure = CartoucheFailure(cause, stage: stage, fraction: work?.fraction, seconds: seconds)
-        } else if let error, let known = Self.liveContainerErrors.first(where: { error.localizedDescription == $0.key.loc }) {
-            failure = CartoucheFailure(known.cause, stage: stage, fraction: work?.fraction, seconds: seconds,
-                                       details: ["kind": .text(known.kind)])
+        let failure = cause.map {
+            CartoucheFailure($0, stage: stage, fraction: work?.fraction, seconds: seconds, details: details)
         }
         let report = CartoucheReports.make(origin, title, message: message, error: error,
                                            step: work.map { $0.title + ": " + $0.step }, fraction: work?.fraction,
                                            stage: stage, seconds: seconds, failure: failure, facts: facts)
         workFailed = true
-        notice = CartoucheGameNotice(title: title, message: message, report: report)
+        notice = CartoucheGameNotice(title: title, message: message, report: report, signAgain: signAgain)
     }
-
-    /// LiveContainer's errors are their text alone, in the player's
-    /// language: those Cartouche tells apart, by the key of their text.
-    private static let liveContainerErrors: [(key: String, kind: String, cause: CartoucheFailure.Cause)] = [
-        ("lc.signer.latestCertificateInvalidErr", "latestCertificateInvalid", .certificate),
-        ("lc.signer.noCertificateFoundErr", "noCertificateFound", .certificate),
-        ("lc.signer.crashDuringSignErr", "crashDuringSign", .notSigned),
-    ]
 
     /// "Game build: 1.0.0, nxnative 844bf1a5ea8f, built 2026-11-06 19:12:40 +0100".
     private static func buildFacts(_ build: CartoucheGameBuild?) -> [CartoucheReport.Fact] {
