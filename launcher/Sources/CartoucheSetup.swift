@@ -500,7 +500,9 @@ final class CartoucheSetup: ObservableObject {
 /// this iPhone is left to register, looks every two seconds whether
 /// LocalDevVPN has connected: Cartouche then takes that step by itself. A
 /// sign-in that stopped before the certificate, in an earlier installation,
-/// starts again when Cartouche comes to the front.
+/// starts again when Cartouche comes to the front. In the last days of its
+/// signature, Cartouche renews itself as it comes to the front, and once
+/// the setup is found complete after the launch (CartoucheRenewals).
 @available(iOS 17.0, *)
 @MainActor
 struct CartoucheSetupRefresh: ViewModifier {
@@ -512,11 +514,17 @@ struct CartoucheSetupRefresh: ViewModifier {
                 setup.refresh()
                 CartoucheAccount.shared.resumeDeviceStep()
                 CartoucheAccount.shared.resumeSignIn()
+                CartoucheRenewals.shared.renewIfDue()
             }
             .onReceive(NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification)) { _ in
                 setup.refresh()
                 CartoucheAccount.shared.resumeDeviceStep()
                 CartoucheAccount.shared.resumeSignIn()
+                CartoucheRenewals.shared.renewIfDue()
+            }
+            // The certificate's check ends a few seconds after the launch.
+            .onChange(of: setup.isComplete) { _, complete in
+                if complete { CartoucheRenewals.shared.renewIfDue() }
             }
             // The pairing step ticks itself once the player has dropped the file.
             .task(id: setup.hasPairingFile) {

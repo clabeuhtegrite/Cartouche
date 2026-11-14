@@ -250,4 +250,36 @@ final class TelemetryTests: HarnessCase {
         XCTAssertFalse(text.contains("lc.appList.urlFileIsNotIpaError".loc), "never the message's words")
         XCTAssertFalse(text.contains(HarnessIPA.folder.path), "never a path of the iPhone")
     }
+
+    // MARK: Renewals
+
+    /// renewal.done says Cartouche renewed itself, and signature.renewed
+    /// what renewed the signature: up to 0.12.0, the measurements could not
+    /// tell the automation of Shortcuts from Renew now, from an update or
+    /// from an install of the Cartouche Installer. Telemetry starts once per
+    /// launch: testCartouchesStartItsInstallsAndItsErrorsAreReported, which
+    /// runs before this test, waits for that start's app.opened, so no test
+    /// of a class that runs before this one may start it.
+    func testWhatRenewedTheSignatureIsReported() async throws {
+        answer(200)
+        telemetry.start()
+        try await setUpCartouche()
+        HarnessSideStore.record(expiringIn: 2.5)
+        // Cartouche reads its signature again as it comes back to the front.
+        NotificationCenter.default.post(name: UIApplication.didBecomeActiveNotification, object: nil)
+
+        let renewals = CartoucheRenewals.shared
+        renewals.renewIfDue()
+        XCTAssertTrue(renewals.isRenewing, "Cartouche renews itself, 2 days left")
+        try await waitUntil("the renewal ended") { !renewals.isRenewing }
+        let renewedHere = { (report: [String: Any]) -> Bool in
+            report["name"] as? String == "signature.renewed"
+                && (report["fields"] as? [String: Any])?["via"] as? String == "cartouche"
+        }
+        try await waitUntil("the server has what renewed it") { self.reports.contains(where: renewedHere) }
+        let renewed = try XCTUnwrap(reports.last(where: renewedHere)?["fields"] as? [String: Any])
+        XCTAssertEqual(renewed["daysLeft"] as? Double, 6)
+        let done = try XCTUnwrap(report(named: "renewal.done")?["fields"] as? [String: Any])
+        XCTAssertEqual(done["automatic"] as? Bool, true)
+    }
 }
