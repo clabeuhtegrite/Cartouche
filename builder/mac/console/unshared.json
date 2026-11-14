@@ -88,8 +88,13 @@
       "mac": "BuilderKit/Updater.swift"
     },
     "CartoucheRenewal.swift": {
+      "kind": "mac",
+      "why": "Renewing the free account's 7-day signature on the iPhone: a Mac app does not expire, and the console's stand-in says that no renewal is ever under way.",
+      "mac": "CartoucheConsole/Mac/ConsoleStandIns.swift"
+    },
+    "CartoucheRenewalRules.swift": {
       "kind": "iphone",
-      "why": "Renewing the free account's 7-day signature on the iPhone: a Mac app does not expire."
+      "why": "When Cartouche renews itself in its last days, by the built-in SideStore with LocalDevVPN on: a Mac app does not expire."
     },
     "CartoucheReportView.swift": {
       "kind": "later",

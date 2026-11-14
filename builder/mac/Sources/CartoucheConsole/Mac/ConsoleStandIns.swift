@@ -7,7 +7,8 @@
 //  installs and starts games with LiveContainer), the game running, its
 //  setup (a certificate and a pairing file), its Apple ID, its first
 //  game's guide, the game behind the console, the iPhone's model, memory
-//  limit and signature, how a game fits it, and the journal of its reports.
+//  limit, signature and its renewals, how a game fits it, and the journal
+//  of its reports.
 //  A Mac plays the games nxnative built for it, each in its own app: the
 //  console has nothing to set up, no limit of memory from iOS, no signature
 //  that expires, nothing behind it. Each stand-in keeps the names and the
@@ -207,6 +208,16 @@ struct CartoucheSignature {
     static func current() -> CartoucheSignature {
         CartoucheSignature(expirationDate: nil, teamName: nil)
     }
+}
+
+/// Cartouche renews its signature on the iPhone, by itself in its last
+/// days (CartoucheRenewal.swift): the Mac's app has none to renew, so no
+/// renewal is ever under way.
+@MainActor
+final class CartoucheRenewals: ObservableObject {
+    static let shared = CartoucheRenewals()
+
+    var isRenewing: Bool { false }
 }
 
 /// How a game fits this Mac. The testers' results are the iPhones': a

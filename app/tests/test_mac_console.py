@@ -11,7 +11,10 @@ which builds the iPhone's console screens for the Mac:
   launcher's words change (.github/workflows/builder.yml);
 - none of those files uses, outside an iPhone-only part, a name of UIKit's
   or of the iPhone's SwiftUI that the Mac does not have, but those the
-  console's shims give it (Mac/ConsoleShims.swift);
+  console's shims give it (Mac/ConsoleShims.swift), nor a name of the
+  launcher's that the console does not have, from a file it does not link,
+  with no stand-in for it (Mac/ConsoleStandIns.swift): a change to the
+  iPhone's screens that only a Mac would find otherwise;
 - the Mac's own words (builder/mac/console/strings.json) say what the
   launcher's say, with the same placeholders, and console/strings.py writes
   each language's table where the console reads it.
@@ -53,20 +56,31 @@ IPHONE_ONLY = re.compile(
 )
 # The conditions of an iPhone-only part.
 IPHONE_CONDITION = re.compile(r"^(?:os\(iOS\)|canImport\(UIKit\))(?:\s*\|\|\s*os\((?:iOS|visionOS|tvOS)\))*$")
+# The conditions of a part the console never builds: the iPhone's alone,
+# the launcher's gallery (CARTOUCHE_GALLERY, which the Builder does not
+# define), and the packages the console does not link (SMB, SFTP).
+_ELSEWHERE = r"(?:os\((?:iOS|visionOS|tvOS)\)|canImport\((?:UIKit|NIOSSH|SMBClient)\)|CARTOUCHE_GALLERY)"
+NOT_ON_THE_MAC = re.compile(rf"^{_ELSEWHERE}(?:\s*\|\|\s*{_ELSEWHERE})*$")
+# The launcher's own names, and LiveContainer's, as the console's files use
+# them, where one is declared, and a string, whose words are no names.
+OWN_NAME = re.compile(r"\b(?:Cartouche|LC)[A-Z]\w*")
+DECLARATION = re.compile(r"\b(?:class|struct|enum|protocol|typealias|actor)\s+((?:Cartouche|LC)[A-Z]\w*)")
+STRING = re.compile(r'"(?:[^"\\\n]|\\.)*"')
 
 
-def outside_iphone_parts(swift: str):
+def outside_iphone_parts(swift: str, condition=IPHONE_CONDITION):
     """The lines the Mac compiles, as (number, line): those outside the
-    `#if os(iOS)` or `#if canImport(UIKit)` parts, comments left out."""
-    stack = []  # for each #if, whether its current branch is the iPhone's alone
+    parts whose condition CONDITION matches, by default the `#if os(iOS)` or
+    `#if canImport(UIKit)` ones, comments left out."""
+    stack = []  # for each #if, whether its current branch is left out
     for number, line in enumerate(swift.splitlines(), start=1):
         directive = line.strip()
         if directive.startswith("#if "):
-            stack.append(bool(IPHONE_CONDITION.match(directive[4:].strip())))
+            stack.append(bool(condition.match(directive[4:].strip())))
             continue
         if directive.startswith("#elseif ") or directive == "#else":
-            # Another branch: the iPhone's alone only if it says so.
-            stack[-1] = directive.startswith("#elseif ") and bool(IPHONE_CONDITION.match(directive[8:].strip()))
+            # Another branch: left out only if it says so.
+            stack[-1] = directive.startswith("#elseif ") and bool(condition.match(directive[8:].strip()))
             continue
         if directive == "#endif":
             stack.pop()
@@ -76,6 +90,15 @@ def outside_iphone_parts(swift: str):
         code = line.split("//", 1)[0]
         if code.strip():
             yield number, code
+
+
+def own_names(swift: str):
+    """The launcher's names that SWIFT declares, and those it uses, in the
+    parts the console builds."""
+    codes = [STRING.sub('""', code) for _, code in outside_iphone_parts(swift, NOT_ON_THE_MAC)]
+    declared = {name for code in codes for name in DECLARATION.findall(code)}
+    used = {name for code in codes for name in OWN_NAME.findall(code)}
+    return declared, used
 
 
 def load_writer():
@@ -142,6 +165,30 @@ class MacConsoleSources(unittest.TestCase):
                 self.assertEqual(found, [], "wrap them in #if os(iOS), or give the Mac its own in Mac/")
                 imports = [code.strip() for _, code in lines if re.match(r"\s*(?:@\w+\s+)?import UIKit\b", code)]
                 self.assertEqual(imports, [], "import UIKit only under #if canImport(UIKit)")
+
+    def test_the_shared_files_name_only_what_the_console_has(self):
+        """A launcher file the console links that starts using a name of a
+        file it does not link, such as the iPhone's renewals, needs a
+        stand-in for it on the Mac, or the part is the iPhone's alone: the
+        Builder's app would no longer build, which only a Mac would say."""
+        files = sorted(SHARED.iterdir()) + sorted((CONSOLE / "Mac").glob("*.swift"))
+        declared = set().union(*(own_names(path.read_text(encoding="utf-8"))[0] for path in files))
+        for link in sorted(SHARED.iterdir()):
+            with self.subTest(name=link.name):
+                _, used = own_names(link.read_text(encoding="utf-8"))
+                self.assertEqual(sorted(used - declared), [],
+                                 "give the Mac a stand-in (Mac/ConsoleStandIns.swift), link the file that declares it, "
+                                 "or wrap the part in #if os(iOS)")
+
+    def test_the_check_sees_a_name_the_console_lacks(self):
+        swift = "\n".join([
+            "struct CartoucheThing {}", "#if os(iOS)", "let a = CartoucheRenewals.shared", "#endif",
+            "#if CARTOUCHE_GALLERY", "let b = CartoucheGalleryOnly()", "#else", "let c = CartoucheThing()", "#endif",
+            "#if canImport(NIOSSH)", "let d = CartoucheSFTPServer.self", "#endif",
+            "let e = CartoucheMissing.shared // CartoucheInAComment", 'let f = "CartoucheInAString"',
+        ])
+        declared, used = own_names(swift)
+        self.assertEqual(sorted(used - declared), ["CartoucheMissing"])
 
     def test_the_check_sees_an_unguarded_name(self):
         swift = "\n".join([

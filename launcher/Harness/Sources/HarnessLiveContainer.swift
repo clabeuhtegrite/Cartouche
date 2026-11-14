@@ -105,6 +105,26 @@ enum HarnessLC {
     /// when nil, which a test cannot turn.
     static var screenTurned: CartoucheGameOrientations?
     static var deviceHeld: CartoucheGameOrientations?
+    /// Whether LocalDevVPN is connected, as Cartouche's renewal reads it
+    /// (CartoucheRenewals): the Simulator has no LocalDevVPN.
+    static var vpnConnected = true
+    /// How the built-in SideStore's next renewals go
+    /// (HarnessSideStore.swift).
+    static var renewal: HarnessSideStore.Renewal = .renews(days: 7)
+    /// How long each takes.
+    static var renewalTime: TimeInterval = 0.2
+    /// When Cartouche asked SideStore to renew it, in order.
+    static var renewals: [Date] = []
+    /// The renewal SideStore holds without answering
+    /// (HarnessSideStore.Renewal.hangs).
+    static var heldRenewal: (() -> Void)?
+
+    /// SideStore answers the renewal it held: Cartouche renewed.
+    static func endHeldRenewal() {
+        let held = heldRenewal
+        heldRenewal = nil
+        held?()
+    }
 
     static let appGroupID = "group.io.github.clabeuhtegrite.cartouche.harness"
 
@@ -150,6 +170,8 @@ enum HarnessLC {
     /// folder, nothing in the app group, nothing signed or started, and the
     /// harness's defaults.
     static func reset() {
+        // A renewal a test left held ends before anything else goes.
+        endHeldRenewal()
         let fileManager = FileManager.default
         for folder in [LCPath.docPath, fileManager.temporaryDirectory, appGroup] {
             for item in (try? fileManager.contentsOfDirectory(at: folder, includingPropertiesForKeys: nil)) ?? [] {
@@ -185,6 +207,10 @@ enum HarnessLC {
         soundGoesToADisplay = nil
         screenTurned = nil
         deviceHeld = nil
+        vpnConnected = true
+        renewal = .renews(days: 7)
+        renewalTime = 0.2
+        renewals = []
         HarnessScenes.reset()
         HarnessNetwork.reset()
         let model = DataManager.shared.model
