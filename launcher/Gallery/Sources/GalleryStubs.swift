@@ -149,6 +149,7 @@ final class CartoucheGameActions: ObservableObject {
     func dropInstall(_ question: CartoucheInstallQuestion) { installQuestion = nil }
     func closeInstallQuestion() { installQuestion = nil }
     func play(_ app: LCAppModel, showingSettings: Bool = false) {}
+    func signAgain(_ bundleId: String) { notice = nil }
     func resumeRunningGame() {}
     func askToQuit() { quitQuestion = running }
     func quitRunningGame() { quitQuestion = nil }
