@@ -1091,24 +1091,132 @@
     .mtool b small { margin-left: calc(6 * var(--pt)); color: var(--ink2); font-size: calc(11.5 * var(--pt)); font-weight: 400; }
     .mtool p > span { display: block; margin-top: calc(2 * var(--pt)); color: var(--ink2); font-size: calc(11.5 * var(--pt)); }
 
+    /* The window of the Builder section narrows with the page; the one on
+       the MacBook beside the iPad keeps a Mac's width. */
     @media (max-width: 939px) {
-        .mw { --side: calc(212 * var(--pt)); --pad: calc(24 * var(--pt)); --cols: 3; --gap: calc(16 * var(--pt)); }
-        .mw__search { display: none; }
+        .mac .mw { --side: calc(212 * var(--pt)); --pad: calc(24 * var(--pt)); --cols: 3; --gap: calc(16 * var(--pt)); }
+        .mac .mw__search { display: none; }
     }
     @media (max-width: 599px) {
-        .mw { --side: 0px; --pad: calc(18 * var(--pt)); --gap: calc(12 * var(--pt)); grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); }
-        .mw__side { flex-direction: row; align-items: center; margin: calc(8 * var(--pt)); padding: calc(6 * var(--pt)) calc(6 * var(--pt)) calc(6 * var(--pt)) calc(16 * var(--pt)); border-radius: 999px; }
-        .mw__top { height: auto; padding: 0; }
-        .mw__toggle, .mw__foot, .mw__bar, .mw__item span, .mw__item b { display: none; }
-        .mw__nav { display: flex; gap: calc(4 * var(--pt)); margin: 0 0 0 auto; }
-        .mw__item { justify-content: center; width: calc(46 * var(--pt)); height: calc(38 * var(--pt)); padding: 0; border-radius: 999px; }
-        .mw__item .ic { font-size: calc(18 * var(--pt)); }
-        .mw__page { border-top: 0; padding-top: calc(10 * var(--pt)); }
-        .mban { flex-wrap: wrap; }
-        .mban .mbtn { margin-left: auto; }
-        .mrun > .mcover { --tw: calc(64 * var(--pt)); }
-        .mdisks { grid-template-columns: minmax(0, 1fr); }
+        .mac .mw { --side: 0px; --pad: calc(18 * var(--pt)); --gap: calc(12 * var(--pt)); grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); }
+        .mac .mw__side { flex-direction: row; align-items: center; margin: calc(8 * var(--pt)); padding: calc(6 * var(--pt)) calc(6 * var(--pt)) calc(6 * var(--pt)) calc(16 * var(--pt)); border-radius: 999px; }
+        .mac .mw__top { height: auto; padding: 0; }
+        .mac .mw__toggle, .mac .mw__foot, .mac .mw__bar, .mac .mw__item span, .mac .mw__item b { display: none; }
+        .mac .mw__nav { display: flex; gap: calc(4 * var(--pt)); margin: 0 0 0 auto; }
+        .mac .mw__item { justify-content: center; width: calc(46 * var(--pt)); height: calc(38 * var(--pt)); padding: 0; border-radius: 999px; }
+        .mac .mw__item .ic { font-size: calc(18 * var(--pt)); }
+        .mac .mw__page { border-top: 0; padding-top: calc(10 * var(--pt)); }
+        .mac .mban { flex-wrap: wrap; }
+        .mac .mban .mbtn { margin-left: auto; }
+        .mac .mrun > .mcover { --tw: calc(64 * var(--pt)); }
+        .mac .mdisks { grid-template-columns: minmax(0, 1fr); }
     }
+
+    /* ---------- The Mac beside the iPad ----------
+       A MacBook Air: its screen is 1024 × 666 points, with the menu bar and
+       Cartouche Builder's window on the desktop, the library and beside it
+       the sheet of the game the iPad has in focus (GameDetailView), with
+       Play on this Mac. In the lid and the base, every size is a number of
+       points times --u, the base being 1188 points wide. From 700 px wide
+       the iPad stands in front of it; on a phone, below it. */
+    .duo { position: relative; width: 100%; max-width: 1120px; margin: clamp(40px, 5vw, 64px) auto 0; }
+    .duo > .device--ipad { margin-top: 28px; }
+    @media (min-width: 700px) {
+        .duo { aspect-ratio: 1120 / 640; }
+        .duo > .laptop { position: absolute; top: 0; right: 0; width: 72%; }
+        .duo > .device--ipad { position: absolute; z-index: 1; left: 0; bottom: 0; width: 58%; margin: 0; }
+    }
+    .laptop { position: relative; container-type: inline-size; }
+    .laptop__in { --u: calc(100cqw / 1188); display: flex; flex-direction: column; align-items: center; }
+    .laptop__lid {
+        position: relative;
+        width: calc(1060 * var(--u));
+        padding: calc(25 * var(--u)) calc(18 * var(--u)) calc(24 * var(--u));
+        border-radius: calc(36 * var(--u)) calc(36 * var(--u)) calc(8 * var(--u)) calc(8 * var(--u));
+        background: #050507;
+        box-shadow: inset 0 0 0 calc(3 * var(--u)) #2c2e36, inset 0 0 0 calc(4.5 * var(--u)) rgba(255, 255, 255, .1);
+    }
+    .laptop__screen {
+        position: relative;
+        container-type: size;
+        aspect-ratio: 1024 / 666;
+        border-radius: calc(13 * var(--u)) calc(13 * var(--u)) 0 0;
+        overflow: hidden;
+        overflow: clip;
+        isolation: isolate;
+        background:
+            radial-gradient(85% 75% at 8% 0%, color-mix(in srgb, var(--light) 75%, transparent), transparent 64%),
+            radial-gradient(75% 85% at 100% 100%, rgba(236, 72, 153, .55), transparent 62%),
+            linear-gradient(160deg, #1f2560, #0b0d20 72%);
+    }
+    .laptop__notch { position: absolute; z-index: 2; top: calc(25 * var(--u) - 1px); left: 50%; width: calc(108 * var(--u)); height: calc(25 * var(--u) + 1px); transform: translateX(-50%); border-radius: 0 0 calc(9 * var(--u)) calc(9 * var(--u)); background: #050507; }
+    .laptop__base {
+        position: relative;
+        width: 100%;
+        height: calc(26 * var(--u));
+        border-radius: calc(3 * var(--u)) calc(3 * var(--u)) calc(80 * var(--u)) calc(80 * var(--u)) / calc(3 * var(--u)) calc(3 * var(--u)) calc(24 * var(--u)) calc(24 * var(--u));
+        background: linear-gradient(180deg, #b4b7c2 0%, #6a6d78 12%, #33353d 48%, #17181d 100%);
+        box-shadow: 0 44px 80px -34px rgba(0, 0, 0, .95), 0 90px 140px -70px color-mix(in srgb, var(--dark) 90%, transparent);
+    }
+    .laptop__base::before { content: ""; position: absolute; top: 0; left: 50%; width: calc(170 * var(--u)); height: calc(10 * var(--u)); transform: translateX(-50%); border-radius: 0 0 calc(12 * var(--u)) calc(12 * var(--u)); background: linear-gradient(180deg, #24252c, #4a4c56); }
+    .osdesk { --pt: calc(100cqw / 1024); position: absolute; inset: 0; color: #fff; font: 400 calc(13 * var(--pt))/1 var(--text); -webkit-user-select: none; user-select: none; }
+    .osbar { position: absolute; top: 0; left: 0; right: 0; display: flex; align-items: center; gap: calc(17 * var(--pt)); height: calc(25 * var(--pt)); padding: 0 calc(16 * var(--pt)); background: rgba(0, 0, 0, .16); white-space: nowrap; }
+    .osbar b { font-weight: 700; }
+    .osbar__right { display: flex; align-items: center; gap: calc(14 * var(--pt)); margin-left: auto; }
+    .osbar .ic { flex: none; }
+    .osbar .ic--wifi { width: calc(16 * var(--pt)); height: calc(12 * var(--pt)); }
+    .osbar .ic--battery { width: calc(25 * var(--pt)); height: calc(12 * var(--pt)); }
+    .lwin {
+        --w: 1004;
+        --h: 623;
+        position: absolute;
+        top: calc(33 * var(--pt));
+        left: calc(10 * var(--pt));
+        width: calc(1004 * var(--pt));
+        height: calc(623 * var(--pt));
+        container-type: size;
+        border-radius: calc(16 * var(--pt));
+        overflow: hidden;
+        overflow: clip;
+        background: #1E1E1E;
+        box-shadow: 0 calc(18 * var(--pt)) calc(46 * var(--pt)) rgba(0, 0, 0, .55);
+    }
+    .lwin::after { content: ""; position: absolute; inset: 0; z-index: 3; border-radius: inherit; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .16); pointer-events: none; }
+    .lwin .mw { --cols: 2; --sheet: calc(321 * var(--pt)); }
+    .lwin .mw__search { width: calc(220 * var(--pt)); }
+    .lwin .mgame { --tw: calc((100cqw - var(--side) - var(--sheet) - 2 * var(--pad) - var(--gap)) / 2); }
+    .lwin .mgame.is-picked .mcover { box-shadow: 0 0 0 calc(3 * var(--pt)) #6C63FF; }
+    .lwin .mban { flex-wrap: wrap; }
+    .mw__split { display: flex; flex: 1; min-height: 0; border-top: 1px solid rgba(255, 255, 255, .06); }
+    .mw__split > .mw__page { min-width: 0; border-top: 0; overflow: hidden; overflow: clip; }
+
+    /* A game's sheet in Cartouche Builder, beside its library (GameDetailView). */
+    .msheet { display: flex; flex: none; flex-direction: column; gap: calc(18 * var(--pt)); width: var(--sheet); padding: calc(20 * var(--pt)); overflow: hidden; overflow: clip; border-left: 1px solid rgba(255, 255, 255, .08); }
+    .msheet__head { display: grid; grid-template-columns: calc(76 * var(--pt)) minmax(0, 1fr) calc(22 * var(--pt)); gap: calc(12 * var(--pt)); align-items: start; }
+    .msheet__head .mcover { box-shadow: 0 calc(3 * var(--pt)) calc(12 * var(--pt)) rgba(0, 0, 0, .35); }
+    .msheet__name { font: 700 calc(17 * var(--pt))/1.2 var(--text); }
+    .msheet__id { margin-top: calc(6 * var(--pt)); color: var(--ink2); font: 400 calc(10 * var(--pt))/1.2 ui-monospace, SFMono-Regular, Menlo, monospace; }
+    .msheet__look { display: flex; gap: calc(5 * var(--pt)); margin-top: calc(8 * var(--pt)); color: var(--c); font-size: calc(12 * var(--pt)); font-weight: 500; line-height: 1.25; }
+    .msheet__look .ic { margin-top: calc(1 * var(--pt)); }
+    .msheet__close { display: grid; place-items: center; height: calc(22 * var(--pt)); color: var(--ink2); font-size: calc(12 * var(--pt)); }
+    .msheet__acts { display: flex; align-items: center; gap: calc(10 * var(--pt)); }
+    .msheet__acts .mbtn { flex: 1; justify-content: center; height: calc(30 * var(--pt)); }
+    .msheet__follow { display: flex; align-items: center; gap: calc(8 * var(--pt)); }
+    .msheet .mcard { padding: calc(14 * var(--pt)); }
+    .msheet__play { display: grid; gap: calc(8 * var(--pt)); }
+    .msheet__play .mbtn { justify-content: center; height: calc(30 * var(--pt)); }
+    .msheet__play .mbtn--go { background: var(--accent); box-shadow: none; }
+    .msheet__note { display: flex; gap: calc(7 * var(--pt)); margin-top: calc(4 * var(--pt)); color: var(--ink2); font-size: calc(10.5 * var(--pt)); line-height: 1.35; }
+    .msheet__note .ic { margin-top: calc(1 * var(--pt)); font-size: calc(11 * var(--pt)); }
+    .msheet .mlabel { margin: 0 0 calc(10 * var(--pt)); }
+    .msheet__plat { display: flex; align-items: center; gap: calc(11 * var(--pt)); }
+    .msheet__plat + .msheet__plat { margin-top: calc(12 * var(--pt)); padding-top: calc(12 * var(--pt)); border-top: 1px solid var(--edge); }
+    .msheet__plat > .ic { align-self: flex-start; font-size: calc(16 * var(--pt)); color: #8E86FF; }
+    .msheet__plat p { flex: 1; min-width: 0; }
+    .msheet__plat b { display: block; font-weight: 600; }
+    .msheet__plat small { display: block; margin-top: calc(3 * var(--pt)); color: var(--ink2); font-size: calc(10.5 * var(--pt)); line-height: 1.35; }
+    .msheet__why { display: flex; gap: calc(8 * var(--pt)); align-items: center; }
+    .msheet__why::before { content: ""; flex: none; width: calc(10 * var(--pt)); height: calc(10 * var(--pt)); border-radius: 50%; background: radial-gradient(circle, var(--ink2) 0 28%, transparent 34% 56%, var(--ink2) 60% 72%, transparent 76%); }
 
     .steps { list-style: none; display: grid; gap: 30px; margin: 36px 0 0; padding: 0; }
     .step { display: grid; grid-template-columns: 52px minmax(0, 1fr); gap: 18px; }
@@ -1234,6 +1342,7 @@
         <symbol id="i-moon" viewBox="0 0 24 24"><path fill="currentColor" d="M14.5 3.2a8.8 8.8 0 1 0 6.3 13.9A8 8 0 0 1 14.5 3.2Z"/></symbol>
         <symbol id="i-iphonewaves" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><rect x="8.6" y="4" width="6.8" height="16" rx="2"/><path d="M5.6 8.6a6 6 0 0 0 0 6.8M18.4 8.6a6 6 0 0 1 0 6.8M3 6.6a9.6 9.6 0 0 0 0 10.8M21 6.6a9.6 9.6 0 0 1 0 10.8"/></g></symbol>
         <symbol id="i-box" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"><path d="M12 3 20 7.3v9.4L12 21l-8-4.3V7.3Z"/><path d="M4 7.3 12 11.6l8-4.3M12 11.6V21"/></g></symbol>
+        <symbol id="i-xmark" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" d="M6.5 6.5l11 11M17.5 6.5l-11 11"/></symbol>
         <symbol id="i-doc" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"><path d="M6.5 3H14l4.5 4.5v12a1.5 1.5 0 0 1-1.5 1.5H6.5A1.5 1.5 0 0 1 5 19.5v-15A1.5 1.5 0 0 1 6.5 3Z"/><path stroke-linecap="round" d="M14 3v4.5h4.5M8.5 12h7M8.5 15.5h7"/></g></symbol>
     </defs>
 </svg>
@@ -1301,10 +1410,18 @@
                         <p lang="en">Cartouche is the same app on iPhone and iPad: your games, their sheets, a controller or touch. On your Mac, <a href="#builder">Cartouche Builder</a> builds each game for the Mac too, and plays it there. Your saves follow you from one to the other, through your Mac or your NAS: the newest wins.</p>
                     </div>
                 </div>
-                <div class="device device--ipad" data-ipad tabindex="0" role="group" style="--w:1180;--h:820;--r:18;--b:24;max-width:1000px;margin-top:clamp(40px,5vw,64px)" data-label-fr="L’accueil de Cartouche sur un iPad Air, avec la fiche du jeu en focus" data-label-en="Cartouche’s home on an iPad Air, with the sheet of the game in focus" aria-label="Cartouche’s home on an iPad Air, with the sheet of the game in focus">
-                    <div class="device__body"><div class="screen" data-screen="ipad"></div></div>
+                <div class="duo">
+                    <div class="laptop" role="img" data-label-fr="Cartouche Builder sur un MacBook Air : la fiche du même jeu, avec Jouer sur ce Mac" data-label-en="Cartouche Builder on a MacBook Air: the sheet of the same game, with Play on this Mac" aria-label="Cartouche Builder on a MacBook Air: the sheet of the same game, with Play on this Mac">
+                        <div class="laptop__in" inert>
+                            <div class="laptop__lid"><div class="laptop__screen" data-laptop></div><i class="laptop__notch"></i></div>
+                            <div class="laptop__base"></div>
+                        </div>
+                    </div>
+                    <div class="device device--ipad" data-ipad tabindex="0" role="group" style="--w:1180;--h:820;--r:18;--b:24" data-label-fr="L’accueil de Cartouche sur un iPad Air, avec la fiche du jeu en focus" data-label-en="Cartouche’s home on an iPad Air, with the sheet of the game in focus" aria-label="Cartouche’s home on an iPad Air, with the sheet of the game in focus">
+                        <div class="device__body"><div class="screen" data-screen="ipad"></div></div>
+                    </div>
                 </div>
-                <p class="hint"><span lang="fr">Touchez une jaquette pour ouvrir sa fiche<span class="hint__keys">, ou <kbd>←</kbd> <kbd>→</kbd> au clavier</span>.</span><span lang="en">Tap a cover to open its sheet<span class="hint__keys">, or press <kbd>←</kbd> <kbd>→</kbd></span>.</span></p>
+                <p class="hint"><span lang="fr">Touchez une jaquette sur l’iPad<span class="hint__keys">, ou <kbd>←</kbd> <kbd>→</kbd> au clavier</span> : sa fiche s’ouvre, sur l’iPad comme dans Cartouche Builder sur le Mac.</span><span lang="en">Tap a cover on the iPad<span class="hint__keys">, or press <kbd>←</kbd> <kbd>→</kbd></span>: its sheet opens, on the iPad and in Cartouche Builder on the Mac.</span></p>
                 <ul class="perks perks--three">
                     <li class="perk"><span class="tag-icon"><svg aria-hidden="true"><use href="#i-iphone"/></svg></span><div><h3>iPhone</h3><p><span lang="fr">La console dans la poche, au tactile ou à la manette, et le jeu en pause derrière elle. Sur un iPhone 15 Pro ou plus récent.</span><span lang="en">The console in your pocket, by touch or with a controller, and the game paused behind it. On an iPhone 15 Pro or newer.</span></p></div></li>
                     <li class="perk"><span class="tag-icon"><svg aria-hidden="true"><use href="#i-ipad"/></svg></span><div><h3>iPad</h3><p><span lang="fr">En paysage, la console et la fiche du jeu côte à côte. Un jeu fait pour se jouer de côté reste de côté. Sur un iPad à puce M1 ou plus récente.</span><span lang="en">In landscape, the console and the game’s sheet side by side. A game made to be played sideways stays sideways. On an iPad with an M1 chip or newer.</span></p></div></li>
@@ -1927,8 +2044,8 @@
     // way, what it keeps on the Mac, the iPhone it serves and this Mac's
     // tools. Sizes and times are examples.
     var BUILDS = [
-        { id: "mk8d", state: "due", changes: 2 },
-        { id: "silksong", state: "due", changes: 1 },
+        { id: "mk8d", state: "due", changes: 2, why: ["nxnative a changé son profil (2 commits)", "nxnative changed its profile (2 commits)"] },
+        { id: "silksong", state: "due", changes: 1, why: ["Un correctif de nxnative le nomme", "A fix of nxnative names it"] },
         { id: "celeste", state: "up" },
         { id: "stardew", state: "up" },
         { id: "smash", state: "up" }
@@ -1999,7 +2116,7 @@
             mbtn("sparkle", t("Tout reconstruire", "Rebuild all"), "data-rebuild") + "</div>" +
             '<div class="mgrid">' + BUILDS.map(function (b) {
                 var g = BY_ID[b.id], isDue = b.state === "due";
-                return '<div class="mgame" data-state="' + b.state + '">' + mcover(g) +
+                return '<div class="mgame" data-state="' + b.state + '" data-id="' + b.id + '">' + mcover(g) +
                     (isDue ? '<i class="mgame__badge" aria-hidden="true">' + ic("sparkle") + "</i>" : "") +
                     '<p class="mgame__name">' + g.name + '</p><p class="mgame__state" style="--c:var(--' + (isDue ? "orange" : "green") + ')">' +
                     (isDue ? changes(b.changes) : t("À jour", "Up to date")) + "</p></div>";
@@ -2059,19 +2176,56 @@
             }).join("") + "</div></section>";
     }
 
-    function macWindow() {
-        return '<div class="mw" data-page="library">' +
-            '<div class="mw__side"><div class="mw__top"><span class="mw__lights" aria-hidden="true"><i></i><i></i><i></i></span><span class="mw__toggle" aria-hidden="true">' + ic("sidebar") + "</span></div>" +
+    function macSide() {
+        return '<div class="mw__side"><div class="mw__top"><span class="mw__lights" aria-hidden="true"><i></i><i></i><i></i></span><span class="mw__toggle" aria-hidden="true">' + ic("sidebar") + "</span></div>" +
             '<nav class="mw__nav" data-label-fr="Pages de Cartouche Builder" data-label-en="Cartouche Builder’s pages" aria-label="Cartouche Builder’s pages">' + MAC_PAGES.map(function (p, i) {
                 return '<button type="button" class="mw__item" data-go="' + p.page + '"' + (i === 0 ? ' aria-current="page"' : "") +
                     ' data-label-fr="' + p.label[0] + '" data-label-en="' + p.label[1] + '" aria-label="' + p.label[1] + '">' + ic(p.icon) + "<span>" + tt(p.label) + "</span>" +
                     (p.badge === "%" ? "<b data-pct></b>" : p.badge ? "<b>" + p.badge + "</b>" : "") + "</button>";
             }).join("") + "</nav>" +
-            '<div class="mw__foot"><p>' + ic("box") + "nxnative 6c3aeb3" + ic("refresh") + "</p><small>" + t("Vérifié il y a 1 heure", "Checked 1 hour ago") + "</small></div></div>" +
-            '<div class="mw__main"><div class="mw__bar"><span class="mw__title">Cartouche Builder</span><span class="mw__tools">' +
+            '<div class="mw__foot"><p>' + ic("box") + "nxnative 6c3aeb3" + ic("refresh") + "</p><small>" + t("Vérifié il y a 1 heure", "Checked 1 hour ago") + "</small></div></div>";
+    }
+    function macBar() {
+        return '<div class="mw__bar"><span class="mw__title">Cartouche Builder</span><span class="mw__tools">' +
             '<button type="button" class="mw__round" data-rebuild data-label-fr="Reconstruire ce qui est dû" data-label-en="Rebuild what is due" aria-label="Rebuild what is due">' + ic("sparkle") + "</button>" +
-            '<span class="mw__search">' + ic("search") + t("Chercher un jeu", "Search a game") + "</span></span></div>" +
+            '<span class="mw__search">' + ic("search") + t("Chercher un jeu", "Search a game") + "</span></span></div>";
+    }
+    function macWindow() {
+        return '<div class="mw" data-page="library">' + macSide() + '<div class="mw__main">' + macBar() +
             '<div class="mw__page">' + macLibrary() + macActivity() + macStorage() + macIphone() + macSetup() + "</div></div></div>";
+    }
+
+    // A game's sheet beside the library (GameDetailView): how it is, Rebuild
+    // and Follow, Play on this Mac and its saves, what it is built for, and
+    // why it is due. Its saves came from the iPhone, in the app's words.
+    function msheet(g) {
+        var b = BUILDS.filter(function (x) { return x.id === g.id; })[0] || { state: "up" };
+        var due = b.state === "due";
+        function part(title, inner) { return '<div><p class="mlabel">' + title + '</p><div class="mcard">' + inner + "</div></div>"; }
+        function platform(icon, name, detail) {
+            return '<div class="msheet__plat">' + ic(icon) + "<p><b>" + name + "</b><small>" + detail + '</small></p><i class="mswitch is-on"></i></div>';
+        }
+        return '<div class="msheet__head">' + mcover(g) + '<div><p class="msheet__name">' + g.name + '</p><p class="msheet__id">' + g.titleId + "</p>" +
+            '<p class="msheet__look" style="--c:var(--' + (due ? "orange" : "green") + ')">' + ic(due ? "sparkle" : "check") + "<span>" + (due ? changes(b.changes) : t("À jour", "Up to date")) + "</span></p></div>" +
+            '<span class="msheet__close">' + ic("xmark") + "</span></div>" +
+            '<div class="msheet__acts">' + mbtn(due ? "sparkle" : "refresh", due ? t("Reconstruire", "Rebuild") : t("Construire à nouveau", "Build again")) +
+            '<span class="msheet__follow">' + t("Suivre", "Follow") + '<i class="mswitch is-on"></i></span></div>' +
+            '<div class="mcard msheet__play"><span class="mbtn mbtn--go">' + ic("play") + t("Jouer sur ce Mac", "Play on this Mac") + "</span>" +
+            mbtn("sliders", t("Réglages du jeu", "Game settings")) +
+            '<p class="msheet__note">' + ic("refresh") + "<span>" + t("Les sauvegardes les plus récentes, celles de l’iPhone, sont arrivées il y a 26 minutes.", "The newest saves, the iPhone’s, came 26 minutes ago.") + "</span></p></div>" +
+            part(t("Construit pour", "Built for"),
+                platform("iphone", "iPhone", t("Son IPA, dans le dossier des jeux, pour Cartouche.", "Its IPA, in the games folder, for Cartouche.")) +
+                platform("laptop", t("Ce Mac", "This Mac"), t("Son app, pour y jouer sur ce Mac.", "Its app, to play it on this Mac."))) +
+            (b.why ? part(t("Pourquoi", "Why"), '<p class="msheet__why">' + tt(b.why) + "</p>") : "");
+    }
+    // The MacBook's screen: the menu bar, and on the desktop Cartouche
+    // Builder's window with the library and the sheet beside it.
+    function laptop(g) {
+        return '<div class="osdesk"><div class="osbar"><b>Cartouche Builder</b>' +
+            [["Fichier", "File"], ["Édition", "Edit"], ["Présentation", "View"], ["Fenêtre", "Window"], ["Aide", "Help"]].map(function (m) { return "<span>" + tt(m) + "</span>"; }).join("") +
+            '<span class="osbar__right">' + ic("wifi", "ic--wifi") + ic("battery", "ic--battery") + "<span>" + t("ven. 13 nov. 09:41", "Fri Nov 13 9:41 AM") + "</span></span></div>" +
+            '<div class="lwin"><div class="mw" data-page="library">' + macSide() + '<div class="mw__main">' + macBar() +
+            '<div class="mw__split"><div class="mw__page">' + macLibrary() + '</div><div class="msheet" data-msheet>' + msheet(g) + "</div></div></div></div></div></div>";
     }
 
     // Moves the focus of a home to the game at index, as the console does.
@@ -2147,7 +2301,18 @@
         ipadIndex = i;
         setFocus(ipadScreen, OWNED, ipadIndex);
         $("[data-ipad-sheet]", ipadScreen).innerHTML = sheet(OWNED[ipadIndex], { split: true });
+        laptopFocus();
     }
+    // The MacBook behind it: Cartouche Builder shows the sheet of the same
+    // game, picked in its library. It is only shown: its screen is inert.
+    var laptopScreen = $("[data-laptop]");
+    laptopScreen.innerHTML = laptop(OWNED[ipadIndex]);
+    function laptopFocus() {
+        var g = OWNED[ipadIndex];
+        $("[data-msheet]", laptopScreen).innerHTML = msheet(g);
+        $$(".mgame", laptopScreen).forEach(function (el) { el.classList.toggle("is-picked", el.getAttribute("data-id") === g.id); });
+    }
+    laptopFocus();
     function ipadTile(e) {
         var b = e.target.closest("button.tile");
         if (b) ipadFocus(indexOfTile(b));
