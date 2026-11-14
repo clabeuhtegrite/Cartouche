@@ -23,6 +23,14 @@
 //  4-byte big-endian length and their bytes; a message is a 4-byte header
 //  length, a JSON header and its body, the bytes of a file read or written.
 //
+//  Besides the two folders, a Mac whose info says so (hasBuilds) shows its
+//  builds, building, waiting and done, and builds a game asked for
+//  (CartoucheBridgeBuilds.swift); one whose info says hasBuildsControl also
+//  builds what is due, stops a game's build or takes it out of the queue,
+//  stops them all, follows a game or not, and builds every night or not. A
+//  Mac a little older does not know these requests, and ends the session on
+//  one: Cartouche asks its info first.
+//
 //  This file is shared: Cartouche compiles it with the launcher, Cartouche
 //  Builder through the CartoucheCore package (launcher/Package.swift). It
 //  needs only Foundation, CryptoKit and Network.
@@ -286,6 +294,22 @@ public actor CartoucheBridgeGate {
 public struct CartoucheBridgeRequest: Codable, Equatable {
     public enum Operation: String, Codable {
         case info, list, stat, read, create, write, finish, cancel, makeFolder, delete, free, canWrite
+        /// Cartouche Builder's builds, and a build asked for: only of a Mac
+        /// whose info says it has them (hasBuilds).
+        case builds, build
+        /// What the Mac's window does besides: build what is due, stop a
+        /// game's build or take it out of the queue, stop every game of the
+        /// batch, follow a game or not, build every night or not. Only of a
+        /// Mac whose info says it takes them (hasBuildsControl).
+        case buildDue, stop, stopAll, follow, nightly
+
+        /// Whether the Mac's app answers it, with its builds.
+        public var isBuilds: Bool {
+            switch self {
+            case .builds, .build, .buildDue, .stop, .stopAll, .follow, .nightly: return true
+            default: return false
+            }
+        }
     }
 
     public var op: Operation
@@ -294,14 +318,24 @@ public struct CartoucheBridgeRequest: Codable, Equatable {
     public var count: Int?
     public var size: UInt64?
     public var upload: String?
+    /// build, stop, follow: the title ID of the game.
+    public var game: String?
+    /// follow: whether the Mac follows the game from now on.
+    public var followed: Bool?
+    /// nightly: the Mac's nightly build from now on.
+    public var nightly: CartoucheBridgeBuilds.Nightly?
 
-    public init(_ op: Operation, path: String? = nil, offset: UInt64? = nil, count: Int? = nil, size: UInt64? = nil, upload: String? = nil) {
+    public init(_ op: Operation, path: String? = nil, offset: UInt64? = nil, count: Int? = nil, size: UInt64? = nil, upload: String? = nil,
+                game: String? = nil, followed: Bool? = nil, nightly: CartoucheBridgeBuilds.Nightly? = nil) {
         self.op = op
         self.path = path
         self.offset = offset
         self.count = count
         self.size = size
         self.upload = upload
+        self.game = game
+        self.followed = followed
+        self.nightly = nightly
     }
 }
 
@@ -335,6 +369,13 @@ public struct CartoucheBridgeResponse: Codable, Equatable {
     public var upload: String?
     public var name: String?
     public var readOnly: Bool?
+    /// info: whether the Mac shows its builds and takes a build asked for;
+    /// and whether it takes the rest of what its window does to them
+    /// (buildDue, stop, stopAll, follow, nightly).
+    public var hasBuilds: Bool?
+    public var hasBuildsControl: Bool?
+    /// builds, build and the rest: the Mac's builds, after what was asked.
+    public var builds: CartoucheBridgeBuilds?
 
     public init() {}
 
@@ -795,6 +836,58 @@ public final class CartoucheBridgeClient {
 
     public func canWrite(_ path: String) async throws -> Bool {
         try await call(CartoucheBridgeRequest(.canWrite, path: path)).0.writable ?? false
+    }
+
+    /// Cartouche Builder's builds; ask only a Mac whose info says it has
+    /// them (hasBuilds).
+    public func builds() async throws -> CartoucheBridgeBuilds {
+        try await builds(CartoucheBridgeRequest(.builds))
+    }
+
+    /// Asks the Mac to build the game TITLE_ID, as the Build button of its
+    /// sheet there does: at once, or after the games of the batch running.
+    /// The Mac's builds once it is asked.
+    public func build(_ titleId: String) async throws -> CartoucheBridgeBuilds {
+        try await builds(CartoucheBridgeRequest(.build, game: titleId))
+    }
+
+    // What follows, only of a Mac whose info says hasBuildsControl; each
+    // answers the Mac's builds once it is asked.
+
+    /// Asks the Mac to build what is due, as Build what is due in its
+    /// window does: at once, or after the games of the batch running.
+    public func buildDue() async throws -> CartoucheBridgeBuilds {
+        try await builds(CartoucheBridgeRequest(.buildDue))
+    }
+
+    /// Asks the Mac to stop the build of the game TITLE_ID, the batch going
+    /// on with the next game, or to take it out of the queue.
+    public func stop(_ titleId: String) async throws -> CartoucheBridgeBuilds {
+        try await builds(CartoucheBridgeRequest(.stop, game: titleId))
+    }
+
+    /// Asks the Mac to stop the batch: the game building, and every game
+    /// waiting.
+    public func stopAll() async throws -> CartoucheBridgeBuilds {
+        try await builds(CartoucheBridgeRequest(.stopAll))
+    }
+
+    /// Asks the Mac to follow the game TITLE_ID, or not: to build it when
+    /// nxnative improves it. The builds once its library says so.
+    public func follow(_ titleId: String, _ followed: Bool) async throws -> CartoucheBridgeBuilds {
+        try await builds(CartoucheBridgeRequest(.follow, game: titleId, followed: followed))
+    }
+
+    /// Asks the Mac to build what is due every night at its time, or not.
+    public func setNightly(_ nightly: CartoucheBridgeBuilds.Nightly) async throws -> CartoucheBridgeBuilds {
+        try await builds(CartoucheBridgeRequest(.nightly, nightly: nightly))
+    }
+
+    private func builds(_ request: CartoucheBridgeRequest) async throws -> CartoucheBridgeBuilds {
+        guard let builds = try await call(request).0.builds else {
+            throw CartoucheBridgeError(.protocolError, "no builds")
+        }
+        return builds
     }
 
     public func close() {

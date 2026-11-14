@@ -107,6 +107,26 @@ enum Words {
     static let putBack = "Put back a copy"                  // saves.putBack
     static let putBackCopy = "Put back the copy of "        // saves.putBack.action
     static let putBackDone = "The copy of "                 // saves.putBack.done
+    static let macUpToDate = "Up to date on the Mac"        // mac.build.upToDate.built
+    static let macBuilding = "Building on the Mac"          // mac.build.building
+    static let macWaitingAfterOne = "Waiting its turn on the Mac, after 1 game" // mac.build.waiting.one
+    static let addToMacQueue = "Add to the Mac’s queue"     // mac.build.action.queue
+    static let macBuilds = "All the Mac’s builds"           // mac.builds.all
+    static let macImproved = "nxnative improved it"         // mac.build.improved
+    static let stopItsBuild = "Stop its build"              // mac.build.stop
+    static let removeFromQueue = "Remove from the queue"    // mac.build.remove
+    static let macBuildsOn = "Builds on %@"                 // mac.builds.title
+    static let macBuildsPage = "Builds"                     // mac.builds.page
+    static let removeGameFromQueue = "Remove %@ from the queue" // mac.builds.remove
+    static let buildWhatIsDue = "Build what is due"         // mac.builds.due
+    static let addWhatIsDue = "Add what is due"             // mac.builds.due.add
+    static let stopAll = "Stop all"                         // mac.builds.stopAll
+    static let macGameActions = "What to do with %@"        // mac.builds.game.actions
+    static let follow = "Follow"                            // mac.build.follow
+    static let stopFollowing = "Stop following"             // mac.build.unfollow
+    static let macNotFollowed = "Not followed"              // mac.game.notFollowed
+    static let nightly = "Build what is due every night"    // mac.builds.nightly
+    static let nightlyAt = "Every night at "                // mac.builds.nightly.footer
     static let siriAndHomeScreen = "Siri and Home Screen"   // shortcuts.title
     static let sayToSiri = "Say to Siri"                    // shortcuts.siri
     static let siriPhrase = "“Play %@ in Cartouche”"        // shortcuts.phrase
@@ -160,8 +180,11 @@ struct Launch {
     /// "update", a new version of Cartouche on offer; "paused", the first
     /// game paused behind the console; "installing" or "install-failed",
     /// the game of SHEET; "offline", the NAS out of reach; "mac", the
-    /// player's Mac paired; "mac-nearby", "mac-code" or "mac-refused", what
-    /// Add your Mac finds; "saves", the first game's saves and a folder in
+    /// player's Mac paired; "mac-builds", that Mac building the first game,
+    /// the second waiting its turn and the third up to date there, with
+    /// three games of its own besides (GalleryMac.builds);
+    /// "mac-nearby", "mac-code" or "mac-refused", what Add your Mac finds;
+    /// "saves", the first game's saves and a folder in
     /// Files as the saves folder; "drive-signed-out", the player's Google
     /// Drive, whose sign-in Google ended, with two games' saves waiting.
     var work: String?

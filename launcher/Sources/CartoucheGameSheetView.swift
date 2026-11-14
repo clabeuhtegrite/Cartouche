@@ -10,7 +10,11 @@
 //  description, the player's or IGDB's (CartoucheGameSummaryView), the time
 //  the player played it and the space it takes (CartoucheGameStats), what
 //  stops the game on this iPhone, if anything (what it needs folds into
-//  one line when this iPhone has it all), the copies of its saves, Edit
+//  one line when this iPhone has it all), its build on the player's Mac,
+//  with the button that asks the Mac for one, the one that stops it, and
+//  the way to all the Mac's builds, once Cartouche reaches the Mac and its
+//  Cartouche Builder knows the game (CartoucheMacBuildsView),
+//  the copies of its saves, Edit
 //  the game's info for the player's own game (CartoucheGameInfoView), with
 //  what IGDB has of a game Cartouche does not know, after which the sheet
 //  goes back to its top, where the name and cover show; for a game installed
@@ -46,6 +50,8 @@ struct CartoucheGameSheetView: View {
     @ObservedObject private var actions = CartoucheGameActions.shared
     @ObservedObject private var keeping = CartoucheGameKeeping.shared
     @ObservedObject private var reach = CartoucheStorageReach.shared
+    /// The player's Mac, asked its builds while the sheet shows.
+    @StateObject private var macBuilds = CartoucheMacBuildsWatch()
 
     // Written out: the private state above would make the synthesized
     // initializer private.
@@ -99,6 +105,14 @@ struct CartoucheGameSheetView: View {
     /// says of the game changes.
     private static let top = "top"
 
+    /// The game's title IDs, as the player's Mac may know it: its regions',
+    /// and those its copies say.
+    private var macTitleIds: [String] {
+        var seen = Set<String>()
+        let ids = (entry.game?.titleIds ?? []) + [entry.titleId, entry.ownTitleId, entry.stored?.titleId].compactMap { $0 }
+        return ids.filter { seen.insert($0.uppercased()).inserted }
+    }
+
     var body: some View {
         ScrollViewReader { reader in
             List {
@@ -146,6 +160,8 @@ struct CartoucheGameSheetView: View {
                     }
                 }
 
+                CartoucheMacBuildsSection(titleIds: macTitleIds, isOwned: entry.isOwned, watch: macBuilds)
+
                 if let app = entry.app, let saves = actions.saves(of: app) {
                     CartoucheSavesSection(target: saves, isRunning: actions.isRunning(app))
                 }
@@ -176,6 +192,22 @@ struct CartoucheGameSheetView: View {
             }
             .scrollContentBackground(.hidden)
             .background(CartoucheStage(key: entry.tileKey, art: entry.backdrop))
+            .onAppear { macBuilds.start() }
+            .onDisappear { macBuilds.stop() }
+            #if CARTOUCHE_GALLERY
+            // The gallery's sheet on the game's build on the Mac (screen:
+            // sheet-mac): the game's build in the middle of the screen.
+            // Twice: the list had only guessed the heights of the rows on
+            // the way, which the first scroll lays out, and the second lands
+            // where asked.
+            .task {
+                guard CartoucheMacBuildsWatch.galleryScrolls else { return }
+                for _ in 0..<2 {
+                    try? await Task.sleep(nanoseconds: 500_000_000)
+                    reader.scrollTo(CartoucheMacBuildsSection.anchor, anchor: .center)
+                }
+            }
+            #endif
             // What the player gave in Edit the game's info shows at once:
             // the sheet goes back to the game's name and cover.
             .onChange(of: entry.player) { _, _ in

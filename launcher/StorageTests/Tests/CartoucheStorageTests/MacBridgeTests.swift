@@ -237,6 +237,9 @@ final class FakeMac: @unchecked Sendable {
             response.free = 1 << 40
         case .canWrite:
             response.writable = !path.isEmpty && entries[path] == .folder
+        case .builds, .build, .buildDue, .stop, .stopAll, .follow, .nightly:
+            // A Mac without builds to show, whose info does not say it has some.
+            return (.failure(.notFound, "builds"), Data())
         }
         return (response, Data())
     }

@@ -31,6 +31,7 @@ on:
       - "builder/**"
       - "launcher/Package.swift"
       - "launcher/Sources/CartoucheBridge.swift"
+      - "launcher/Sources/CartoucheBridgeBuilds.swift"
       - "telemetry/test/builder-reports.json"
       - ".github/workflows/builder.yml"
   workflow_dispatch:
@@ -80,7 +81,8 @@ jobs:
         run: |
           # HEAD^1 is main, HEAD the pull request merged into it.
           CHANGES="$(git diff --binary HEAD^1 HEAD -- builder launcher/Package.swift launcher/Sources/CartoucheBridge.swift \
-            telemetry/test/builder-reports.json .github/workflows/builder.yml | sha256sum | cut -c1-64)"
+            launcher/Sources/CartoucheBridgeBuilds.swift telemetry/test/builder-reports.json .github/workflows/builder.yml \
+            | sha256sum | cut -c1-64)"
           echo "key=builder-xcode-$XCODE_VERSION-$CHANGES" >> "$GITHUB_OUTPUT"
       - name: Was it built?
         id: memo

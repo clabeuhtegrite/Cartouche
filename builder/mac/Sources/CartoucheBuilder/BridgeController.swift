@@ -5,6 +5,8 @@
 //  The bridge as the window shows it: on or off, the folders it serves,
 //  the iPhones paired, and the request of a new one, asked in a small
 //  window of its own in front of everything, with the code to compare.
+//  The builds a paired iPhone sees, and the build it asks for, are the
+//  model's (IPhoneBuilds.swift).
 //
 
 import AppKit
@@ -41,7 +43,8 @@ final class BridgeController: ObservableObject, BridgeServerDelegate {
     @Published private(set) var connected: Set<String> = []
     @Published private(set) var request: PairingRequest?
     @Published private(set) var games: URL?
-    private weak var model: AppModel?
+    /// The window's model, whose builds a paired iPhone sees.
+    weak var model: AppModel?
     private var panel: NSPanel?
     /// The Mac's name and the saves folder the gallery shows (preview).
     private var sampleMac: (name: String, saves: URL)?
@@ -85,6 +88,7 @@ final class BridgeController: ObservableObject, BridgeServerDelegate {
 
     func attach(model: AppModel) {
         self.model = model
+        server?.builds = self
         if enabled { start() }
     }
 
