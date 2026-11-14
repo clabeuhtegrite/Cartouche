@@ -57,7 +57,7 @@ Step by step, from nothing to your first game: [docs/getting-started.md](docs/ge
 
 **What you need:** iOS 26 or later on an iPhone 15 Pro or newer, or an iPad with an M1 or newer, as nxnative; the bigger games need a 12 GB iPhone. A Mac or a Windows PC, once, to install Cartouche, and a Mac with Apple silicon to build your games.
 
-**Your own signing certificate:** with a `.p12` and its provisioning profile, choose **I have a signing certificate (.p12)** in the Installer, under the Apple Account step. It signs Cartouche with them, with no Apple account, LocalDevVPN or weekly renewal; games then start in Cartouche's place, and most of them need Increased Memory Limit in the profile ([docs/imported-signing.md](docs/imported-signing.md)).
+**Your own signing certificate:** with a `.p12` and its provisioning profile, choose your certificate instead of the Apple Account in the Installer's second step. It signs Cartouche with them, with no Apple account, LocalDevVPN or weekly renewal; games then start in Cartouche's place, and most of them need Increased Memory Limit in the profile ([docs/imported-signing.md](docs/imported-signing.md)).
 
 Cartouche is young and changes often: it offers each new version itself. Something wrong? **Copy the report** under the error, or **System › Report a problem**, and [open an issue](https://github.com/clabeuhtegrite/Cartouche/issues/new/choose).
 
@@ -90,7 +90,7 @@ Once, to install Cartouche, from a Mac or a Windows PC: then it renews and updat
 <details>
 <summary><b>Can I sign Cartouche with another signing app on the iPhone?</b></summary>
 
-Not yet: Cartouche signs your games with the certificate the Installer gives it, so a copy signed by another app starts no game. With your own certificate, use the Installer's **I have a signing certificate (.p12)**. Installing Cartouche with no computer, signed on the iPhone with your own certificate, comes with the version of November 15, still to be tried with a real certificate ([roadmap](docs/roadmap.md#next)).
+Not yet: Cartouche signs your games with the certificate the Installer gives it, so a copy signed by another app starts no game. With your own certificate, choose it instead of the Apple Account in the Installer's second step. Installing Cartouche with no computer, signed on the iPhone with your own certificate, comes with the version of November 15, still to be tried with a real certificate ([roadmap](docs/roadmap.md#next)).
 </details>
 
 <details>

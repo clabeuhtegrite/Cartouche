@@ -4,7 +4,7 @@ Apple ID signing remains the default. If you already have your signing certifica
 
 ## Install from a computer
 
-In Cartouche Installer, select your iPhone and choose **I have a signing certificate (.p12)** under the Apple Account step. Select your signing certificate (.p12) and its provisioning profile (`.mobileprovision`). Enter the P12 password supplied with your certificate; leave it empty only if the P12 has no password. Install the latest Cartouche or choose a Cartouche IPA from your computer.
+In Cartouche Installer, select your iPhone, then choose **Certificate (.p12)** at the top of the Apple Account step (**I have a signing certificate (.p12)**, under it, in earlier Installers). Select your signing certificate (.p12) and its provisioning profile (`.mobileprovision`). Enter the P12 password supplied with your certificate; leave it empty only if the P12 has no password. Install the latest Cartouche or choose a Cartouche IPA from your computer.
 
 Signing runs locally. The installer checks the private key, certificate validity, profile expiry, certificate/profile match, device eligibility, application identifier and game keychain permissions. It never signs in to Apple, changes developer portal permissions or revokes account certificates on this path.
 

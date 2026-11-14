@@ -1,5 +1,5 @@
 {
-  "comment": "Each scenario is one screenshot: a screen of the launcher, the player's games (title IDs, or TITLEID:Name for a game nxnative.json does not have, which IGDB has by its name when the catalogue has a game of that name), whether the setup is done and whether a controller is connected; the game of a sheet or of its settings page, with the page's category (one of nxnative's sections, or cartouche.saves for the cloud saves), or the game being installed with work: installing, or its install that failed, with the report to copy, with work: install-failed, or the sheet's game installed but not signed whole, with Sign again and play, with work: not-signed-install, the same as Play signed it again, with work: not-signed-start, its process ended as iOS refused its signature, with work: signature-refused, or on another error, with work: stopped-on-error, or a new version of Cartouche on offer with work: update, a newer build of one of the player's games in their games folder with work: newer-build (the sheet's game, or the first of the player's); the Apple ID sign-in, with Apple's request for a verification code with work: code, or after Apple refused it for too many requests, with the wait under way, with work: too-many, or stopped at the check of this iPhone, before anything went to Apple, minimuxer not reaching this iPhone though LocalDevVPN is connected: a Lockdown pairing file from iOS 26.4, with work: device-no-ipsec, a pairing file this iPhone refused, with work: device-handshake, or this iPhone not answering on its port, with work: device-port-closed; a certificate iOS no longer accepts, with work: certificate; the setup after a sign-in that stopped before the certificate, with why it stopped and its report to copy, with work: sign-in-unfinished; the sheet's game, or the first of the player's, paused behind the console, with work: paused; the player's NAS out of reach, away from home, with a newer build of that game in its games folder and two games' saves waiting for it, with work: offline; Add your Mac (screen: storage-mac), the form that pairs this iPhone with a Mac nearby: two Macs whose Cartouche Builder shares with Cartouche, with work: mac-nearby, pairing with the first, with the six digits on both screens, with work: mac-code, or none, iOS refusing Cartouche the local network, with work: mac-refused; the Storage page with the player's Mac, paired, as the games folder and the saves folder, with work: mac, and that Mac out of reach, away from home, with two games' saves waiting for it, with work: mac-offline; the first game's guide after No thanks to its Mac step, with work: build-skipped; what the player says of the sheet's game (screen: gameinfo), and that game, or the first of the player's, with a cover of the player's own, with work: own-cover; Add Google Drive (screen: storage-drive), with the player's own client, and the steps that make it (screen: storage-drive-guide); the player's Google Drive as the games folder and the saves folder, whose sign-in Google ended, as after 7 days for a project in testing, with two games' saves waiting for it, with work: drive-signed-out. The System page down to its signature (category: signature), with Cartouche renewing itself in its last 3 days, as it came to the front, with work: renewing, or that renewal failed, the network gone, with its report to copy, with work: renewal-failed. Cartouche signed with the player's own certificate, with signing: iphone, by a signing app on the iPhone, from the IPA for the player's own certificate (the import of that certificate on screen: signing), the signing app having left Increased Memory Limit out with work: iml-left-out, or installer, by the Cartouche Installer. The TV (screen: tv) while the sheet's game runs behind the console: its card, where the game leaves its own scene on the TV empty, and paused, with work: paused, at 960 x 540 points, a 1080p TV at 2x. A scenario is drawn as the iPhone of catalog/devices.json shows it (iPhone19,4), or as the model it names (iPad15,3, the 11-inch iPad Air), whose words then call it the iPad. A scenario with a width and a height is drawn at that size in points, with the safe area of that iPhone or iPad, on an iPad: the iPhone 17 Pro, and the iPhone Duo folded (466 x 678) and unfolded (626 x 890), from Apple's pixel sizes at 3x; the iPad mini (744 x 1133) and the 11-inch iPad Air (820 x 1180) upright, and a third of that iPad Air on its side, a window of Cartouche beside two others (375 x 820). A scenario with a device takes the whole screen of that simulator, with its own safe area, size classes and system bars, as on the iPhone Duo and the 13-inch iPad Pro; a landscape one turns the gallery sideways, as a game does, while the simulator stays upright. An alert, such as a game's notice, stands in the middle of the simulator's whole screen, which a scenario drawn at a size on the iPad cuts off: a scenario that shows one takes a device, the iPhone Duo, folded.",
+  "comment": "Each scenario is one screenshot: a screen of the launcher, the player's games (title IDs, or TITLEID:Name for a game nxnative.json does not have, which IGDB has by its name when the catalogue has a game of that name), whether the setup is done and whether a controller is connected; the game of a sheet or of its settings page, with the page's category (one of nxnative's sections, or cartouche.saves for the cloud saves), or the game being installed with work: installing, or its install that failed, with the report to copy, with work: install-failed, or the sheet's game installed but not signed whole, with Sign again and play, with work: not-signed-install, the same as Play signed it again, with work: not-signed-start, its process ended as iOS refused its signature, with work: signature-refused, or on another error, with work: stopped-on-error, or a new version of Cartouche on offer with work: update, a newer build of one of the player's games in their games folder with work: newer-build (the sheet's game, or the first of the player's); the Apple ID sign-in, with Apple's request for a verification code with work: code, or after Apple refused it for too many requests, with the wait under way, with work: too-many, or stopped at the check of this iPhone, before anything went to Apple, minimuxer not reaching this iPhone though LocalDevVPN is connected: a Lockdown pairing file from iOS 26.4, with work: device-no-ipsec, a pairing file this iPhone refused, with work: device-handshake, or this iPhone not answering on its port, with work: device-port-closed; a certificate iOS no longer accepts, with work: certificate; the setup after a sign-in that stopped before the certificate, with why it stopped and its report to copy, with work: sign-in-unfinished; the sheet's game, or the first of the player's, paused behind the console, with work: paused; the player's NAS out of reach, away from home, with a newer build of that game in its games folder and two games' saves waiting for it, with work: offline; Add your Mac (screen: storage-mac), the form that pairs this iPhone with a Mac nearby: two Macs whose Cartouche Builder shares with Cartouche, with work: mac-nearby, pairing with the first, with the six digits on both screens, with work: mac-code, or none, iOS refusing Cartouche the local network, with work: mac-refused; the Storage page with the player's Mac, paired, as the games folder and the saves folder, with work: mac, and that Mac out of reach, away from home, with two games' saves waiting for it, with work: mac-offline; the first game's guide after No thanks to its Mac step, with work: build-skipped; what the player says of the sheet's game (screen: gameinfo), and that game, or the first of the player's, with a cover of the player's own, with work: own-cover; Add Google Drive (screen: storage-drive), with the player's own client, and the steps that make it (screen: storage-drive-guide); the player's Google Drive as the games folder and the saves folder, whose sign-in Google ended, as after 7 days for a project in testing, with two games' saves waiting for it, with work: drive-signed-out. The sheet of a game Cartouche has no sheet for, as tall as the iPad that draws it lets it, 1366 points (iphone-sheet-unknown-game-whole): what is below the fold of the iPhone's, Edit the game's info, Siri and Home Screen, and how the game starts and leaves. Siri and Home Screen of the sheet's game (screen: shortcuts): what to say to Siri, with the game's shorter name, and the steps that give it an icon of its own on the Home Screen. The System page down to its signature (category: signature), with Cartouche renewing itself in its last 3 days, as it came to the front, with work: renewing, or that renewal failed, the network gone, with its report to copy, with work: renewal-failed. Cartouche signed with the player's own certificate, with signing: iphone, by a signing app on the iPhone, from the IPA for the player's own certificate (the import of that certificate on screen: signing), the signing app having left Increased Memory Limit out with work: iml-left-out, or installer, by the Cartouche Installer. The TV (screen: tv) while the sheet's game runs behind the console: its card, where the game leaves its own scene on the TV empty, and paused, with work: paused, at 960 x 540 points, a 1080p TV at 2x. A scenario is drawn as the iPhone of catalog/devices.json shows it (iPhone19,4), or as the model it names (iPad15,3, the 11-inch iPad Air), whose words then call it the iPad. A scenario with a width and a height is drawn at that size in points, with the safe area of that iPhone or iPad, on an iPad: the iPhone 17 Pro, and the iPhone Duo folded (466 x 678) and unfolded (626 x 890), from Apple's pixel sizes at 3x; the iPad mini (744 x 1133) and the 11-inch iPad Air (820 x 1180) upright, and a third of that iPad Air on its side, a window of Cartouche beside two others (375 x 820). A scenario with a device takes the whole screen of that simulator, with its own safe area, size classes and system bars, as on the iPhone Duo and the 13-inch iPad Pro; a landscape one turns the gallery sideways, as a game does, while the simulator stays upright. An alert, such as a game's notice, stands in the middle of the simulator's whole screen, which a scenario drawn at a size on the iPad cuts off: a scenario that shows one takes a device, the iPhone Duo, folded.",
   "language": "fr",
   "scenarios": [
     {
@@ -216,6 +216,26 @@
       ]
     },
     {
+      "name": "iphone-sheet-unknown-game-whole",
+      "screen": "sheet",
+      "sheet": "0100F00D0BAD0000",
+      "owned": [
+        "0100C0FFEE0A0000:Celeste",
+        "0100F00D0BAD0000:Pixel Quest",
+        "0400C3F00006E000"
+      ],
+      "setup": true,
+      "controller": false,
+      "width": 402,
+      "height": 1366,
+      "insets": [
+        62,
+        0,
+        34,
+        0
+      ]
+    },
+    {
       "name": "iphone-game-info",
       "screen": "gameinfo",
       "sheet": "0100C0FFEE0A0000",
@@ -282,6 +302,26 @@
       "screen": "settings",
       "sheet": "0400C3F00006E000",
       "category": "cartouche.saves",
+      "owned": [
+        "0400C3F00006E000",
+        "040074A01BF12000",
+        "01006BB00C6F0000"
+      ],
+      "setup": true,
+      "controller": false,
+      "width": 402,
+      "height": 874,
+      "insets": [
+        62,
+        0,
+        34,
+        0
+      ]
+    },
+    {
+      "name": "iphone-game-shortcuts",
+      "screen": "shortcuts",
+      "sheet": "0400C3F00006E000",
       "owned": [
         "0400C3F00006E000",
         "040074A01BF12000",
