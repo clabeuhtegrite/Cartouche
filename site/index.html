@@ -1118,13 +1118,16 @@
        the sheet of the game the iPad has in focus (GameDetailView), with
        Play on this Mac. In the lid and the base, every size is a number of
        points times --u, the base being 1188 points wide. From 700 px wide
-       the iPad stands in front of it; on a phone, below it. */
+       the iPad stands in front of it, and the iPhone in front of its base,
+       with the same game in focus; on a phone, both below it. */
     .duo { position: relative; width: 100%; max-width: 1120px; margin: clamp(40px, 5vw, 64px) auto 0; }
     .duo > .device--ipad { margin-top: 28px; }
+    .duo > .device--phone { max-width: 340px; margin-top: 24px; }
     @media (min-width: 700px) {
-        .duo { aspect-ratio: 1120 / 640; }
+        .duo { aspect-ratio: 1120 / 660; }
         .duo > .laptop { position: absolute; top: 0; right: 0; width: 72%; }
         .duo > .device--ipad { position: absolute; z-index: 1; left: 0; bottom: 0; width: 58%; margin: 0; }
+        .duo > .device--phone { position: absolute; z-index: 2; right: 2%; bottom: 3%; width: 31%; max-width: none; margin: 0; }
     }
     .laptop { position: relative; container-type: inline-size; }
     .laptop__in { --u: calc(100cqw / 1188); display: flex; flex-direction: column; align-items: center; }
@@ -1420,8 +1423,11 @@
                     <div class="device device--ipad" data-ipad tabindex="0" role="group" style="--w:1180;--h:820;--r:18;--b:24" data-label-fr="L’accueil de Cartouche sur un iPad Air, avec la fiche du jeu en focus" data-label-en="Cartouche’s home on an iPad Air, with the sheet of the game in focus" aria-label="Cartouche’s home on an iPad Air, with the sheet of the game in focus">
                         <div class="device__body"><div class="screen" data-screen="ipad"></div></div>
                     </div>
+                    <div class="device device--phone" role="group" style="--w:874;--h:402;--r:55;--b:13" data-label-fr="L’accueil de Cartouche en paysage sur un iPhone 17 Pro, avec le même jeu en focus" data-label-en="Cartouche’s home in landscape on an iPhone 17 Pro, with the same game in focus" aria-label="Cartouche’s home in landscape on an iPhone 17 Pro, with the same game in focus">
+                        <div class="device__body"><div class="screen" data-screen="duo-phone"></div></div>
+                    </div>
                 </div>
-                <p class="hint"><span lang="fr">Touchez une jaquette sur l’iPad<span class="hint__keys">, ou <kbd>←</kbd> <kbd>→</kbd> au clavier</span> : sa fiche s’ouvre, sur l’iPad comme dans Cartouche Builder sur le Mac.</span><span lang="en">Tap a cover on the iPad<span class="hint__keys">, or press <kbd>←</kbd> <kbd>→</kbd></span>: its sheet opens, on the iPad and in Cartouche Builder on the Mac.</span></p>
+                <p class="hint"><span lang="fr">Touchez une jaquette sur l’iPad ou l’iPhone<span class="hint__keys">, ou <kbd>←</kbd> <kbd>→</kbd> au clavier</span> : le même jeu passe sur les trois écrans, avec sa fiche sur l’iPad et dans Cartouche Builder sur le Mac.</span><span lang="en">Tap a cover on the iPad or the iPhone<span class="hint__keys">, or press <kbd>←</kbd> <kbd>→</kbd></span>: the same game comes up on all three screens, with its sheet on the iPad and in Cartouche Builder on the Mac.</span></p>
                 <ul class="perks perks--three">
                     <li class="perk"><span class="tag-icon"><svg aria-hidden="true"><use href="#i-iphone"/></svg></span><div><h3>iPhone</h3><p><span lang="fr">La console dans la poche, au tactile ou à la manette, et le jeu en pause derrière elle. Sur un iPhone 15 Pro ou plus récent.</span><span lang="en">The console in your pocket, by touch or with a controller, and the game paused behind it. On an iPhone 15 Pro or newer.</span></p></div></li>
                     <li class="perk"><span class="tag-icon"><svg aria-hidden="true"><use href="#i-ipad"/></svg></span><div><h3>iPad</h3><p><span lang="fr">En paysage, la console et la fiche du jeu côte à côte. Un jeu fait pour se jouer de côté reste de côté. Sur un iPad à puce M1 ou plus récente.</span><span lang="en">In landscape, the console and the game’s sheet side by side. A game made to be played sideways stays sideways. On an iPad with an M1 chip or newer.</span></p></div></li>
@@ -2289,7 +2295,8 @@
     pauseScreen.innerHTML = playScreen(BY_ID.mk8d);
 
     // The iPad: a tap, or the arrows, puts a game in focus, and the sheet
-    // beside the console shows it.
+    // beside the console shows it; the iPhone and the Mac follow, and a tap
+    // on the iPhone moves the three.
     var ipadDevice = $("[data-ipad]");
     var ipadScreen = $('[data-screen="ipad"]');
     var ipadIndex = OWNED.indexOf(BY_ID.silksong);
@@ -2301,9 +2308,14 @@
         ipadIndex = i;
         setFocus(ipadScreen, OWNED, ipadIndex);
         $("[data-ipad-sheet]", ipadScreen).innerHTML = sheet(OWNED[ipadIndex], { split: true });
+        setFocus(duoPhone, OWNED, ipadIndex);
         laptopFocus();
     }
-    // The MacBook behind it: Cartouche Builder shows the sheet of the same
+    // The iPhone in front of the Mac: the console, with the same game in focus.
+    var duoPhone = $('[data-screen="duo-phone"]');
+    duoPhone.innerHTML = home({ games: OWNED, index: ipadIndex, interactive: true, island: true, sizes: "(max-width: 699px) 90px, 120px" });
+    setFocus(duoPhone, OWNED, ipadIndex);
+    // The MacBook behind them: Cartouche Builder shows the sheet of the same
     // game, picked in its library. It is only shown: its screen is inert.
     var laptopScreen = $("[data-laptop]");
     laptopScreen.innerHTML = laptop(OWNED[ipadIndex]);
@@ -2319,6 +2331,8 @@
     }
     ipadScreen.addEventListener("click", ipadTile);
     ipadScreen.addEventListener("focusin", ipadTile);
+    duoPhone.addEventListener("click", ipadTile);
+    duoPhone.addEventListener("focusin", ipadTile);
     ipadDevice.addEventListener("keydown", function (e) {
         if (e.key !== "ArrowRight" && e.key !== "ArrowLeft") return;
         e.preventDefault();
