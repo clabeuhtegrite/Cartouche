@@ -41,6 +41,10 @@
 //                                        when the catalogue has a game of
 //                                        that name (showFound)
 //      -GallerySetup 1 -GalleryController 1
+//      -GalleryModel iPad15,3            the device of catalog/devices.json
+//                                        the screen is drawn as, whose words
+//                                        call an iPad the iPad (none: the
+//                                        iPhone, iPhone19,4, CartoucheDevice)
 //      -GallerySheet <title ID>          the game of the sheet, of its
 //                                        settings, or being installed
 //      -GalleryWork installing           a game being installed, over the
@@ -95,7 +99,11 @@
 //                                        two games' saves waiting for it;
 //                                        on the TV (screen tv), paused: the
 //                                        game paused behind the console,
-//                                        starting: the game starting
+//                                        starting: the game starting;
+//                                        renewing: Cartouche renewing itself
+//                                        in its last 3 days, as it came to
+//                                        the front; renewal-failed: that
+//                                        renewal failed, the network gone
 //      -GalleryOrientation landscape     the gallery turns itself sideways,
 //                                        as a game does; the simulator
 //                                        stays upright
@@ -104,7 +112,9 @@
 //                                        tmp/ready-<scenario>.json in its
 //                                        container (Ready below)
 //      -GalleryCategory Controls         the settings page's category, one
-//                                        of nxnative's sections
+//                                        of nxnative's sections; on the
+//                                        System page, signature: the page
+//                                        scrolled down to its signature
 //
 //  The UI tests (launcher/Gallery/UITests) open the whole console, as
 //  Cartouche shows it, and drive it (GalleryTesting.swift):
@@ -220,14 +230,22 @@ struct GalleryScenario {
             try? FileManager.default.createDirectory(at: pairing, withIntermediateDirectories: true)
             try? Data("gallery".utf8).write(to: pairing.appendingPathComponent("ALTPairingFile.mobiledevicepairing"))
         }
-        // The built-in SideStore's record of its last renewal.
-        let renewal = """
-        {"allApps": [{"bundleIdentifier": "\(Bundle.main.bundleIdentifier ?? "")",
-                      "expirationDate": \(Date().addingTimeInterval(6 * 86_400 + 3_600).timeIntervalSinceReferenceDate),
-                      "refreshedDate": \(Date().addingTimeInterval(-86_400).timeIntervalSinceReferenceDate)}]}
-        """
-        try? Data(renewal.utf8).write(to: GalleryState.appGroup.appendingPathComponent("widget_data.json"))
+        // The built-in SideStore's record of its last renewal: six days left,
+        // or, as Cartouche renews itself, two and a bit.
+        if work == "renewing" || work == "renewal-failed" {
+            GalleryState.recordSignature(expiringIn: 2 * 86_400 + 5 * 3_600, renewedAgo: 4 * 86_400 + 19 * 3_600)
+        } else {
+            GalleryState.recordSignature(expiringIn: 6 * 86_400 + 3_600, renewedAgo: 86_400)
+        }
         MainActor.assumeIsolated {
+            // The System page down to the scenario's section.
+            CartoucheSystemView.openingSection = screen == "system" ? category : nil
+            if work == "renewing" {
+                CartoucheRenewals.shared.showRenewingForGallery(at: 0.4)
+            }
+            if work == "renewal-failed" {
+                CartoucheRenewals.shared.showFailedForGallery(URLError(.notConnectedToInternet))
+            }
             CartoucheSetup.shared.refresh()
             CartoucheGuide.shared.startOverForGallery()
             if work == "build-skipped" { CartoucheGuide.shared.skipBuild() }
