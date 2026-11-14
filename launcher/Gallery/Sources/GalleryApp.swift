@@ -715,6 +715,10 @@ struct CartoucheGalleryApp: App {
             }
         case "system":
             CartoucheSystemView()
+        case "nightly":
+            NavigationStack {
+                CartoucheNightlyRenewalView()
+            }
         case "storage":
             NavigationStack {
                 CartoucheStorageView()

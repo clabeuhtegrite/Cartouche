@@ -116,9 +116,19 @@ enum HarnessLC {
     /// when nil, which a test cannot turn.
     static var screenTurned: CartoucheGameOrientations?
     static var deviceHeld: CartoucheGameOrientations?
-    /// Whether LocalDevVPN is connected, as Cartouche's renewal reads it
-    /// (CartoucheRenewals): the Simulator has no LocalDevVPN.
+    /// Whether LocalDevVPN is connected, as Cartouche reads it
+    /// (CartoucheLocalDevVPN.isConnected): the Simulator has no LocalDevVPN.
     static var vpnConnected = true
+    /// Whether LocalDevVPN is on the iPhone (CartoucheLocalDevVPN).
+    static var localDevVPNInstalled = true
+    /// Whether LocalDevVPN, once Cartouche opens it, connects, a moment
+    /// later, as its URL has it do.
+    static var localDevVPNConnects = true
+    /// Whether Cartouche is in front: not while LocalDevVPN is.
+    static var cartoucheInFront = true
+    /// The URLs Cartouche opened, in order: LocalDevVPN's, its page of the
+    /// App Store.
+    static var openedURLs: [URL] = []
     /// How the built-in SideStore's next renewals go
     /// (HarnessSideStore.swift).
     static var renewal: HarnessSideStore.Renewal = .renews(days: 7)
@@ -126,9 +136,29 @@ enum HarnessLC {
     static var renewalTime: TimeInterval = 0.2
     /// When Cartouche asked SideStore to renew it, in order.
     static var renewals: [Date] = []
+    /// Whether LocalDevVPN was connected each time Cartouche asked SideStore
+    /// to renew it, in order.
+    static var vpnAtRenewals: [Bool] = []
     /// The renewal SideStore holds without answering
     /// (HarnessSideStore.Renewal.hangs).
     static var heldRenewal: (() -> Void)?
+
+    /// Cartouche opens URL (CartoucheLocalDevVPN): the harness notes it, and
+    /// LocalDevVPN connects a moment later when `localDevVPNConnects` says
+    /// so, as localdevvpn://enable has it do before it opens Cartouche
+    /// again.
+    static func open(_ url: URL) {
+        openedURLs.append(url)
+        guard url.scheme == "localdevvpn", url.host == "enable", localDevVPNConnects else { return }
+        // Never in the test after this one.
+        let test = tests
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+            if test == tests, localDevVPNConnects { vpnConnected = true }
+        }
+    }
+
+    /// How many times the harness was reset: one for each test.
+    private static var tests = 0
 
     /// SideStore answers the renewal it held: Cartouche renewed.
     static func endHeldRenewal() {
@@ -219,10 +249,16 @@ enum HarnessLC {
         soundGoesToADisplay = nil
         screenTurned = nil
         deviceHeld = nil
+        tests += 1
         vpnConnected = true
+        localDevVPNInstalled = true
+        localDevVPNConnects = true
+        cartoucheInFront = true
+        openedURLs = []
         renewal = .renews(days: 7)
         renewalTime = 0.2
         renewals = []
+        vpnAtRenewals = []
         HarnessScenes.reset()
         HarnessNetwork.reset()
         let model = DataManager.shared.model

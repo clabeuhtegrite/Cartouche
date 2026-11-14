@@ -215,39 +215,16 @@ final class CartoucheGuide: ObservableObject {
 
     // MARK: LocalDevVPN
 
-    static let localDevVPN = URL(string: "localdevvpn://")!
-    static let localDevVPNAppStore = URL(string: "https://apps.apple.com/app/localdevvpn/id6755608044")!
+    static var localDevVPNAppStore: URL { CartoucheLocalDevVPN.appStore }
 
-    /// Whether LocalDevVPN is on this iPhone: Cartouche lists its scheme
-    /// among those it may ask about (app/scripts/package.sh).
-    var hasLocalDevVPN: Bool {
-        UIApplication.shared.canOpenURL(Self.localDevVPN)
-    }
+    /// Whether LocalDevVPN is on this iPhone.
+    var hasLocalDevVPN: Bool { CartoucheLocalDevVPN.shared.isInstalled }
 
     /// Has LocalDevVPN connect, then open Cartouche again by Cartouche's own
     /// URL scheme, as SideStore's onboarding has it come back to SideStore;
-    /// opens LocalDevVPN's page of the App Store when it is not installed.
+    /// opens LocalDevVPN's page of the App Store when it is not installed
+    /// (CartoucheLocalDevVPN).
     func connectVPN() {
-        var components = URLComponents()
-        components.scheme = "localdevvpn"
-        components.host = "enable"
-        components.queryItems = [URLQueryItem(name: "scheme", value: Self.ownScheme)]
-        guard let url = components.url else { return }
-        UIApplication.shared.open(url) { opened in
-            if !opened { UIApplication.shared.open(Self.localDevVPNAppStore) }
-        }
-    }
-
-    /// The URL scheme that opens this Cartouche: LiveContainer's, which
-    /// app/scripts/brand.py names after Cartouche, and numbers for a second
-    /// copy of the app (+[NSUserDefaults lcAppUrlScheme]), read as the
-    /// built-in SideStore's onboarding reads it (app/patches/sidestore/0007).
-    static var ownScheme: String {
-        let selector = NSSelectorFromString("lcAppUrlScheme")
-        if UserDefaults.responds(to: selector),
-           let own = UserDefaults.perform(selector)?.takeUnretainedValue() as? String, !own.isEmpty {
-            return own
-        }
-        return "cartouche"
+        CartoucheLocalDevVPN.shared.connectForPlayer()
     }
 }

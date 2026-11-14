@@ -582,11 +582,14 @@ struct CartoucheSystemView: View {
 /// How to have Shortcuts renew Cartouche every night.
 @available(iOS 17.0, *)
 struct CartoucheNightlyRenewalView: View {
+    /// LocalDevVPN's action connects it before Refresh All Apps, which
+    /// waits for its tunnel (app/patches/livecontainer/0015): up to 0.12.1,
+    /// the player had to leave LocalDevVPN connected all day.
     private var steps: [String] {
         [
-            CartoucheText.dailyStepVPN,
             CartoucheText.dailyStepAutomation,
             CartoucheText.dailyStepTime,
+            CartoucheText.dailyStepVPN,
             CartoucheText.dailyStepAction,
             CartoucheText.dailyStepCheck,
         ]

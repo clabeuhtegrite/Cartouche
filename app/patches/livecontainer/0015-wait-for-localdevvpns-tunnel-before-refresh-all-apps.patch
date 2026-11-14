@@ -1,0 +1,42 @@
+From 5488972fcf95eaabde2bd97d578749929aace983 Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Fri, 13 Nov 2026 18:02:49 +0000
+Subject: [PATCH] Wait for LocalDevVPN's tunnel before Refresh All Apps
+
+The automation of Shortcuts that renews Cartouche every night now runs
+LocalDevVPN's own action, Enable LocalDevVPN, just before Cartouche's
+Refresh All Apps: the player no longer has to leave LocalDevVPN
+connected all day. That action starts the tunnel and returns before it
+is up, and the built-in SideStore, which reaches the iPhone through the
+tunnel as it starts, would fail. Refresh All Apps first waits for the
+tunnel, 15 seconds at most, and at once when it is up
+(launcher/SideStoreSupport/CartoucheTunnelWait.swift).
+
+Cartouche's own Renew now goes through performIntentRefresh without
+this wait: the launcher has LocalDevVPN connect before it
+(launcher/Sources/CartoucheLocalDevVPN.swift).
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01MzPJotAD9o4mmxoc6uEwVp
+---
+ SideStoreSupport/SideStore.swift | 4 ++++
+ 1 file changed, 4 insertions(+)
+
+diff --git a/SideStoreSupport/SideStore.swift b/SideStoreSupport/SideStore.swift
+index d92d4a9..e5d8d56 100644
+--- a/SideStoreSupport/SideStore.swift
++++ b/SideStoreSupport/SideStore.swift
+@@ -66,6 +66,10 @@ public struct RefreshAllAppsIntent: AppIntent, CustomIntentMigratedAppIntent, Pr
+     
+     public func perform() async throws -> some IntentResult & ProvidesDialog
+     {
++        // Cartouche: LocalDevVPN's Enable action, just before this one in
++        // the automation that renews Cartouche every night, returns before
++        // its tunnel is up (CartoucheTunnelWait).
++        await CartoucheTunnelWait.waitForLocalDevVPN()
+         try await performIntentRefresh(identifier: "RefreshAllIntent", mangledTypeName: "9SideStore20RefreshAllAppsIntentV", intentProgress: progress)
+         return .result(dialog: "All apps have been refreshed.")
+     }
+-- 
+2.43.0
+

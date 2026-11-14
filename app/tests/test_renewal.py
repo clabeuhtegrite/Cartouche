@@ -8,7 +8,10 @@ LiveContainer and SideStore:
 - Cartouche's warnings before expiry use SideStore's identifiers, so that each
   replaces the other instead of showing twice;
 - the built-in SideStore renews Cartouche alone (app/patches/sidestore/0017),
-  and Refresh All Apps still takes its apps where the patch changes them.
+  and Refresh All Apps still takes its apps where the patch changes them;
+- Refresh All Apps waits for LocalDevVPN's tunnel, which the automation of
+  Shortcuts connects just before it (app/patches/livecontainer/0015), and
+  reads it as the launcher does.
 
 Needs the LiveContainer and SideStore submodules, and patch(1).
 Run from the repository root: python3 -m unittest discover -s app/tests -v
@@ -32,6 +35,10 @@ SS_INSTALLED_APP = ROOT / "app" / "SideStore" / SS_INSTALLED_APP_PATH
 SS_REFRESH_ALL = ROOT / "app" / "SideStore" / "AltStore" / "Intents" / "App Intents" / "RefreshAllAppsIntent.swift"
 SS_APP_DELEGATE = ROOT / "app" / "SideStore" / "AltStore" / "AppDelegate.swift"
 SS_PATCHES = ROOT / "app" / "patches" / "sidestore"
+LC_PATCHES = ROOT / "app" / "patches" / "livecontainer"
+LC_INTENTS_PATH = "SideStoreSupport/SideStore.swift"
+TUNNEL_WAIT = ROOT / "launcher" / "SideStoreSupport" / "CartoucheTunnelWait.swift"
+LAUNCHER_VPN = ROOT / "launcher" / "Sources" / "CartoucheVPN.swift"
 
 
 def read(path: Path) -> str:
@@ -54,6 +61,42 @@ def renew_alone_patch() -> Path:
     if len(patches) != 1:
         raise AssertionError(f"expected one renew-alone patch in {SS_PATCHES.relative_to(ROOT)}, found {len(patches)}")
     return patches[0]
+
+
+def file_part(patch: str, path: str) -> str:
+    """The part of a git patch that changes PATH, or ""."""
+    parts = re.split(r"(?m)^(?=diff --git )", patch)
+    found = [part for part in parts if part.startswith(f"diff --git a/{path} b/{path}\n")]
+    return found[0] if found else ""
+
+
+def patched_lc_intents() -> str:
+    """LiveContainer's SideStore.swift with Cartouche's patches applied, in
+    their order, as app/scripts/prepare.sh applies them."""
+    with tempfile.TemporaryDirectory() as directory:
+        copy = Path(directory) / LC_INTENTS_PATH
+        copy.parent.mkdir(parents=True)
+        copy.write_text(read(LC_INTENTS), encoding="utf-8")
+        for patch in sorted(LC_PATCHES.glob("*.patch")):
+            part = file_part(patch.read_text(encoding="utf-8"), LC_INTENTS_PATH)
+            if part:
+                subprocess.run(["patch", "-s", "-N", "-t", "-p1", "-d", directory], input=part.encode("utf-8"),
+                               check=True)
+        return copy.read_text(encoding="utf-8")
+
+
+def braced(text: str, start: int) -> str:
+    """From the first brace at or after START to the one that closes it."""
+    first = text.index("{", start)
+    depth = 0
+    for index in range(first, len(text)):
+        if text[index] == "{":
+            depth += 1
+        elif text[index] == "}":
+            depth -= 1
+            if depth == 0:
+                return text[first:index + 1]
+    raise AssertionError("unbalanced braces")
 
 
 def function_body(text: str, name: str) -> str:
@@ -120,6 +163,36 @@ class RenewalTest(unittest.TestCase):
         self.assertIsNotNone(refresh, "RefreshAllAppsIntent.refreshAllApps is gone")
         self.assertIn("InstalledApp.fetchAppsForRefreshingAll(in: context)", refresh.group(0))
         self.assertIn("InstalledApp.fetchAppsForBackgroundRefresh(in: context)", read(SS_APP_DELEGATE))
+
+    def test_refresh_all_apps_waits_for_localdevvpns_tunnel(self):
+        # The automation of Shortcuts runs Enable LocalDevVPN just before
+        # Refresh All Apps: that action returns before the tunnel is up, and
+        # SideStore reaches the iPhone through it as it starts. Up to 0.12.1,
+        # the player had to leave LocalDevVPN connected all day.
+        lc = patched_lc_intents()
+        action = lc.find("struct RefreshAllAppsIntent")
+        self.assertGreaterEqual(action, 0, "RefreshAllAppsIntent is gone from SideStore.swift")
+        perform = braced(lc, lc.index("func perform()", action))
+        wait = perform.find("await CartoucheTunnelWait.waitForLocalDevVPN()")
+        self.assertGreaterEqual(wait, 0, "Refresh All Apps does not wait for LocalDevVPN")
+        self.assertLess(wait, perform.index("performIntentRefresh("), "it waits before SideStore starts")
+        # Renew now goes through performIntentRefresh too (CartoucheRefresh),
+        # once the launcher has had LocalDevVPN connect: it waits no more.
+        shared = braced(lc, lc.index("func performIntentRefresh("))
+        self.assertNotIn("CartoucheTunnelWait", shared)
+        self.assertNotIn("CartoucheTunnelWait", read(BRIDGE))
+
+    def test_refresh_all_apps_reads_the_tunnel_as_the_launcher_does(self):
+        # SideStoreSupport cannot import the launcher: CartoucheTunnelWait
+        # reads utun<n> in 10.7.0.0/16 on its own, as CartoucheVPN does.
+        rule = re.compile(r'\$0\.name\.lowercased\(\)\.hasPrefix\("utun"\) && \$0\.address\.hasPrefix\("([^"]+)"\)')
+        launcher = rule.search(read(LAUNCHER_VPN))
+        self.assertIsNotNone(launcher, "CartoucheVPN.hasTunnel changed: change CartoucheTunnelWait with it")
+        wait = re.search(r'name\.lowercased\(\)\.hasPrefix\("utun"\) && text\.hasPrefix\("([^"]+)"\)', read(TUNNEL_WAIT))
+        self.assertIsNotNone(wait, "CartoucheTunnelWait no longer reads utun<n>")
+        self.assertEqual(wait.group(1), launcher.group(1))
+        for check in ("IFF_UP", "AF_INET", "NI_NUMERICHOST"):
+            self.assertIn(check, read(TUNNEL_WAIT))
 
 
 if __name__ == "__main__":
