@@ -3,15 +3,15 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Cartouche for iPhone</title>
+<title>Cartouche for iPhone, iPad and Mac</title>
 <meta name="claude:viewport-fit-sides" content="cover">
-<meta name="description" content="Cartouche turns an iPhone into a console for the games nxnative runs natively, from your own copies. Free software, no developer account needed." data-en="Cartouche turns an iPhone into a console for the games nxnative runs natively, from your own copies. Free software, no developer account needed." data-fr="Cartouche transforme un iPhone en console pour les jeux que nxnative fait tourner nativement, à partir de vos propres copies. Logiciel libre, sans compte développeur.">
+<meta name="description" content="Cartouche turns an iPhone or an iPad into a console for the games nxnative runs natively, from your own copies, and plays them on your Mac with the same saves. Free software, no developer account needed." data-en="Cartouche turns an iPhone or an iPad into a console for the games nxnative runs natively, from your own copies, and plays them on your Mac with the same saves. Free software, no developer account needed." data-fr="Cartouche transforme un iPhone ou un iPad en console pour les jeux que nxnative fait tourner nativement, à partir de vos propres copies, et les fait tourner sur votre Mac avec les mêmes sauvegardes. Logiciel libre, sans compte développeur.">
 <meta name="color-scheme" content="dark">
 <meta name="theme-color" content="#090A11">
 <meta name="referrer" content="no-referrer">
 <meta property="og:type" content="website">
-<meta property="og:title" content="Cartouche for iPhone">
-<meta property="og:description" content="Cartouche turns an iPhone into a console for the games nxnative runs natively, from your own copies.">
+<meta property="og:title" content="Cartouche for iPhone, iPad and Mac">
+<meta property="og:description" content="Your games, on iPhone, iPad and Mac: Cartouche turns an iPhone or an iPad into a console for the games nxnative runs natively, from your own copies.">
 <meta property="og:locale" content="en_US">
 <meta property="og:locale:alternate" content="fr_FR">
 <!-- The games' covers, from IGDB as in the app. -->
@@ -685,6 +685,47 @@
         .dock--bottom { display: flex; }
     }
 
+    /* ---------- The iPad ----------
+       An iPad Air 11-inch in landscape, 1180 × 820 points: the console and
+       the sheet of the game in focus side by side, each in half the screen,
+       as Cartouche lays them out on an iPad; upright on a phone, 820 × 1180,
+       the console above the sheet. Each half is a screen of its own size,
+       which the console and the sheet are drawn in as on any other screen;
+       the stage, the status bar and the home indicator are the iPad's. */
+    @media (max-width: 699px) {
+        .device--ipad { --w: 820 !important; --h: 1180 !important; max-width: 330px !important; }
+    }
+    .ipad__half { position: absolute; z-index: 1; top: 0; bottom: 0; width: 50%; container-type: size; --w: 590; --h: 820; }
+    .ipad__home { left: 0; }
+    .ipad__sheet { right: 0; }
+    @container (orientation: portrait) {
+        .ipad__half { --w: 820; --h: 590; width: 100%; height: 50%; bottom: auto; }
+        .ipad__sheet { top: 50%; }
+    }
+    .ui.ipad > .statusbar { display: flex; top: calc(9 * var(--pt)); left: calc(24 * var(--pt)); right: calc(22 * var(--pt)); font-size: calc(13 * var(--pt)); }
+    .statusbar__date { margin-left: calc(6 * var(--pt)); }
+    .ui.ipad > .indicator { width: calc(310 * var(--pt)); }
+    /* Beside the sheet, the shelf alone: 200-point covers, under the iPad's
+       status bar and over its home indicator; the margins are 18 points
+       on a half narrower than 600, 28 on a wider one. */
+    .home--split { --m: calc(18 * var(--pt)); }
+    .home--split .home__bar { padding: calc(36 * var(--pt)) var(--m) 0; }
+    .home--split .home__label { padding-left: var(--m); }
+    .home--split .shelf {
+        --tw: calc(200 * var(--pt));
+        --view: calc(100cqw - var(--m));
+        --fade: linear-gradient(90deg, transparent, #000 calc(14 * var(--pt)), #000 calc(100% - 64 * var(--pt)), transparent);
+        /* Room for the focused cover's ring, which grows with the cover. */
+        padding: calc(24 * var(--pt)) 0 calc(24 * var(--pt)) var(--m);
+    }
+    .home--split .dock--bottom { margin: 0 var(--m) calc(26 * var(--pt)); }
+    @container (orientation: landscape) {
+        .home--split { --m: calc(28 * var(--pt)); }
+        .home--split .home__main { display: flex; flex-direction: column; justify-content: center; padding: 0 0 calc(8 * var(--pt)); }
+        .home--split .shelf { align-self: stretch; }
+    }
+    .split-sheet .sheet__body { padding-top: calc(46 * var(--pt)); }
+
     /* ---------- A game's sheet, its settings, the System page ---------- */
     .navtitle { position: absolute; z-index: 3; top: calc(66 * var(--pt)); left: 0; right: 0; text-align: center; font: 600 calc(17 * var(--pt))/1 var(--text); }
     .okbtn { position: absolute; z-index: 3; top: calc(54 * var(--pt)); right: calc(16 * var(--pt)); display: grid; place-items: center; height: calc(44 * var(--pt)); padding: 0 calc(16 * var(--pt)); border-radius: 999px; font: 600 calc(17 * var(--pt))/1 var(--text); }
@@ -1146,6 +1187,7 @@
         <symbol id="i-menu" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" d="M6 7h12M6 12h12M6 17h12"/></symbol>
         <symbol id="i-clock" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.2 2"/></g></symbol>
         <symbol id="i-iphone" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2"><rect x="6.5" y="2.5" width="11" height="19" rx="2.8"/><path stroke-linecap="round" d="M10.5 5.6h3"/></g></symbol>
+        <symbol id="i-ipad" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="2.5" width="16" height="19" rx="2.4"/><path stroke-linecap="round" d="M10.5 18.4h3"/></g></symbol>
         <symbol id="i-check" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="currentColor"/><path fill="none" stroke="#0B0C12" stroke-opacity=".85" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" d="m7.4 12.3 3.1 3.1 6.1-6.6"/></symbol>
         <symbol id="i-tick" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" d="m5 12.5 4.5 4.5L19 7.5"/></symbol>
         <symbol id="i-drive" viewBox="0 0 24 24"><path fill="currentColor" d="M5.6 5h12.8c.8 0 1.5.5 1.8 1.2L22 12v5.5a2.5 2.5 0 0 1-2.5 2.5h-15A2.5 2.5 0 0 1 2 17.5V12l1.8-5.8C4.1 5.5 4.8 5 5.6 5Z"/><path stroke="#0B0C12" stroke-opacity=".45" stroke-width="1.2" d="M2.5 12.2h19"/><circle cx="17.5" cy="16.2" r="1.4" fill="#0B0C12"/></symbol>
@@ -1199,6 +1241,7 @@
         <div class="top__bar">
             <a class="wordmark" href="#top" aria-label="Cartouche"><svg aria-hidden="true"><use href="#i-cartridge"/></svg><b>Cartouche</b></a>
             <nav class="nav" data-label-fr="Sections" data-label-en="Sections" aria-label="Sections">
+                <a href="#ipad-mac"><span lang="fr">iPad et Mac</span><span lang="en">iPad &amp; Mac</span></a>
                 <a href="#console"><span lang="fr">La console</span><span lang="en">Console</span></a>
                 <a href="#storage"><span lang="fr">Stockage</span><span lang="en">Storage</span></a>
                 <a href="#builder">Builder</a>
@@ -1218,12 +1261,12 @@
             <div class="wrap">
                 <div class="hero__head">
                     <div>
-                        <p class="label eyebrow"><svg aria-hidden="true"><use href="#i-cartridge"/></svg><span lang="fr">Pour iPhone · Logiciel libre</span><span lang="en">For iPhone · Free software</span></p>
-                        <h1><span lang="fr">Votre iPhone devient une console.</span><span lang="en">Your iPhone becomes a console.</span></h1>
+                        <p class="label eyebrow"><svg aria-hidden="true"><use href="#i-cartridge"/></svg><span lang="fr">iPhone · iPad · Mac · Logiciel libre</span><span lang="en">iPhone · iPad · Mac · Free software</span></p>
+                        <h1><span lang="fr">Vos jeux, sur iPhone, iPad et Mac.</span><span lang="en">Your games, on iPhone, iPad and Mac.</span></h1>
                     </div>
                     <div>
-                        <p class="lede" lang="fr">Cartouche installe, lance et garde les jeux que <a href="https://github.com/seedds/nxnative">nxnative</a> fait tourner nativement sur iPhone, à partir de vos propres copies. Il se signe, se renouvelle et se met à jour tout seul, et donne à vos jeux la mémoire qu’il leur faut. Sur votre Mac, <a href="#builder">Cartouche Builder</a> construit vos jeux, et les reconstruit quand nxnative les améliore.</p>
-                        <p class="lede" lang="en">Cartouche installs, starts and keeps the games <a href="https://github.com/seedds/nxnative">nxnative</a> runs natively on iPhone, from your own copies. It signs, renews and updates itself, and gets your games the memory they need. On your Mac, <a href="#builder">Cartouche Builder</a> builds your games, and rebuilds them when nxnative improves them.</p>
+                        <p class="lede" lang="fr">Cartouche installe, lance et garde les jeux que <a href="https://github.com/seedds/nxnative">nxnative</a> fait tourner nativement sur iPhone et iPad, à partir de vos propres copies. Il se signe, se renouvelle et se met à jour tout seul, et donne à vos jeux la mémoire qu’il leur faut. Sur votre Mac, <a href="#builder">Cartouche Builder</a> construit vos jeux, les fait tourner sur le Mac avec les mêmes sauvegardes, et les reconstruit quand nxnative les améliore.</p>
+                        <p class="lede" lang="en">Cartouche installs, starts and keeps the games <a href="https://github.com/seedds/nxnative">nxnative</a> runs natively on iPhone and iPad, from your own copies. It signs, renews and updates itself, and gets your games the memory they need. On your Mac, <a href="#builder">Cartouche Builder</a> builds your games, plays them on the Mac with the same saves, and rebuilds them when nxnative improves them.</p>
                         <div class="actions">
                             <a class="btn btn--primary" href="#install"><i class="glyph" aria-hidden="true">A</i><span lang="fr">Installer Cartouche</span><span lang="en">Install Cartouche</span></a>
                             <a class="btn btn--glass" href="https://github.com/clabeuhtegrite/Cartouche"><i class="glyph" aria-hidden="true">X</i><span lang="fr">Le code sur GitHub</span><span lang="en">Code on GitHub</span></a>
@@ -1244,14 +1287,38 @@
             </div>
         </section>
 
+        <section class="section" id="ipad-mac" style="--light:#7C83FF;--dark:#1D4E89">
+            <div class="wrap">
+                <div class="intro intro--wide">
+                    <div>
+                        <p class="label">iPhone · iPad · Mac</p>
+                        <h2><span lang="fr">Reprenez votre partie sur l’écran d’à côté.</span><span lang="en">Pick up your game on the next screen.</span></h2>
+                    </div>
+                    <div class="prose">
+                        <p lang="fr">Cartouche est la même app sur iPhone et sur iPad : vos jeux, leurs fiches, la manette ou le tactile. Sur votre Mac, <a href="#builder">Cartouche Builder</a> construit chaque jeu pour le Mac aussi, et le lance. Vos sauvegardes passent de l’un à l’autre par votre propre stockage : la plus récente l’emporte.</p>
+                        <p lang="en">Cartouche is the same app on iPhone and iPad: your games, their sheets, a controller or touch. On your Mac, <a href="#builder">Cartouche Builder</a> builds each game for the Mac too, and plays it there. Your saves go from one to the other through your own storage: the newest wins.</p>
+                    </div>
+                </div>
+                <div class="device device--ipad" data-ipad tabindex="0" role="group" style="--w:1180;--h:820;--r:18;--b:24;max-width:1000px;margin-top:clamp(40px,5vw,64px)" data-label-fr="L’accueil de Cartouche en paysage sur un iPad Air, avec la fiche du jeu en focus à côté" data-label-en="Cartouche’s home in landscape on an iPad Air, with the sheet of the game in focus beside it" aria-label="Cartouche’s home in landscape on an iPad Air, with the sheet of the game in focus beside it">
+                    <div class="device__body"><div class="screen" data-screen="ipad"></div></div>
+                </div>
+                <p class="hint"><span lang="fr">Touchez une jaquette : sa fiche s’ouvre à côté<span class="hint__keys">, ou <kbd>←</kbd> <kbd>→</kbd> au clavier</span>.</span><span lang="en">Tap a cover: its sheet opens beside it<span class="hint__keys">, or press <kbd>←</kbd> <kbd>→</kbd></span>.</span></p>
+                <ul class="perks perks--three">
+                    <li class="perk"><span class="tag-icon"><svg aria-hidden="true"><use href="#i-iphone"/></svg></span><div><h3>iPhone</h3><p><span lang="fr">La console dans la poche, au tactile ou à la manette, et le jeu en pause derrière elle. Sur un iPhone 15 Pro ou plus récent.</span><span lang="en">The console in your pocket, by touch or with a controller, and the game paused behind it. On an iPhone 15 Pro or newer.</span></p></div></li>
+                    <li class="perk"><span class="tag-icon"><svg aria-hidden="true"><use href="#i-ipad"/></svg></span><div><h3>iPad</h3><p><span lang="fr">En paysage, la console et la fiche du jeu côte à côte. Un jeu fait pour se jouer de côté reste de côté. Sur un iPad à puce M1 ou plus récente.</span><span lang="en">In landscape, the console and the game’s sheet side by side. A game made to be played sideways stays sideways. On an iPad with an M1 chip or newer.</span></p></div></li>
+                    <li class="perk"><span class="tag-icon"><svg aria-hidden="true"><use href="#i-laptop"/></svg></span><div><h3>Mac</h3><p><span lang="fr">Cartouche Builder construit chaque jeu pour le Mac aussi : Jouer sur ce Mac le lance, avec vos dernières sauvegardes. Sur un Mac à puce Apple.</span><span lang="en">Cartouche Builder builds each game for the Mac too: Play on this Mac starts it, with your newest saves. On a Mac with Apple silicon.</span></p></div></li>
+                </ul>
+            </div>
+        </section>
+
         <section class="section" id="console" style="--light:#57E68E;--dark:#146656">
             <div class="wrap split">
                 <div>
                     <p class="label"><span lang="fr">La console</span><span lang="en">The console</span></p>
                     <h2><span lang="fr">Vos jeux en grand, sur une seule étagère.</span><span lang="en">Your games, large, on one shelf.</span></h2>
                     <div class="prose">
-                        <p lang="fr">L’accueil ne montre que vos jeux, avec leurs jaquettes officielles, et le jeu en focus avec ce qu’il faut pour y jouer. Tous les jeux de la liste de nxnative sont à un geste, et chacun dit comment il tourne sur votre iPhone.</p>
-                        <p lang="en">The home shows your games alone, with their official covers, and the game in focus with what you need to play it. Every game on nxnative’s list is one step away, and each says how it runs on your iPhone.</p>
+                        <p lang="fr">L’accueil ne montre que vos jeux, avec leurs jaquettes officielles, et le jeu en focus avec ce qu’il faut pour y jouer. Tous les jeux de la liste de nxnative sont à un geste, et chacun dit comment il tourne sur votre iPhone ou votre iPad.</p>
+                        <p lang="en">The home shows your games alone, with their official covers, and the game in focus with what you need to play it. Every game on nxnative’s list is one step away, and each says how it runs on your iPhone or iPad.</p>
                     </div>
                     <ul class="keys">
                         <li><span class="keys__k"><i class="glyph" aria-hidden="true">A</i></span><span lang="fr"><b>Jouer</b> : le jeu démarre tout de suite, avec ses réglages.</span><span lang="en"><b>Play</b>: the game starts at once, with its settings.</span></li>
@@ -1276,8 +1343,8 @@
                     <p class="label"><span lang="fr">La fiche du jeu</span><span lang="en">A game’s sheet</span></p>
                     <h2><span lang="fr">Chaque jeu dit comment il tourne ici.</span><span lang="en">Every game says how it runs here.</span></h2>
                     <div class="prose">
-                        <p lang="fr">La fiche vérifie que votre iPhone a ce qu’il faut : la mémoire, iOS, la puce. Elle montre votre temps de jeu, la place que prend le jeu et, quand des testeurs l’ont essayé, leurs résultats sur votre modèle.</p>
-                        <p lang="en">The sheet checks that your iPhone has what it takes: memory, iOS, chip. It shows your play time, the space the game takes and, when testers have tried it, their results on your model.</p>
+                        <p lang="fr">La fiche vérifie que votre iPhone ou votre iPad a ce qu’il faut : la mémoire, le système, la puce. Elle montre votre temps de jeu, la place que prend le jeu et, quand des testeurs l’ont essayé, leurs résultats sur votre modèle.</p>
+                        <p lang="en">The sheet checks that your iPhone or iPad has what it takes: memory, system, chip. It shows your play time, the space the game takes and, when testers have tried it, their results on your model.</p>
                         <p lang="fr">Les réglages de nxnative se changent sur une page de Cartouche : images par seconde, échelle de rendu, mode portable ou TV, langue du jeu. « Revenir aux réglages testés » remet ceux avec lesquels le jeu a été essayé.</p>
                         <p lang="en">nxnative’s settings change on a page of Cartouche’s own: frame rate, render scale, handheld or docked, game language. Reset to tested defaults brings back the ones the game was tried with.</p>
                     </div>
@@ -1323,8 +1390,8 @@
                         <p class="label"><span lang="fr">Votre stockage</span><span lang="en">Your storage</span></p>
                         <h2><span lang="fr">Vos jeux et vos sauvegardes restent chez vous.</span><span lang="en">Your games and saves stay at home.</span></h2>
                         <div class="prose">
-                            <p lang="fr">Gardez vos jeux sur votre propre stockage, avec votre propre compte. Ceux qui s’y trouvent apparaissent dans votre bibliothèque, prêts à installer, et Cartouche y garde vos sauvegardes synchronisées, d’un iPhone à l’autre.</p>
-                            <p lang="en">Keep your games on storage of your own, with your own account. The games there show in your library, ready to install, and Cartouche keeps your saves in sync there, from one iPhone to the next.</p>
+                            <p lang="fr">Gardez vos jeux sur votre propre stockage, avec votre propre compte. Ceux qui s’y trouvent apparaissent dans votre bibliothèque, prêts à installer, et Cartouche y garde vos sauvegardes synchronisées, d’un iPhone à l’autre, et avec votre iPad et votre Mac.</p>
+                            <p lang="en">Keep your games on storage of your own, with your own account. The games there show in your library, ready to install, and Cartouche keeps your saves in sync there, from one iPhone to the next, and with your iPad and your Mac.</p>
                         </div>
                         <p class="note"><svg aria-hidden="true"><use href="#i-lock"/></svg><span lang="fr">Uniquement votre propre stockage, avec votre propre compte : jamais de lien public.</span><span lang="en">Only storage of your own, with your own account: never a public link.</span></p>
                     </div>
@@ -1376,8 +1443,8 @@
                     </div>
                     <div>
                         <div class="prose">
-                            <p lang="fr">Cartouche Builder est l’app Mac de Cartouche. À partir de vos propres copies, il construit chaque jeu avec nxnative et le dépose dans votre dossier de jeux. Puis il les suit : quand nxnative en améliore un, il le reconstruit, tout de suite ou la nuit, et Cartouche propose la mise à jour sur l’iPhone, sauvegardes gardées.</p>
-                            <p lang="en">Cartouche Builder is Cartouche’s Mac app. From your own copies, it builds each game with nxnative and puts it in your games folder. Then it follows them: when nxnative improves one, it builds it again, now or at night, and Cartouche offers the update on the iPhone, saves kept.</p>
+                            <p lang="fr">Cartouche Builder est l’app Mac de Cartouche. À partir de vos propres copies, il construit chaque jeu avec nxnative, pour l’iPhone et l’iPad comme pour le Mac, et le dépose dans votre dossier de jeux. Puis il les suit : quand nxnative en améliore un, il le reconstruit, tout de suite ou la nuit, et Cartouche propose la mise à jour sur l’iPhone, sauvegardes gardées.</p>
+                            <p lang="en">Cartouche Builder is Cartouche’s Mac app. From your own copies, it builds each game with nxnative, for the iPhone and iPad as for the Mac, and puts it in your games folder. Then it follows them: when nxnative improves one, it builds it again, now or at night, and Cartouche offers the update on the iPhone, saves kept.</p>
                         </div>
                         <div class="actions">
                             <a class="btn btn--primary" data-download="builder" href="https://github.com/clabeuhtegrite/Cartouche/releases/download/builder-v0.2.0/Cartouche-Builder-0.2.0.dmg"><svg aria-hidden="true"><use href="#i-download"/></svg><span lang="fr">Télécharger Cartouche Builder</span><span lang="en">Download Cartouche Builder</span></a>
@@ -1392,18 +1459,18 @@
                 <p class="hint"><span lang="fr">Parcourez ses pages, ou lancez Tout reconstruire.</span><span lang="en">Browse its pages, or press Rebuild all.</span></p>
                 <ul class="perks perks--three">
                     <li class="perk"><span class="tag-icon"><svg aria-hidden="true"><use href="#i-sparkle"/></svg></span><div><h3><span lang="fr">Il suit chacun de vos jeux</span><span lang="en">It follows each of your games</span></h3><p><span lang="fr">Il lit ce que nxnative change chaque jour et vous dit quel jeu en profite, et pourquoi : son profil, un correctif qui le nomme, le code commun.</span><span lang="en">It reads what nxnative changes each day and tells you which game gains, and why: its profile, a fix that names it, the shared code.</span></p></div></li>
+                    <li class="perk"><span class="tag-icon"><svg aria-hidden="true"><use href="#i-play"/></svg></span><div><h3><span lang="fr">Jouer sur ce Mac</span><span lang="en">Play on this Mac</span></h3><p><span lang="fr">Chaque jeu est construit pour le Mac aussi. Jouer sur ce Mac le lance tout de suite, avec vos sauvegardes les plus récentes, et renvoie celles du Mac après chaque partie.</span><span lang="en">Each game is built for the Mac too. Play on this Mac starts it at once, with your newest saves, and sends the Mac’s back after each game.</span></p></div></li>
                     <li class="perk"><span class="tag-icon"><svg aria-hidden="true"><use href="#i-moon"/></svg></span><div><h3><span lang="fr">Maintenant ou la nuit</span><span lang="en">Now or at night</span></h3><p><span lang="fr">D’un clic, ou chaque nuit, même app fermée : le Mac reste éveillé le temps de construire, puis une notification dit comment ça s’est passé.</span><span lang="en">In one click, or every night, even with the app closed: the Mac stays awake while it builds, then a notification says how it went.</span></p></div></li>
                     <li class="perk"><span class="tag-icon"><svg aria-hidden="true"><use href="#i-nas"/></svg></span><div><h3><span lang="fr">Sur votre Mac ou votre NAS</span><span lang="en">On your Mac or your NAS</span></h3><p><span lang="fr">Vos copies et vos jeux restent où vous voulez. Il garde de quoi reconstruire vite, et libère le reste avant que le disque se remplisse.</span><span lang="en">Your copies and games stay where you want. It keeps what makes the next build fast, and frees the rest before the disk fills up.</span></p></div></li>
-                    <li class="perk"><span class="tag-icon"><svg aria-hidden="true"><use href="#i-wrench"/></svg></span><div><h3><span lang="fr">Sans Terminal</span><span lang="en">No Terminal</span></h3><p><span lang="fr">Il installe lui-même nxnative et ses outils, et vous ouvre l’App Store pour Xcode. macOS ne vous demande que votre mot de passe.</span><span lang="en">It installs nxnative and its tools by itself, and opens the App Store for Xcode. macOS only asks for your password.</span></p></div></li>
+                    <li class="perk"><span class="tag-icon"><svg aria-hidden="true"><use href="#i-wrench"/></svg></span><div><h3><span lang="fr">Sans Terminal</span><span lang="en">No Terminal</span></h3><p><span lang="fr">Il installe lui-même nxnative et ses outils, vous ouvre l’App Store pour Xcode, puis se met à jour tout seul. macOS ne vous demande que votre mot de passe.</span><span lang="en">It installs nxnative and its tools by itself, opens the App Store for Xcode, then updates itself. macOS only asks for your password.</span></p></div></li>
                     <li class="perk"><span class="tag-icon"><svg aria-hidden="true"><use href="#i-iphonewaves"/></svg></span><div><h3><span lang="fr">Le stockage de Cartouche</span><span lang="en">Cartouche’s storage</span></h3><p><span lang="fr">Jumelé une fois avec l’iPhone, par le même code à six chiffres sur les deux écrans, le Mac sert vos jeux par le Wi-Fi et garde vos sauvegardes, chiffrées en chemin.</span><span lang="en">Paired once with the iPhone, by the same six digits on both screens, the Mac serves your games over Wi-Fi and keeps your saves, encrypted on the way.</span></p></div></li>
-                    <li class="perk"><span class="tag-icon"><svg aria-hidden="true"><use href="#i-refresh"/></svg></span><div><h3><span lang="fr">Il se met à jour seul</span><span lang="en">It updates itself</span></h3><p><span lang="fr">Comme Cartouche, il installe ses nouvelles versions de lui-même, quand rien ne se construit.</span><span lang="en">Like Cartouche, it installs its new versions by itself, when nothing is building.</span></p></div></li>
                 </ul>
-                <p class="label builder-flow"><span lang="fr">De votre console à l’iPhone</span><span lang="en">From your console to the iPhone</span></p>
+                <p class="label builder-flow"><span lang="fr">De votre console à vos écrans</span><span lang="en">From your console to your screens</span></p>
                 <ol class="flow">
                     <li><span class="tag-icon"><svg aria-hidden="true"><use href="#i-folder"/></svg></span><h3><span lang="fr">Vos fichiers</span><span lang="en">Your files</span></h3><p><span lang="fr">Votre jeu, ses mises à jour et ses DLC, tirés de votre propre console.</span><span lang="en">Your game, its updates and DLC, dumped from your own console.</span></p></li>
-                    <li><span class="tag-icon"><svg aria-hidden="true"><use href="#i-laptop"/></svg></span><h3>Cartouche Builder</h3><p><span lang="fr">Construit le jeu avec nxnative, sur votre Mac, et le refait quand nxnative l’améliore.</span><span lang="en">Builds the game with nxnative, on your Mac, and again when nxnative improves it.</span></p></li>
+                    <li><span class="tag-icon"><svg aria-hidden="true"><use href="#i-laptop"/></svg></span><h3>Cartouche Builder</h3><p><span lang="fr">Construit le jeu avec nxnative sur votre Mac, pour l’iPhone, l’iPad et le Mac, et le refait quand nxnative l’améliore.</span><span lang="en">Builds the game with nxnative on your Mac, for the iPhone, the iPad and the Mac, and again when nxnative improves it.</span></p></li>
                     <li><span class="tag-icon"><svg aria-hidden="true"><use href="#i-nas"/></svg></span><h3><span lang="fr">Votre dossier de jeux</span><span lang="en">Your games folder</span></h3><p><span lang="fr">Sur votre Mac ou votre NAS. Le Mac peut aussi servir de stockage à Cartouche.</span><span lang="en">On your Mac or NAS. The Mac can also be Cartouche’s storage.</span></p></li>
-                    <li><span class="tag-icon"><svg aria-hidden="true"><use href="#i-iphone"/></svg></span><h3>Cartouche</h3><p><span lang="fr">Installe le jeu, puis propose chaque mise à jour sur sa fiche, sauvegardes gardées.</span><span lang="en">Installs the game, then offers each update on its sheet, saves kept.</span></p></li>
+                    <li><span class="tag-icon"><svg aria-hidden="true"><use href="#i-iphone"/></svg></span><h3>Cartouche</h3><p><span lang="fr">Installe le jeu sur l’iPhone ou l’iPad, puis propose chaque mise à jour sur sa fiche, sauvegardes gardées. Le Mac le lance aussi, avec les mêmes.</span><span lang="en">Installs the game on the iPhone or iPad, then offers each update on its sheet, saves kept. The Mac plays it too, with the same ones.</span></p></li>
                 </ol>
             </div>
         </section>
@@ -1414,14 +1481,14 @@
                     <p class="label"><span lang="fr">Installer</span><span lang="en">Install</span></p>
                     <h2><span lang="fr">De l’installation à votre premier jeu.</span><span lang="en">From the install to your first game.</span></h2>
                     <ol class="steps">
-                        <li class="step"><span class="step__n" aria-hidden="true">1</span><div><h3><span lang="fr">LocalDevVPN sur l’iPhone</span><span lang="en">LocalDevVPN on the iPhone</span></h3><p><span lang="fr">Installez-le depuis l’App Store : Cartouche se connecte et se renouvelle par lui, sans ordinateur. Son trafic ne sort jamais de l’iPhone.</span><span lang="en">Install it from the App Store: Cartouche signs in and renews itself through it, without a computer. Its traffic never leaves the iPhone.</span></p></div></li>
-                        <li class="step"><span class="step__n" aria-hidden="true">2</span><div><h3><span lang="fr">L’Installeur Cartouche</span><span lang="en">The Cartouche Installer</span></h3><p><span lang="fr">Sur un Mac ou un PC Windows, branchez l’iPhone et connectez-vous avec votre compte Apple. L’Installeur pose Cartouche avec son certificat, la mémoire augmentée et le fichier de jumelage. Vous avez déjà un certificat de signature (.p12) et son profil ? Il peut signer Cartouche avec, sans compte Apple.</span><span lang="en">On a Mac or a Windows PC, plug in the iPhone and sign in with your Apple account. The Installer puts Cartouche on it with its certificate, Increased Memory Limit and the pairing file. Already have a signing certificate (.p12) and its profile? It can sign Cartouche with them instead, with no Apple account.</span></p>
+                        <li class="step"><span class="step__n" aria-hidden="true">1</span><div><h3><span lang="fr">LocalDevVPN sur l’iPhone ou l’iPad</span><span lang="en">LocalDevVPN on the iPhone or iPad</span></h3><p><span lang="fr">Installez-le depuis l’App Store : Cartouche se connecte et se renouvelle par lui, sans ordinateur. Son trafic ne sort jamais de l’appareil.</span><span lang="en">Install it from the App Store: Cartouche signs in and renews itself through it, without a computer. Its traffic never leaves the device.</span></p></div></li>
+                        <li class="step"><span class="step__n" aria-hidden="true">2</span><div><h3><span lang="fr">L’Installeur Cartouche</span><span lang="en">The Cartouche Installer</span></h3><p><span lang="fr">Sur un Mac ou un PC Windows, branchez l’iPhone ou l’iPad et connectez-vous avec votre compte Apple. L’Installeur pose Cartouche avec son certificat, la mémoire augmentée et le fichier de jumelage. Vous avez déjà un certificat de signature (.p12) et son profil ? Il peut signer Cartouche avec, sans compte Apple.</span><span lang="en">On a Mac or a Windows PC, plug in the iPhone or iPad and sign in with your Apple account. The Installer puts Cartouche on it with its certificate, Increased Memory Limit and the pairing file. Already have a signing certificate (.p12) and its profile? It can sign Cartouche with them instead, with no Apple account.</span></p>
                             <div class="actions">
                                 <a class="btn btn--primary" data-download="installer-mac" href="https://github.com/clabeuhtegrite/Cartouche/releases/download/installer-v0.1.0/Cartouche-Installer-0.1.0-Mac.dmg"><svg aria-hidden="true"><use href="#i-download"/></svg><span lang="fr">Télécharger pour Mac</span><span lang="en">Download for Mac</span></a>
                                 <a class="btn btn--primary" data-download="installer-windows" href="https://github.com/clabeuhtegrite/Cartouche/releases/download/installer-v0.1.0/Cartouche-Installer-0.1.0-Windows.exe"><svg aria-hidden="true"><use href="#i-download"/></svg><span lang="fr">Télécharger pour Windows</span><span lang="en">Download for Windows</span></a>
                             </div></div></li>
                         <li class="step"><span class="step__n" aria-hidden="true">3</span><div><h3><span lang="fr">Le guide de Cartouche</span><span lang="en">Cartouche’s guide</span></h3><p><span lang="fr">Ouvrez Cartouche : son guide, « Votre premier jeu », vous accompagne jusqu’à votre première partie et coche chaque étape tout seul.</span><span lang="en">Open Cartouche: its guide, Your first game, takes you all the way to playing, and ticks off each step by itself.</span></p></div></li>
-                        <li class="step"><span class="step__n" aria-hidden="true">4</span><div><h3><span lang="fr">Vos jeux, sur votre Mac</span><span lang="en">Your games, on your Mac</span></h3><p><span lang="fr">Glissez <a href="#builder">Cartouche Builder</a> dans Applications : il installe ce qu’il faut à nxnative, sans Terminal, vous ouvre l’App Store pour Xcode, puis construit vos jeux à partir de vos propres copies. La première fois, macOS ne peut pas le vérifier : Réglages Système › Confidentialité et sécurité › Ouvrir quand même.</span><span lang="en">Drag <a href="#builder">Cartouche Builder</a> onto Applications: it installs what nxnative needs, with no Terminal, opens the App Store for Xcode, then builds your games from your own copies. The first time, macOS cannot check it: System Settings › Privacy &amp; Security › Open Anyway.</span></p>
+                        <li class="step"><span class="step__n" aria-hidden="true">4</span><div><h3><span lang="fr">Vos jeux, sur votre Mac</span><span lang="en">Your games, on your Mac</span></h3><p><span lang="fr">Glissez <a href="#builder">Cartouche Builder</a> dans Applications : il installe ce qu’il faut à nxnative, sans Terminal, vous ouvre l’App Store pour Xcode, puis construit vos jeux à partir de vos propres copies, pour l’iPhone, l’iPad et le Mac. La première fois, macOS ne peut pas le vérifier : Réglages Système › Confidentialité et sécurité › Ouvrir quand même.</span><span lang="en">Drag <a href="#builder">Cartouche Builder</a> onto Applications: it installs what nxnative needs, with no Terminal, opens the App Store for Xcode, then builds your games from your own copies, for the iPhone, the iPad and the Mac. The first time, macOS cannot check it: System Settings › Privacy &amp; Security › Open Anyway.</span></p>
                             <a class="btn btn--primary" data-download="builder" href="https://github.com/clabeuhtegrite/Cartouche/releases/download/builder-v0.2.0/Cartouche-Builder-0.2.0.dmg"><svg aria-hidden="true"><use href="#i-download"/></svg><span lang="fr">Télécharger Cartouche Builder</span><span lang="en">Download Cartouche Builder</span></a></div></li>
                     </ol>
                     <p class="small guide"><span lang="fr">Pas à pas, de rien à votre premier jeu : <a href="https://github.com/clabeuhtegrite/Cartouche/blob/main/docs/getting-started.fr.md">le guide Premiers pas</a>.</span><span lang="en">Step by step, from nothing to your first game: <a href="https://github.com/clabeuhtegrite/Cartouche/blob/main/docs/getting-started.md">the Getting started guide</a>.</span></p>
@@ -1432,11 +1499,13 @@
                         <dt>iPhone</dt>
                         <dd><span lang="fr">iOS 26 ou ultérieur, sur un iPhone 15 Pro ou plus récent. Les plus gros jeux demandent un iPhone de 12 Go.</span><span lang="en">iOS 26 or later, on an iPhone 15 Pro or newer. The biggest games need a 12 GB iPhone.</span></dd>
                         <dt>iPad</dt>
-                        <dd><span lang="fr">Avec une puce M1 ou plus récente.</span><span lang="en">With an M1 chip or newer.</span></dd>
+                        <dd><span lang="fr">iPadOS 26 ou ultérieur, sur un iPad à puce M1 ou plus récente.</span><span lang="en">iPadOS 26 or later, on an iPad with an M1 chip or newer.</span></dd>
+                        <dt>Mac</dt>
+                        <dd><span lang="fr">Un Mac à puce Apple avec macOS 26.6 ou ultérieur, pour construire vos jeux et y jouer.</span><span lang="en">A Mac with Apple silicon and macOS 26.6 or later, to build your games and play them there.</span></dd>
                         <dt><span lang="fr">Compte Apple</span><span lang="en">Apple account</span></dt>
                         <dd><span lang="fr">Un compte gratuit suffit, ou votre propre certificat de signature (.p12).</span><span lang="en">A free one is enough, or a signing certificate (.p12) of your own.</span></dd>
                         <dt><span lang="fr">Ordinateur</span><span lang="en">Computer</span></dt>
-                        <dd><span lang="fr">Un Mac ou un PC Windows pour la première installation, un Mac à puce Apple pour construire vos jeux.</span><span lang="en">A Mac or a Windows PC for the first install, a Mac with Apple silicon to build your games.</span></dd>
+                        <dd><span lang="fr">Un Mac ou un PC Windows, une fois, pour installer Cartouche.</span><span lang="en">A Mac or a Windows PC, once, to install Cartouche.</span></dd>
                         <dt><span lang="fr">Vos jeux</span><span lang="en">Your games</span></dt>
                         <dd><span lang="fr">Vos propres copies, tirées de votre console.</span><span lang="en">Your own copies, dumped from your console.</span></dd>
                     </dl>
@@ -1478,7 +1547,11 @@
                     </details>
                     <details>
                         <summary><span lang="fr">Faut-il un ordinateur ?</span><span lang="en">Do I need a computer?</span></summary>
-                        <p><span lang="fr">Une fois, pour installer Cartouche depuis un Mac ou un PC Windows. Ensuite, il se renouvelle et se met à jour depuis l’iPhone. Pour construire vos jeux, il faut un Mac à puce Apple, avec <a href="#builder">Cartouche Builder</a>.</span><span lang="en">Once, to install Cartouche from a Mac or a Windows PC. Then it renews and updates itself from the iPhone. Building your games takes a Mac with Apple silicon, with <a href="#builder">Cartouche Builder</a>.</span></p>
+                        <p><span lang="fr">Une fois, pour installer Cartouche depuis un Mac ou un PC Windows. Ensuite, il se renouvelle et se met à jour depuis l’iPhone ou l’iPad. Pour construire vos jeux, il faut un Mac à puce Apple, avec <a href="#builder">Cartouche Builder</a>, qui les fait aussi tourner sur le Mac.</span><span lang="en">Once, to install Cartouche from a Mac or a Windows PC. Then it renews and updates itself from the iPhone or iPad. Building your games takes a Mac with Apple silicon, with <a href="#builder">Cartouche Builder</a>, which plays them on the Mac too.</span></p>
+                    </details>
+                    <details>
+                        <summary><span lang="fr">Cartouche marche-t-il sur iPad et sur Mac ?</span><span lang="en">Does Cartouche work on iPad and on a Mac?</span></summary>
+                        <p><span lang="fr">Sur un iPad à puce M1 ou plus récente, c’est la même app que sur l’iPhone, installée de la même façon, qui dit « iPad » partout où elle parle de votre appareil. Sur un Mac à puce Apple, <a href="#builder">Cartouche Builder</a> construit chacun de vos jeux pour le Mac aussi et le lance, avec les mêmes sauvegardes que votre iPhone et votre iPad.</span><span lang="en">On an iPad with an M1 chip or newer, it is the same app as on the iPhone, installed the same way, which says “iPad” wherever it speaks of your device. On a Mac with Apple silicon, <a href="#builder">Cartouche Builder</a> builds each of your games for the Mac too and plays it there, with the same saves as your iPhone and iPad.</span></p>
                     </details>
                     <details>
                         <summary><span lang="fr">Puis-je utiliser mon propre certificat ?</span><span lang="en">Can I use my own signing certificate?</span></summary>
@@ -1486,7 +1559,7 @@
                     </details>
                     <details>
                         <summary><span lang="fr">Quels jeux tournent ?</span><span lang="en">Which games run?</span></summary>
-                        <p><span lang="fr">Ceux que nxnative fait tourner nativement. Dans Cartouche, Tous les jeux montre chaque jeu qui a un profil dans nxnative, et sa fiche dit s’il tourne sur votre iPhone.</span><span lang="en">The ones nxnative runs natively. In Cartouche, All games lists every game that has a profile in nxnative, and its sheet says whether it runs on your iPhone.</span></p>
+                        <p><span lang="fr">Ceux que nxnative fait tourner nativement. Dans Cartouche, Tous les jeux montre chaque jeu qui a un profil dans nxnative, et sa fiche dit s’il tourne sur votre iPhone ou votre iPad ; le filtre Sur Mac montre ceux que nxnative fait tourner sur le Mac.</span><span lang="en">The ones nxnative runs natively. In Cartouche, All games lists every game that has a profile in nxnative, and its sheet says whether it runs on your iPhone or iPad; the On Mac filter shows those nxnative runs on the Mac.</span></p>
                     </details>
                     <details>
                         <summary><span lang="fr">Comment construire mes jeux ?</span><span lang="en">How do I build my games?</span></summary>
@@ -1498,7 +1571,7 @@
                     </details>
                     <details>
                         <summary><span lang="fr">Cartouche envoie-t-il des données ?</span><span lang="en">Does Cartouche send any data?</span></summary>
-                        <p><span lang="fr">Des mesures de vos parties, comme les images par seconde et la mémoire, pour que les jeux tournent mieux sur iPhone ; jamais vos fichiers, vos sauvegardes ni vos comptes. Vous pouvez les couper dans Système › Mesures de jeu. Le détail est dans <a href="https://github.com/clabeuhtegrite/Cartouche/blob/main/docs/privacy.md">la page Confidentialité</a>.</span><span lang="en">Measurements of your game sessions, such as frame rate and memory, so that games run better on iPhone; never your files, saves or accounts. You can turn them off in System › Game measurements. The details are on <a href="https://github.com/clabeuhtegrite/Cartouche/blob/main/docs/privacy.md">the privacy page</a>.</span></p>
+                        <p><span lang="fr">Des mesures de vos parties, comme les images par seconde et la mémoire, pour que les jeux tournent mieux sur iPhone et iPad ; jamais vos fichiers, vos sauvegardes ni vos comptes. Vous pouvez les couper dans Système › Mesures de jeu. Le détail est dans <a href="https://github.com/clabeuhtegrite/Cartouche/blob/main/docs/privacy.md">la page Confidentialité</a>.</span><span lang="en">Measurements of your game sessions, such as frame rate and memory, so that games run better on iPhone and iPad; never your files, saves or accounts. You can turn them off in System › Game measurements. The details are on <a href="https://github.com/clabeuhtegrite/Cartouche/blob/main/docs/privacy.md">the privacy page</a>.</span></p>
                     </details>
                 </div>
             </div>
@@ -1707,11 +1780,13 @@
             '<div class="focus__actions">' + actions + "</div>";
     }
 
+    // Beside the sheet of the game in focus (o.split, on the iPad), the home
+    // leaves out the game in focus, which the sheet describes in full, and
+    // the iPad's stage, status bar and home indicator.
     function home(o) {
         var games = o.games, g = games[o.index];
-        return '<div class="ui home' + (o.pausedId ? " home--paused" : "") + '">' +
-            stage(games, g.id) +
-            statusbar() +
+        return '<div class="ui home' + (o.pausedId ? " home--paused" : "") + (o.split ? " home--split" : "") + '">' +
+            (o.split ? "" : stage(games, g.id) + statusbar()) +
             '<div class="home__bar"><span class="mark" aria-hidden="true"><i></i><b>Cartouche</b></span>' +
             '<span class="upill glass" aria-hidden="true">' + ic("gamepad") + "</span>" + dock("top", o.links) + "</div>" +
             '<div class="home__main"><p class="home__label">' + t("Ma bibliothèque", "My library") + "</p>" +
@@ -1720,15 +1795,18 @@
                 return tile(x, { focused: i === o.index, interactive: o.interactive, paused: o.pausedId === x.id, eager: o.eager, priority: o.eager && i === o.index, sizes: o.sizes });
             }).join("") +
             outline("import", t("Importer un jeu", "Import a game")) + outline("grid", t("Tous les jeux", "All games")) + "</div></div>" +
-            '<div class="focus" data-focus>' + focusInfo(g, o) + "</div></div>" +
+            (o.split ? "" : '<div class="focus" data-focus>' + focusInfo(g, o) + "</div>") + "</div>" +
             dock("bottom", o.links) +
-            (o.island ? '<i class="island"></i>' : "") + '<i class="indicator"></i></div>';
+            (o.island ? '<i class="island"></i>' : "") + (o.split ? "" : '<i class="indicator"></i>') + "</div>";
     }
 
     // A game's sheet: Play and its settings for an installed game, Install
     // for one in the games folder; its play time and size; what it needs.
-    function sheet(g) {
-        var stored = g.status === "stored";
+    // Beside the console (o.split, on the iPad), it has no OK, the iPad's
+    // stage and status bar are behind it, and it says iPad for iPhone.
+    function sheet(g, o) {
+        o = o || {};
+        var stored = g.status === "stored", split = o.split;
         var actions = stored
             ? '<span class="ubtn ubtn--primary ubtn--wide">' + ic("download") + t("Installer depuis " + SERVER, "Install from " + SERVER) + "</span>" +
               '<span class="ubtn glass ubtn--wide ubtn--slim">' + ic("import") + t("Importer une autre copie", "Import another copy") + "</span>"
@@ -1737,16 +1815,31 @@
         var stats = stored
             ? '<div class="urow"><span class="urow__main">' + t("Dans " + SERVER, "In " + SERVER) + '</span><span class="urow__val">' + tt(g.stored) + "</span></div>"
             : '<div class="urow"><span class="urow__main">' + t("Temps de jeu", "Play time") + "<small>" + tt(g.sessions) + '</small></span><span class="urow__val">' + tt(g.time) + "</span></div>" +
-              '<div class="urow"><span class="urow__main">' + t("Sur cet iPhone", "On this iPhone") + "<small>" + tt(g.detail) + '</small></span><span class="urow__val">' + tt(g.size) + "</span></div>";
-        return '<div class="ui sheet">' + stage([g], g.id) + statusbar() +
-            '<span class="okbtn glass" aria-hidden="true">OK</span>' +
+              '<div class="urow"><span class="urow__main">' + (split ? t("Sur cet iPad", "On this iPad") : t("Sur cet iPhone", "On this iPhone")) + "<small>" + tt(g.detail) + '</small></span><span class="urow__val">' + tt(g.size) + "</span></div>";
+        return '<div class="ui sheet' + (split ? " split-sheet" : "") + '">' +
+            (split ? "" : stage([g], g.id) + statusbar() + '<span class="okbtn glass" aria-hidden="true">OK</span>') +
             '<div class="sheet__body"><div class="sheet__head"><span class="tile sheet__tile" style="--a:' + g.light + ";--b:" + g.dark + '" aria-hidden="true">' + cartridge(g, { sizes: "auto, 80px" }) + "</span>" +
             '<div><h3 class="sheet__title">' + g.name + '</h3><div class="sheet__chips">' + chips(g) + "</div>" +
             '<div class="sheet__status">' + status(g.status) + "</div></div></div>" + actions +
             '<p class="ugroup">' + t("Temps de jeu et taille", "Play time and size") + '</p><div class="ucard">' + stats + "</div>" +
-            '<div class="ucard"><div class="urow"><span class="ustat" style="--c:var(--ready)">' + ic("check") + '</span><span class="urow__main">' + t("Cet iPhone a tout ce qu’il faut", "This iPhone has what it needs") + "</span>" + ic("chevron", "urow__chev") + "</div></div>" +
+            '<div class="ucard"><div class="urow"><span class="ustat" style="--c:var(--ready)">' + ic("check") + '</span><span class="urow__main">' +
+            (split ? t("Cet iPad a tout ce qu’il faut", "This iPad has what it needs") : t("Cet iPhone a tout ce qu’il faut", "This iPhone has what it needs")) + "</span>" + ic("chevron", "urow__chev") + "</div></div>" +
             (stored ? "" : '<div class="ucard"><div class="urow urow--danger">' + ic("trash") + '<span class="urow__main">' + t("Désinstaller", "Uninstall") + "</span></div></div>") +
-            '</div><i class="island"></i><i class="indicator"></i></div>';
+            "</div>" + (split ? "" : '<i class="island"></i><i class="indicator"></i>') + "</div>";
+    }
+
+    // The iPad in landscape (CartoucheArrangement): the console and the sheet
+    // of the game in focus, each in half the screen, on one stage.
+    function ipadStatusbar() {
+        return '<div class="statusbar" aria-hidden="true"><span>9:41<span class="statusbar__date">' + t("Ven. 13 nov.", "Fri Nov 13") + "</span></span>" +
+            '<span class="statusbar__icons">' + ic("wifi", "ic--wifi") + ic("battery", "ic--battery") + "</span></div>";
+    }
+    function ipad(index) {
+        var g = OWNED[index];
+        return '<div class="ui ipad">' + stage(OWNED, g.id) + ipadStatusbar() +
+            '<div class="ipad__half ipad__home">' + home({ games: OWNED, index: index, interactive: true, split: true, sizes: "auto, 170px" }) + "</div>" +
+            '<div class="ipad__half ipad__sheet" data-ipad-sheet>' + sheet(g, { split: true }) + "</div>" +
+            '<i class="indicator"></i></div>';
     }
 
     function scaleText(s) {
@@ -2005,7 +2098,7 @@
     }
 
     // ---------- Language ----------
-    var TITLES = { fr: "Cartouche pour iPhone", en: "Cartouche for iPhone" };
+    var TITLES = { fr: "Cartouche pour iPhone, iPad et Mac", en: "Cartouche for iPhone, iPad and Mac" };
     function applyLang(lang) {
         root.setAttribute("data-lang", lang);
         root.lang = lang;
@@ -2038,6 +2131,32 @@
     $('[data-screen="system"]').innerHTML = system();
     var pauseScreen = $('[data-screen="pause"]');
     pauseScreen.innerHTML = playScreen(BY_ID.mk8d);
+
+    // The iPad: a tap, or the arrows, puts a game in focus, and the sheet
+    // beside the console shows it.
+    var ipadDevice = $("[data-ipad]");
+    var ipadScreen = $('[data-screen="ipad"]');
+    var ipadIndex = OWNED.indexOf(BY_ID.silksong);
+    ipadScreen.innerHTML = ipad(ipadIndex);
+    setFocus(ipadScreen, OWNED, ipadIndex);
+    function ipadFocus(i) {
+        i = (i + OWNED.length) % OWNED.length;
+        if (i === ipadIndex) return;
+        ipadIndex = i;
+        setFocus(ipadScreen, OWNED, ipadIndex);
+        $("[data-ipad-sheet]", ipadScreen).innerHTML = sheet(OWNED[ipadIndex], { split: true });
+    }
+    function ipadTile(e) {
+        var b = e.target.closest("button.tile");
+        if (b) ipadFocus(indexOfTile(b));
+    }
+    ipadScreen.addEventListener("click", ipadTile);
+    ipadScreen.addEventListener("focusin", ipadTile);
+    ipadDevice.addEventListener("keydown", function (e) {
+        if (e.key !== "ArrowRight" && e.key !== "ArrowLeft") return;
+        e.preventDefault();
+        ipadFocus(ipadIndex + (e.key === "ArrowRight" ? 1 : -1));
+    });
 
     // The hero's home: the focus moves on by itself until the visitor takes over.
     function heroFocus(i) {
