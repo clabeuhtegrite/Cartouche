@@ -124,6 +124,22 @@ rm -rf "$OUT/CartoucheHarness.xcresult"
 # xcodebuild's whole log goes to test.log, its errors, the tests' results,
 # what the harness says of a test that took long and what iPadOS made of the
 # game's screen to the screen. Its own status is the script's.
+#
+# That leaves the step without a word for minutes: 5 on the iPhone and 11 on
+# the iPad before its first line, in run 43578975230. The iPad's was taken
+# for a stuck run and cancelled by hand, 10 minutes in (#175, run
+# 43574954111, 14 November). So a line every minute says that it goes on,
+# beside test.log and the filter, until xcodebuild ends, as launcher/Gallery/
+# heartbeat.py says it of the gallery's builds. HEARTBEAT_SECONDS sets
+# another time, for the tests (launcher/Gallery/test_heartbeat.py).
+heartbeat() {
+  local since=$SECONDS
+  while sleep "${HEARTBEAT_SECONDS:-60}" >/dev/null 2>&1 && kill -0 $$ 2>/dev/null; do
+    echo "   still building the harness and running its tests: $((SECONDS - since)) s"
+  done
+}
+heartbeat &
+HEARTBEAT=$!
 set +e
 xcodebuild test \
   -project "$HERE/CartoucheHarness.xcodeproj" \
@@ -140,6 +156,8 @@ xcodebuild test \
   2>&1 | tee "$OUT/test.log" | grep -E --line-buffered \
     "error:|Test Case .* (passed|failed)|Executed [0-9]+ test|\*\* (BUILD|TEST) |harness: -\[[^]]+\] took |harness: iPadOS "
 STATUSES=("${PIPESTATUS[@]}")
+kill "$HEARTBEAT" 2>/dev/null
+wait "$HEARTBEAT" 2>/dev/null
 set -e
 STATUS="${STATUSES[0]}"
 
