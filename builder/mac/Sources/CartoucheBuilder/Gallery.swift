@@ -181,10 +181,12 @@ enum Gallery {
         }
         window.contentViewController = controller
         window.setContentSize(size)
-        // In front and active, as the player sees the app's window: an
-        // inactive window greys its main buttons and its switches. Nobody
-        // opened the gallery, so macOS turns down activate(), which only
-        // asks; the gallery takes the front, as the runner has no player.
+        // In front and, where macOS lets it, active, as the player sees the
+        // app's window: an inactive window greys its main buttons and its
+        // switches. activate() only asks, which macOS turns down to an app
+        // nobody opened; on GitHub's runners, it keeps the gallery inactive
+        // even so, and the last line says how many pictures show a window
+        // in the background.
         NSApp.activate(ignoringOtherApps: true)
         window.makeKeyAndOrderFront(nil)
         window.orderFrontRegardless()
