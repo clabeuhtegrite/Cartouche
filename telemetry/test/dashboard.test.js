@@ -668,13 +668,15 @@ test("the players' journey: a step reached counts those before it, even unsaid",
     // 4 ran a version that said neither its sign-in nor its set-up, and played.
     eventOf(4, "game.installed", {}, { game: "0400C3F00006E000" }),
     sessionOf(4),
-    // 5 was installed with the player's own certificate.
+    // 5 was installed with the player's own certificate, by the Cartouche
+    // Installer; 6 too, signed by a signing app on the iPhone.
     eventOf(5, "app.opened", { setUp: false, signedIn: false, signing: "imported" }),
+    eventOf(6, "app.opened", { setUp: false, signedIn: false, signing: "iphone", iml: "leftOut", gameKeychains: "leftOut" }),
   ]).journey;
-  assert.equal(journey.copies, 5);
-  assert.deepEqual(journey.steps.map((step) => [step.key, step.copies]), [["opened", 5], ["signedIn", 3], ["setUp", 2], ["installed", 2], ["played", 2], ["returned", 1]]);
-  assert.equal(journey.stuckCopies, 3);
-  assert.deepEqual(journey.stuck.map((step) => [step.key, step.copies]), [["opened", 2], ["signedIn", 1], ["setUp", 0], ["installed", 0]]);
+  assert.equal(journey.copies, 6);
+  assert.deepEqual(journey.steps.map((step) => [step.key, step.copies]), [["opened", 6], ["signedIn", 4], ["setUp", 2], ["installed", 2], ["played", 2], ["returned", 1]]);
+  assert.equal(journey.stuckCopies, 4);
+  assert.deepEqual(journey.stuck.map((step) => [step.key, step.copies]), [["opened", 2], ["signedIn", 2], ["setUp", 0], ["installed", 0]]);
   assert.deepEqual(journey.blockers, [{ origin: "signIn", cause: "appleServer", copies: 1 }]);
   assert.equal(journey.neverSignedIn, 1);
 });

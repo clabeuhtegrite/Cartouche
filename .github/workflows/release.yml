@@ -2,15 +2,18 @@ name: Release
 
 # Publishes a release of Cartouche when a tag v<CARTOUCHE_VERSION> is pushed
 # on main, or when the workflow is run on main from the Actions tab, which
-# needs no computer and makes the tag itself: builds the IPA, runs the publish
-# guard on it and attaches it to a GitHub release. main takes no push, this
-# workflow's included: it pushes the branch release/v<version>, which adds the
-# release to app/sidestore-source.json, and its summary links the pull request
-# to open from it. Once that pull request is merged, Cartouche's built-in
-# SideStore finds the release and offers the update on the iPhone. Nothing is
-# published before the Full test pass, every test of the repository, has
-# passed on the commit (full-pass.yml): once the IPA is built, the workflow
-# waits for the pass the merge of the version started, or starts one.
+# needs no computer and makes the tag itself: builds the IPA, and the IPA a
+# player signs on the iPhone with their own certificate
+# (app/scripts/own_certificate_ipa.py, docs/imported-signing.md), runs the
+# publish guard on both and attaches them to a GitHub release. main takes no
+# push, this workflow's included: it pushes the branch release/v<version>,
+# which adds the release to app/sidestore-source.json, and its summary links
+# the pull request to open from it. Once that pull request is merged,
+# Cartouche's built-in SideStore finds the release and offers the update on
+# the iPhone. Nothing is published before the Full test pass, every test of
+# the repository, has passed on the commit (full-pass.yml): once the IPA is
+# built, the workflow waits for the pass the merge of the version started, or
+# starts one.
 # How to cut a release: app/releases/README.md.
 
 on:
@@ -105,10 +108,14 @@ jobs:
         run: brew install ldid
       - name: Build
         run: app/scripts/build.sh
+      - name: The IPA for the player's own certificate
+        run: python3 app/scripts/own_certificate_ipa.py --ipa build/app/Cartouche.ipa --out build/app/Cartouche-Own-Certificate.ipa
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: Cartouche-${{ steps.tag.outputs.version }}
-          path: build/app/Cartouche.ipa
+          path: |
+            build/app/Cartouche.ipa
+            build/app/Cartouche-Own-Certificate.ipa
           retention-days: 14
           if-no-files-found: error
 
@@ -151,7 +158,7 @@ jobs:
         run: |
           python3 -m venv .venv
           .venv/bin/pip install --quiet -e guard
-          .venv/bin/cartouche-guard --kind app build/download/Cartouche.ipa
+          .venv/bin/cartouche-guard --kind app build/download/Cartouche.ipa build/download/Cartouche-Own-Certificate.ipa
 
   # The only job that can write: it runs git, gh and the standard library
   # only, nothing installed from a package index.
@@ -176,11 +183,13 @@ jobs:
         run: |
           mkdir -p build/release
           IPA="build/release/Cartouche-$VERSION.ipa"
+          OWN_IPA="build/release/Cartouche-$VERSION-Own-Certificate.ipa"
           cp build/download/Cartouche.ipa "$IPA"
+          cp build/download/Cartouche-Own-Certificate.ipa "$OWN_IPA"
           if gh release view "$TAG" >/dev/null 2>&1; then
             # A release that is not in the source yet; once published, an
             # immutable release refuses this.
-            gh release upload "$TAG" "$IPA" --clobber
+            gh release upload "$TAG" "$IPA" "$OWN_IPA" --clobber
           else
             # Versions 0.x are test builds: marked as pre-releases on GitHub.
             PRERELEASE=()
@@ -189,8 +198,8 @@ jobs:
             # release makes the tag on the commit the workflow runs on.
             TARGET=(--verify-tag)
             if [ "$GITHUB_EVENT_NAME" = "workflow_dispatch" ]; then TARGET=(--target "$GITHUB_SHA"); fi
-            # A draft until its IPA is attached, so that it can be immutable.
-            gh release create "$TAG" "$IPA" --draft --title "Cartouche $VERSION" \
+            # A draft until its IPAs are attached, so that it can be immutable.
+            gh release create "$TAG" "$IPA" "$OWN_IPA" --draft --title "Cartouche $VERSION" \
               --notes-file "app/releases/$VERSION.md" "${TARGET[@]}" "${PRERELEASE[@]}"
           fi
           gh release edit "$TAG" --draft=false
@@ -202,6 +211,8 @@ jobs:
           python3 app/scripts/add_release.py \
             --ipa "build/release/Cartouche-$VERSION.ipa" \
             --url "https://github.com/$GITHUB_REPOSITORY/releases/download/$TAG/Cartouche-$VERSION.ipa" \
+            --own-certificate-ipa "build/release/Cartouche-$VERSION-Own-Certificate.ipa" \
+            --own-certificate-url "https://github.com/$GITHUB_REPOSITORY/releases/download/$TAG/Cartouche-$VERSION-Own-Certificate.ipa" \
             --notes "app/releases/$VERSION.md" \
             --version "$VERSION"
           git add app/sidestore-source.json

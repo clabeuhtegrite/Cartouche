@@ -123,6 +123,10 @@ pub struct CartoucheIpa {
     /// Whether the Files app (and house_arrest) can reach its Documents.
     pub file_sharing: bool,
     pub extensions: bool,
+    /// Cartouche for the player's own certificate, which a signing app signs
+    /// on the iPhone (app/scripts/own_certificate_ipa.py):
+    /// CartoucheImportedSigning in its Info.plist.
+    pub own_certificate: bool,
     /// Pads the app with this many bytes, for a large download.
     pub padding: usize,
 }
@@ -135,6 +139,7 @@ impl CartoucheIpa {
             sidestore_framework: true,
             file_sharing: true,
             extensions: true,
+            own_certificate: false,
             padding: 0,
         }
     }
@@ -163,6 +168,9 @@ impl CartoucheIpa {
         };
         if self.file_sharing {
             info.insert("UIFileSharingEnabled".into(), true.into());
+        }
+        if self.own_certificate {
+            info.insert("CartoucheImportedSigning".into(), true.into());
         }
         files.push((format!("{app}/Info.plist"), xml_plist(info)));
         files.push((format!("{app}/LiveContainer"), macho(MH_EXECUTE, &format!("main {}", self.version), true)));

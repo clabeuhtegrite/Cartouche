@@ -107,6 +107,19 @@ enum Words {
     static let putBack = "Put back a copy"                  // saves.putBack
     static let putBackCopy = "Put back the copy of "        // saves.putBack.action
     static let putBackDone = "The copy of "                 // saves.putBack.done
+    static let importCertificate = "Import signing certificate" // signing.title
+    static let certificateStep = "Import your certificate"  // guide.certificate.title
+    static let howOnIPhone = "Choose the certificate (.p12) your signing app signed Cartouche with" // signing.howOnIPhone
+    static let chooseCertificate = "Choose the certificate (.p12)" // signing.chooseCertificate
+    static let chooseProfile = "Choose its profile (.mobileprovision)" // signing.chooseProfile
+    static let certificatePassword = "Certificate password" // signing.password
+    static let useCertificate = "Use this certificate"      // signing.use
+    static let signature = "Your signature"                 // signature.check.title
+    static let memoryLeftOut = "Your signing app left out Increased Memory Limit" // signature.memory.leftOut
+    static let keychainsLeftOut = "Your signing app did not sign in the games’ keychain groups" // signature.keychains.leftOut
+    static let download = "Download"                        // updates.download
+    static let offerOnIPhone = "You have version %@. Download the new one" // updates.offer.onIPhone
+    static let offerOnComputer = "You have version %@. Install the new one from the Cartouche Installer" // updates.offer.onComputer
     static let siriAndHomeScreen = "Siri and Home Screen"   // shortcuts.title
     static let sayToSiri = "Say to Siri"                    // shortcuts.siri
     static let siriPhrase = "“Play %@ in Cartouche”"        // shortcuts.phrase
@@ -178,6 +191,10 @@ struct Launch {
     /// process holds the main thread for seconds on a CI Mac
     /// (GalleryKeyboard, GalleryTesting.swift).
     var typing = false
+    /// Cartouche signed with the player's own certificate (-GallerySigning,
+    /// GalleryApp.swift): "iphone", by a signing app on the iPhone, or
+    /// "installer", by the Cartouche Installer.
+    var signing: String?
     /// The title ID of the game Siri asks for as the gallery opens, before
     /// its console shows; and of the one it asks for each time the test
     /// posts GalleryWords.siriAsks (GalleryShortcut, GalleryTesting.swift).
@@ -194,6 +211,7 @@ struct Launch {
         if let sheet { arguments += ["-GallerySheet", sheet] }
         if let holdMainThread { arguments += ["-GalleryHoldMainThread", String(holdMainThread)] }
         if typing { arguments += ["-GalleryKeyboard", "1"] }
+        if let signing { arguments += ["-GallerySigning", signing] }
         if let siri { arguments += ["-GalleryShortcut", siri] }
         if let siriOnPost { arguments += ["-GalleryShortcutOnPost", siriOnPost] }
         if let model { arguments += ["-GalleryModel", model] }

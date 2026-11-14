@@ -8,7 +8,7 @@
 //  the whole screen of the simulator it runs on, such as the iPhone Duo's,
 //  with its own safe area, size classes and system bars.
 //
-//      -GalleryScreen games|library|sheet|settings|gameinfo|shortcuts|setup|signin|guide|system|storage|storage-mac|storage-drive|storage-drive-guide|telemetry|report|tv
+//      -GalleryScreen games|library|sheet|settings|gameinfo|shortcuts|setup|signin|signing|guide|system|storage|storage-mac|storage-drive|storage-drive-guide|telemetry|report|tv
 //                                        library: every game, open over
 //                                        the home; gameinfo: what the
 //                                        player says of the sheet's game;
@@ -24,7 +24,16 @@
 //                                        or the first of the player's, runs
 //                                        behind the console, its card where
 //                                        the game leaves its own scene on
-//                                        the TV empty (CartoucheTV.swift)
+//                                        the TV empty (CartoucheTV.swift);
+//                                        signing: the import of the
+//                                        player's own certificate
+//      -GallerySigning iphone            Cartouche signed with the player's
+//                                        own certificate, by a signing app
+//                                        on the iPhone, which kept the
+//                                        profile's keychain pattern as it
+//                                        is (GalleryScenario.ownSignature);
+//                                        installer: by the Cartouche
+//                                        Installer, with every entitlement
 //      -GalleryWidth 402 -GalleryHeight 874     (none: the whole screen)
 //      -GalleryInsets 62,0,34,0          top, leading, bottom, trailing
 //      -GalleryWidthClass compact        the width class at a scenario's
@@ -106,6 +115,12 @@
 //                                        on the TV (screen tv), paused: the
 //                                        game paused behind the console,
 //                                        starting: the game starting;
+//                                        signed with the player's own
+//                                        certificate, iml-left-out: the
+//                                        signing app left Increased Memory
+//                                        Limit out; iml-not-in-profile: the
+//                                        profile allows it not, nor the
+//                                        games' keychain groups;
 //                                        renewing: Cartouche renewing itself
 //                                        in its last 3 days, as it came to
 //                                        the front; renewal-failed: that
@@ -167,6 +182,8 @@ struct GalleryScenario {
     /// The name of the file that says the screen has settled.
     var ready: String?
     var category: String?
+    /// "iphone" or "installer": signed with the player's own certificate.
+    var signing: String?
 
     static func fromArguments() -> GalleryScenario {
         let defaults = UserDefaults.standard
@@ -192,6 +209,7 @@ struct GalleryScenario {
         scenario.landscape = defaults.string(forKey: "GalleryOrientation") == "landscape"
         scenario.ready = defaults.string(forKey: "GalleryReady")
         scenario.category = defaults.string(forKey: "GalleryCategory")
+        scenario.signing = defaults.string(forKey: "GallerySigning")
         return scenario
     }
 
@@ -229,9 +247,38 @@ struct GalleryScenario {
         unknownGames.first { $0.titleId == titleId }?.name ?? CartoucheCatalog.shared.game(titleId: titleId)?.name
     }
 
+    /// What the signature of the player's own certificate gives Cartouche,
+    /// as a signing app on the iPhone signs it: every entitlement of the
+    /// profile, its keychain pattern as it is, which gives the games no
+    /// keychain group; work iml-left-out: without Increased Memory Limit,
+    /// which the profile allows; iml-not-in-profile: a profile that allows
+    /// neither. The Cartouche Installer signs every group in.
+    var ownSignature: CartoucheOwnSignature? {
+        let team = "GALLERY123"
+        let memory = CartoucheOwnSignature.memoryEntitlement
+        let keychain = CartoucheOwnSignature.keychainEntitlement
+        let profile: [String: Any] = [memory: true, keychain: [team + ".*"]]
+        switch (signing, work) {
+        case ("iphone"?, "iml-left-out"?):
+            return CartoucheOwnSignature(signed: [keychain: [team + ".*"]], profile: profile, team: team)
+        case ("iphone"?, "iml-not-in-profile"?):
+            return CartoucheOwnSignature(signed: [keychain: [team + ".io.github.clabeuhtegrite.cartouche"]],
+                                         profile: [keychain: [team + ".io.github.clabeuhtegrite.cartouche"]], team: team)
+        case ("iphone"?, _):
+            return CartoucheOwnSignature(signed: profile, profile: profile, team: team)
+        case ("installer"?, _):
+            return CartoucheOwnSignature(signed: [memory: true, keychain: CartoucheOwnSignature.gameKeychainGroups(team: team)],
+                                         profile: profile, team: team)
+        default:
+            return nil
+        }
+    }
+
     /// Puts the files the stand-ins read where the launcher looks for them.
     func prepare() {
         GalleryState.setupDone = setupDone
+        GalleryState.signing = signing == "iphone" ? .iPhone : signing == "installer" ? .installer : .account
+        GalleryState.ownSignature = ownSignature
         GalleryState.certificateRefused = work == "certificate"
         GalleryState.signInUnfinished = work == "sign-in-unfinished"
         GalleryState.vpnConnected = work.map { Self.deviceChecks[$0] != nil } ?? false
@@ -287,7 +334,9 @@ struct GalleryScenario {
             }
             if work == "update" {
                 // A higher version than the gallery's own (project.yml).
-                CartoucheUpdates.shared.offerForGallery(CartoucheRelease(version: "0.4.0", notes: "", size: 36_802_806))
+                CartoucheUpdates.shared.offerForGallery(CartoucheRelease(
+                    version: "0.4.0", notes: "", size: 36_802_806,
+                    ownCertificateURL: URL(string: "https://github.com/clabeuhtegrite/Cartouche/releases/download/v0.4.0/Cartouche-0.4.0-Own-Certificate.ipa")))
             }
             if work == "code" {
                 CartoucheAccount.shared.requestCodeForGallery(.init(
@@ -704,6 +753,10 @@ struct CartoucheGalleryApp: App {
             }
         case "signin":
             CartoucheSignInView()
+        case "signing":
+            NavigationStack {
+                CartoucheSigningView()
+            }
         case "guide":
             NavigationStack {
                 CartoucheGuideView(entries: entries, onInstall: { _ in }, onImport: { _ in }, onPlay: { _ in })

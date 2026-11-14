@@ -5,7 +5,9 @@
 //  Imported signing is an alternative to the account setup below: the
 //  installer or the setup's import screen supplies a P12 and profile, the
 //  keychain keeps them, and no Apple ID, pairing file or VPN is needed for
-//  playing. CartoucheImportedSigning manages that selection and validation.
+//  playing. Signed on the iPhone by a signing app, Cartouche asks for the
+//  P12 and its password alone, and takes its own profile with them.
+//  CartoucheImportedSigning manages that selection and validation.
 //
 //  What Cartouche needs before it plays games and renews itself, and what it
 //  does on its own:
@@ -430,10 +432,16 @@ final class CartoucheSetup: ObservableObject {
 
     // MARK: Whether the certificate works
 
-    func importSigning(certificate: Data, password: String, profile: Data) async {
+    /// The certificate, its password and its profile the player chose. Signed
+    /// on the iPhone, Cartouche takes the certificate alone, without PROFILE:
+    /// its own profile goes with it.
+    func importSigning(certificate: Data, password: String, profile: Data?) async {
         guard CartoucheImportedSigning.isImportedInstall, !isImportingSigning else { return }
         isImportingSigning = true
         do {
+            guard let profile = profile ?? CartoucheImportedSigning.ownProfile else {
+                throw CartoucheImportedSigning.ImportError(message: CartoucheText.signingInvalidProfile, kind: "invalidProfile")
+            }
             try await CartoucheImportedSigning.importMaterial(.init(certificate: certificate, password: password, profile: profile))
             signingProblem = nil
             CartoucheImportedSigning.measure(via: "setup", error: nil)

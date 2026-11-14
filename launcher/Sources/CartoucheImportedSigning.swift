@@ -5,15 +5,35 @@ enum CartoucheImportedSigning {
     static let handoffName = "CartoucheSigning.plist"
     private static let account = "Cartouche.importedSigning.material"
 
-    static var isImportedInstall: Bool {
-        Bundle.main.object(forInfoDictionaryKey: "CartoucheImportedSigning") as? Bool == true
+    /// How Cartouche was signed: with the player's Apple ID, or with their
+    /// own certificate, by the Cartouche Installer or on the iPhone
+    /// (CartoucheOwnSignature.swift).
+    static var mode: CartoucheSigningMode {
+        #if CARTOUCHE_GALLERY
+        return GalleryState.signing
+        #else
+        return CartoucheSigningMode(info: Bundle.main.infoDictionary ?? [:])
+        #endif
+    }
+    static var isImportedInstall: Bool { mode != .account }
+    /// Signed by a signing app on the iPhone, from the IPA for the player's
+    /// own certificate: the player gives Cartouche the certificate alone,
+    /// and Cartouche reads the profile the signing app put in it.
+    static var isSignedOnIPhone: Bool { mode == .iPhone }
+    /// The profile Cartouche was signed with, which iOS installed it with.
+    static var ownProfile: Data? {
+        try? Data(contentsOf: Bundle.main.bundleURL.appendingPathComponent("embedded.mobileprovision"))
     }
     static var isSelected: Bool {
         isImportedInstall
     }
     static var accountSigningDisabled: Bool { isImportedInstall }
     static var material: CartoucheSigningMaterial? {
-        CartoucheStoreKeychain.data(account).flatMap {
+        #if CARTOUCHE_GALLERY
+        // The certificate in place once the gallery's setup is done.
+        if GalleryState.setupDone { return CartoucheSigningMaterial(certificate: Data([0x30]), password: "", profile: Data()) }
+        #endif
+        return CartoucheStoreKeychain.data(account).flatMap {
             try? PropertyListDecoder().decode(CartoucheSigningMaterial.self, from: $0)
         }
     }
@@ -31,9 +51,14 @@ enum CartoucheImportedSigning {
         return SecItemAdd(query.merging(values) { _, new in new } as CFDictionary, nil) == errSecSuccess
     }
 
+    /// Takes the certificate, its password and the profile it goes with
+    /// into the keychain, once iOS has run what LiveContainer signs with
+    /// them. Signed on the iPhone, the profile is Cartouche's own.
     @MainActor
     static func importMaterial(_ material: CartoucheSigningMaterial) async throws {
-        guard isImportedInstall else { throw ImportError(message: CartoucheText.signingReinstall, kind: "reinstall") }
+        let onIPhone = isSignedOnIPhone
+        let reinstall = onIPhone ? CartoucheText.signingOtherCertificate : CartoucheText.signingReinstall
+        guard isImportedInstall else { throw ImportError(message: reinstall, kind: "reinstall") }
         if #available(iOS 17.0, *) {
             guard CartoucheAccount.shared.phase == nil, CartoucheUpdates.shared.phase == nil else {
                 throw ImportError(message: CartoucheText.signingWait, kind: "busy")
@@ -54,7 +79,9 @@ enum CartoucheImportedSigning {
         guard SecIdentityCopyCertificate(identity, &certificate) == errSecSuccess, let certificate else {
             throw ImportError(message: CartoucheText.signingInvalidKey, kind: "invalidKey")
         }
-        let hostProfile = try Data(contentsOf: Bundle.main.bundleURL.appendingPathComponent("embedded.mobileprovision"))
+        guard let hostProfile = ownProfile else {
+            throw ImportError(message: CartoucheText.signingInvalidProfile, kind: "invalidProfile")
+        }
         #if CARTOUCHE_GALLERY
         let hostTeam = team
         #else
@@ -64,12 +91,17 @@ enum CartoucheImportedSigning {
             try material.validate(certificateDER: SecCertificateCopyData(certificate) as Data,
                                   team: team, hostTeam: hostTeam, hostProfile: hostProfile)
         } catch CartoucheSigningMaterial.Problem.reinstall {
-            throw ImportError(message: CartoucheText.signingReinstall, kind: "reinstall")
+            throw ImportError(message: reinstall, kind: "reinstall")
+        } catch CartoucheSigningMaterial.Problem.mismatch where onIPhone {
+            // Cartouche's own profile does not list this certificate: it is
+            // not the one the signing app signed Cartouche with.
+            throw ImportError(message: reinstall, kind: "reinstall")
         } catch {
             throw ImportError(message: CartoucheText.signingInvalidProfile, kind: "invalidProfile")
         }
         guard await CartoucheCertificate.works(candidate: material) else {
-            throw ImportError(message: CartoucheText.signingRefused, kind: "refused")
+            throw ImportError(message: onIPhone ? CartoucheText.signingRefusedOnIPhone : CartoucheText.signingRefused,
+                              kind: "refused")
         }
         guard save(try PropertyListEncoder().encode(material)) else {
             throw ImportError(message: CartoucheText.signInKeychainFailed, kind: "keychain")

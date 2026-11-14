@@ -2,18 +2,19 @@
 //  CartoucheGuide.swift
 //  Cartouche
 //
-//  The way from a new install to the first game, for a player who has
-//  never used Cartouche (CartoucheGuideView): LocalDevVPN, the Apple ID,
-//  the game built on a Mac with Cartouche Builder, the games folder, then
-//  the game installed. Each step ticks itself from what Cartouche sees, in
-//  any order. The Mac's step is the player's to take: No thanks skips it,
-//  for a player whose games are built already or who has no Mac, and the
-//  guide goes on without it. The guide opens by itself once, the first
-//  time the console shows before the player has signed in, and stays a
-//  card at the top of the home until the first game is installed, unless
-//  the player takes the card off the home; from then on it shows there no
-//  more, whatever happens later, and the setup banner takes its place. The
-//  System page opens it at any time.
+//  The way from a new install to the first game, for a player who has never
+//  used Cartouche (CartoucheGuideView): LocalDevVPN, the Apple ID, the game
+//  built on a Mac with Cartouche Builder, the games folder, then the game
+//  installed. Signed with the player's own certificate, the certificate
+//  takes the place of LocalDevVPN and the Apple ID. Each step ticks itself
+//  from what Cartouche sees, in any order. The Mac's step is the player's
+//  to take: No thanks skips it, for a player whose games are built already
+//  or who has no Mac, and the guide goes on without it. The guide opens by
+//  itself once, the first time the console shows before the player has
+//  signed in, and stays a card at the top of the home until the first game
+//  is installed, unless the player takes the card off the home; from then
+//  on it shows there no more, whatever happens later, and the setup banner
+//  takes its place. The System page opens it at any time.
 //
 
 import SwiftUI
@@ -25,7 +26,7 @@ final class CartoucheGuide: ObservableObject {
     static let shared = CartoucheGuide()
 
     enum Step: Int, CaseIterable, Identifiable {
-        case vpn, account, build, folder, play
+        case vpn, account, certificate, build, folder, play
 
         var id: Int { rawValue }
         var number: Int { rawValue + 1 }
@@ -50,12 +51,16 @@ final class CartoucheGuide: ObservableObject {
         /// The player said No thanks to building their game on a Mac.
         var buildSkipped = false
         /// Cartouche signs with an Apple ID: one installed with the player's
-        /// own certificate has neither LocalDevVPN's step nor the Apple ID's.
+        /// own certificate has neither LocalDevVPN's step nor the Apple ID's,
+        /// and has the certificate's in their place.
         var requiresAccount = true
 
         /// The steps this installation has, in their order.
-        var steps: [Step] {
-            requiresAccount ? Step.allCases : Step.allCases.filter { $0 != .vpn && $0 != .account }
+        var steps: [Step] { Step.allCases.filter { !isLeftOut($0) } }
+
+        /// A step this installation does not have.
+        private func isLeftOut(_ step: Step) -> Bool {
+            requiresAccount ? step == .certificate : step == .vpn || step == .account
         }
 
         /// STEP's number among them.
@@ -70,6 +75,8 @@ final class CartoucheGuide: ObservableObject {
             // certificate.
             case .vpn: return vpnConnected || (signedIn && !deviceLeft && !signInUnfinished)
             case .account: return signedIn && canPlay && !deviceLeft
+            // The certificate the player gave, or the Installer handed over.
+            case .certificate: return canPlay
             case .build: return hasGame
             // A game imported from Files needs no games folder.
             case .folder: return hasGamesFolder || hasInstalledGame
@@ -80,8 +87,7 @@ final class CartoucheGuide: ObservableObject {
         /// A step the player passed over without doing it: the Mac's, after
         /// No thanks, until a game of theirs shows anyway.
         func isSkipped(_ step: Step) -> Bool {
-            (!requiresAccount && (step == .vpn || step == .account))
-                || (step == .build && buildSkipped && !isDone(step))
+            isLeftOut(step) || (step == .build && buildSkipped && !isDone(step))
         }
 
         /// The first step left, nil once every step is done or skipped.

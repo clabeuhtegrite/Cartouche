@@ -1565,6 +1565,23 @@
         }
       }
     },
+    "guide.certificate.title" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Import your certificate"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Importez votre certificat"
+          }
+        }
+      }
+    },
     "guide.done" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -1758,13 +1775,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Three steps from here to your first game. Each one ticks itself once it is done."
+            "value" : "Four steps from here to your first game. Each one ticks itself once it is done."
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Trois étapes jusqu’à votre premier jeu. Chacune se coche toute seule une fois faite."
+            "value" : "Quatre étapes jusqu’à votre premier jeu. Chacune se coche toute seule une fois faite."
           }
         }
       }
@@ -4982,6 +4999,23 @@
         }
       }
     },
+    "setup.done.ownCertificate" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cartouche signs your games with your own certificate. There is nothing more to do here."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cartouche signe vos jeux avec votre propre certificat. Il n’y a plus rien à faire ici."
+          }
+        }
+      }
+    },
     "setup.done.title" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -5012,6 +5046,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Trois étapes, une seule fois sur cet iPhone. Ensuite, Cartouche se renouvelle tout seul."
+          }
+        }
+      }
+    },
+    "setup.intro.ownCertificate" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "One step, once on this iPhone: the certificate Cartouche signs your games with."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Une étape, une seule fois sur cet iPhone : le certificat avec lequel Cartouche signe vos jeux."
           }
         }
       }
@@ -6767,6 +6818,125 @@
         }
       }
     },
+    "signature.check.title" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Your signature"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Votre signature"
+          }
+        }
+      }
+    },
+    "signature.keychains" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Games’ keychains"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Trousseaux des jeux"
+          }
+        }
+      }
+    },
+    "signature.keychains.granted" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Each game keeps its own."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Chaque jeu garde le sien."
+          }
+        }
+      }
+    },
+    "signature.keychains.leftOut" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Your signing app did not sign in the games’ keychain groups, which your profile allows: the games share Cartouche’s keychain. Most games do not use it."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Votre app de signature n’a pas inclus les groupes de trousseau des jeux, que votre profil permet : les jeux partagent le trousseau de Cartouche. La plupart des jeux ne s’en servent pas."
+          }
+        }
+      }
+    },
+    "signature.keychains.notInProfile" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Your profile does not allow the games’ keychain groups: the games share Cartouche’s keychain. Most games do not use it."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Votre profil ne permet pas les groupes de trousseau des jeux : les jeux partagent le trousseau de Cartouche. La plupart des jeux ne s’en servent pas."
+          }
+        }
+      }
+    },
+    "signature.memory.leftOut" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Your signing app left out Increased Memory Limit, which your profile allows: without it, iOS gives Cartouche and its games about 3 GB. Sign Cartouche again, keeping every entitlement of the profile."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Votre app de signature a laissé de côté la mémoire augmentée, que votre profil permet : sans elle, iOS donne environ 3 Go à Cartouche et à ses jeux. Signez Cartouche à nouveau en gardant tous les droits du profil."
+          }
+        }
+      }
+    },
+    "signature.memory.notInProfile" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Your profile does not allow Increased Memory Limit: without it, iOS gives Cartouche and its games about 3 GB, too little for most games. Use a profile whose App ID has this capability, then sign Cartouche again."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Votre profil ne permet pas la mémoire augmentée : sans elle, iOS donne environ 3 Go à Cartouche et à ses jeux, trop peu pour la plupart des jeux. Prenez un profil dont l’App ID a cette capacité, puis signez Cartouche à nouveau."
+          }
+        }
+      }
+    },
     "signing.certificateChosen" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -6852,6 +7022,23 @@
         }
       }
     },
+    "signing.howOnIPhone" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Choose the certificate (.p12) your signing app signed Cartouche with, and type its password. Cartouche reads its profile by itself. Neither an Apple ID nor LocalDevVPN is needed."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Choisissez le certificat (.p12) avec lequel votre app de signature a signé Cartouche, et tapez son mot de passe. Cartouche lit son profil tout seul. Ni compte Apple ni LocalDevVPN ne sont nécessaires."
+          }
+        }
+      }
+    },
     "signing.invalidFile" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -6899,6 +7086,40 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Ce profil n’est pas valide, a expiré ou ne correspond pas à ce certificat."
+          }
+        }
+      }
+    },
+    "signing.onlyOwnCertificate" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cartouche takes only the certificate it was signed with. To change certificates, sign Cartouche again with the new one in your signing app, then choose it here."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cartouche ne prend que le certificat avec lequel il a été signé. Pour en changer, signez Cartouche à nouveau avec le nouveau dans votre app de signature, puis choisissez-le ici."
+          }
+        }
+      }
+    },
+    "signing.otherCertificate" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cartouche was signed with another certificate. Choose that one, or sign Cartouche again with this one in your signing app."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cartouche a été signé avec un autre certificat. Choisissez celui-là, ou signez Cartouche à nouveau avec celui-ci dans votre app de signature."
           }
         }
       }
@@ -6954,6 +7175,23 @@
         }
       }
     },
+    "signing.refusedOnIPhone" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "iOS refused this certificate, which may have been revoked. Sign Cartouche again with a valid certificate in your signing app, then choose that certificate here."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "iOS a refusé ce certificat, qui a peut-être été révoqué. Signez Cartouche à nouveau avec un certificat valide dans votre app de signature, puis choisissez ce certificat ici."
+          }
+        }
+      }
+    },
     "signing.reinstall" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -6966,7 +7204,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Si le profil avec lequel Cartouche a été installée n’autorise pas ce certificat, réinstallez Cartouche avec lui et son profil, depuis l’Installeur Cartouche."
+            "value" : "Si le profil avec lequel Cartouche a été installé n’autorise pas ce certificat, réinstallez Cartouche avec lui et son profil, depuis l’Installeur Cartouche."
           }
         }
       }
@@ -7000,7 +7238,24 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Cartouche est signée avec votre propre certificat : installez ses mises à jour, et un nouveau certificat avant qu’il n’expire, depuis l’Installeur Cartouche sur votre ordinateur. Elle n’a pas besoin d’être renouvelée chaque semaine."
+            "value" : "Cartouche est signé avec votre propre certificat : installez ses mises à jour, et un nouveau certificat avant qu’il n’expire, depuis l’Installeur Cartouche sur votre ordinateur. Il n’a pas besoin d’être renouvelé chaque semaine."
+          }
+        }
+      }
+    },
+    "signing.updateOnIPhone" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cartouche is signed with your own certificate and needs no renewal each week. When a new version is out, Cartouche says so: download it, sign it in your signing app as the first time, then install it over this one. Your games and saves stay."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cartouche est signé avec votre propre certificat et n’a pas besoin d’être renouvelé chaque semaine. Quand une nouvelle version sort, Cartouche le dit : téléchargez-la, signez-la dans votre app de signature comme la première fois, puis installez-la par-dessus celle-ci. Vos jeux et sauvegardes restent."
           }
         }
       }
@@ -11289,6 +11544,23 @@
         }
       }
     },
+    "system.updates.download" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Download Cartouche %@"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Télécharger Cartouche %@"
+          }
+        }
+      }
+    },
     "system.updates.footer" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -12156,6 +12428,23 @@
         }
       }
     },
+    "updates.download" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Download"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Télécharger"
+          }
+        }
+      }
+    },
     "updates.failed.message" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -12322,6 +12611,40 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Vous avez la version %@. Avec LocalDevVPN connecté, Cartouche installe la nouvelle sans ordinateur, puis se ferme : rouvrez-le. Vos jeux et sauvegardes restent."
+          }
+        }
+      }
+    },
+    "updates.offer.onComputer" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "You have version %@. Install the new one from the Cartouche Installer on your computer, with your certificate: your games and saves stay."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vous avez la version %@. Installez la nouvelle depuis l’Installeur Cartouche sur votre ordinateur, avec votre certificat : vos jeux et sauvegardes restent."
+          }
+        }
+      }
+    },
+    "updates.offer.onIPhone" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "You have version %@. Download the new one, sign it in your signing app as the first time, then install it over this one: your games and saves stay."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vous avez la version %@. Téléchargez la nouvelle, signez-la dans votre app de signature comme la première fois, puis installez-la par-dessus celle-ci : vos jeux et sauvegardes restent."
           }
         }
       }

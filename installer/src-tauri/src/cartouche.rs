@@ -196,8 +196,18 @@ async fn download(
     Ok(())
 }
 
-/// The bundle identifier of the app in an IPA, from its Payload/<name>.app/Info.plist.
-pub fn ipa_bundle_id(path: &Path) -> Result<String, AppError> {
+/// The app in an IPA, as its Payload/<name>.app/Info.plist says.
+#[derive(Debug, PartialEq, Eq)]
+pub struct IpaApp {
+    pub bundle_id: String,
+    /// Cartouche for the player's own certificate, which a signing app signs
+    /// on the iPhone (Cartouche-<version>-Own-Certificate.ipa,
+    /// app/scripts/own_certificate_ipa.py): CartoucheImportedSigning set.
+    pub own_certificate: bool,
+}
+
+/// The app in the IPA at `path`, from its Payload/<name>.app/Info.plist.
+pub fn ipa_app(path: &Path) -> Result<IpaApp, AppError> {
     let file = std::fs::File::open(path)
         .map_err(|e| AppError::Filesystem("Failed to open the IPA".into(), e.to_string()))?;
     let mut archive = zip::ZipArchive::new(file)
@@ -221,11 +231,17 @@ pub fn ipa_bundle_id(path: &Path) -> Result<String, AppError> {
         .map_err(|e| AppError::NotCartouche(e.to_string()))?;
     let info = plist::Value::from_reader(std::io::Cursor::new(data))
         .map_err(|e| AppError::NotCartouche(format!("The app's Info.plist does not read: {e}")))?;
-    info.as_dictionary()
+    let info = info.as_dictionary();
+    let bundle_id = info
         .and_then(|d| d.get("CFBundleIdentifier"))
         .and_then(|v| v.as_string())
         .map(str::to_string)
-        .ok_or_else(|| AppError::NotCartouche("The app has no bundle identifier".into()))
+        .ok_or_else(|| AppError::NotCartouche("The app has no bundle identifier".into()))?;
+    let own_certificate = info
+        .and_then(|d| d.get("CartoucheImportedSigning"))
+        .and_then(plist::Value::as_boolean)
+        == Some(true);
+    Ok(IpaApp { bundle_id, own_certificate })
 }
 
 /// Whether an installed app's identifier is Cartouche's: Cartouche's own, or
@@ -331,13 +347,26 @@ pub async fn install_cartouche_operation<R: Runtime>(
     let (path, downloaded): (PathBuf, bool) = match ipa_path {
         Some(path) => {
             let path = PathBuf::from(path);
-            let bundle_id = op.fail_if_err("download", ipa_bundle_id(&path))?;
+            let IpaApp { bundle_id, own_certificate } = op.fail_if_err("download", ipa_app(&path))?;
             if bundle_id != BUNDLE_ID {
                 return op.fail(
                     "download",
                     AppError::NotCartouche(format!(
                         "This IPA holds {bundle_id}, not Cartouche: games go into Cartouche, from its Import"
                     )),
+                );
+            }
+            // Cartouche for the player's own certificate, signed with an
+            // Apple ID, would start in that mode: asking for a certificate,
+            // without the Apple ID's setup, and with no extension to keep a
+            // game behind the console. The option for the player's own
+            // certificate takes it as any Cartouche IPA.
+            if own_certificate && imported_signing.is_none() {
+                return op.fail(
+                    "download",
+                    // Short enough for the line the window gives a step's
+                    // error, its name first: the file's own.
+                    AppError::NotCartouche("Own-Certificate IPA: with an Apple ID, pick Cartouche-<version>.ipa".into()),
                 );
             }
             (path, false)
@@ -461,6 +490,25 @@ mod tests {
     }
 
     #[test]
+    fn reads_an_entry_with_the_ipa_for_the_players_own_certificate() {
+        // Since the version of November 15, the release workflow lists the
+        // IPA a signing app on the iPhone signs beside the IPA
+        // (app/scripts/add_release.py): only Cartouche reads those three
+        // fields, and the installer still installs the IPA itself.
+        let source = SOURCE.replace(
+            r#""size": 1, "sha256": "ab"}"#,
+            r#""size": 1, "sha256": "ab",
+           "ownCertificateDownloadURL": "https://github.com/clabeuhtegrite/Cartouche/releases/download/v0.10.0/Cartouche-0.10.0-Own-Certificate.ipa",
+           "ownCertificateSize": 2, "ownCertificateSHA256": "cd"}"#,
+        );
+        assert_ne!(source, SOURCE);
+        let release = latest_in(&source).unwrap();
+        assert_eq!(release.version, "0.10.0");
+        assert!(release.download_url.ends_with("/v0.10.0/Cartouche-0.10.0.ipa"));
+        assert_eq!((release.size, release.sha256.as_str()), (1, "ab"));
+    }
+
+    #[test]
     fn refuses_an_ipa_outside_the_releases() {
         let source = SOURCE.replace(
             "https://github.com/clabeuhtegrite/Cartouche/releases/download/v0.10.0/",
@@ -502,7 +550,39 @@ mod tests {
         info.insert("CFBundleIdentifier".into(), BUNDLE_ID.into());
         plist::Value::Dictionary(info).to_writer_binary(&mut writer).unwrap();
         writer.finish().unwrap();
-        assert_eq!(ipa_bundle_id(&path).unwrap(), BUNDLE_ID);
+        assert_eq!(ipa_app(&path).unwrap(), IpaApp { bundle_id: BUNDLE_ID.into(), own_certificate: false });
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn knows_the_ipa_for_the_players_own_certificate() {
+        let dir = std::env::temp_dir().join(format!("cartouche-installer-own-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let ipa = |name: &str, imported: Option<plist::Value>| {
+            let path = dir.join(name);
+            let mut writer = zip::ZipWriter::new(std::fs::File::create(&path).unwrap());
+            writer
+                .start_file("Payload/LiveContainer.app/Info.plist", zip::write::SimpleFileOptions::default())
+                .unwrap();
+            let mut info = plist::Dictionary::new();
+            info.insert("CFBundleIdentifier".into(), BUNDLE_ID.into());
+            if let Some(imported) = imported {
+                info.insert("CartoucheImportedSigning".into(), imported);
+            }
+            plist::Value::Dictionary(info).to_writer_xml(&mut writer).unwrap();
+            writer.finish().unwrap();
+            path
+        };
+        let own = ipa("Cartouche-0.13.0-Own-Certificate.ipa", Some(plist::Value::from(true)));
+        assert_eq!(ipa_app(&own).unwrap(), IpaApp { bundle_id: BUNDLE_ID.into(), own_certificate: true });
+        // Only a true says it.
+        for (name, imported) in [
+            ("false.ipa", Some(plist::Value::from(false))),
+            ("text.ipa", Some(plist::Value::from("YES"))),
+            ("none.ipa", None),
+        ] {
+            assert!(!ipa_app(&ipa(name, imported)).unwrap().own_certificate, "{name}");
+        }
         std::fs::remove_dir_all(&dir).unwrap();
     }
 }

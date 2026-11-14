@@ -71,6 +71,71 @@ final class CartoucheReleaseTests: XCTestCase {
         XCTAssertFalse(newest.notes.isEmpty)
     }
 
+    // MARK: The IPA for the player's own certificate
+
+    /// What add_release.py adds to an entry since the version of November 15
+    /// (app/scripts/own_certificate_ipa.py).
+    private func withOwnCertificate(_ entry: [String: Any], url: String? = nil) -> [String: Any] {
+        var entry = entry
+        let version = entry["version"] as? String ?? ""
+        entry["ownCertificateDownloadURL"] = url
+            ?? "https://github.com/clabeuhtegrite/Cartouche/releases/download/v\(version)/Cartouche-\(version)-Own-Certificate.ipa"
+        entry["ownCertificateSize"] = 36_102_400
+        entry["ownCertificateSHA256"] = String(repeating: "1", count: 64)
+        return entry
+    }
+
+    func testTheIPAForThePlayersOwnCertificateIsReadBesideTheIPA() throws {
+        let data = try source([withOwnCertificate(version("0.13.0")), version("0.12.0")])
+        let newest = try XCTUnwrap(CartoucheRelease.newest(in: data, bundleIdentifier: bundleIdentifier, systemVersion: "26.1"))
+        XCTAssertEqual(newest.version, "0.13.0")
+        XCTAssertEqual(newest.size, 36_802_806, "the size is still the IPA's")
+        XCTAssertEqual(newest.ownCertificateURL?.absoluteString,
+                       "https://github.com/clabeuhtegrite/Cartouche/releases/download/v0.13.0/Cartouche-0.13.0-Own-Certificate.ipa")
+        // A version from before has none.
+        let older = try source([version("0.12.0")])
+        XCTAssertNil(try CartoucheRelease.newest(in: older, bundleIdentifier: bundleIdentifier, systemVersion: "26.1")?.ownCertificateURL)
+    }
+
+    /// Cartouche sends the player to that address: only one of its
+    /// releases on GitHub, over HTTPS.
+    func testOnlyAReleaseOnGitHubIsOffered() throws {
+        for url in ["http://github.com/clabeuhtegrite/Cartouche/releases/download/v0.13.0/Cartouche-0.13.0-Own-Certificate.ipa",
+                    "https://example.com/clabeuhtegrite/Cartouche/releases/download/v0.13.0/Cartouche-0.13.0-Own-Certificate.ipa",
+                    "https://github.com/someone/Cartouche/releases/download/v0.13.0/Cartouche-0.13.0-Own-Certificate.ipa",
+                    "https://github.com/clabeuhtegrite/Cartouche/releases/download/v0.13.0/notes.txt",
+                    "not an address"] {
+            let data = try source([withOwnCertificate(version("0.13.0"), url: url)])
+            let newest = try XCTUnwrap(CartoucheRelease.newest(in: data, bundleIdentifier: bundleIdentifier, systemVersion: "26.1"))
+            XCTAssertNil(newest.ownCertificateURL, url)
+            XCTAssertEqual(newest.version, "0.13.0", "the version is still offered")
+        }
+    }
+
+    /// The copies already installed, from 0.10 to 0.12, read the source
+    /// with the entry of a version as they had it: the three new fields
+    /// change nothing for them.
+    func testCopiesFromBeforeReadTheNewEntries() throws {
+        struct Source: Decodable {
+            struct App: Decodable {
+                let bundleIdentifier: String
+                let versions: [Version]?
+            }
+            struct Version: Decodable {
+                let version: String
+                let localizedDescription: String?
+                let size: Int64?
+                let minOSVersion: String?
+                let maxOSVersion: String?
+            }
+            let apps: [App]
+        }
+        let data = try source([withOwnCertificate(version("0.13.0")), version("0.12.0")])
+        let read = try JSONDecoder().decode(Source.self, from: data)
+        XCTAssertEqual(read.apps.first?.versions?.map(\.version), ["0.13.0", "0.12.0"])
+        XCTAssertEqual(read.apps.first?.versions?.first?.size, 36_802_806)
+    }
+
     func testVersionsCompareNumberByNumber() {
         XCTAssertTrue(CartoucheVersion.isHigher("0.10.0", than: "0.9.9"))
         XCTAssertTrue(CartoucheVersion.isHigher("0.4.0", than: "0.3.0"))

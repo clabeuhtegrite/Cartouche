@@ -309,7 +309,8 @@ struct CartoucheSystemView: View {
         } header: {
             Text(CartoucheText.signature)
         } footer: {
-            Text(CartoucheImportedSigning.accountSigningDisabled ? CartoucheText.signingUpdateOnComputer : CartoucheText.signatureFooter)
+            Text(CartoucheImportedSigning.isSignedOnIPhone ? CartoucheText.signingUpdateOnIPhone
+                 : CartoucheImportedSigning.accountSigningDisabled ? CartoucheText.signingUpdateOnComputer : CartoucheText.signatureFooter)
         }
     }
 
@@ -419,17 +420,25 @@ struct CartoucheSystemView: View {
 
     // MARK: Updates
 
+    /// Signed with the player's own certificate, the section says that a
+    /// version is out, which Cartouche does not install by itself.
     @ViewBuilder
     private var updateSection: some View {
-        if updates.canUpdate {
+        if updates.canCheck {
             Section {
                 updateRows
             } header: {
                 Text(CartoucheText.updatesTitle)
             } footer: {
-                Text(CartoucheText.updatesFooter)
+                Text(updatesFooter)
             }
         }
+    }
+
+    private var updatesFooter: String {
+        if CartoucheImportedSigning.isSignedOnIPhone { return CartoucheText.signingUpdateOnIPhone }
+        if CartoucheImportedSigning.isImportedInstall { return CartoucheText.signingUpdateOnComputer }
+        return CartoucheText.updatesFooter
     }
 
     @ViewBuilder
@@ -456,8 +465,12 @@ struct CartoucheSystemView: View {
         } else if let available = updates.available {
             LabeledContent(CartoucheText.updateAvailable, value: available.version)
             if CartoucheImportedSigning.accountSigningDisabled {
-                Text(CartoucheText.signingUpdateOnComputer)
-                    .font(.footnote).foregroundStyle(.secondary)
+                // Its IPA, signed on the iPhone; the footer says what then.
+                if updates.download != nil {
+                    Button(CartoucheText.updateDownloadVersion(available.version), systemImage: "arrow.down.circle") {
+                        updates.openDownload()
+                    }
+                }
             } else {
                 Button(CartoucheText.updateTo(available.version), systemImage: "arrow.down.circle") {
                     updates.start()

@@ -416,11 +416,17 @@ final class CartoucheTelemetry: ObservableObject {
             "setUp": .flag(setup.isComplete),
             "storage": .text(CartoucheStorageSettings.shared.location(.games)?.server.kind.rawValue ?? "none"),
             "saves": .text(CartoucheStorageSettings.shared.location(.saves)?.server.kind.rawValue ?? "none"),
-            // The player's own certificate, or the Apple ID's (docs/imported-signing.md).
-            "signing": .text(CartoucheImportedSigning.isImportedInstall ? "imported" : "account"),
+            // The Apple ID's, or the player's own certificate, given by the
+            // Cartouche Installer or on the iPhone (docs/imported-signing.md).
+            "signing": .text(CartoucheImportedSigning.mode.rawValue),
         ]
         // What it is made of: never the Apple ID, only whether there is one.
         fields.merge(setup.facts.fields) { _, made in made }
+        // With the player's own certificate, what its signature gives:
+        // never the team nor the profile.
+        if let signature = CartoucheOwnSignature.current {
+            fields.merge(signature.fields.mapValues { .text($0) }) { _, signed in signed }
+        }
         if let days = CartoucheSignature.current().daysLeft {
             fields["signatureDays"] = .number(Double(days))
         }
