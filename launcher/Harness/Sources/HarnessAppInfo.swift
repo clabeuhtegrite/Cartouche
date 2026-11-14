@@ -565,6 +565,8 @@ final class BuiltInSideStoreAppInfo: LCAppInfo {}
 enum HarnessMachO {
     static let cpuTypeARM64: Int32 = 0x0100_000C
     static let cpuTypeARM: Int32 = 12
+    /// Apple's GPU, as the Mach-O of a Metal binary archive names it.
+    static let cpuTypeAppleGPU: Int32 = 0x0100_0013
 
     struct Header {
         var cpuType: Int32
@@ -608,6 +610,37 @@ enum HarnessMachO {
             return "Not a Mach-O file"
         }
         return nil
+    }
+
+    /// What zsign says of the file at PATH as it signs it, when it cannot
+    /// (ZSign/zsign.mm, signMachOPathArr): a file that is no Mach-O, it
+    /// cannot read; a Mach-O of Apple's GPU, alone or as a slice of a
+    /// universal file, such as the Metal pipeline archive an nxnative game
+    /// may bundle, has no room for a signature. Nil for a file it signs.
+    static func zsignFailure(_ path: String) -> String? {
+        guard let cpuTypes = cpuTypes(path) else { return "Invalid mach-o file! " + path }
+        return cpuTypes.contains(cpuTypeAppleGPU) ? "Failed to Sign " + path : nil
+    }
+
+    /// The processors of the Mach-O file at PATH: that of a thin file, or
+    /// one a slice of a universal one. Nil for a file that is no Mach-O.
+    private static func cpuTypes(_ path: String) -> [Int32]? {
+        guard let handle = FileHandle(forReadingAtPath: path) else { return nil }
+        defer { try? handle.close() }
+        let bytes = [UInt8]((try? handle.read(upToCount: 4096)) ?? Data())
+        guard bytes.count >= 8 else { return nil }
+        switch littleEndian(bytes, 0) {
+        case 0xFEED_FACF, 0xFEED_FACE:
+            return [Int32(bitPattern: littleEndian(bytes, 4))]
+        case 0xBEBA_FECA:
+            let count = Int(bigEndian(bytes, 4))
+            return (0..<min(count, 32)).compactMap { index in
+                let arch = 8 + index * 20
+                return arch + 4 <= bytes.count ? Int32(bitPattern: bigEndian(bytes, arch)) : nil
+            }
+        default:
+            return nil
+        }
     }
 
     private static func header(_ bytes: [UInt8], at offset: Int) -> Header? {

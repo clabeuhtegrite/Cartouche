@@ -1,0 +1,62 @@
+From d43d4549a21042dd51985dc41774a362c23af2ab Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Fri, 13 Nov 2026 15:29:24 +0000
+Subject: [PATCH] Say why an app's process ended on an error, as it ends
+
+LiveProcess ends the process of an app it could not run, or that threw,
+with cancelRequestWithError: its error says why: dyld's words, such as
+a code signature iOS refused or a library missing, or LiveContainer's,
+or the app's exception. AppSceneViewController's request cancellation
+block calls appTerminationCleanUp first, which tells its delegate that
+the app exited, on the main thread, then passes the error on to
+appSceneVC:didInitializeWithError:, which comes after, from the
+extension's queue: for an app that had started, the delegate could not
+tell that error from a failed start, and Cartouche, whose game had ended
+by then, dropped it. The player read that the game had closed, without
+why, start after start.
+
+The block now keeps the error in exitError before it cleans up, for the
+delegate to read as the app exits. Nothing else changes: the error is
+still passed on as before.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01MzPJotvCK7FttoD5tgMdYs
+---
+ MultitaskSupport/AppSceneViewController.h | 6 ++++++
+ MultitaskSupport/AppSceneViewController.m | 3 +++
+ 2 files changed, 9 insertions(+)
+
+diff --git a/MultitaskSupport/AppSceneViewController.h b/MultitaskSupport/AppSceneViewController.h
+index 66143b0..ee9e435 100644
+--- a/MultitaskSupport/AppSceneViewController.h
++++ b/MultitaskSupport/AppSceneViewController.h
+@@ -33,6 +33,12 @@ API_AVAILABLE(ios(16.0))
+ @property(nonatomic) UIView* contentView;
+ @property(nonatomic) _UIScenePresenter *presenter;
+ @property(nonatomic) _UISceneHostingController *hostingController API_AVAILABLE(ios(17.0));
++// Cartouche: why the app's process ended, when LiveProcess ended it on an
++// error, with cancelRequestWithError: it could not run the app (dyld's words
++// or LiveContainer's), or the app threw. Set before appSceneVCAppDidExit:,
++// which may come before appSceneVC:didInitializeWithError: says it; nil
++// when the process ended otherwise.
++@property(nonatomic) NSError *exitError;
+ - (instancetype)initWithBundleId:(NSString*)bundleId dataUUID:(NSString*)dataUUID delegate:(id<AppSceneViewControllerDelegate>)delegate;
+ - (void)setBackgroundNotificationEnabled:(bool)enabled;
+ - (void)updateFrameWithSettingsBlock:(void (^)(UIMutableApplicationSceneSettings *settings))block;
+diff --git a/MultitaskSupport/AppSceneViewController.m b/MultitaskSupport/AppSceneViewController.m
+index d2b4396..3234d3f 100644
+--- a/MultitaskSupport/AppSceneViewController.m
++++ b/MultitaskSupport/AppSceneViewController.m
+@@ -97,6 +97,9 @@
+     
+     __weak typeof(self) weakSelf = self;
+     [_extension setRequestCancellationBlock:^(NSUUID *uuid, NSError *error) {
++        // Cartouche: kept for appSceneVCAppDidExit:, which
++        // appTerminationCleanUp calls on the main thread.
++        weakSelf.exitError = error;
+         [weakSelf appTerminationCleanUp];
+         [weakSelf.delegate appSceneVC:weakSelf didInitializeWithError:error];
+     }];
+-- 
+2.43.0
+

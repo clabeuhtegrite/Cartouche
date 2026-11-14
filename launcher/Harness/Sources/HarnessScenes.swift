@@ -87,6 +87,9 @@ class AppSceneViewController: UIViewController {
     private var cleanedUp = false
     /// When Cartouche stopped the game, if it did.
     private(set) var terminatedAt: Date?
+    /// Why the game's process ended, when LiveProcess ended it on an error
+    /// (app/patches/livecontainer/0014).
+    var exitError: Error!
 
     var isAppRunning: Bool {
         pid > 0 && processRuns
@@ -111,7 +114,7 @@ class AppSceneViewController: UIViewController {
         // queue of its own.
         DispatchQueue.global(qos: .userInitiated).asyncAfter(deadline: .now() + 0.05) {
             switch start {
-            case .starts, .crashes:
+            case .starts, .crashes, .endsOnError:
                 self.pid = HarnessScenes.newPID()
                 self.processRuns = true
                 self.delegate?.appSceneVC(self, didInitializeWithError: nil)
@@ -121,6 +124,13 @@ class AppSceneViewController: UIViewController {
                 if start == .crashes {
                     DispatchQueue.global().asyncAfter(deadline: .now() + 0.4) {
                         self.processEnded()
+                    }
+                } else if case .endsOnError(let message) = start {
+                    // LiveProcess says why 100 ms after the game's main
+                    // function returned, from its main queue.
+                    DispatchQueue.global().asyncAfter(deadline: .now() + 0.4) {
+                        self.processEnded(on: NSError(domain: "LiveProcess", code: 1,
+                                                      userInfo: [NSLocalizedDescriptionKey: message]))
                     }
                 }
             case .refused:
@@ -181,6 +191,18 @@ class AppSceneViewController: UIViewController {
         if HarnessLC.extensionReportsExit {
             appTerminationCleanUp()
         }
+    }
+
+    /// LiveProcess ended the game's process on ERROR (cancelRequestWithError:):
+    /// the request's cancellation block, with Cartouche's patch 0014, keeps
+    /// the error, cleans up, which tells Cartouche on the main thread, then
+    /// passes the error on to didInitialize, from the extension's queue.
+    private func processEnded(on error: NSError) {
+        guard processRuns else { return }
+        processRuns = false
+        exitError = error
+        appTerminationCleanUp()
+        delegate?.appSceneVC(self, didInitializeWithError: error)
     }
 
     func appTerminationCleanUp() {
