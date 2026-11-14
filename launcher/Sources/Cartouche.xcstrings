@@ -6223,6 +6223,244 @@
         }
       }
     },
+    "shortcut.busy" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cartouche is busy: %@. Try again once it is over."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cartouche est occupé : %@. Réessayez une fois que c’est fini."
+          }
+        }
+      }
+    },
+    "shortcut.notInstalled" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ is no longer installed in Cartouche."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ n’est plus installé dans Cartouche."
+          }
+        }
+      }
+    },
+    "shortcuts.home" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "An icon on the Home Screen"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Une icône sur l’écran d’accueil"
+          }
+        }
+      }
+    },
+    "shortcuts.intro" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Siri and Shortcuts start %@ as Play does, behind the console or in Cartouche’s place."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Siri et Raccourcis lancent %@ comme Jouer, derrière la console ou à la place de Cartouche."
+          }
+        }
+      }
+    },
+    "shortcuts.phrase" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "“Play %@ in Cartouche”"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "« Lance %@ dans Cartouche »"
+          }
+        }
+      }
+    },
+    "shortcuts.shorter" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "“Play %@ in Cartouche” works too."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "« Lance %@ dans Cartouche » marche aussi."
+          }
+        }
+      }
+    },
+    "shortcuts.siri" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Say to Siri"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dites à Siri"
+          }
+        }
+      }
+    },
+    "shortcuts.siri.footer" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Siri needs Cartouche’s name in the sentence. To say the game’s name alone, give it to a shortcut, below."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Siri a besoin du nom de Cartouche dans la phrase. Pour ne dire que le nom du jeu, donnez-le à un raccourci, ci-dessous."
+          }
+        }
+      }
+    },
+    "shortcuts.step1" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "In Shortcuts, tap + to make a new shortcut."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dans Raccourcis, touchez + pour créer un raccourci."
+          }
+        }
+      }
+    },
+    "shortcuts.step2" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tap Add Action, search for Cartouche, and choose Play a Game."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Touchez Ajouter une action, cherchez Cartouche et choisissez Lancer un jeu."
+          }
+        }
+      }
+    },
+    "shortcuts.step3" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tap Game, then choose %@."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Touchez Jeu, puis choisissez %@."
+          }
+        }
+      }
+    },
+    "shortcuts.step4" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tap the shortcut’s name at the top and rename it as you will say it to Siri, such as “%@”."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Touchez le nom du raccourci en haut et renommez-le comme vous le direz à Siri, par exemple « %@ »."
+          }
+        }
+      }
+    },
+    "shortcuts.step5" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tap the Share button, then Add to Home Screen. Its icon starts the game as Play does."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Touchez le bouton Partager, puis Sur l’écran d’accueil. Son icône lance le jeu comme Jouer."
+          }
+        }
+      }
+    },
+    "shortcuts.title" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Siri and Home Screen"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Siri et écran d’accueil"
+          }
+        }
+      }
+    },
     "signIn.again" : {
       "extractionState" : "manual",
       "localizations" : {
