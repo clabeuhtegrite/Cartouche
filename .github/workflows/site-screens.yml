@@ -1,0 +1,103 @@
+name: Site screens
+
+# Research only (the thread that presents Cartouche on iPhone, iPad and Mac),
+# removed before the merge: this branch's site with the games' covers from
+# IGDB, which the thread's own machine cannot reach. The iPad and Mac section
+# and the Builder section alone, and the whole page in French, 1440 and 390
+# points wide (.github/readme-screens/site-shoot.js). They go to the run's artifact, and
+# in one commit to .github/readme-screens/site on this branch, which starts
+# no workflow (GITHUB_TOKEN).
+
+on:
+  push:
+    branches: [claude/project-thread-lmacik]
+    paths:
+      - "site/**"
+      - ".github/readme-screens/site-shoot.js"
+      - ".github/workflows/site-screens.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: site-screens
+  cancel-in-progress: true
+
+jobs:
+  shoot:
+    name: The site, before and after
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: main
+          path: before
+          persist-credentials: false
+      - name: Playwright and its Chromium
+        run: |
+          npm install --no-save --no-audit --no-fund --prefix "$RUNNER_TEMP/pw" playwright@1.63.0
+          "$RUNNER_TEMP/pw/node_modules/.bin/playwright" install --with-deps chromium
+      # The site asks for the system's font: Inter is nearer Apple's than
+      # Linux's own, and wraps the titles as an iPhone or a Mac does.
+      - name: Inter for the system's font
+        run: |
+          sudo apt-get install -y -q fonts-inter
+          sudo tee /etc/fonts/conf.d/56-prefer-inter.conf > /dev/null <<'EOF'
+          <?xml version="1.0"?>
+          <!DOCTYPE fontconfig SYSTEM "urn:fontconfig:fonts.dtd">
+          <fontconfig>
+            <alias><family>system-ui</family><prefer><family>Inter</family></prefer></alias>
+            <alias><family>ui-sans-serif</family><prefer><family>Inter</family></prefer></alias>
+            <alias><family>-apple-system</family><prefer><family>Inter</family></prefer></alias>
+            <alias><family>BlinkMacSystemFont</family><prefer><family>Inter</family></prefer></alias>
+            <alias><family>Segoe UI</family><prefer><family>Inter</family></prefer></alias>
+            <alias><family>Helvetica Neue</family><prefer><family>Inter</family></prefer></alias>
+            <alias><family>sans-serif</family><prefer><family>Inter</family></prefer></alias>
+          </fontconfig>
+          EOF
+          fc-cache -f
+          fc-match system-ui
+          fc-match sans-serif
+      - name: The screenshots
+        run: NODE_PATH="$RUNNER_TEMP/pw/node_modules" node .github/readme-screens/site-shoot.js before/site site build/site-screens
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: site-screens
+          path: build/site-screens
+          retention-days: 7
+          if-no-files-found: error
+
+  push:
+    name: Commit them on the branch
+    needs: shoot
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # .github/readme-screens/site on this branch
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
+        with:
+          name: site-screens
+          path: downloaded
+      - name: Commit and push them
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BRANCH: ${{ github.ref_name }}
+        run: |
+          gh auth setup-git
+          git fetch -q "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY.git" "refs/heads/$BRANCH"
+          git checkout -q FETCH_HEAD
+          rm -rf .github/readme-screens/site
+          mkdir -p .github/readme-screens/site
+          cp downloaded/*.png .github/readme-screens/site/
+          git add -A .github/readme-screens/site
+          git -c user.name="github-actions[bot]" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" \
+            commit -q -m "Research: the site before and after, from run $GITHUB_RUN_ID (removed before the merge)"
+          git push -q "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY.git" "HEAD:refs/heads/$BRANCH"
+          echo "Pushed to $BRANCH"
