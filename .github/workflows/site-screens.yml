@@ -42,6 +42,27 @@ jobs:
         run: |
           npm install --no-save --no-audit --no-fund --prefix "$RUNNER_TEMP/pw" playwright@1.63.0
           "$RUNNER_TEMP/pw/node_modules/.bin/playwright" install --with-deps chromium
+      # The site asks for the system's font: Inter is nearer Apple's than
+      # Linux's own, and wraps the titles as an iPhone or a Mac does.
+      - name: Inter for the system's font
+        run: |
+          sudo apt-get install -y -q fonts-inter
+          sudo tee /etc/fonts/conf.d/56-prefer-inter.conf > /dev/null <<'EOF'
+          <?xml version="1.0"?>
+          <!DOCTYPE fontconfig SYSTEM "urn:fontconfig:fonts.dtd">
+          <fontconfig>
+            <alias><family>system-ui</family><prefer><family>Inter</family></prefer></alias>
+            <alias><family>ui-sans-serif</family><prefer><family>Inter</family></prefer></alias>
+            <alias><family>-apple-system</family><prefer><family>Inter</family></prefer></alias>
+            <alias><family>BlinkMacSystemFont</family><prefer><family>Inter</family></prefer></alias>
+            <alias><family>Segoe UI</family><prefer><family>Inter</family></prefer></alias>
+            <alias><family>Helvetica Neue</family><prefer><family>Inter</family></prefer></alias>
+            <alias><family>sans-serif</family><prefer><family>Inter</family></prefer></alias>
+          </fontconfig>
+          EOF
+          fc-cache -f
+          fc-match system-ui
+          fc-match sans-serif
       - name: The screenshots
         run: NODE_PATH="$RUNNER_TEMP/pw/node_modules" node .github/readme-screens/site-shoot.js before/site site build/site-screens
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7

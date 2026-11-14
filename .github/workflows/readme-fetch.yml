@@ -1,0 +1,57 @@
+name: README screens, fetched
+
+# Research only (the thread that presents Cartouche on iPhone, iPad and Mac),
+# removed before the merge: commits on this branch the screenshots that a run
+# of README screens kept with it (.github/workflows/readme-screens.yml), when
+# that run could not push them itself because the branch had moved since. The
+# run is the one whose number .github/readme-screens/fetch-run holds; the
+# screenshots go to .github/readme-screens/captures in one commit, which
+# starts no workflow (GITHUB_TOKEN).
+
+on:
+  push:
+    branches: [claude/project-thread-lmacik]
+    paths:
+      - ".github/readme-screens/fetch-run"
+
+permissions:
+  contents: read
+
+jobs:
+  fetch:
+    name: Commit them on the branch
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write # .github/readme-screens/captures on this branch
+      actions: read # the artifact of the other run
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: The run
+        id: run
+        run: echo "id=$(tr -dc 0-9 < .github/readme-screens/fetch-run)" >> "$GITHUB_OUTPUT"
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
+        with:
+          name: readme-screens
+          path: downloaded
+          run-id: ${{ steps.run.outputs.id }}
+          github-token: ${{ github.token }}
+      - name: Commit and push them
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BRANCH: ${{ github.ref_name }}
+          RUN: ${{ steps.run.outputs.id }}
+        run: |
+          ls -R downloaded
+          gh auth setup-git
+          git fetch -q "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY.git" "refs/heads/$BRANCH"
+          git checkout -q FETCH_HEAD
+          mkdir -p .github/readme-screens/captures
+          cp downloaded/*.png downloaded/*.txt .github/readme-screens/captures/ 2>/dev/null || true
+          git add .github/readme-screens/captures
+          git -c user.name="github-actions[bot]" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" \
+            commit -q -m "Research: the README's screenshots in English, from run $RUN (removed before the merge)"
+          git push -q "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY.git" "HEAD:refs/heads/$BRANCH"
+          echo "Pushed to $BRANCH"
