@@ -628,6 +628,16 @@ test("the slowest 5% counts only from the reading of the log that takes pauses o
   assert.equal(older.games[0].verdict.status, "playable");
 });
 
+test("the Duo's fold counts only from the reading of the log that ties it to the fold", () => {
+  assert.equal(M.FOLD_READER, 3);
+  // Read before, any iPhone upright said its picture and its controls were apart.
+  const before = sessionOf(1, { reader: 2, display: { tv: false, foldSplit: true } });
+  const upright = sessionOf(2, { reader: 3, display: { tv: false, foldSplit: false } });
+  const unfolded = sessionOf(3, { reader: 3, display: { tv: false, foldSplit: true } });
+  assert.deepEqual(build([before, upright, unfolded]).fluidity.fold, { share: 0.5, yes: 1, known: 2 });
+  assert.equal(build([before]).fluidity.fold, null);
+});
+
 test("a game's verdict follows the game sheets' rules, each iPhone counting once", () => {
   const status = (sessions) => {
     const { verdict } = build(sessions).games[0];
@@ -825,6 +835,7 @@ test("the sample data fills every section, and is the same each time", () => {
     causes: model.errors.byCause.length,
     issues: model.problems.github.issues.length,
     slowest: model.fluidity.low5Measured,
+    fold: model.fluidity.fold?.known ?? 0,
     stuck: model.journey.stuckCopies,
     blockers: model.journey.blockers.length,
     versions: model.versions.length,

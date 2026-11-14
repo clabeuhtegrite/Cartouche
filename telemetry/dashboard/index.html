@@ -415,6 +415,10 @@
     // console or Cartouche in the background, at the rate that pause brought
     // it to, such as 4 fps for a median of 59.6.
     const SLOWEST_READER = 2;
+    // The Duo's fold counts only from the third reading (reader 3): before
+    // it, display.foldSplit was true for any iPhone upright, which nxnative
+    // splits at the middle of its screen too.
+    const FOLD_READER = 3;
 
     // A game's status, by the game sheets' rules (telemetry/sheets.py), each
     // iPhone counting once by the median of its own sessions: "none" when no
@@ -854,7 +858,7 @@
             readers: countBy(sessions, (session) => session.reader),
             changed: share(sessions, (session) => session.nxnativeChanged),
             tv: share(sessions, (session) => session["display.tv"]),
-            fold: share(sessions, (session) => session["display.foldSplit"]),
+            fold: share(sessions.filter((session) => (num(session.reader) ?? 1) >= FOLD_READER), (session) => session["display.foldSplit"]),
             dlc: share(sessions, (session) => session.dlc),
             gameVersions: countBy(sessions, (session) => (session.gameVersion ? (gameOf(catalog, session.game).name ?? session.game) + " " + session.gameVersion : null)).slice(0, 8),
         };
@@ -1487,8 +1491,8 @@
                         nxnativeChanged: rand() < 0.08,
                         settings: rand() < 0.3 ? { DM_RENDER_SCALE: pick(["1.0", "0.75", "1.25"]), DM_OPMODE: "0" } : { DM_OPMODE: "0" },
                         minutes,
-                        // The newer version reads the log without its pauses.
-                        reader: phone.version === "0.10.0" ? 2 : 1,
+                        // The newer version reads the log without its pauses, and the Duo's fold.
+                        reader: phone.version === "0.10.0" ? 3 : 1,
                         frames: Math.round(minutes * 60 * fps),
                         targetFps: profile.target,
                         "fps.median": fps,
@@ -1624,7 +1628,7 @@
         };
     }
 
-    root.CartoucheModel = { ENDS, THERMAL, SHOWN, STATUSES, SLOWEST_READER, ATTENTION, expand, compact, build, demo, median, dayList, gameOf, newestFirst, verdict, shownDays };
+    root.CartoucheModel = { ENDS, THERMAL, SHOWN, STATUSES, SLOWEST_READER, FOLD_READER, ATTENTION, expand, compact, build, demo, median, dayList, gameOf, newestFirst, verdict, shownDays };
 })(typeof window !== "undefined" ? window : globalThis);
 </script>
 
@@ -1764,7 +1768,7 @@
         unknown_base: "Commit d'avant inconnu", profile: "Profil du jeu changé", named: "Commit qui nomme le jeu", shared: "Code commun changé",
     };
     const UPSCALERS = { metalfx: "MetalFX", bilinear: "Bilinéaire" };
-    const EVENTS = { "app.opened": "Ouverture de l'app", "app.updated": "Mise à jour de Cartouche", "signature.renewed": "Signature renouvelée", "renewal.done": "Renouvellement réussi", "game.installed": "Jeu installé ou mis à jour", "account.signedIn": "Connexion Apple réussie", "signing.imported": "Certificat importé", "import.picker": "Sélecteur de fichiers d'un import", error: "Erreur" };
+    const EVENTS = { "app.opened": "Ouverture de l'app", "app.unfinished": "Lancement inachevé", "app.updated": "Mise à jour de Cartouche", "signature.renewed": "Signature renouvelée", "renewal.done": "Renouvellement réussi", "game.installed": "Jeu installé ou mis à jour", "account.signedIn": "Connexion Apple réussie", "signing.imported": "Certificat importé", "import.picker": "Sélecteur de fichiers d'un import", error: "Erreur" };
 
     const gameName = (id, name) => name || id || "?";
     function language(code) {
@@ -2457,7 +2461,7 @@
                     ["Coupures du son", has(f.audio) ? two(f.audio) : DASH, "/min"],
                     ["Parties avec coupures", shareText(f.audioAny)],
                     ["Sur une télé", shareText(f.tv)],
-                    ["Image et commandes séparées", shareText(f.fold)],
+                    ["Autour du pli d'un Duo", shareText(f.fold)],
                     ["Avec contenu additionnel", shareText(f.dlc)],
                     ["Build nxnative modifié", shareText(f.changed)],
                 ])),

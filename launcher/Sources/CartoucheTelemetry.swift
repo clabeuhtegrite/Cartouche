@@ -8,7 +8,10 @@
 //  reports it with the game, its build and settings, and this iPhone; it
 //  reports its own events too: each start, installs, its updates, the
 //  renewals of its signature and its errors. The reports wait in a queue
-//  on the iPhone until the server has them (telemetry/README.md).
+//  on the iPhone until the server has them (telemetry/README.md). Each
+//  launch is kept from its start until it gets to the console with its
+//  games, or to a game in Cartouche's place: the next launch says when one
+//  stopped before (CartoucheTelemetryLaunch).
 //
 //  A session's log is read when Cartouche comes back after the game, when
 //  it opens, and when a game it runs beside itself ends: nxnative renames
@@ -124,6 +127,8 @@ final class CartoucheTelemetry: ObservableObject {
     /// The batch on its way, which the player's switch stops.
     private var sendingBatch: Task<Void, Never>?
     private var observers: Set<AnyCancellable> = []
+    /// This launch, until the next one.
+    private let launch = CartoucheLaunchMark.standard
 
     private init() {
         let support = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
@@ -147,12 +152,26 @@ final class CartoucheTelemetry: ObservableObject {
     func start() {
         guard !started else { return }
         started = true
+        beginLaunch()
         let center = NotificationCenter.default
         center.publisher(for: UIApplication.didBecomeActiveNotification)
             .sink { [weak self] _ in
                 self?.noteChanges()
                 self?.collect()
             }
+            .store(in: &observers)
+        center.publisher(for: UIApplication.didEnterBackgroundNotification)
+            .sink { [weak self] _ in self?.launch.note(at: Date()) { $0.background = true } }
+            .store(in: &observers)
+        center.publisher(for: UIApplication.willEnterForegroundNotification)
+            .sink { [weak self] _ in self?.launch.note(at: Date()) { $0.background = false } }
+            .store(in: &observers)
+        // Still running, every few seconds, until the launch got there: how
+        // long one that never did ran.
+        Timer.publish(every: CartoucheTelemetryLaunch.noteEvery, on: .main, in: .common)
+            .autoconnect()
+            .prefix(while: { [weak self] _ in self?.launch.isGoingOn ?? false })
+            .sink { [weak self] date in self?.launch.note(at: date) }
             .store(in: &observers)
         // At once: a game that starts in Cartouche's place takes its process.
         center.publisher(for: Self.gameStarts)
@@ -179,7 +198,10 @@ final class CartoucheTelemetry: ObservableObject {
             .first()
         listed
             .receive(on: DispatchQueue.main)
-            .sink { [weak self] _ in self?.collect() }
+            .sink { [weak self] _ in
+                self?.launch.note(at: Date()) { $0.listed = true }
+                self?.collect()
+            }
             .store(in: &observers)
         // Whether the installation is ready waits, too, for the check of
         // LiveContainer's certificate, which ends a few seconds after the
@@ -195,6 +217,10 @@ final class CartoucheTelemetry: ObservableObject {
             .map { _ in () }
             .merge(with: Just(()).delay(for: .seconds(30), scheduler: DispatchQueue.main))
             .first()
+        checked
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in self?.launch.note(at: Date()) { $0.checked = true } }
+            .store(in: &observers)
         listed.zip(checked)
             // @Published sends a value before it sets it: read them after.
             .receive(on: DispatchQueue.main)
@@ -221,6 +247,8 @@ final class CartoucheTelemetry: ObservableObject {
             state.queue.removeAll()
             // Not even the batch on its way, made before the switch.
             sendingBatch?.cancel()
+            // Nor this launch, which the next one would report.
+            launch.clear()
         }
         save()
     }
@@ -295,17 +323,19 @@ final class CartoucheTelemetry: ObservableObject {
         Task {
             let measured = await Task.detached(priority: .utility) {
                 jobs.map { job in
+                    let reader = CartoucheGameLogReader.read(contentsOf: job.url)
                     // A game behind the console had its process's own limit.
-                    let measures = CartoucheGameLogReader.read(contentsOf: job.url)?
-                        .measures(seconds: job.seconds, limitMiB: job.process?.limitMiB ?? limit)
-                    return (job, job.process.flatMap { process in measures?.with(process, nearLimit: job.nearLimit) } ?? measures)
+                    let measures = reader?.measures(seconds: job.seconds, limitMiB: job.process?.limitMiB ?? limit)
+                    return (job, job.process.flatMap { process in measures?.with(process, nearLimit: job.nearLimit) } ?? measures,
+                            reader?.limitAtPeakMiB)
                 }
             }.value
-            for (job, measures) in measured {
+            for (job, measures, limitAtPeak) in measured {
                 state.logs.record(key: job.key, session: job.session, bytes: job.bytes)
                 guard let measures, state.isOn else { continue }
+                let sessionLimit = CartoucheSessionReport.memoryLimit(cartouche: limit, atPeak: limitAtPeak, process: job.process)
                 let report = CartoucheSessionReport(
-                    id: Self.newNumber(), session: job.session, seq: nextSeq(), context: context(limitMiB: limit),
+                    id: Self.newNumber(), session: job.session, seq: nextSeq(), context: context(limitMiB: sessionLimit),
                     game: job.game, gameVersion: job.gameVersion, nxnative: job.nxnative, nxnativeChanged: job.nxnativeChanged,
                     settings: job.settings, minutes: CartoucheGameLogReader.rounded(job.seconds / 60, 1), measures: measures,
                     process: job.process)
@@ -390,6 +420,8 @@ final class CartoucheTelemetry: ObservableObject {
               let behind = info["behind"] as? Bool else { return }
         state.runs.start(folder: folder, at: started, behind: behind)
         save()
+        // The game takes Cartouche's process: this launch got there.
+        if !behind { launch.note(at: started) { $0.ended = .game } }
     }
 
     /// The game that ran behind the console ended: whether the player quit
@@ -405,6 +437,20 @@ final class CartoucheTelemetry: ObservableObject {
     }
 
     // MARK: Events
+
+    /// This launch starts, and the one before it, if it stopped before the
+    /// console had its games or a game took its place: app.unfinished, with
+    /// how far it got. Nothing is kept with telemetry off.
+    private func beginLaunch() {
+        guard state.isOn else {
+            launch.clear()
+            return
+        }
+        let now = Date()
+        if let last = launch.begin(version: CartoucheUpdates.runningVersion, at: now) {
+            event("app.unfinished", fields: last.fields(now: now))
+        }
+    }
 
     /// Each start of Cartouche, with what it has.
     private func noteOpen(_ apps: [LCAppModel]) {
@@ -425,6 +471,12 @@ final class CartoucheTelemetry: ObservableObject {
             fields["signatureDays"] = .number(Double(days))
         }
         event("app.opened", fields: fields)
+        // It waited for both.
+        launch.note(at: Date()) { noted in
+            noted.listed = true
+            noted.checked = true
+            noted.ended = .opened
+        }
     }
 
     /// A new version of Cartouche, or a renewed signature, since last time,

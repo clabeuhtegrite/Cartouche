@@ -229,10 +229,27 @@ final class TelemetryTests: HarnessCase {
 
     func testCartouchesStartItsInstallsAndItsErrorsAreReported() async throws {
         answer(200)
+        // The launch before this one stopped three seconds in, its games
+        // listed, before the check of the certificate: this one says it.
+        let mark = CartoucheLaunchMark.standard
+        let before = Date().addingTimeInterval(-600)
+        _ = mark.begin(version: "0.12.1", at: before)
+        mark.note(at: before.addingTimeInterval(3)) { $0.listed = true }
         telemetry.start()
         let game = HarnessGame.plain()
         _ = try await installed(game)
         try await waitUntil("Cartouche reported its start", timeout: 10) { self.report(named: "app.opened") != nil }
+        let unfinished = try XCTUnwrap(report(named: "app.unfinished")?["fields"] as? [String: Any])
+        XCTAssertEqual(unfinished["version"] as? String, "0.12.1")
+        XCTAssertEqual(unfinished["listed"] as? Bool, true)
+        XCTAssertEqual(unfinished["checked"] as? Bool, false)
+        XCTAssertEqual(unfinished["background"] as? Bool, false)
+        XCTAssertEqual(unfinished["seconds"] as? Double, 3)
+        XCTAssertEqual(unfinished["minutesBefore"] as? Double, 10)
+        // This launch got there: the next one says nothing.
+        XCTAssertEqual(mark.launch?.ended, .opened)
+        XCTAssertEqual(mark.launch?.listed, true)
+        XCTAssertEqual(mark.launch?.checked, true)
         try await waitUntil("the install is reported") { self.report(named: "game.installed") != nil }
         let installedReport = try XCTUnwrap(report(named: "game.installed"))
         XCTAssertEqual(installedReport["game"] as? String, game.titleId.uppercased())
