@@ -299,8 +299,10 @@ final class CartoucheMacBuildsWatch: ObservableObject {
         var builds = builds
         func add(_ index: Int) {
             if builds.running {
+                // After the games waiting, counted before it joins them.
+                let turn = builds.waiting.count + 1
                 builds.games[index].state = "queued"
-                builds.games[index].turn = builds.waiting.count + 1
+                builds.games[index].turn = turn
             } else {
                 builds.running = true
                 builds.games[index].state = "building"
