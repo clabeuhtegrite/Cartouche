@@ -9,7 +9,8 @@
 //  Info.plist lists every way for an iPad; sideways only for a game built
 //  before. The Simulator holds its iPhone upright: the log says which way
 //  the game's screen is turned. While the game's picture is on a TV, the
-//  screen turns sideways only (TVTests).
+//  screen turns sideways only (TVTests). On an iPad, the screen turns as
+//  the game allows (IPadTests): these run on an iPhone.
 //
 
 import UIKit
@@ -19,12 +20,14 @@ import XCTest
 @available(iOS 18.0, *)
 final class UprightTests: HarnessCase {
     private let uprightOrSideways: UIInterfaceOrientationMask = [.portrait, .landscapeLeft, .landscapeRight]
+    private var onIPad: Bool { UIDevice.current.userInterfaceIdiom == .pad }
 
     /// Up to 0.12.1, the screen of nxnative's games turned sideways only on
     /// an iPhone, and on the outer display of the iPhone Duo, as their own
     /// app does, though they lay their picture above their controls
     /// upright, as the Duo's inner display shows them.
     func testAGameThatLaysItselfOutUprightTurnsUprightToo() async throws {
+        try XCTSkipIf(onIPad, "on an iPhone")
         let (_, scene) = try await started(.laidOutUpright())
         let screen = try gameScreen(of: scene)
         XCTAssertEqual(screen.turns, [.portrait, .landscape])
@@ -36,6 +39,7 @@ final class UprightTests: HarnessCase {
     /// iPad too: upright, its picture would stay in the middle, its
     /// controls laid out to be held sideways.
     func testAGameBuiltBeforeNxnativeLaidGamesOutUprightStaysSideways() async throws {
+        try XCTSkipIf(onIPad, "on an iPhone")
         let (_, scene) = try await started(.plain())
         let screen = try gameScreen(of: scene)
         XCTAssertEqual(screen.turns, .landscape)
@@ -46,6 +50,7 @@ final class UprightTests: HarnessCase {
     /// Paused under the console and back: the game's screen turns as it
     /// did.
     func testTheGameTurnsUprightTooAfterThePause() async throws {
+        try XCTSkipIf(onIPad, "on an iPhone")
         let (_, scene) = try await started(.laidOutUpright())
         let screen = try gameScreen(of: scene)
         try await pause(0.7)

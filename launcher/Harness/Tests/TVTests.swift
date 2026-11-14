@@ -129,6 +129,7 @@ final class TVTests: HarnessCase {
     /// screen turns sideways only, even for a game that lays itself out
     /// upright, and as the iPhone is held again once the TV has gone.
     func testTheGamesScreenTurnsSidewaysOnlyWhileItsPictureIsOnTheTV() async throws {
+        try XCTSkipIf(UIDevice.current.userInterfaceIdiom == .pad, "on an iPhone: an iPad turns it as the game allows")
         let (_, scene) = try await started(.laidOutUpright())
         let screen = try gameScreen(of: scene)
         XCTAssertEqual(screen.turns, [.portrait, .landscape], "upright too, its picture on the iPhone")
