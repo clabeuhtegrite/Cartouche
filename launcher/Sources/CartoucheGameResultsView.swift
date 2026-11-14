@@ -48,6 +48,16 @@ struct CartoucheGameResultsSection: View {
     }
 }
 
+extension CartoucheText {
+    /// The words of a result Cartouche's game measurements made
+    /// (CartoucheTextResults.swift), with the iPhone's numbers and dates.
+    /// Here rather than in CartoucheText.swift, which packages without
+    /// CartoucheTextResults.swift build too (launcher/StorageTests).
+    static var measuredWords: CartoucheMeasuredWords {
+        CartoucheMeasuredWords(text: { key, english in s(key, english) }, locale: Locale.current)
+    }
+}
+
 extension CartoucheGameSheet.Result {
     /// Its engine and notes as the sheet shows them, in WORDS
     /// (CartoucheMeasuredNote.lines).

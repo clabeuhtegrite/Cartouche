@@ -150,11 +150,6 @@ enum CartoucheText {
     static var thisModel: String { s("sheet.result.thisModel", "This iPhone model") }
     static func peak(_ amount: String) -> String { f("sheet.result.peak", "Memory peak: %@", amount) }
     static var resultsTranslated: String { s("sheet.results.translated", "Testers’ notes translated by the iPhone") }
-    /// The words of a result Cartouche's game measurements made
-    /// (CartoucheTextResults.swift), with the iPhone's numbers and dates.
-    static var measuredWords: CartoucheMeasuredWords {
-        CartoucheMeasuredWords(text: { key, english in s(key, english) }, locale: Locale.current)
-    }
     static var noSheetMessage: String { s("sheet.noSheet.message", "Cartouche has no sheet for this game yet: it can still start it, without checking what the game needs.") }
     static var sheetNxnative: String { s("sheet.nxnative", "In nxnative") }
     static var sheetEngine: String { s("sheet.engine", "Engine") }
