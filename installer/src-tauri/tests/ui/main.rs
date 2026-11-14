@@ -159,6 +159,8 @@ struct Ui {
     answers: mpsc::Receiver<Value>,
     next: std::cell::Cell<u64>,
     texts: Value,
+    /// The scenario's name, which its captures start with.
+    scenario: &'static str,
 }
 
 /// What every step's script can use: waiting for a text, clicking a button
@@ -335,6 +337,177 @@ impl Ui {
         );
         assert_eq!(found, Value::Null, "keys shown instead of texts");
     }
+
+    /// A picture of the window as a person sees it, `selector` scrolled to
+    /// just under the window's header: `<scenario>-<name>.png`, in the
+    /// folder CARTOUCHE_UI_CAPTURES names. installer.yml keeps them with
+    /// the run, so that a change to the window is seen on a Mac and on
+    /// Windows before it merges. Without that folder, nothing. A picture
+    /// the system will not take is said, never a failure: the scenario
+    /// tests the installer, not the computer's screen.
+    fn capture(&self, name: &str, selector: &str) {
+        let Some(dir) = std::env::var_os("CARTOUCHE_UI_CAPTURES").map(std::path::PathBuf::from) else {
+            return;
+        };
+        std::fs::create_dir_all(&dir).expect("captures folder");
+        // Still: no toast passing over it, no caret blinking in a field.
+        self.step(&format!(
+            r#"document.activeElement?.blur();
+            const element = document.querySelector({0});
+            if (!element) throw new Error("nothing to capture at " + {0});
+            const header = document.querySelector(".workspace-header");
+            window.scrollTo(0, element.getBoundingClientRect().top + window.scrollY - (header ? header.offsetHeight : 0) - 16);
+            if (!document.getElementById("ui-capture")) {{
+              const style = document.createElement("style");
+              style.id = "ui-capture";
+              style.textContent = "[data-sonner-toaster] {{ display: none !important; }}";
+              document.head.appendChild(style);
+            }}
+            await __ui.sleep(500);
+            return true;"#,
+            js(selector)
+        ));
+        let path = dir.join(format!("{}-{name}.png", self.scenario));
+        let captured = capture_window(&self.handle, &path).and_then(|()| match std::fs::metadata(&path) {
+            Ok(file) if file.len() > 0 => Ok(()),
+            _ => Err("no picture written".to_string()),
+        });
+        match captured {
+            Ok(()) => println!("captured {}", path.display()),
+            Err(error) => eprintln!("no capture of the window in {}: {error}", path.display()),
+        }
+        self.step(r#"document.getElementById("ui-capture")?.remove(); window.scrollTo(0, 0); return true;"#);
+    }
+}
+
+/// Runs `command`, stopped if it has not ended in `limit`: a system that
+/// asks a person for leave to record the screen would wait for good.
+fn run_for(command: &mut Command, limit: Duration) -> Result<(), String> {
+    let mut child = command.spawn().map_err(|e| format!("{command:?}: {e}"))?;
+    let started = Instant::now();
+    loop {
+        if let Some(status) = child.try_wait().map_err(|e| e.to_string())? {
+            return if status.success() { Ok(()) } else { Err(format!("{command:?}: {status}")) };
+        }
+        if started.elapsed() > limit {
+            let _ = child.kill();
+            return Err(format!("{command:?}: no end after {limit:?}"));
+        }
+        std::thread::sleep(Duration::from_millis(100));
+    }
+}
+
+/// The window as the system draws it, its frame and title bar included,
+/// in `path`, a PNG. On a Mac, screencapture, by the window's number, which
+/// needs leave to record the screen (GitHub's Macs give it).
+#[cfg(target_os = "macos")]
+fn capture_window(handle: &AppHandle<Wry>, path: &std::path::Path) -> Result<(), String> {
+    let window = handle.get_webview_window("main").ok_or("no window")?;
+    let (tx, rx) = mpsc::channel();
+    handle
+        .run_on_main_thread(move || {
+            // SAFETY: an NSWindow, on the main thread, as AppKit wants.
+            let number = window.ns_window().map(|ns_window| unsafe { window_number(ns_window) });
+            let _ = tx.send(number.map_err(|e| e.to_string()));
+        })
+        .map_err(|e| e.to_string())?;
+    let number = rx.recv_timeout(Duration::from_secs(10)).map_err(|e| e.to_string())??;
+    run_for(
+        Command::new("screencapture").args(["-x", "-o", &format!("-l{number}")]).arg(path),
+        Duration::from_secs(30),
+    )
+}
+
+/// -[NSWindow windowNumber]: the window server's number for the window.
+#[cfg(target_os = "macos")]
+unsafe fn window_number(ns_window: *mut std::ffi::c_void) -> isize {
+    use std::ffi::{c_char, c_void};
+    #[link(name = "objc", kind = "dylib")]
+    unsafe extern "C" {
+        fn sel_registerName(name: *const c_char) -> *const c_void;
+        fn objc_msgSend();
+    }
+    // objc_msgSend called as the method is declared: no argument, an NSInteger back.
+    let send: unsafe extern "C" fn(*mut c_void, *const c_void) -> isize =
+        unsafe { std::mem::transmute(objc_msgSend as unsafe extern "C" fn()) };
+    unsafe { send(ns_window, sel_registerName(c"windowNumber".as_ptr())) }
+}
+
+/// On Windows, PrintWindow, which draws the window even where another
+/// covers it, the webview's content included, cut to what is drawn of the
+/// window: [`WINDOWS_CAPTURE`].
+#[cfg(windows)]
+fn capture_window(handle: &AppHandle<Wry>, path: &std::path::Path) -> Result<(), String> {
+    let window = handle.get_webview_window("main").ok_or("no window")?;
+    let hwnd = window.hwnd().map_err(|e| e.to_string())?.0 as isize;
+    let script = std::env::temp_dir().join(format!("cartouche-installer-capture-{}.ps1", std::process::id()));
+    std::fs::write(&script, WINDOWS_CAPTURE).map_err(|e| e.to_string())?;
+    let captured = run_for(
+        Command::new("powershell")
+            .args(["-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-File"])
+            .arg(&script)
+            .arg(hwnd.to_string())
+            .arg(path),
+        Duration::from_secs(60),
+    );
+    let _ = std::fs::remove_file(&script);
+    captured
+}
+
+/// The window `$Hwnd` in `$Out`, a PNG, as Windows draws it: PrintWindow
+/// with PW_RENDERFULLCONTENT, for the webview, which DirectComposition
+/// draws, then cut to the window's frame without the invisible borders
+/// Windows puts around it for resizing (DWMWA_EXTENDED_FRAME_BOUNDS).
+#[cfg(windows)]
+const WINDOWS_CAPTURE: &str = r#"param([long] $Hwnd, [string] $Out)
+$ErrorActionPreference = 'Stop'
+Add-Type -AssemblyName System.Drawing
+Add-Type -TypeDefinition @'
+using System;
+using System.Runtime.InteropServices;
+public static class InstallerWindow {
+    [StructLayout(LayoutKind.Sequential)]
+    public struct Rect { public int Left, Top, Right, Bottom; }
+    [DllImport("user32.dll")] public static extern bool SetProcessDPIAware();
+    [DllImport("user32.dll")] public static extern bool GetWindowRect(IntPtr window, out Rect rect);
+    [DllImport("user32.dll")] public static extern bool PrintWindow(IntPtr window, IntPtr dc, uint flags);
+    [DllImport("dwmapi.dll")] public static extern int DwmGetWindowAttribute(IntPtr window, int attribute, out Rect rect, int size);
+}
+'@
+[void][InstallerWindow]::SetProcessDPIAware()
+$window = [IntPtr]::new($Hwnd)
+$outer = New-Object InstallerWindow+Rect
+if (-not [InstallerWindow]::GetWindowRect($window, [ref]$outer)) { throw 'no such window' }
+$drawn = New-Object InstallerWindow+Rect
+if ([InstallerWindow]::DwmGetWindowAttribute($window, 9, [ref]$drawn, 16) -ne 0) { $drawn = $outer }
+$bitmap = [System.Drawing.Bitmap]::new($outer.Right - $outer.Left, $outer.Bottom - $outer.Top)
+$graphics = [System.Drawing.Graphics]::FromImage($bitmap)
+$dc = $graphics.GetHdc()
+$printed = [InstallerWindow]::PrintWindow($window, $dc, 2)
+$graphics.ReleaseHdc($dc)
+if (-not $printed) { throw 'PrintWindow failed' }
+$area = [System.Drawing.Rectangle]::new($drawn.Left - $outer.Left, $drawn.Top - $outer.Top, $drawn.Right - $drawn.Left, $drawn.Bottom - $drawn.Top)
+$bitmap.Clone($area, $bitmap.PixelFormat).Save($Out, [System.Drawing.Imaging.ImageFormat]::Png)
+"#;
+
+/// On Linux, the X server's screen (Xvfb's, for the tests) cut to the
+/// window, by ImageMagick's import: its content, as Xvfb has no window
+/// manager to draw a frame.
+#[cfg(target_os = "linux")]
+fn capture_window(handle: &AppHandle<Wry>, path: &std::path::Path) -> Result<(), String> {
+    let window = handle.get_webview_window("main").ok_or("no window")?;
+    let position = window.inner_position().map_err(|e| e.to_string())?;
+    let size = window.inner_size().map_err(|e| e.to_string())?;
+    let area = format!("{}x{}+{}+{}", size.width, size.height, position.x.max(0), position.y.max(0));
+    run_for(
+        Command::new("import").args(["-window", "root", "-crop", &area, "+repage"]).arg(path),
+        Duration::from_secs(30),
+    )
+}
+
+#[cfg(not(any(target_os = "macos", windows, target_os = "linux")))]
+fn capture_window(_: &AppHandle<Wry>, _: &std::path::Path) -> Result<(), String> {
+    Err("no captures on this system".to_string())
 }
 
 fn js(text: &str) -> String {
@@ -472,8 +645,9 @@ fn run_in_window(scenario: &Scenario) -> ! {
     let handle = app.handle().clone();
     keep_event_listeners_busy(handle.clone());
     let run = scenario.run;
+    let scenario_name = scenario.name;
     std::thread::spawn(move || {
-        let ui = Ui { handle: handle.clone(), answers, next: std::cell::Cell::new(0), texts };
+        let ui = Ui { handle: handle.clone(), answers, next: std::cell::Cell::new(0), texts, scenario: scenario_name };
         let outcome = std::panic::catch_unwind(AssertUnwindSafe(|| {
             ui.wait_ready();
             run(&ui, &fakes);
@@ -507,6 +681,8 @@ fn first_install(ui: &Ui, f: &Fakes) {
     ui.wait_text(&ui.t("device.selected"));
     assert_eq!(f.iphone.state().pair_setups, 1);
     ui.wait_text(&ui.t("install.not_installed"));
+    // The Apple Account's step, before anything is typed.
+    ui.capture("sign-in", ".steps > .step:nth-child(2)");
 
     ui.type_into(&ui.t("apple_id.email_placeholder"), EMAIL);
     ui.type_into("password", PASSWORD);
@@ -637,7 +813,7 @@ fn without_a_keychain(ui: &Ui, f: &Fakes) {
 }
 
 /// A player with a signing certificate of their own: picks the iPhone, then
-/// "I have a signing certificate (.p12)", the .p12 and a profile made for
+/// "Certificate (.p12)" over the Apple Account, the .p12 and a profile made for
 /// another app, which the window names at once, then the right profile,
 /// which it says has no Increased Memory Limit, types its password, and
 /// installs, without an Apple ID.
@@ -660,10 +836,12 @@ fn own_certificate(ui: &Ui, f: &Fakes) {
     ui.wait_text(&name);
     ui.click(&name);
     ui.wait_text(&ui.t("device.selected"));
-    ui.click(&ui.t("signing.have_certificate"));
+    ui.click(&ui.t("signing.mode_certificate"));
     ui.wait_text(&ui.t("signing.hint"));
     ui.wait_text(&ui.t("signing.install_hint"));
     ui.wait_text(&ui.t("signing.needs_ready"));
+    // The certificate's step, as it opens.
+    ui.capture("own-certificate", ".steps > .step:nth-child(2)");
     ui.choose_files(&[&files.p12, &other.profile, &files.profile]);
     ui.click(&ui.t("signing.choose_p12"));
     ui.wait_text(&file_name(&files.p12));
@@ -679,6 +857,8 @@ fn own_certificate(ui: &Ui, f: &Fakes) {
     ui.wait_text(&ui.t("signing.no_memory_limit"));
     assert!(!ui.has_text(&ui.t("signing.needs_ready")), "not ready with an iPhone, a certificate and a profile");
     ui.type_into("password", &files.password);
+    // The certificate's step, both files chosen.
+    ui.capture("own-certificate-chosen", ".steps > .step:nth-child(2)");
     ui.no_raw_keys();
 
     ui.click(&ui.t_with("install.button", &[("version", version)]));
