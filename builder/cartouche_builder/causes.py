@@ -62,6 +62,12 @@ WANTED_XCODE = re.compile(r"install Xcode (\d+(?:\.\d+)*)")
 TRACEBACK = "Traceback (most recent call last):"
 
 
+def told(result) -> str:
+    """What nxnative told of a build.Result that did not build: its last
+    errors, the last lines of the step that failed, and of its stderr."""
+    return "\n".join([*result.said[-3:], *([result.tail] if getattr(result, "tail", "") else []), *result.stderr[-20:]])
+
+
 def of_build(result) -> str:
     """The cause of a build.Result that did not build."""
     if result.stopped:
@@ -70,7 +76,7 @@ def of_build(result) -> str:
         return "no_start"
     if result.code == 2:
         return "refused"
-    said = "\n".join([*result.said[-3:], *result.stderr[-20:]])
+    said = told(result)
     if disks.is_full(said):
         return "no_space"
     if METAL.search(said):

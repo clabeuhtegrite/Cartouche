@@ -101,9 +101,10 @@ struct GameLook {
         if let progress {
             if progress.state == "building" {
                 let percent = (progress.overall ?? progress.frac).map { " " + Format.percent($0) } ?? ""
-                text = tr("Building", "Construction") + percent
+                // Its app for this Mac, after its IPA or alone.
+                text = (progress.buildsMac && progress.onMacNow ? tr("Building for this Mac", "Construction pour ce Mac") : tr("Building", "Construction")) + percent
                 color = Theme.indigo
-                symbol = "hammer.fill"
+                symbol = progress.buildsMac && progress.onMacNow ? "macbook" : "hammer.fill"
             } else {
                 text = tr("Waiting its turn", "En attente")
                 color = .secondary
@@ -116,6 +117,12 @@ struct GameLook {
             let own = game.changeCounts?.own ?? 0
             if game.reasons == ["new"] {
                 text = tr("Never built", "Jamais construit")
+            } else if !game.reasons.isEmpty, game.reasons.allSatisfy({ $0.hasPrefix("mac_") }) {
+                // Its IPA up to date, its app for this Mac to build.
+                text = tr("To build for this Mac", "À construire pour ce Mac")
+                color = .orange
+                symbol = "macbook"
+                return
             } else if own > 0 {
                 text = tr("Improved: \(own) change\(own == 1 ? "" : "s")", "Amélioré : \(own) changement\(own == 1 ? "" : "s")")
             } else {
@@ -123,6 +130,11 @@ struct GameLook {
             }
             color = .orange
             symbol = "sparkles"
+        case .upToDate where game.mac?.failed == true:
+            // Its IPA up to date, its Mac app failed at this nxnative commit.
+            text = tr("Mac app failed", "Échec de l’app Mac")
+            color = .orange
+            symbol = "exclamationmark.triangle.fill"
         case .upToDate:
             text = tr("Up to date", "À jour")
             color = .green
@@ -177,6 +189,11 @@ func reasonText(_ reason: String) -> String {
     case "no_profile": return tr("nxnative has no profile for it yet: built once it has one", "nxnative n’a pas encore de profil pour lui : construit dès qu’il en aura un")
     case "no_source": return tr("Its dump is not in the sources folder: its IPA is shown, and rebuilt once the dump is back",
                                 "Son dump n’est pas dans le dossier des sources : son IPA est montrée, et reconstruite quand il reviendra")
+    case "mac_new": return tr("Not on this Mac yet: its Mac app is built", "Pas encore sur ce Mac : son app Mac est construite")
+    case "mac_missing": return tr("Its Mac app is missing", "Son app Mac a disparu")
+    case "mac_behind": return tr("Its Mac app is older than its IPA", "Son app Mac est plus ancienne que son IPA")
+    case "no_platform": return tr("Built neither for the iPhone nor for this Mac: turn one of the two on below",
+                                  "Construit ni pour l’iPhone ni pour ce Mac : activez l’un des deux ci-dessous")
     default: return reason
     }
 }
@@ -212,7 +229,9 @@ func changeKindText(_ kind: String) -> String {
     }
 }
 
-/// A batch step's name, in the player's words.
+/// A batch step's name, in the player's words. The steps whose words name
+/// the iPhone or this Mac are GameProgress.iPhoneStages and macStages
+/// (Models.swift), which the activity page names no other way.
 func stageText(_ stage: String?) -> String {
     switch stage ?? "" {
     case "": return tr("Getting ready", "Préparation")
@@ -222,6 +241,13 @@ func stageText(_ stage: String?) -> String {
     case "build", "xcode": return tr("Building the app", "Construction de l’app")
     case "pack", "package", "ipa": return tr("Packing the IPA", "Empaquetage de l’IPA")
     case "deliver": return tr("Copying to the games folder", "Copie dans le dossier des jeux")
+    // Its app for this Mac (nxnative's --platform mac-app, then macapps.py).
+    case "Mac shaders": return tr("Compiling shaders for this Mac", "Compilation des shaders pour ce Mac")
+    case "Mac host": return tr("Building the game for this Mac", "Construction du jeu pour ce Mac")
+    case "Pipeline prebuild", "Pipeline archive", "Prewarm pipelines":
+        return tr("Preparing its graphics for this Mac", "Préparation de ses graphismes pour ce Mac")
+    case "Mac app": return tr("Packing the Mac app", "Assemblage de l’app Mac")
+    case "mac_deliver": return tr("Putting the app on this Mac", "Mise en place de l’app sur ce Mac")
     default: return stage ?? ""
     }
 }

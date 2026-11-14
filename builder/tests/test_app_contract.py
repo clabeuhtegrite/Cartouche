@@ -1,7 +1,8 @@
 """The engine's answers as the Mac app's tests decode them
 (mac/Tests/BuilderKitTests/Fixtures): each fixture is what a command of
-api.py answered on fake games, a game due, one that failed, one with only its
-IPA, then one building. These tests run the same commands again and check
+api.py answered on fake games, built for the iPhone and for this Mac: a game
+due (whose Mac app failed before), one that failed (its Mac app built
+before), one with only its IPA, then one building. These tests run the same commands again and check
 that the fixtures still have every key the engine writes, with the same JSON
 type, so that the app's models (mac/Sources/BuilderKit/Models.swift), which
 the app's tests check on the fixtures, decode what the engine says.
@@ -21,7 +22,7 @@ import time
 from pathlib import Path
 from unittest import mock
 
-from cartouche_builder import api, batch, config as configs
+from cartouche_builder import api, batch, config as configs, macapps
 from cartouche_builder.paths import Paths
 
 from support import HOLLOW, MKW, ODYSSEY, Home, commit, make_dump, make_engine_remote, make_ipa
@@ -84,7 +85,9 @@ class AppContract(Home):
 
     def test_the_apps_fixtures_have_every_key_the_engine_writes(self):
         self.call(None, "library", "--update")
+        os.environ["FAKE_MAC_FAIL"] = MKW
         self.build(MKW, ODYSSEY)
+        os.environ.pop("FAKE_MAC_FAIL")
         make_ipa(self.games / f"Hollow Knight [{HOLLOW}].ipa", {"DMTitleID": HOLLOW, "DMCommit": "0" * 12, "CFBundleDisplayName": "Hollow Knight", "CFBundleShortVersionString": "1.5"})
         commit(self.remote, "Mario Kart World: the menus (PR #3)", {"dm/host/menu.c": "x"})
         commit(self.remote, "Super Mario Odyssey: the cap (PR #4)", {"dm/host/cap.c": "x"})
@@ -96,6 +99,8 @@ class AppContract(Home):
         library = self.call("library", "library")
         states = {game["title_id"]: game["state"] for game in library["games"]}
         self.assertEqual(states, {MKW: "due", ODYSSEY: "failed", HOLLOW: "no_source"})
+        macs = {game["title_id"]: (game["mac"]["reason"], bool(game["mac"]["app"]), bool(game["mac"]["attempt"])) for game in library["games"]}
+        self.assertEqual(macs, {MKW: ("with_ipa", False, True), ODYSSEY: ("after_ipa", True, False), HOLLOW: ("", False, False)})
         self.call("status", "status")
         self.call("storage", "storage")
         self.call("config", "config")
@@ -127,6 +132,19 @@ class AppContract(Home):
         self.assertEqual(self.answers["status-building"]["status"]["state"], "building")
         self.assertEqual((self.answers["queue"]["queued"], self.answers["queue"]["queue"]["stop"]), (True, [HOLLOW]))
         self.call("clean", "clean", "logs")
+        self.call("platform", "platform", ODYSSEY, "mac", "off")
+
+        # The games folder on a NAS: Mario Kart World's app kept there in one
+        # file, then installed on this Mac to be played.
+        with mock.patch.dict(os.environ, {macapps.PACKED_ENV: "1"}):
+            self.build(MKW)
+            self.call("mac-install", "mac-install", MKW)
+            library = self.call("library-nas", "library")
+            self.call("storage-nas", "storage")
+            self.call("config-nas", "config")
+        mac = next(game["mac"] for game in library["games"] if game["title_id"] == MKW)
+        self.assertEqual((mac["packed"], mac["library"]["name"], mac["app"]["name"], mac["behind"]),
+                         (True, f"Mario Kart World [{MKW}].app.zip", "Mario Kart World.app", False))
 
         if os.environ.get("CARTOUCHE_BUILDER_FIXTURES") == "write":
             FIXTURES.mkdir(parents=True, exist_ok=True)

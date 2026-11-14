@@ -25,6 +25,10 @@ from pathlib import Path
 from . import causes
 from .i18n import t
 
+# What nxnative says before the error of a step that failed (its run()): the
+# last lines of the step's log, where a tool's own words are (a full disk).
+TAIL = "---- last lines of "
+
 
 @dataclass
 class Progress:
@@ -65,17 +69,21 @@ class Result:
     started: bool = True  # whether nxnative's script started
     stage: str = ""  # nxnative's stage when it ended ("app build")
     said: list[str] = field(default_factory=list)  # its "[RED] " messages
+    tail: str = ""  # the last lines of the step that failed, as nxnative says them before its error ("---- last lines of <log> ----")
     stderr: list[str] = field(default_factory=list)  # the last lines of its stderr
     cause: str = ""  # why it did not build (causes.py)
 
 
-def command(python: Path, script: Path, source: Path, work: Path, out: Path, keys: Path | None, language: str = "", keep_extracted: bool | None = None) -> list[str]:
-    """nxnative's command line. KEEP_EXTRACTED None leaves nxnative's own
-    choice (a checkout without --keep-extracted keeps the files)."""
+def command(python: Path, script: Path, source: Path, work: Path, out: Path, keys: Path | None, language: str = "", keep_extracted: bool | None = None,
+            platform: str = "ios") -> list[str]:
+    """nxnative's command line: the IPA (PLATFORM "ios", OUT an .ipa), or
+    the game's Mac app ("mac-app", OUT an .app, macapps.py). KEEP_EXTRACTED
+    None leaves nxnative's own choice (a checkout without --keep-extracted
+    keeps the files; a Mac app always keeps them, as it is made of them)."""
     args = [str(python), "-u", str(script), str(source)]
     if keys is not None:
         args += ["-k", str(keys)]
-    args += ["--work-dir", str(work), "-o", str(out), "--platform", "ios", "--progress", "json"]
+    args += ["--work-dir", str(work), "-o", str(out), "--platform", platform, "--progress", "json"]
     if keep_extracted is not None:
         args.append("--keep-extracted" if keep_extracted else "--no-keep-extracted")
     if language:
@@ -101,6 +109,7 @@ def run(
     result = Result(code=-1, ok=False)
     errors: deque[str] = deque(maxlen=60)
     red: list[str] = []
+    tail = ""
     progress = Progress()
     with open(log_path, "a", encoding="utf-8", errors="replace") as log:
         log.write(f"# {time.strftime('%Y-%m-%d %H:%M:%S')} {subprocess.list2cmdline(args)}\n")
@@ -183,6 +192,8 @@ def run(
                 message = str(event.get("msg", ""))
                 if message.startswith("[RED] "):
                     red.append(message[len("[RED] ") :])
+                elif message.startswith(TAIL):
+                    tail = message
                 if on_message:
                     on_message(message)
             if on_progress and kind in ("stage", "step", "progress", "stage_end"):
@@ -196,7 +207,7 @@ def run(
         result.duration = time.monotonic() - started
         result.stopped = code == 130 or bool(stop and stop.is_set())
         result.ok = code == 0 and not result.stopped
-        result.stage, result.said, result.stderr = progress.stage, red[-10:], list(errors)
+        result.stage, result.said, result.tail, result.stderr = progress.stage, red[-10:], tail, list(errors)
         if not result.ok:
             if result.stopped:
                 result.error = t("build.stopped")

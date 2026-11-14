@@ -32,6 +32,7 @@ import time
 import unittest
 import uuid
 from pathlib import Path
+from unittest import mock
 
 from cartouche_builder import i18n
 from cartouche_builder.i18n import t
@@ -211,9 +212,24 @@ class Building(EndToEnd):
             args = inside["args"]
             self.assertEqual(args[args.index("--platform") + 1], "ios")
             self.assertEqual(args[args.index("--progress") + 1], "json")
-            self.assertIn("--no-keep-extracted", args)
+            # Kept for its Mac app, built next of the same files: removed
+            # after it, as the settings ask (below).
+            self.assertIn("--keep-extracted", args)
             # The keys go to nxnative for packages, and only for them.
             self.assertEqual("-k" in args, title_id in (LANTERN, HARBOR), title_id)
+            # Its app for this Mac, of the same files and the same commit, in
+            # the games folder beside its IPA, under the game's name; nothing
+            # of it left in the workspace.
+            self.assertEqual((progress["mac"], progress["mac_app"], progress["mac_error"]), ("built", f"{NAMES[title_id]}.app", ""), title_id)
+            mac = world.mac_inside(title_id)
+            self.assertEqual(mac["app"], world.games / f"{NAMES[title_id]}.app")
+            self.assertEqual((mac["info"]["DMTitleID"], mac["info"]["DMCommit"], mac["info"]["DMChain"]), (title_id, head[:12], CHAIN), title_id)
+            self.assertEqual(mac["args"][mac["args"].index("--platform") + 1], "mac-app")
+            self.assertEqual(mac["inputs"]["files"], inside["inputs"]["files"], title_id)
+            self.assertFalse(list((world.workspace / ".cartouche-builder" / "out").glob(f"{title_id}.app*")), title_id)
+
+        # The games folder on this Mac's disk holds the apps: nothing installed.
+        self.assertFalse(world.mac_apps.exists())
 
         # What reached nxnative is the player's files, byte for byte.
         def given(title_id):
@@ -255,6 +271,10 @@ class Building(EndToEnd):
             game = self.app.game(title_id, library=library)
             self.assertEqual((game["state"], game["due"], game["build"]["commit"]), ("up_to_date", False, head[:12]), title_id)
             self.assertTrue(game["ipa"]["present"])
+            self.assertEqual(game["platforms"], {"ios": True, "mac": True})
+            mac = game["mac"]
+            self.assertEqual((mac["due"], mac["reason"], mac["build"]["commit"]), (False, "up_to_date", head[:12]), title_id)
+            self.assertEqual((mac["app"]["name"], mac["app"]["present"]), (f"{NAMES[title_id]}.app", True), title_id)
         self.assertEqual(self.app.game(LANTERN, library=library)["icon"], str(world.home / "icons" / f"{LANTERN}.jpg"))
         # The engine wrote nothing inside the app: compiled files would break its signature.
         self.assertEqual(list(world.package.rglob("__pycache__")), [])
@@ -684,6 +704,208 @@ class Failures(EndToEnd):
         # Once Xcode is updated, it builds.
         self.world.scenario()
         self.built(self.app.finish(self.app.build()), COMET)
+
+
+# ---- The games on this Mac ------------------------------------------------------------------
+
+
+class MacApps(EndToEnd):
+    """Each game's app for this Mac, built after its IPA from the same files
+    and the same commit (nxnative's --platform mac-app), or alone, and kept
+    in the games folder beside its IPA: as it is on this Mac's disk, in one
+    file on a NAS, installed on this Mac to be played. Its two switches, its
+    failures, which leave the IPA as it is, a Stop, a game open from it."""
+
+    def test_its_two_switches(self):
+        world = self.world
+        self.lantern()
+        self.drift()
+        self.set_up()
+        library = self.app.library(update=True)
+        for title_id in (LANTERN, DRIFT):
+            game = self.app.game(title_id, library=library)
+            self.assertEqual((game["state"], game["platforms"], game["mac"]["due"], game["mac"]["reason"]), ("due", {"ios": True, "mac": True}, True, "with_ipa"))
+        # Paper Lantern for this Mac alone, Lumen Drift for the iPhone alone.
+        answer = self.app.api("platform", LANTERN, "ios", "off")
+        self.assertEqual((answer["platforms"], answer["followed"]), ({"ios": False, "mac": True}, True))
+        self.app.api("platform", DRIFT, "mac", "off")
+        with self.assertRaises(EngineFailure) as refused:
+            self.app.api("platform", LANTERN, "mac", "off")
+        self.assertEqual(refused.exception.kind, "bad_request")
+        status = self.app.finish(self.app.build())
+        self.built(status, LANTERN, DRIFT)
+        lantern, drift = self.app.progress(LANTERN, status), self.app.progress(DRIFT, status)
+        self.assertEqual((lantern["mac"], lantern["mac_only"], lantern["platform"], lantern["ipa"], lantern["mac_app"]), ("built", True, "mac", "", f"{NAMES[LANTERN]}.app"))
+        self.assertEqual((drift["mac"], drift["mac_only"], drift["platform"], drift["mac_app"]), ("", False, "ios", ""))
+        self.assertEqual(sorted(p.name for p in world.games.iterdir()), [f"{NAMES[DRIFT]} [{DRIFT}].ipa", f"{NAMES[LANTERN]}.app"])
+        self.assertFalse(world.mac_apps.exists())
+        self.assertEqual(world.mac_inside(LANTERN)["info"]["DMCommit"], world.nxnative.head[:12])
+        library = self.app.library()
+        for title_id in (LANTERN, DRIFT):
+            self.assertEqual(self.app.game(title_id, library=library)["state"], "up_to_date", title_id)
+        self.assertEqual(self.app.game(LANTERN, library=library)["mac"]["app"]["present"], True)
+        # Moved to the Trash by the player: built again, alone.
+        trash = world.user / ".Trash"
+        trash.mkdir()
+        (world.games / f"{NAMES[LANTERN]}.app").rename(trash / f"{NAMES[LANTERN]}.app")
+        game = self.app.game(LANTERN)
+        self.assertEqual((game["state"], game["reasons"]), ("due", ["mac_missing"]))
+        # The iPhone again: its IPA, then its app of the same commit.
+        self.app.api("platform", LANTERN, "ios", "on")
+        game = self.app.game(LANTERN)
+        self.assertEqual((game["reasons"], game["mac"]["reason"]), (["new"], "with_ipa"))
+        status = self.app.finish(self.app.build())
+        self.built(status, LANTERN)
+        self.assertIsNotNone(world.ipa(LANTERN))
+        self.assertEqual(world.mac_inside(LANTERN)["info"]["DMCommit"], world.nxnative.head[:12])
+
+    def test_its_failure_leaves_the_ipa(self):
+        world = self.world
+        self.lantern()
+        self.set_up()
+        world.scenario(mac_host=[LANTERN])
+        status = self.app.finish(self.app.build())
+        self.assertEqual(status["state"], "done")
+        game = self.app.progress(LANTERN, status)
+        self.assertEqual((game["state"], game["error"], game["mac"], game["mac_cause"], game["mac_exit"]), ("built", "", "failed", "nxnative", 1), game)
+        self.assertIn("clang exit code 1", game["mac_error"])
+        self.assertTrue(Path(game["mac_log"]).is_file())
+        self.assertIn("use of undeclared identifier", Path(game["mac_log"]).read_text())
+        self.assertIsNotNone(world.ipa(LANTERN))
+        self.assertIsNone(world.mac_app(LANTERN))
+        self.assertEqual(self.app.batches[-1].returncode, 1)
+        # Not tried again at this commit with these files: the game is up to
+        # date for the iPhone, its Mac app says why it is not on this Mac.
+        world.scenario()
+        game = self.app.game(LANTERN)
+        self.assertEqual((game["state"], game["mac"]["due"], game["mac"]["reason"]), ("up_to_date", False, "failed_here"))
+        self.assertIn("clang exit code 1", game["mac"]["detail"])
+        self.assertEqual(game["mac"]["attempt"]["result"], "failed")
+        # A commit of nxnative: built again, both.
+        world.nxnative.change_profile(LANTERN, NAMES[LANTERN])
+        game = self.app.game(LANTERN, update=True)
+        self.assertEqual((game["reasons"], game["mac"]["reason"]), (["profile"], "with_ipa"))
+        self.built(self.app.finish(self.app.build()), LANTERN)
+        self.assertEqual(world.mac_inside(LANTERN)["info"]["DMCommit"], world.nxnative.head[:12])
+
+    def test_no_room_for_it_is_tried_again_next_time(self):
+        world = self.world
+        self.lantern()
+        self.set_up()
+        world.scenario(mac_room=[LANTERN])
+        status = self.app.finish(self.app.build())
+        game = self.app.progress(LANTERN, status)
+        self.assertEqual((game["state"], game["mac"], game["mac_cause"]), ("built", "skipped", "no_space"), game)
+        self.assertRegex(game["mac_error"], r"^nxnative needs 12 GB free on your Mac's disk to build this game, and [\d.]+ GB are left\.")
+        world.scenario()
+        self.assertEqual(self.app.game(LANTERN)["reasons"], ["mac_new"])
+        self.built(self.app.finish(self.app.build()), LANTERN)
+        self.assertIsNotNone(world.mac_app(LANTERN))
+
+    def test_stop_while_it_builds(self):
+        world = self.world
+        self.lantern()
+        self.set_up()
+        world.scenario(mac_slow={LANTERN: 60})
+        self.app.build()
+        self.app.wait_stage(LANTERN, "Mac shaders")
+        game = self.app.progress(LANTERN)
+        self.assertEqual((game["platform"], game["mac"]), ("mac", "building"))
+        self.app.stop()
+        status = self.app.finish()
+        self.assertEqual(status["state"], "stopped")
+        game = self.app.progress(LANTERN, status)
+        self.assertEqual((game["state"], game["mac"]), ("built", "stopped"), game)
+        self.assertIsNotNone(world.ipa(LANTERN))
+        self.assertEqual([p.name for p in world.games.iterdir() if ".app" in p.name], [])
+        out = world.workspace / ".cartouche-builder" / "out"
+        self.assertEqual([p.name for p in out.iterdir() if ".app" in p.name], [])
+        # The shaders' tool stopped with the build.
+        tool = int((world.build_folder(LANTERN) / "tool.pid").read_text())
+        self.app.wait("the Mac shaders' tool gone", lambda: not alive(tool), timeout=20)
+
+    def test_not_in_place_of_the_game_open_from_it(self):
+        world = self.world
+        self.lantern()
+        self.set_up()
+        self.built(self.app.finish(self.app.build()), LANTERN)
+        app = world.games / f"{NAMES[LANTERN]}.app"
+        built = world.mac_inside(LANTERN)["info"]["DMCommit"]
+        self.assertEqual(world.mac_app(LANTERN), app)
+        # The game open on this Mac: a process running from its app.
+        playing = subprocess.Popen([sys.executable, "-c", "import time; time.sleep(120)", f"{app}/Contents/MacOS/nxnative"])
+        self.addCleanup(playing.wait)
+        self.addCleanup(playing.kill)
+        world.nxnative.change_profile(LANTERN, NAMES[LANTERN])
+        status = self.app.finish(self.app.build())
+        game = self.app.progress(LANTERN, status)
+        self.assertEqual((game["state"], game["mac"], game["mac_cause"]), ("built", "skipped", "running"), game)
+        self.assertIn("is open on this Mac", game["mac_error"])
+        self.assertEqual(world.mac_inside(LANTERN)["info"]["DMCommit"], built)
+        self.assertEqual(world.inside(LANTERN)["info"]["DMCommit"], world.nxnative.head[:12])
+        # Closed: the next batch puts the new one in its place.
+        playing.kill()
+        playing.wait()
+        self.assertEqual(self.app.game(LANTERN)["reasons"], ["mac_behind"])
+        self.built(self.app.finish(self.app.build()), LANTERN)
+        self.assertEqual(world.mac_inside(LANTERN)["info"]["DMCommit"], world.nxnative.head[:12])
+        self.assertEqual(sorted(p.name for p in world.games.iterdir()), [f"{NAMES[LANTERN]} [{LANTERN}].ipa", app.name])
+
+    def test_kept_in_one_file_on_a_nas(self):
+        """A games folder on a NAS (or on a disk that cannot hold an app)
+        keeps the game's app in one file beside its IPA; this Mac installs it
+        to be played, in the folder the settings name, and makes its copy
+        again of each new build, never while the game runs from it."""
+        world = self.world
+        self.enterContext(mock.patch.dict(os.environ, {"CARTOUCHE_BUILDER_MAC_PACKED": "1"}))
+        self.lantern()
+        chosen = world.user / "Games on this Mac"
+        self.set_up(mac_apps=str(chosen))
+        status = self.app.finish(self.app.build())
+        self.built(status, LANTERN)
+        kept = world.games / f"{NAMES[LANTERN]} [{LANTERN}].app.zip"
+        self.assertEqual(sorted(p.name for p in world.games.iterdir()), [f"{NAMES[LANTERN]} [{LANTERN}].app.zip", f"{NAMES[LANTERN]} [{LANTERN}].ipa"])
+        self.assertEqual(self.app.progress(LANTERN, status)["mac_app"], kept.name)
+        # Nothing on this Mac until the game is played here.
+        self.assertFalse(chosen.exists())
+        mac = self.app.game(LANTERN)["mac"]
+        self.assertEqual((mac["packed"], mac["library"]["name"], mac["app"], mac["installs"]), (True, kept.name, None, str(chosen)))
+        # Installed, saying how far it is.
+        answer = self.app.api("mac-install", LANTERN)
+        app = chosen / f"{NAMES[LANTERN]}.app"
+        self.assertEqual((answer["app"]["path"], answer["title_id"]), (str(app), LANTERN))
+        self.assertIn(f"Installing {NAMES[LANTERN]} on this Mac", self.app.said[-1])
+        self.assertEqual(world.mac_inside(LANTERN, chosen)["info"]["DMCommit"], world.nxnative.head[:12])
+        self.assertTrue(os.access(app / "Contents" / "MacOS" / "nxnative", os.X_OK))
+        mac = self.app.game(LANTERN)["mac"]
+        self.assertEqual((mac["app"]["path"], mac["behind"]), (str(app), False))
+        # The game open from its copy: the new build kept in one file, the
+        # copy left as it is until the game closes.
+        playing = subprocess.Popen([sys.executable, "-c", "import time; time.sleep(120)", f"{app}/Contents/MacOS/nxnative"])
+        self.addCleanup(playing.wait)
+        self.addCleanup(playing.kill)
+        world.nxnative.change_profile(LANTERN, NAMES[LANTERN])
+        status = self.app.finish(self.app.build())
+        self.built(status, LANTERN)
+        self.assertEqual(self.app.progress(LANTERN, status)["mac"], "built")
+        game = self.app.game(LANTERN)
+        self.assertEqual((game["state"], game["mac"]["behind"]), ("up_to_date", True))
+        self.assertNotEqual(world.mac_inside(LANTERN, chosen)["info"]["DMCommit"], world.nxnative.head[:12])
+        with self.assertRaises(EngineFailure) as refused:
+            self.app.api("mac-install", LANTERN)
+        self.assertEqual(refused.exception.kind, "blocked")
+        playing.kill()
+        playing.wait()
+        self.app.api("mac-install", LANTERN)
+        self.assertEqual(world.mac_inside(LANTERN, chosen)["info"]["DMCommit"], world.nxnative.head[:12])
+        self.assertFalse(self.app.game(LANTERN)["mac"]["behind"])
+        # Its copy moved to the Trash: the game stays up to date, the NAS keeps it.
+        trash = world.user / ".Trash"
+        trash.mkdir()
+        app.rename(trash / app.name)
+        game = self.app.game(LANTERN)
+        self.assertEqual((game["state"], game["mac"]["app"], game["mac"]["library"]["present"]), ("up_to_date", None, True))
+        self.assertTrue(kept.is_file())
 
 
 class InFrench(EndToEnd):

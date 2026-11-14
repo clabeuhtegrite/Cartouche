@@ -126,7 +126,9 @@ struct CartoucheGameSheetView: View {
                             }
                         }
                     }
+                    #if os(iOS)
                     requirements(sheet)
+                    #endif
                 } else {
                     // nxnative refuses this GPU for every game, with a sheet or
                     // without.
@@ -183,7 +185,9 @@ struct CartoucheGameSheetView: View {
             }
         }
         // The header names the game: the bar above it stays empty.
+        #if os(iOS)
         .navigationBarTitleDisplayMode(.inline)
+        #endif
     }
 
     // MARK: Header

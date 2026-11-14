@@ -4,8 +4,10 @@
 //
 //  What the builder keeps on the Mac, by size, and the space of each disk
 //  it uses: the games' build folders (their extracted files, shaders and
-//  app), the IPA copies that take room besides the games folder, the logs.
-//  Each can be freed here; only the builder's own folders and files are.
+//  app), the IPA copies that take room besides the games folder, the logs,
+//  and the games' apps it put on this Mac. Each can be freed here; only
+//  the builder's own folders and files are, and a Mac app goes to the
+//  Trash, the game then no longer built for this Mac.
 //
 
 import BuilderKit
@@ -14,6 +16,7 @@ import SwiftUI
 struct StorageView: View {
     @EnvironmentObject private var model: AppModel
     @State private var confirm: Confirmation?
+    @State private var trash: MacAppCopy?
 
     struct Confirmation: Identifiable {
         let id = UUID()
@@ -40,6 +43,9 @@ struct StorageView: View {
                     if !storage.folders.isEmpty {
                         folders(storage)
                     }
+                    if !storage.apps.isEmpty {
+                        macApps(storage)
+                    }
                     StorageSettingsCard()
                 } else {
                     LoadingCard()
@@ -57,9 +63,22 @@ struct StorageView: View {
         }
     }
 
+    private func trashMessage(_ app: MacAppCopy) -> String {
+        if app.isInstalledCopy {
+            return (model.gamesOnShare
+                ? tr("Its app stays on the NAS: it is installed again when you play the game. ", "Son app reste sur le NAS : elle se réinstalle quand vous jouez au jeu. ")
+                : tr("Its app stays in the games folder: it is installed again when you play the game. ", "Son app reste dans le dossier des jeux : elle se réinstalle quand vous jouez au jeu. "))
+                + tr("Its saves stay on this Mac.", "Ses sauvegardes restent sur ce Mac.")
+        }
+        let alone = !(model.config?.onIOS(app.titleID) ?? true)
+        return (alone ? tr("The game is then no longer built: it was built for this Mac alone. ", "Le jeu n’est alors plus construit : il l’était pour ce Mac seul. ")
+                      : tr("The game is then no longer built for this Mac; its IPA still is. ", "Le jeu n’est alors plus construit pour ce Mac ; son IPA l’est toujours. "))
+            + tr("Its saves stay on this Mac.", "Ses sauvegardes restent sur ce Mac.")
+    }
+
     private var subtitle: String {
         guard let storage = model.storage else { return tr("Measuring…", "Mesure en cours…") }
-        let kept = storage.buildFolders + storage.total("ipa_copies") + storage.total("logs")
+        let kept = storage.buildFolders + storage.total("ipa_copies") + storage.total("logs") + storage.total("mac_apps")
         return tr("Cartouche Builder keeps \(Format.size(kept)) on this Mac", "Cartouche Builder garde \(Format.size(kept)) sur ce Mac")
     }
 
@@ -153,6 +172,72 @@ struct StorageView: View {
                 }
             }
         }
+    }
+
+    /// The games' apps the builder put on this Mac, still where it put them.
+    private func macApps(_ storage: StorageReport) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text(tr("Games on this Mac", "Jeux sur ce Mac").uppercased())
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(.secondary)
+            Card(padding: 6) {
+                VStack(spacing: 0) {
+                    ForEach(Array(storage.apps.enumerated()), id: \.element.id) { index, app in
+                        if index > 0 { Divider().padding(.leading, 12) }
+                        HStack {
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(app.name.isEmpty ? app.titleID : app.name)
+                                    .font(.callout.weight(.medium))
+                                Text(appDetail(app))
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                                    .fixedSize(horizontal: false, vertical: true)
+                            }
+                            Spacer()
+                            Text(Format.size(app.size))
+                                .font(.callout.monospacedDigit())
+                            Button {
+                                model.reveal(app.path)
+                            } label: {
+                                Image(systemName: "folder")
+                            }
+                            .buttonStyle(.borderless)
+                            .help(tr("Show in the Finder", "Afficher dans le Finder"))
+                            Button {
+                                trash = app
+                            } label: {
+                                Image(systemName: "trash")
+                            }
+                            .buttonStyle(.borderless)
+                            .disabled(model.isBuilding)
+                            .help(tr("Move to the Trash", "Mettre à la Corbeille"))
+                        }
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 8)
+                    }
+                }
+            }
+        }
+        // Its own dialog: the page's frees the builder's folders.
+        .confirmationDialog(tr("Move \(trash?.name ?? "") to the Trash?", "Mettre \(trash?.name ?? "") à la Corbeille ?"),
+                            isPresented: Binding(get: { trash != nil }, set: { if !$0 { trash = nil } }), presenting: trash) { app in
+            Button(tr("Move to the Trash", "Mettre à la Corbeille"), role: .destructive) { model.removeMacApp(app) }
+        } message: { app in
+            Text(trashMessage(app))
+        }
+    }
+
+    private func appDetail(_ app: MacAppCopy) -> String {
+        var parts: [String] = []
+        if app.isInstalledCopy {
+            parts.append(model.gamesOnShare ? tr("installed from the NAS", "installée depuis le NAS") : tr("installed from the games folder", "installée depuis le dossier des jeux"))
+        }
+        if let date = app.date { parts.append(tr("built ", "construite ") + Format.relative(date)) }
+        if !app.on { parts.append(tr("no longer built", "plus construite")) }
+        if app.sharesBuild == true {
+            parts.append(tr("its game files share their room with its build folder’s extracted files", "ses fichiers de jeu partagent leur place avec les fichiers extraits de son dossier de construction"))
+        }
+        return parts.joined(separator: " · ")
     }
 
     private func folderDetail(_ folder: BuildFolder) -> String {

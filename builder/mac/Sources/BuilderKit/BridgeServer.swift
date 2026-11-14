@@ -8,10 +8,11 @@
 //  and Saves. An iPhone pairs once, the player comparing the six digits
 //  both screens show (CartoucheBridge.swift); then each connection is a
 //  session encrypted with its paired key. Nothing outside the two folders
-//  can be reached, hidden files are never shown, an upload is written to a
-//  hidden file and named only once complete, and a deleted file goes to the
-//  Trash when its disk has one. The Mac stays awake while an iPhone is
-//  connected.
+//  can be reached, hidden files are never shown, nor the games' apps for
+//  this Mac, which the games folder keeps beside their IPAs; an upload is
+//  written to a hidden file and named only once complete, and a deleted
+//  file goes to the Trash when its disk has one. The Mac stays awake while
+//  an iPhone is connected.
 //
 
 import CartoucheCore
@@ -549,6 +550,7 @@ final class Session {
         var url = root
         for part in parts.dropFirst() {
             guard !part.hasPrefix("."), !part.contains("/") else { throw CartoucheBridgeError(.denied, part) }
+            guard first != CartoucheBridge.gamesFolder || !Self.isMacApp(part) else { throw CartoucheBridgeError(.denied, part) }
             url.appendPathComponent(part)
         }
         // Nothing reached through a link that leads outside the folder.
@@ -575,8 +577,18 @@ final class Session {
         guard let values = try? url.resourceValues(forKeys: [.isDirectoryKey, .fileSizeKey, .contentModificationDateKey]) else { return nil }
         let name = url.lastPathComponent
         if name.hasSuffix(".cartouche-upload") { return nil }
-        return CartoucheBridgeItem(name: name, folder: values.isDirectory ?? false, size: UInt64(values.fileSize ?? 0),
+        let folder = values.isDirectory ?? false
+        if folder, isMacApp(name) { return nil }
+        return CartoucheBridgeItem(name: name, folder: folder, size: UInt64(values.fileSize ?? 0),
                                    modified: values.contentModificationDate)
+    }
+
+    /// Whether NAME is a Mac app's, as the games folder keeps each game's
+    /// app for this Mac beside its IPA (decision 95): one file to the
+    /// Finder, and of no use to the iPhone, which would look in it for
+    /// games as in a folder of the player's.
+    static func isMacApp(_ name: String) -> Bool {
+        name.lowercased().hasSuffix(".app")
     }
 
     /// The free space of URL's disk, as the Finder counts it.

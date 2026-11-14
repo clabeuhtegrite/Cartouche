@@ -32,48 +32,69 @@
 //    the iPhones' clocks say.
 //
 //  Platform-independent: tested on its own by launcher/Package.swift.
+//  Public for Cartouche Builder, which keeps the saves of a game played on
+//  the Mac in step with the same copies (builder/mac MacSaves.swift).
 //
 
 import CryptoKit
 import Foundation
 
 /// A game's saves on this iPhone.
-struct CartoucheLocalSaves: Hashable {
+public struct CartoucheLocalSaves: Hashable {
     /// How they look: their files' count, size and newest date, which
     /// change whenever the game saves.
-    let look: String
+    public let look: String
     /// When they were last written: the date of their newest file.
-    let written: Date
+    public let written: Date
     /// What they hold (CartoucheSaveSync.content), once read.
-    var content: String?
+    public var content: String?
+
+    public init(look: String, written: Date, content: String? = nil) {
+        self.look = look
+        self.written = written
+        self.content = content
+    }
 }
 
 /// The newest copy of a game's saves in the saves folder.
-struct CartoucheSaveCopy: Hashable {
-    let name: String
+public struct CartoucheSaveCopy: Hashable {
+    public let name: String
     /// The date its name gives.
-    let date: Date
+    public let date: Date
     /// What it holds, from its zip's central directory, once read.
-    var content: String?
+    public var content: String?
+
+    public init(name: String, date: Date, content: String? = nil) {
+        self.name = name
+        self.date = date
+        self.content = content
+    }
 }
 
 /// What this iPhone last knew to be the same here and in the saves folder,
 /// for one game.
-struct CartoucheSaveBase: Codable, Hashable {
+public struct CartoucheSaveBase: Codable, Hashable {
     /// The saves folder: its server's ID and its path, "<ID>|<path>". A base
     /// holds for that folder only.
-    var place: String
+    public var place: String
     /// The copy, by name, in the game's folder there.
-    var copy: String
+    public var copy: String
     /// What it holds (CartoucheSaveSync.content); nil for a base an older
     /// Cartouche left, which knew the copy by its name only.
-    var content: String?
+    public var content: String?
     /// How the saves here looked then (CartoucheLocalSaves.look).
-    var look: String
+    public var look: String
+
+    public init(place: String, copy: String, content: String?, look: String) {
+        self.place = place
+        self.copy = copy
+        self.content = content
+        self.look = look
+    }
 }
 
 /// What to do with a game's saves.
-enum CartoucheSaveStep: String, Codable {
+public enum CartoucheSaveStep: String, Codable {
     /// Nothing moves: neither side changed since the base, or only the
     /// folder's, whose newest copy comes at the game's next start.
     case none
@@ -95,14 +116,14 @@ enum CartoucheSaveStep: String, Codable {
     case keepAndFetch
 }
 
-enum CartoucheSaveSync {
+public enum CartoucheSaveSync {
     /// The folders of a game's Documents that nxnative keeps its saves in.
-    static let folders = ["save", "save_device"]
+    public static let folders = ["save", "save_device"]
     /// nxnative's working copy of the saves, which the game makes again from
     /// them when it starts: it goes when other saves come in.
-    static let workFolder = "save.work"
+    public static let workFolder = "save.work"
     /// The copies kept for each game.
-    static let kept = 10
+    public static let kept = 10
 
     // MARK: Which way
 
@@ -114,7 +135,7 @@ enum CartoucheSaveSync {
     /// come now, as it does when the game is installed and before it
     /// starts, rather than after a game. .compare asks for what both sides
     /// hold first: called again with it, the step is never .compare.
-    static func step(here: CartoucheLocalSaves?, newest: CartoucheSaveCopy?, base: CartoucheSaveBase?,
+    public static func step(here: CartoucheLocalSaves?, newest: CartoucheSaveCopy?, base: CartoucheSaveBase?,
                      baseIsThere: Bool, fetching: Bool) -> CartoucheSaveStep {
         guard let here else {
             // Nothing here: the newest copy comes, unless it came already and
@@ -158,11 +179,11 @@ enum CartoucheSaveSync {
 
     /// A copy's name, its date in UTC: "2026-11-06T14-05-33Z.zip". The
     /// names sort by date.
-    static func fileName(_ date: Date) -> String {
+    public static func fileName(_ date: Date) -> String {
         nameFormat().string(from: date) + ".zip"
     }
 
-    static func date(inName name: String) -> Date? {
+    public static func date(inName name: String) -> Date? {
         guard name.lowercased().hasSuffix(".zip") else { return nil }
         return nameFormat().date(from: String(name.dropLast(4)))
     }
@@ -173,7 +194,7 @@ enum CartoucheSaveSync {
     /// The name of a copy that goes as the newest, of saves WRITTEN then:
     /// their date, but never later than NOW, and a second after AFTER, the
     /// newest copy there, when that is later.
-    static func sendName(written: Date, after newest: Date?, now: Date = Date()) -> String {
+    public static func sendName(written: Date, after newest: Date?, now: Date = Date()) -> String {
         var seconds = (written < earliest ? now : min(written, now)).timeIntervalSince1970.rounded(.down)
         if let newest {
             seconds = max(seconds, newest.timeIntervalSince1970.rounded(.down) + 1)
@@ -184,7 +205,7 @@ enum CartoucheSaveSync {
     /// The name of a copy that keeps saves WRITTEN then, under NEWEST, the
     /// newer copy there: their own date, but never later than NOW, and a
     /// second before NEWEST at the latest.
-    static func keepName(written: Date, under newest: Date?, now: Date = Date()) -> String {
+    public static func keepName(written: Date, under newest: Date?, now: Date = Date()) -> String {
         var seconds = (written < earliest ? now : min(written, now)).timeIntervalSince1970.rounded(.down)
         if let newest {
             seconds = min(seconds, newest.timeIntervalSince1970.rounded(.down) - 1)
@@ -196,7 +217,7 @@ enum CartoucheSaveSync {
 
     /// The saves in DOCUMENTS, as they look now; nil when the game has none,
     /// no file in either folder.
-    static func saves(in documents: URL) -> CartoucheLocalSaves? {
+    public static func saves(in documents: URL) -> CartoucheLocalSaves? {
         var count = 0
         var size: UInt64 = 0
         var newest: Int64 = 0
@@ -223,7 +244,7 @@ enum CartoucheSaveSync {
     /// What the saves in DOCUMENTS hold: each file's path, size and CRC-32,
     /// and each link's target, as a zip of them lists them (writeZip, and
     /// content(of:) for a copy). "" when there is no file.
-    static func content(ofSavesIn documents: URL) throws -> String {
+    public static func content(ofSavesIn documents: URL) throws -> String {
         var lines: [String] = []
         for folder in folders {
             let root = documents.appendingPathComponent(folder, isDirectory: true)
@@ -248,7 +269,7 @@ enum CartoucheSaveSync {
 
     /// What a copy holds, from its zip's ENTRIES: what content(ofSavesIn:)
     /// gives for the saves it was made of.
-    static func content(of entries: [CartoucheZipEntry]) -> String {
+    public static func content(of entries: [CartoucheZipEntry]) -> String {
         digest(entries.filter { !$0.isDirectory }.map { line($0.name, size: $0.size, crc: $0.crc) })
     }
 
@@ -281,7 +302,7 @@ enum CartoucheSaveSync {
 
     /// The saves' folders, files and links in DOCUMENTS, as a zip with paths
     /// from Documents: save/..., save_device/...
-    static func writeZip(ofSavesIn documents: URL, to sink: CartoucheByteSink) async throws {
+    public static func writeZip(ofSavesIn documents: URL, to sink: CartoucheByteSink) async throws {
         let writer = CartoucheZipWriter(sink: sink)
         for folder in folders {
             let root = documents.appendingPathComponent(folder, isDirectory: true)
@@ -313,7 +334,7 @@ enum CartoucheSaveSync {
 
     /// Whether ENTRIES are those of a copy of saves: each in save/ or
     /// save_device/.
-    static func holdsSavesOnly(_ entries: [CartoucheZipEntry]) -> Bool {
+    public static func holdsSavesOnly(_ entries: [CartoucheZipEntry]) -> Bool {
         entries.allSatisfy { entry in
             folders.contains { entry.name == $0 + "/" || entry.name.hasPrefix($0 + "/") }
         }
@@ -324,7 +345,7 @@ enum CartoucheSaveSync {
     /// from them. A folder the copy does not have goes, so that both sides
     /// hold the same. The folders replaced go to ASIDE, a folder of their
     /// own, first, and come back if a step fails.
-    static func replaceSaves(in documents: URL, with unpacked: URL, aside: URL) throws {
+    public static func replaceSaves(in documents: URL, with unpacked: URL, aside: URL) throws {
         let fileManager = FileManager.default
         try fileManager.createDirectory(at: documents, withIntermediateDirectories: true)
         try fileManager.createDirectory(at: aside, withIntermediateDirectories: true)

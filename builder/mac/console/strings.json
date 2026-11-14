@@ -1,0 +1,29 @@
+{
+  "overrides": {
+    "action.uninstall": {
+      "en": "Remove from this Mac",
+      "fr": "Retirer de ce Mac"
+    },
+    "games.empty.message": {
+      "en": "Add your games in the Builder: it builds each one for this Mac from your own copy.",
+      "fr": "Ajoutez vos jeux dans le Builder : il construit chacun pour ce Mac à partir de votre propre copie."
+    },
+    "running.paused": {
+      "en": "Running in its own window.",
+      "fr": "En cours, dans sa propre fenêtre."
+    },
+    "sheet.build.here": {
+      "en": "On this Mac: %@",
+      "fr": "Sur ce Mac : %@"
+    },
+    "sheet.onThisIPhone": {
+      "en": "On this Mac",
+      "fr": "Sur ce Mac"
+    },
+    "summary.credit.translated": {
+      "en": "Description: IGDB.com, translated by the Mac",
+      "fr": "Description : IGDB.com, traduite par le Mac"
+    }
+  },
+  "strings": {}
+}

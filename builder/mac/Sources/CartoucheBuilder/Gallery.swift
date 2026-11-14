@@ -29,6 +29,15 @@ enum Gallery {
         case assistantWelcome = "assistant-welcome", assistantTools = "assistant-tools", assistantSources = "assistant-sources"
         case assistantGames = "assistant-games", assistantKeys = "assistant-keys", assistantBuilds = "assistant-builds"
         case assistantIPhone = "assistant-iphone", assistantDone = "assistant-done"
+        // Cartouche's console on this Mac (ConsoleGallery.swift).
+        case console, consoleLibrary = "console-library"
+        // What the window's height leaves out: the settings' Builds tab, and
+        // the storage page down to the games on this Mac, in a window as
+        // tall as it.
+        case settingsBuilds = "settings-builds", storageMac = "storage-mac"
+
+        /// Whether the page is the console's, which is always dark.
+        var isConsole: Bool { self == .console || self == .consoleLibrary }
 
         /// The setup assistant's step the page shows.
         var step: SetupStep? {
@@ -48,7 +57,8 @@ enum Gallery {
         var size: CGSize {
             if step != nil { return SetupAssistant.size }
             switch self {
-            case .settings: return SettingsTab.size
+            case .settings, .settingsBuilds: return SettingsTab.size
+            case .storageMac: return CGSize(width: 1024, height: 1440)
             // The window at its smallest, with a game's sheet whose
             // nxnative commits are a paragraph each, as nxnative writes them.
             case .gameNarrow: return CGSize(width: Columns.window.width, height: 680)
@@ -57,7 +67,7 @@ enum Gallery {
             }
         }
 
-        var inEnglish: Bool { [.library, .game, .gameQueue, .setup, .menubar, .assistantWelcome, .assistantGames].contains(self) }
+        var inEnglish: Bool { [.library, .game, .gameQueue, .setup, .menubar, .assistantWelcome, .assistantGames, .console].contains(self) }
 
         /// The window as the app opens it: the settings as the Settings
         /// scene does, the menu bar's panel without a frame, the setup
@@ -66,7 +76,7 @@ enum Gallery {
         var styleMask: NSWindow.StyleMask {
             if step != nil { return [.borderless] }
             switch self {
-            case .settings: return [.titled, .closable]
+            case .settings, .settingsBuilds: return [.titled, .closable]
             case .menubar, .menubarBuilding: return [.borderless]
             default: return [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView]
             }
@@ -75,6 +85,9 @@ enum Gallery {
 
     /// Pictures AppKit drew itself, as ScreenCaptureKit could not take them.
     private static var drawnByAppKit = 0
+    /// Pictures of a window in the background, as macOS kept the app
+    /// inactive: its main buttons and its switches come out grey.
+    private static var inBackground = 0
 
     static func run(into folder: URL) {
         let app = NSApplication.shared
@@ -95,14 +108,16 @@ enum Gallery {
         for language in ["fr", "en"] {
             L10n.use(language)
             for page in Page.allCases where language == "fr" || page.inEnglish {
-                for dark in language == "fr" ? [false, true] : [false] {
+                for dark in page.isConsole ? [true] : language == "fr" ? [false, true] : [false] {
                     let file = folder.appendingPathComponent("\(page.rawValue)-\(language)-\(dark ? "dark" : "light").png")
                     if render(page, samples: samples, dark: dark, to: file) { saved += 1 }
                 }
             }
         }
+        ConsoleGallery.cleanUp()
         print("gallery: \(saved) pictures in \(folder.path)"
-              + (drawnByAppKit > 0 ? ", \(drawnByAppKit) drawn by AppKit without the window server's effects" : ""))
+              + (drawnByAppKit > 0 ? ", \(drawnByAppKit) drawn by AppKit without the window server's effects" : "")
+              + (inBackground > 0 ? ", \(inBackground) of a window in the background, its main buttons and switches grey" : ""))
         exit(saved > 0 ? 0 : 1)
     }
 
@@ -128,8 +143,10 @@ enum Gallery {
         var size = page.size
         let controller: NSViewController
         switch page {
-        case .settings:
-            controller = settings(model)
+        case .settings, .settingsBuilds:
+            controller = settings(model, open: page == .settingsBuilds ? .builds : .general)
+        case .console, .consoleLibrary:
+            controller = ConsoleGallery.controller(library: page == .consoleLibrary, language: L10n.code)
         case .menubar, .menubarBuilding:
             let panel = hosted(MenuBarView().background(Color(nsColor: .windowBackgroundColor)), model)
             size.height = ceil(panel.sizeThatFits(in: CGSize(width: size.width, height: 2000)).height)
@@ -146,12 +163,19 @@ enum Gallery {
                 controller = hosted(ContentView(), model)
             }
         }
-        let window = NSWindow(contentRect: CGRect(origin: CGPoint(x: 80, y: 80), size: size),
-                              styleMask: page.styleMask, backing: .buffered, defer: false)
+        let frame = CGRect(origin: CGPoint(x: 80, y: 80), size: size)
+        let window: NSWindow = page == .storageMac
+            ? TallWindow(contentRect: frame, styleMask: page.styleMask, backing: .buffered, defer: false)
+            : KeyWindow(contentRect: frame, styleMask: page.styleMask, backing: .buffered, defer: false)
         window.isReleasedWhenClosed = false
         window.appearance = NSAppearance(named: dark ? .darkAqua : .aqua)
-        window.title = page == .settings ? SettingsTab.general.title : "Cartouche Builder"
-        if page == .settings {
+        switch page {
+        case .settings: window.title = SettingsTab.general.title
+        case .settingsBuilds: window.title = SettingsTab.builds.title
+        case .console, .consoleLibrary: window.title = "Cartouche"
+        default: window.title = "Cartouche Builder"
+        }
+        if page == .settings || page == .settingsBuilds {
             window.toolbarStyle = .preference
         }
         if page.step != nil {
@@ -160,8 +184,17 @@ enum Gallery {
         }
         window.contentViewController = controller
         window.setContentSize(size)
+        // In front and, where macOS lets it, active, as the player sees the
+        // app's window: an inactive window greys its main buttons and its
+        // switches. activate() only asks, which macOS turns down to an app
+        // nobody opened; on GitHub's runners, it keeps the gallery inactive
+        // even so, and the last line says how many pictures show a window
+        // in the background.
+        NSApp.activate(ignoringOtherApps: true)
+        window.makeKeyAndOrderFront(nil)
         window.orderFrontRegardless()
         wait(until: Date().addingTimeInterval(2.5))
+        if !(NSApp.isActive && window.isKeyWindow) { inBackground += 1 }
         defer {
             window.orderOut(nil)
             window.close()
@@ -199,8 +232,8 @@ enum Gallery {
 
     /// The settings as the Settings scene shows them, which a TabView in a
     /// window of its own does not: a tab in the middle of the toolbar for
-    /// each, the first one open, its name as the window's title.
-    private static func settings(_ model: AppModel) -> NSViewController {
+    /// each, OPEN open, its name as the window's title.
+    private static func settings(_ model: AppModel, open: SettingsTab) -> NSViewController {
         let tabs = NSTabViewController()
         tabs.tabStyle = .toolbar
         for tab in SettingsTab.allCases {
@@ -211,7 +244,22 @@ enum Gallery {
             item.image = NSImage(systemSymbolName: tab.symbol, accessibilityDescription: tab.title)
             tabs.addTabViewItem(item)
         }
+        tabs.selectedTabViewItemIndex = SettingsTab.allCases.firstIndex(of: open) ?? 0
         return tabs
+    }
+
+    /// A window that becomes the key window, as the app's do, even without
+    /// a title bar: the menu bar's panel and the setup assistant's sheet
+    /// are, in the app.
+    private class KeyWindow: NSWindow {
+        override var canBecomeKey: Bool { true }
+        override var canBecomeMain: Bool { true }
+    }
+
+    /// A window as tall as its page, which AppKit would fit to the screen,
+    /// as it does the others on a screen smaller than they are.
+    private final class TallWindow: KeyWindow {
+        override func constrainFrameRect(_ frameRect: NSRect, to screen: NSScreen?) -> NSRect { frameRect }
     }
 
     /// The window as the window server shows it, with what only the window
@@ -320,6 +368,7 @@ enum Gallery {
             }
             switch page {
             case .library, .activity, .storage, .iphone: model.section = AppSection(rawValue: page.rawValue) ?? .library
+            case .storageMac: model.section = .storage
             case .libraryRoom, .game, .gameNarrow, .gameQueue, .gameXcode, .gameUnbuilt: model.section = .library
             case .setup, .setupXcode: model.section = .setup
             default: break
@@ -369,8 +418,16 @@ enum Gallery {
                 PairedDevice(id: "A0F4E2B6-81C3-4D9E-B7A5-6C2D1E3F4A5B", name: "iPhone Duo", key: Data(repeating: 9, count: 32),
                              paired: now.addingTimeInterval(-2 * 86_400), seen: now.addingTimeInterval(-26 * 3600)),
             ]
-            model.bridge.preview(devices: iphones, connected: [iphones[0].id], games: config.games,
-                                 name: "MacBook Air", saves: URL(fileURLWithPath: info.home).appendingPathComponent("Saves", isDirectory: true))
+            let saves = URL(fileURLWithPath: info.home).appendingPathComponent("Saves", isDirectory: true)
+            model.bridge.preview(devices: iphones, connected: [iphones[0].id], games: config.games, name: "MacBook Air", saves: saves)
+            // Mario Kart 8 Deluxe played on this Mac, the iPhone's saves come
+            // before its last game; Super Mario Odyssey playing now.
+            let odyssey = MacGameApp(url: URL(fileURLWithPath: "/Users/player/Applications/Super Mario Odyssey.app"),
+                                     titleID: "0100000000010000", name: "Super Mario Odyssey")
+            model.macGames.preview(folder: saves,
+                                   playing: page == .menubar ? [MacGameRun(app: odyssey, pid: 0, started: now.addingTimeInterval(-1500), fromBuilder: true)] : [],
+                                   last: ["0100152000022000": MacSaveEvent(at: now.addingTimeInterval(-26 * 60), when: .before, step: "fetch",
+                                                                           fetched: "2026-11-13T18-02-00Z.zip")])
             if page == .menubar {
                 let release = BuilderRelease(version: "0.3.0", tag: "builder-v0.3.0", notes: "",
                                              page: URL(string: "https://github.com/clabeuhtegrite/Cartouche/releases/tag/builder-v0.3.0")!,
@@ -462,6 +519,12 @@ enum Gallery {
          "source_size": 7340032000, "followed": true, "profile": true, "state": "due", "due": true, "reasons": ["profile", "shared"],
          "ipa": {"name": "Mario Kart 8 Deluxe.ipa", "path": "/Volumes/Jeux/iPhone/Mario Kart 8 Deluxe.ipa", "size": 6410000000, "present": true},
          "build": {"commit": "4f1d2c9a7b3e", "built_at": "@-777600", "version": "3.0.3", "duration": 1260, "origin": "app", "toolchain": "27.2", "size": 6410000000},
+         "platforms": {"ios": true, "mac": true},
+         "mac": {"folder": "/Volumes/Jeux/iPhone", "packed": true, "installs": "/Users/player/Applications", "due": true, "reason": "with_ipa",
+                 "library": {"name": "Mario Kart 8 Deluxe [0100152000022000].app.zip", "path": "/Volumes/Jeux/iPhone/Mario Kart 8 Deluxe [0100152000022000].app.zip", "size": 6480000000, "present": true},
+                 "app": {"name": "Mario Kart 8 Deluxe.app", "path": "/Users/player/Applications/Mario Kart 8 Deluxe.app", "size": 6620000000, "present": true},
+                 "behind": true,
+                 "build": {"commit": "4f1d2c9a7b3e", "built_at": "@-776900", "version": "3.0.3", "duration": 610, "size": 6480000000}},
          "changes": [
            {"sha": "e2a94c1b7d6f5a3b2c1d0e9f8a7b6c5d4e3f2a1b", "short": "e2a94c1", "subject": "mk8dx: lighter kart shadows, 60 fps in the menus", "time": "#-14400", "kind": "profile"},
            {"sha": "b81e2f4a9c7d6e5f4a3b2c1d0e9f8a7b6c5d4e3f", "short": "b81e2f4", "subject": "mk8dx: no more flicker on the last track", "time": "#-190000", "kind": "profile"},
@@ -473,6 +536,7 @@ enum Gallery {
          "source_size": 6012000000, "followed": true, "profile": true, "state": "due", "due": true, "reasons": ["named"],
          "ipa": {"name": "Kirby and the Forgotten Land.ipa", "path": "/Volumes/Jeux/iPhone/Kirby and the Forgotten Land.ipa", "size": 5480000000, "present": true},
          "build": {"commit": "4f1d2c9a7b3e", "built_at": "@-777600", "version": "1.0.0", "duration": 980, "origin": "app", "toolchain": "27.2", "size": 5480000000},
+         "platforms": {"ios": true, "mac": true}, "mac": {"folder": "/Volumes/Jeux/iPhone", "packed": true, "installs": "/Users/player/Applications", "due": true, "reason": "with_ipa"},
          "changes": [
            {"sha": "\(head)", "short": "6c3aeb3", "subject": "Kirby: water reflections without the black frames", "time": "#-10800", "kind": "named"}
          ],
@@ -482,23 +546,36 @@ enum Gallery {
          "attempt": {"commit": "6c3aeb3d70a1", "at": "@-9000", "result": "failed", "error": "Les shaders n’ont pas compilé : pipeline 1187.", "log": "/tmp/metroid.log"},
          "ipa": {"name": "Metroid Dread.ipa", "path": "/Volumes/Jeux/iPhone/Metroid Dread.ipa", "size": 4120000000, "present": true},
          "build": {"commit": "a3b2c1d0e9f8", "built_at": "@-1900000", "version": "2.1.0", "duration": 840, "origin": "app", "toolchain": "27.2", "size": 4120000000},
+         "platforms": {"ios": true, "mac": true}, "mac": {"folder": "/Volumes/Jeux/iPhone", "packed": true, "installs": "/Users/player/Applications", "reason": "after_ipa"},
          "change_counts": {"profile": 0, "named": 0, "shared": 6}},
         {"title_id": "0100000000010000", "name": "Super Mario Odyssey", "kind": "zip", "source": "/Volumes/Jeux/Switch/Super Mario Odyssey.zip",
          "source_size": 5650000000, "followed": true, "profile": true, "state": "up_to_date",
          "ipa": {"name": "Super Mario Odyssey.ipa", "path": "/Volumes/Jeux/iPhone/Super Mario Odyssey.ipa", "size": 5320000000, "present": true},
-         "build": {"commit": "\(head)", "built_at": "@-7000", "version": "1.3.0", "duration": 1130, "origin": "app", "toolchain": "27.2", "size": 5320000000}},
+         "build": {"commit": "\(head)", "built_at": "@-7000", "version": "1.3.0", "duration": 1130, "origin": "app", "toolchain": "27.2", "size": 5320000000},
+         "platforms": {"ios": true, "mac": true},
+         "mac": {"folder": "/Volumes/Jeux/iPhone", "packed": true, "installs": "/Users/player/Applications", "reason": "up_to_date",
+                 "library": {"name": "Super Mario Odyssey [0100000000010000].app.zip", "path": "/Volumes/Jeux/iPhone/Super Mario Odyssey [0100000000010000].app.zip", "size": 5390000000, "present": true},
+                 "app": {"name": "Super Mario Odyssey.app", "path": "/Users/player/Applications/Super Mario Odyssey.app", "size": 5510000000, "present": true},
+                 "build": {"commit": "\(head)", "built_at": "@-6500", "version": "1.3.0", "duration": 480, "size": 5390000000}}},
         {"title_id": "01007EF00011E000", "name": "The Legend of Zelda: Breath of the Wild", "kind": "nup", "source": "/Volumes/Jeux/Switch/Zelda BotW",
          "source_size": 16200000000, "followed": true, "profile": true, "state": "up_to_date",
          "ipa": {"name": "Zelda BotW.ipa", "path": "/Volumes/Jeux/iPhone/Zelda BotW.ipa", "size": 15100000000, "present": true},
-         "build": {"commit": "\(head)", "built_at": "@-6400", "version": "1.6.0", "duration": 2410, "origin": "app", "toolchain": "27.2", "size": 15100000000}},
+         "build": {"commit": "\(head)", "built_at": "@-6400", "version": "1.6.0", "duration": 2410, "origin": "app", "toolchain": "27.2", "size": 15100000000},
+         "platforms": {"ios": true, "mac": false}, "mac": {"folder": "/Volumes/Jeux/iPhone", "packed": true, "installs": "/Users/player/Applications"}},
         {"title_id": "01006F8002326000", "name": "Animal Crossing: New Horizons", "kind": "nup", "source": "/Volumes/Jeux/Switch/Animal Crossing",
          "source_size": 10500000000, "followed": true, "profile": true, "state": "up_to_date",
          "ipa": {"name": "Animal Crossing.ipa", "path": "/Volumes/Jeux/iPhone/Animal Crossing.ipa", "size": 9800000000, "present": true},
-         "build": {"commit": "\(head)", "built_at": "@-90000", "version": "2.0.6", "duration": 1500, "origin": "app", "toolchain": "27.2", "size": 9800000000}},
+         "build": {"commit": "\(head)", "built_at": "@-90000", "version": "2.0.6", "duration": 1500, "origin": "app", "toolchain": "27.2", "size": 9800000000},
+         "platforms": {"ios": true, "mac": true},
+         "mac": {"folder": "/Volumes/Jeux/iPhone", "packed": true, "installs": "/Users/player/Applications", "reason": "up_to_date", "library": {"name": "Animal Crossing - New Horizons [01006F8002326000].app.zip", "path": "/Volumes/Jeux/iPhone/Animal Crossing - New Horizons [01006F8002326000].app.zip", "size": 9950000000, "present": true},
+                 "build": {"commit": "\(head)", "built_at": "@-89000", "version": "2.0.6", "duration": 640, "size": 9950000000}}},
         {"title_id": "01006A800016E000", "name": "Super Smash Bros. Ultimate", "kind": "nup", "source": "/Volumes/Jeux/Switch/Smash",
          "source_size": 16900000000, "followed": true, "profile": true, "state": "up_to_date",
          "ipa": {"name": "Smash.ipa", "path": "/Volumes/Jeux/iPhone/Smash.ipa", "size": 15700000000, "present": true},
-         "build": {"commit": "\(head)", "built_at": "@-95000", "version": "13.0.3", "duration": 2700, "origin": "app", "toolchain": "27.2", "size": 15700000000}},
+         "build": {"commit": "\(head)", "built_at": "@-95000", "version": "13.0.3", "duration": 2700, "origin": "app", "toolchain": "27.2", "size": 15700000000},
+         "platforms": {"ios": true, "mac": true},
+         "mac": {"folder": "/Volumes/Jeux/iPhone", "packed": true, "installs": "/Users/player/Applications", "reason": "up_to_date", "library": {"name": "Super Smash Bros. Ultimate [01006A800016E000].app.zip", "path": "/Volumes/Jeux/iPhone/Super Smash Bros. Ultimate [01006A800016E000].app.zip", "size": 15900000000, "present": true},
+                 "build": {"commit": "\(head)", "built_at": "@-94000", "version": "13.0.3", "duration": 900, "size": 15900000000}}},
         {"title_id": "010028600EBDA000", "name": "Super Mario 3D World + Bowser’s Fury", "kind": "nup", "source": "/Volumes/Jeux/Switch/3D World",
          "source_size": 2900000000, "followed": false, "profile": true, "state": "not_followed",
          "ipa": {"name": "3D World.ipa", "path": "/Volumes/Jeux/iPhone/3D World.ipa", "size": 2700000000, "present": true},
@@ -518,7 +595,8 @@ enum Gallery {
         {"title_id": "01004D300C5AE000", "name": "Kirby and the Forgotten Land", "reasons": ["named"], "state": "built",
          "started": "@-1500", "ended": "@-610", "duration": 890, "ipa": "/Volumes/Jeux/iPhone/Kirby and the Forgotten Land.ipa"},
         {"title_id": "0100152000022000", "name": "Mario Kart 8 Deluxe", "reasons": ["profile", "shared"], "state": "building", "stage": "shaders",
-         "step": "Pipelines 1 412 / 2 300", "k": 1412, "n": 2300, "frac": 0.61, "overall": 0.68, "eta": 380, "started": "@-600"},
+         "step": "Pipelines 1 412 / 2 300", "k": 1412, "n": 2300, "frac": 0.61, "overall": 0.68, "eta": 380, "started": "@-600",
+         "platform": "ios", "mac": "waiting", "mac_only": false},
         {"title_id": "010093801237C000", "name": "Metroid Dread", "reasons": ["shared"], "state": "queued"}
       ],
       "lines": [
@@ -534,7 +612,8 @@ enum Gallery {
       "workspace": "/Users/player/Library/Application Support/Cartouche Builder/Builds",
       "disks": {
         "workspace": {"path": "/", "free": 182000000000, "total": 994000000000, "present": true},
-        "games": {"path": "/Volumes/Jeux", "free": 2310000000000, "total": 7990000000000, "present": true}
+        "games": {"path": "/Volumes/Jeux", "free": 2310000000000, "total": 7990000000000, "present": true},
+        "mac_apps": {"path": "/Users/player/Applications", "free": 182000000000, "total": 994000000000, "present": true}
       },
       "folders": [
         {"path": "/Builds/0100152000022000", "workspace": "/Builds", "title_id": "0100152000022000", "name": "Mario Kart 8 Deluxe", "kind": "build",
@@ -547,19 +626,27 @@ enum Gallery {
          "size": 1270000000, "parts": {"shaders": 640000000, "app": 630000000}, "used": "#-95000"}
       ],
       "ipa_copies": [],
+      "mac_apps": [
+        {"path": "/Users/player/Applications/Mario Kart 8 Deluxe.app", "title_id": "0100152000022000", "name": "Mario Kart 8 Deluxe", "size": 6620000000,
+         "on": true, "built_at": "@-1900000", "shares_build": false, "packed": true},
+        {"path": "/Users/player/Applications/Super Mario Odyssey.app", "title_id": "0100000000010000", "name": "Super Mario Odyssey", "size": 5510000000,
+         "on": true, "built_at": "@-6500", "shares_build": false, "packed": true}
+      ],
       "totals": {"extracted": 13900000000, "shaders": 4070000000, "app": 2690000000, "packages": 0, "temporary": 0, "other": 120000000,
-                 "logs": 48000000, "ipa_copies": 0, "ipa_copies_freeable": 0, "engine": 410000000, "python": 260000000},
+                 "logs": 48000000, "ipa_copies": 0, "ipa_copies_freeable": 0, "engine": 410000000, "python": 260000000, "mac_apps": 12130000000},
       "settings": {"keep_extracted": false, "keep_ipa": false, "min_free_gb": 20, "workspace_limit_gb": 0}
     }
     """
 
     static let configJSON = """
     {"sources": "/Volumes/Jeux/Switch", "games": "/Volumes/Jeux/iPhone", "keys": "/Users/player/Switch/prod.keys", "language": "fr",
-     "schedule": true, "schedule_hour": 3, "schedule_minute": 30, "jobs": 1, "engine_policy": "weekly", "refresh_days": 7, "min_free_gb": 20}
+     "schedule": true, "schedule_hour": 3, "schedule_minute": 30, "jobs": 1, "engine_policy": "weekly", "refresh_days": 7, "min_free_gb": 20,
+     "ios": true, "mac": true, "skip_mac": ["01007EF00011E000"]}
     """
 
     static let infoJSON = """
     {"version": "0.2.0", "home": "/Users/player/Library/Application Support/Cartouche Builder",
-     "workspace": "/Users/player/Library/Application Support/Cartouche Builder/Builds", "python": "/opt/homebrew/bin/python3.13", "scheduled": true}
+     "workspace": "/Users/player/Library/Application Support/Cartouche Builder/Builds", "python": "/opt/homebrew/bin/python3.13", "scheduled": true,
+     "mac_apps": "/Users/player/Applications", "default_mac_apps": "/Users/player/Applications", "mac_packed": true}
     """
 }

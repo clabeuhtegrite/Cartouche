@@ -1,0 +1,263 @@
+{
+  "api": 1,
+  "checked": "2026-11-13T21:49:11+00:00",
+  "engine": {
+    "branch": "main",
+    "commit_url": "",
+    "head": "04354859e9553bdef84af008d1b37871eeef82bf",
+    "short": "04354859e955",
+    "subject": "Super Mario Odyssey: the cap (PR #4)",
+    "time": 1794606545,
+    "url": "/Users/player/Builder/remote"
+  },
+  "folders": {
+    "games": {
+      "mounted": false,
+      "path": "/Users/player/Builder/games",
+      "present": true,
+      "share": ""
+    },
+    "keys": {
+      "mounted": false,
+      "path": "",
+      "present": false,
+      "share": ""
+    },
+    "remote": false,
+    "sources": {
+      "mounted": false,
+      "path": "/Users/player/Builder/sources",
+      "present": true,
+      "share": ""
+    },
+    "workspace": {
+      "mounted": false,
+      "path": "/Users/player/Builder/home/workspace",
+      "present": true,
+      "share": ""
+    }
+  },
+  "games": [
+    {
+      "aliases": [],
+      "attempt": null,
+      "build": {
+        "built_at": "2026-11-09T21:15:52+00:00",
+        "chain": "",
+        "commit": "000000000000",
+        "dirty": false,
+        "duration": 0,
+        "origin": "ipa",
+        "size": 698,
+        "toolchain": "",
+        "version": "1.5"
+      },
+      "change_counts": {
+        "named": 0,
+        "profile": 0,
+        "shared": 0
+      },
+      "changes": [],
+      "detail": "Its sources are not in the sources folder: its IPA is shown, and built again once they are back.",
+      "due": false,
+      "followed": true,
+      "icon": "",
+      "ipa": {
+        "name": "Hollow Knight [0100A0000E2F0000].ipa",
+        "path": "/Users/player/Builder/games/Hollow Knight [0100A0000E2F0000].ipa",
+        "present": true,
+        "size": 698
+      },
+      "kind": "ipa",
+      "mac": {
+        "alone": false,
+        "app": null,
+        "attempt": null,
+        "behind": false,
+        "build": null,
+        "detail": "",
+        "due": false,
+        "folder": "/Users/player/Builder/games",
+        "installs": "/Users/player/Builder/user/Applications",
+        "library": null,
+        "packed": true,
+        "reason": ""
+      },
+      "name": "Hollow Knight",
+      "platforms": {
+        "ios": true,
+        "mac": true
+      },
+      "profile": true,
+      "progress": null,
+      "reasons": [
+        "no_source"
+      ],
+      "source": "",
+      "source_size": 0,
+      "state": "no_source",
+      "title_id": "0100A0000E2F0000"
+    },
+    {
+      "aliases": [],
+      "attempt": null,
+      "build": {
+        "built_at": "2026-11-13T21:49:08+00:00",
+        "chain": "abcdef012345",
+        "commit": "04354859e955",
+        "dirty": false,
+        "duration": 3.0446633569999904,
+        "origin": "builder",
+        "size": 846,
+        "toolchain": "",
+        "version": "1.0.0"
+      },
+      "change_counts": {
+        "named": 0,
+        "profile": 0,
+        "shared": 0
+      },
+      "changes": [],
+      "detail": "Up to date (nxnative 04354859e955)",
+      "due": false,
+      "followed": true,
+      "icon": "/Users/player/Builder/home/icons/0400C3F00006E000.jpg",
+      "ipa": {
+        "name": "Mario Kart World [0400C3F00006E000].ipa",
+        "path": "/Users/player/Builder/games/Mario Kart World [0400C3F00006E000].ipa",
+        "present": true,
+        "size": 846
+      },
+      "kind": "dump",
+      "mac": {
+        "alone": false,
+        "app": {
+          "name": "Mario Kart World.app",
+          "path": "/Users/player/Builder/user/Applications/Mario Kart World.app",
+          "present": true,
+          "size": 1601
+        },
+        "attempt": null,
+        "behind": false,
+        "build": {
+          "built_at": "2026-11-13T21:49:11+00:00",
+          "chain": "abcdef012345",
+          "commit": "04354859e955",
+          "dirty": false,
+          "duration": 0.03918943300004685,
+          "size": 2915,
+          "version": "1.0.0"
+        },
+        "detail": "On this Mac too (nxnative 04354859e955)",
+        "due": false,
+        "folder": "/Users/player/Builder/games",
+        "installs": "/Users/player/Builder/user/Applications",
+        "library": {
+          "name": "Mario Kart World [0400C3F00006E000].app.zip",
+          "path": "/Users/player/Builder/games/Mario Kart World [0400C3F00006E000].app.zip",
+          "present": true,
+          "size": 2915
+        },
+        "packed": true,
+        "reason": "up_to_date"
+      },
+      "name": "Mario Kart World",
+      "platforms": {
+        "ios": true,
+        "mac": true
+      },
+      "profile": true,
+      "progress": null,
+      "reasons": [
+        "up_to_date"
+      ],
+      "source": "/Users/player/Builder/sources/Mario Kart World",
+      "source_size": 521,
+      "state": "up_to_date",
+      "title_id": "0400C3F00006E000"
+    },
+    {
+      "aliases": [],
+      "attempt": null,
+      "build": {
+        "built_at": "2026-11-13T21:49:11+00:00",
+        "chain": "abcdef012345",
+        "commit": "04354859e955",
+        "dirty": false,
+        "duration": 3.045749085999887,
+        "origin": "builder",
+        "size": 849,
+        "toolchain": "",
+        "version": "1.0.0"
+      },
+      "change_counts": {
+        "named": 0,
+        "profile": 0,
+        "shared": 0
+      },
+      "changes": [],
+      "detail": "Up to date (nxnative 04354859e955)",
+      "due": false,
+      "followed": true,
+      "icon": "/Users/player/Builder/home/icons/0100000000010000.jpg",
+      "ipa": {
+        "name": "Super Mario Odyssey [0100000000010000].ipa",
+        "path": "/Users/player/Builder/games/Super Mario Odyssey [0100000000010000].ipa",
+        "present": true,
+        "size": 849
+      },
+      "kind": "dump",
+      "mac": {
+        "alone": false,
+        "app": null,
+        "attempt": null,
+        "behind": false,
+        "build": {
+          "built_at": "2026-11-13T21:49:11+00:00",
+          "chain": "abcdef012345",
+          "commit": "04354859e955",
+          "dirty": false,
+          "duration": 0.03843213799973455,
+          "size": 1604,
+          "version": "1.0.0"
+        },
+        "detail": "",
+        "due": false,
+        "folder": "/Users/player/Builder/games",
+        "installs": "/Users/player/Builder/user/Applications",
+        "library": {
+          "name": "Super Mario Odyssey.app",
+          "path": "",
+          "present": false,
+          "size": 0
+        },
+        "packed": true,
+        "reason": ""
+      },
+      "name": "Super Mario Odyssey",
+      "platforms": {
+        "ios": true,
+        "mac": false
+      },
+      "profile": true,
+      "progress": null,
+      "reasons": [
+        "up_to_date"
+      ],
+      "source": "/Users/player/Builder/sources/Super Mario Odyssey",
+      "source_size": 521,
+      "state": "up_to_date",
+      "title_id": "0100000000010000"
+    }
+  ],
+  "issues": [],
+  "language": "en",
+  "notes": [],
+  "problems": [],
+  "room": {
+    "folders": 1,
+    "free_gb": 29,
+    "keep_gb": 0
+  },
+  "updated": false
+}

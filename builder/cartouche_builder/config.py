@@ -41,6 +41,14 @@ class Config:
     refresh_days: int = 7  # "weekly": a game is built again at most this often for shared changes
     only: list[str] = field(default_factory=list)  # the games to build (title IDs); empty = all
     skip: list[str] = field(default_factory=list)  # games never built
+    # Each game is built for both, its IPA for the iPhone and its app for this
+    # Mac (macapps.py), unless one of the two is turned off, for every game
+    # (ios, mac) or for one (skip_ios, skip_mac):
+    ios: bool = True
+    mac: bool = True
+    skip_ios: list[str] = field(default_factory=list)  # games whose IPA is not built
+    skip_mac: list[str] = field(default_factory=list)  # games not built for this Mac
+    mac_apps: str = ""  # where this Mac installs the Mac apps a games folder on a NAS keeps in one file ("" = the Applications folder of the player's session)
     aliases: dict[str, list[str]] = field(default_factory=dict)  # more names of a game in commit messages
     unprofiled: bool = False  # also build games nxnative has no profile for (a guess that may not start)
     game_language: str = ""  # nxnative's -l (empty = its default, English)
@@ -64,6 +72,13 @@ class Config:
 
     def workspace_path(self, paths: Paths) -> Path:
         return self.path("workspace") or paths.workspace
+
+    def mac_apps_path(self) -> Path:
+        """Where this Mac installs the games' Mac apps that the games folder
+        keeps in one file (macapps.Place): the folder chosen, else the
+        Applications folder of the player's session, where Launchpad, the
+        Dock and Spotlight find them."""
+        return self.path("mac_apps") or default_mac_apps()
 
     # ---- Checks ----------------------------------------------------------
 
@@ -104,7 +119,7 @@ class Config:
             value = getattr(self, name)
             if not isinstance(value, int) or isinstance(value, bool) or not low <= value <= high:
                 raise ValueError(t("config.bad_number", name=name, low=low, high=high))
-        for name in ("only", "skip"):
+        for name in ("only", "skip", "skip_ios", "skip_mac"):
             ids = getattr(self, name)
             if not isinstance(ids, list) or not all(isinstance(i, str) and titles.is_title_id(i) for i in ids):
                 raise ValueError(t("config.bad_ids", name=name))
@@ -139,6 +154,32 @@ class Config:
         elif title_id not in self.skip:
             self.skip = sorted(set(self.skip) | {title_id})
 
+    def on_ios(self, title_id: str) -> bool:
+        """Whether the game's IPA is built (for the iPhone)."""
+        return self.ios and title_id.upper() not in self.skip_ios
+
+    def on_mac(self, title_id: str) -> bool:
+        """Whether the game is built for this Mac (its app, after its IPA)."""
+        return self.mac and title_id.upper() not in self.skip_mac
+
+    def set_platform(self, title_id: str, platform: str, on: bool) -> None:
+        """Builds the game for PLATFORM ("ios" or "mac") again, or no longer.
+        A game built for one is followed. What was built stays where it is
+        when it is no longer built (the Storage page removes a Mac app)."""
+        title_id = title_id.upper()
+        name = {"ios": "skip_ios", "mac": "skip_mac"}[platform]
+        skipped = set(getattr(self, name))
+        if on:
+            skipped.discard(title_id)
+            self.follow(title_id, True)
+        else:
+            skipped.add(title_id)
+        setattr(self, name, sorted(skipped))
+
+
+def default_mac_apps() -> Path:
+    return Path.home() / "Applications"
+
 
 def _resolved(path: Path) -> Path:
     try:
@@ -166,7 +207,7 @@ def load(paths: Paths) -> Config:
     except ValueError:
         # A hand-edited file with a bad value: keep the folders, reset the rest.
         defaults = Config()
-        for name in ("sources", "games", "keys", "workspace", "setup_done", "version"):
+        for name in ("sources", "games", "keys", "workspace", "mac_apps", "setup_done", "version"):
             value = getattr(config, name)
             setattr(defaults, name, value if isinstance(value, type(getattr(defaults, name))) else getattr(defaults, name))
         config = defaults

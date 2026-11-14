@@ -23,20 +23,22 @@
 //    gigabytes would take the iPhone longer than sending them.
 //
 //  Platform-independent: tested on its own by launcher/Package.swift.
+//  Its reading and writing of files are public for Cartouche Builder, which
+//  writes and reads the copies of a game's saves on the Mac.
 //
 
 import Compression
 import Foundation
 
 /// A file read at any offset: on the player's storage, or on the iPhone.
-protocol CartoucheByteSource: AnyObject {
+public protocol CartoucheByteSource: AnyObject {
     var size: UInt64 { get }
     /// COUNT bytes from OFFSET, fewer only at the end of the file.
     func read(at offset: UInt64, count: Int) async throws -> Data
 }
 
 /// A file written from start to end.
-protocol CartoucheByteSink: AnyObject {
+public protocol CartoucheByteSink: AnyObject {
     func write(_ data: Data) async throws
 }
 
@@ -50,32 +52,32 @@ struct CartoucheZipError: LocalizedError, Equatable {
 }
 
 /// An entry of an archive's central directory.
-struct CartoucheZipEntry: Hashable {
+public struct CartoucheZipEntry: Hashable {
     /// Its path in the archive, with "/" between folders.
-    let name: String
+    public let name: String
     /// 0: stored, 8: deflated.
-    let method: UInt16
-    let crc: UInt32
-    let compressedSize: UInt64
-    let size: UInt64
-    let localHeaderOffset: UInt64
+    public let method: UInt16
+    public let crc: UInt32
+    public let compressedSize: UInt64
+    public let size: UInt64
+    public let localHeaderOffset: UInt64
     /// Its Unix mode and type, when the archive was made on a Unix system.
-    let mode: UInt32?
+    public let mode: UInt32?
     /// When the file was last changed, as the archive keeps it.
-    var modified: Date? = nil
+    public var modified: Date? = nil
 
-    var isDirectory: Bool {
+    public var isDirectory: Bool {
         if let mode, mode & 0o170000 != 0 { return mode & 0o170000 == 0o040000 }
         return name.hasSuffix("/")
     }
 
-    var isSymlink: Bool {
+    public var isSymlink: Bool {
         guard let mode else { return false }
         return mode & 0o170000 == 0o120000
     }
 }
 
-enum CartoucheZip {
+public enum CartoucheZip {
     static let localSignature: UInt32 = 0x0403_4B50
     static let centralSignature: UInt32 = 0x0201_4B50
     static let endSignature: UInt32 = 0x0605_4B50
@@ -84,7 +86,7 @@ enum CartoucheZip {
 
     /// The archive's entries, from its central directory: two reads at its
     /// end, three for a Zip64 archive.
-    static func entries(of source: CartoucheByteSource) async throws -> [CartoucheZipEntry] {
+    public static func entries(of source: CartoucheByteSource) async throws -> [CartoucheZipEntry] {
         let size = source.size
         guard size >= 22 else { throw CartoucheZipError("not a zip archive") }
         // The end record is the last 22 bytes, before a comment of up to
@@ -264,7 +266,7 @@ enum CartoucheZip {
 
     /// Unpacks the archive into FOLDER, reading it once from start to end.
     /// PROGRESS counts the bytes written; cancelling the task stops it.
-    static func extract(_ source: CartoucheByteSource, entries: [CartoucheZipEntry], into folder: URL,
+    public static func extract(_ source: CartoucheByteSource, entries: [CartoucheZipEntry], into folder: URL,
                         progress: Progress? = nil) async throws {
         let fileManager = FileManager.default
         try fileManager.createDirectory(at: folder, withIntermediateDirectories: true)
@@ -818,11 +820,11 @@ fileprivate extension Data {
 // MARK: Files of the iPhone
 
 /// A file of the iPhone, read at any offset.
-final class CartoucheFileSource: CartoucheByteSource {
-    let size: UInt64
+public final class CartoucheFileSource: CartoucheByteSource {
+    public let size: UInt64
     private let handle: FileHandle
 
-    init(_ url: URL) throws {
+    public init(_ url: URL) throws {
         handle = try FileHandle(forReadingFrom: url)
         size = try handle.seekToEnd()
     }
@@ -831,7 +833,7 @@ final class CartoucheFileSource: CartoucheByteSource {
         try? handle.close()
     }
 
-    func read(at offset: UInt64, count: Int) async throws -> Data {
+    public func read(at offset: UInt64, count: Int) async throws -> Data {
         try handle.seek(toOffset: offset)
         return try handle.cartoucheRead(upToCount: count) ?? Data()
     }
@@ -853,20 +855,20 @@ extension FileHandle {
 }
 
 /// A file of the iPhone, written from start to end.
-final class CartoucheFileSink: CartoucheByteSink {
+public final class CartoucheFileSink: CartoucheByteSink {
     private let handle: FileHandle
 
-    init(_ url: URL) throws {
+    public init(_ url: URL) throws {
         FileManager.default.createFile(atPath: url.path, contents: nil)
         handle = try FileHandle(forWritingTo: url)
         try handle.truncate(atOffset: 0)
     }
 
-    func write(_ data: Data) async throws {
+    public func write(_ data: Data) async throws {
         try handle.write(contentsOf: data)
     }
 
-    func close() throws {
+    public func close() throws {
         try handle.close()
     }
 }

@@ -1,16 +1,16 @@
 {
   "api": 1,
   "status": {
-    "ended": "2026-11-12T08:10:07+00:00",
+    "ended": "2026-11-13T21:49:05+00:00",
     "error": "",
     "fallback": null,
     "games": [
       {
         "cause": "nxnative",
-        "commit": "ff1adf9f63d5",
+        "commit": "04354859e955",
         "detail": "An nxnative commit names it: Super Mario Odyssey: the cap (PR #4)",
-        "duration": 0.1,
-        "ended": "2026-11-12T08:10:07+00:00",
+        "duration": 0.0,
+        "ended": "2026-11-13T21:49:05+00:00",
         "error": "the fake build failed on purpose",
         "eta": 3,
         "exit": 1,
@@ -19,25 +19,36 @@
         "frac": 1.0,
         "ipa": "",
         "k": 1,
-        "log": "/Users/player/Builder/home/logs/0100000000010000/2026-11-12_08-10-07.log",
+        "log": "/Users/player/Builder/home/logs/0100000000010000/2026-11-13_21-49-05.log",
+        "mac": "",
+        "mac_app": "",
+        "mac_cause": "",
+        "mac_duration": 0.0,
+        "mac_error": "",
+        "mac_exit": null,
+        "mac_failure": {},
+        "mac_log": "",
+        "mac_only": false,
+        "mac_room": {},
         "message": "the fake build failed on purpose",
         "n": 2,
         "name": "Super Mario Odyssey",
         "note": "",
         "overall": 0.5,
+        "platform": "ios",
         "reasons": [
           "named"
         ],
         "room": {},
         "stage": "extract",
-        "started": "2026-11-12T08:10:07+00:00",
+        "started": "2026-11-13T21:49:05+00:00",
         "state": "failed",
         "step": "",
         "title_id": "0100000000010000"
       }
     ],
-    "head": "ff1adf9f63d5999fab2d4f6649c029d3950ef4ce",
-    "latest": "ff1adf9f63d5999fab2d4f6649c029d3950ef4ce",
+    "head": "04354859e9553bdef84af008d1b37871eeef82bf",
+    "latest": "04354859e9553bdef84af008d1b37871eeef82bf",
     "lines": [
       "Looking at nxnative and the games…",
       "Bringing nxnative up to date…",
@@ -45,13 +56,13 @@
       "Super Mario Odyssey: the fake build failed on purpose"
     ],
     "message": "Bringing nxnative up to date…",
-    "pid": 8761,
-    "report": "/Users/player/Builder/home/reports/2026-11-12_08-10-07.md",
+    "pid": 23368,
+    "report": "/Users/player/Builder/home/reports/2026-11-13_21-49-05.md",
     "running": false,
     "scheduled": false,
-    "started": "2026-11-12T08:10:06+00:00",
+    "started": "2026-11-13T21:49:05+00:00",
     "state": "done",
-    "updated": "2026-11-12T08:10:07+00:00",
+    "updated": "2026-11-13T21:49:05+00:00",
     "version": 1
   }
 }

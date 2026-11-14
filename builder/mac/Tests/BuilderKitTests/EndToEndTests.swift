@@ -10,8 +10,12 @@
 //  over TCP on this Mac: an iPhone of the tests' own pairs with the six
 //  digits both screens show, opens a session encrypted with the paired
 //  key, finds the IPAs the batch put in the games folder, reads them whole,
-//  sends a save, and gets no session once the Mac forgot it. No game is
-//  involved. The engine's own end-to-end tests are
+//  sends a save, and gets no session once the Mac forgot it. Then a game
+//  built for this Mac is played from the app, started by LaunchServices
+//  as the Finder starts it: the iPhone's copy of its saves comes first, its
+//  launcher (the simulated nxnative's, a script) plays from it, and the
+//  Mac's saves go after it, read back as the iPhone reads them. No real
+//  game is involved. The engine's own end-to-end tests are
 //  builder/tests/test_end_to_end.py.
 //
 //  Skipped without a Python 3.12 or later for the engine
@@ -33,6 +37,10 @@ private struct TestWorld: Decodable {
     var python: String
     var sources: String
     var games: String
+    /// Where its settings install the Mac apps a games folder on a NAS
+    /// keeps in one file, in the world: never the Mac's own Applications
+    /// folder.
+    var applications: String
     var head: String
     /// What the engine's processes need beside what Engine gives them.
     var environment: [String: String]
@@ -151,6 +159,9 @@ final class EndToEndTests: XCTestCase {
         for game in status.games {
             XCTAssertEqual(game.commit, commit, game.titleID)
             XCTAssertEqual(game.fallback, false, game.titleID)
+            // Its app for this Mac too, as every game's by default, after its IPA.
+            XCTAssertEqual(game.mac, "built", game.titleID)
+            XCTAssertNil(game.shownMacError, game.titleID)
         }
         let after = try await engine.library(update: false)
         XCTAssertTrue(after.due.isEmpty)
@@ -158,8 +169,21 @@ final class EndToEndTests: XCTestCase {
             XCTAssertEqual(game.state, .upToDate, game.titleID)
             XCTAssertEqual(game.ipa?.present, true, game.titleID)
             XCTAssertEqual(game.build?.commit, commit, game.titleID)
+            XCTAssertEqual(game.onIOS, true, game.titleID)
+            XCTAssertEqual(game.onMac, true, game.titleID)
+            XCTAssertEqual(game.mac?.due, false, game.titleID)
+            XCTAssertEqual(game.mac?.app?.present, true, game.titleID)
+            XCTAssertEqual(game.mac?.build?.commit, commit, game.titleID)
+            // In the games folder beside its IPA: this Mac's own disk keeps
+            // it as it is, played from there; nothing installed elsewhere.
+            XCTAssertEqual(game.mac?.packed, false, game.titleID)
+            XCTAssertEqual(game.mac?.app.map { URL(fileURLWithPath: $0.path).deletingLastPathComponent().path }, world.games, game.titleID)
         }
-        _ = try await engine.storage()
+        XCTAssertFalse(FileManager.default.fileExists(atPath: world.applications))
+        // The Mac apps the builder put on this Mac, as the Storage page lists them.
+        let storage = try await engine.storage()
+        XCTAssertEqual(Set(storage.apps.map(\.titleID)), Set(world.titles.keys))
+        XCTAssertEqual(Set(storage.apps.map(\.on)), [true])
 
         // The bridge, as the app opens it: the games folder and the saves.
         let server = BridgeServer(devices: BridgeDevices(url: home.bridge), name: "Mac des tests")
@@ -222,6 +246,74 @@ final class EndToEndTests: XCTestCase {
         }
     }
 
+    // MARK: Playing on this Mac
+
+    @MainActor
+    func testAGameBuiltForThisMacIsPlayedWithTheIPhonesSaves() async throws {
+        let batch = try engine.startBatch()
+        let status = try await finish(batch)
+        XCTAssertEqual(status.state, "done", log())
+        let library = try await engine.library(update: false)
+        let titleID = try XCTUnwrap(world.titles.keys.sorted().first)
+        let built = try XCTUnwrap(library.game(titleID)?.mac?.app)
+        XCTAssertTrue(built.present)
+        // The app as the builder reads it: the name it shows names its copies' folder.
+        let app = try XCTUnwrap(MacGameApp(url: URL(fileURLWithPath: built.path)))
+        XCTAssertEqual(app.titleID, titleID)
+        XCTAssertEqual(app.name, world.titles[titleID])
+
+        // The game's folder and its logs in the world, never nxnative's own on this Mac.
+        let root = try XCTUnwrap(folder)
+        let games = root.appendingPathComponent("nxnative", isDirectory: true)
+        let logs = root.appendingPathComponent("Logs", isDirectory: true)
+        let macGames = MacGames(store: home.macSaves, scratch: home.savesScratch, games: games, logs: logs)
+        macGames.environment = ["NXSIM_LOGS": logs.path, "NXSIM_EXIT": "0"]
+        macGames.language = "fr"
+        var heard: [String] = []
+        macGames.news = { news in
+            switch news {
+            case let .started(run): heard.append("started \(run.app.titleID) \(run.fromBuilder ? "builder" : "elsewhere")")
+            case let .ended(run, ending: ending, exit: code, seconds: _): heard.append("ended \(run.app.titleID) \(ending.rawValue) \(code.map { "\($0)" } ?? "-")")
+            case let .saves(titleID: id, event: event, onShare: onShare): heard.append("saves \(id) \(event.when.rawValue) \(event.step) \(onShare)")
+            }
+        }
+        macGames.use(apps: [app])
+        macGames.use(saves: home.saves)
+        XCTAssertTrue(macGames.keepsSaves(titleID))
+
+        // The iPhone played first: its copy, made by Cartouche's own code, in the saves folder.
+        let iPhone = root.appendingPathComponent("iPhone/Documents", isDirectory: true)
+        let gameFolder = home.saves.appendingPathComponent(MacSavesFolder.folderName(app.saveGame), isDirectory: true)
+        try await iPhonePlays("iPhone 1", in: iPhone, copyTo: gameFolder, at: Date().addingTimeInterval(-600))
+
+        // Play: the copy comes, the game starts straight away, plays from it, quits. It quits at
+        // once: LaunchServices may say -1 of its process, a game that ended already.
+        let run = try await macGames.play(titleID)
+        XCTAssertEqual(run?.fromBuilder, true)
+        try await eventually("the game ended and its saves went", timeout: 60) {
+            !macGames.isPlaying(titleID) && macGames.last[titleID]?.step == "send"
+        }
+        XCTAssertEqual(heard, ["saves \(titleID) before fetch false", "started \(titleID) builder", "ended \(titleID) quit 0",
+                               "saves \(titleID) after send false"])
+        // What the game found: no settings window, nxnative's cloud saves off, its prompt in French, the iPhone's progress.
+        let played = try String(contentsOf: games.appendingPathComponent("\(titleID)/played.txt"), encoding: .utf8)
+        XCTAssertEqual(played, "window=0\nsave_sync=0\nquit_title=Quitter \(app.name) ?\nfound=iPhone 1\n")
+        // The newest copy is the Mac's, as the iPhone reads it.
+        let copies = try FileManager.default.contentsOfDirectory(atPath: gameFolder.path).filter { $0.hasSuffix(".zip") }.sorted()
+        XCTAssertEqual(copies.count, 2)
+        let sent = try await unpack(gameFolder.appendingPathComponent(try XCTUnwrap(copies.last)), into: root)
+        XCTAssertEqual(sent, ["save/progress.txt": "iPhone 1 +mac\n"])
+
+        // The iPhone plays again; a round while the game does not run brings its saves.
+        try await Task.sleep(nanoseconds: 1_100_000_000)
+        try await iPhonePlays("iPhone 2", in: iPhone, copyTo: gameFolder, at: Date())
+        await macGames.round()
+        XCTAssertEqual(macGames.last[titleID]?.step, "fetch")
+        XCTAssertEqual(try String(contentsOf: games.appendingPathComponent("\(titleID)/save/progress.txt"), encoding: .utf8), "iPhone 2\n")
+        // Nothing of this Mac's own nxnative folders was touched.
+        XCTAssertFalse(FileManager.default.fileExists(atPath: MacSavesFolder.nxnativeFolder.appendingPathComponent(titleID).path))
+    }
+
     // MARK: Stop
 
     @MainActor
@@ -246,6 +338,37 @@ final class EndToEndTests: XCTestCase {
 
     // MARK: Helpers
 
+    /// The iPhone played: its save holds PROGRESS, and Cartouche's own code
+    /// made its copy in FOLDER, named after DATE.
+    private func iPhonePlays(_ progress: String, in documents: URL, copyTo folder: URL, at date: Date) async throws {
+        let save = documents.appendingPathComponent("save", isDirectory: true)
+        try FileManager.default.createDirectory(at: save, withIntermediateDirectories: true)
+        try Data((progress + "\n").utf8).write(to: save.appendingPathComponent("progress.txt"))
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        let sink = try CartoucheFileSink(folder.appendingPathComponent(CartoucheSaveSync.fileName(date)))
+        try await CartoucheSaveSync.writeZip(ofSavesIn: documents, to: sink)
+        try sink.close()
+    }
+
+    /// What the copy at URL holds, unpacked as Cartouche unpacks one.
+    private func unpack(_ url: URL, into root: URL) async throws -> [String: String] {
+        let into = root.appendingPathComponent("unpacked-\(UUID().uuidString)", isDirectory: true)
+        let source = try CartoucheFileSource(url)
+        let entries = try await CartoucheZip.entries(of: source)
+        guard CartoucheSaveSync.holdsSavesOnly(entries) else { throw Failure("\(url.lastPathComponent) holds more than saves") }
+        try await CartoucheZip.extract(source, entries: entries, into: into)
+        var files: [String: String] = [:]
+        let walker = FileManager.default.enumerator(atPath: into.path)
+        while let relative = walker?.nextObject() as? String {
+            let file = into.appendingPathComponent(relative)
+            var isFolder: ObjCBool = false
+            if FileManager.default.fileExists(atPath: file.path, isDirectory: &isFolder), !isFolder.boolValue {
+                files[relative] = try String(contentsOf: file, encoding: .utf8)
+            }
+        }
+        return files
+    }
+
     /// Until BATCH ends: its process, and status.json saying how.
     private func finish(_ batch: Process, timeout: TimeInterval = 300) async throws -> BatchStatus {
         let deadline = Date().addingTimeInterval(timeout)
@@ -257,6 +380,8 @@ final class EndToEndTests: XCTestCase {
         return status
     }
 
+    /// Until CHECK, on the main actor, where what it reads lives.
+    @MainActor
     private func eventually(_ what: String, timeout: TimeInterval = 20, _ check: () -> Bool) async throws {
         let deadline = Date().addingTimeInterval(timeout)
         while !check() {

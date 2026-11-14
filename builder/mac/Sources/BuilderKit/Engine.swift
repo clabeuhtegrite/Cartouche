@@ -41,6 +41,10 @@ public struct BuilderHome: Equatable, Sendable {
     public var logs: URL { root.appendingPathComponent("logs", isDirectory: true) }
     public var engine: URL { root.appendingPathComponent("nxnative", isDirectory: true) }
     public var saves: URL { root.appendingPathComponent("Saves", isDirectory: true) }
+    /// What this Mac knows of the saves of the games played on it (MacSaves.swift).
+    public var macSaves: URL { root.appendingPathComponent("mac-saves.json") }
+    /// The copies of saves that come, unpacked there first.
+    public var savesScratch: URL { root.appendingPathComponent("Saves scratch", isDirectory: true) }
 }
 
 /// The engine's settings (config.json), while the engine cannot run yet:
@@ -279,6 +283,14 @@ public final class Engine: @unchecked Sendable {
         _ = try await api(FollowAnswer.self, ["follow", titleID, followed ? "on" : "off"], timeout: 60)
     }
 
+    /// Builds the game for PLATFORM ("ios", its IPA, or "mac", its app for
+    /// this Mac) again, or no longer. The engine refuses to turn off the
+    /// last of the two (a bad request): a game built for neither is one
+    /// no longer followed.
+    public func platform(_ titleID: String, _ platform: String, _ on: Bool) async throws -> PlatformAnswer {
+        try await api(PlatformAnswer.self, ["platform", titleID, platform, on ? "on" : "off"], timeout: 60)
+    }
+
     public func mount() async throws -> Folders {
         try await api(MountAnswer.self, ["mount"], timeout: 300).folders
     }
@@ -294,6 +306,14 @@ public final class Engine: @unchecked Sendable {
     /// build of one building stops, and the batch goes on with the next.
     public func dequeue(_ games: [String]) async throws -> QueueAnswer {
         try await api(QueueAnswer.self, ["queue", "remove"] + games, timeout: 120)
+    }
+
+    /// Installs on this Mac the game's app the games folder keeps in one
+    /// file (a NAS's), or makes this Mac's copy of it again of the newest
+    /// build; LINE hears how far it is. Blocked while the game runs from
+    /// its copy, and without room on this Mac.
+    public func installMac(_ titleID: String, line: (@Sendable (String) -> Void)? = nil) async throws -> MacInstallAnswer {
+        try await api(MacInstallAnswer.self, ["mac-install", titleID], timeout: 6 * 3600, line: line)
     }
 
     // MARK: Batches
@@ -364,8 +384,8 @@ public final class Engine: @unchecked Sendable {
     /// Asks the running batch to stop after what it is doing: the engine
     /// takes SIGTERM as its Stop.
     public static func stopBatch(_ status: BatchStatus?) {
-        guard let pid = status?.pid, pid > 1 else { return }
-        kill(pid_t(pid), SIGTERM)
+        guard let pid = status?.pid, pid > 1, let pid = pid_t(exactly: pid) else { return }
+        kill(pid, SIGTERM)
     }
 
     /// Stops a batch startBatch began that does not run yet, as it waits for
@@ -378,8 +398,11 @@ public final class Engine: @unchecked Sendable {
         process.terminate()
     }
 
+    /// Whether process PID runs; never for a number no process has: -1,
+    /// which kill() takes for every process the app may signal, 0, its own
+    /// group, or one past what a process number holds.
     public static func alive(_ pid: Int) -> Bool {
-        guard pid > 0 else { return false }
-        return kill(pid_t(pid), 0) == 0 || errno == EPERM
+        guard pid > 0, let pid = pid_t(exactly: pid) else { return false }
+        return kill(pid, 0) == 0 || errno == EPERM
     }
 }

@@ -1,0 +1,1 @@
+../../../../../launcher/Sources/CartoucheGameLookup.swift

@@ -454,6 +454,43 @@ public final class BuilderTelemetry: ObservableObject {
         return fields
     }
 
+    /// A game played on this Mac (builder.played), for ENDED, how it ended
+    /// (MacGameEnding: quit, gpu, crashed, stopped, unknown), its
+    /// launcher's EXIT code when it said, after SECONDS; FROM_BUILDER, the
+    /// builder started it (with nxnative's SETTINGS window first, or not),
+    /// else the Finder, the Dock or Launchpad did. Never its name.
+    public nonisolated static func playedFields(ended: String, exit: Int?, seconds: TimeInterval, fromBuilder: Bool,
+                                                settings: Bool) -> [String: TelemetryValue] {
+        var fields: [String: TelemetryValue] = [
+            "ended": .text(FailureDetails.name(ended) ?? "unknown"),
+            "seconds": .number(max(0, seconds).rounded()),
+            "from": .text(fromBuilder ? "builder" : "elsewhere"),
+        ]
+        if let exit, (0...1_000).contains(exit) { fields["exit"] = .count(exit) }
+        if fromBuilder { fields["settings"] = .flag(settings) }
+        return fields
+    }
+
+    /// A game's saves kept in step with the iPhone's copies (builder.saves):
+    /// the STEP (CartoucheSaveStep: send, keep, fetch, keepAndFetch; or
+    /// offline, failed), WHEN (before, after, round), and whether the
+    /// saves folder is ON_SHARE. Never a name, a copy's or a folder's.
+    public nonisolated static func savesFields(step: String, when: String, onShare: Bool) -> [String: TelemetryValue] {
+        ["step": .text(FailureDetails.name(step) ?? "other"),
+         "when": .text(FailureDetails.name(when) ?? "other"),
+         "place": .text(onShare ? "share" : "mac")]
+    }
+
+    /// A game's app the games folder keeps in one file (a NAS's) installed
+    /// on this Mac to be played (builder.macInstalled): its size once
+    /// installed (BYTES), how long it took, and whether it took the place
+    /// of this Mac's copy of an older build (AGAIN). Never a name or a path.
+    public nonisolated static func installedFields(bytes: Int64?, seconds: TimeInterval, again: Bool) -> [String: TelemetryValue] {
+        var fields: [String: TelemetryValue] = ["seconds": .number(max(0, seconds).rounded()), "again": .flag(again)]
+        if let bytes, bytes > 0 { fields["appMB"] = .number((Double(bytes) / 1_000_000).rounded()) }
+        return fields
+    }
+
     /// An nxnative commit's 12 digits, when TEXT is one.
     public nonisolated static func commit(_ text: String) -> String? {
         let digits = text.lowercased()
@@ -465,15 +502,18 @@ public final class BuilderTelemetry: ObservableObject {
     /// failed, or skipped once tried (a full disk, no room, with the room
     /// free and needed, no keys, an Xcode nxnative refuses), with
     /// why as names and numbers and the nxnative commit it was built from,
-    /// then one for the batch; never a name, a message or a path. LIBRARY
-    /// says each game's kind and its IPA's size, JOBS how many games the
-    /// settings build at once.
+    /// the same for each app built for this Mac (builder.mac*), then one for
+    /// the batch; never a name, a message or a path. LIBRARY says each
+    /// game's kind and the size of its IPA and of its Mac app, JOBS how many
+    /// games the settings build at once.
     public nonisolated static func batchEvents(_ status: BatchStatus, library: Library?, jobs: Int) -> [BatchEvent] {
         let head = status.head.map { String($0.prefix(12)) }
         var events: [BatchEvent] = []
         // A game skipped says why only when it was tried, not one the batch
-        // ended before.
-        for game in status.games where ["built", "failed"].contains(game.state) || (game.state == "skipped" && !(game.cause ?? "").isEmpty) {
+        // ended before. A game built for this Mac alone, its IPA up to date
+        // or not built, has its Mac app's events alone.
+        let ipas = status.games.filter { $0.macOnly != true }
+        for game in ipas where ["built", "failed"].contains(game.state) || (game.state == "skipped" && !(game.cause ?? "").isEmpty) {
             var fields: [String: TelemetryValue] = [:]
             if let reasons = game.reasons, !reasons.isEmpty { fields["reasons"] = .text(reasons.joined(separator: ",")) }
             if let duration = game.duration { fields["seconds"] = .number(duration.rounded()) }
@@ -495,16 +535,49 @@ public final class BuilderTelemetry: ObservableObject {
                 events.append(BatchEvent(game.state == "failed" ? "builder.failed" : "builder.skipped", game: game.titleID, fields: fields))
             }
         }
+        // Its app for this Mac, after its IPA or alone: the stage it was at
+        // is the Mac app's, the IPA's being done.
+        let macs = status.games.filter(\.buildsMac)
+        for game in macs where ["built", "failed"].contains(game.mac ?? "") || (game.mac == "skipped" && !(game.macCause ?? "").isEmpty) {
+            var fields: [String: TelemetryValue] = ["alone": .flag(game.macOnly == true)]
+            if let reasons = game.reasons, !reasons.isEmpty { fields["reasons"] = .text(reasons.joined(separator: ",")) }
+            if let duration = game.macDuration { fields["seconds"] = .number(duration.rounded()) }
+            if let kind = library?.game(game.titleID)?.kind { fields["source"] = .text(kind) }
+            if let built = game.commit.flatMap(BuilderTelemetry.commit) ?? head { fields["nxnative"] = .text(built) }
+            if game.fallback == true { fields["fallback"] = .flag(true) }
+            if game.mac == "built" {
+                // As the games folder keeps it: the app, or its file on a NAS.
+                let mac = library?.game(game.titleID)?.mac
+                if let size = (mac?.library ?? mac?.app)?.size, size > 0 {
+                    fields["appMB"] = .number((Double(size) / 1_000_000).rounded())
+                }
+                events.append(BatchEvent("builder.macBuilt", game: game.titleID, fields: fields))
+            } else {
+                fields["stage"] = .text(game.stage ?? "")
+                fields.merge(BuilderTelemetry.fields(cause: game.macCause, exit: game.macExit, failure: game.macFailure)) { _, new in new }
+                // Skipped for the room kept free, as an IPA.
+                if let free = game.macRoom?.freeGB, free.isFinite { fields["freeGB"] = .number(free.rounded()) }
+                if let needed = game.macRoom?.neededGB, needed.isFinite { fields["neededGB"] = .number(needed.rounded()) }
+                events.append(BatchEvent(game.mac == "failed" ? "builder.macFailed" : "builder.macSkipped", game: game.titleID, fields: fields))
+            }
+        }
+        // The games by how they ended, their IPA's builds; their Mac apps'
+        // apart.
         var fields: [String: TelemetryValue] = [
             "state": .text(status.state),
             "games": .count(status.games.count),
-            "built": .count(status.games.filter { $0.state == "built" }.count),
-            "failed": .count(status.games.filter { $0.state == "failed" }.count),
-            "skipped": .count(status.games.filter { $0.state == "skipped" }.count),
-            "stopped": .count(status.games.filter { $0.state == "stopped" }.count),
+            "built": .count(ipas.filter { $0.state == "built" }.count),
+            "failed": .count(ipas.filter { $0.state == "failed" }.count),
+            "skipped": .count(ipas.filter { $0.state == "skipped" }.count),
+            "stopped": .count(ipas.filter { $0.state == "stopped" }.count),
             "scheduled": .flag(status.scheduled ?? false),
             "jobs": .count(jobs),
         ]
+        if !macs.isEmpty {
+            for (key, state) in [("macBuilt", "built"), ("macFailed", "failed"), ("macSkipped", "skipped"), ("macStopped", "stopped")] {
+                fields[key] = .count(macs.filter { $0.mac == state }.count)
+            }
+        }
         if let started = status.startedDate, let ended = status.endedDate {
             fields["minutes"] = .number((ended.timeIntervalSince(started) / 60 * 10).rounded() / 10)
         }

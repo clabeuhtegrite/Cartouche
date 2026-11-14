@@ -97,6 +97,8 @@ final class BridgeController: ObservableObject, BridgeServerDelegate {
     func setSaves(_ url: URL?) {
         UserDefaults.standard.set(url?.path ?? "", forKey: AppSettings.savesKey)
         applyRoots()
+        // The saves of the games played on this Mac are kept there too.
+        model?.useMacSaves()
         objectWillChange.send()
     }
 

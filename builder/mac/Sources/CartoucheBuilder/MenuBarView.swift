@@ -52,6 +52,9 @@ struct MenuBarView: View {
             if !model.dueOutsideBatch.isEmpty {
                 improved(model.dueOutsideBatch)
             }
+            if model.library?.games.contains(where: { model.canPlay($0) }) == true {
+                MacPlayMenu(games: model.macGames)
+            }
             if case let .ready(release) = updater.state {
                 updateReady(release)
             }
@@ -244,5 +247,45 @@ struct MenuBarView: View {
     private func show() {
         openWindow(id: AppModel.mainWindow)
         NSApp.activate()
+    }
+}
+
+/// The games of this Mac, in the menu bar: the one playing, and a menu to
+/// play one.
+struct MacPlayMenu: View {
+    @EnvironmentObject private var model: AppModel
+    @ObservedObject var games: MacGames
+
+    var body: some View {
+        let playable = (model.library?.games ?? []).filter { model.canPlay($0) }.sorted {
+            $0.name.localizedStandardCompare($1.name) == .orderedAscending
+        }
+        HStack(spacing: 8) {
+            if let playing = games.playing.values.sorted(by: { $0.started < $1.started }).first {
+                Image(systemName: "gamecontroller.fill")
+                    .foregroundStyle(Theme.indigo)
+                Text(tr("Playing \(playing.app.name)", "En jeu : \(playing.app.name)"))
+                    .font(.caption)
+                    .lineLimit(1)
+                    .truncationMode(.tail)
+            } else {
+                Image(systemName: "macbook")
+                    .foregroundStyle(.secondary)
+                Text(tr("Play on this Mac", "Jouer sur ce Mac"))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            Spacer(minLength: 4)
+            Menu {
+                ForEach(playable) { game in
+                    Button(game.name) { model.play(game) }
+                }
+            } label: {
+                Label(tr("Play", "Jouer"), systemImage: "play.fill")
+            }
+            .menuStyle(.button)
+            .controlSize(.small)
+            .fixedSize()
+        }
     }
 }

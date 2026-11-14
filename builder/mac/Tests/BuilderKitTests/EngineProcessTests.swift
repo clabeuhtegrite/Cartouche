@@ -4,7 +4,8 @@
 //
 //  A batch the app started that does not run yet, as it waits for the batch
 //  lock the engine's look at nxnative holds: Stop ends the engine, and the
-//  caffeinate that keeps the Mac awake for it (Engine.stopStarting).
+//  caffeinate that keeps the Mac awake for it (Engine.stopStarting); and a
+//  process number no process has (Engine.alive, Engine.stopBatch).
 //
 
 import Darwin
@@ -31,6 +32,17 @@ final class EngineProcessTests: XCTestCase {
         for helper in children.prefix(max(0, Int(found))) where helper > 1 {
             XCTAssertNotEqual(kill(helper, 0), 0, "caffeinate \(helper) is still there")
         }
+    }
+
+    /// A process number the batch's status says that no process has is not
+    /// alive, and is sent no Stop: made a process number, one past what it
+    /// holds stopped the app.
+    func testANumberNoProcessHasIsNotAProcess() {
+        XCTAssertFalse(Engine.alive(-1))
+        XCTAssertFalse(Engine.alive(0))
+        XCTAssertFalse(Engine.alive(Int(Int32.max) + 1))
+        XCTAssertTrue(Engine.alive(Int(getpid())))
+        Engine.stopBatch(BatchStatus(state: "building", pid: Int(Int32.max) + 1))
     }
 
     func testAnEndedProcessIsSentNothing() throws {

@@ -4,8 +4,9 @@
 //
 //  What the Mac answers a paired iPhone over the bridge (BridgeServer.swift's
 //  Session): the games folder and the saves folder at the top, files read
-//  a piece at a time, uploads that only appear once finished, and nothing
-//  reached outside the two folders. The bridge's own protocol is tested with
+//  a piece at a time, uploads that only appear once finished, nothing
+//  reached outside the two folders, and none of the games' apps for this
+//  Mac, which the games folder keeps beside their IPAs. The bridge's own protocol is tested with
 //  Cartouche's (launcher/Tests/CartoucheCoreTests/CartoucheBridgeTests.swift).
 //
 
@@ -117,6 +118,28 @@ final class BridgeSessionTests: XCTestCase {
 
         XCTAssertEqual(ask(CartoucheBridgeRequest(.delete, path: "Games")).0.error, .denied)
         XCTAssertEqual(ask(CartoucheBridgeRequest(.create, path: "Games", size: 1)).0.error, .denied)
+    }
+
+    /// The games' apps for this Mac, kept beside their IPAs when the games
+    /// folder is on the Mac's own disk: the iPhone neither sees them nor
+    /// reaches into them, where it would look for games as in a folder of
+    /// the player's. A folder of the player's is still listed.
+    func testAGamesAppForThisMacIsNeitherShownNorReached() throws {
+        let contents = games.appendingPathComponent("Mario Kart World.app/Contents", isDirectory: true)
+        try FileManager.default.createDirectory(at: contents, withIntermediateDirectories: true)
+        try Data("plist".utf8).write(to: contents.appendingPathComponent("Info.plist"))
+        try FileManager.default.createDirectory(at: games.appendingPathComponent("Plus tard", isDirectory: true), withIntermediateDirectories: true)
+
+        let (list, _) = ask(CartoucheBridgeRequest(.list, path: "Games"))
+        XCTAssertNil(list.error)
+        XCTAssertEqual(list.items?.map(\.name), ["Mario Kart World [0400C3F00006E000].ipa", "Plus tard"])
+        for path in ["Games/Mario Kart World.app", "Games/Mario Kart World.app/Contents", "Games/Mario Kart World.APP/Contents/Info.plist"] {
+            XCTAssertEqual(ask(CartoucheBridgeRequest(.list, path: path)).0.error, .denied, path)
+            XCTAssertEqual(ask(CartoucheBridgeRequest(.stat, path: path)).0.error, .denied, path)
+            XCTAssertEqual(ask(CartoucheBridgeRequest(.read, path: path, offset: 0, count: 5)).0.error, .denied, path)
+            XCTAssertEqual(ask(CartoucheBridgeRequest(.delete, path: path)).0.error, .denied, path)
+        }
+        XCTAssertTrue(FileManager.default.fileExists(atPath: contents.appendingPathComponent("Info.plist").path))
     }
 
     func testFoldersAndWhatCanBeWritten() {

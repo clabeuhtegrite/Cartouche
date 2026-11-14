@@ -30,7 +30,61 @@ on:
     paths:
       - "builder/**"
       - "launcher/Package.swift"
+      # The console's screens, the launcher's own files, which the app
+      # builds for the Mac (builder/mac/Sources/CartoucheConsole/Shared links
+      # them; app/tests/test_mac_console.py checks this list against it), and
+      # its words.
       - "launcher/Sources/CartoucheBridge.swift"
+      - "launcher/Sources/CartoucheCatalog.swift"
+      - "launcher/Sources/CartoucheCoverList.swift"
+      - "launcher/Sources/CartoucheCovers.swift"
+      - "launcher/Sources/CartoucheDrive.swift"
+      - "launcher/Sources/CartoucheFTP.swift"
+      - "launcher/Sources/CartoucheFailure.swift"
+      - "launcher/Sources/CartoucheGameBuild.swift"
+      - "launcher/Sources/CartoucheGameFit.swift"
+      - "launcher/Sources/CartoucheGameLanguage.swift"
+      - "launcher/Sources/CartoucheGameLog.swift"
+      - "launcher/Sources/CartoucheGameLookup.swift"
+      - "launcher/Sources/CartoucheGamePlace.swift"
+      - "launcher/Sources/CartoucheGameSheetView.swift"
+      - "launcher/Sources/CartoucheGameStats.swift"
+      - "launcher/Sources/CartoucheGameSummaryView.swift"
+      - "launcher/Sources/CartoucheGameWorkView.swift"
+      - "launcher/Sources/CartoucheGamepad.swift"
+      - "launcher/Sources/CartoucheHomeView.swift"
+      - "launcher/Sources/CartoucheLibraryView.swift"
+      - "launcher/Sources/CartouchePlayTime.swift"
+      - "launcher/Sources/CartouchePlayerInfo.swift"
+      - "launcher/Sources/CartoucheReport.swift"
+      - "launcher/Sources/CartoucheResumingSource.swift"
+      - "launcher/Sources/CartoucheRomfs.swift"
+      - "launcher/Sources/CartoucheS3.swift"
+      - "launcher/Sources/CartoucheSFTP.swift"
+      - "launcher/Sources/CartoucheSaveSync.swift"
+      - "launcher/Sources/CartoucheSignInMessage.swift"
+      - "launcher/Sources/CartoucheStorage.swift"
+      - "launcher/Sources/CartoucheStorageDrive.swift"
+      - "launcher/Sources/CartoucheStorageFTP.swift"
+      - "launcher/Sources/CartoucheStorageFolder.swift"
+      - "launcher/Sources/CartoucheStorageMac.swift"
+      - "launcher/Sources/CartoucheStorageReach.swift"
+      - "launcher/Sources/CartoucheStorageS3.swift"
+      - "launcher/Sources/CartoucheStorageSaves.swift"
+      - "launcher/Sources/CartoucheStoredGames.swift"
+      - "launcher/Sources/CartoucheTelemetryReport.swift"
+      - "launcher/Sources/CartoucheText.swift"
+      - "launcher/Sources/CartoucheTextDrive.swift"
+      - "launcher/Sources/CartoucheTextGameInfo.swift"
+      - "launcher/Sources/CartoucheTextGuide.swift"
+      - "launcher/Sources/CartoucheTextMac.swift"
+      - "launcher/Sources/CartoucheTextSideStore.swift"
+      - "launcher/Sources/CartoucheTextSigning.swift"
+      - "launcher/Sources/CartoucheTheme.swift"
+      - "launcher/Sources/CartoucheTiles.swift"
+      - "launcher/Sources/CartoucheTranslations.swift"
+      - "launcher/Sources/CartoucheZip.swift"
+      - "launcher/Sources/Cartouche.xcstrings"
       - "telemetry/test/builder-reports.json"
       - ".github/workflows/builder.yml"
   workflow_dispatch:
@@ -79,7 +133,10 @@ jobs:
         id: changes
         run: |
           # HEAD^1 is main, HEAD the pull request merged into it.
-          CHANGES="$(git diff --binary HEAD^1 HEAD -- builder launcher/Package.swift launcher/Sources/CartoucheBridge.swift \
+          # The launcher's files the console links, as the links name them.
+          SHARED="$(find builder/mac/Sources/CartoucheConsole/Shared -name '*.swift' -exec basename {} \; | sort | sed 's|^|launcher/Sources/|')"
+          # shellcheck disable=SC2086
+          CHANGES="$(git diff --binary HEAD^1 HEAD -- builder launcher/Package.swift $SHARED launcher/Sources/Cartouche.xcstrings \
             telemetry/test/builder-reports.json .github/workflows/builder.yml | sha256sum | cut -c1-64)"
           echo "key=builder-xcode-$XCODE_VERSION-$CHANGES" >> "$GITHUB_OUTPUT"
       - name: Was it built?
@@ -142,9 +199,34 @@ jobs:
           "$python" --version
           echo "path=$python" >> "$GITHUB_OUTPUT"
       - name: Tests
+        id: tests
         env:
           CARTOUCHE_BUILDER_PYTHON: ${{ steps.python.outputs.path }}
         run: swift test --package-path builder/mac
+      # A test that stopped the tests' process (a trap says nothing of
+      # itself): the report macOS writes of it, its message and the frames
+      # of the thread that stopped.
+      - name: Say how the tests ended
+        if: ${{ failure() && steps.tests.outcome == 'failure' }}
+        run: |
+          sleep 20
+          { find "$HOME/Library/Logs/DiagnosticReports" /Library/Logs/DiagnosticReports -name '*.ips' -mmin -60 2>/dev/null || true; } | while read -r report; do
+            echo "== $report"
+            python3 - "$report" <<'PY' || true
+          import json, sys
+          header, _, body = open(sys.argv[1]).read().partition("\n")
+          report = json.loads(body)
+          print(json.loads(header).get("app_name"), report.get("exception"), report.get("termination"), report.get("asi"))
+          images = report.get("usedImages", [])
+          threads = report.get("threads", [])
+          stopped = report.get("faultingThread", 0)
+          for frame in (threads[stopped].get("frames", []) if stopped < len(threads) else [])[:45]:
+              index = frame.get("imageIndex", -1)
+              image = images[index].get("name", "?") if 0 <= index < len(images) else "?"
+              where = f'{frame.get("sourceFile", "")}:{frame.get("sourceLine", "")}' if frame.get("sourceFile") else ""
+              print(" ", image, frame.get("symbol", hex(frame.get("imageOffset", 0))), "+", frame.get("symbolLocation", ""), where)
+          PY
+          done
       # The engine's tests, which CI runs on Linux, on the Mac the app runs
       # it on: its checks of the Mac's tools, caffeinate, and a disk that
       # really fills up, a disk image of a few megabytes. After the app's

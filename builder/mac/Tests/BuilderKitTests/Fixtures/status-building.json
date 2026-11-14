@@ -7,7 +7,7 @@
     "games": [
       {
         "cause": "",
-        "commit": "ff1adf9f63d5",
+        "commit": "04354859e955",
         "detail": "An nxnative commit names it: Mario Kart World: the menus (PR #3)",
         "duration": 0.0,
         "ended": "",
@@ -20,36 +20,47 @@
         "ipa": "",
         "k": 2,
         "log": "",
+        "mac": "waiting",
+        "mac_app": "",
+        "mac_cause": "",
+        "mac_duration": 0.0,
+        "mac_error": "",
+        "mac_exit": null,
+        "mac_failure": {},
+        "mac_log": "",
+        "mac_only": false,
+        "mac_room": {},
         "message": "",
         "n": 2,
         "name": "Mario Kart World",
         "note": "",
         "overall": 0.5,
+        "platform": "ios",
         "reasons": [
           "named"
         ],
         "room": {},
-        "stage": "pack",
-        "started": "2026-11-12T08:10:07+00:00",
+        "stage": "shaders",
+        "started": "2026-11-13T21:49:05+00:00",
         "state": "building",
         "step": "",
         "title_id": "0400C3F00006E000"
       }
     ],
-    "head": "ff1adf9f63d5999fab2d4f6649c029d3950ef4ce",
-    "latest": "ff1adf9f63d5999fab2d4f6649c029d3950ef4ce",
+    "head": "04354859e9553bdef84af008d1b37871eeef82bf",
+    "latest": "04354859e9553bdef84af008d1b37871eeef82bf",
     "lines": [
       "Looking at nxnative and the games…",
       "Bringing nxnative up to date…"
     ],
     "message": "Bringing nxnative up to date…",
-    "pid": 8761,
+    "pid": 23368,
     "report": "",
     "running": true,
     "scheduled": false,
-    "started": "2026-11-12T08:10:07+00:00",
+    "started": "2026-11-13T21:49:05+00:00",
     "state": "building",
-    "updated": "2026-11-12T08:10:10+00:00",
+    "updated": "2026-11-13T21:49:06+00:00",
     "version": 1
   }
 }

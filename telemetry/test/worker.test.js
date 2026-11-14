@@ -250,8 +250,12 @@ const builderReports = JSON.parse(readFileSync(new URL("./builder-reports.json",
 
 test("keeps every field of the reports Cartouche Builder makes", async () => {
   for (const report of builderReports) assert.deepEqual(JSON.parse(JSON.stringify(clean(report))), report);
-  const response = await worker.fetch(post("/v1/reports", { reports: builderReports }), env, {}, NOW);
-  assert.deepEqual(await response.json(), { accepted: builderReports.length, refused: 0 });
+  // A batch at most at a time, as the app sends them.
+  for (let start = 0; start < builderReports.length; start += LIMITS.batch) {
+    const reports = builderReports.slice(start, start + LIMITS.batch);
+    const response = await worker.fetch(post("/v1/reports", { reports }), env, {}, NOW);
+    assert.deepEqual(await response.json(), { accepted: reports.length, refused: 0 });
+  }
   for (const report of builderReports) assert.deepEqual(JSON.parse(db.reports.get(report.id).body), report);
 });
 

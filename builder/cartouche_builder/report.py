@@ -9,8 +9,10 @@ from pathlib import Path
 from .i18n import t
 
 
-def write(folder: Path, head: str, built: list, failed: list, stopped: bool, notes: list, waiting: int, duration: float) -> Path:
-    """BUILT: (entry, build); FAILED: (entry, error, log path)."""
+def write(folder: Path, head: str, built: list, failed: list, stopped: bool, notes: list, waiting: int, duration: float,
+          mac_built: list | None = None, mac_failed: list | None = None) -> Path:
+    """BUILT: (entry, build); FAILED: (entry, error, log path); MAC_BUILT and
+    MAC_FAILED the same of the games' Mac apps (macapps.py)."""
     folder.mkdir(parents=True, exist_ok=True)
     path = folder / time.strftime("%Y-%m-%d_%H-%M-%S.md")
     lines = [f"# {t('report.title', date=time.strftime('%Y-%m-%d %H:%M'))}", ""]
@@ -32,6 +34,15 @@ def write(folder: Path, head: str, built: list, failed: list, stopped: bool, not
         lines.append(f"## {t('report.failed', count=len(failed))}")
         lines.append("")
         for entry, error, log in failed:
+            lines.append(f"- **{entry.game.display_name}** (`{entry.title_id}`): {error}")
+            lines.append(f"  - {t('report.log', path=log)}")
+        lines.append("")
+    if mac_built or mac_failed:
+        lines.append(f"## {t('report.mac')}")
+        lines.append("")
+        for entry, build in mac_built or []:
+            lines.append(f"- **{entry.game.display_name}** (`{entry.title_id}`): {build.app}, {t('report.version', version=build.version or '?')}, {int(build.duration // 60)} min")
+        for entry, error, log in mac_failed or []:
             lines.append(f"- **{entry.game.display_name}** (`{entry.title_id}`): {error}")
             lines.append(f"  - {t('report.log', path=log)}")
         lines.append("")

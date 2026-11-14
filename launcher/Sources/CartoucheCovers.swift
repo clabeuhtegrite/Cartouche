@@ -15,7 +15,9 @@
 //
 
 import SwiftUI
+#if canImport(UIKit)
 import UIKit
+#endif
 
 /// An image of a game: one of IGDB's, or a file of the player's.
 enum CartoucheArt: Hashable, Sendable {

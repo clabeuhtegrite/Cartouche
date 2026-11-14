@@ -3,8 +3,10 @@
 //  Cartouche Builder
 //
 //  A game's sheet, beside the library: why it is due, nxnative's commits
-//  that touched it since its build, its build and its IPA, and what can be
-//  done: rebuild it, follow it or not, name it as nxnative's commits do.
+//  that touched it since its build, its build and its IPA, its app for this
+//  Mac, and what can be done: rebuild it, follow it or not, build it for
+//  the iPhone, for this Mac or for both, name it as nxnative's commits do,
+//  play it on this Mac, its saves kept in step with the iPhone's.
 //  nxnative writes its commits in English, a paragraph each: the sheet says
 //  why in the player's words, and shows each commit's first lines, the
 //  rest when asked.
@@ -26,19 +28,31 @@ struct GameDetailView: View {
                     UnbuiltCard(game: never)
                 }
                 actions
+                if model.canPlay(game) {
+                    MacPlayCard(game: game, games: model.macGames)
+                }
+                if game.canBuild {
+                    platforms
+                }
                 if !whyLines.isEmpty {
                     why
                 }
                 if let progress = model.progress(game.titleID) {
                     ProgressCard(progress: progress)
                 }
-                if let attempt = game.attempt, game.state == .failed || ["failed", "skipped"].contains(attempt.result) {
+                if let attempt = game.attempt, game.onIOS, game.state == .failed || ["failed", "skipped"].contains(attempt.result) {
                     failure(attempt)
+                }
+                if let attempt = game.mac?.attempt, attempt.result == "failed", game.onMac {
+                    failure(attempt, mac: true)
                 }
                 if !game.changes.isEmpty {
                     changes
                 }
                 build
+                if game.onMac || game.mac?.build != nil {
+                    macApp
+                }
                 if game.canBuild {
                     AliasesEditor(game: game)
                 }
@@ -154,6 +168,52 @@ struct GameDetailView: View {
         }
     }
 
+    /// What the game is built for: its IPA for the iPhone, its app for this
+    /// Mac, or both; never neither (the engine refuses it: a game built
+    /// for neither is one no longer followed). One turned off for every
+    /// game in the settings cannot be turned on here.
+    private var platforms: some View {
+        let config = model.config
+        let ios = config?.ios ?? true
+        let mac = config?.mac ?? true
+        return SheetPart(title: tr("Built for", "Construit pour")) {
+            VStack(alignment: .leading, spacing: 10) {
+                PlatformToggle(title: "iPhone", symbol: "iphone", detail: iosDetail, on: game.onIOS,
+                               locked: !ios ? tr("Turned off for every game in the settings.", "Désactivé pour tous les jeux dans les réglages.")
+                                            : game.onIOS && !game.onMac ? lastOne : nil) { model.setPlatform(game, "ios", $0) }
+                Divider()
+                PlatformToggle(title: tr("This Mac", "Ce Mac"), symbol: "macbook", detail: macDetail, on: game.onMac,
+                               locked: !mac ? tr("Turned off for every game in the settings.", "Désactivé pour tous les jeux dans les réglages.")
+                                            : game.onMac && !game.onIOS ? lastOne : nil) { model.setPlatform(game, "mac", $0) }
+            }
+        }
+    }
+
+    private var lastOne: String {
+        tr("A game is built for at least one of the two: to build it for neither, stop following it.",
+           "Un jeu se construit pour au moins l’un des deux : pour ne plus le construire du tout, ne le suivez plus.")
+    }
+
+    private var iosDetail: String {
+        guard game.onIOS else { return tr("Its IPA is no longer built.", "Son IPA n’est plus construite.") }
+        return tr("Its IPA, in the games folder, for Cartouche.", "Son IPA, dans le dossier des jeux, pour Cartouche.")
+    }
+
+    /// Its Mac app as the engine says it (the next batch builds it, after
+    /// its IPA or alone, or it is up to date), else where it goes.
+    private var macDetail: String {
+        guard game.onMac else {
+            if game.hasMacApp { return tr("No longer built: its app stays on this Mac.", "Plus construit : son app reste sur ce Mac.") }
+            if let mac = game.mac, mac.packed, mac.kept {
+                return model.gamesOnShare ? tr("No longer built: its app stays on the NAS.", "Plus construit : son app reste sur le NAS.")
+                                          : tr("No longer built: its app stays in the games folder.", "Plus construit : son app reste dans le dossier des jeux.")
+            }
+            return tr("Its app for this Mac is not built.", "Son app pour ce Mac n’est pas construite.")
+        }
+        if let detail = game.mac?.detail, !detail.isEmpty { return detail }
+        return tr("Its app, to play it on this Mac.", "Son app, pour y jouer sur ce Mac.")
+    }
+
     private var why: some View {
         SheetPart(title: tr("Why", "Pourquoi")) {
             VStack(alignment: .leading, spacing: 6) {
@@ -184,8 +244,8 @@ struct GameDetailView: View {
         return reasons.map { whyText($0, counts: game.changeCounts) }
     }
 
-    private func failure(_ attempt: GameAttempt) -> some View {
-        SheetPart(title: tr("Last attempt", "Dernière tentative")) {
+    private func failure(_ attempt: GameAttempt, mac: Bool = false) -> some View {
+        SheetPart(title: mac ? tr("Last attempt of its Mac app", "Dernière tentative de son app Mac") : tr("Last attempt", "Dernière tentative")) {
             VStack(alignment: .leading, spacing: 8) {
                 Text(attempt.error ?? tr("The build failed.", "La construction a échoué."))
                     .font(.callout)
@@ -256,6 +316,110 @@ struct GameDetailView: View {
                     Fact(tr("Its dump", "Son dump"), Format.size(size))
                 }
             }
+        }
+    }
+
+    /// Its app for this Mac: where it is, its build, or why it is not
+    /// there (the engine's words). Kept in one file in a games folder on a
+    /// NAS, it is played from this Mac's copy, installed from there.
+    private var macApp: some View {
+        SheetPart(title: tr("Its Mac app", "Son app Mac")) {
+            VStack(alignment: .leading, spacing: 8) {
+                if let mac = game.mac, mac.packed {
+                    packedMacApp(mac)
+                } else if let app = game.mac?.app, app.present {
+                    if let build = game.mac?.build {
+                        Fact(tr("Built", "Construite"), build.date.map { Format.date($0) } ?? build.builtAt)
+                        Fact("nxnative", String(build.commit.prefix(12)), link: model.library?.engine?.page(of: build.commit))
+                        if let duration = build.duration, duration > 0 { Fact(tr("Took", "Durée"), Format.duration(duration)) }
+                    }
+                    Fact(tr("Size", "Taille"), Format.size(app.size))
+                    Text(app.name)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .textSelection(.enabled)
+                    Button(tr("Show in the Finder", "Afficher dans le Finder")) { model.reveal(app.path) }
+                        .controlSize(.small)
+                } else if let app = game.mac?.app, !app.name.isEmpty {
+                    Text(tr("\(app.name) is no longer in its folder: it is built again.", "\(app.name) n’est plus dans son dossier : elle sera reconstruite."))
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                } else {
+                    Text(tr("Not built yet.", "Pas encore construite."))
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                }
+                if let folder = game.mac?.folder, !folder.isEmpty {
+                    Fact(tr("Folder", "Dossier"), (folder as NSString).abbreviatingWithTildeInPath)
+                }
+            }
+        }
+    }
+
+    /// The app the games folder keeps in one file (a NAS's), and this
+    /// Mac's copy of it: installed or not, of the newest build or not.
+    @ViewBuilder
+    private func packedMacApp(_ mac: GameMac) -> some View {
+        if let kept = mac.library, kept.present {
+            if let build = mac.build {
+                Fact(tr("Built", "Construite"), build.date.map { Format.date($0) } ?? build.builtAt)
+                Fact("nxnative", String(build.commit.prefix(12)), link: model.library?.engine?.page(of: build.commit))
+            }
+            Fact(model.gamesOnShare ? tr("On the NAS", "Sur le NAS") : tr("In the games folder", "Dans le dossier des jeux"), Format.size(kept.size))
+            Text(kept.name)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .textSelection(.enabled)
+            Button(tr("Show in the Finder", "Afficher dans le Finder")) { model.reveal(kept.path) }
+                .controlSize(.small)
+            Divider()
+            let installing = model.installing == game.titleID
+            if let app = mac.app, app.present {
+                Fact(tr("On this Mac", "Sur ce Mac"), Format.size(app.size))
+                Text(installing ? model.installMessage
+                     : mac.behind ? tr("Of an older build: the newest takes its place when you play.",
+                                       "D’une construction plus ancienne : la dernière prend sa place quand vous jouez.")
+                     : tr("Of the newest build.", "De la dernière construction."))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                HStack(spacing: 8) {
+                    if mac.behind {
+                        Button(tr("Update", "Mettre à jour")) { model.installOnThisMac(game) }
+                            .disabled(model.installing != nil)
+                    }
+                    Button(tr("Show in the Finder", "Afficher dans le Finder")) { model.reveal(app.path) }
+                    Button(tr("Remove from this Mac", "Retirer de ce Mac"), role: .destructive) {
+                        model.removeMacApp(MacAppCopy(path: app.path, titleID: game.titleID, name: game.name, size: app.size, on: game.onMac, packed: true))
+                    }
+                    .disabled(installing)
+                }
+                .controlSize(.small)
+            } else {
+                Fact(tr("On this Mac", "Sur ce Mac"), installing ? tr("installing…", "installation…") : tr("not installed", "pas installée"))
+                Text(installing ? model.installMessage
+                     : tr("Installed when you play it, or now: about \(Format.size(kept.size)) on this Mac.",
+                          "Installée quand vous y jouez, ou dès maintenant : environ \(Format.size(kept.size)) sur ce Mac."))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                Button(tr("Install on this Mac", "Installer sur ce Mac")) { model.installOnThisMac(game) }
+                    .controlSize(.small)
+                    .disabled(model.installing != nil)
+            }
+            if !mac.installs.isEmpty {
+                Fact(tr("Installed in", "Installée dans"), (mac.installs as NSString).abbreviatingWithTildeInPath)
+            }
+        } else if let kept = mac.library, !kept.name.isEmpty {
+            Text(tr("\(kept.name) is no longer in its folder: it is built again.", "\(kept.name) n’est plus dans son dossier : elle sera reconstruite."))
+                .font(.callout)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+        } else {
+            Text(tr("Not built yet.", "Pas encore construite."))
+                .font(.callout)
+                .foregroundStyle(.secondary)
         }
     }
 
@@ -433,6 +597,178 @@ struct AliasesEditor: View {
     }
 }
 
+/// A game's app on this Mac: Play, straight into the game, or Game
+/// settings, nxnative's own window first; the game playing comes to the
+/// front. Below, what its saves did last.
+struct MacPlayCard: View {
+    @EnvironmentObject private var model: AppModel
+    let game: Game
+    @ObservedObject var games: MacGames
+
+    var body: some View {
+        let playing = games.playing[game.titleID]
+        let preparing = games.preparing.contains(game.titleID)
+        Card(padding: 14) {
+            VStack(alignment: .leading, spacing: 10) {
+                // Play above Game settings, both as wide as the card, as on
+                // the iPhone's sheet (CartoucheGameSheetView).
+                VStack(spacing: 8) {
+                    playButton(playing: playing, preparing: preparing)
+                    settingsButton(playing: playing, preparing: preparing)
+                }
+                if let line = installLine(playing: playing) {
+                    Label {
+                        Text(line)
+                            .fixedSize(horizontal: false, vertical: true)
+                    } icon: {
+                        Image(systemName: "arrow.down.app")
+                    }
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                }
+                Label {
+                    Text(savesLine(playing: playing))
+                        .fixedSize(horizontal: false, vertical: true)
+                } icon: {
+                    Image(systemName: savesSymbol)
+                }
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            }
+        }
+    }
+
+    private func playButton(playing: MacGameRun?, preparing: Bool) -> some View {
+        let installing = model.installing == game.titleID
+        return Button {
+            model.play(game)
+        } label: {
+            Label(playing != nil ? tr("Show the game", "Afficher le jeu")
+                                 : installing ? tr("Installing…", "Installation…")
+                                 : preparing ? tr("Getting its saves…", "Arrivée des sauvegardes…") : tr("Play on this Mac", "Jouer sur ce Mac"),
+                  systemImage: playing != nil ? "macwindow" : installing ? "arrow.down.app" : "play.fill")
+                .frame(maxWidth: .infinity)
+        }
+        .buttonStyle(.borderedProminent)
+        .controlSize(.large)
+        .disabled(preparing || installing)
+    }
+
+    /// The app the games folder keeps in one file (a NAS's): installed on
+    /// this Mac before the game starts, or how far that is.
+    private func installLine(playing: MacGameRun?) -> String? {
+        guard let mac = game.mac, mac.packed, playing == nil else { return nil }
+        if model.installing == game.titleID { return model.installMessage }
+        guard mac.needsInstall, let kept = mac.library else { return nil }
+        if mac.hasApp {
+            return model.gamesOnShare
+                ? tr("A newer build is on the NAS: Play puts it in place of this Mac’s copy first.",
+                     "Une construction plus récente est sur le NAS : Jouer la met d’abord à la place de la copie de ce Mac.")
+                : tr("A newer build is in the games folder: Play puts it in place of this Mac’s copy first.",
+                     "Une construction plus récente est dans le dossier des jeux : Jouer la met d’abord à la place de la copie de ce Mac.")
+        }
+        return model.gamesOnShare
+            ? tr("Its app is on the NAS: Play installs it on this Mac first (\(Format.size(kept.size))).",
+                 "Son app est sur le NAS : Jouer l’installe d’abord sur ce Mac (\(Format.size(kept.size))).")
+            : tr("Its app is kept in one file in the games folder: Play installs it on this Mac first (\(Format.size(kept.size))).",
+                 "Son app est rangée en un seul fichier dans le dossier des jeux : Jouer l’installe d’abord sur ce Mac (\(Format.size(kept.size))).")
+    }
+
+    private func settingsButton(playing: MacGameRun?, preparing: Bool) -> some View {
+        Button {
+            model.play(game, settings: true)
+        } label: {
+            Label(tr("Game settings", "Réglages du jeu"), systemImage: "slider.horizontal.3")
+                .frame(maxWidth: .infinity)
+        }
+        .controlSize(.large)
+        .disabled(playing != nil || preparing || model.installing == game.titleID)
+        .help(tr("Starts the game with nxnative’s own window first: graphics, controls, performance.",
+                 "Démarre le jeu avec d’abord la fenêtre de nxnative : graphismes, commandes, performances."))
+    }
+
+    private var savesSymbol: String {
+        let event = games.last[game.titleID]
+        if games.cloud[game.titleID] != nil { return "icloud" }
+        if event?.failed == true || event?.offline == true, games.keepsSaves(game.titleID) { return "exclamationmark.triangle" }
+        return "arrow.triangle.2.circlepath"
+    }
+
+    /// Where its saves are and what they did last, in the player's words.
+    private func savesLine(playing: MacGameRun?) -> String {
+        if games.cloud[game.titleID] != nil {
+            return tr("Its saves go through nxnative’s own cloud saves, chosen in its settings: Cartouche Builder leaves them to it.",
+                      "Ses sauvegardes passent par le cloud de nxnative, choisi dans ses réglages : Cartouche Builder les lui laisse.")
+        }
+        guard games.folder != nil else {
+            return tr("Its saves stay on this Mac: keeping them with the iPhone’s is off (iPhone page).",
+                      "Ses sauvegardes restent sur ce Mac : leur mise en phase avec l’iPhone est désactivée (page iPhone).")
+        }
+        if let playing {
+            return tr("Playing since \(Format.clock(playing.started)). Its saves go to the saves folder when it ends.",
+                      "En jeu depuis \(Format.clock(playing.started)). Ses sauvegardes iront dans le dossier des sauvegardes à la fin.")
+        }
+        guard let event = games.last[game.titleID] else {
+            return tr("Its saves are kept with the iPhone’s in the saves folder, before and after each game.",
+                      "Ses sauvegardes sont tenues en phase avec celles de l’iPhone dans le dossier des sauvegardes, avant et après chaque partie.")
+        }
+        let when = Format.relative(event.at)
+        switch event.step {
+        case "send":
+            return tr("This Mac’s saves went to the saves folder \(when).", "Les sauvegardes de ce Mac sont parties dans le dossier des sauvegardes \(when).")
+        case "keep":
+            return tr("This Mac’s saves went to the saves folder \(when), under a newer copy, which comes to this Mac next.",
+                      "Les sauvegardes de ce Mac sont parties dans le dossier des sauvegardes \(when), sous une copie plus récente, qui arrive ensuite sur ce Mac.")
+        case "fetch":
+            return tr("The newest saves, the iPhone’s, came \(when).", "Les sauvegardes les plus récentes, celles de l’iPhone, sont arrivées \(when).")
+        case "keepAndFetch":
+            return tr("The iPhone’s newer saves came \(when); this Mac’s were kept as a copy.",
+                      "Les sauvegardes plus récentes de l’iPhone sont arrivées \(when) ; celles de ce Mac ont été gardées en copie.")
+        case "offline":
+            return tr("The saves folder could not be reached \(when): this Mac’s saves stay as they are until it can be.",
+                      "Le dossier des sauvegardes était injoignable \(when) : celles de ce Mac restent telles quelles en attendant.")
+        default:
+            return event.failure ?? tr("Its saves could not be kept in step \(when).", "Ses sauvegardes n’ont pas pu être mises en phase \(when).")
+        }
+    }
+}
+
+/// A platform of a game's sheet: built for it, or not.
+struct PlatformToggle: View {
+    let title: String
+    let symbol: String
+    let detail: String
+    let on: Bool
+    /// Why it cannot be changed here, when it cannot.
+    let locked: String?
+    let change: (Bool) -> Void
+
+    var body: some View {
+        Toggle(isOn: Binding(get: { on }, set: { change($0) })) {
+            HStack(alignment: .top, spacing: 10) {
+                Image(systemName: symbol)
+                    .font(.title3)
+                    .foregroundStyle(on ? Theme.indigo : .secondary)
+                    .frame(width: 22)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(title)
+                        .font(.callout.weight(.medium))
+                    Text(detail)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+            // The whole width, so that each platform's switch is at the
+            // card's edge, under the other's, whatever its words' length.
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .toggleStyle(.switch)
+        .disabled(locked != nil)
+        .help(locked ?? "")
+    }
+}
+
 /// A game no Mac built yet, and this one neither: how many Macs tried it,
 /// how long, and that building it may keep the Mac busy for nothing.
 struct UnbuiltCard: View {
@@ -458,13 +794,19 @@ struct UnbuiltCard: View {
     }
 }
 
-/// A game building now, or waiting its turn.
+/// A game building now, or waiting its turn: its IPA, then its app for
+/// this Mac, or the Mac app alone.
 struct ProgressCard: View {
     let progress: GameProgress
 
     var body: some View {
         Card(padding: 14) {
             VStack(alignment: .leading, spacing: 8) {
+                if progress.buildsMac {
+                    Text(platformLine)
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.secondary)
+                }
                 HStack {
                     Text(progress.state == "building" ? stageText(progress.stage) : tr("Waiting its turn", "En attente de son tour"))
                         .font(.callout.weight(.medium))
@@ -486,5 +828,10 @@ struct ProgressCard: View {
                 }
             }
         }
+    }
+
+    private var platformLine: String {
+        if progress.macOnly == true { return tr("For this Mac", "Pour ce Mac") }
+        return progress.onMacNow ? tr("iPhone done, now this Mac", "iPhone fait, maintenant ce Mac") : tr("For the iPhone, then this Mac", "Pour l’iPhone, puis ce Mac")
     }
 }

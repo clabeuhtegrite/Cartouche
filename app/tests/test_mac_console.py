@@ -1,0 +1,265 @@
+"""Checks Cartouche's console on the Mac (builder/mac/Sources/CartoucheConsole),
+which builds the iPhone's console screens for the Mac:
+
+- its Shared folder holds links to the launcher's own files, by their own
+  names, and nothing else, so that the Mac shows what the iPhone shows;
+- every other file of the launcher is listed in builder/mac/console/unshared.json
+  with why the console does not link it: the iPhone's alone, the Mac's own
+  in its place, or the step of the plan that brings it (Ad, 13 November: the
+  whole of the iPhone's app, and its changes to come, on the Mac);
+- the Builder's workflow builds the app again when one of those files or the
+  launcher's words change (.github/workflows/builder.yml);
+- none of those files uses, outside an iPhone-only part, a name of UIKit's
+  or of the iPhone's SwiftUI that the Mac does not have, but those the
+  console's shims give it (Mac/ConsoleShims.swift), nor a name of the
+  launcher's that the console does not have, from a file it does not link,
+  with no stand-in for it (Mac/ConsoleStandIns.swift): a change to the
+  iPhone's screens that only a Mac would find otherwise;
+- the Mac's own words (builder/mac/console/strings.json) say what the
+  launcher's say, with the same placeholders, and console/strings.py writes
+  each language's table where the console reads it.
+
+Run from the repository root: python3 -m unittest discover -s app/tests -v
+"""
+
+import importlib.util
+import json
+import os
+import plistlib
+import re
+import tempfile
+import unittest
+from pathlib import Path
+
+from test_launcher_strings import placeholders
+
+ROOT = Path(__file__).resolve().parents[2]
+LAUNCHER = ROOT / "launcher" / "Sources"
+CONSOLE = ROOT / "builder" / "mac" / "Sources" / "CartoucheConsole"
+SHARED = CONSOLE / "Shared"
+WORKFLOW = ROOT / ".github" / "workflows" / "builder.yml"
+CATALOG = LAUNCHER / "Cartouche.xcstrings"
+MAC_STRINGS = ROOT / "builder" / "mac" / "console" / "strings.json"
+UNSHARED = ROOT / "builder" / "mac" / "console" / "unshared.json"
+MAC_SOURCES = ROOT / "builder" / "mac" / "Sources"
+PLAN_STEPS = range(5, 10)  # the plan's steps still to come after this one (docs/decisions/095.md)
+WRITER = ROOT / "builder" / "mac" / "console" / "strings.py"
+LANGUAGES = ("en", "fr")
+
+# Names the Mac does not have: UIKit's, and the iPhone's alone in SwiftUI.
+IPHONE_ONLY = re.compile(
+    r"\bUI(?!Image\b|Application\.did(?:BecomeActive|EnterBackground)Notification\b)[A-Z]\w*"
+    r"|\bnavigationBar(?:TitleDisplayMode|Drawer|Leading|Trailing|Hidden|Items)\b"
+    r"|\bfor: \.navigationBar\b|\btopBar(?:Leading|Trailing)\b|\binsetGrouped\b"
+    r"|\bfullScreenCover\b|\btextInputAutocapitalization\b|\bkeyboardType\b|\bstatusBarHidden\b"
+    r"|\bnavigationTransition\b|\bmatchedTransitionSource\b|\bEditButton\b|\bPageTabViewStyle\b"
+)
+# The conditions of an iPhone-only part.
+IPHONE_CONDITION = re.compile(r"^(?:os\(iOS\)|canImport\(UIKit\))(?:\s*\|\|\s*os\((?:iOS|visionOS|tvOS)\))*$")
+# The conditions of a part the console never builds: the iPhone's alone,
+# the launcher's gallery (CARTOUCHE_GALLERY, which the Builder does not
+# define), and the packages the console does not link (SMB, SFTP).
+_ELSEWHERE = r"(?:os\((?:iOS|visionOS|tvOS)\)|canImport\((?:UIKit|NIOSSH|SMBClient)\)|CARTOUCHE_GALLERY)"
+NOT_ON_THE_MAC = re.compile(rf"^{_ELSEWHERE}(?:\s*\|\|\s*{_ELSEWHERE})*$")
+# The launcher's own names, and LiveContainer's, as the console's files use
+# them, where one is declared, and a string, whose words are no names.
+OWN_NAME = re.compile(r"\b(?:Cartouche|LC)[A-Z]\w*")
+DECLARATION = re.compile(r"\b(?:class|struct|enum|protocol|typealias|actor)\s+((?:Cartouche|LC)[A-Z]\w*)")
+STRING = re.compile(r'"(?:[^"\\\n]|\\.)*"')
+
+
+def outside_iphone_parts(swift: str, condition=IPHONE_CONDITION):
+    """The lines the Mac compiles, as (number, line): those outside the
+    parts whose condition CONDITION matches, by default the `#if os(iOS)` or
+    `#if canImport(UIKit)` ones, comments left out."""
+    stack = []  # for each #if, whether its current branch is left out
+    for number, line in enumerate(swift.splitlines(), start=1):
+        directive = line.strip()
+        if directive.startswith("#if "):
+            stack.append(bool(condition.match(directive[4:].strip())))
+            continue
+        if directive.startswith("#elseif ") or directive == "#else":
+            # Another branch: left out only if it says so.
+            stack[-1] = directive.startswith("#elseif ") and bool(condition.match(directive[8:].strip()))
+            continue
+        if directive == "#endif":
+            stack.pop()
+            continue
+        if any(stack):
+            continue
+        code = line.split("//", 1)[0]
+        if code.strip():
+            yield number, code
+
+
+def own_names(swift: str):
+    """The launcher's names that SWIFT declares, and those it uses, in the
+    parts the console builds."""
+    codes = [STRING.sub('""', code) for _, code in outside_iphone_parts(swift, NOT_ON_THE_MAC)]
+    declared = {name for code in codes for name in DECLARATION.findall(code)}
+    used = {name for code in codes for name in OWN_NAME.findall(code)}
+    return declared, used
+
+
+def load_writer():
+    spec = importlib.util.spec_from_file_location("mac_console_strings", WRITER)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+class MacConsoleSources(unittest.TestCase):
+    def test_the_shared_files_are_links_to_the_launchers_own(self):
+        names = sorted(path.name for path in SHARED.iterdir())
+        self.assertGreater(len(names), 0)
+        for name in names:
+            with self.subTest(name=name):
+                link = SHARED / name
+                self.assertTrue(link.is_symlink(), f"{name} is a file of its own, not the launcher's")
+                self.assertEqual(os.readlink(link), f"../../../../../launcher/Sources/{name}")
+                self.assertTrue((LAUNCHER / name).is_file(), f"launcher/Sources/{name} is gone")
+
+    def test_every_launcher_file_is_linked_or_says_why_not(self):
+        """A new file of the launcher comes to the Mac with it, or says why
+        it does not, so that the iPhone's app and its changes to come are
+        the Mac's too."""
+        listed = json.loads(UNSHARED.read_text(encoding="utf-8"))["files"]
+        linked = {path.name for path in SHARED.iterdir()}
+        launcher = {path.name for path in LAUNCHER.glob("*.swift")}
+        self.assertEqual(sorted(launcher - linked - set(listed)), [],
+                         "link them in Shared (and the Builder workflow's list), or say why not in builder/mac/console/unshared.json")
+        self.assertEqual(sorted(set(listed) - launcher), [], "files of unshared.json the launcher no longer has")
+        self.assertEqual(sorted(set(listed) & linked), [], "files linked in Shared and listed as not linked")
+        for name, entry in sorted(listed.items()):
+            with self.subTest(name=name):
+                self.assertIn(entry.get("kind"), ("iphone", "mac", "later"))
+                self.assertGreater(len(entry.get("why", "").strip()), 20, "why, in a sentence")
+                if entry["kind"] == "mac":
+                    self.assertTrue((MAC_SOURCES / entry.get("mac", "")).is_file(), "the Mac's own file in its place")
+                if entry["kind"] == "later":
+                    self.assertIn(entry.get("step"), PLAN_STEPS, "the step of the plan that brings it")
+
+    def test_the_macs_own_files_are_beside_them(self):
+        for path in (CONSOLE / "Mac").iterdir():
+            with self.subTest(name=path.name):
+                self.assertFalse(path.is_symlink())
+                self.assertFalse((LAUNCHER / path.name).exists(), "a name of the launcher's own")
+
+    def test_the_builders_workflow_runs_when_a_shared_file_changes(self):
+        workflow = WORKFLOW.read_text(encoding="utf-8")
+        trigger = workflow.split("pull_request:", 1)[1].split("workflow_dispatch:", 1)[0]
+        listed = set(re.findall(r'^\s*- "launcher/Sources/([^"*]+)"$', trigger, re.MULTILINE))
+        linked = {path.name for path in SHARED.iterdir()}
+        self.assertEqual(sorted(listed - linked - {CATALOG.name}), [], "files the console no longer links")
+        self.assertEqual(sorted(linked - listed), [], "files the console links that the workflow misses")
+        self.assertIn(CATALOG.name, listed)
+        # A run that changes only them is built again, not taken as built.
+        self.assertIn("$SHARED launcher/Sources/Cartouche.xcstrings", workflow)
+
+    def test_the_shared_files_use_nothing_the_mac_lacks(self):
+        for link in sorted(SHARED.iterdir()):
+            with self.subTest(name=link.name):
+                lines = list(outside_iphone_parts(link.read_text(encoding="utf-8")))
+                found = [f"{link.name}:{number}: {code.strip()}"
+                         for number, code in lines if IPHONE_ONLY.search(code)]
+                self.assertEqual(found, [], "wrap them in #if os(iOS), or give the Mac its own in Mac/")
+                imports = [code.strip() for _, code in lines if re.match(r"\s*(?:@\w+\s+)?import UIKit\b", code)]
+                self.assertEqual(imports, [], "import UIKit only under #if canImport(UIKit)")
+
+    def test_the_shared_files_name_only_what_the_console_has(self):
+        """A launcher file the console links that starts using a name of a
+        file it does not link, such as the iPhone's renewals, needs a
+        stand-in for it on the Mac, or the part is the iPhone's alone: the
+        Builder's app would no longer build, which only a Mac would say."""
+        files = sorted(SHARED.iterdir()) + sorted((CONSOLE / "Mac").glob("*.swift"))
+        declared = set().union(*(own_names(path.read_text(encoding="utf-8"))[0] for path in files))
+        for link in sorted(SHARED.iterdir()):
+            with self.subTest(name=link.name):
+                _, used = own_names(link.read_text(encoding="utf-8"))
+                self.assertEqual(sorted(used - declared), [],
+                                 "give the Mac a stand-in (Mac/ConsoleStandIns.swift), link the file that declares it, "
+                                 "or wrap the part in #if os(iOS)")
+
+    def test_the_check_sees_a_name_the_console_lacks(self):
+        swift = "\n".join([
+            "struct CartoucheThing {}", "#if os(iOS)", "let a = CartoucheRenewals.shared", "#endif",
+            "#if CARTOUCHE_GALLERY", "let b = CartoucheGalleryOnly()", "#else", "let c = CartoucheThing()", "#endif",
+            "#if canImport(NIOSSH)", "let d = CartoucheSFTPServer.self", "#endif",
+            "let e = CartoucheMissing.shared // CartoucheInAComment", 'let f = "CartoucheInAString"',
+        ])
+        declared, used = own_names(swift)
+        self.assertEqual(sorted(used - declared), ["CartoucheMissing"])
+
+    def test_the_check_sees_an_unguarded_name(self):
+        swift = "\n".join([
+            "#if os(iOS)", "let a = UIDevice.current", "#else", "let b = 1", "#endif",
+            "let c = UIImage()", "let d = UIScreen.main // the screen",
+            "#if canImport(UIKit)", "import UIKit", "#endif",
+        ])
+        lines = list(outside_iphone_parts(swift))
+        self.assertEqual([number for number, code in lines if IPHONE_ONLY.search(code)], [7])
+        self.assertNotIn(2, [number for number, _ in lines])
+        self.assertIn(4, [number for number, _ in lines])
+
+
+class MacConsoleWords(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.catalog = json.loads(CATALOG.read_text(encoding="utf-8"))["strings"]
+        cls.mac = json.loads(MAC_STRINGS.read_text(encoding="utf-8"))
+
+    def test_the_overrides_say_what_the_launchers_words_say(self):
+        overrides = self.mac["overrides"]
+        self.assertIn("sheet.onThisIPhone", overrides)
+        for key, values in overrides.items():
+            with self.subTest(key=key):
+                self.assertIn(key, self.catalog, "a word the launcher does not have: put it in \"strings\"")
+                english = self.catalog[key]["localizations"]["en"]["stringUnit"]["value"]
+                self.assertEqual(sorted(values), list(LANGUAGES))
+                for language in LANGUAGES:
+                    self.assertTrue(values[language].strip())
+                    self.assertEqual(placeholders(values[language]), placeholders(english), language)
+                self.assertNotIn("iPhone", values["en"] + values["fr"])
+
+    def test_the_macs_own_words_are_its_own(self):
+        for key, values in self.mac.get("strings", {}).items():
+            with self.subTest(key=key):
+                self.assertNotIn(key, self.catalog, "a word of the launcher's: put it in \"overrides\"")
+                self.assertEqual(sorted(values), list(LANGUAGES))
+                self.assertTrue(all(values[language].strip() for language in LANGUAGES))
+                self.assertEqual(placeholders(values["fr"]), placeholders(values["en"]))
+
+    def test_the_file_is_written_as_the_test_reads_it(self):
+        text = MAC_STRINGS.read_text(encoding="utf-8")
+        self.assertEqual(text, json.dumps(self.mac, ensure_ascii=False, indent=2, sort_keys=True) + "\n")
+
+    def test_each_language_is_written_where_the_console_reads_it(self):
+        writer = load_writer()
+        with tempfile.TemporaryDirectory() as folder:
+            resources = Path(folder)
+            written = writer.write(CATALOG, MAC_STRINGS, resources)
+            paths = {language: [resources / f"{language}.lproj" / "Cartouche.strings",
+                                resources / "Console" / language / "Cartouche.strings",
+                                resources / "Console" / language / f"{language}.lproj" / "Cartouche.strings"]
+                     for language in LANGUAGES}
+            self.assertEqual(sorted(written), sorted(path for language in LANGUAGES for path in paths[language]))
+            keys = set(self.catalog) | set(self.mac.get("strings", {}))
+            for language in LANGUAGES:
+                # Its folder holds that language alone, the same words at
+                # its root and in its localization as in the app's.
+                folder = sorted(path.name for path in (resources / "Console" / language).iterdir())
+                self.assertEqual(folder, ["Cartouche.strings", f"{language}.lproj"])
+                tables = [plistlib.loads(path.read_bytes()) for path in paths[language]]
+                self.assertEqual(set(tables[0]), keys)
+                self.assertTrue(all(table == tables[0] for table in tables), language)
+            french = plistlib.loads((resources / "Console" / "fr" / "Cartouche.strings").read_bytes())
+            english = plistlib.loads((resources / "en.lproj" / "Cartouche.strings").read_bytes())
+            # The Mac's words over the launcher's; the others as the launcher has them.
+            self.assertEqual(french["sheet.onThisIPhone"], self.mac["overrides"]["sheet.onThisIPhone"]["fr"])
+            self.assertEqual(english["sheet.onThisIPhone"], "On this Mac")
+            for key in sorted(set(self.catalog) - set(self.mac["overrides"]))[:50]:
+                self.assertEqual(french[key], self.catalog[key]["localizations"]["fr"]["stringUnit"]["value"])
+
+
+if __name__ == "__main__":
+    unittest.main()

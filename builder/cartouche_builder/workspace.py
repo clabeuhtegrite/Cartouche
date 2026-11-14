@@ -22,6 +22,9 @@ from .library import walk_size
 NOTES = ".cartouche-builder"
 # The only folders the builder makes there, and so the only ones it removes.
 OWN_FOLDER = re.compile(r"[0-9A-F]{16}_(?:build|dump)")
+# What a build folder holds of the game's own files, made again by the next
+# build in minutes (nxnative's --no-keep-extracted removes them).
+EXTRACTED = ("extract", "extract.partial", "exefs.partial", "tmp")
 
 
 class Workspace:
@@ -156,6 +159,19 @@ def remove_tree(path: Path) -> None:
         path.unlink(missing_ok=True)
     elif path.exists():
         shutil.rmtree(path, onexc=gone)
+
+
+def drop_extracted(folder: Path) -> list[tuple[Path, int]]:
+    """Removes the game's extracted files (EXTRACTED) from the build folder
+    FOLDER: each part removed, with the bytes it took."""
+    removed = []
+    for name in EXTRACTED:
+        part = folder / name
+        if part.exists() and not part.is_symlink():
+            size = walk_size(part) if part.is_dir() else part.lstat().st_size
+            remove_tree(part)
+            removed.append((part, size))
+    return removed
 
 
 def free_gb(path: Path) -> float:

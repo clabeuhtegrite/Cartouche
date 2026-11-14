@@ -29,9 +29,19 @@ let package = Package(
             dependencies: [.product(name: "CartoucheCore", package: "launcher")],
             path: "Sources/BuilderKit"
         ),
+        // Cartouche's console on the Mac: the iPhone's own screens, linked
+        // from the launcher (Sources/CartoucheConsole/Shared), with what a
+        // Mac stands in for the rest of the iPhone's Cartouche
+        // (Sources/CartoucheConsole/Mac). Its words and its catalogue are
+        // in the app's resources (bundle.sh). It shares files with
+        // CartoucheCore, each its own copy: the app imports it in one file.
+        .target(
+            name: "CartoucheConsole",
+            path: "Sources/CartoucheConsole"
+        ),
         .executableTarget(
             name: "CartoucheBuilder",
-            dependencies: ["BuilderKit", .product(name: "CartoucheCore", package: "launcher")],
+            dependencies: ["BuilderKit", "CartoucheConsole", .product(name: "CartoucheCore", package: "launcher")],
             path: "Sources/CartoucheBuilder"
         ),
         // The fixtures are the engine's answers, read from their folder
@@ -41,6 +51,11 @@ let package = Package(
             dependencies: ["BuilderKit", .product(name: "CartoucheCore", package: "launcher")],
             path: "Tests/BuilderKitTests",
             exclude: ["Fixtures"]
+        ),
+        .testTarget(
+            name: "CartoucheConsoleTests",
+            dependencies: ["CartoucheConsole"],
+            path: "Tests/CartoucheConsoleTests"
         ),
     ],
     swiftLanguageModes: [.v5]
