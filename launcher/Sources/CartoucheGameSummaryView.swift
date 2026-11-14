@@ -9,6 +9,9 @@
 //  Apple's Translation, from iOS 18: at once when it has both languages,
 //  else when the player taps Translate, which first offers to download
 //  them. The original stays a tap away. Nothing leaves the iPhone for it.
+//  The iPhone translates each summary once: its translation is kept
+//  (CartoucheTranslations.swift) and shows as the sheet opens the next
+//  times, rather than a few seconds later.
 //
 
 import SwiftUI
@@ -113,12 +116,15 @@ private struct CartoucheSummaryLines<Actions: View>: View {
     }
 }
 
-/// IGDB's summary in Cartouche's language, as the iPhone translates it.
+/// IGDB's summary in Cartouche's language, as the iPhone translates it,
+/// once.
 @available(iOS 18.0, *)
 private struct CartoucheTranslatedSummary: View {
     let text: String
     /// Cartouche's language.
     let target: Locale.Language
+    /// Cartouche's language, as its translations are kept.
+    private let language: String
 
     /// A translation, with the text it was made from.
     private struct Translated: Equatable {
@@ -138,6 +144,15 @@ private struct CartoucheTranslatedSummary: View {
     init(text: String, target: Locale.Language) {
         self.text = text
         self.target = target
+        language = target.minimalIdentifier
+        // Translated before: shown as the sheet opens.
+        _translated = State(initialValue: Self.kept(text, into: language))
+    }
+
+    /// The translation of TEXT into LANGUAGE the iPhone made before, if it
+    /// did, for this sheet or another.
+    private static func kept(_ text: String, into language: String) -> Translated? {
+        CartoucheTranslations.shared.translation(of: text, into: language).map { Translated(source: text, text: $0) }
     }
 
     /// The translation of the text shown, once there is one.
@@ -159,10 +174,15 @@ private struct CartoucheTranslatedSummary: View {
             }
         }
         // Translated at once when the iPhone has both languages; otherwise
-        // Translate offers to download them.
+        // Translate offers to download them. Translated before, it is not
+        // asked again.
         .task(id: text) {
             showsOriginal = false
             canTranslate = false
+            if let kept = Self.kept(text, into: language) {
+                translated = kept
+                return
+            }
             switch await LanguageAvailability().status(from: CartoucheGameSummaryView.english, to: target) {
             case .installed:
                 translate()
@@ -177,6 +197,7 @@ private struct CartoucheTranslatedSummary: View {
             do {
                 let response = try await session.translate(source)
                 translated = Translated(source: source, text: response.targetText)
+                CartoucheTranslations.shared.keep(response.targetText, of: source, into: language)
             } catch {
                 // Not downloaded, or not translated: the original stays, and
                 // Translate with it.

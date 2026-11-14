@@ -1,0 +1,202 @@
+From 369038cb54b803c7df73534c9ea48f68a81077d6 Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Fri, 13 Nov 2026 18:59:37 +0000
+Subject: [PATCH] Tell Cartouche why minimuxer could not reach the iPhone
+
+A sign-in can stop at its device check as invalidVPN or
+invalidPairingFile with LocalDevVPN connected and the pairing file in
+place. Minimuxer gives each of these errors for more than one reason: no IPsec interface while it
+holds a Lockdown pairing file, from iOS 26.4, which an iPad without
+cellular never has; the iPhone's port not answering through the tunnel;
+the connection breaking on the way; the iPhone refusing the pairing file
+at the handshake. SideStore passes them on with minimuxer's sentence,
+which Cartouche never sends, so the measurements could not tell them
+apart, and Cartouche could not tell the player which one it was.
+
+For these errors, the outcome now also gives "reason", which of
+minimuxer's sentences it was (noIPsec, portClosed, dropped, handshake,
+lockdownSession...); "detail", which of the words minimuxer itself tells
+a broken connection or a refused pairing by follow its own (reset,
+refused, timedOut, badCertificate...); "pairingKind", the kind of pairing
+file minimuxer loaded (rppairing or lockdown); and "ipsec", whether an
+IPsec interface was up. Never the sentence: it can hold the iPhone's
+address on the tunnel, and the library's own words.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01MzPJouaxDEHiaAYJRW7jTY
+---
+ SideStore/Intents/CartoucheOutcome.swift | 144 +++++++++++++++++++++++
+ 1 file changed, 144 insertions(+)
+
+diff --git a/SideStore/Intents/CartoucheOutcome.swift b/SideStore/Intents/CartoucheOutcome.swift
+index a5f50ab..d2f1e8e 100644
+--- a/SideStore/Intents/CartoucheOutcome.swift
++++ b/SideStore/Intents/CartoucheOutcome.swift
+@@ -33,6 +33,17 @@
+ //  {"family": "operation", "kind": "invalidParameters",
+ //   "reason": "notInContext", "missing": "targetAppBundle"}
+ //
++//  When minimuxer could not reach this iPhone (noVPN, invalidVPN,
++//  noConnection, noDevice, notReachable, pairingNotComplete,
++//  invalidPairingFile...), "reason" is which of minimuxer's sentences it
++//  gave, "detail" which words of the library behind it, when it passed them
++//  on, "pairingKind" the kind of pairing file minimuxer loaded, and "ipsec"
++//  whether an IPsec interface was up, which minimuxer asks for with a
++//  Lockdown pairing file from iOS 26.4:
++//
++//  {"family": "operation", "kind": "invalidVPN", "reason": "portClosed",
++//   "pairingKind": "rppairing", "ipsec": false}
++//
+ //  Never the error's words, an Apple ID, a team, a device, a certificate's
+ //  serial, a path or an address: only the names below, chosen here, those
+ //  of SideStore's error cases and operations, and numbers. Cartouche checks
+@@ -217,6 +228,23 @@ final class CartoucheOutcome: @unchecked Sendable
+                     outcome["missing"] = missing
+                 }
+             }
++            // Why minimuxer could not reach this iPhone, as one of its
++            // sentences, and what it went through: the kind of pairing file
++            // it loaded, and whether an IPsec interface was up, which its
++            // readiness check asks for with a Lockdown one from iOS 26.4
++            // (MinimuxerImpl.isReady). Needs proper testing on an iPad
++            // without cellular, which has none.
++            if let sentence = Self.deviceSentence(of: error)
++            {
++                let (reason, detail) = Self.reason(ofDeviceSentence: sentence)
++                outcome["reason"] = reason
++                if let detail
++                {
++                    outcome["detail"] = detail
++                }
++                outcome["pairingKind"] = minimuxerPairingProtocol().rawValue
++                outcome["ipsec"] = minimuxer.network.isIKEv2IPSecAvailable
++            }
+         }
+ 
+         guard let data = try? JSONSerialization.data(withJSONObject: outcome) else { return }
+@@ -344,6 +372,122 @@ final class CartoucheOutcome: @unchecked Sendable
+         return (reason, nil)
+     }
+ 
++    /// Minimuxer's sentences for why it could not reach this iPhone, which
++    /// SideStore passes on in its noVPN, invalidVPN, noConnection, noDevice,
++    /// notReachable, minimuxerNotStarted, pairingNotComplete and
++    /// invalidPairingFile, with the names Cartouche's measurements send of
++    /// them; the first that the sentence holds, whatever its case, is its
++    /// reason. The sentence itself never leaves: it can hold this iPhone's
++    /// address on the tunnel, and the words of the library minimuxer
++    /// reaches it with.
++    static let deviceReasons: [(sentence: String, reason: String)] = [
++        // LocalDevVPN, and this iPhone through it.
++        ("No utun interface detected", "noTunnel"),
++        ("no ipsec/IKEv2 interface found", "noIPsec"),
++        ("WireGuard VPN is not supported with Cellular Refresh", "wireGuard"),
++        ("tunnel peer IP is not yet reachable", "noPeer"),
++        ("Reachable device IP not found", "noPeer"),
++        ("TCP port poll failed", "portClosed"),
++        ("No wifi interface satisfied", "noWiFi"),
++        ("Remote endpoint IP is not configured", "noRemote"),
++        ("Minimuxer has not been started", "notStarted"),
++        // The pairing file: not loaded, not read, or refused by this iPhone.
++        ("No pairing file has been loaded", "notLoaded"),
++        ("No valid pairing file has been loaded", "notLoaded"),
++        ("No pairing file data available", "notLoaded"),
++        ("Pairing dictionary is missing", "notLoaded"),
++        ("No existing pairing file found", "notLoaded"),
++        ("The pairing file could not be read", "unreadable"),
++        ("The pairing file could not be parsed", "unreadable"),
++        ("Failed to parse pairing file", "unreadable"),
++        ("pairing_file_from_bytes failed", "unreadable"),
++        ("rppairing_identity_from_plist failed", "unreadable"),
++        ("The pairing file is incomplete", "incomplete"),
++        ("The pairing file format is ambiguous", "ambiguous"),
++        ("missing UDID", "noUDID"),
++        ("No device UDID available", "noUDID"),
++        ("Handshake failed: ", "handshake"),
++        ("Service connection failed, error: ", "serviceRefused"),
++        ("Lockdown session failed (pairing invalid)", "lockdownSession"),
++        ("Failed to get lockdown value for key", "lockdownValue"),
++        // The connection, which broke as minimuxer went through it: the
++        // library's words alone (DeviceGatewayError.isVPNDrop).
++        ("broken pipe", "dropped"),
++        ("brokenpipe", "dropped"),
++        ("connection reset", "dropped"),
++        ("connectionreset", "dropped"),
++        ("early eof", "dropped"),
++        ("unexpectedeof", "dropped"),
++        ("no route to host", "dropped"),
++        ("connection refused", "dropped"),
++    ]
++
++    /// The words of the library minimuxer reaches this iPhone with, as names:
++    /// those minimuxer itself tells a broken connection by
++    /// (DeviceGatewayError.isVPNDrop) and a refused pairing by
++    /// (IdeviceGateway.isPairingError), and a time out. The first that the
++    /// sentence holds past minimuxer's own words, whatever its case, is its
++    /// detail.
++    static let deviceDetails: [(words: String, detail: String)] = [
++        ("broken pipe", "brokenPipe"),
++        ("brokenpipe", "brokenPipe"),
++        ("connection reset", "reset"),
++        ("connectionreset", "reset"),
++        ("early eof", "eof"),
++        ("unexpectedeof", "eof"),
++        ("no route to host", "noRoute"),
++        ("connection refused", "refused"),
++        ("timed out", "timedOut"),
++        ("timeout", "timedOut"),
++        ("invalidconf", "invalidConf"),
++        ("bad_certificate", "badCertificate"),
++        ("certificate_unknown", "unknownCertificate"),
++        ("handshake", "handshake"),
++        ("pairing", "pairing"),
++    ]
++
++    /// Minimuxer's sentence for why it could not reach this iPhone, as
++    /// SideStore passes it on (MinimuxerError.asOperationError), or as
++    /// minimuxer threw it.
++    static func deviceSentence(of error: Error) -> String?
++    {
++        switch error
++        {
++        case OperationError.noVPN(let sentence), OperationError.invalidVPN(let sentence),
++             OperationError.noConnection(let sentence), OperationError.noDevice(let sentence),
++             OperationError.notReachable(let sentence), OperationError.minimuxerNotStarted(let sentence),
++             OperationError.pairingNotComplete(let sentence), OperationError.invalidPairingFile(let sentence):
++            return sentence
++        case MinimuxerError.noVPN(let sentence), MinimuxerError.invalidVPN(let sentence),
++             MinimuxerError.noConnection(let sentence), MinimuxerError.noDevice(let sentence),
++             MinimuxerError.notReachable(let sentence), MinimuxerError.notStarted(let sentence),
++             MinimuxerError.pairingNotLoaded(let sentence), MinimuxerError.invalidPairing(_, let sentence):
++            return sentence
++        default:
++            return nil
++        }
++    }
++
++    /// Which of minimuxer's sentences SENTENCE is, as a name ("other" for one
++    /// not listed), and which words of the library behind it it passes on,
++    /// past minimuxer's own, when it does.
++    static func reason(ofDeviceSentence sentence: String) -> (reason: String, detail: String?)
++    {
++        var rest = sentence.lowercased()
++        var reason = "other"
++        if let found = self.deviceReasons.first(where: { rest.contains($0.sentence.lowercased()) })
++        {
++            reason = found.reason
++            // Minimuxer's own words, unless the sentence is the library's.
++            if reason != "dropped", let range = rest.range(of: found.sentence.lowercased())
++            {
++                rest = String(rest[range.upperBound...])
++            }
++        }
++        let detail = self.deviceDetails.first(where: { rest.contains($0.words) })?.detail
++        return (reason, detail)
++    }
++
+     /// The family of an error (whose it is) and its kind (its case).
+     static func kind(of error: Error) -> (family: String, kind: String)
+     {
+-- 
+2.43.0
+

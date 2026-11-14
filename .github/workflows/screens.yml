@@ -72,7 +72,7 @@ jobs:
   # The pull request's changes to the files in the paths above, as its merge
   # into main has them, and whether a run of this pull request passed their
   # UI tests and took their screenshots already. Its key goes to the Actions
-  # cache once it has.
+  # cache once it has (memo).
   taken:
     name: UI tests and screenshots done already?
     if: ${{ github.event_name == 'pull_request' }}
@@ -108,9 +108,13 @@ jobs:
           echo "::notice::An earlier run passed the UI tests of these very changes and took their screenshots, on $BRANCH: run this workflow from the Actions tab to run them again."
           echo "The UI tests of these very changes passed, and their screenshots are on \`$BRANCH\` already." >> "$GITHUB_STEP_SUMMARY"
 
-  # Ad's Mac, when it can take them now, else GitHub's (route.py).
+  # Ad's Mac, when it can take them now, else GitHub's (route.py). It
+  # chooses once the first job has looked for them, right before the job
+  # that runs them is created, so that the routes of other runs count it.
   route:
     name: Ad's Mac or GitHub
+    needs: taken
+    if: ${{ !cancelled() && needs.taken.outputs.taken != 'true' }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -196,16 +200,26 @@ jobs:
           path: build/screens
           retention-days: 14
           if-no-files-found: warn
-      # Once the UI tests have passed and every scenario has its screenshot.
+
+  # Once the UI tests have passed and every scenario has its screenshot,
+  # notes it in the Actions cache for the first job of the pull request's
+  # next runs, from Ubuntu as that job looks for it. The cache puts its
+  # compression in an entry's version: Ad's Mac, which has no zstd, kept a
+  # gzip entry there that Ubuntu, with zstd, never found (runs 43453403759
+  # and 43461548558).
+  memo:
+    name: Note that the UI tests and screenshots are done
+    needs: [taken, screens]
+    if: ${{ !cancelled() && github.event_name == 'pull_request' && needs.taken.outputs.key != '' && needs.screens.result == 'success' }}
+    runs-on: ubuntu-latest
+    steps:
       - name: Note that they are done
-        if: ${{ needs.taken.outputs.key != '' }}
         env:
           SOURCE: ${{ github.event.pull_request.head.sha }}
         run: |
           mkdir -p build/screens-taken
           echo "$SOURCE" > build/screens-taken/source
       - name: Keep the note in the cache
-        if: ${{ needs.taken.outputs.key != '' }}
         uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: build/screens-taken
