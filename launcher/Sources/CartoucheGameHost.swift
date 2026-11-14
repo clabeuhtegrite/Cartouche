@@ -13,7 +13,9 @@
 //    controller, show the console and pause the game: its scene goes to the
 //    background, as when the player leaves an app, where nxnative pauses
 //    the game, its sound and its GPU work (front_ios.m); the controller's
-//    Home button again, or Resume on the console, brings it back;
+//    Home button again, or Resume on the console, brings it back. The Home
+//    button on screen fades away a few seconds after the game shows, and a
+//    touch on its place brings it back (CartoucheGameScreen);
 //  - Quit, on the console, stops the game's process;
 //  - a game that iOS stops comes back to the console, which says why when
 //    it can tell (CartoucheGameActions.gameDidEnd), and so does one whose
@@ -204,6 +206,8 @@ final class CartoucheGameHost {
         UIView.animate(withDuration: 0.2) { window.alpha = 1 }
         screen.isInFront = true
         screen.rotate()
+        // The way back shows for a while as the game comes back.
+        screen.showHome()
         setGameForeground(true)
         showOnTV(inFront: true)
         CartoucheGamepad.shared.gameInFront = true
@@ -254,6 +258,16 @@ final class CartoucheGameHost {
         }
     }
 
+    /// Cartouche comes back to the screen: a paused game stays in the
+    /// background, and over a game on screen, the Home button shows for a
+    /// while, as the game comes back.
+    private func cameBack() {
+        keepPaused()
+        if app != nil, isInFront {
+            screen?.showHome()
+        }
+    }
+
     /// iOS may bring the game's scene back with Cartouche's when Cartouche
     /// comes back to the screen: a paused game stays in the background.
     private func keepPaused() {
@@ -285,7 +299,7 @@ final class CartoucheGameHost {
         }
         activation = NotificationCenter.default.addObserver(forName: UIApplication.didBecomeActiveNotification, object: nil,
                                                             queue: .main) { [weak self] _ in
-            MainActor.assumeIsolated { self?.keepPaused() }
+            MainActor.assumeIsolated { self?.cameBack() }
         }
     }
 
@@ -627,7 +641,10 @@ enum CartoucheScreenCopy: Equatable {
 
 /// The screen of a game running behind the console: the game's scene, full
 /// screen, and the Home button that shows the console, at the bottom in the
-/// middle, where nxnative's controls on screen leave room. Upright or
+/// middle, where nxnative's controls on screen leave room. The Home button
+/// fades away a few seconds after the game shows, so that nothing of
+/// Cartouche stays over the game; a touch on its place brings it back for a
+/// few seconds, and a touch on it then shows the console. Upright or
 /// sideways as the game allows, without the status bar, with the home
 /// indicator out of the way, and the edges of the screen to the game first.
 /// An iPad turns it as it is held, whatever the game allows: there it keeps
@@ -669,6 +686,37 @@ final class CartoucheGameScreen: UIViewController {
     /// The player was asked to turn the iPad sideways, and has not yet.
     private var askedToTurn = false
 
+    /// How long the Home button stays: as the game shows, as it comes back
+    /// from the console or Cartouche comes back to the screen, and after a
+    /// touch on it. Then it fades away.
+    static let homeStays: Duration = .seconds(3)
+    /// How much of the Home button shows while it shows.
+    static let homeOpacity: CGFloat = 0.75
+    /// How much of it shows once it has faded away: as good as nothing over
+    /// the game, but more than UIKit's 0.01, below which a view takes no
+    /// touch. The button stays where it was, so that a touch on its place
+    /// comes to Cartouche, which shows it again, rather than to the game,
+    /// whose process iOS hands the touches on its scene: a button gone, or
+    /// hidden, would never come back.
+    static let fadedHomeOpacity: CGFloat = 0.02
+    /// The preference that says the player was told, once, as the Home
+    /// button faded away for the first time, how to bring it back.
+    static let homeHintKey = "CartoucheHomeFadeHintShown"
+
+    /// The Home button shows, rather than faded away.
+    private(set) var showsHome = true
+    /// Until when it shows, at the least.
+    private var homeShowsUntil = ContinuousClock.now
+    private var homeFade: Task<Void, Never>?
+    /// The touch on the Home button that is under way began while it had
+    /// faded away: it only brings the button back.
+    private var touchBringsHomeBack = false
+    /// The game has shown: until then, the Home button stays over the
+    /// spinner.
+    private var gameHasShown = false
+    /// The line over the Home button, while it shows (showHint).
+    private weak var shownHint: UIView?
+
     init(allowed: CartoucheGameOrientations, isPad: Bool, onHome: @escaping () -> Void) {
         self.allowed = allowed
         self.isPad = isPad
@@ -706,11 +754,18 @@ final class CartoucheGameScreen: UIViewController {
         configuration.cornerStyle = .capsule
         configuration.contentInsets = NSDirectionalEdgeInsets(top: 6, leading: 18, bottom: 6, trailing: 18)
         homeButton.configuration = configuration
-        homeButton.alpha = 0.75
+        homeButton.alpha = Self.homeOpacity
         homeButton.accessibilityLabel = CartoucheText.backToCartouche
+        homeButton.accessibilityIdentifier = "game.home"
         homeButton.translatesAutoresizingMaskIntoConstraints = false
-        homeButton.addAction(UIAction { [weak self] _ in self?.onHome() }, for: .primaryActionTriggered)
+        homeButton.addAction(UIAction { [weak self] _ in self?.homeTouched() }, for: .touchDown)
+        homeButton.addAction(UIAction { [weak self] _ in self?.homeTapped() }, for: .primaryActionTriggered)
+        homeButton.addAction(UIAction { [weak self] _ in self?.touchBringsHomeBack = false }, for: [.touchUpOutside, .touchCancel])
         view.addSubview(homeButton)
+        // VoiceOver and Switch Control reach the buttons on screen only.
+        for name in [UIAccessibility.voiceOverStatusDidChangeNotification, UIAccessibility.switchControlStatusDidChangeNotification] {
+            NotificationCenter.default.addObserver(self, selector: #selector(assistiveTechnologyChanged), name: name, object: nil)
+        }
 
         NSLayoutConstraint.activate([
             spinner.centerXAnchor.constraint(equalTo: view.centerXAnchor),
@@ -759,6 +814,90 @@ final class CartoucheGameScreen: UIViewController {
     func gameShows() {
         spinner.stopAnimating()
         spinner.isHidden = true
+        gameHasShown = true
+        showHome()
+    }
+
+    // MARK: The Home button
+
+    /// Shows the Home button for DURATION at the least, then lets it fade
+    /// away, unless something keeps it (homeIsKept).
+    func showHome(for duration: Duration = CartoucheGameScreen.homeStays) {
+        let until = ContinuousClock.now.advanced(by: duration)
+        if until > homeShowsUntil {
+            homeShowsUntil = until
+        }
+        setShowsHome(true)
+        fadeHomeLater()
+    }
+
+    /// Whether the Home button stays, whatever the time: until the game
+    /// shows; over the cover that hides the game from a copy of the
+    /// iPhone's screen, where the game is no longer to see; and while
+    /// VoiceOver or Switch Control runs.
+    private var homeIsKept: Bool {
+        !gameHasShown || tvCopy != nil || Self.assistiveTechnologyRuns()
+    }
+
+    private func fadeHomeLater() {
+        homeFade?.cancel()
+        homeFade = nil
+        guard !homeIsKept else { return }
+        let until = homeShowsUntil
+        homeFade = Task { [weak self] in
+            try? await Task.sleep(until: until, clock: .continuous)
+            guard !Task.isCancelled, let self, !self.homeIsKept, ContinuousClock.now >= self.homeShowsUntil else { return }
+            self.setShowsHome(false)
+            self.tellHowToBringHomeBack()
+        }
+    }
+
+    private func setShowsHome(_ shows: Bool) {
+        guard shows != showsHome else { return }
+        showsHome = shows
+        let button = homeButton
+        UIView.animate(withDuration: shows ? 0.2 : 0.5, delay: 0, options: [.beginFromCurrentState, .allowUserInteraction]) {
+            button.alpha = shows ? Self.homeOpacity : Self.fadedHomeOpacity
+        }
+    }
+
+    /// A touch on the Home button begins: it shows again, and again for a
+    /// while if it shows.
+    private func homeTouched() {
+        touchBringsHomeBack = !showsHome
+        showHome()
+    }
+
+    /// A touch on the Home button ends on it: the console, unless the touch
+    /// began while the button had faded away, which only brought it back.
+    private func homeTapped() {
+        if touchBringsHomeBack {
+            touchBringsHomeBack = false
+            return
+        }
+        onHome()
+    }
+
+    /// The first time ever that the Home button fades away, a line over its
+    /// place tells the player how to bring it back.
+    private func tellHowToBringHomeBack() {
+        let defaults = UserDefaults.standard
+        guard !defaults.bool(forKey: Self.homeHintKey) else { return }
+        defaults.set(true, forKey: Self.homeHintKey)
+        showHint(CartoucheText.homeFadesHint)
+    }
+
+    @objc private func assistiveTechnologyChanged() {
+        showHome()
+    }
+
+    /// Whether VoiceOver or Switch Control runs.
+    private static func assistiveTechnologyRuns() -> Bool {
+        #if CARTOUCHE_HARNESS
+        // In the launcher's harness (launcher/Harness), as a test sets it.
+        if let runs = HarnessLC.assistiveTechnologyRuns { return runs }
+        #endif
+        return UIAccessibility.isVoiceOverRunning || UIAccessibility.isSwitchControlRunning
     }
 
     /// Where a copy of the iPhone's screen goes that the game hides from
@@ -772,6 +911,9 @@ final class CartoucheGameScreen: UIViewController {
             let copy = showsGameDespiteTV ? nil : newValue
             guard copy != tvCopy else { return }
             tvCopy = copy
+            // The Home button stays over the cover, and fades away a while
+            // after the cover goes.
+            showHome()
             guard copy != nil else {
                 tvCover?.removeFromSuperview()
                 tvCover = nil
@@ -933,9 +1075,12 @@ final class CartoucheGameScreen: UIViewController {
         return mask
     }
 
-    /// A line over the Home button for a few seconds.
+    /// A line over the Home button for a few seconds, in place of the one
+    /// that showed there, if one did.
     func showHint(_ text: String) {
+        shownHint?.removeFromSuperview()
         let hint = UIView()
+        shownHint = hint
         hint.backgroundColor = UIColor.black.withAlphaComponent(0.65)
         hint.layer.cornerRadius = 14
         hint.layer.cornerCurve = .continuous
