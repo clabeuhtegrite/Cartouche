@@ -3,11 +3,14 @@
 //  Cartouche
 //
 //  Cartouche Builder's builds, as the Mac shares them with a paired iPhone
-//  over the bridge (CartoucheBridge.swift, its `builds` and `build`):
-//  whether a batch runs, and each game the Mac knows, building, waiting its
-//  turn, or as its library has it. And what a game's sheet in Cartouche
-//  makes of them: the game's line, the button that asks the Mac to build
-//  it, and the Mac's builds now, waiting and done.
+//  over the bridge (CartoucheBridge.swift, its `builds` and `build`, and,
+//  from a Mac whose info says hasBuildsControl, `buildDue`, `stop`,
+//  `stopAll`, `follow` and `nightly`): whether a batch runs, each game the
+//  Mac knows, building, waiting its turn, or as its library has it, whether
+//  the Mac follows it, and the Mac's nightly build. And what Cartouche makes
+//  of them: a game's line on its sheet, the button that asks the Mac to
+//  build it, the one that stops its build, and the Mac's builds now,
+//  waiting, done and failed (CartoucheMacBuildsPage.swift).
 //
 //  This file is shared: Cartouche compiles it with the launcher, Cartouche
 //  Builder through the CartoucheCore package (launcher/Package.swift).
@@ -49,9 +52,18 @@ public struct CartoucheBridgeBuilds: Codable, Equatable, Sendable {
         /// Whether the Mac has its dump: with its IPA alone, the Mac cannot
         /// build it again.
         public var buildable: Bool
+        /// Whether the Mac follows it: builds it when nxnative improves it.
+        /// Nil from a Mac that does not say.
+        public var followed: Bool?
+        /// Building or waiting its turn: whether the Mac can stop its build,
+        /// or take it out of the queue, alone now; and whether its build is
+        /// stopping. Nil from a Mac that does not say.
+        public var stoppable: Bool?
+        public var stopping: Bool?
 
         public init(id: String, name: String, state: String, reasons: [String] = [], progress: Double? = nil, step: String? = nil,
-                    left: Double? = nil, turn: Int? = nil, built: Date? = nil, failed: Date? = nil, error: String? = nil, buildable: Bool = true) {
+                    left: Double? = nil, turn: Int? = nil, built: Date? = nil, failed: Date? = nil, error: String? = nil, buildable: Bool = true,
+                    followed: Bool? = nil, stoppable: Bool? = nil, stopping: Bool? = nil) {
             self.id = id
             self.name = name
             self.state = state
@@ -64,10 +76,13 @@ public struct CartoucheBridgeBuilds: Codable, Equatable, Sendable {
             self.failed = failed?.timeIntervalSince1970
             self.error = error
             self.buildable = buildable
+            self.followed = followed
+            self.stoppable = stoppable
+            self.stopping = stopping
         }
 
         private enum CodingKeys: String, CodingKey {
-            case id, name, state, reasons, progress, step, left, turn, built, failed, error, buildable
+            case id, name, state, reasons, progress, step, left, turn, built, failed, error, buildable, followed, stoppable, stopping
         }
 
         public init(from decoder: Decoder) throws {
@@ -84,10 +99,36 @@ public struct CartoucheBridgeBuilds: Codable, Equatable, Sendable {
             failed = try? c.decodeIfPresent(Double.self, forKey: .failed)
             error = try? c.decodeIfPresent(String.self, forKey: .error)
             buildable = (try? c.decodeIfPresent(Bool.self, forKey: .buildable)) ?? true
+            followed = try? c.decodeIfPresent(Bool.self, forKey: .followed)
+            stoppable = try? c.decodeIfPresent(Bool.self, forKey: .stoppable)
+            stopping = try? c.decodeIfPresent(Bool.self, forKey: .stopping)
         }
 
         public var builtDate: Date? { built.map { Date(timeIntervalSince1970: $0) } }
         public var failedDate: Date? { failed.map { Date(timeIntervalSince1970: $0) } }
+    }
+
+    /// The Mac's nightly build: whether it builds what is due every night,
+    /// even with its app closed, and at what time, in the Mac's own hours.
+    public struct Nightly: Codable, Equatable, Sendable {
+        public var on: Bool
+        public var hour: Int
+        public var minute: Int
+
+        public init(on: Bool, hour: Int = 3, minute: Int = 30) {
+            self.on = on
+            self.hour = min(max(hour, 0), 23)
+            self.minute = min(max(minute, 0), 59)
+        }
+
+        private enum CodingKeys: String, CodingKey { case on, hour, minute }
+
+        public init(from decoder: Decoder) throws {
+            let c = try decoder.container(keyedBy: CodingKeys.self)
+            self.init(on: (try? c.decodeIfPresent(Bool.self, forKey: .on)) ?? false,
+                      hour: (try? c.decodeIfPresent(Int.self, forKey: .hour)) ?? 3,
+                      minute: (try? c.decodeIfPresent(Int.self, forKey: .minute)) ?? 30)
+        }
     }
 
     /// Whether a batch runs on the Mac, or starts: a build asked for waits
@@ -98,15 +139,22 @@ public struct CartoucheBridgeBuilds: Codable, Equatable, Sendable {
     public var ready: Bool
     public var why: String?
     public var games: [Game]
+    /// How many games are due that the batch running does not have: what
+    /// Build what is due builds. Nil from a Mac that does not say.
+    public var due: Int?
+    /// The Mac's nightly build; nil from a Mac that does not say.
+    public var nightly: Nightly?
 
-    public init(running: Bool = false, ready: Bool = true, why: String? = nil, games: [Game] = []) {
+    public init(running: Bool = false, ready: Bool = true, why: String? = nil, games: [Game] = [], due: Int? = nil, nightly: Nightly? = nil) {
         self.running = running
         self.ready = ready
         self.why = why
         self.games = games
+        self.due = due
+        self.nightly = nightly
     }
 
-    private enum CodingKeys: String, CodingKey { case running, ready, why, games }
+    private enum CodingKeys: String, CodingKey { case running, ready, why, games, due, nightly }
 
     public init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
@@ -114,6 +162,8 @@ public struct CartoucheBridgeBuilds: Codable, Equatable, Sendable {
         ready = (try? c.decodeIfPresent(Bool.self, forKey: .ready)) ?? true
         why = try? c.decodeIfPresent(String.self, forKey: .why)
         games = (try? c.decodeIfPresent([Game].self, forKey: .games)) ?? []
+        due = try? c.decodeIfPresent(Int.self, forKey: .due)
+        nightly = try? c.decodeIfPresent(Nightly.self, forKey: .nightly)
     }
 
     /// The games building now.
@@ -122,6 +172,17 @@ public struct CartoucheBridgeBuilds: Codable, Equatable, Sendable {
     /// The games waiting their turn, the next first.
     public var waiting: [Game] {
         games.filter { $0.state == "queued" }.sorted { ($0.turn ?? .max) < ($1.turn ?? .max) }
+    }
+
+    /// Every game the Mac knows, by name.
+    public var library: [Game] {
+        games.sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
+    }
+
+    /// How many games Build what is due builds: as the Mac counts them, or,
+    /// from a Mac that does not say, those due that the batch does not have.
+    public var dueCount: Int {
+        due ?? games.filter { $0.state == "due" }.count
     }
 
     /// A game's last build: built, or failed, and when.
@@ -144,6 +205,12 @@ public struct CartoucheBridgeBuilds: Codable, Equatable, Sendable {
             return nil
         }
         return Array(ended.sorted { $0.date > $1.date }.prefix(limit))
+    }
+
+    /// The games whose last build failed, the newest first; none building
+    /// or waiting now.
+    public var failures: [Done] {
+        done(limit: .max).filter(\.failed)
     }
 }
 
@@ -173,6 +240,14 @@ struct CartoucheMacBuild: Equatable {
         case ipaOnly(built: Date?)
     }
 
+    /// What the button of a game building or waiting asks of the Mac.
+    enum Halt: Equatable {
+        /// Building: stop its build; the batch goes on with the next game.
+        case stop
+        /// Waiting its turn: take it out of the queue.
+        case remove
+    }
+
     /// What the button asks of the Mac.
     enum Action: Equatable {
         /// A first build.
@@ -192,6 +267,13 @@ struct CartoucheMacBuild: Equatable {
     /// The button; none while the game builds or waits its turn, nor for a
     /// game the Mac has only the IPA of.
     let action: Action?
+    /// The button that stops its build, or takes it out of the queue: only
+    /// when the Mac says it can, alone, now.
+    let halt: Halt?
+    /// Whether its build is stopping.
+    let stopping: Bool
+    /// Whether the Mac follows the game; nil when it does not say.
+    let followed: Bool?
     /// Whether the Mac takes a build now; why not otherwise, in its words.
     let ready: Bool
     let why: String?
@@ -211,6 +293,7 @@ struct CartoucheMacBuild: Equatable {
     init(_ game: CartoucheBridgeBuilds.Game, running: Bool, ready: Bool, why: String?) {
         id = game.id
         name = game.name
+        followed = game.followed
         self.ready = ready
         self.why = ready ? nil : why
         let failedLast = (game.failed ?? -.infinity) > (game.built ?? -.infinity)
@@ -236,6 +319,15 @@ struct CartoucheMacBuild: Equatable {
             }
         default:
             status = failedLast ? .failed(at: game.failedDate, error: game.error) : .upToDate(built: game.builtDate)
+        }
+        stopping = game.stopping == true
+        switch status {
+        case .building:
+            halt = game.stoppable == true && !stopping ? .stop : nil
+        case .waiting:
+            halt = game.stoppable == true ? .remove : nil
+        default:
+            halt = nil
         }
         switch status {
         case .building, .waiting, .ipaOnly:

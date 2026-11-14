@@ -3,9 +3,10 @@
 //  Cartouche
 //
 //  The words of the player's Mac as storage, through Cartouche Builder
-//  (CartoucheStorageMac.swift, CartoucheStorageMacView.swift), and of a
-//  game's builds there (CartoucheMacBuildsView.swift), in
-//  Cartouche.xcstrings with the others (CartoucheText.swift).
+//  (CartoucheStorageMac.swift, CartoucheStorageMacView.swift), of a game's
+//  builds there (CartoucheMacBuildsView.swift) and of all the Mac's builds
+//  (CartoucheMacBuildsPage.swift), in Cartouche.xcstrings with the others
+//  (CartoucheText.swift).
 //
 
 import Foundation
@@ -66,11 +67,48 @@ extension CartoucheText {
     static var macBuildActionAgain: String { s("mac.build.action.again", "Build again on the Mac") }
     static var macBuildActionQueue: String { s("mac.build.action.queue", "Add to the Mac’s queue") }
     static var macBuildAsking: String { s("mac.build.asking", "Asking the Mac…") }
+    static var macBuildStop: String { s("mac.build.stop", "Stop its build") }
+    static var macBuildStopping: String { s("mac.build.stopping", "Stopping…") }
+    static var macBuildRemove: String { s("mac.build.remove", "Remove from the queue") }
+    static var macBuildFollow: String { s("mac.build.follow", "Follow") }
+    static var macBuildUnfollow: String { s("mac.build.unfollow", "Stop following") }
     static var macBuildsAll: String { s("mac.builds.all", "All the Mac’s builds") }
+
+    // MARK: All the Mac's builds (CartoucheMacBuildsPage.swift)
+
+    static var macBuildsPage: String { s("mac.builds.page", "Builds") }
+    static var macBuildsReaching: String { s("mac.builds.reaching", "Reaching…") }
+    static var macBuildsNotAnswering: String { s("mac.builds.notAnswering", "Not answering") }
+    static var macBuildsToUpdate: String { s("mac.builds.toUpdate", "To update") }
+    static var macBuildsIdle: String { s("mac.builds.idle", "Nothing building") }
+    static var macBuildsNotReady: String { s("mac.builds.notReady", "Not ready") }
+    static func macBuildsControlTooOld(_ mac: String) -> String { f("mac.builds.control.tooOld", "Update the app on %@ to stop its builds, build what is due, follow its games and set its nightly build from here.", mac) }
+    static var macBuildsDue: String { s("mac.builds.due", "Build what is due") }
+    static var macBuildsAddDue: String { s("mac.builds.due.add", "Add what is due") }
+    static var macBuildsDueNone: String { s("mac.builds.due.none", "Nothing is due on the Mac.") }
+    static var macBuildsDueOne: String { s("mac.builds.due.one", "1 game is due: nxnative improved it, or it was never built.") }
+    static func macBuildsDueMany(_ count: Int) -> String { f("mac.builds.due.many", "%lld games are due: nxnative improved them, or they were never built.", count) }
+    static var macBuildsStopAll: String { s("mac.builds.stopAll", "Stop all") }
     static var macBuildsBuilding: String { s("mac.builds.building", "Building") }
     static var macBuildsWaiting: String { s("mac.builds.waiting", "Waiting their turn") }
-    static var macBuildsDone: String { s("mac.builds.done", "Finished") }
-    static var macBuildsNone: String { s("mac.builds.none", "Nothing built on the Mac yet") }
-    static func macBuildsBuilt(_ date: String) -> String { f("mac.builds.built", "Built %@", date) }
+    static var macBuildsRemoveShort: String { s("mac.builds.remove.short", "Remove") }
+    static func macBuildsRemove(_ game: String) -> String { f("mac.builds.remove", "Remove %@ from the queue", game) }
+    static var macBuildsFailures: String { s("mac.builds.failures", "Builds that failed") }
     static func macBuildsFailed(_ date: String) -> String { f("mac.builds.failed", "Failed %@", date) }
+    static var macBuildsGames: String { s("mac.builds.games", "The Mac’s games") }
+    static var macBuildsGamesFooter: String { s("mac.builds.games.footer", "The Mac builds a game it follows again when nxnative improves it, and a game it does not follow only when you ask.") }
+    static func macBuildsGameActions(_ game: String) -> String { f("mac.builds.game.actions", "What to do with %@", game) }
+    static var macBuildsNightly: String { s("mac.builds.nightly", "Build what is due every night") }
+    static var macBuildsNightlyTime: String { s("mac.builds.nightly.time", "Time") }
+    static func macBuildsNightlyFooter(_ time: String) -> String { f("mac.builds.nightly.footer", "Every night at %@, the Mac builds what is due, even with its app closed.", time) }
+    static func macGameBuilding(_ percent: String) -> String { f("mac.game.building", "Building, %@", percent) }
+    static var macGameWaiting: String { s("mac.game.waiting", "Waiting its turn") }
+    static var macGameNew: String { s("mac.game.new", "Never built") }
+    static var macGameImproved: String { s("mac.game.improved", "Improved by nxnative") }
+    static var macGameUpToDate: String { s("mac.game.upToDate", "Up to date") }
+    static func macGameUpToDateBuilt(_ date: String) -> String { f("mac.game.upToDate.built", "Up to date, built %@", date) }
+    static var macGameFailed: String { s("mac.game.failed", "Its last build failed") }
+    static var macGameNotFollowed: String { s("mac.game.notFollowed", "Not followed") }
+    static var macGameNoProfile: String { s("mac.game.noProfile", "No nxnative profile yet") }
+    static var macGameIPAOnly: String { s("mac.game.ipaOnly", "Its IPA alone, without its dump") }
 }

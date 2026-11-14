@@ -11,8 +11,9 @@
 //  the player played it and the space it takes (CartoucheGameStats), what
 //  stops the game on this iPhone, if anything (what it needs folds into
 //  one line when this iPhone has it all), its build on the player's Mac,
-//  with the button that asks the Mac for one, once Cartouche reaches the
-//  Mac and its Cartouche Builder knows the game (CartoucheMacBuildsView),
+//  with the button that asks the Mac for one, the one that stops it, and
+//  the way to all the Mac's builds, once Cartouche reaches the Mac and its
+//  Cartouche Builder knows the game (CartoucheMacBuildsView),
 //  the copies of its saves, Edit
 //  the game's info for the player's own game (CartoucheGameInfoView), with
 //  what IGDB has of a game Cartouche does not know, after which the sheet
@@ -182,21 +183,15 @@ struct CartoucheGameSheetView: View {
             .onDisappear { macBuilds.stop() }
             #if CARTOUCHE_GALLERY
             // The gallery's sheet on the game's build on the Mac (screen:
-            // sheet-mac): the game's build in the middle of the screen, or,
-            // with all the Mac's builds open, down to their end, the
-            // section's title still in view. Twice: the list had only
-            // guessed the heights of the rows on the way, which the first
-            // scroll lays out, and the second lands where asked.
+            // sheet-mac): the game's build in the middle of the screen.
+            // Twice: the list had only guessed the heights of the rows on
+            // the way, which the first scroll lays out, and the second lands
+            // where asked.
             .task {
                 guard CartoucheMacBuildsWatch.galleryScrolls else { return }
-                let showsAll = CartoucheMacBuildsWatch.gallery?.showsAll == true
                 for _ in 0..<2 {
                     try? await Task.sleep(nanoseconds: 500_000_000)
-                    if showsAll {
-                        reader.scrollTo(CartoucheMacBuildsList.end, anchor: .bottom)
-                    } else {
-                        reader.scrollTo(CartoucheMacBuildsSection.anchor, anchor: .center)
-                    }
+                    reader.scrollTo(CartoucheMacBuildsSection.anchor, anchor: .center)
                 }
             }
             #endif

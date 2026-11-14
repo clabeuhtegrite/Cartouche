@@ -16,6 +16,10 @@
 //  The app also shows a paired iPhone its builds, building, waiting and
 //  done, and builds a game it asks for, as the game's Build button does
 //  (BridgeBuildsSource, BridgeBuilds.swift); its info says so (hasBuilds).
+//  It does the rest of what its window does to them too, as asked from the
+//  iPhone: builds what is due, stops a game's build or takes it out of the
+//  queue, stops them all, follows a game or not, builds every night or not;
+//  its info says so as well (hasBuildsControl).
 //
 
 import CartoucheCore
@@ -50,6 +54,16 @@ public protocol BridgeBuildsSource: AnyObject {
     /// the games of the batch running. Throws what the iPhone shows when the
     /// Mac cannot.
     func bridgeBuild(_ titleID: String) throws
+    /// Builds what is due, as Build what is due does: at once, or after the
+    /// games of the batch running.
+    func bridgeBuildDue() throws
+    /// Stops the build of TITLE_ID, the batch going on with the next game,
+    /// or takes it out of the queue; without one, stops the batch.
+    func bridgeStop(_ titleID: String?) throws
+    /// Follows the game TITLE_ID, or not: once its library says so.
+    func bridgeFollow(_ titleID: String, _ followed: Bool) async throws
+    /// Builds what is due every night at its time, or not.
+    func bridgeNightly(_ nightly: CartoucheBridgeBuilds.Nightly) throws
 }
 
 public final class BridgeServer: @unchecked Sendable {
@@ -348,7 +362,7 @@ public final class BridgeServer: @unchecked Sendable {
             guard devices.key(of: channel.peer) != nil else { return }
             let response: CartoucheBridgeResponse
             let data: Data
-            if request.op == .builds || request.op == .build {
+            if request.op.isBuilds {
                 response = await answerBuilds(request)
                 data = Data()
             } else {
@@ -362,25 +376,49 @@ public final class BridgeServer: @unchecked Sendable {
         }
     }
 
-    /// The app's builds, after the build asked for (REQUEST): the app
-    /// answers on the main actor.
+    /// The app's builds, after what REQUEST asks of them: the app answers on
+    /// the main actor.
     func answerBuilds(_ request: CartoucheBridgeRequest) async -> CartoucheBridgeResponse {
         guard let source = builds else { return .failure(.notFound, "builds") }
-        return await MainActor.run { () -> CartoucheBridgeResponse in
-            do {
-                if request.op == .build {
-                    guard let game = request.game, !game.isEmpty else { throw CartoucheBridgeError(.notFound, "game") }
-                    try source.bridgeBuild(game)
-                }
-                var response = CartoucheBridgeResponse()
-                response.builds = source.bridgeBuilds()
-                return response
-            } catch let error as CartoucheBridgeError {
-                return .failure(error.kind, error.message)
-            } catch {
-                return .failure(.failed, error.localizedDescription)
-            }
+        do {
+            try await Self.ask(source, request)
+            var response = CartoucheBridgeResponse()
+            response.builds = await MainActor.run { source.bridgeBuilds() }
+            return response
+        } catch let error as CartoucheBridgeError {
+            return .failure(error.kind, error.message)
+        } catch {
+            return .failure(.failed, error.localizedDescription)
         }
+    }
+
+    /// Asks SOURCE what REQUEST asks of its builds, if anything.
+    @MainActor
+    static func ask(_ source: BridgeBuildsSource, _ request: CartoucheBridgeRequest) async throws {
+        switch request.op {
+        case .build:
+            try source.bridgeBuild(try game(of: request))
+        case .buildDue:
+            try source.bridgeBuildDue()
+        case .stop:
+            try source.bridgeStop(try game(of: request))
+        case .stopAll:
+            try source.bridgeStop(nil)
+        case .follow:
+            guard let followed = request.followed else { throw CartoucheBridgeError(.protocolError, "followed") }
+            try await source.bridgeFollow(try game(of: request), followed)
+        case .nightly:
+            guard let nightly = request.nightly else { throw CartoucheBridgeError(.protocolError, "nightly") }
+            try source.bridgeNightly(nightly)
+        default:
+            break
+        }
+    }
+
+    /// The title ID of the game REQUEST names.
+    private static func game(of request: CartoucheBridgeRequest) throws -> String {
+        guard let game = request.game, !game.isEmpty else { throw CartoucheBridgeError(.notFound, "game") }
+        return game
     }
 
     private func watchIdle(_ idle: Flag, channel: CartoucheBridgeSecureChannel) {
@@ -484,6 +522,7 @@ final class Session {
             response.free = roots.games.flatMap(Session.free)
             response.readOnly = false
             response.hasBuilds = server?.builds != nil
+            response.hasBuildsControl = server?.builds != nil
         case .list:
             let place = try resolve(request.path)
             guard let place else {
@@ -574,7 +613,7 @@ final class Session {
                 folder = folder.deletingLastPathComponent()
             }
             response.writable = manager.isWritableFile(atPath: folder.path)
-        case .builds, .build:
+        case .builds, .build, .buildDue, .stop, .stopAll, .follow, .nightly:
             // The server asks the app (BridgeServer.answerBuilds).
             throw CartoucheBridgeError(.notFound, "builds")
         }

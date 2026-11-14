@@ -4,9 +4,11 @@
 //
 //  Cartouche Builder's builds, as the Mac shares them with a paired iPhone
 //  (Sources/CartoucheBridgeBuilds.swift): what a Mac a little older or
-//  newer sends, the builds now, waiting and done, a game's line on its
-//  sheet and the button that asks the Mac to build it, and both over a
-//  session in memory, after info says the Mac shares them.
+//  newer sends, the builds now, waiting, done and failed, what is due and
+//  the nightly build, a game's line on its sheet, the button that asks the
+//  Mac to build it and the one that stops its build, and both over a
+//  session in memory, after info says the Mac shares them; then the rest of
+//  what the Mac's window does, asked of a Mac whose info says it takes it.
 //
 
 import Foundation
@@ -35,15 +37,28 @@ final class CartoucheBridgeBuildsTests: XCTestCase {
         XCTAssertNil(game.turn)
         XCTAssertTrue(game.buildable)
 
+        XCTAssertNil(game.followed)
+        XCTAssertNil(game.stoppable)
+        XCTAssertNil(game.stopping)
+        XCTAssertNil(builds.due)
+        XCTAssertNil(builds.nightly)
+
         let empty = try JSONDecoder().decode(CartoucheBridgeBuilds.self, from: Data("{}".utf8))
         XCTAssertEqual(empty, CartoucheBridgeBuilds())
+
+        // A nightly build with what is missing or wrong at its default, and
+        // its time within a day.
+        let nightly = try JSONDecoder().decode(CartoucheBridgeBuilds.self, from: Data(#"{"nightly": {"hour": 27, "minute": "late"}}"#.utf8))
+        XCTAssertEqual(nightly.nightly, CartoucheBridgeBuilds.Nightly(on: false, hour: 23, minute: 30))
+        XCTAssertEqual(CartoucheBridgeBuilds.Nightly(on: true, hour: -1, minute: 75), CartoucheBridgeBuilds.Nightly(on: true, hour: 0, minute: 59))
     }
 
     func testTheBuildsGoThereAndBack() throws {
         let builds = CartoucheBridgeBuilds(running: true, ready: false, why: "Importing", games: [
-            Game(id: "A", name: "Alpha", state: "building", reasons: ["changes"], progress: 0.5, step: "Packing the IPA", left: 90),
+            Game(id: "A", name: "Alpha", state: "building", reasons: ["changes"], progress: 0.5, step: "Packing the IPA", left: 90,
+                 followed: true, stoppable: false, stopping: true),
             Game(id: "B", name: "Beta", state: "failed", built: now.addingTimeInterval(-2 * hour), failed: now, error: "No SDK", buildable: false),
-        ])
+        ], due: 3, nightly: CartoucheBridgeBuilds.Nightly(on: true, hour: 4, minute: 15))
         let back = try JSONDecoder().decode(CartoucheBridgeBuilds.self, from: JSONEncoder().encode(builds))
         XCTAssertEqual(back, builds)
         XCTAssertEqual(back.games[1].failedDate, now)
@@ -70,6 +85,14 @@ final class CartoucheBridgeBuildsTests: XCTestCase {
         XCTAssertEqual(done.map(\.failed), [true, false, false])
         XCTAssertEqual(done[0].date, now.addingTimeInterval(-hour))
         XCTAssertEqual(builds.done(limit: 1).map(\.id), ["E"])
+        XCTAssertEqual(builds.failures.map(\.id), ["E"])
+        // By name, as the Mac's library has them.
+        XCTAssertEqual(builds.library.map(\.name), ["Alpha", "Beta", "Delta", "Epsilon", "Eta", "Gamma", "Zeta"])
+        // What is due, counted by the Mac, or else by the games due.
+        XCTAssertEqual(builds.dueCount, 1)
+        var counted = builds
+        counted.due = 4
+        XCTAssertEqual(counted.dueCount, 4)
     }
 
     // MARK: A game's sheet
@@ -85,6 +108,28 @@ final class CartoucheBridgeBuildsTests: XCTestCase {
         let waiting = build(Game(id: "A", name: "Alpha", state: "queued", turn: 2), running: true)
         XCTAssertEqual(waiting.status, .waiting(turn: 2))
         XCTAssertNil(waiting.action)
+        // A Mac that does not say it can stop them: nothing to stop.
+        XCTAssertNil(building.halt)
+        XCTAssertNil(waiting.halt)
+        XCTAssertFalse(building.stopping)
+        XCTAssertNil(building.followed)
+    }
+
+    func testAGameBuildingStopsAndAGameWaitingLeavesTheQueue() {
+        let building = build(Game(id: "A", name: "Alpha", state: "building", followed: true, stoppable: true, stopping: false), running: true)
+        XCTAssertEqual(building.halt, .stop)
+        XCTAssertEqual(building.followed, true)
+        let stopping = build(Game(id: "A", name: "Alpha", state: "building", stoppable: false, stopping: true), running: true)
+        XCTAssertNil(stopping.halt)
+        XCTAssertTrue(stopping.stopping)
+        let waiting = build(Game(id: "A", name: "Alpha", state: "queued", turn: 1, stoppable: true), running: true)
+        XCTAssertEqual(waiting.halt, .remove)
+        // The batch starting: its games stop only all together.
+        XCTAssertNil(build(Game(id: "A", name: "Alpha", state: "queued", turn: 1, stoppable: false), running: true).halt)
+        // Neither building nor waiting: nothing to stop, whatever the Mac says.
+        let upToDate = build(Game(id: "A", name: "Alpha", state: "up_to_date", built: now, followed: false, stoppable: true))
+        XCTAssertNil(upToDate.halt)
+        XCTAssertEqual(upToDate.followed, false)
     }
 
     func testEachStateItsLineAndItsButton() {
@@ -202,6 +247,54 @@ final class CartoucheBridgeBuildsTests: XCTestCase {
         XCTAssertEqual(requests.map(\.op), [.info, .builds, .build])
         XCTAssertEqual(requests[2].game, "A")
         XCTAssertNil(requests[1].game)
+    }
+
+    func testTheRestOfTheMacsWindowOverASession() async throws {
+        let key = Data(repeating: 9, count: 32)
+        let mac = UUID().uuidString, device = UUID().uuidString
+        let (phoneSide, macSide) = MemoryTransport.pair()
+        async let opening = CartoucheBridgeHandshake.server(macSide, mac: mac, name: "Mac", keyOf: { _ in key }, allow: nil,
+                                                            keep: CartoucheBridgeTests.keepsNothing)
+        let channel = try await CartoucheBridgeHandshake.client(phoneSide, device: device, key: key, mac: mac)
+        guard case let .session(server) = try await opening else { return XCTFail("no session") }
+        let client = CartoucheBridgeClient(channel: channel, address: nil)
+        let nightly = CartoucheBridgeBuilds.Nightly(on: true, hour: 4, minute: 15)
+        let serving = Task { () throws -> [CartoucheBridgeRequest] in
+            var requests: [CartoucheBridgeRequest] = []
+            for _ in 0..<6 {
+                let (request, _) = try await server.receive(CartoucheBridgeRequest.self)
+                requests.append(request)
+                var response = CartoucheBridgeResponse()
+                if request.op == .info {
+                    response.hasBuilds = true
+                    response.hasBuildsControl = true
+                } else {
+                    // What was asked, in the builds' answer: the op as why.
+                    response.builds = CartoucheBridgeBuilds(why: request.op.rawValue, nightly: request.nightly)
+                }
+                try await server.send(response)
+            }
+            return requests
+        }
+        let info = try await client.info()
+        XCTAssertEqual(info.hasBuildsControl, true)
+        let due = try await client.buildDue()
+        XCTAssertEqual(due.why, "buildDue")
+        let stopped = try await client.stop("A")
+        XCTAssertEqual(stopped.why, "stop")
+        let all = try await client.stopAll()
+        XCTAssertEqual(all.why, "stopAll")
+        let followed = try await client.follow("B", false)
+        XCTAssertEqual(followed.why, "follow")
+        let night = try await client.setNightly(nightly)
+        XCTAssertEqual(night.nightly, nightly)
+        let requests = try await serving.value
+        XCTAssertEqual(requests.map(\.op), [.info, .buildDue, .stop, .stopAll, .follow, .nightly])
+        XCTAssertEqual(requests.map(\.game), [nil, nil, "A", nil, "B", nil])
+        XCTAssertEqual(requests[4].followed, false)
+        XCTAssertEqual(requests[5].nightly, nightly)
+        XCTAssertTrue(requests.dropFirst().allSatisfy(\.op.isBuilds))
+        XCTAssertFalse(CartoucheBridgeRequest.Operation.list.isBuilds)
     }
 
     func testAnAnswerWithoutBuildsIsAnError() async throws {

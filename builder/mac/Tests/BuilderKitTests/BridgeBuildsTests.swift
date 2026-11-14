@@ -5,10 +5,12 @@
 //  The builds a paired iPhone sees, and the build it asks for
 //  (BridgeBuilds.swift, BridgeServer's BridgeBuildsSource): the library's
 //  games, those building and those waiting their turn in their order, when
-//  each was built and its last failure, cut; then over a session, the Mac's
-//  info, its builds, a build asked for and the Mac's refusal in its own
-//  words. What Cartouche makes of them is tested with Cartouche's
-//  (launcher/Tests/CartoucheCoreTests/CartoucheBridgeBuildsTests.swift).
+//  each was built and its last failure, cut, whether the Mac follows each
+//  and which can be stopped alone, what is due and the nightly build; then
+//  over a session, the Mac's info, its builds, a build asked for and the
+//  Mac's refusal in its own words, and the rest of what the window does,
+//  asked from the iPhone. What Cartouche makes of them is tested with
+//  Cartouche's (launcher/Tests/CartoucheCoreTests/CartoucheBridgeBuildsTests.swift).
 //
 
 import CartoucheCore
@@ -81,11 +83,14 @@ private final class Pipe: CartoucheBridgeTransport, @unchecked Sendable {
 }
 
 /// The app, as a paired iPhone sees its builds: the games it was asked to
-/// build, and the Mac's refusal, if it refuses.
+/// build, what else it was asked, and the Mac's refusal, if it refuses.
 @MainActor
 private final class Builds: BridgeBuildsSource {
     var shared = CartoucheBridgeBuilds()
     var asked: [String] = []
+    /// The rest, in the order asked: "due", "stop A", "stop all",
+    /// "follow A on", "nightly on 4:15".
+    var done: [String] = []
     var refusal: CartoucheBridgeError?
 
     func bridgeBuilds() -> CartoucheBridgeBuilds { shared }
@@ -97,6 +102,30 @@ private final class Builds: BridgeBuildsSource {
         if let index = shared.games.firstIndex(where: { $0.id == titleID }) {
             shared.games[index].state = "building"
         }
+    }
+
+    func bridgeBuildDue() throws {
+        if let refusal { throw refusal }
+        done.append("due")
+    }
+
+    func bridgeStop(_ titleID: String?) throws {
+        done.append(titleID.map { "stop " + $0 } ?? "stop all")
+        shared.running = titleID != nil
+    }
+
+    func bridgeFollow(_ titleID: String, _ followed: Bool) async throws {
+        // As the app, which reads its library again before it answers.
+        await Task.yield()
+        done.append("follow \(titleID) \(followed ? "on" : "off")")
+        if let index = shared.games.firstIndex(where: { $0.id == titleID }) {
+            shared.games[index].followed = followed
+        }
+    }
+
+    func bridgeNightly(_ nightly: CartoucheBridgeBuilds.Nightly) throws {
+        done.append("nightly \(nightly.on ? "on" : "off") \(nightly.hour):\(nightly.minute)")
+        shared.nightly = nightly
     }
 }
 
@@ -181,6 +210,34 @@ final class BridgeBuildsTests: XCTestCase {
                                          stage: Self.stage).state, "up_to_date")
     }
 
+    func testWhatTheWindowCanDoIsShared() {
+        var followed = game("A", .upToDate, built: "2026-11-10T07:00:00+00:00")
+        followed.followed = true
+        var notFollowed = game("B", .notFollowed, built: "2026-11-10T07:00:00+00:00")
+        notFollowed.followed = false
+        let library = [followed, notFollowed, game("C", .due, reasons: ["new"]), game("D", .noSource, kind: "ipa"), game("E", .due, reasons: ["changes"])]
+        let building = [GameProgress(titleID: "C", name: "Game C", state: "building")]
+        let waiting = [GameProgress(titleID: "E", name: "Game E", state: "queued"), GameProgress(titleID: "F", name: "Game F", state: "queued")]
+        // C stops; E can be taken out of the queue, F not yet.
+        let control = BridgeBuilds.Control(stoppable: { $0 != "F" }, stopping: { $0 == "C" }, due: 2,
+                                           nightly: CartoucheBridgeBuilds.Nightly(on: true, hour: 4, minute: 15))
+        let shared = BridgeBuilds.shared(games: library, building: building, waiting: waiting, running: true, ready: true, why: nil,
+                                         stage: Self.stage, control: control)
+        XCTAssertEqual(shared.games.map(\.id), ["A", "B", "C", "D", "E", "F"])
+        XCTAssertEqual(shared.games.map(\.followed), [true, false, true, nil, true, nil])
+        XCTAssertEqual(shared.games.map(\.stoppable), [nil, nil, false, nil, true, false])
+        XCTAssertEqual(shared.games.map(\.stopping), [nil, nil, true, nil, false, false])
+        XCTAssertEqual(shared.due, 2)
+        XCTAssertEqual(shared.nightly, CartoucheBridgeBuilds.Nightly(on: true, hour: 4, minute: 15))
+
+        // A Mac that does not say: nothing of it.
+        let without = BridgeBuilds.shared(games: library, building: building, waiting: waiting, running: true, ready: true, why: nil,
+                                          stage: Self.stage)
+        XCTAssertEqual(without.games.compactMap(\.stoppable), [])
+        XCTAssertNil(without.due)
+        XCTAssertNil(without.nightly)
+    }
+
     func testAGameDueForItsMacAppAloneIsUpToDateToTheIPhone() {
         let macAlone = game("A", .due, reasons: ["mac_new"], built: "2026-11-10T07:00:00+00:00")
         XCTAssertTrue(BridgeBuilds.dueForMacAppAlone(macAlone))
@@ -231,6 +288,7 @@ final class BridgeBuildsTests: XCTestCase {
         let (client, serving) = try await session(server)
         let info = try await client.info()
         XCTAssertEqual(info.hasBuilds, false)
+        XCTAssertEqual(info.hasBuildsControl, false)
         do {
             _ = try await client.builds()
             XCTFail("builds from a Mac without any")
@@ -280,6 +338,58 @@ final class BridgeBuildsTests: XCTestCase {
         }
         let stillAsked = await MainActor.run { builds.asked }
         XCTAssertEqual(stillAsked, ["A"])
+        client.close()
+        await serving.value
+    }
+
+    func testTheRestOfTheWindowAskedFromTheIPhone() async throws {
+        let server = server()
+        let builds = await MainActor.run { () -> Builds in
+            let builds = Builds()
+            builds.shared = CartoucheBridgeBuilds(running: true, games: [CartoucheBridgeBuilds.Game(id: "A", name: "Game A", state: "queued",
+                                                                                                   turn: 1, followed: true, stoppable: true)])
+            return builds
+        }
+        server.builds = builds
+        let (client, serving) = try await session(server)
+        let info = try await client.info()
+        XCTAssertEqual(info.hasBuildsControl, true)
+
+        _ = try await client.buildDue()
+        _ = try await client.stop("A")
+        let stopped = try await client.stopAll()
+        XCTAssertFalse(stopped.running)
+        let unfollowed = try await client.follow("A", false)
+        XCTAssertEqual(unfollowed.games.first?.followed, false)
+        let nightly = try await client.setNightly(CartoucheBridgeBuilds.Nightly(on: true, hour: 4, minute: 15))
+        XCTAssertEqual(nightly.nightly, CartoucheBridgeBuilds.Nightly(on: true, hour: 4, minute: 15))
+        let done = await MainActor.run { builds.done }
+        XCTAssertEqual(done, ["due", "stop A", "stop all", "follow A off", "nightly on 4:15"])
+
+        // Without what each needs: refused, and the session goes on.
+        let incomplete: [(CartoucheBridgeRequest, CartoucheBridgeError.Kind)] = [
+            (CartoucheBridgeRequest(.stop), .notFound),
+            (CartoucheBridgeRequest(.follow, game: "A"), .protocolError),
+            (CartoucheBridgeRequest(.nightly), .protocolError),
+        ]
+        for (request, kind) in incomplete {
+            do {
+                _ = try await client.call(request)
+                XCTFail("\(request.op) without what it needs")
+            } catch let error as CartoucheBridgeError {
+                XCTAssertEqual(error.kind, kind, "\(request.op)")
+            }
+        }
+        // Refused by the Mac, in its words.
+        await MainActor.run { builds.refusal = CartoucheBridgeError(.failed, "The Mac is importing an IPA") }
+        do {
+            _ = try await client.buildDue()
+            XCTFail("Build what is due, which the Mac refused")
+        } catch let error as CartoucheBridgeError {
+            XCTAssertEqual(error, CartoucheBridgeError(.failed, "The Mac is importing an IPA"))
+        }
+        let after = await MainActor.run { builds.done.count }
+        XCTAssertEqual(after, 5)
         client.close()
         await serving.value
     }
