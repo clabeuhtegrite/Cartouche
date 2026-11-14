@@ -325,13 +325,22 @@ final class InstallTests: HarnessCase {
 
     // MARK: Signing
 
+    /// What LiveContainer said as it could not sign the game, in the
+    /// report: LiveContainer's words, as the player may send them.
+    private func liveContainerSaid() -> String? {
+        actions.notice?.report?.facts.first { $0.name == "LiveContainer said" }?.value
+    }
+
     func testAGameZsignCannotSignInstallsWithTheReason() async throws {
         HarnessLC.signing = .fails("zsign: the provisioning profile does not match the certificate")
         let appResult = try await install(try HarnessIPA.game(.plain()))
         let app = try XCTUnwrap(appResult)
         XCTAssertEqual(actions.notice?.title, CartoucheText.installSignWarning)
-        XCTAssertEqual(actions.notice?.message, "zsign: the provisioning profile does not match the certificate")
+        XCTAssertEqual(actions.notice?.message, CartoucheText.notSignedFiles + " " + CartoucheText.notSignedAtInstall)
         XCTAssertNotNil(actions.notice?.report)
+        XCTAssertEqual(liveContainerSaid(), "zsign: the provisioning profile does not match the certificate")
+        XCTAssertEqual(actions.notice?.signAgain, app.appInfo.bundleIdentifier(), "the player may sign it again and play")
+        XCTAssertEqual(app.appInfo.cartoucheSigningFailure, "other", "marked, for Play to sign it again whole")
         XCTAssertTrue(model.apps.contains(app), "installed even so, as the Apps tab leaves it")
     }
 
@@ -340,8 +349,50 @@ final class InstallTests: HarnessCase {
         let result = try await install(try HarnessIPA.game(.plain()))
         XCTAssertNotNil(result)
         XCTAssertEqual(actions.notice?.title, CartoucheText.installSignWarning)
-        XCTAssertEqual(actions.notice?.message,
-                       "lc.appList.signSuccessWithError".loc + "\n\nFrameworks/libharness.dylib: cannot sign")
+        XCTAssertEqual(actions.notice?.message, CartoucheText.notSignedFiles + " " + CartoucheText.notSignedAtInstall)
+        XCTAssertEqual(liveContainerSaid(), "lc.appList.signSuccessWithError".loc + "\n\nFrameworks/libharness.dylib: cannot sign")
+    }
+
+    /// zsign's own words, a line a file it could not sign, with its path:
+    /// the player reads that files were not signed, the report has zsign's
+    /// words, and the measurements the reason, the kind of file and how
+    /// many, never a path.
+    func testAFileZsignCannotSignIsCountedByItsKind() async throws {
+        HarnessLC.signing = .cannotSign(["Frameworks/MoltenVK.framework/MoltenVK"])
+        let reported = try await notifications(CartoucheReports.reported) {
+            _ = try await install(try HarnessIPA.game(.plain()))
+        }
+        let app = try XCTUnwrap(actions.installed)
+        XCTAssertEqual(actions.notice?.title, CartoucheText.installSignWarning)
+        XCTAssertEqual(actions.notice?.message, CartoucheText.notSignedFiles + " " + CartoucheText.notSignedAtInstall)
+        let said = try XCTUnwrap(liveContainerSaid())
+        XCTAssertTrue(said.hasPrefix("Failed to Sign /"), said)
+        XCTAssertTrue(said.hasSuffix("/Frameworks/MoltenVK.framework/MoltenVK"), said)
+        let failure = try XCTUnwrap(reported.compactMap { $0.userInfo?["failure"] as? CartoucheFailure }.last)
+        XCTAssertEqual(failure.cause, .notSigned)
+        XCTAssertEqual(failure.details["kind"], .text("filesNotSigned"))
+        XCTAssertEqual(failure.details["fileKind"], .text("framework"))
+        XCTAssertEqual(failure.details["files"], .number(1))
+        XCTAssertNil(failure.details["signedAnyway"])
+        XCTAssertEqual(app.appInfo.cartoucheSigningFailure, "filesNotSigned")
+    }
+
+    /// The Legend of Zelda: Breath of the Wild, from 0.12.0's measurements:
+    /// zsign was handed the Metal pipeline archive nxnative bundles, a
+    /// Mach-O of Apple's GPU it cannot sign, and every install ended
+    /// "Installed, but not signed". It gets the files iOS loads code from
+    /// only (CartoucheGameSigning).
+    func testAGameWithAMetalPipelineArchiveInstallsSigned() async throws {
+        var game = HarnessGame.plain()
+        game.pipelineArchive = true
+        let app = try await installed(game)
+        XCTAssertNil(app.appInfo.cartoucheSigningFailure)
+        let folder = "/" + (try bundle(of: app)).lastPathComponent + "/"
+        let signed = HarnessLC.signedFiles.map { $0.components(separatedBy: folder).last ?? $0 }
+        XCTAssertEqual(signed.sorted(), ["Frameworks/MoltenVK.framework/MoltenVK", game.executable].sorted())
+        let archive = try bundle(of: app).appendingPathComponent("pso/applegpu_g18p.mtl4a")
+        XCTAssertTrue(installedFile(archive, holds: HarnessMachOFile.pipelineArchive()), "the archive as nxnative made it")
+        XCTAssertNotNil(HarnessMachO.zsignFailure(archive.path), "a file zsign cannot sign")
     }
 
     func testWithoutACertificateLiveContainerSignsNothing() async throws {
@@ -356,7 +407,9 @@ final class InstallTests: HarnessCase {
         let appResult = try await install(try HarnessIPA.game(game))
         let app = try XCTUnwrap(appResult)
         XCTAssertEqual(actions.notice?.title, CartoucheText.installSignWarning)
-        XCTAssertEqual(actions.notice?.message, "The app you tried to install is encrypted. Please provide decrypted app.")
+        XCTAssertEqual(actions.notice?.message, CartoucheText.notSignedEncrypted)
+        XCTAssertEqual(liveContainerSaid(), "The app you tried to install is encrypted. Please provide decrypted app.")
+        XCTAssertNil(actions.notice?.signAgain, "signing it again would not help")
         XCTAssertTrue(HarnessLC.signed.isEmpty)
         XCTAssertTrue(model.apps.contains(app))
     }

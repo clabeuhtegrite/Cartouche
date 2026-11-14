@@ -91,6 +91,16 @@
 //                                        whose sign-in Google ended, as after
 //                                        7 days for a project in testing, with
 //                                        two games' saves waiting for it;
+//                                        not-signed-install: the sheet's
+//                                        game installed but not signed
+//                                        whole, with Sign again and play;
+//                                        not-signed-start: the same, as Play
+//                                        signed it again; signature-refused:
+//                                        its process ended as iOS refused
+//                                        its signature; stopped-on-error:
+//                                        its process ended on another error
+//                                        (CartoucheGameActions failSigning
+//                                        and stoppedOnError);
 //                                        on the TV (screen tv), paused: the
 //                                        game paused behind the console,
 //                                        starting: the game starting;
@@ -265,6 +275,9 @@ struct GalleryScenario {
                                                    fraction: 0.42, facts: [.init("IPA", name + " [" + (sheet ?? "") + "].ipa")])
                 CartoucheGameActions.shared.notice = CartoucheGameNotice(title: report.title, message: report.message, report: report)
             }
+            if let notice = signingNotice() {
+                CartoucheGameActions.shared.notice = notice
+            }
             if work == "update" {
                 // A higher version than the gallery's own (project.yml): on
                 // offer over the console, or on the System page, which opens
@@ -349,6 +362,49 @@ struct GalleryScenario {
                 CartoucheSaveBackups.shared.showWaitingForGallery(2)
             }
         }
+    }
+
+    /// The notice of the sheet's game, which LiveContainer did not sign
+    /// whole, zsign failing on one of its libraries, or whose process ended
+    /// as iOS refused its signature or a library it needs was missing, as
+    /// CartoucheGameActions shows it (failSigning, stoppedOnError), with the
+    /// report to copy.
+    @MainActor
+    private func signingNotice() -> CartoucheGameNotice? {
+        let titleId = sheet ?? ownedTitles.first ?? ""
+        let name = CartoucheCatalog.shared.game(titleId: titleId)?.name ?? "Game"
+        let bundleId = "org.nxnative." + titleId.lowercased()
+        let unsigned = CartoucheGameSigning.Failure(reason: .filesNotSigned, fileKind: "framework", files: 1, signedAnyway: true)
+        let title: String
+        let message: String
+        let failure: CartoucheFailure
+        var signAgain = true
+        switch work ?? "" {
+        case "not-signed-install":
+            title = CartoucheText.installSignWarning
+            message = CartoucheText.notSignedFiles + " " + CartoucheText.notSignedAtInstall
+            failure = CartoucheFailure(.notSigned, stage: "signing", details: unsigned.details)
+        case "not-signed-start":
+            title = CartoucheText.notSignedTitle(name)
+            message = CartoucheText.notSignedFiles + " " + CartoucheText.notSignedAtStart
+            failure = CartoucheFailure(.notSigned, stage: "signing", details: unsigned.details)
+        case "signature-refused":
+            let stopped = CartoucheGameSigning.StartFailure(kind: .codeSignature)
+            title = CartoucheText.gameStoppedTitle(name)
+            message = CartoucheText.gameSignatureRefused
+            failure = CartoucheFailure(stopped.cause, stage: "gameProcess", seconds: 1.4, details: stopped.details)
+        case "stopped-on-error":
+            let stopped = CartoucheGameSigning.StartFailure(kind: .libraryMissing)
+            title = CartoucheText.gameStoppedTitle(name)
+            message = CartoucheText.gameStoppedOnError
+            failure = CartoucheFailure(stopped.cause, stage: "gameProcess", seconds: 1.4, details: stopped.details)
+            signAgain = false
+        default:
+            return nil
+        }
+        let origin: CartoucheReport.Origin = work == "not-signed-install" ? .install : .start
+        let report = CartoucheReports.make(origin, title, message: message, failure: failure)
+        return CartoucheGameNotice(title: title, message: message, report: report, signAgain: signAgain ? bundleId : nil)
     }
 
     /// The player's games as IPAs in FOLDER, as Cartouche Builder leaves
@@ -454,8 +510,9 @@ struct GalleryScenario {
         let orientation: String
     }
 
-    /// Turns the gallery sideways if the scenario asks, then, once the
-    /// layout, the stage's colours and the cartridges have settled, says so.
+    /// Turns the gallery sideways if the scenario asks, upright on a
+    /// device's simulator otherwise, then, once the layout, the stage's
+    /// colours and the cartridges have settled, says so.
     @MainActor
     func settle() {
         let scene = UIApplication.shared.connectedScenes.lazy.compactMap { $0 as? UIWindowScene }.first
@@ -465,14 +522,27 @@ struct GalleryScenario {
             }
         }
         guard let ready else { return }
+        // Upright on a device's simulator, for a scenario that does not turn
+        // sideways: iOS opens the gallery turned as it was before, after
+        // duo-sim-home-landscape too. On Ad's Mac, in run 43536103765, seven
+        // scenarios of the iPhone Duo came out sideways, the first of them
+        // duo-sim-home, then the next ones white or faded as iOS turned the
+        // gallery upright again.
+        let upright = !landscape && size == nil
+        if upright, let scene {
+            scene.requestGeometryUpdate(.iOS(interfaceOrientations: .portrait)) { error in
+                NSLog("[Gallery] cannot turn upright: %@", String(describing: error))
+            }
+        }
         Task { @MainActor in
-            // Turned sideways first, for up to 30 s: on the iPhone Duo of run
+            // Turned first, for up to 30 s: on the iPhone Duo of run
             // 43275681933, beside two builds of the app on Ad's Mac, the
             // simulator had not turned the scene by the time the gallery
             // said it had settled, upright.
-            if landscape, let scene {
+            if landscape || upright, let scene {
                 for _ in 0..<120 {
-                    if scene.effectiveGeometry.interfaceOrientation.isLandscape { break }
+                    let now = scene.effectiveGeometry.interfaceOrientation
+                    if landscape ? now.isLandscape : now == .portrait { break }
                     try? await Task.sleep(for: .milliseconds(250))
                 }
             }
