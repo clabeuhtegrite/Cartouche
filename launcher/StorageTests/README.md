@@ -23,7 +23,7 @@ Each server adds what only it has:
 
 | Case | Server | Also |
 | --- | --- | --- |
-| `SMBTests` | Samba | the shared folders the player picks from; a shared folder the account can only read, as the server says when Cartouche connects (MaximalAccess); a folder of root's in the player's; signing in as a guest; the room left; requests made at once on one connection |
+| `SMBTests` | Samba | the shared folders the player picks from; a shared folder the account can only read, as the server says when Cartouche connects (MaximalAccess); a folder of root's in the player's; signing in as a guest; a wrong password said to be refused, in Cartouche's words rather than SMBClient's "Logon Failure", where the folder is opened and where the form lists the shared folders; the room left; requests made at once on one connection |
 | `S3Tests` | MinIO, in the region `eu-west-3` | keys that can only list and read; no keys, unknown keys; no region given, which MinIO names on the first request |
 | `FTPTests` | pyftpdlib, with MLSD | an account that can only read; a folder it can only read; no user name; MLSD used for listing |
 | `FTPListTests` | pyftpdlib, without MLSD or MLST | as `FTPTests`, listed with LIST, as vsftpd and others do |
@@ -31,6 +31,8 @@ Each server adds what only it has:
 | `DriveTests` | the stand-in for Google's servers | the sign-in on Google's page with the player's own client and PKCE, a sign-in asked again when Google gives no lasting one, the Drive left unchecked, the access refused, a client Google does not know; the access token renewed after its hour; a sign-in Google ended, as it does after seven days for a project in testing, waiting for the player to sign in again, with nothing more sent to Google and no report; a Google Doc, a shortcut, the bin and a name with a `/` left out of the games folder, the newest of two IPAs of one name taken, a name a Mac decomposed found; the room left; Google failing for a moment, asked again; an upload cut, by an error or a closed connection, going on from where Google holds it; the Drive API off in the player's project, said with where to turn it on; a full Drive; no redirection followed, so that the token goes to Google alone |
 
 [`OfflineTests`](Tests/CartoucheStorageTests/OfflineTests.swift) needs none of these servers: it signs in to a server out of reach, as a NAS at home is from anywhere else, on every protocol, and to a port of the Mac that refuses the connection. Each must say the server is offline (CartoucheStorageReach): within the patience and four seconds for an address that never answers (`192.0.2.1`, which no network routes, RFC 5737), within four seconds for a refused connection. It also knocks on a server of the Mac without a word, and checks that a server tried again tells once that it answers again, then that it is offline once it stops.
+
+[`SMBRefusalTests`](Tests/CartoucheStorageTests/SMBRefusalTests.swift) needs no server either: it hands Cartouche each answer an SMB server refuses an account with, as SMBClient's error, and checks what Cartouche says of it: a user name or a password refused, a guest the server does not let in, an account locked after too many wrong passwords, and one the server holds back (turned off, expired, or whose password must change), which SMBClient calls "Unknown error". Samba here lets guests in and never locks or holds back the account, so only a wrong password is tried against it (`SMBTests`).
 
 [`MacBridgeTests`](Tests/CartoucheStorageTests/MacBridgeTests.swift) needs no server: it plays Cartouche Builder's side of the bridge itself ([`CartoucheBridge.swift`](../Sources/CartoucheBridge.swift)), on the loopback, with its Games and Saves folders in memory, and goes through what a player does with their Mac:
 
@@ -50,7 +52,7 @@ CARTOUCHE_STORAGE_SERVERS=/tmp/cartouche-servers/servers.json swift test --packa
 launcher/StorageTests/servers.sh stop /tmp/cartouche-servers
 ```
 
-The stand-in needs nothing but Python 3. It adds a user, `cartouche-test`, and runs smbd and sshd as root with sudo, so it runs only on a throwaway Mac, as GitHub's are, or with `CARTOUCHE_STORAGE_THROWAWAY=1`; `stop` removes the user. The passwords and keys are made up at each start and stay in `servers.json`. Without `CARTOUCHE_STORAGE_SERVERS`, every test but `OfflineTests` and `MacBridgeTests` is skipped. The IPA past 4 GiB is made only when the disk has room for it four times over, else its test is skipped.
+The stand-in needs nothing but Python 3. It adds a user, `cartouche-test`, and runs smbd and sshd as root with sudo, so it runs only on a throwaway Mac, as GitHub's are, or with `CARTOUCHE_STORAGE_THROWAWAY=1`; `stop` removes the user. The passwords and keys are made up at each start and stay in `servers.json`. Without `CARTOUCHE_STORAGE_SERVERS`, every test but `OfflineTests`, `MacBridgeTests` and `SMBRefusalTests` is skipped. The IPA past 4 GiB is made only when the disk has room for it four times over, else its test is skipped.
 
 | Server | Port | Accounts | Games folder |
 | --- | --- | --- | --- |

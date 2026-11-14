@@ -8,12 +8,14 @@
 //  the whole screen of the simulator it runs on, such as the iPhone Duo's,
 //  with its own safe area, size classes and system bars.
 //
-//      -GalleryScreen games|library|sheet|settings|gameinfo|shortcuts|setup|signin|guide|system|storage|storage-mac|storage-drive|storage-drive-guide|telemetry|report|tv
+//      -GalleryScreen games|library|sheet|settings|gameinfo|shortcuts|setup|signin|guide|system|storage|storage-smb|storage-mac|storage-drive|storage-drive-guide|telemetry|report|tv
 //                                        library: every game, open over
 //                                        the home; gameinfo: what the
 //                                        player says of the sheet's game;
 //                                        shortcuts: Siri and Home Screen,
 //                                        from the sheet of the player's game;
+//                                        storage-smb: Add a shared folder,
+//                                        with a NAS nearby (GallerySMB);
 //                                        storage-mac: Add your Mac, the
 //                                        form that pairs this iPhone with a
 //                                        Mac nearby; storage-drive: Add
@@ -68,6 +70,12 @@
 //                                        reach, with a newer build of that
 //                                        game in its games folder and two
 //                                        games' saves waiting for it;
+//                                        smb-refused: on Add a shared
+//                                        folder, the NAS refusing the user
+//                                        name or the password the player
+//                                        signed in with; smb-no-guests:
+//                                        refusing a guest, without a user
+//                                        name;
 //                                        mac-nearby: two Macs nearby whose
 //                                        Cartouche Builder shares with
 //                                        Cartouche; mac-code: the same,
@@ -326,6 +334,12 @@ struct GalleryScenario {
                 CartoucheStorageSettings.shared.showForGallery(nas, games: "Jeux", saves: "Sauvegardes")
                 CartoucheStorageReach.shared.showOfflineForGallery([nas.id])
                 CartoucheSaveBackups.shared.showWaitingForGallery(2)
+            }
+            // The servers Add a shared folder finds nearby: made-up ones,
+            // never those of the network the gallery runs on.
+            CartoucheSMBBrowser.gallery = screen == "storage-smb" ? GallerySMB.nearby : []
+            if screen == "storage-smb" {
+                CartoucheStorageServerForm.gallery = GallerySMB.signIn(work)
             }
             if ["mac-nearby", "mac-code", "mac-refused"].contains(work) {
                 let refused = work == "mac-refused"
@@ -719,6 +733,12 @@ struct CartoucheGalleryApp: App {
             NavigationStack {
                 CartoucheStorageView()
             }
+        case "storage-smb":
+            // As the Storage page opens it, once the player signed in to
+            // list the shared folders of a NAS nearby.
+            NavigationStack {
+                CartoucheStorageServerForm(server: GallerySMB.server(scenario.work))
+            }
         case "storage-mac":
             // As the Storage page opens it, for a Mac not paired yet.
             NavigationStack {
@@ -797,6 +817,37 @@ enum GalleryMac {
 
     private static func service(_ name: String) -> NWEndpoint {
         .service(name: name, type: CartoucheBridge.serviceType, domain: "local.", interface: nil)
+    }
+}
+
+/// A NAS of the house on Add a shared folder (screen storage-smb), found
+/// nearby, which refused the sign-in that lists its shared folders: the
+/// user name or the password the player typed (work: smb-refused), or a
+/// guest, without a user name (smb-no-guests). Made-up name, address and
+/// account.
+enum GallerySMB {
+    static let nearby = [CartoucheSMBBrowser.Server(name: "NAS", host: "nas.local")]
+
+    /// The server as the player typed it for WORK: the NAS chosen nearby,
+    /// with their user name, or none.
+    static func server(_ work: String?) -> CartoucheStorageServer {
+        CartoucheStorageServer(kind: .smb, name: "NAS", host: "nas.local", username: work == "smb-no-guests" ? "" : "joueur",
+                               share: "")
+    }
+
+    /// The password typed for WORK, and what the form says once the NAS
+    /// answered the sign-in with STATUS_LOGON_FAILURE, as Samba, Windows and
+    /// macOS answer a wrong password, an unknown user and a guest they do
+    /// not let in (CartoucheSMBRefusal).
+    @MainActor
+    static func signIn(_ work: String?) -> (password: String, problem: CartoucheReport?) {
+        let nas = server(work)
+        let guest = nas.username.isEmpty
+        guard let reason = CartoucheSMBRefusal.reason(0xC000_006D, guest: guest) else {
+            return (password: "", problem: nil)
+        }
+        let error = CartoucheStorageError(.signInFailed, CartoucheText.storageSignInFailed(nas.host, reason))
+        return (password: guest ? "" : "motdepasse", problem: CartoucheReports.connectionFailed(to: nas, error: error))
     }
 }
 

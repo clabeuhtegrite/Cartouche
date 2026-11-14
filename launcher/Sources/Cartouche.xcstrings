@@ -10252,6 +10252,74 @@
         }
       }
     },
+    "storage.smb.heldBack" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "the server does not let this account sign in as it is. On the server, turn the account on, or give it a new password."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "le serveur ne laisse pas ce compte se connecter en l’état. Sur le serveur, activez le compte ou donnez-lui un nouveau mot de passe."
+          }
+        }
+      }
+    },
+    "storage.smb.locked" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "the server locked this account after too many wrong passwords. Try again later, or unlock it on the server."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "le serveur a verrouillé ce compte après trop de mots de passe erronés. Réessayez plus tard, ou déverrouillez-le sur le serveur."
+          }
+        }
+      }
+    },
+    "storage.smb.noGuests" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "the server does not let guests in. Type the user name and password of your account on it."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "le serveur n’accepte pas les invités. Tapez le nom d’utilisateur et le mot de passe de votre compte sur ce serveur."
+          }
+        }
+      }
+    },
+    "storage.smb.refused" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "the server refused the user name or the password."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "le serveur a refusé le nom d’utilisateur ou le mot de passe."
+          }
+        }
+      }
+    },
     "storage.stopUsing" : {
       "extractionState" : "manual",
       "localizations" : {

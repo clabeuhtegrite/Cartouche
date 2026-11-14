@@ -639,6 +639,12 @@ enum CartoucheText {
     static var storageAccountFooter: String { s("storage.account.footer", "The account of your Mac, PC or NAS. Leave the user name empty to sign in as a guest.") }
     static var storageConnect: String { s("storage.connect", "Sign in and list the shared folders") }
     static var storageNoShares: String { s("storage.noShares", "This account sees no shared folder there.") }
+    /// Why an SMB server did not sign the player in (CartoucheSMBRefusal),
+    /// after storage.signInFailed's colon.
+    static var storageSMBRefused: String { s("storage.smb.refused", "the server refused the user name or the password.") }
+    static var storageSMBNoGuests: String { s("storage.smb.noGuests", "the server does not let guests in. Type the user name and password of your account on it.") }
+    static var storageSMBLocked: String { s("storage.smb.locked", "the server locked this account after too many wrong passwords. Try again later, or unlock it on the server.") }
+    static var storageSMBHeldBack: String { s("storage.smb.heldBack", "the server does not let this account sign in as it is. On the server, turn the account on, or give it a new password.") }
     static var storageShare: String { s("storage.share", "Shared folder") }
     static var storageShareFooter: String { s("storage.share.footer", "On a Mac: System Settings › General › Sharing › File Sharing. On a PC: the folder’s Properties › Sharing.") }
     static var storageNameTitle: String { s("storage.name.title", "Name in Cartouche") }
