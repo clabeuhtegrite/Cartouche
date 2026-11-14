@@ -1,0 +1,120 @@
+{
+  "comment": "Research only (the thread that presents Cartouche on iPhone, iPad and Mac), removed before the merge: the README's pictures, in English, from scenarios of launcher/Gallery/scenarios.json.",
+  "language": "en",
+  "scenarios": [
+    {
+      "name": "iphone-home-landscape",
+      "screen": "games",
+      "owned": [
+        "0400C3F00006E000",
+        "040074A01BF12000",
+        "01006BB00C6F0000"
+      ],
+      "setup": true,
+      "controller": true,
+      "width": 874,
+      "height": 402,
+      "widthClass": "compact",
+      "insets": [
+        0,
+        62,
+        21,
+        62
+      ]
+    },
+    {
+      "name": "iphone-home",
+      "screen": "games",
+      "owned": [
+        "0400C3F00006E000",
+        "040074A01BF12000",
+        "01006BB00C6F0000"
+      ],
+      "setup": true,
+      "controller": true,
+      "width": 402,
+      "height": 874,
+      "insets": [
+        62,
+        0,
+        34,
+        0
+      ]
+    },
+    {
+      "name": "ipad-home-landscape",
+      "model": "iPad15,3",
+      "device": "iPad Pro 13-inch (M5)",
+      "orientation": "landscape",
+      "screen": "games",
+      "owned": [
+        "0400C3F00006E000",
+        "040074A01BF12000",
+        "01006BB00C6F0000"
+      ],
+      "setup": true,
+      "controller": true
+    },
+    {
+      "name": "ipad-home",
+      "model": "iPad15,3",
+      "device": "iPad Pro 13-inch (M5)",
+      "screen": "games",
+      "owned": [
+        "0400C3F00006E000",
+        "040074A01BF12000",
+        "01006BB00C6F0000"
+      ],
+      "setup": true,
+      "controller": true
+    },
+    {
+      "name": "ipad-library",
+      "model": "iPad15,3",
+      "device": "iPad Pro 13-inch (M5)",
+      "screen": "library",
+      "owned": [
+        "0400C3F00006E000",
+        "040074A01BF12000",
+        "01006BB00C6F0000"
+      ],
+      "setup": true,
+      "controller": false
+    },
+    {
+      "name": "ipad-home-paused-landscape",
+      "model": "iPad15,3",
+      "device": "iPad Pro 13-inch (M5)",
+      "orientation": "landscape",
+      "screen": "games",
+      "owned": [
+        "0400C3F00006E000",
+        "040074A01BF12000",
+        "01006BB00C6F0000"
+      ],
+      "setup": true,
+      "controller": false,
+      "work": "paused"
+    },
+    {
+      "name": "iphone-home-landscape-mkw",
+      "screen": "games",
+      "owned": [
+        "040074A01BF12000",
+        "0400C3F00006E000",
+        "01006BB00C6F0000"
+      ],
+      "setup": true,
+      "controller": true,
+      "width": 874,
+      "height": 402,
+      "widthClass": "compact",
+      "insets": [
+        0,
+        62,
+        21,
+        62
+      ]
+    }
+  ]
+}
