@@ -92,6 +92,7 @@ class PlanTests(unittest.TestCase):
             "launcher-screens/open": sha(5),
             "builder-screens/gone": sha(6),
             "catalog-covers/main": sha(7),
+            "installer-captures/merged": sha(8),
         }
         pulls = [Pull(1, False, True, "merged", sha(2)), Pull(2, True, False, "open", sha(3))]
         found = verdicts(branches, pulls)
@@ -102,6 +103,8 @@ class PlanTests(unittest.TestCase):
         self.assertEqual(found["builder-screens/gone"].reason, "made for gone, which is gone")
         self.assertTrue(found["builder-screens/gone"].delete)
         self.assertFalse(found["catalog-covers/main"].delete)
+        self.assertEqual(found["installer-captures/merged"].reason, "made for merged, which goes")
+        self.assertTrue(found["installer-captures/merged"].delete)
 
     def test_a_pull_request_of_a_screens_branch_is_not_its_own(self):
         # A branch made for another goes or stays with it, whatever its own pull requests.
