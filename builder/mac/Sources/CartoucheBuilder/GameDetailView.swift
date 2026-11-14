@@ -23,6 +23,10 @@ struct GameDetailView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 18) {
                 header
+                // Before its Build button: no Mac built it (Unbuilt.swift).
+                if game.canBuild, game.build == nil, let never = model.unbuilt[game.titleID] {
+                    UnbuiltCard(game: never)
+                }
                 actions
                 if model.canPlay(game) {
                     MacPlayCard(game: game, games: model.macGames)
@@ -36,7 +40,7 @@ struct GameDetailView: View {
                 if let progress = model.progress(game.titleID) {
                     ProgressCard(progress: progress)
                 }
-                if let attempt = game.attempt, game.onIOS, game.state == .failed || attempt.result == "failed" {
+                if let attempt = game.attempt, game.onIOS, game.state == .failed || ["failed", "skipped"].contains(attempt.result) {
                     failure(attempt)
                 }
                 if let attempt = game.mac?.attempt, attempt.result == "failed", game.onMac {
@@ -259,7 +263,11 @@ struct GameDetailView: View {
                             .controlSize(.small)
                     }
                 }
-                Text(tr("It is tried again when nxnative changes it.", "Il sera réessayé quand nxnative le changera."))
+                // Skipped (no room, the Mac's Xcode): not the game's failure,
+                // tried again at the next build.
+                Text(attempt.result == "skipped" && game.state != .failed
+                     ? tr("It is tried again at the next build.", "Il sera réessayé à la prochaine construction.")
+                     : tr("It is tried again when nxnative changes it.", "Il sera réessayé quand nxnative le changera."))
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
@@ -758,6 +766,31 @@ struct PlatformToggle: View {
         .toggleStyle(.switch)
         .disabled(locked != nil)
         .help(locked ?? "")
+    }
+}
+
+/// A game no Mac built yet, and this one neither: how many Macs tried it,
+/// how long, and that building it may keep the Mac busy for nothing.
+struct UnbuiltCard: View {
+    let game: UnbuiltGame
+
+    var body: some View {
+        Card(padding: 14) {
+            HStack(alignment: .top, spacing: 12) {
+                Image(systemName: "exclamationmark.triangle.fill")
+                    .font(.title3)
+                    .foregroundStyle(.orange)
+                VStack(alignment: .leading, spacing: 6) {
+                    Text(tr("No Mac has built this game yet", "Aucun Mac n’a encore construit ce jeu"))
+                        .font(.callout.weight(.semibold))
+                        .fixedSize(horizontal: false, vertical: true)
+                    Text(UnbuiltGames.words(game, named: { stageText($0) }))
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+        }
     }
 }
 

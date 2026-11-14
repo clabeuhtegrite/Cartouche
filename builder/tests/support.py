@@ -267,6 +267,20 @@ if os.environ.get("FAKE_DAMAGED") == title_id:
     ev(ev="say", msg="[RED] v131072: 3 file(s) whose bytes do not start as their names promise (a .zs file that is not a zstd stream), so the game files are damaged:\n"
        "  romfs/Texture/a.zs (12,288 bytes, starts 000000)\nPack again from a good copy of the game (--allow-damaged packs these files as they are)")
     sys.exit(1)
+if os.environ.get("FAKE_METAL") == title_id:
+    # As nxnative's check_metal, after its check of the files and with no
+    # stage of its own, with the Xcode the Mac builds with: FAKE_XCODE.
+    ev(ev="stage", k=2, n=2, name="check v131072 files", step="")
+    selected = os.environ.get("FAKE_XCODE", "27.1")
+    ev(ev="say", msg="[RED] this Mac's Metal compiler is not the one the shaders were tested with (dm/gfx/tools/dmsh_chain.lock): "
+       "metal_iphoneos Apple metal version 32023.620 (metalfe-32023.620) (tested: Apple metal version 32023.850 (metalfe-32023.850)). "
+       "Untested compilers are unsupported (GitHub issue #242). The Metal compiler is the selected Xcode's "
+       f"(selected: Xcode {selected} in /Applications/Xcode.app/Contents/Developer): install Xcode 27.2 (macOS 26.6 or later) "
+       "from https://developer.apple.com/download/all/ (beside a newer Xcode, as /Applications/Xcode-27.2.app), select it "
+       "(sudo xcode-select -s /Applications/Xcode-27.2.app, or DEVELOPER_DIR=/Applications/Xcode-27.2.app/Contents/Developer for one build), "
+       "then download its Metal toolchain (xcodebuild -downloadComponent MetalToolchain), "
+       "or ALLOW_OTHER_METAL = True (--allow-other-metal) to build with this one anyway")
+    sys.exit(1)
 if os.environ.get("FAKE_CRASH") == title_id:
     print("Traceback (most recent call last):\n  File \"build_ipa_from_nsp.py\", line 1, in <module>\nKeyError: 'icon'", file=sys.stderr, flush=True)
     ev(ev="say", msg="[RED] KeyError: 'icon'")
@@ -344,8 +358,8 @@ def make_engine_remote(folder: Path, games: dict[str, str]) -> Path:
 
 # What makes the fake nxnative fail, sleep or end without an IPA (or a Mac
 # app), for a game.
-FAKES = ("FAKE_FAIL", "FAKE_SLEEP", "FAKE_SLEEP_ONLY", "FAKE_NO_IPA", "FAKE_NO_SPACE", "FAKE_DAMAGED", "FAKE_CRASH", "FAKE_APP_BUILD", "FAKE_BROKEN_ONLY",
-         "FAKE_MAC_FAIL", "FAKE_MAC_NO_SPACE", "FAKE_MAC_SLEEP", "FAKE_MAC_NO_APP")
+FAKES = ("FAKE_FAIL", "FAKE_SLEEP", "FAKE_SLEEP_ONLY", "FAKE_NO_IPA", "FAKE_NO_SPACE", "FAKE_DAMAGED", "FAKE_METAL", "FAKE_XCODE", "FAKE_CRASH",
+         "FAKE_APP_BUILD", "FAKE_BROKEN_ONLY", "FAKE_MAC_FAIL", "FAKE_MAC_NO_SPACE", "FAKE_MAC_SLEEP", "FAKE_MAC_NO_APP")
 
 
 class Home(unittest.TestCase):

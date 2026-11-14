@@ -53,6 +53,9 @@ final class TelemetryTests: XCTestCase {
         let imported: [String: TelemetryValue] = ["ipaMB": .number(5120), "nxnative": .text(head), "remote": .flag(true), "seconds": .number(48)]
         let skipped: [String: TelemetryValue] = ["cause": .text("no_space"), "exit": .count(1), "nxnative": .text(head), "reasons": .text("new"),
                                                  "seconds": .number(312), "source": .text("nup"), "stage": .text("unpack v0")]
+        // Skipped for the room kept free: the room free and needed, in GB.
+        let noRoom: [String: TelemetryValue] = ["cause": .text("no_room"), "freeGB": .number(13), "neededGB": .number(20), "nxnative": .text(head),
+                                                "reasons": .text("new"), "seconds": .number(1), "source": .text("zip")]
         let failedHere: [String: TelemetryValue] = ["cause": .text("builder"), "errno": .count(13), "exception": .text("PermissionError"),
                                                     "nxnative": .text(head), "reasons": .text("source"), "seconds": .number(2410),
                                                     "source": .text("packages"), "stage": .text("deliver"), "where": .text("ipa.deliver")]
@@ -97,6 +100,7 @@ final class TelemetryTests: XCTestCase {
             ("builder.played", "0100152000022000", played),
             ("builder.saves", "0100152000022000", saves),
             ("builder.macInstalled", "0100152000022000", installed),
+            ("builder.skipped", "0100000000010000", noRoom),
         ]
         var made: [TelemetryEvent] = []
         for (index, event) in events.enumerated() {
@@ -254,6 +258,45 @@ final class TelemetryTests: XCTestCase {
             XCTAssertNotNil(TelemetryEvent(id: "6a1d9e3c-0000-4000-8000-00000000020\(index)", seq: index + 1, context: context,
                                            name: event.0, game: "0100152000022000", fields: event.1), event.0)
         }
+    }
+
+    /// A game skipped for the room kept free, or for the Mac's Xcode: the
+    /// room free and needed, in whole gigabytes (14 November 2026: 19 games
+    /// skipped on 7 Macs, none saying how much room there was).
+    func testASkippedGameSaysTheRoomFreeAndNeeded() throws {
+        let json = #"""
+            {"state": "done", "scheduled": false, "head": "6da69001c0ffee00",
+             "games": [
+               {"title_id": "0100000000010000", "name": "Odyssey", "state": "skipped", "reasons": ["new"], "duration": 0.4,
+                "cause": "no_room", "room": {"free_gb": 13, "needed_gb": 26}, "error": "13 GB missing to build this game"},
+               {"title_id": "0400486024DEC000", "name": "Ocarina of Time", "state": "skipped", "reasons": ["new"], "duration": 42,
+                "stage": "check v131072 files", "cause": "metal", "exit": 1, "room": {}, "error": "Update Xcode"}]}
+            """#
+        let status = try JSONDecoder().decode(BatchStatus.self, from: Data(json.utf8))
+        let events = BuilderTelemetry.batchEvents(status, library: nil, jobs: 1)
+        XCTAssertEqual(events.map(\.name), ["builder.skipped", "builder.skipped", "builder.batch"])
+        XCTAssertEqual(events[0].fields, ["cause": .text("no_room"), "freeGB": .number(13), "neededGB": .number(26), "nxnative": .text("6da69001c0ff"),
+                                          "reasons": .text("new"), "seconds": .number(0), "stage": .text("")])
+        XCTAssertEqual(events[1].fields, ["cause": .text("metal"), "exit": .count(1), "nxnative": .text("6da69001c0ff"), "reasons": .text("new"),
+                                          "seconds": .number(42), "stage": .text("check v131072 files")])
+    }
+
+    /// A game's Mac app skipped for the room kept free, its IPA built: the
+    /// room free and needed, as for an IPA.
+    func testAMacAppSkippedSaysTheRoomFreeAndNeeded() throws {
+        let json = #"""
+            {"state": "done", "scheduled": false, "head": "6da69001c0ffee00",
+             "games": [
+               {"title_id": "0100152000022000", "name": "Mario Kart World", "state": "built", "reasons": ["named"], "duration": 5412.4,
+                "commit": "6da69001c0ff", "room": {}, "stage": "", "platform": "mac", "mac": "skipped", "mac_only": false,
+                "mac_error": "Its Mac app keeps the room of the game's files", "mac_cause": "no_room", "mac_duration": 0.2,
+                "mac_room": {"free_gb": 1, "needed_gb": 20}}]}
+            """#
+        let status = try JSONDecoder().decode(BatchStatus.self, from: Data(json.utf8))
+        let events = BuilderTelemetry.batchEvents(status, library: nil, jobs: 1)
+        XCTAssertEqual(events.map(\.name), ["builder.built", "builder.macSkipped", "builder.batch"])
+        XCTAssertEqual(events[1].fields, ["alone": .flag(false), "cause": .text("no_room"), "freeGB": .number(1), "neededGB": .number(20),
+                                          "nxnative": .text("6da69001c0ff"), "reasons": .text("named"), "seconds": .number(0), "stage": .text("")])
     }
 
     func testAReportHasTheFieldsEveryReportNeeds() throws {

@@ -29,6 +29,7 @@
         "mac_failure": {},
         "mac_log": "",
         "mac_only": false,
+        "mac_room": {},
         "message": "the fake build failed on purpose",
         "n": 2,
         "name": "Super Mario Odyssey",
@@ -38,6 +39,7 @@
         "reasons": [
           "named"
         ],
+        "room": {},
         "stage": "extract",
         "started": "2026-11-13T21:49:05+00:00",
         "state": "failed",

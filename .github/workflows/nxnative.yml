@@ -8,7 +8,9 @@ name: nxnative page
 # installs. It reads the D1 database with the secrets CLOUDFLARE_API_TOKEN
 # and CLOUDFLARE_ACCOUNT_ID of the environment cloudflare, and does nothing
 # while they are not set. The page goes on the branch nxnative-measurements,
-# as its README.md, on top of the weeks before, which its history keeps.
+# as its README.md, on top of the weeks before, which its history keeps;
+# beside it, unbuilt.json, the games three Macs or more tried and none built,
+# which Cartouche Builder reads to warn before one is built.
 
 on:
   schedule:
@@ -72,10 +74,10 @@ jobs:
           path: build/nxnative
       - name: Push it to nxnative-measurements
         run: |
-          # The page alone.
-          OTHERS="$(find build/nxnative -mindepth 1 ! -path build/nxnative/README.md -printf '%P ')"
-          if [ ! -f build/nxnative/README.md ] || [ -n "$OTHERS" ]; then
-            echo "::error::the page's folder holds more than README.md, or not it: $OTHERS"
+          # The page and the games no Mac built, alone.
+          OTHERS="$(find build/nxnative -mindepth 1 ! -path build/nxnative/README.md ! -path build/nxnative/unbuilt.json -printf '%P ')"
+          if [ ! -f build/nxnative/README.md ] || [ ! -f build/nxnative/unbuilt.json ] || [ -n "$OTHERS" ]; then
+            echo "::error::the page's folder holds more than README.md and unbuilt.json, or not them: $OTHERS"
             exit 1
           fi
           git init -q -b "$BRANCH" page
@@ -88,7 +90,8 @@ jobs:
             git reset -q --hard FETCH_HEAD
           fi
           cp ../build/nxnative/README.md README.md
-          git add README.md
+          cp ../build/nxnative/unbuilt.json unbuilt.json
+          git add README.md unbuilt.json
           PAGE="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/blob/$BRANCH/README.md"
           if git diff --cached --quiet; then
             echo "The page did not change since last week's: $PAGE" >> "$GITHUB_STEP_SUMMARY"

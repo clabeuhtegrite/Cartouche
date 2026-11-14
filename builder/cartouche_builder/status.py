@@ -6,7 +6,8 @@ one after the other, those asked for while it runs after the others), each
 game's stage and share done, the games built or failed, and the last lines
 it said. The games it was asked for are there from its start, waiting their
 turn while nxnative moves and the plan is made. A game not built says why
-(its cause, causes.py), after how long, and nxnative's exit code; a game
+(its cause, causes.py), after how long, and nxnative's exit code (one
+skipped for the room kept free, the room free and needed); a game
 says the nxnative commit it was built from, and whether that is an older one
 than the branch's newest, which does not build (fallback.py), as the batch
 does. A game also built for this Mac says how its Mac app went (mac:
@@ -65,6 +66,7 @@ class Game:
     cause: str = ""  # why it was not built (causes.py)
     exit: int | None = None  # nxnative's exit code, when it ran
     failure: dict = field(default_factory=dict)  # the exception, where and errno (failure.py)
+    room: dict = field(default_factory=dict)  # no room: the GB free and needed (batch.py)
     # Its Mac app (macapps.py): "" when the batch does not build it.
     platform: str = "ios"  # what its stage and progress are of now: "ios" (the IPA) or "mac"
     mac: str = ""  # waiting, building, built, failed, stopped, skipped
@@ -76,6 +78,7 @@ class Game:
     mac_duration: float = 0.0
     mac_log: str = ""
     mac_failure: dict = field(default_factory=dict)
+    mac_room: dict = field(default_factory=dict)  # as room, for its Mac app
 
 
 class Status:
@@ -204,6 +207,7 @@ class Status:
                 game.exit = value.get("exit")
                 game.duration = float(value.get("seconds") or 0.0)
                 game.failure = {k: value[k] for k in ("exception", "where", "errno") if value.get(k) is not None}
+                game.room = {k: value[k] for k in ("free_gb", "needed_gb") if value.get(k) is not None}
             elif kind == "progress":
                 game.stage, game.step, game.k, game.n = value.stage, value.step, value.k, value.n
                 game.frac, game.eta, game.note = value.frac, value.eta, value.note
@@ -252,12 +256,14 @@ class Status:
                 game.mac_exit = value.get("exit")
                 game.mac_duration = float(value.get("seconds") or 0.0)
                 game.mac_failure = {k: value[k] for k in ("exception", "where", "errno") if value.get(k) is not None}
+                game.mac_room = {k: value[k] for k in ("free_gb", "needed_gb") if value.get(k) is not None}
             elif kind == "mac_failed":
                 # Its IPA, built before it, stays built.
                 game.mac, game.mac_error, game.ended = "failed", str(value), now_iso()
                 if game.mac_only:
                     game.state, game.error = "failed", str(value)
                     game.cause, game.exit, game.duration, game.failure = game.mac_cause, game.mac_exit, game.mac_duration, dict(game.mac_failure)
+                    game.room = dict(game.mac_room)
                 else:
                     game.state = "built"
                 self.lines.append(f"{game.name}: {value}")
@@ -335,6 +341,7 @@ def _game_json(game: Game) -> dict:
         "cause": game.cause,
         "exit": game.exit,
         "failure": game.failure,
+        "room": game.room,
         "platform": game.platform,
         "mac": game.mac,
         "mac_only": game.mac_only,
@@ -345,6 +352,7 @@ def _game_json(game: Game) -> dict:
         "mac_duration": round(game.mac_duration, 1),
         "mac_log": game.mac_log,
         "mac_failure": game.mac_failure,
+        "mac_room": game.mac_room,
     }
 
 

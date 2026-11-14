@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import fcntl
 import json
+import math
 import os
 import shutil
 import sys
@@ -348,6 +349,11 @@ class Runner:
         ctx = self.ctx
         if self.check_tools and sys.platform == "darwin":
             missing = toolchain.blocking(toolchain.doctor(ctx.paths, ctx.engine.root))
+            # An Xcode older than nxnative's is there, but not the one it
+            # builds with: its own words say so.
+            outdated = [c for c in missing if c.key == "xcode" and c.found]
+            if outdated:
+                raise Blocked(outdated[0].fix)
             if missing:
                 raise Blocked(t("batch.tools_missing", tools=", ".join(t(f"check.{c.key}") for c in missing)))
         if self.python is None:
@@ -496,10 +502,12 @@ class Runner:
         result: builds.Result | None = None
         writing = workspace.root  # where it writes now, for a full disk's words
         try:
-            needed = ctx.config.min_free_gb + (game.size / 2**30 if game.kind == "zip" else 0)
+            unpacked = game.size / 2**30 if game.kind == "zip" else 0
+            needed = ctx.config.min_free_gb + unpacked
             room = self._make_room(workspace, needed, title_id)
             if room < needed:
-                raise _Skipped(t("batch.no_room", free=f"{room:.0f}", needed=f"{needed:.0f}"), "no_room")
+                raise _Skipped(disks.no_room(workspace.root, room, needed, unpacked, ctx.config.min_free_gb), "no_room",
+                               {"free_gb": math.floor(room), "needed_gb": math.ceil(needed)})
             keys = ctx.config.path("keys") if game.needs_keys else None
             if game.needs_keys and (keys is None or not keys.is_file()):
                 raise _Skipped(t("batch.needs_keys"), "keys")
@@ -581,9 +589,11 @@ class Runner:
                         raise _Stopped(result.error)
                     said = causes.told(result)
                     words = causes.words(result.cause, said, work)
-                    if result.cause == "no_space":
-                        # Not the game's failure: tried again next time.
-                        raise _Skipped(words or result.error, "no_space")
+                    if result.cause in ("no_space", "metal"):
+                        # Not the game's failure, but the Mac's (a full disk, an
+                        # Xcode nxnative's shaders were not tested with): tried
+                        # again next time.
+                        raise _Skipped(words or result.error, result.cause)
                     raise _Failed(words or result.error, result.cause)
                 # What is delivered is this build's IPA, never one an earlier build left.
                 after = _identity(out)
@@ -642,12 +652,12 @@ class Runner:
                  print_: str, identity: str, log_path: Path, writing: Path | None, mac: bool = False) -> bool:
         """ERROR kept the game's IPA from building, or its Mac app (MAC):
         recorded as failed, skipped (not the game's failure: no room, no
-        keys, a full disk, tried again next time) or stopped. False for an
-        error that is no build's, which goes on up."""
+        keys, a full disk, the Mac's Xcode, tried again next time) or
+        stopped. False for an error that is no build's, which goes on up."""
         if isinstance(error, _Stopped):
             how, message, cause, details = "stopped", str(error), "stopped", {}
         elif isinstance(error, _Skipped):
-            how, message, cause, details = "skipped", str(error), error.cause, {}
+            how, message, cause, details = "skipped", str(error), error.cause, error.details
         elif isinstance(error, (_Failed, OSError, ValueError, RuntimeError, InterruptedError)):
             if isinstance(error, _Failed):
                 message, cause, details = str(error), error.cause, {}
@@ -713,7 +723,8 @@ class Runner:
                 needed = ctx.config.min_free_gb
                 room = self._make_room(ctx.workspace, needed, title_id)
                 if room < needed:
-                    raise _Skipped(t("mac.no_room", free=f"{room:.0f}", needed=f"{needed:.0f}"), "no_room")
+                    raise _Skipped(t("mac.no_room", free=math.floor(room), needed=math.ceil(needed)), "no_room",
+                                   {"free_gb": math.floor(room), "needed_gb": math.ceil(needed)})
             out.parent.mkdir(parents=True, exist_ok=True)
             # The app's files are clones of the extracted ones: nxnative keeps
             # them whatever it is asked.
@@ -734,8 +745,11 @@ class Runner:
                     raise _Stopped(result.error)
                 said = causes.told(result)
                 words = causes.words(result.cause, said, work)
-                if result.cause == "no_space":
-                    raise _Skipped(words or result.error, "no_space")
+                if result.cause in ("no_space", "metal"):
+                    # Not the game's failure, but the Mac's (a full disk, an
+                    # Xcode nxnative's shaders were not tested with): tried
+                    # again next time.
+                    raise _Skipped(words or result.error, result.cause)
                 raise _Failed(words or result.error, result.cause)
             info = macapps.read_info(out)
             if info is None or info.title_id != title_id:
@@ -887,12 +901,20 @@ class Runner:
         self.on_event("mac_attempt" if mac else "attempt", title_id, attempt)
 
     def _batch_folders(self, workspace: Workspace) -> set[Path]:
-        return {workspace.build_folder(e.title_id) for e in self.entries}
+        """The build folders this batch still needs: those of its games
+        waiting or building, whose caches make their build faster. Those of
+        its games that ended (built, failed, skipped) may go as older ones
+        do: a game that failed after hours of shaders keeps a large folder,
+        which left no room for the games after it."""
+        with self._turns:
+            needed = {e.title_id for e in self._pending} | self._building
+        return {workspace.build_folder(title_id) for title_id in needed}
 
     def _make_room(self, workspace: Workspace, needed_gb: float, title_id: str) -> float:
-        """The room in the workspace, after removing the build folders of the
-        games built longest ago (not this batch's) while it is under NEEDED_GB:
-        their caches make a build faster, the disk filling up stops it."""
+        """The room in the workspace, after removing the build folders used
+        longest ago while it is under NEEDED_GB, never those of this batch's
+        games still waiting or building (_batch_folders): their caches make a
+        build faster, the disk filling up stops it."""
         room = free_gb(workspace.root)
         if room >= needed_gb:
             return room
@@ -989,9 +1011,33 @@ class _Stopped(Exception):
 
 
 class _Skipped(Exception):
-    def __init__(self, message: str, cause: str):
+    def __init__(self, message: str, cause: str, details: dict | None = None):
         super().__init__(message)
         self.cause = cause
+        # What the app's measurements may send of it: numbers, no words.
+        self.details = details or {}
+
+
+def unbuilt(paths: Paths) -> set[str]:
+    """The title IDs of the games no Mac built, from the app's copy of the
+    weekly list (Unbuilt.swift, telemetry/nxnative.py): those at least three
+    Macs tried in the last four weeks, none of them built. Empty while the
+    app has not fetched it."""
+    try:
+        games = json.loads(paths.unbuilt.read_text(encoding="utf-8")).get("games", [])
+        return {g["titleId"].upper() for g in games if isinstance(g, dict) and isinstance(g.get("titleId"), str) and len(g["titleId"]) == 16}
+    except (OSError, ValueError, AttributeError, TypeError):
+        return set()
+
+
+def left_aside(entries: list[Entry], paths: Paths) -> list[Entry]:
+    """Of ENTRIES, the games a nightly run leaves aside: never built on this
+    Mac, and on the list of the games no Mac built. On 14 November 2026,
+    Pokopia had failed eight times on four Macs, after up to eight hours, a
+    night each time nxnative moved. The player still builds one when asking
+    for it, after the app's question."""
+    aside = unbuilt(paths)
+    return [e for e in entries if e.title_id in aside and "new" in e.reasons and "forced" not in e.reasons]
 
 
 def run_due(ctx: Context, update: bool = True, force: set[str] | None = None, only: set[str] | None = None, python: Path | None = None, on_event=None, stop=None, check_tools: bool = True, log=None, scheduled: bool = False, wait: float = 0.0) -> tuple[Plan, Summary]:
@@ -1029,6 +1075,11 @@ def run_due(ctx: Context, update: bool = True, force: set[str] | None = None, on
             say(t("batch.preparing"))
             result = survey(ctx, update=update, force=force, log=say)
             entries = [e for e in result.entries if e.build and (not only or e.title_id in only)]
+            if scheduled:
+                aside = left_aside(entries, ctx.paths)
+                for entry in aside:
+                    say(t("batch.unbuilt", name=entry.game.display_name))
+                entries = [e for e in entries if e.title_id not in {a.title_id for a in aside}]
             status.planned(result.head, entries)
             runner = Runner(ctx, result, entries, python=python, on_event=follow, stop=stop, check_tools=check_tools)
             summary = runner.run(close=close)

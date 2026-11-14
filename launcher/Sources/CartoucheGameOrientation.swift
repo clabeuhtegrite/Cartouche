@@ -3,12 +3,12 @@
 //  Cartouche
 //
 //  Which ways the screen of a game behind the console turns
-//  (CartoucheGameHost): as the game's Info.plist allows, by its
-//  UISupportedInterfaceOrientations, the iPhone's or the iPad's own list
-//  first, as iOS reads them, and never upside down on an iPhone, as
-//  Cartouche itself. nxnative's games turn sideways only on an iPhone, to
-//  the left and to the right; on an iPad, those built since nxnative's
-//  e2fadf2 (4 November 2026) turn every way, by their
+//  (CartoucheGameHost). First, the ways the game allows, as its Info.plist
+//  says by its UISupportedInterfaceOrientations, the iPhone's or the iPad's
+//  own list first, as iOS reads them, and never upside down on an iPhone,
+//  as Cartouche itself. nxnative's games allow sideways only on an iPhone,
+//  to the left and to the right; on an iPad, those built since nxnative's
+//  e2fadf2 (4 November 2026) allow every way, by their
 //  UISupportedInterfaceOrientations~ipad, with a layout for an upright
 //  screen, and those built before sideways only. A game whose Info.plist
 //  names none turns as Cartouche does: upright or sideways on an iPhone,
@@ -18,7 +18,15 @@
 //  LiveContainer has written it again. LiveContainer's info() is not it:
 //  those are LiveContainer's own settings for the game (LCAppInfo.plist),
 //  which name no orientation, so that a game made to be played sideways
-//  turned upright with the iPhone.
+//  turned upright with the iPhone, whether it could be played upright or not.
+//
+//  Then, behind the console, an iPhone turns the screen of a game that lays
+//  itself out upright, upright too, as the player holds it, while the
+//  game's picture is on the iPhone (behindTheConsole(isPad:laysOutUpright:
+//  pictureOnTV:)). In Cartouche's place, iOS turns the game as its own
+//  Info.plist allows, and Cartouche's code in the game's process makes it
+//  allow upright too, by the same rule (launcher/Guest/
+//  CartoucheUprightGame.m).
 //
 //  An iPhone turns the screen only the ways it allows. An iPad turns
 //  Cartouche's scenes as it is held, whatever a game allows: the screen
@@ -74,6 +82,32 @@ extension CartoucheGameOrientations {
         let data = try? Data(contentsOf: bundle.appendingPathComponent("Info.plist"))
         let info = data.flatMap { try? PropertyListSerialization.propertyList(from: $0, format: nil) } as? [String: Any]
         self.init(info: info ?? [:], isPad: isPad)
+    }
+
+    /// Whether the app installed at BUNDLE lays itself out upright, in a
+    /// view taller than wide: whether its Info.plist allows it upright on an
+    /// iPad. nxnative's games do since its commit e2fadf2 of 4 November
+    /// 2026, which lays their picture above their controls there (DmLayout)
+    /// and lists every way for an iPad, but sideways only for an iPhone, so
+    /// that their own app stays sideways on one. A game built before allows
+    /// sideways only, on an iPad too: upright, its picture would stay in the
+    /// middle of the screen, its controls laid out to be held sideways.
+    static func laysOutUpright(bundle: URL) -> Bool {
+        CartoucheGameOrientations(bundle: bundle, isPad: true).contains(.portrait)
+    }
+
+    /// The ways the screen of a game behind the console turns, for a game
+    /// that allows these. On an iPhone, upright too for a game that lays
+    /// itself out upright (LAYSOUTUPRIGHT, laysOutUpright(bundle:)), as the
+    /// player holds the iPhone: its picture above, its controls under it, as
+    /// the inner display of the iPhone Duo shows it, which iOS turns as it is
+    /// held whatever the game allows. Not while the game's picture is on a TV
+    /// (PICTUREONTV): nxnative leaves the iPhone its controls alone, laid out
+    /// to be held sideways. On an iPad, as the game allows: every way for a
+    /// game that lays itself out upright.
+    func behindTheConsole(isPad: Bool, laysOutUpright: Bool, pictureOnTV: Bool) -> CartoucheGameOrientations {
+        guard !isPad, laysOutUpright, !pictureOnTV else { return self }
+        return union(.portrait)
     }
 
     /// Whether the screen of a game that allows these orientations keeps the

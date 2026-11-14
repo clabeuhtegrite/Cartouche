@@ -254,5 +254,10 @@
   "language": "en",
   "notes": [],
   "problems": [],
+  "room": {
+    "folders": 1,
+    "free_gb": 29,
+    "keep_gb": 0
+  },
   "updated": false
 }

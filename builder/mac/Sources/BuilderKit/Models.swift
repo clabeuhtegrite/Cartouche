@@ -109,18 +109,21 @@ public struct Library: Codable, Equatable {
     public var updated: Bool?
     public var language: String?
     public var folders: Folders?
+    /// The room the next build has on the build folders' disk.
+    public var room: LibraryRoom?
     public var engine: EngineCommit?
     public var problems: [String]
     public var issues: [String]
     public var notes: [Note]
     public var games: [Game]
 
-    public init(checked: String? = nil, updated: Bool? = nil, language: String? = nil, folders: Folders? = nil, engine: EngineCommit? = nil,
-                problems: [String] = [], issues: [String] = [], notes: [Note] = [], games: [Game] = []) {
+    public init(checked: String? = nil, updated: Bool? = nil, language: String? = nil, folders: Folders? = nil, room: LibraryRoom? = nil,
+                engine: EngineCommit? = nil, problems: [String] = [], issues: [String] = [], notes: [Note] = [], games: [Game] = []) {
         self.checked = checked
         self.updated = updated
         self.language = language
         self.folders = folders
+        self.room = room
         self.engine = engine
         self.problems = problems
         self.issues = issues
@@ -128,7 +131,7 @@ public struct Library: Codable, Equatable {
         self.games = games
     }
 
-    enum CodingKeys: String, CodingKey { case checked, updated, language, folders, engine, problems, issues, notes, games }
+    enum CodingKeys: String, CodingKey { case checked, updated, language, folders, room, engine, problems, issues, notes, games }
 
     public init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
@@ -136,6 +139,7 @@ public struct Library: Codable, Equatable {
         updated = try c.decodeIfPresent(Bool.self, forKey: .updated)
         language = try c.decodeIfPresent(String.self, forKey: .language)
         folders = try c.decodeIfPresent(Folders.self, forKey: .folders)
+        room = try? c.decodeIfPresent(LibraryRoom.self, forKey: .room)
         engine = try c.decodeIfPresent(EngineCommit.self, forKey: .engine)
         problems = try c.decodeIfPresent([String].self, forKey: .problems) ?? []
         issues = try c.decodeIfPresent([String].self, forKey: .issues) ?? []
@@ -148,6 +152,55 @@ public struct Library: Codable, Equatable {
 
     public func game(_ titleID: String) -> Game? {
         games.first { $0.titleID == titleID }
+    }
+}
+
+/// The room the next build has on the build folders' disk, before one
+/// starts (cartouche_builder/disks.py, room): what is free and what the
+/// settings keep free, in whole gigabytes, how many build folders the
+/// builder removes first, and when it falls short, the card's words.
+public struct LibraryRoom: Codable, Equatable {
+    public var freeGB: Double?
+    public var keepGB: Double?
+    public var folders: Int?
+    public var title: String?
+    public var text: String?
+
+    enum CodingKeys: String, CodingKey {
+        case folders, title, text
+        case freeGB = "free_gb"
+        case keepGB = "keep_gb"
+    }
+
+    public init(freeGB: Double? = nil, keepGB: Double? = nil, folders: Int? = nil, title: String? = nil, text: String? = nil) {
+        self.freeGB = freeGB
+        self.keepGB = keepGB
+        self.folders = folders
+        self.title = title
+        self.text = text
+    }
+
+    /// The card's title and words, when the room falls short.
+    public var shortfall: (title: String, text: String)? {
+        guard let title, let text, !title.isEmpty, !text.isEmpty else { return nil }
+        return (title, text)
+    }
+}
+
+/// A game skipped for the room kept free: the gigabytes free on the build
+/// folders' disk and those a build needs (cartouche_builder/batch.py).
+public struct RoomFigures: Codable, Equatable {
+    public var freeGB: Double?
+    public var neededGB: Double?
+
+    enum CodingKeys: String, CodingKey {
+        case freeGB = "free_gb"
+        case neededGB = "needed_gb"
+    }
+
+    public init(freeGB: Double? = nil, neededGB: Double? = nil) {
+        self.freeGB = freeGB
+        self.neededGB = neededGB
     }
 }
 
@@ -554,11 +607,14 @@ public struct GameProgress: Codable, Equatable {
     public var cause: String?
     public var exit: Int?
     public var failure: FailureDetails?
+    /// Skipped for the room kept free: the gigabytes free and needed.
+    public var room: RoomFigures?
     /// Its app for this Mac, when the batch builds it (status.py): "mac"
     /// when its stage and progress are of the Mac app, not of its IPA;
     /// how its Mac app went (waiting, building, built, failed, stopped,
     /// skipped), after its IPA or alone (macOnly, its state then being
-    /// the Mac app's), and why it was not built, as for its IPA.
+    /// the Mac app's), and why it was not built, as for its IPA, with the
+    /// room free and needed when the room kept free stopped it.
     public var platform: String?
     public var mac: String?
     public var macOnly: Bool?
@@ -569,10 +625,11 @@ public struct GameProgress: Codable, Equatable {
     public var macDuration: Double?
     public var macLog: String?
     public var macFailure: FailureDetails?
+    public var macRoom: RoomFigures?
 
     enum CodingKeys: String, CodingKey {
         case name, reasons, detail, state, stage, step, k, n, frac, overall, eta, note, message, started, ended, error, log, ipa, duration
-        case commit, fallback, cause, exit, failure, platform, mac
+        case commit, fallback, cause, exit, failure, room, platform, mac
         case titleID = "title_id"
         case macOnly = "mac_only"
         case macApp = "mac_app"
@@ -582,6 +639,7 @@ public struct GameProgress: Codable, Equatable {
         case macDuration = "mac_duration"
         case macLog = "mac_log"
         case macFailure = "mac_failure"
+        case macRoom = "mac_room"
     }
 
     public init(titleID: String, name: String, state: String, stage: String? = nil, k: Int? = nil, n: Int? = nil, frac: Double? = nil,
@@ -928,6 +986,9 @@ public struct Doctor: Codable, Equatable {
     public var checks: [Check]
     public var ready: Bool
     public var engine: Bool?
+    /// The Xcode nxnative builds the shaders with ("27.2"), as its checkout
+    /// says (cartouche_builder/toolchain.py, wanted_xcode).
+    public var xcode: String?
 }
 
 public struct BuilderConfig: Codable, Equatable {

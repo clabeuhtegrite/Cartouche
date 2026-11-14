@@ -1,5 +1,5 @@
 {
-  "about": "The launcher's files that Cartouche's console on the Mac does not link (builder/mac/Sources/CartoucheConsole/Shared), each with why: 'iphone', the iPhone's alone; 'mac', the Mac has its own, named; 'later', it comes to the Mac at that step of the plan (docs/decisions.md, 95). A new file of the launcher is linked in Shared, or listed here: app/tests/test_mac_console.py checks it.",
+  "about": "The launcher's files that Cartouche's console on the Mac does not link (builder/mac/Sources/CartoucheConsole/Shared), each with why: 'iphone', the iPhone's alone; 'mac', the Mac has its own, named; 'later', it comes to the Mac at that step of the plan (docs/decisions/095.md). A new file of the launcher is linked in Shared, or listed here: app/tests/test_mac_console.py checks it.",
   "files": {
     "CartoucheAccount.swift": {
       "kind": "iphone",

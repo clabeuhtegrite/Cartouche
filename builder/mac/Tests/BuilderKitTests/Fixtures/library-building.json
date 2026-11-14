@@ -196,6 +196,7 @@
         "mac_failure": {},
         "mac_log": "",
         "mac_only": false,
+        "mac_room": {},
         "message": "",
         "n": 2,
         "name": "Mario Kart World",
@@ -205,6 +206,7 @@
         "reasons": [
           "named"
         ],
+        "room": {},
         "stage": "shaders",
         "started": "2026-11-13T21:49:05+00:00",
         "state": "building",
@@ -325,5 +327,10 @@
   "language": "en",
   "notes": [],
   "problems": [],
+  "room": {
+    "folders": 1,
+    "free_gb": 29,
+    "keep_gb": 0
+  },
   "updated": false
 }

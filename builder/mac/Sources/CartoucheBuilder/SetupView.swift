@@ -193,7 +193,7 @@ struct SetupRow: View {
     private var buttonText: String {
         switch item {
         case .mac: return tr("Update macOS", "Mettre à jour macOS")
-        case .xcode: return tr("Get Xcode", "Obtenir Xcode")
+        case .xcode: return setup.outdatedXcode != nil ? tr("Update Xcode", "Mettre à jour Xcode") : tr("Get Xcode", "Obtenir Xcode")
         case .xcodeReady: return tr("Finish", "Terminer")
         case .iosPlatform, .metal, .nxnative: return tr("Download", "Télécharger")
         case .homebrew, .tools: return tr("Install", "Installer")

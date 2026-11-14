@@ -34,6 +34,9 @@ public struct BuilderHome: Equatable, Sendable {
     public var status: URL { root.appendingPathComponent("status.json") }
     public var queue: URL { root.appendingPathComponent("queue.json") }
     public var library: URL { root.appendingPathComponent("library.json") }
+    /// The games no Mac built, as the app last fetched them (Unbuilt.swift):
+    /// the nightly run leaves aside those this Mac never built either.
+    public var unbuilt: URL { root.appendingPathComponent("unbuilt.json") }
     public var bridge: URL { root.appendingPathComponent("bridge.json") }
     public var logs: URL { root.appendingPathComponent("logs", isDirectory: true) }
     public var engine: URL { root.appendingPathComponent("nxnative", isDirectory: true) }

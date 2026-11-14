@@ -183,6 +183,36 @@ final class EngineAnswerTests: XCTestCase {
         XCTAssertEqual(try answer(ConfigAnswer.self, "config-nas").builder.macPacked, true)
     }
 
+    /// The room on the build folders' disk, said before a build would be
+    /// skipped for it (disks.py, room): the card only when it falls short.
+    func testTheLibrarySaysTheRoomBeforeABuild() throws {
+        let short = try XCTUnwrap(try answer(Library.self, "library").room)
+        XCTAssertEqual(short.freeGB, 13)
+        XCTAssertEqual(short.keepGB, 20)
+        XCTAssertEqual(short.folders, 2)
+        XCTAssertEqual(short.shortfall?.title, "7 GB missing to build")
+        XCTAssertTrue(short.shortfall?.text.hasPrefix("Cartouche Builder starts a build only with 20 GB free on your Mac's disk") ?? false)
+        let enough = try XCTUnwrap(try answer(Library.self, "library-building").room)
+        XCTAssertNil(enough.shortfall)
+        // A disk that cannot be read (a share not connected), or an engine
+        // older than the card: no card.
+        let line = #"{"api": 1, "games": [], "room": null}"#
+        XCTAssertNil(try Engine.decode(Library.self, from: RunResult(status: 0, output: Data(line.utf8))).room)
+        let odd = #"{"api": 1, "games": [], "room": "13 GB"}"#
+        XCTAssertNil(try Engine.decode(Library.self, from: RunResult(status: 0, output: Data(odd.utf8))).room)
+    }
+
+    /// The Xcode nxnative builds the shaders with, as its checkout says
+    /// (toolchain.py, wanted_xcode): the page "This Mac's tools" asks for it.
+    func testTheDoctorSaysTheXcodeNxnativeWants() throws {
+        let line = #"{"api": 1, "ready": false, "engine": true, "xcode": "27.2", "checks": [{"key": "xcode", "label": "Xcode", "ok": false, "found": "27.1 (27B44)", "fix": "Xcode 27.1 is older than Xcode 27.2.", "command": "", "blocking": true}]}"#
+        let doctor = try Engine.decode(Doctor.self, from: RunResult(status: 0, output: Data(line.utf8)))
+        XCTAssertEqual(doctor.xcode, "27.2")
+        XCTAssertEqual(doctor.checks.first?.blocking, true)
+        let older = #"{"api": 1, "ready": true, "checks": []}"#
+        XCTAssertNil(try Engine.decode(Doctor.self, from: RunResult(status: 0, output: Data(older.utf8))).xcode)
+    }
+
     func testAGameBeingBuiltHasItsProgress() throws {
         let library = try answer(Library.self, "library-building")
         let building = try XCTUnwrap(library.game("0400C3F00006E000"))

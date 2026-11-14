@@ -236,11 +236,15 @@ def library(ctx: batch.Context, update: bool = False) -> dict:
     """Every game of the sources and of the games folder, as the app shows them."""
     status = statuses.read(ctx.paths)
     running = bool(status and status.get("running"))
+    workspace = ctx.workspace
     data: dict = {
         "checked": now_iso(),
         "updated": False,
         "language": language(),
         "folders": folders(ctx),
+        # The room the next build has, which says before a game is skipped
+        # for it what is missing (batch.py, _make_room).
+        "room": disks.room(workspace.root, ctx.config.min_free_gb, len(workspace.noted())),
         "engine": None,
         "problems": [],
         "issues": [],
@@ -596,7 +600,8 @@ def clean(ctx: batch.Context, what: str, paths: list[str]) -> dict:
 
 
 def doctor(ctx: batch.Context) -> dict:
-    checks = toolchain.doctor(ctx.paths, ctx.engine.root if ctx.engine.present else None)
+    root = ctx.engine.root if ctx.engine.present else None
+    checks = toolchain.doctor(ctx.paths, root)
     return {
         "checks": [
             {"key": c.key, "label": t(f"check.{c.key}"), "ok": c.ok, "found": c.found, "fix": c.fix, "command": c.command, "blocking": c.blocking}
@@ -604,6 +609,9 @@ def doctor(ctx: batch.Context) -> dict:
         ],
         "ready": not toolchain.blocking(checks),
         "engine": ctx.engine.present,
+        # The Xcode nxnative builds the shaders with: the app's setup asks
+        # to update an older one before any build (MacSetup.swift).
+        "xcode": toolchain.wanted_xcode(root),
     }
 
 

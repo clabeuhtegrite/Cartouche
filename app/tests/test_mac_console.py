@@ -42,7 +42,7 @@ CATALOG = LAUNCHER / "Cartouche.xcstrings"
 MAC_STRINGS = ROOT / "builder" / "mac" / "console" / "strings.json"
 UNSHARED = ROOT / "builder" / "mac" / "console" / "unshared.json"
 MAC_SOURCES = ROOT / "builder" / "mac" / "Sources"
-PLAN_STEPS = range(5, 10)  # the plan's steps still to come after this one (docs/decisions.md, 95)
+PLAN_STEPS = range(5, 10)  # the plan's steps still to come after this one (docs/decisions/095.md)
 WRITER = ROOT / "builder" / "mac" / "console" / "strings.py"
 LANGUAGES = ("en", "fr")
 

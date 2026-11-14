@@ -107,6 +107,12 @@ final class AppModel: ObservableObject {
     @Published private(set) var config: BuilderConfig?
     @Published private(set) var info: BuilderInfo?
     @Published private(set) var checking = false
+    /// The games no Mac built (Unbuilt.swift), by title ID: their sheet
+    /// says so, and a build of one asks first (askUnbuilt).
+    @Published var unbuilt: [String: UnbuiltGame] = [:]
+    /// A build asked for that holds games no Mac built: it waits for the
+    /// player's answer (ContentView).
+    @Published var askUnbuilt: UnbuiltAsk?
     @Published private(set) var loadingStorage = false
     @Published private(set) var cleaning = false
     @Published private(set) var bundling = false
@@ -188,6 +194,7 @@ final class AppModel: ObservableObject {
         await refreshLibrary(update: stale && setup.ready)
         checkRegularly()
         telemetry.event("builder.opened", fields: openedFields())
+        unbuilt = await UnbuiltGames.load(home)
     }
 
     /// What the app says of this Mac and its setup as it opens: counts and
@@ -374,13 +381,61 @@ final class AppModel: ObservableObject {
     /// while an IPA is being imported.
     var canBuild: Bool { engine != nil && setup.ready && !bundling }
 
+    /// A build asked for that holds games no Mac built (NEVER): the player
+    /// builds them anyway, the OTHERS alone, or nothing.
+    struct UnbuiltAsk: Identifiable {
+        let id = UUID()
+        /// As build() was asked: the games (what is due when empty), and FORCE.
+        let games: [String]
+        let force: Bool
+        let never: [Game]
+        let others: [String]
+
+        var title: String {
+            never.count == 1 ? tr("Build \(never[0].name) anyway?", "Construire \(never[0].name) quand même ?")
+                : tr("Build these \(never.count) games anyway?", "Construire ces \(never.count) jeux quand même ?")
+        }
+    }
+
+    /// Of GAMES (what is due when empty), those no Mac built that this one
+    /// did not build either.
+    func neverBuilt(_ games: [String]) -> [Game] {
+        let asked = games.isEmpty ? dueOutsideBatch.map(\.titleID) : games
+        return asked.compactMap { titleID in
+            guard unbuilt[titleID] != nil, let game = library?.game(titleID), game.build == nil else { return nil }
+            return game
+        }
+    }
+
+    /// What the question says of each game no Mac built.
+    func unbuiltMessage(_ ask: UnbuiltAsk) -> String {
+        ask.never.map { game in
+            let macs = unbuilt[game.titleID]?.macs ?? 0
+            return tr("No Mac has built \(game.name) yet: its builds failed on \(macs) Macs in the last 4 weeks",
+                      "Aucun Mac n’a encore construit \(game.name) : ses constructions ont échoué sur \(macs) Mac ces 4 dernières semaines")
+                + (unbuilt[game.titleID]?.hours.map { tr(", after about \(UnbuiltGames.hoursText($0)) hours", ", après \(UnbuiltGames.hoursText($0)) h environ") } ?? "")
+                + "."
+        }.joined(separator: "\n")
+    }
+
     /// Builds GAMES (what is due when empty), again with FORCE. While a batch
     /// runs, or starts, they wait their turn in it, built after its own games.
-    func build(_ games: [String] = [], force: Bool = false) {
+    /// Games no Mac built are asked about first, unless CONFIRMED.
+    func build(_ games: [String] = [], force: Bool = false, confirmed: Bool = false) {
         guard !sample, !bundling else { return }
         guard engine != nil else {
             section = .setup
             return
+        }
+        if !confirmed {
+            let never = neverBuilt(games)
+            if !never.isEmpty {
+                let asked = games.isEmpty ? dueOutsideBatch.map(\.titleID) : games
+                let left = Set(never.map(\.titleID))
+                askUnbuilt = UnbuiltAsk(games: games, force: force, never: never, others: asked.filter { !left.contains($0) })
+                showMainWindow()
+                return
+            }
         }
         if status?.running == true || starting != nil || enqueueing {
             let wanted = games.isEmpty ? dueOutsideBatch.map(\.titleID) : games.filter { progress($0) == nil }
@@ -677,6 +732,7 @@ final class AppModel: ObservableObject {
                 try? await Task.sleep(nanoseconds: UInt64(AppModel.checkInterval * 1_000_000_000))
                 guard let self, !Task.isCancelled else { return }
                 if !self.isBuilding, self.setup.ready { await self.refreshLibrary(update: true) }
+                self.unbuilt = await UnbuiltGames.load(self.home)
             }
         }
     }
@@ -1090,10 +1146,12 @@ final class AppModel: ObservableObject {
     // MARK: The gallery
 
     /// A model with sample games, for the gallery's pictures.
-    static func sampled(library: Library, status: BatchStatus?, storage: StorageReport?, config: BuilderConfig, info: BuilderInfo?) -> AppModel {
+    static func sampled(library: Library, status: BatchStatus?, storage: StorageReport?, config: BuilderConfig, info: BuilderInfo?,
+                        unbuilt: [String: UnbuiltGame] = [:]) -> AppModel {
         let home = BuilderHome(FileManager.default.temporaryDirectory.appendingPathComponent("cartouche-builder-gallery"))
         let model = AppModel(home: home, sample: true)
         model.library = library
+        model.unbuilt = unbuilt
         model.status = status
         model.storage = storage
         model.config = config
