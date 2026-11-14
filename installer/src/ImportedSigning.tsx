@@ -45,19 +45,24 @@ export function ImportedSigning({ value, onChange, summary, onProfileChecked }: 
       if (current === request.current) setCheckingProfile(false);
     }
   }
-  return <div className="credentials-container">
-    <p>{t("signing.hint")}</p>
-    <button onClick={() => choose("p12Path", "p12")}>{t("signing.choose_p12")}</button>
-    {value.p12Path && <span>{value.p12Path.split(/[\\/]/).pop()}</span>}
-    <button onClick={() => choose("profilePath", "mobileprovision")}>{t("signing.choose_profile")}</button>
-    {value.profilePath && <span>{value.profilePath.split(/[\\/]/).pop()}</span>}
-    {checkingProfile && <p role="status">{t("signing.profile_checking")}</p>}
-    {profileError && <p role="alert">{t("signing.profile_invalid")}</p>}
+  const fileName = (path: string) => path.split(/[\\/]/).pop();
+  // Laid out as the Apple Account's form; what it is for, the step says above.
+  return <div className="credentials-container signing-files">
+    <div className="file-choice">
+      <button type="button" onClick={() => choose("p12Path", "p12")}>{t("signing.choose_p12")}</button>
+      {value.p12Path && <span className="chosen-file">{fileName(value.p12Path)}</span>}
+    </div>
+    <div className="file-choice">
+      <button type="button" onClick={() => choose("profilePath", "mobileprovision")}>{t("signing.choose_profile")}</button>
+      {value.profilePath && <span className="chosen-file">{fileName(value.profilePath)}</span>}
+    </div>
+    {checkingProfile && <p role="status" className="step-hint">{t("signing.profile_checking")}</p>}
+    {profileError && <p role="alert" className="signing-alert">{t("signing.profile_invalid")}</p>}
     {summary?.profilePath === value.profilePath && summary.otherApp &&
-      <p role="alert">{t("signing.profile_other_app", { app: summary.otherApp })}</p>}
+      <p role="alert" className="signing-alert">{t("signing.profile_other_app", { app: summary.otherApp })}</p>}
     {summary?.profilePath === value.profilePath && !summary.otherApp && !summary.increasedMemoryLimit &&
-      <p role="alert">{t("signing.no_memory_limit")}</p>}
-    <label>
+      <p role="alert" className="signing-alert warning">{t("signing.no_memory_limit")}</p>}
+    <label className="signing-password">
       {t("signing.password")}
       <input type="password" autoComplete="off" value={value.password}
         onChange={event => onChange({ ...value, password: event.target.value })} />
