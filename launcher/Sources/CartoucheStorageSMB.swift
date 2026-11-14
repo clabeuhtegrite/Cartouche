@@ -8,8 +8,47 @@
 //  Paths are from the shared folder's root, with "/" between folders.
 //
 
-#if canImport(SMBClient)
 import Foundation
+
+/// Why an SMB server did not sign the player in, in Cartouche's words, by
+/// the status it answered the sign-in with (an NTSTATUS, MS-ERREF 2.3.1).
+/// SMBClient's own words are "Logon Failure" for a user name or a password
+/// refused, which told a player nothing of what to do, and "Unknown error"
+/// for an account the server holds back, as Samba answers for one turned
+/// off, locked, or whose password must change. These are the statuses
+/// CartoucheFailure counts as the player's credentials refused
+/// (storageCredentials). Outside of SMBClient, for the gallery to show them.
+enum CartoucheSMBRefusal {
+    /// STATUS_LOGON_FAILURE, STATUS_NO_SUCH_USER, STATUS_WRONG_PASSWORD.
+    static let nameOrPassword: Set<UInt32> = [0xC000_006D, 0xC000_0064, 0xC000_006A]
+    /// STATUS_ACCOUNT_LOCKED_OUT: after too many wrong passwords, as Windows
+    /// 11 does after ten, for ten minutes.
+    static let lockedOut: UInt32 = 0xC000_0234
+    /// STATUS_ACCOUNT_DISABLED, STATUS_ACCOUNT_EXPIRED,
+    /// STATUS_PASSWORD_EXPIRED, STATUS_PASSWORD_MUST_CHANGE,
+    /// STATUS_ACCOUNT_RESTRICTION (on Windows, an account without a
+    /// password, which signs in only at the PC itself),
+    /// STATUS_INVALID_LOGON_HOURS, STATUS_INVALID_WORKSTATION.
+    static let heldBack: Set<UInt32> = [0xC000_0072, 0xC000_0193, 0xC000_0071, 0xC000_0224,
+                                        0xC000_006E, 0xC000_006F, 0xC000_0070]
+
+    /// The words for STATUS, or nil when the server did not refuse the
+    /// account. GUEST: the player gave no user name, to sign in as a guest.
+    static func reason(_ status: UInt32, guest: Bool) -> String? {
+        if nameOrPassword.contains(status) {
+            return guest ? CartoucheText.storageSMBNoGuests : CartoucheText.storageSMBRefused
+        }
+        if status == lockedOut {
+            return CartoucheText.storageSMBLocked
+        }
+        if heldBack.contains(status) {
+            return CartoucheText.storageSMBHeldBack
+        }
+        return nil
+    }
+}
+
+#if canImport(SMBClient)
 import SMBClient
 
 final class CartoucheSMB: CartoucheRemote {
@@ -54,7 +93,7 @@ final class CartoucheSMB: CartoucheRemote {
                                        password: password.isEmpty ? nil : password)
             }
         } catch {
-            throw CartoucheStorageError(.signInFailed, CartoucheText.storageSignInFailed(server.host, error.localizedDescription), underlying: error)
+            throw signInFailed(server, error)
         }
         var shareAccess: UInt32 = 0
         if !server.share.isEmpty {
@@ -63,6 +102,16 @@ final class CartoucheSMB: CartoucheRemote {
             }
         }
         return CartoucheSMB(client: client, shareAccess: shareAccess)
+    }
+
+    /// SERVER did not sign the player in, with ERROR: the account refused in
+    /// Cartouche's words (CartoucheSMBRefusal), anything else in SMBClient's.
+    static func signInFailed(_ server: CartoucheStorageServer, _ error: Error) -> CartoucheStorageError {
+        let refusal = (error as? ErrorResponse).flatMap {
+            CartoucheSMBRefusal.reason($0.header.status, guest: server.username.isEmpty)
+        }
+        return CartoucheStorageError(.signInFailed, CartoucheText.storageSignInFailed(server.host, refusal ?? error.localizedDescription),
+                                     underlying: error)
     }
 
     /// Opens the connection to SERVER, before a word is said on it. A server
@@ -131,7 +180,7 @@ final class CartoucheSMB: CartoucheRemote {
             try await client.login(username: server.username.isEmpty ? nil : server.username,
                                    password: password.isEmpty ? nil : password)
         } catch {
-            throw CartoucheStorageError(.signInFailed, CartoucheText.storageSignInFailed(server.host, error.localizedDescription), underlying: error)
+            throw signInFailed(server, error)
         }
         defer { Task { _ = try? await client.logoff() } }
         return try await listShares(client)

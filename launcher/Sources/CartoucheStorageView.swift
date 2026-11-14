@@ -384,9 +384,22 @@ struct CartoucheStorageServerForm: View {
     @Environment(\.dismiss) private var dismiss
     private let isNew: Bool
 
+    #if CARTOUCHE_GALLERY
+    /// What the launcher's gallery (launcher/Gallery) shows on the form once
+    /// the player signed in: the password typed, and why the server did not
+    /// sign them in.
+    static var gallery: (password: String, problem: CartoucheReport?)?
+    #endif
+
     init(server: CartoucheStorageServer) {
         _server = State(initialValue: server)
         isNew = CartoucheStorageSettings.shared.server(server.id) == nil
+        #if CARTOUCHE_GALLERY
+        if let gallery = Self.gallery {
+            _password = State(initialValue: gallery.password)
+            _problem = State(initialValue: gallery.problem)
+        }
+        #endif
     }
 
     private var canSave: Bool {
@@ -799,7 +812,20 @@ final class CartoucheSMBBrowser: ObservableObject {
     private var lookups: [String: NWConnection] = [:]
     private let queue = DispatchQueue(label: "Cartouche SMB browser")
 
+    #if CARTOUCHE_GALLERY
+    /// What the launcher's gallery (launcher/Gallery) shows in place of
+    /// Bonjour's answers: made-up servers, never those of the network the
+    /// gallery runs on.
+    static var gallery: [Server]?
+    #endif
+
     func start() {
+        #if CARTOUCHE_GALLERY
+        if let gallery = Self.gallery {
+            found = gallery
+            return
+        }
+        #endif
         guard browser == nil else { return }
         let browser = NWBrowser(for: .bonjour(type: "_smb._tcp", domain: nil), using: .tcp)
         browser.browseResultsChangedHandler = { [weak self] results, _ in

@@ -12,8 +12,8 @@
 // and SMBClient and swift-nio-ssh are pinned as the app pins them: the
 // submodule app/SMBClient, and Package.resolved, which matches the one of
 // app/patches/livecontainer/0007 (app/tests/test_storage_tests.py). Without
-// CARTOUCHE_STORAGE_SERVERS, every test is skipped but OfflineTests, which
-// needs no server.
+// CARTOUCHE_STORAGE_SERVERS, every test is skipped but OfflineTests,
+// MacBridgeTests and SMBRefusalTests, which need no server.
 
 import PackageDescription
 
@@ -38,7 +38,12 @@ let package = Package(
         ),
         .testTarget(
             name: "CartoucheStorageTests",
-            dependencies: ["CartoucheStorage"],
+            dependencies: [
+                "CartoucheStorage",
+                // SMBClient's errors, which SMBRefusalTests makes as a
+                // server's answers.
+                .product(name: "SMBClient", package: "SMBClient"),
+            ],
             path: "Tests/CartoucheStorageTests"
         ),
     ]

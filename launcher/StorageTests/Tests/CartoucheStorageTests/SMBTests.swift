@@ -37,6 +37,28 @@ final class SMBTests: StorageServerTests {
 
     override var rootPath: String? { smb.sharePath }
 
+    /// A wrong password: Cartouche says the server refused the user name or
+    /// the password, where SMBClient says "Logon Failure", which told a
+    /// player nothing of what to do. Samba answers STATUS_LOGON_FAILURE.
+    func testSaysTheServerRefusedAWrongPassword() async {
+        let error = await thrownError {
+            let remote = try await self.connectWithAWrongPassword()
+            await remote.disconnect()
+        }
+        XCTAssertEqual(error?.localizedDescription,
+                       CartoucheText.storageSignInFailed(smb.account.host, CartoucheText.storageSMBRefused))
+    }
+
+    /// The same words where the player first meets them: the form that adds
+    /// the server signs in to list its shared folders.
+    func testSaysTheServerRefusedAWrongPasswordForItsSharedFolders() async {
+        let error = await thrownError {
+            _ = try await CartoucheSMB.shares(self.server(share: ""), password: "not-" + self.smb.account.password)
+        }
+        XCTAssertEqual(error?.localizedDescription,
+                       CartoucheText.storageSignInFailed(smb.account.host, CartoucheText.storageSMBRefused))
+    }
+
     /// The shared folders the player picks from when they add the server.
     /// The only test here that opens a pipe on the server: Samba starts its
     /// RPC services for it, as a NAS nobody used for a minute does, and
